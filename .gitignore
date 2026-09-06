@@ -16,3 +16,12 @@ node_modules/
 # IDE
 .vscode/
 .idea/
+
+# Tool caches and local reports
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+*.tsbuildinfo
+*.log
+!.env.example
