@@ -43,7 +43,7 @@ KIS_ACNT_PRDT_CD=replace_with_product_code
 For multiple accounts, add a one-line JSON array. `id` is a stable UI key and `label` is the only account name shown by the backend. Each entry inherits the global app key and secret. If an account uses another KIS app, provide both `app_key` and `app_secret` in that entry.
 
 ```dotenv
-KIS_ACCOUNTS=[{"id":"general","label":"General","cano":"00000000","acnt_prdt_cd":"01"},{"id":"isa","label":"ISA","cano":"11111111","acnt_prdt_cd":"22","app_key":"replace_with_other_app_key","app_secret":"replace_with_other_app_secret"}]
+KIS_ACCOUNTS=[{"id":"general","label":"General","cano":"00000000","acnt_prdt_cd":"01"},{"id":"account_2","label":"Account 2","cano":"11111111","acnt_prdt_cd":"01","app_key":"replace_with_other_app_key","app_secret":"replace_with_other_app_secret"}]
 ```
 
 Account numbers must use the KIS 8-digit `CANO` plus the 2-digit product code. Account IDs and brokerage account pairs must be unique. An empty array, malformed JSON, incomplete credentials, and duplicate accounts stop backend startup without returning secret values.
