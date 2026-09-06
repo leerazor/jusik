@@ -1,10 +1,18 @@
 # Project Agent Workflow
 
-Use the project-scoped custom agents for non-trivial feature work and bug fixes.
+## 언어
 
-1. Run `explore` to map the relevant code, data flow, conventions, and tests.
-2. Give the exploration result to `plan`. Require a bounded plan and acceptance criteria.
-3. Give the accepted plan to `code`. Keep one implementation owner to avoid edit conflicts.
-4. Run `review` after implementation and validation. Give material findings back to `code`, then review the resulting diff again.
+- 사용자 응답, README, 사용자 문서, UI 문구, PR 설명 등 사람에게 전달하는 산출물은 기본적으로 한국어를 사용합니다.
+- 코드, 식별자, 변수명, API 이름, 명령어, 기술 용어는 기존 관례를 따르며 필요한 경우 영어를 유지합니다.
+- 사용자가 다른 언어를 명시적으로 요청하면 그 요청을 따릅니다.
 
-Do not run dependent stages in parallel. Parallelize only independent read-only exploration or review tasks. The primary agent owns user communication, resolves disagreements, and returns the final result.
+## Agent workflow
+
+중간 이상 규모의 기능 작업과 버그 수정에는 프로젝트 전용 custom agent를 사용합니다.
+
+1. `explore`로 관련 코드, 데이터 흐름, 관례, 테스트를 조사합니다.
+2. 조사 결과를 `plan`에 전달합니다. 범위가 제한된 계획과 완료 기준을 받습니다.
+3. 확정한 계획을 `code`에 전달합니다. 편집 충돌을 막기 위해 구현 소유자는 한 명만 둡니다.
+4. 구현과 검증 후 `review`를 실행합니다. 중요한 지적은 `code`에 전달해 수정하고 diff를 다시 검토합니다.
+
+의존하는 단계를 병렬로 실행하지 않습니다. 독립적인 읽기 전용 조사와 검토만 병렬화합니다. 주 agent가 사용자와 소통하고, 의견 차이를 정리하며, 최종 결과를 반환합니다.
