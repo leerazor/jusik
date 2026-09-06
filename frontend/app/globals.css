@@ -116,6 +116,134 @@ a:focus-visible {
   font-size: 12px;
   margin-bottom: 18px;
 }
+.overview {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.hero-card,
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 154px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+  padding: 25px;
+}
+.hero-card {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+.hero-card > span,
+.metric-card > span {
+  color: inherit;
+  font-size: 12px;
+}
+.metric-card > span,
+.hero-card small,
+.metric-card small {
+  color: var(--muted);
+}
+.hero-card small {
+  color: #d6ebe4;
+}
+.hero-card strong,
+.metric-card strong {
+  display: block;
+  margin: 14px 0 8px;
+  font-size: 30px;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+}
+.account-section {
+  margin-bottom: 32px;
+}
+.section-title.simple {
+  padding: 0 0 14px;
+}
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 16px;
+}
+.account-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+  padding: 24px;
+}
+.account-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.account-heading strong {
+  display: block;
+  font-size: 17px;
+}
+.account-heading small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.status {
+  border-radius: 20px;
+  padding: 6px 9px;
+  background: #e5eeea;
+  color: var(--green);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.status-partial {
+  background: #fff4df;
+  color: #8a5a16;
+}
+.status-error {
+  background: #f8e9e5;
+  color: #a04829;
+}
+.account-card dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+  margin: 20px 0 0;
+}
+.account-card dl div {
+  min-width: 0;
+}
+.account-card .account-primary {
+  grid-column: 1 / -1;
+}
+.account-card dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.account-card dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.account-card .account-primary dd {
+  font-size: 26px;
+}
+.empty-card {
+  grid-column: 1 / -1;
+  margin: 0;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 32px;
+  text-align: center;
+  color: var(--muted);
+}
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
@@ -225,6 +353,14 @@ th:first-child {
   text-align: left;
   padding-left: 24px;
 }
+td:nth-child(2),
+th:nth-child(2) {
+  text-align: left;
+}
+.account-cell {
+  color: var(--green);
+  font-weight: 600;
+}
 td small {
   display: block;
   color: var(--muted);
@@ -241,6 +377,10 @@ tr:last-child td {
   margin-top: 22px;
   font-size: 11px;
   color: var(--green);
+}
+.account-card .markets {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
 }
 .markets .market-error {
   color: #a04829;
@@ -311,6 +451,19 @@ footer {
   }
   .cards {
     grid-template-columns: 1fr;
+  }
+  .overview {
+    grid-template-columns: 1fr;
+  }
+  .hero-card,
+  .metric-card {
+    min-height: 130px;
+  }
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+  .account-card {
+    padding: 20px;
   }
   .total {
     font-size: 30px;

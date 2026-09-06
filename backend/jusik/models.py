@@ -30,6 +30,22 @@ class Total(BaseModel):
     return_pct: Money | None
 
 
+class AssetSummary(BaseModel):
+    currency: Literal["KRW"] = "KRW"
+    net_asset: Money | None = None
+    total_evaluation: Money | None = None
+    cash: Money | None = None
+    profit_loss: Money | None = None
+    overseas_evaluation: Money | None = None
+
+
+class AssetSummaryResult(BaseModel):
+    status: Literal["ok", "error"]
+    summary: AssetSummary | None = None
+    error: str | None = None
+    fetched_at: datetime | None = None
+
+
 class MarketResult(BaseModel):
     market: str
     status: Literal["ok", "error"]
@@ -38,10 +54,32 @@ class MarketResult(BaseModel):
     fetched_at: datetime | None = None
 
 
-class Portfolio(BaseModel):
-    source: Literal["live-account-snapshot"] = "live-account-snapshot"
-    fetched_at: datetime
+class AccountResult(BaseModel):
+    id: str
+    label: str
+    status: Literal["ok", "partial", "error"]
+    asset_summary: AssetSummaryResult
     markets: list[MarketResult]
+    totals: list[Total]
+    errors: list[str] = Field(default_factory=list)
+    fetched_at: datetime | None = None
+
+
+class AggregateSummary(BaseModel):
+    currency: Literal["KRW"] = "KRW"
+    net_asset: Money | None
+    completeness: Literal["complete", "partial", "unavailable"]
+    included_accounts: int = Field(ge=0)
+    registered_accounts: int = Field(ge=1)
+
+
+class Portfolio(BaseModel):
+    source: Literal["live-registered-accounts-snapshot"] = (
+        "live-registered-accounts-snapshot"
+    )
+    fetched_at: datetime
+    accounts: list[AccountResult] = Field(min_length=1)
+    aggregate: AggregateSummary
     totals: list[Total]
 
 
@@ -72,3 +110,30 @@ def summarize(markets: list[MarketResult]) -> list[Total]:
             )
         )
     return totals
+
+
+def aggregate_net_assets(accounts: list[AccountResult]) -> AggregateSummary:
+    values = [
+        account.asset_summary.summary.net_asset
+        for account in accounts
+        if account.asset_summary.status == "ok"
+        and account.asset_summary.summary is not None
+        and account.asset_summary.summary.net_asset is not None
+    ]
+    included = len(values)
+    total = len(accounts)
+    if included == 0:
+        completeness: Literal["complete", "partial", "unavailable"] = "unavailable"
+        net_asset = None
+    elif included == total:
+        completeness = "complete"
+        net_asset = sum(values, Decimal(0))
+    else:
+        completeness = "partial"
+        net_asset = sum(values, Decimal(0))
+    return AggregateSummary(
+        net_asset=net_asset,
+        completeness=completeness,
+        included_accounts=included,
+        registered_accounts=total,
+    )

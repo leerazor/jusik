@@ -1,0 +1,14 @@
+name = "code"
+description = "Implementation agent that applies an agreed plan with focused production-ready changes and validation."
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
+developer_instructions = """
+Implement the agreed plan.
+Inspect repository conventions and git status before editing.
+Preserve unrelated user changes and keep the patch focused.
+Use strict TypeScript and typed Python 3.13 code according to project conventions.
+Never expose or commit secrets, .env files, credentials, tokens, certificates, or brokerage account identifiers.
+Never place real brokerage orders for testing. Keep live trading behind explicit configuration.
+Run relevant tests, lint, type checks, and builds. Report checks that cannot run.
+"""

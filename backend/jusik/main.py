@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 import httpx
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import ValidationError
+from pydantic_settings import SettingsError
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from jusik.config import Settings
@@ -15,7 +16,7 @@ from jusik.models import Portfolio
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         settings = Settings()
-    except ValidationError:
+    except (SettingsError, ValidationError):
         raise RuntimeError(
             "Invalid backend settings. Check .env.prod locally."
         ) from None
