@@ -37,6 +37,8 @@ class AssetSummary(BaseModel):
     cash: Money | None = None
     profit_loss: Money | None = None
     overseas_evaluation: Money | None = None
+    estimated_deposit_assets: Money | None = None
+    scope: Literal["account", "domestic"] = "account"
 
 
 class AssetSummaryResult(BaseModel):
@@ -57,6 +59,7 @@ class MarketResult(BaseModel):
 class AccountResult(BaseModel):
     id: str
     label: str
+    broker: Literal["kis", "kiwoom"] = "kis"
     status: Literal["ok", "partial", "error"]
     asset_summary: AssetSummaryResult
     markets: list[MarketResult]

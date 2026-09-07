@@ -67,10 +67,10 @@ export default async function Home() {
       </header>
       <section className="intro">
         <div>
-          <p className="eyebrow">MY KIS ACCOUNTS</p>
-          <h1>등록한 한투 계좌, 한눈에.</h1>
+          <p className="eyebrow">MY INVESTMENT ACCOUNTS</p>
+          <h1>등록한 증권 계좌, 한눈에.</h1>
           <p className="muted">
-            KIS Open API에 등록한 계좌의 국내·해외 주식과 원화 자산 요약입니다.
+            한국투자증권과 키움증권 계좌의 국내·해외 주식 및 자산 요약입니다.
           </p>
         </div>
         <Refresh />
@@ -82,7 +82,7 @@ export default async function Home() {
       {!data ? (
         <section role="alert" className="notice">
           <h2>계좌 정보를 불러오지 못했습니다</h2>
-          <p>백엔드 실행 상태와 KIS 계좌 설정을 확인한 뒤 새로고침하세요.</p>
+          <p>백엔드 실행 상태와 증권사 계좌 설정을 확인한 뒤 새로고침하세요.</p>
         </section>
       ) : (
         <>
@@ -99,7 +99,7 @@ export default async function Home() {
               </small>
             </article>
             <article className="metric-card">
-              <span>등록한 한투 계좌</span>
+              <span>등록한 증권 계좌</span>
               <strong>{data.aggregate.registered_accounts}개</strong>
               <small>
                 순자산 확인 {data.aggregate.included_accounts}개
@@ -131,12 +131,19 @@ export default async function Home() {
             <div className="account-grid">
               {data.accounts.map((account) => {
                 const summary = account.asset_summary.summary;
+                const primaryAsset =
+                  summary?.net_asset ?? summary?.estimated_deposit_assets ?? null;
+                const primaryLabel =
+                  account.broker === "kiwoom" ? "국내 추정예탁자산" : "순자산";
                 return (
                   <article className="account-card" key={account.id}>
                     <div className="account-heading">
                       <div>
                         <strong>{account.label}</strong>
-                        <small>계좌번호 숨김</small>
+                        <small>
+                          {account.broker === "kis" ? "한국투자증권" : "키움증권"} ·
+                          계좌번호 숨김
+                        </small>
                       </div>
                       <span className={`status status-${account.status}`}>
                         {accountStatus(account)}
@@ -144,11 +151,13 @@ export default async function Home() {
                     </div>
                     <dl>
                       <div className="account-primary">
-                        <dt>순자산</dt>
-                        <dd>{won(summary?.net_asset ?? null)}</dd>
+                        <dt>{primaryLabel}</dt>
+                        <dd>{won(primaryAsset)}</dd>
                       </div>
                       <div>
-                        <dt>평가금액</dt>
+                        <dt>
+                          {summary?.scope === "domestic" ? "국내 평가금액" : "평가금액"}
+                        </dt>
                         <dd>{won(summary?.total_evaluation ?? null)}</dd>
                       </div>
                       <div>
@@ -156,13 +165,15 @@ export default async function Home() {
                         <dd>{won(summary?.cash ?? null)}</dd>
                       </div>
                       <div>
-                        <dt>평가손익</dt>
+                        <dt>
+                          {summary?.scope === "domestic" ? "국내 평가손익" : "평가손익"}
+                        </dt>
                         <dd className={tone(summary?.profit_loss ?? "0")}>
                           {won(summary?.profit_loss ?? null)}
                         </dd>
                       </div>
                       <div>
-                        <dt>해외주식 평가</dt>
+                        <dt>해외주식 원화 평가</dt>
                         <dd>{won(summary?.overseas_evaluation ?? null)}</dd>
                       </div>
                     </dl>
@@ -234,7 +245,7 @@ export default async function Home() {
             <div className="table-wrap">
               <table>
                 <caption className="sr-only">
-                  등록한 한투 계좌의 국내 및 해외 보유 주식 잔고
+                  등록한 증권 계좌의 국내 및 해외 보유 주식 잔고
                 </caption>
                 <thead>
                   <tr>
@@ -292,10 +303,11 @@ export default async function Home() {
         </>
       )}
       <footer>
-        KIS Open API에 등록한 한국투자증권 계좌 조회 기준 · 실시간 시세 스트리밍 아님
+        한국투자증권 KIS 및 키움 REST API 계좌 조회 기준 · 실시간 시세 스트리밍 아님
         <br />
-        순자산은 투자계좌자산현황의 원화 값을 계좌별로 한 번만 합산합니다. 주식
-        평가액을 다시 더하지 않습니다. 통화별 주식 합계는 환산 없이 표시합니다.
+        통합 순자산에는 증권사가 순자산으로 제공한 값만 포함합니다. 키움 국내
+        추정예탁자산은 계좌 카드에 별도로 표시하며 통합 순자산에 더하지 않습니다.
+        통화별 주식 합계는 환산 없이 표시합니다.
       </footer>
     </main>
   );

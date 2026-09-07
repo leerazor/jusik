@@ -25,3 +25,4 @@ node_modules/
 *.tsbuildinfo
 *.log
 !.env.example
+!.env.kiwum.example

@@ -36,6 +36,8 @@ const assetSummary = z.object({
   cash: decimal.nullable(),
   profit_loss: decimal.nullable(),
   overseas_evaluation: decimal.nullable(),
+  estimated_deposit_assets: decimal.nullable(),
+  scope: z.enum(["account", "domestic"]),
 });
 export const portfolioSchema = z.object({
   source: z.literal("live-registered-accounts-snapshot"),
@@ -44,6 +46,7 @@ export const portfolioSchema = z.object({
     z.object({
       id: z.string(),
       label: z.string(),
+      broker: z.enum(["kis", "kiwoom"]),
       status: z.enum(["ok", "partial", "error"]),
       asset_summary: z.object({
         status: z.enum(["ok", "error"]),
@@ -71,6 +74,9 @@ export type Account = Portfolio["accounts"][number];
 export const marketNames: Record<string, string> = {
   KRX: "국내",
   NASD: "미국",
+  US: "미국",
+  NYSE: "뉴욕",
+  AMEX: "아멕스",
   SEHK: "홍콩",
   SHAA: "상하이",
   SZAA: "선전",
