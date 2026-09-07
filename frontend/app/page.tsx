@@ -8,12 +8,14 @@ import {
   type Portfolio,
 } from "@/lib/portfolio";
 import { Refresh } from "./refresh";
+import { HoldingsTable } from "./holdings-table";
 
 export const dynamic = "force-dynamic";
 
 async function getPortfolio(): Promise<Portfolio | null> {
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/portfolio", {
+    const backendUrl = process.env.JUSIK_BACKEND_URL ?? "http://127.0.0.1:8000";
+    const response = await fetch(`${backendUrl}/api/portfolio`, {
       cache: "no-store",
       signal: AbortSignal.timeout(120000),
     });
@@ -33,6 +35,22 @@ function accountStatus(account: Account): string {
 function won(value: string | null): string {
   return value === null ? "조회 불가" : `${amount(value, 0)}원`;
 }
+
+function kst(value: string | null): string {
+  return value ? new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(value)) : "기록 없음";
+}
+
+const newsCategory = {
+  korea_rate: "한국 금리",
+  us_rate: "미국 금리",
+  geopolitics: "국제 정세",
+  truth_social: "Truth Social 관련 보도",
+  truth_social_post: "트럼프 계정 게시물 · 제3자 보관본",
+} as const;
 
 export default async function Home() {
   const data = await getPortfolio();
@@ -122,6 +140,12 @@ export default async function Home() {
               ))}
             </section>
           )}
+          {data.holding_conversion_completeness !== "complete" && (
+            <section role="alert" className="notice">
+              <h2>일부 해외 보유분의 원화 환율을 확인하지 못했습니다</h2>
+              <p>원화 주식 합계는 표시하지 않습니다. 원통화 잔고는 보유 종목에서 확인할 수 있습니다.</p>
+            </section>
+          )}
 
           <section className="account-section" aria-labelledby="account-title">
             <div className="section-title simple">
@@ -133,8 +157,7 @@ export default async function Home() {
                 const summary = account.asset_summary.summary;
                 const primaryAsset =
                   summary?.net_asset ?? summary?.estimated_deposit_assets ?? null;
-                const primaryLabel =
-                  account.broker === "kiwoom" ? "국내 추정예탁자산" : "순자산";
+                const primaryLabel = summary?.net_asset ? "순자산" : "국내 추정예탁자산";
                 return (
                   <article className="account-card" key={account.id}>
                     <div className="account-heading">
@@ -176,7 +199,17 @@ export default async function Home() {
                         <dt>해외주식 원화 평가</dt>
                         <dd>{won(summary?.overseas_evaluation ?? null)}</dd>
                       </div>
+                      <div>
+                        <dt>부채</dt>
+                        <dd>{won(summary?.debt ?? null)}</dd>
+                      </div>
                     </dl>
+                    {summary && <p className="basis">산정 기준: {summary.basis} · {summary.asset_source}</p>}
+                    {summary && Object.keys(summary.exchange_rates).length > 0 && (
+                      <p className="basis">
+                        키움 계좌 기준환율: {Object.entries(summary.exchange_rates).map(([currency, rate]) => `1 ${currency} = ${amount(rate, 4)}원`).join(" · ")}
+                      </p>
+                    )}
                     <div className="markets" aria-label="시장별 조회 상태">
                       {account.markets.map((market) => (
                         <span
@@ -198,23 +231,23 @@ export default async function Home() {
           <section aria-labelledby="stock-summary-title">
             <div className="section-title simple">
               <h2 id="stock-summary-title">국내·해외 주식 평가</h2>
-              <span className="muted">조회 성공분 합계 · 거래 통화 기준</span>
+              <span className="muted">환율 확인이 끝난 보유분 · 원화 기준</span>
             </div>
             <div className="cards">
               {data.totals.map((total) => (
                 <article className="card" key={total.currency}>
                   <div className="card-label">
                     <span>주식 평가금액</span>
-                    <span className="currency">{total.currency}</span>
+                    <span className="currency">KRW</span>
                   </div>
                   <p className="total">
-                    {amount(total.value, total.currency === "KRW" ? 0 : 2)}
-                    <small>{total.currency}</small>
+                    {amount(total.value_krw ?? total.value, 0)}
+                    <small>원</small>
                   </p>
                   <div className="card-bottom">
                     <span>평가손익</span>
-                    <strong className={tone(total.profit)}>
-                      {amount(total.profit)}{" "}
+                    <strong className={tone(total.profit_krw ?? total.profit)}>
+                      {amount(total.profit_krw ?? total.profit, 0)}원{" "}
                       <span>
                         (
                         {total.return_pct === null
@@ -225,7 +258,7 @@ export default async function Home() {
                     </strong>
                   </div>
                   <p className="cost">
-                    매입금액 {amount(total.cost)} {total.currency}
+                    매입금액 {amount(total.cost_krw ?? total.cost, 0)}원
                   </p>
                 </article>
               ))}
@@ -242,56 +275,7 @@ export default async function Home() {
               </h2>
               <span className="muted">계좌별 보유 건수</span>
             </div>
-            <div className="table-wrap">
-              <table>
-                <caption className="sr-only">
-                  등록한 증권 계좌의 국내 및 해외 보유 주식 잔고
-                </caption>
-                <thead>
-                  <tr>
-                    <th>계좌</th>
-                    <th>종목 / 시장</th>
-                    <th>수량</th>
-                    <th>평균매입가</th>
-                    <th>현재가</th>
-                    <th>평가금액</th>
-                    <th>평가손익</th>
-                    <th>수익률</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {holdings.map(({ accountId, accountLabel, holding }) => (
-                    <tr key={`${accountId}:${holding.market}:${holding.symbol}`}>
-                      <td className="account-cell">{accountLabel}</td>
-                      <td>
-                        <strong>{holding.name}</strong>
-                        <small>
-                          {holding.symbol} ·{" "}
-                          {marketNames[holding.market] ?? holding.market} ·{" "}
-                          {holding.currency}
-                        </small>
-                      </td>
-                      <td>{amount(holding.quantity, 8)}</td>
-                      <td>{amount(holding.average_price, 4)}</td>
-                      <td>{amount(holding.current_price, 4)}</td>
-                      <td>{amount(holding.value)}</td>
-                      <td className={tone(holding.profit)}>
-                        {amount(holding.profit)}
-                      </td>
-                      <td
-                        className={
-                          holding.return_pct ? tone(holding.return_pct) : ""
-                        }
-                      >
-                        {holding.return_pct === null
-                          ? "—"
-                          : `${amount(holding.return_pct)}%`}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <HoldingsTable rows={holdings} />
             {holdings.length === 0 && (
               <p className="empty">
                 {failedAccounts.length
@@ -300,14 +284,81 @@ export default async function Home() {
               </p>
             )}
           </section>
+
+          <section className="insight-grid" aria-label="신호와 시장 소식">
+            <article className="panel">
+              <div className="section-title simple">
+                <h2>감지 알림</h2>
+                <span className="muted">
+                  {data.monitor.telegram_configured ? "Telegram 전송 설정됨" : "앱 안에서만 표시"}
+                </span>
+              </div>
+              {data.alerts.length ? data.alerts.slice(0, 8).map((alert) => (
+                <div className="alert-row" key={alert.id}>
+                  <strong>{alert.title}</strong>
+                  <p>{alert.message}</p>
+                  <small>{kst(alert.created_at)} · {alert.delivery === "telegram_sent" ? "Telegram 전송 완료" : alert.delivery === "telegram_unknown" ? "Telegram 전송 결과 불명" : alert.delivery === "telegram_failed" ? "Telegram 전송 실패" : "앱 알림"}</small>
+                </div>
+              )) : <p className="empty-inline">새 매수·매도 검토 신호가 없습니다.</p>}
+              <p className="basis">{data.monitor.interval_seconds / 60}분 간격 감지 · 마지막 성공 {kst(data.monitor.last_success_at)} · 다음 감지 {kst(data.monitor.next_check_at)} · 연속 실패 {data.monitor.consecutive_failures}회 · 같은 신호는 상태가 바뀔 때까지 중복 알림하지 않습니다.</p>
+              {data.monitor.error && <p role="alert" className="loss">{data.monitor.error}</p>}
+            </article>
+            <article className="panel">
+              <div className="section-title simple">
+                <h2>금리와 외부 소식</h2>
+                <span className="muted">30분 캐시</span>
+              </div>
+              <div className="rate-strip">
+                <span>한국 기준금리 <strong>{data.intelligence.korea_base_rate ? `${amount(data.intelligence.korea_base_rate)}%` : "조회 불가"}</strong><small>{data.intelligence.korea_rate_as_of ?? "기준일 없음"}</small></span>
+                <span>미국 목표금리 <strong>{data.intelligence.us_target_rate ?? "조회 불가"}</strong><small>{data.intelligence.us_rate_as_of ?? "기준일 없음"}</small></span>
+              </div>
+              {data.intelligence.news.map((item) => (
+                <div className="news-row" key={item.id}>
+                  {item.category === "truth_social_post" ? (
+                    <strong>{item.title}</strong>
+                  ) : (
+                    <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
+                  )}
+                  <small>{newsCategory[item.category]} · {item.source} · {kst(item.published_at)}</small>
+                  {item.excerpt && <p>{item.excerpt}</p>}
+                  {item.category === "truth_social_post" && (
+                    <small>
+                      <a href={item.url} target="_blank" rel="noreferrer">제3자 보관본</a>
+                      {item.original_url && (
+                        <> · <a href={item.original_url} target="_blank" rel="noreferrer">Truth Social 원문</a></>
+                      )}
+                    </small>
+                  )}
+                  <p>{item.assessment}</p>
+                </div>
+              ))}
+              {!data.intelligence.news.length && <p className="empty-inline">소식 수집 대기 중입니다. 다음 갱신 때 다시 확인합니다.</p>}
+              <details className="source-status">
+                <summary>수집 소스 상태</summary>
+                {data.intelligence.sources.map((source) => (
+                  <p key={source.id}>
+                    <a href={source.source_url} target="_blank" rel="noreferrer">{source.label}</a>: {source.status === "ok" ? "정상" : source.error ?? "실패"} · 마지막 수집 {kst(source.fetched_at)}{source.stale ? " · 이전 수집값" : ""}
+                  </p>
+                ))}
+              </details>
+              <details className="source-status">
+                <summary>적용 환율</summary>
+                {data.exchange_rates.map((rate) => (
+                  <p key={rate.currency}>
+                    <a href={rate.source_url} target="_blank" rel="noreferrer">{rate.currency} · {rate.source}</a>: {rate.krw_per_unit ? `1 ${rate.currency} = ${amount(rate.krw_per_unit, 4)}원` : rate.error ?? "조회 실패"} · 기준일 {rate.as_of ?? "없음"} · 수집 {kst(rate.fetched_at)}{rate.stale ? " · 오래된 값" : ""}
+                  </p>
+                ))}
+              </details>
+            </article>
+          </section>
         </>
       )}
       <footer>
         한국투자증권 KIS 및 키움 REST API 계좌 조회 기준 · 실시간 시세 스트리밍 아님
         <br />
-        통합 순자산에는 증권사가 순자산으로 제공한 값만 포함합니다. 키움 국내
-        추정예탁자산은 계좌 카드에 별도로 표시하며 통합 순자산에 더하지 않습니다.
-        통화별 주식 합계는 환산 없이 표시합니다.
+        해외자산은 확인된 일별 환율로 원화 환산합니다. 환율 또는 자산 구성요소가
+        없으면 해당 값과 합계를 조회 불가로 표시합니다. 규칙 평가는 투자 자문이 아닌
+        점검 신호이며, 주문 기능은 없습니다.
       </footer>
     </main>
   );

@@ -1,12 +1,19 @@
 import asyncio
 import time
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 from zoneinfo import ZoneInfo
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    field_validator,
+)
 
 from jusik.kis import BrokerError
 from jusik.kiwoom_config import KiwoomSettings
@@ -57,7 +64,13 @@ class DomesticEnvelope(BaseModel):
     tot_evlt_amt: Money
     tot_evlt_pl: Money
     prsm_dpst_aset_amt: Money
+    tot_loan_amt: Positive | None = None
     acnt_evlt_remn_indv_tot: list[dict[str, object]]
+
+    @field_validator("tot_loan_amt", mode="before")
+    @classmethod
+    def blank_debt_is_missing(cls, value: object) -> object:
+        return None if value == "" else value
 
 
 class DomesticRow(BaseModel):
@@ -80,6 +93,45 @@ class CashResponse(BaseModel):
 
     return_code: int
     entr: Money
+
+
+class ForeignCashRow(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    crnc_code: str
+    fc_entra: Money
+    fc_ch_uncla: Positive
+    fc_etc_loana: Positive
+
+
+class ForeignCashEnvelope(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    return_code: int
+    krw_entra: Money
+    ch_uncla: Positive
+    etc_loana: Positive
+    result_list: list[ForeignCashRow]
+
+
+class CurrencyValuationRow(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    crnc_code: str
+    fx_entr: Money
+    evlt_amt: Money
+    crnc_rt: Positive
+    chg_entr: Money
+    chg_evlt_amt: Money
+
+
+class CurrencyValuationEnvelope(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    return_code: int
+    won_entr: Money
+    aset_evlt_amt: Money
+    result_list: list[CurrencyValuationRow]
 
 
 class OverseasEnvelope(BaseModel):
@@ -113,6 +165,14 @@ class DomesticData(BaseModel):
     total_evaluation: Money
     profit_loss: Money
     estimated_deposit_assets: Money
+    debt: Positive | None
+
+
+class OverseasAssets(BaseModel):
+    cash_krw: Money
+    evaluation_krw: Money
+    debt_krw: Money
+    rates: dict[str, Decimal]
 
 
 def _domestic_symbol(value: str) -> str:
@@ -300,6 +360,7 @@ class KiwoomClient:
                 page.tot_evlt_amt,
                 page.tot_evlt_pl,
                 page.prsm_dpst_aset_amt,
+                page.tot_loan_amt,
             )
             for page in pages
         }
@@ -340,6 +401,7 @@ class KiwoomClient:
             total_evaluation=first.tot_evlt_amt,
             profit_loss=first.tot_evlt_pl,
             estimated_deposit_assets=first.prsm_dpst_aset_amt,
+            debt=first.tot_loan_amt,
         )
 
     async def _cash(self, token: str) -> Decimal:
@@ -380,6 +442,81 @@ class KiwoomClient:
                 holdings[holding.symbol] = holding
         return list(holdings.values())
 
+    async def _overseas_assets(self, token: str) -> OverseasAssets:
+        cash_pages = [
+            ForeignCashEnvelope.model_validate(page)
+            for page in await self._pages("/api/us/acnt", "ust21110", {}, token)
+        ]
+        valuation_pages = [
+            CurrencyValuationEnvelope.model_validate(page)
+            for page in await self._pages(
+                "/api/us/acnt",
+                "ust21120",
+                {"cmsn_incl_tp": "1", "exrt_tp": "0"},
+                token,
+            )
+        ]
+        cash_totals = {
+            (page.krw_entra, page.ch_uncla, page.etc_loana) for page in cash_pages
+        }
+        valuation_totals = {
+            (page.won_entr, page.aset_evlt_amt) for page in valuation_pages
+        }
+        if len(cash_totals) != 1 or len(valuation_totals) != 1:
+            raise BrokerError("키움 해외 자산 연속 조회 합계가 일치하지 않습니다.")
+        cash_page = cash_pages[0]
+        valuation = valuation_pages[0]
+        valuation_by_currency: dict[str, CurrencyValuationRow] = {}
+        for valuation_page in valuation_pages:
+            for valuation_row in valuation_page.result_list:
+                previous_valuation = valuation_by_currency.get(valuation_row.crnc_code)
+                if (
+                    previous_valuation is not None
+                    and previous_valuation != valuation_row
+                ):
+                    raise BrokerError(
+                        "키움 통화별 평가금이 중복되어 일치하지 않습니다."
+                    )
+                valuation_by_currency[valuation_row.crnc_code] = valuation_row
+        cash_by_currency: dict[str, ForeignCashRow] = {}
+        for current_cash_page in cash_pages:
+            for cash_row in current_cash_page.result_list:
+                previous_cash = cash_by_currency.get(cash_row.crnc_code)
+                if previous_cash is not None and previous_cash != cash_row:
+                    raise BrokerError(
+                        "키움 통화별 예수금이 중복되어 일치하지 않습니다."
+                    )
+                cash_by_currency[cash_row.crnc_code] = cash_row
+        rates = {
+            row.crnc_code: row.crnc_rt
+            for row in valuation_by_currency.values()
+            if row.crnc_rt > 0
+        }
+        foreign_cash = sum(
+            (row.chg_entr for row in valuation_by_currency.values()), Decimal(0)
+        )
+        foreign_evaluation = sum(
+            (row.chg_evlt_amt for row in valuation_by_currency.values()), Decimal(0)
+        )
+        converted_assets = valuation.won_entr + foreign_cash + foreign_evaluation
+        if converted_assets != valuation.aset_evlt_amt:
+            raise BrokerError("키움 해외 원화추정자산의 구성금액이 일치하지 않습니다.")
+        foreign_debt = Decimal(0)
+        for cash_row in cash_by_currency.values():
+            rate = rates.get(cash_row.crnc_code)
+            if rate is None and (
+                cash_row.fc_ch_uncla != 0 or cash_row.fc_etc_loana != 0
+            ):
+                raise BrokerError("키움 외화 부채 환율을 확인할 수 없습니다.")
+            if rate is not None:
+                foreign_debt += (cash_row.fc_ch_uncla + cash_row.fc_etc_loana) * rate
+        return OverseasAssets(
+            cash_krw=valuation.won_entr + foreign_cash,
+            evaluation_krw=foreign_evaluation,
+            debt_krw=cash_page.ch_uncla + cash_page.etc_loana + foreign_debt,
+            rates=rates,
+        )
+
     async def _fetch_account(self) -> AccountResult:
         try:
             token = await self._authenticate()
@@ -392,6 +529,7 @@ class KiwoomClient:
         errors: list[str] = []
         domestic: DomesticData | None = None
         cash: Decimal | None = None
+        overseas_assets: OverseasAssets | None = None
         try:
             domestic = await self._domestic(token)
             domestic_market = MarketResult(
@@ -430,16 +568,82 @@ class KiwoomClient:
             )
             errors.append(f"US: {KIWOOM_DATA_ERROR}")
 
+        try:
+            overseas_assets = await self._overseas_assets(token)
+        except BrokerError as exc:
+            errors.append(f"해외 자산: {exc}")
+        except (httpx.HTTPError, ValidationError, ValueError):
+            errors.append(f"해외 자산: {KIWOOM_DATA_ERROR}")
+        if overseas_assets is not None:
+            errors = [error for error in errors if not error.startswith("예수금:")]
+
+        if overseas_assets is not None:
+            converted_us = []
+            for holding in us_market.holdings:
+                rate = overseas_assets.rates.get(holding.currency)
+                if rate is None:
+                    converted_us.append(holding)
+                    continue
+                converted_us.append(
+                    holding.model_copy(
+                        update={
+                            "fx_rate": rate,
+                            "fx_source": "키움 계좌 기준환율",
+                            "average_price_krw": (
+                                holding.average_price * rate
+                            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP),
+                            "current_price_krw": (
+                                holding.current_price * rate
+                            ).quantize(Decimal("1"), rounding=ROUND_HALF_UP),
+                            "cost_krw": (holding.cost * rate).quantize(
+                                Decimal("1"), rounding=ROUND_HALF_UP
+                            ),
+                            "value_krw": (holding.value * rate).quantize(
+                                Decimal("1"), rounding=ROUND_HALF_UP
+                            ),
+                            "profit_krw": (holding.profit * rate).quantize(
+                                Decimal("1"), rounding=ROUND_HALF_UP
+                            ),
+                        }
+                    )
+                )
+            us_market = us_market.model_copy(update={"holdings": converted_us})
+
+        net_asset = None
+        debt = None
+        overseas_evaluation = None
+        if (
+            domestic is not None
+            and domestic.debt is not None
+            and overseas_assets is not None
+        ):
+            debt = domestic.debt + overseas_assets.debt_krw
+            overseas_evaluation = overseas_assets.evaluation_krw
+            net_asset = (
+                domestic.total_evaluation
+                + overseas_assets.cash_krw
+                + overseas_assets.evaluation_krw
+                - debt
+            )
+
         summary = AssetSummary(
-            net_asset=None,
+            net_asset=net_asset,
             total_evaluation=(domestic.total_evaluation if domestic else None),
-            cash=cash,
+            cash=(overseas_assets.cash_krw if overseas_assets is not None else cash),
             profit_loss=(domestic.profit_loss if domestic else None),
-            overseas_evaluation=None,
+            overseas_evaluation=overseas_evaluation,
             estimated_deposit_assets=(
                 domestic.estimated_deposit_assets if domestic else None
             ),
-            scope="domestic",
+            debt=debt,
+            scope="estimated_account" if net_asset is not None else "domestic",
+            basis=(
+                "국내주식 평가 + 원화·외화 예수금 + 해외주식 원화평가 - 총부채"
+                if net_asset is not None
+                else "키움 국내 추정예탁자산"
+            ),
+            exchange_rates=(overseas_assets.rates if overseas_assets else {}),
+            asset_source="키움증권 계좌 원화평가 API",
         )
         asset_errors = [error for error in errors if not error.startswith("US:")]
         assets = AssetSummaryResult(
@@ -453,6 +657,7 @@ class KiwoomClient:
             (1 if domestic is not None else 0)
             + (1 if cash is not None else 0)
             + (1 if us_market.status == "ok" else 0)
+            + (1 if overseas_assets is not None else 0)
         )
         if not errors:
             status: Literal["ok", "partial", "error"] = "ok"

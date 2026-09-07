@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ACCOUNT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")
 ACCOUNT_NUMBER = re.compile(r"^\d{8}$")
 PRODUCT_CODE = re.compile(r"^\d{2}$")
+TELEGRAM_BOT_TOKEN = re.compile(r"^\d{6,12}:[A-Za-z0-9_-]{30,}$")
+TELEGRAM_CHAT_ID = re.compile(r"^[1-9]\d{4,19}$")
 
 
 class AccountConfig(BaseModel):
@@ -103,6 +105,11 @@ class Settings(BaseSettings):
     kis_accounts: list[AccountConfig] | None = None
     kis_base_url: Literal["https://openapi.koreainvestment.com:9443"]
     cache_seconds: int = Field(default=30, ge=10, le=300)
+    telegram_enabled: bool = False
+    telegram_bot_token: SecretStr | None = None
+    telegram_chat_id: SecretStr | None = None
+    alert_db_path: Path = Path.home() / ".local/share/jusik/alerts.db"
+    monitor_interval_seconds: int = Field(default=300, ge=60, le=3600)
 
     @field_validator("kis_app_key", "kis_app_secret")
     @classmethod
@@ -111,11 +118,33 @@ class Settings(BaseSettings):
             raise ValueError("Global credential must not be blank.")
         return value
 
+    @field_validator("telegram_bot_token")
+    @classmethod
+    def validate_telegram_token(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not TELEGRAM_BOT_TOKEN.fullmatch(
+            value.get_secret_value()
+        ):
+            raise ValueError("Telegram bot token has an invalid format.")
+        return value
+
+    @field_validator("telegram_chat_id")
+    @classmethod
+    def validate_telegram_chat_id(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not TELEGRAM_CHAT_ID.fullmatch(
+            value.get_secret_value()
+        ):
+            raise ValueError("Telegram chat id has an invalid format.")
+        return value
+
     @model_validator(mode="after")
     def validate_account_settings(self) -> Self:
         if (self.kis_app_key is None) != (self.kis_app_secret is None):
             raise ValueError("Global credentials must provide both key and secret.")
 
+        if self.telegram_enabled and (
+            self.telegram_bot_token is None or self.telegram_chat_id is None
+        ):
+            raise ValueError("Telegram alerts require both bot token and chat id.")
         if self.kis_accounts is None:
             if None in (
                 self.kis_app_key,

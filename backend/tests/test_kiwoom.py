@@ -52,6 +52,7 @@ def domestic_page(**changes: object) -> dict[str, object]:
         "tot_evlt_amt": "220",
         "tot_evlt_pl": "20",
         "prsm_dpst_aset_amt": "1020",
+        "tot_loan_amt": "5",
         "acnt_evlt_remn_indv_tot": [domestic_row()],
     } | changes
 
@@ -92,6 +93,44 @@ def success_handler(request: httpx.Request) -> httpx.Response:
         assert request.read() == b"{}"
         return httpx.Response(
             200, json={"return_code": 0, "result_list": [overseas_row()]}
+        )
+    if api_id == "ust21110":
+        assert request.read() == b"{}"
+        return httpx.Response(
+            200,
+            json={
+                "return_code": 0,
+                "krw_entra": "100",
+                "ch_uncla": "0",
+                "etc_loana": "0",
+                "result_list": [
+                    {
+                        "crnc_code": "USD",
+                        "fc_entra": "10",
+                        "fc_ch_uncla": "2",
+                        "fc_etc_loana": "0",
+                    }
+                ],
+            },
+        )
+    if api_id == "ust21120":
+        return httpx.Response(
+            200,
+            json={
+                "return_code": 0,
+                "won_entr": "100",
+                "aset_evlt_amt": "149730",
+                "result_list": [
+                    {
+                        "crnc_code": "USD",
+                        "fx_entr": "10",
+                        "evlt_amt": "105.10",
+                        "crnc_rt": "1300",
+                        "chg_entr": "13000",
+                        "chg_evlt_amt": "136630",
+                    }
+                ],
+            },
         )
     raise AssertionError(f"Unexpected API id: {api_id}")
 
@@ -197,8 +236,8 @@ def test_success_maps_domestic_lots_us_decimal_and_asset_scope() -> None:
     result, _ = run_account(settings(), httpx.MockTransport(handler))
     assert result.status == "ok"
     assert result.broker == "kiwoom"
-    assert result.asset_summary.summary.net_asset is None
-    assert result.asset_summary.summary.scope == "domestic"
+    assert result.asset_summary.summary.net_asset == Decimal("147675")
+    assert result.asset_summary.summary.scope == "estimated_account"
     assert result.asset_summary.summary.estimated_deposit_assets == Decimal("1020")
     domestic = result.markets[0].holdings[0]
     assert domestic.symbol == "005930"
@@ -324,7 +363,7 @@ def test_invalid_domestic_values_fail_only_domestic_part(
     assert result.status == "partial"
     assert result.markets[0].status == "error"
     assert result.markets[1].status == "ok"
-    assert result.asset_summary.summary.cash == Decimal("800")
+    assert result.asset_summary.summary.cash == Decimal("13100")
 
 
 def test_failed_later_us_page_discards_partial_rows_and_retains_domestic() -> None:
@@ -469,7 +508,104 @@ def test_cache_and_lock_coalesce_concurrent_calls_and_parse_expiry_as_kst() -> N
 
     broker = asyncio.run(run())
     assert calls.count("au10001") == 1
-    assert len(calls) == 5
+    assert len(calls) == 7
     assert broker._token is not None
     assert broker._token.expires_at == datetime(2099, 12, 31, 14, 59, 59, tzinfo=UTC)
     assert all(not api_id.startswith(("kt100", "ust200")) for api_id in calls)
+
+
+def test_missing_domestic_debt_never_becomes_zero_in_derived_net_asset() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.headers.get("api-id") == "kt00018":
+            page = domestic_page()
+            del page["tot_loan_amt"]
+            return httpx.Response(200, json=page)
+        return success_handler(request)
+
+    result, _ = run_account(settings(), httpx.MockTransport(handler))
+    assert result.asset_summary.summary is not None
+    assert result.asset_summary.summary.net_asset is None
+    assert result.asset_summary.summary.scope == "domestic"
+
+
+def test_conflicting_currency_asset_rows_block_derived_net_asset() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.headers.get("api-id") == "ust21120":
+            rows = [
+                {
+                    "crnc_code": "USD",
+                    "fx_entr": "10",
+                    "evlt_amt": "105.10",
+                    "crnc_rt": "1300",
+                    "chg_entr": "13000",
+                    "chg_evlt_amt": "136630",
+                },
+                {
+                    "crnc_code": "USD",
+                    "fx_entr": "10",
+                    "evlt_amt": "106.10",
+                    "crnc_rt": "1300",
+                    "chg_entr": "13000",
+                    "chg_evlt_amt": "137930",
+                },
+            ]
+            return httpx.Response(
+                200,
+                json={
+                    "return_code": 0,
+                    "won_entr": "100",
+                    "aset_evlt_amt": "149730",
+                    "result_list": rows,
+                },
+            )
+        return success_handler(request)
+
+    result, _ = run_account(settings(), httpx.MockTransport(handler))
+    assert result.status == "partial"
+    assert result.asset_summary.summary is not None
+    assert result.asset_summary.summary.net_asset is None
+    assert "중복" in " ".join(result.errors)
+
+
+def test_cash_uses_valuation_snapshot_without_cross_endpoint_equality() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.headers.get("api-id") == "ust21110":
+            return httpx.Response(
+                200,
+                json={
+                    "return_code": 0,
+                    "krw_entra": "99",
+                    "ch_uncla": "0",
+                    "etc_loana": "0",
+                    "result_list": [
+                        {
+                            "crnc_code": "USD",
+                            "fc_entra": "9.99",
+                            "fc_ch_uncla": "2",
+                            "fc_etc_loana": "0",
+                        }
+                    ],
+                },
+            )
+        return success_handler(request)
+
+    result, _ = run_account(settings(), httpx.MockTransport(handler))
+    assert result.status == "ok"
+    assert result.asset_summary.summary is not None
+    assert result.asset_summary.summary.net_asset == Decimal("147345")
+
+
+def test_one_won_asset_reconciliation_difference_blocks_net_asset() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.headers.get("api-id") == "ust21120":
+            response = success_handler(request)
+            data = response.json()
+            data["aset_evlt_amt"] = "149731"
+            return httpx.Response(200, json=data)
+        return success_handler(request)
+
+    result, _ = run_account(settings(), httpx.MockTransport(handler))
+    assert result.status == "partial"
+    assert result.asset_summary.summary is not None
+    assert result.asset_summary.summary.net_asset is None
+    assert "구성금액" in " ".join(result.errors)
