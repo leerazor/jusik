@@ -127,16 +127,19 @@ BASE_URL=https://api.kiwoom.com
 
 백엔드는 5분마다 보유 종목과 규칙 신호를 다시 확인합니다. 새 매수·매도 검토 신호는 앱 안에 기록합니다. 같은 계좌·시장·종목·규칙 버전의 같은 신호는 SQLite에 저장해 재시작 후에도 중복 전송하지 않습니다. 판단 보류는 기존 상태를 지우지 않습니다. SQLite는 단일 사용자 로컬 앱에서 이 작은 알림 상태를 별도 서버 없이 영구 보존하기 위해 사용합니다.
 
-무료 휴대폰 알림은 Telegram Bot API를 사용합니다. Telegram의 `@BotFather`에서 봇을 만들고, 사용자가 그 봇에 먼저 메시지를 보낸 뒤 Bot API `getUpdates` 응답에서 자신의 chat ID를 확인하세요. 실제 값은 `.env.prod`에만 넣고 커밋하지 않습니다.
+무료 휴대폰 알림은 Telegram Bot API를 사용합니다. 다른 서비스에서 webhook이나 polling에 사용하는 봇의 연결을 바꾸지 않도록 `@BotFather`에서 Jusik 전용 봇을 만드세요. 토큰은 로컬 `.env.prod`의 `TELEGRAM_BOT_TOKEN`에만 저장하고 채팅이나 명령행에 붙여 넣지 않습니다.
 
-```dotenv
-TELEGRAM_ENABLED=true
-TELEGRAM_BOT_TOKEN=replace_with_bot_token
-TELEGRAM_CHAT_ID=replace_with_chat_id
-MONITOR_INTERVAL_SECONDS=300
+```bash
+cd backend
+.venv/bin/python -m jusik.telegram_setup
+
+# 연결 저장 후 일반 확인 메시지 한 건을 보내려는 경우에만 사용합니다.
+.venv/bin/python -m jusik.telegram_setup --send-test
 ```
 
-기본값 `TELEGRAM_ENABLED=false`에서는 외부 메시지를 보내지 않습니다. 전송 제한, 명시적 거절, 알 수 없는 timeout 결과를 구분해 앱에 표시하며 timeout 후 자동 재전송하지 않습니다. Telegram 메시지에는 증권 계좌 ID나 번호를 넣지 않습니다.
+명령은 봇과 기존 webhook 상태를 확인한 뒤 일회용 링크를 표시합니다. 2분 안에 휴대폰 Telegram에서 링크를 열고 시작을 눌러야 하며, 정확한 난수 응답을 보낸 개인 채팅의 사람 계정만 연결합니다. 임의의 최근 채팅을 선택하지 않습니다. 연결되면 `.env.prod`의 `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 세 키만 원자적으로 저장하고 파일 권한을 `0600`으로 제한합니다. 완료 후 백엔드를 재시작해야 감시 알림 전송이 시작됩니다.
+
+기본값 `TELEGRAM_ENABLED=false`에서는 외부 메시지를 보내지 않습니다. `--send-test` 성공 표시는 Telegram Bot API가 메시지를 접수했다는 뜻이며 실제 휴대폰 수신은 Telegram 앱에서 별도로 확인해야 합니다. timeout처럼 접수 결과를 알 수 없으면 중복 방지를 위해 자동 재전송하지 않습니다. 이미 SQLite에 기록된 동일 신호도 Telegram을 연결했다는 이유만으로 다시 보내지 않으며, 상태가 바뀐 뒤 새 매수·매도 신호가 생길 때 전송합니다. Telegram 메시지에는 증권 계좌 ID나 번호를 넣지 않습니다.
 이 감시는 로컬 백엔드 프로세스에서 실행되므로 앱, WSL 또는 PC가 꺼져 있으면 알림도 중단됩니다.
 
 ## 금리와 외부 소식
@@ -147,8 +150,9 @@ MONITOR_INTERVAL_SECONDS=300
 - FRED의 미국 연방기금 목표금리 하단·상단 일별 CSV와 Federal Reserve 통화정책 RSS
 - BBC World RSS의 국제·전쟁 소식
 - Google News의 최근 7일 Truth Social 관련 RSS 검색 결과
+- 운영자 FAQ가 공개한 Trump's Truth RSS의 트럼프 계정 게시물 제3자 보관본
 
-기사별 대응 평가는 금리 민감도, 환율, 에너지·방산·운송 노출, 원문 교차 확인 같은 조건부 점검 문구입니다. Truth Social 자체의 공식·완전 피드가 아니므로 관련 보도를 통해 간접 감시하며 원문과 공식 발표를 반드시 교차 확인해야 합니다. RSS 제목만 저장·표시하고 기사 본문을 무단 수집하지 않습니다.
+기사별 대응 평가는 금리 민감도, 환율, 에너지·방산·운송 노출, 원문 교차 확인 같은 조건부 점검 문구입니다. Google News 관련 보도와 Trump's Truth 보관본은 Truth Social의 공식·완전 피드가 아닙니다. 보관본에는 재게시물이 포함될 수 있고 게시물의 주장이 실제 정책을 뜻하지 않으므로 Truth Social 원문과 공식 발표를 교차 확인해야 합니다. 앱은 제3자 RSS가 제공한 제목과 최대 280자의 일반 텍스트 발췌만 표시하며 Truth Social 서버를 직접 조회하거나 기사 본문을 수집하지 않습니다.
 
 ## 타 증권사 계좌
 

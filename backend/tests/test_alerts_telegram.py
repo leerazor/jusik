@@ -57,7 +57,7 @@ def test_telegram_success_reject_rate_limit_and_timeout_have_distinct_status() -
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert "secret-token" in request.url.path
+        assert request.url.path.endswith("/sendMessage")
         assert b"hidden-account" not in request.read()
         value = next(statuses)
         if isinstance(value, Exception):
@@ -70,7 +70,9 @@ def test_telegram_success_reject_rate_limit_and_timeout_have_distinct_status() -
             transport=httpx.MockTransport(handler),
         ) as client:
             notifier = TelegramNotifier(
-                client, SecretStr("secret-token"), SecretStr("chat")
+                client,
+                SecretStr("123456789:" + "A" * 35),
+                SecretStr("123456789"),
             )
             payload = Alert(
                 id=1,

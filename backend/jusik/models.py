@@ -106,12 +106,20 @@ class Alert(BaseModel):
 
 class NewsItem(BaseModel):
     id: str
-    category: Literal["korea_rate", "us_rate", "geopolitics", "truth_social"]
+    category: Literal[
+        "korea_rate",
+        "us_rate",
+        "geopolitics",
+        "truth_social",
+        "truth_social_post",
+    ]
     title: str
     url: str
     source: str
     published_at: datetime | None = None
     assessment: str
+    original_url: str | None = None
+    excerpt: str | None = None
 
 
 class SourceStatus(BaseModel):

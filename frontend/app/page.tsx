@@ -49,6 +49,7 @@ const newsCategory = {
   us_rate: "미국 금리",
   geopolitics: "국제 정세",
   truth_social: "Truth Social 관련 보도",
+  truth_social_post: "트럼프 계정 게시물 · 제3자 보관본",
 } as const;
 
 export default async function Home() {
@@ -289,7 +290,7 @@ export default async function Home() {
               <div className="section-title simple">
                 <h2>감지 알림</h2>
                 <span className="muted">
-                  {data.monitor.telegram_configured ? "Telegram 연결" : "앱 안에서만 표시"}
+                  {data.monitor.telegram_configured ? "Telegram 전송 설정됨" : "앱 안에서만 표시"}
                 </span>
               </div>
               {data.alerts.length ? data.alerts.slice(0, 8).map((alert) => (
@@ -313,8 +314,21 @@ export default async function Home() {
               </div>
               {data.intelligence.news.map((item) => (
                 <div className="news-row" key={item.id}>
-                  <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
+                  {item.category === "truth_social_post" ? (
+                    <strong>{item.title}</strong>
+                  ) : (
+                    <a href={item.url} target="_blank" rel="noreferrer">{item.title}</a>
+                  )}
                   <small>{newsCategory[item.category]} · {item.source} · {kst(item.published_at)}</small>
+                  {item.excerpt && <p>{item.excerpt}</p>}
+                  {item.category === "truth_social_post" && (
+                    <small>
+                      <a href={item.url} target="_blank" rel="noreferrer">제3자 보관본</a>
+                      {item.original_url && (
+                        <> · <a href={item.original_url} target="_blank" rel="noreferrer">Truth Social 원문</a></>
+                      )}
+                    </small>
+                  )}
                   <p>{item.assessment}</p>
                 </div>
               ))}

@@ -104,20 +104,23 @@ def test_legacy_configuration_creates_one_registered_account() -> None:
 
 
 def test_telegram_requires_explicit_opt_in_and_complete_secrets() -> None:
+    token = "123456789:" + "A" * 35
     assert settings().telegram_enabled is False
     with pytest.raises(ValidationError):
         settings(telegram_enabled=True)
+    token_only = settings(telegram_bot_token=token, telegram_chat_id=None)
+    assert token_only.telegram_enabled is False
     with pytest.raises(ValidationError):
-        settings(telegram_bot_token="token", telegram_chat_id=None)
+        settings(telegram_bot_token="invalid", telegram_chat_id=None)
     configured = settings(
         telegram_enabled=True,
-        telegram_bot_token="private-bot-value",
-        telegram_chat_id="private-chat-value",
+        telegram_bot_token=token,
+        telegram_chat_id="123456789",
     )
     assert configured.telegram_enabled is True
     dumped = repr(configured)
-    assert "private-bot-value" not in dumped
-    assert "private-chat-value" not in dumped
+    assert token not in dumped
+    assert "123456789" not in dumped
 
 
 def test_multiple_accounts_inherit_or_override_credentials() -> None:

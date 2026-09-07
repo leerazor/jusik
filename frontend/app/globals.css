@@ -435,6 +435,10 @@ td small {
   border-bottom: 1px solid #edf1ef;
   padding: 15px 0;
 }
+.news-row {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .alert-row:last-of-type,
 .news-row:last-of-type {
   border-bottom: 0;

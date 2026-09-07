@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ACCOUNT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")
 ACCOUNT_NUMBER = re.compile(r"^\d{8}$")
 PRODUCT_CODE = re.compile(r"^\d{2}$")
+TELEGRAM_BOT_TOKEN = re.compile(r"^\d{6,12}:[A-Za-z0-9_-]{30,}$")
+TELEGRAM_CHAT_ID = re.compile(r"^[1-9]\d{4,19}$")
 
 
 class AccountConfig(BaseModel):
@@ -116,6 +118,24 @@ class Settings(BaseSettings):
             raise ValueError("Global credential must not be blank.")
         return value
 
+    @field_validator("telegram_bot_token")
+    @classmethod
+    def validate_telegram_token(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not TELEGRAM_BOT_TOKEN.fullmatch(
+            value.get_secret_value()
+        ):
+            raise ValueError("Telegram bot token has an invalid format.")
+        return value
+
+    @field_validator("telegram_chat_id")
+    @classmethod
+    def validate_telegram_chat_id(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not TELEGRAM_CHAT_ID.fullmatch(
+            value.get_secret_value()
+        ):
+            raise ValueError("Telegram chat id has an invalid format.")
+        return value
+
     @model_validator(mode="after")
     def validate_account_settings(self) -> Self:
         if (self.kis_app_key is None) != (self.kis_app_secret is None):
@@ -125,11 +145,6 @@ class Settings(BaseSettings):
             self.telegram_bot_token is None or self.telegram_chat_id is None
         ):
             raise ValueError("Telegram alerts require both bot token and chat id.")
-        if (self.telegram_bot_token is None) != (self.telegram_chat_id is None):
-            raise ValueError(
-                "Telegram credentials must provide both token and chat id."
-            )
-
         if self.kis_accounts is None:
             if None in (
                 self.kis_app_key,

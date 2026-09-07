@@ -144,12 +144,20 @@ export const portfolioSchema = z.object({
     news: z.array(
       z.object({
         id: z.string(),
-        category: z.enum(["korea_rate", "us_rate", "geopolitics", "truth_social"]),
+        category: z.enum([
+          "korea_rate",
+          "us_rate",
+          "geopolitics",
+          "truth_social",
+          "truth_social_post",
+        ]),
         title: z.string(),
         url: z.string().url(),
         source: z.string(),
         published_at: z.iso.datetime({ offset: true }).nullable(),
         assessment: z.string(),
+        original_url: z.string().url().nullable().default(null),
+        excerpt: z.string().nullable().default(null),
       }),
     ),
     sources: z.array(

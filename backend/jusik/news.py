@@ -9,6 +9,8 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from html import unescape
+from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -23,7 +25,66 @@ TRUTH_RSS_URL = (
     "https://news.google.com/rss/search?q=%22Truth%20Social%22%20when%3A7d"
     "&hl=ko&gl=KR&ceid=KR%3Ako"
 )
+TRUTH_ARCHIVE_RSS_URL = "https://www.trumpstruth.org/feed"
+TRUTH_NAMESPACE = "https://truthsocial.com/ns"
 MAX_RESPONSE_BYTES = 1_000_000
+
+
+class _TextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.ignored_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() in {"script", "style"}:
+            self.ignored_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in {"script", "style"} and self.ignored_depth:
+            self.ignored_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self.ignored_depth:
+            self.parts.append(data)
+
+
+def _plain_text(value: str | None, *, limit: int = 280) -> str:
+    parser = _TextExtractor()
+    parser.feed(value or "")
+    parser.close()
+    text = " ".join(unescape(" ".join(parser.parts)).split())
+    return text[:limit]
+
+
+def _safe_truth_url(value: str | None, *, archive: bool) -> str | None:
+    if not value:
+        return None
+    try:
+        parsed = urlsplit(value.strip())
+        if (
+            parsed.scheme != "https"
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.port is not None
+            or parsed.query
+            or parsed.fragment
+        ):
+            return None
+    except ValueError:
+        return None
+    if archive:
+        if parsed.hostname not in {"trumpstruth.org", "www.trumpstruth.org"}:
+            return None
+        path_ok = re.fullmatch(r"/statuses/\d+", parsed.path)
+    else:
+        if parsed.hostname != "truthsocial.com":
+            return None
+        path_ok = re.fullmatch(
+            r"/(?:users/[A-Za-z0-9_]+/statuses/\d+|@[A-Za-z0-9_]+/(?:posts/)?\d+)",
+            parsed.path,
+        )
+    return value.strip() if path_ok else None
 
 
 def _published(value: str | None) -> datetime | None:
@@ -77,6 +138,48 @@ def parse_rss(xml: str, category: str, source: str, limit: int = 5) -> list[News
                 assessment=_assessment(category, title),
             )
         )
+    return result
+
+
+def parse_truth_archive_rss(xml: str, limit: int = 5) -> list[NewsItem]:
+    root = ET.fromstring(xml)
+    result: list[NewsItem] = []
+    for item in root.findall(".//item"):
+        archive_url = _safe_truth_url(item.findtext("link"), archive=True)
+        if archive_url is None:
+            continue
+        original_url = _safe_truth_url(
+            item.findtext(f"{{{TRUTH_NAMESPACE}}}originalUrl"), archive=False
+        )
+        raw_title = _plain_text(item.findtext("title"))
+        title = (
+            "트럼프 계정 게시물 (제목 없음)"
+            if not raw_title or raw_title.casefold().startswith("[no title]")
+            else raw_title
+        )
+        excerpt = _plain_text(item.findtext("description")) or None
+        published = _published(item.findtext("pubDate"))
+        identity = hashlib.sha256(
+            f"truth_social_post:{archive_url}".encode()
+        ).hexdigest()[:16]
+        result.append(
+            NewsItem(
+                id=identity,
+                category="truth_social_post",
+                title=title,
+                url=archive_url,
+                original_url=original_url,
+                excerpt=excerpt,
+                source="Trump's Truth 제3자 보관본",
+                published_at=published,
+                assessment=(
+                    "제3자 보관본에는 재게시물이 포함될 수 있습니다. 게시물의 주장을 "
+                    "실제 정책으로 간주하지 말고 원문과 공식 발표를 교차 확인하세요."
+                ),
+            )
+        )
+        if len(result) >= limit:
+            break
     return result
 
 
@@ -167,6 +270,11 @@ class NewsService:
                 ("fed_news", "미국 연준 통화정책 소식", FED_RSS_URL),
                 ("world", "BBC 국제 소식", BBC_RSS_URL),
                 ("truth", "Truth Social 관련 보도", TRUTH_RSS_URL),
+                (
+                    "truth_archive",
+                    "트럼프 계정 게시물 · 제3자 보관본",
+                    TRUTH_ARCHIVE_RSS_URL,
+                ),
             )
             fetched = await asyncio.gather(
                 *(self._get(url) for _, _, url in sources), return_exceptions=True
@@ -229,27 +337,35 @@ class NewsService:
                     news.extend(parse_rss(content[source_id], category, source))
                 except (KeyError, ET.ParseError):
                     self._mark_parse_error(statuses, source_id)
+            try:
+                news.extend(parse_truth_archive_rss(content["truth_archive"]))
+            except (KeyError, ET.ParseError):
+                self._mark_parse_error(statuses, "truth_archive")
             news.sort(
                 key=lambda item: item.published_at or datetime.min.replace(tzinfo=UTC),
                 reverse=True,
             )
             unique_news: list[NewsItem] = []
-            seen: set[tuple[str, str]] = set()
+            seen_urls: set[str] = set()
+            seen_titles: set[str] = set()
             cutoff = now - timedelta(days=30)
             for item in news:
-                identity = (item.url, item.title.casefold())
-                if identity in seen or (
-                    item.published_at is not None and item.published_at < cutoff
+                normalized_title = item.title.casefold()
+                if (
+                    item.url in seen_urls
+                    or normalized_title in seen_titles
+                    or (item.published_at is not None and item.published_at < cutoff)
                 ):
                     continue
-                seen.add(identity)
+                seen_urls.add(item.url)
+                seen_titles.add(normalized_title)
                 unique_news.append(item)
             self._cached = MarketIntelligence(
                 korea_base_rate=korea_rate,
                 korea_rate_as_of=korea_date,
                 us_target_rate=us_rate,
                 us_rate_as_of=us_date,
-                news=unique_news[:20],
+                news=unique_news[:25],
                 sources=statuses,
                 fetched_at=now,
             )

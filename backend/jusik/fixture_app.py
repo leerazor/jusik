@@ -217,7 +217,27 @@ def fixture_portfolio() -> Portfolio:
                     source="BBC News",
                     published_at=NOW,
                     assessment="보유 종목의 환율과 업종 노출을 확인하세요.",
-                )
+                ),
+                NewsItem(
+                    id="fixture-truth-post",
+                    category="truth_social_post",
+                    title="트럼프 계정 게시물 (검증용)",
+                    url="https://www.trumpstruth.org/statuses/123456789",
+                    original_url="https://truthsocial.com/@example/123456789",
+                    excerpt=(
+                        "브라우저 표시와 안전한 링크 검증을 위한 합성 게시물입니다. "
+                        "https://example.invalid/"
+                        "continuous-unbroken-mobile-overflow-regression-"
+                        "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz"
+                    ),
+                    source="Trump's Truth 제3자 보관본",
+                    published_at=NOW,
+                    assessment=(
+                        "제3자 보관본에는 재게시물이 포함될 수 있습니다. "
+                        "게시물의 주장을 "
+                        "실제 정책으로 간주하지 말고 공식 발표를 교차 확인하세요."
+                    ),
+                ),
             ],
             sources=[
                 SourceStatus(
@@ -226,7 +246,14 @@ def fixture_portfolio() -> Portfolio:
                     status="ok",
                     source_url="https://feeds.bbci.co.uk/news/world/rss.xml",
                     fetched_at=NOW,
-                )
+                ),
+                SourceStatus(
+                    id="truth_archive",
+                    label="트럼프 계정 게시물 · 제3자 보관본",
+                    status="ok",
+                    source_url="https://www.trumpstruth.org/feed",
+                    fetched_at=NOW,
+                ),
             ],
             fetched_at=NOW,
         ),
