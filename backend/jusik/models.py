@@ -1,11 +1,24 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PlainSerializer
 
-Money = Annotated[Decimal, Field(allow_inf_nan=False)]
-Positive = Annotated[Decimal, Field(ge=0, allow_inf_nan=False)]
+
+def fixed_decimal(value: Decimal) -> str:
+    return format(value, "f")
+
+
+Money = Annotated[
+    Decimal,
+    Field(allow_inf_nan=False),
+    PlainSerializer(fixed_decimal, return_type=str, when_used="json"),
+]
+Positive = Annotated[
+    Decimal,
+    Field(ge=0, allow_inf_nan=False),
+    PlainSerializer(fixed_decimal, return_type=str, when_used="json"),
+]
 
 
 class Holding(BaseModel):
@@ -20,6 +33,17 @@ class Holding(BaseModel):
     value: Positive
     profit: Money
     return_pct: Money | None
+    fx_rate: Money | None = None
+    fx_source: str | None = None
+    fx_as_of: date | None = None
+    average_price_krw: Money | None = None
+    current_price_krw: Money | None = None
+    cost_krw: Money | None = None
+    value_krw: Money | None = None
+    profit_krw: Money | None = None
+    fundamentals: "Fundamentals" = Field(default_factory=lambda: Fundamentals())
+    advice: "InvestmentAdvice" = Field(default_factory=lambda: InvestmentAdvice())
+    price_fetched_at: datetime | None = None
 
 
 class Total(BaseModel):
@@ -28,6 +52,97 @@ class Total(BaseModel):
     value: Money
     profit: Money
     return_pct: Money | None
+    cost_krw: Money | None = None
+    value_krw: Money | None = None
+    profit_krw: Money | None = None
+
+
+class Fundamentals(BaseModel):
+    status: Literal["ok", "unavailable", "error"] = "unavailable"
+    per: Money | None = None
+    pbr: Money | None = None
+    eps: Money | None = None
+    bps: Money | None = None
+    instrument_type: str | None = None
+    source: str | None = None
+    source_url: str | None = None
+    fetched_at: datetime | None = None
+    error: str | None = None
+
+
+class InvestmentAdvice(BaseModel):
+    signal: Literal["buy_review", "hold", "sell_review", "insufficient"] = (
+        "insufficient"
+    )
+    label: str = "판단 보류"
+    reasons: list[str] = Field(default_factory=list)
+    rule_version: str = "v1"
+
+
+class ExchangeRate(BaseModel):
+    currency: Literal["KRW", "USD", "HKD", "CNY", "JPY", "VND"]
+    krw_per_unit: Money | None = None
+    status: Literal["ok", "error"]
+    source: str = "Frankfurter 일별 기준환율"
+    source_url: str = "https://frankfurter.dev/"
+    as_of: date | None = None
+    fetched_at: datetime
+    stale: bool = False
+    error: str | None = None
+
+
+class Alert(BaseModel):
+    id: int
+    account_id: str
+    market: str
+    symbol: str
+    name: str
+    signal: Literal["buy_review", "sell_review"]
+    title: str
+    message: str
+    created_at: datetime
+    delivery: Literal["in_app", "telegram_sent", "telegram_failed", "telegram_unknown"]
+
+
+class NewsItem(BaseModel):
+    id: str
+    category: Literal["korea_rate", "us_rate", "geopolitics", "truth_social"]
+    title: str
+    url: str
+    source: str
+    published_at: datetime | None = None
+    assessment: str
+
+
+class SourceStatus(BaseModel):
+    id: str
+    label: str
+    status: Literal["ok", "error"]
+    source_url: str
+    fetched_at: datetime | None = None
+    stale: bool = False
+    error: str | None = None
+
+
+class MarketIntelligence(BaseModel):
+    korea_base_rate: Money | None = None
+    korea_rate_as_of: date | None = None
+    us_target_rate: str | None = None
+    us_rate_as_of: date | None = None
+    news: list[NewsItem] = Field(default_factory=list)
+    sources: list[SourceStatus] = Field(default_factory=list)
+    fetched_at: datetime | None = None
+
+
+class MonitorStatus(BaseModel):
+    enabled: bool = True
+    interval_seconds: int = 300
+    telegram_configured: bool = False
+    last_checked_at: datetime | None = None
+    last_success_at: datetime | None = None
+    next_check_at: datetime | None = None
+    consecutive_failures: int = Field(default=0, ge=0)
+    error: str | None = None
 
 
 class AssetSummary(BaseModel):
@@ -38,7 +153,11 @@ class AssetSummary(BaseModel):
     profit_loss: Money | None = None
     overseas_evaluation: Money | None = None
     estimated_deposit_assets: Money | None = None
-    scope: Literal["account", "domestic"] = "account"
+    debt: Money | None = None
+    scope: Literal["account", "domestic", "estimated_account"] = "account"
+    basis: str = "증권사 제공 원화 순자산"
+    exchange_rates: dict[str, Money] = Field(default_factory=dict)
+    asset_source: str = "증권사 계좌 API"
 
 
 class AssetSummaryResult(BaseModel):
@@ -84,6 +203,13 @@ class Portfolio(BaseModel):
     accounts: list[AccountResult] = Field(min_length=1)
     aggregate: AggregateSummary
     totals: list[Total]
+    exchange_rates: list[ExchangeRate] = Field(default_factory=list)
+    alerts: list[Alert] = Field(default_factory=list)
+    intelligence: MarketIntelligence = Field(default_factory=MarketIntelligence)
+    monitor: MonitorStatus = Field(default_factory=MonitorStatus)
+    holding_conversion_completeness: Literal["complete", "partial", "unavailable"] = (
+        "complete"
+    )
 
 
 def percentage(profit: Decimal, cost: Decimal) -> Decimal | None:
@@ -121,6 +247,7 @@ def aggregate_net_assets(accounts: list[AccountResult]) -> AggregateSummary:
         for account in accounts
         if account.asset_summary.status == "ok"
         and account.asset_summary.summary is not None
+        and account.asset_summary.summary.scope != "domestic"
         and account.asset_summary.summary.net_asset is not None
     ]
     included = len(values)

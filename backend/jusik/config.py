@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     kis_accounts: list[AccountConfig] | None = None
     kis_base_url: Literal["https://openapi.koreainvestment.com:9443"]
     cache_seconds: int = Field(default=30, ge=10, le=300)
+    telegram_enabled: bool = False
+    telegram_bot_token: SecretStr | None = None
+    telegram_chat_id: SecretStr | None = None
+    alert_db_path: Path = Path.home() / ".local/share/jusik/alerts.db"
+    monitor_interval_seconds: int = Field(default=300, ge=60, le=3600)
 
     @field_validator("kis_app_key", "kis_app_secret")
     @classmethod
@@ -115,6 +120,15 @@ class Settings(BaseSettings):
     def validate_account_settings(self) -> Self:
         if (self.kis_app_key is None) != (self.kis_app_secret is None):
             raise ValueError("Global credentials must provide both key and secret.")
+
+        if self.telegram_enabled and (
+            self.telegram_bot_token is None or self.telegram_chat_id is None
+        ):
+            raise ValueError("Telegram alerts require both bot token and chat id.")
+        if (self.telegram_bot_token is None) != (self.telegram_chat_id is None):
+            raise ValueError(
+                "Telegram credentials must provide both token and chat id."
+            )
 
         if self.kis_accounts is None:
             if None in (
