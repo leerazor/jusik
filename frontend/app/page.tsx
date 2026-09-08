@@ -81,7 +81,10 @@ export default async function Home() {
           <span className="mark">J</span> jusik
           <span className="brand-sub">나의 투자 현황</span>
         </Link>
-        <span className="badge">실계좌 · 조회 전용</span>
+        <div className="header-actions">
+          <Link href="/research" className="header-link">전략 연구</Link>
+          <span className="badge">실계좌 · 조회 전용</span>
+        </div>
       </header>
       <section className="intro">
         <div>

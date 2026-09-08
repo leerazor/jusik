@@ -28,17 +28,21 @@ def _free_port() -> int:
 @pytest.fixture
 def launcher_project(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
     backend_port = _free_port()
+    research_port = _free_port()
     frontend_port = _free_port()
-    while frontend_port == backend_port:
+    while len({backend_port, research_port, frontend_port}) != 3:
+        research_port = _free_port()
         frontend_port = _free_port()
 
     project = tmp_path / "project"
     project.mkdir()
     source = (ROOT / "start.sh").read_text(encoding="utf-8")
     source = source.replace(
-        "for port in (8000, 3000):", f"for port in ({backend_port}, {frontend_port}):"
+        "for port in (8000, 8001, 3000):",
+        f"for port in ({backend_port}, {research_port}, {frontend_port}):",
     )
     source = source.replace("--port 8000", f"--port {backend_port}")
+    source = source.replace("--port 8001", f"--port {research_port}")
     source = source.replace("--port 3000", f"--port {frontend_port}")
     source = source.replace("127.0.0.1:3000", f"127.0.0.1:{frontend_port}")
     _write_executable(project / "start.sh", source)
@@ -73,12 +77,16 @@ if [[ "$1" == - ]]; then
     exec {sys.executable} -
 fi
 if [[ "$1" == -m && "$2" == uvicorn ]]; then
-    record start-backend
-    if [[ "${{EXIT_BACKEND:-0}}" == 1 ]]; then
+    service=backend
+    if [[ "$3" == jusik.research_app:app ]]; then
+        service=research
+    fi
+    record start-$service
+    if [[ "${{EXIT_BACKEND:-0}}" == 1 && "$service" == backend ]]; then
         sleep 0.1
         exit 7
     fi
-    trap 'record stop-backend; exit 0' TERM INT
+    trap 'record stop-$service; exit 0' TERM INT
     while :; do sleep 1 & wait $!; done
 fi
 exit 2
@@ -89,11 +97,22 @@ exit 2
     next_script = """#!/usr/bin/env bash
 set -eu
 record() { printf '%s %s\n' "$1" "$$" >> "$LOG_PATH"; }
+if [[ "${1:-}" == build ]]; then
+    record build-frontend
+    printf '%s\n' 'generated next env' > next-env.d.ts
+    printf '%s\n' 'generated config' > "$NEXT_TSCONFIG_PATH"
+    if [[ "${BUILD_FAIL:-0}" == 1 ]]; then exit 9; fi
+    exit 0
+fi
 record start-frontend
 trap 'record stop-frontend; exit 0' TERM INT
 while :; do sleep 1 & wait $!; done
 """
     _write_executable(project / "frontend/node_modules/next/dist/bin/next", next_script)
+    (project / "frontend/tsconfig.json").write_text("{}\n", encoding="utf-8")
+    (project / "frontend/next-env.d.ts").write_text(
+        '/// <reference types="next" />\n', encoding="utf-8"
+    )
 
     _write_executable(fake_bin / "node", '#!/usr/bin/env bash\nexec "$@"\n')
     ngrok_script = """#!/usr/bin/env bash
@@ -112,6 +131,7 @@ while :; do sleep 1 & wait $!; done
         {
             "HOME": str(home),
             "LOG_PATH": str(log_path),
+            "TEST_PORTS": f"{backend_port},{research_port},{frontend_port}",
             "PATH": f"{fake_bin}:{env['PATH']}",
         }
     )
@@ -175,12 +195,15 @@ def test_new_tunnel_is_started_and_all_owned_children_are_cleaned_up(
     env["LAUNCHER_MODE"] = "new"
     process = _launch(project, env)
     try:
-        _wait_for_starts(log_path, {"start-backend", "start-frontend", "start-ngrok"})
+        _wait_for_starts(
+            log_path,
+            {"start-backend", "start-research", "start-frontend", "start-ngrok"},
+        )
         stdout, _ = _terminate(process)
         lines = _lines(log_path)
 
         assert "외부 접속: https://private.ngrok-free.dev" in stdout
-        assert {"stop-backend", "stop-frontend", "stop-ngrok"} <= {
+        assert {"stop-backend", "stop-research", "stop-frontend", "stop-ngrok"} <= {
             line.split()[0] for line in lines
         }
     finally:
@@ -194,12 +217,20 @@ def test_reused_tunnel_is_not_started_or_owned(
     env["LAUNCHER_MODE"] = "reuse"
     process = _launch(project, env)
     try:
-        _wait_for_starts(log_path, {"start-backend", "start-frontend"})
+        _wait_for_starts(
+            log_path, {"start-backend", "start-research", "start-frontend"}
+        )
+        assert (project / "frontend/tsconfig.json").read_text() == "{}\n"
+        assert (project / "frontend/next-env.d.ts").read_text() == (
+            '/// <reference types="next" />\n'
+        )
+        assert list((project / "frontend").glob(".tsconfig-build-*.json")) == []
+        assert list((project / "frontend").glob(".next-env-build-*.backup")) == []
         _terminate(process)
         events = {line.split()[0] for line in _lines(log_path)}
 
         assert "start-ngrok" not in events
-        assert {"stop-backend", "stop-frontend"} <= events
+        assert {"stop-backend", "stop-research", "stop-frontend"} <= events
     finally:
         _force_cleanup(process, log_path)
 
@@ -216,7 +247,12 @@ def test_tunnel_startup_failure_cleans_up_started_children(
 
         assert process.returncode != 0
         assert "startup failed" in stderr
-        assert {"stop-backend", "stop-frontend", "stop-ngrok"} <= events
+        assert {
+            "stop-backend",
+            "stop-research",
+            "stop-frontend",
+            "stop-ngrok",
+        } <= events
     finally:
         _force_cleanup(process, log_path)
 
@@ -232,6 +268,97 @@ def test_early_backend_exit_cleans_up_other_owned_children(
         events = {line.split()[0] for line in _lines(log_path)}
 
         assert process.returncode == 7
-        assert {"stop-frontend", "stop-ngrok"} <= events
+        assert {"stop-research", "stop-frontend", "stop-ngrok"} <= events
     finally:
         _force_cleanup(process, log_path)
+
+
+@pytest.mark.parametrize("ignore_term", [False, True])
+def test_occupied_ports_are_stopped_before_servers_restart(
+    launcher_project: tuple[Path, Path, dict[str, str]], ignore_term: bool
+) -> None:
+    project, log_path, env = launcher_project
+    env["LAUNCHER_MODE"] = "reuse"
+    listeners: list[subprocess.Popen[str]] = []
+    process: subprocess.Popen[str] | None = None
+    listener_script = """
+import signal
+import socket
+import sys
+import time
+
+if sys.argv[2] == "ignore":
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+listener = socket.socket()
+listener.bind(("127.0.0.1", int(sys.argv[1])))
+listener.listen()
+print("ready", flush=True)
+while True:
+    time.sleep(1)
+"""
+    try:
+        for port in env["TEST_PORTS"].split(","):
+            listener = subprocess.Popen(
+                [
+                    sys.executable,
+                    "-c",
+                    listener_script,
+                    port,
+                    "ignore" if ignore_term else "default",
+                ],
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+            listeners.append(listener)
+            assert listener.stdout is not None
+            assert listener.stdout.readline().strip() == "ready"
+
+        process = _launch(project, env)
+        expected_signal = signal.SIGKILL if ignore_term else signal.SIGTERM
+        for listener in listeners:
+            assert listener.wait(timeout=15) == -expected_signal
+        _wait_for_starts(
+            log_path, {"start-backend", "start-research", "start-frontend"}
+        )
+        stdout, _ = _terminate(process)
+        assert "기존 서버를 종료합니다" in stdout
+        assert ("강제 종료합니다" in stdout) == ignore_term
+    finally:
+        if process is not None:
+            _force_cleanup(process, log_path)
+        for listener in listeners:
+            if listener.poll() is None:
+                listener.kill()
+            listener.communicate(timeout=3)
+
+
+def test_failed_build_does_not_stop_existing_listener(
+    launcher_project: tuple[Path, Path, dict[str, str]],
+) -> None:
+    project, log_path, env = launcher_project
+    env.update({"LAUNCHER_MODE": "reuse", "BUILD_FAIL": "1"})
+    port = env["TEST_PORTS"].split(",")[0]
+    listener = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import socket,time; s=socket.socket(); "
+                f"s.bind(('127.0.0.1',{port})); s.listen(); time.sleep(5)"
+            ),
+        ]
+    )
+    try:
+        time.sleep(0.1)
+        process = _launch(project, env)
+        process.communicate(timeout=3)
+        assert process.returncode != 0
+        assert listener.poll() is None
+        assert "start-backend" not in {line.split()[0] for line in _lines(log_path)}
+        assert (project / "frontend/tsconfig.json").read_text() == "{}\n"
+        assert (project / "frontend/next-env.d.ts").read_text() == (
+            '/// <reference types="next" />\n'
+        )
+    finally:
+        listener.terminate()
+        listener.communicate(timeout=3)
