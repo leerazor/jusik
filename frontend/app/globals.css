@@ -63,6 +63,32 @@ header {
   border-radius: 20px;
   font-size: 12px;
 }
+.header-actions,
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-link,
+.secondary-button {
+  color: var(--green);
+  text-decoration: none;
+  font-weight: 600;
+}
+.secondary-button {
+  display: inline-block;
+  border: 1px solid var(--green);
+  border-radius: 9px;
+  background: white;
+  padding: 11px 18px;
+}
+button.secondary-button {
+  color: var(--green);
+}
+button.secondary-button:hover,
+.secondary-button:hover {
+  background: #e8efec;
+}
 .intro {
   display: flex;
   align-items: center;
@@ -522,10 +548,275 @@ tr:last-child td {
   font-size: 13px;
   margin: 8px 0 0;
 }
+.quality-warning {
+  border-color: #d8b25b;
+  background: #fff8e8;
+}
 .empty {
   text-align: center;
   padding: 40px 20px;
   color: var(--muted);
+}
+.research-intro {
+  gap: 24px;
+}
+.research-layout,
+.strategy-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.operations-overview {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.compact-value {
+  font-size: 21px !important;
+  text-transform: uppercase;
+}
+.operations-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.operation-card {
+  padding: 22px;
+}
+.inline-form,
+.schedule-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.schedule-form {
+  grid-template-columns: 1fr 1fr;
+}
+.schedule-form .check-label,
+.schedule-form button {
+  grid-column: 1 / -1;
+}
+.operation-card label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.operation-card input:not([type="checkbox"]) {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 6px;
+  padding: 10px;
+  font: inherit;
+  background: white;
+}
+.quote-list p,
+.proposal-list article > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.quote-list span,
+.fill-list span,
+.fill-list small {
+  display: block;
+  text-align: right;
+}
+.quote-list small,
+.fill-list small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.fill-list p {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+}
+.equity-line {
+  width: 100%;
+  height: 72px;
+  color: var(--green);
+  margin-top: 12px;
+}
+.strategy-version-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.strategy-version-grid article,
+.proposal-list article {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 17px;
+}
+.strategy-version-grid article.selected-version {
+  border: 2px solid var(--green);
+  background: #f2f8f5;
+}
+.strategy-version-grid small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.proposal-list {
+  display: grid;
+  gap: 10px;
+}
+.operation-warning {
+  margin: 5px 0;
+}
+.research-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.research-form fieldset {
+  display: flex;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+}
+.research-form legend,
+.research-form label {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+.research-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.research-form fieldset label {
+  flex-direction: row;
+}
+.research-form input:not([type="checkbox"]),
+.research-form textarea {
+  width: 100%;
+  border: 1px solid #ccd7d4;
+  border-radius: 8px;
+  background: white;
+  color: var(--ink);
+  padding: 11px 12px;
+  font: inherit;
+}
+.research-form textarea {
+  resize: vertical;
+}
+.research-form small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.research-form summary {
+  cursor: pointer;
+  color: var(--green);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.run-list {
+  display: flex;
+  flex-direction: column;
+}
+.run-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  padding: 16px 0;
+  text-decoration: none;
+}
+.run-row:last-child {
+  border-bottom: 0;
+}
+.run-row strong,
+.run-row small {
+  display: block;
+}
+.run-row small {
+  color: var(--muted);
+  margin-top: 6px;
+}
+.status-queued,
+.status-collecting,
+.status-running {
+  background: #fff4df;
+  color: #8a5a16;
+}
+.status-insufficient,
+.status-failed {
+  background: #f8e9e5;
+  color: #a04829;
+}
+.strategy-grid {
+  margin-bottom: 16px;
+}
+.strategy-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+  padding: 25px;
+}
+.strategy-card h2 {
+  margin: 0;
+}
+.metric-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 22px 0 0;
+}
+.metric-list dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.metric-list dd {
+  margin: 5px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.research-section {
+  margin-top: 16px;
+}
+.research-section table {
+  min-width: 850px;
+}
+.reason-cell {
+  max-width: 360px;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.5;
+}
+.decision-row {
+  border-top: 1px solid var(--line);
+  margin: 0;
+  padding: 13px 0;
+  font-size: 12px;
+}
+.decision-row a {
+  color: var(--green);
+}
+.limitations li {
+  margin: 9px 0;
+  line-height: 1.6;
+}
+.hashes {
+  color: var(--muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.pending-panel {
+  text-align: center;
 }
 footer {
   color: var(--muted);
@@ -567,6 +858,10 @@ footer {
     padding: 11px;
     white-space: nowrap;
   }
+  .header-link {
+    white-space: nowrap;
+    min-width: max-content;
+  }
   .meta {
     flex-direction: column;
     gap: 6px;
@@ -579,6 +874,35 @@ footer {
   }
   .insight-grid {
     grid-template-columns: 1fr;
+  }
+  .research-layout,
+  .operations-overview,
+  .operations-grid,
+  .strategy-grid,
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .operation-card,
+  .strategy-version-grid article,
+  .proposal-list article {
+    padding: 16px;
+  }
+  .schedule-form {
+    grid-template-columns: 1fr;
+  }
+  .proposal-list .action-row {
+    align-items: stretch;
+  }
+  .proposal-list .action-row form,
+  .proposal-list .action-row button {
+    width: 100%;
+  }
+  .header-actions .badge {
+    display: none;
+  }
+  .action-row {
+    align-items: stretch;
+    flex-direction: column;
   }
   .hero-card,
   .metric-card {

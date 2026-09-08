@@ -12,6 +12,9 @@ __pycache__/
 # Node
 node_modules/
 .next/
+.next-build-*/
+.tsconfig-build-*.json
+.next-env-build-*.backup
 
 # IDE
 .vscode/
@@ -25,4 +28,5 @@ node_modules/
 *.tsbuildinfo
 *.log
 !.env.example
+!.env.dev.example
 !.env.kiwum.example
