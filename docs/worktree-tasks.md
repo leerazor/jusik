@@ -4,24 +4,28 @@
 
 ## 활성 작업
 
-### development-runner
-
-- 상태: 진행
-- 목표와 완료 조건: 지속 개발 실행기를 설치하고 영속 큐, 중복 실행 방지, 중지/재개, 시간·실행 횟수 한도, 웹 이력 표시와 실제 Codex 실행을 검증합니다.
-- 담당 Luna: `/root/work_attribution` (새 작업으로 재배정)
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-development-runner`
-- 작업 브랜치: `feat/development-runner`
-- 기준 커밋: `cb075f2b09d2dbbfa55c5c58ba2dfca6dcb72313`
-- 통합 대상: 로컬 `main`
-- 입력과 선행 작업: explore·plan 완료. Codex CLI 로그인과 Astra 비대화형 shell 실행 검증 완료
-- 수정 허용 범위: 신규 실행기·상태 저장·테스트·systemd 템플릿·운영 문서. 기존 거래 엔진·PAPER·GPU 변경 금지
-- 포트·테스트 DB·출력 경로: 새 포트 없음. 작업별 `.venv`와 `validation/`, 테스트 DB는 임시 경로
-- 검증: 큐 전이·잠금·중단 복구·시간 한도·결과 검증·공개 문구, 독립 review, main 통합 검사, 서비스 설치·웹 확인
-- 보존 증거: `20260911T211748Z-autodev-install/before.json`
-- 완료 절차: 코드 통합·검증 후 사용자 systemd에 설치, 기존 자료 보존 확인, handoff 갱신
-
+없습니다. 자동 개발 큐와 실행 중인 작업은 전용 runner DB와 웹 연구 이력에서 확인합니다.
 
 ## 완료 작업
+
+### development-runner
+
+- 상태: 완료
+- 목표: 영속 연구 큐를 Codex supervisor에 전달하는 자동 실행기를 설치하고 반복 실행·중단·웹 이력을 검증합니다.
+- 담당 Luna: `/root/work_attribution` (새 작업으로 재배정)
+- 워크트리: `/home/kwl/projects/jusik-development-runner`, `feat/development-runner`, 기준 `cb075f2b09d2dbbfa55c5c58ba2dfca6dcb72313`
+- 결과 커밋: `406a897`, 수정 `312761f`, 최종 `fd2df78`. append-only 이력
+- 병합 직전 main: `2c9a7ef`; 로컬 통합: `a49b30a`
+- 범위: 신규 runner/store/테스트, systemd service/timer, 운영 문서와 README 안내. 감독이 AGENTS 운영 안내를 추가했습니다.
+- 검증: 신규 13개 테스트, 독립 리뷰 통과. main 전체 pytest 523개(기존 경고 2개), Ruff 116개 파일, strict mypy 74개 소스 통과. UI 변경이 없어 frontend build는 미실행
+- 실제 검증: Codex Astra 호출·Luna 위임·완료 schema 호환성, 가짜 작업의 systemd 단독 2회 및 타이머 자동 2회, 시작/완료 이력 전송, SIGTERM interrupted 저장과 자식 종료, 분리된 자식의 cgroup timeout 종료를 확인했습니다.
+- 설정: 작업당 90분, UTC 하루 8회 시작, 종료 뒤 약 2분 간격. 금액 상한은 아니며 실패/중단 작업은 명시적 retry 전까지 보존합니다.
+- 운영 설치: 사용자 `jusik-development-runner.service`와 `.timer`, 별도 상태 DB·비공개 로그, 기존 연구 history journal 연동. 사용자 linger 활성화. 초기 연구 5개 큐와 선행 조건을 등록했습니다.
+- 리뷰 수정: 1초 이상 실행의 stdin 재전송 오류, 살아 있는 이전 process group 확인, SIGTERM/SIGINT 중단과 빠른 자식 종료 race를 수정하고 회귀 검증했습니다.
+- 완료의 의미: runner는 commit·artifact hash를 확인하며 tests/review 결과는 agent 보고로 구분합니다. 기존 PAPER·GPU·실주문 경로는 변경하지 않습니다. 작업별 자세한 연구 결과는 후속 supervisor가 웹에 게시합니다.
+- 증거: `20260911T211748Z-autodev-install/`의 main-pytest.log, timer-fixture-result.json, signal-fixture-result.json, cgroup-smoke-result.json, preservation-latest.json
+- 보존·정리: 고정 19개 파일·9개 원장 테이블·GPU 상태 보존 확인. 재현용 워크트리와 독립 `.venv`는 보존하며 임시 검증 unit은 제거했습니다. 운영 unit만 유지합니다.
+- handoff: 기준 저장소 `HANDOFF.md` 최신 절 갱신. 원격 push·PR은 이번 범위에서 수행하지 않았습니다.
 
 ### entry-attribution
 
