@@ -38,7 +38,27 @@ def verify_hashes(expected: Mapping[Path, str]) -> None:
             raise ValueError(f"SHA-256 mismatch: {path}")
 
 
-_ANCHOR = "and positions[symbol] > 0"
+_ANCHOR = b"                                and positions[symbol] > 0\n"
+_BAND_CONDITION = (
+    b"                                target_weight > 0\n"
+    b"                                and abs(actual - target_weight)"
+)
+_BAND_CONDITION_VARIANT = (
+    b"                                target_weight > 0\n"
+    + _ANCHOR
+    + b"                                and abs(actual - target_weight)"
+)
+
+
+def _verify_bytes_hash(body: bytes, path: Path, expected: str) -> None:
+    if (
+        not isinstance(expected, str)
+        or len(expected) != hashlib.sha256().digest_size * 2
+        or any(character not in "0123456789abcdef" for character in expected)
+    ):
+        raise ValueError(f"invalid expected SHA-256 digest for {path}")
+    if hashlib.sha256(body).hexdigest() != expected:
+        raise ValueError(f"SHA-256 mismatch: {path}")
 
 
 def verify_unheld_entry_source(
@@ -49,33 +69,23 @@ def verify_unheld_entry_source(
 ) -> None:
     """Verify that the variant adds only the unheld-entry band guard.
 
-    Both files are hash checked first.  The source comparison then permits one
-    complete line containing the exact anchor and requires the remaining bytes
-    to be identical.
+    Both files are hash checked first.  The source comparison then permits the
+    exact anchor at the portfolio engine's unique band condition and requires
+    the complete resulting bytes to be identical.
     """
 
-    verify_hashes(
-        {original: expected_original_sha256, variant: expected_variant_sha256}
-    )
     original_bytes = _read(original)
     variant_bytes = _read(variant)
-    try:
-        original_lines = original_bytes.decode("utf-8").splitlines(keepends=True)
-        variant_lines = variant_bytes.decode("utf-8").splitlines(keepends=True)
-    except UnicodeDecodeError as error:
-        raise ValueError("source files must be UTF-8") from error
-
-    anchor_indexes = [
-        index for index, line in enumerate(variant_lines) if _ANCHOR in line
-    ]
-    if len(anchor_indexes) != 1:
-        raise ValueError("variant must contain exactly one band anchor")
-    if _ANCHOR in original_bytes.decode("utf-8"):
+    _verify_bytes_hash(original_bytes, original, expected_original_sha256)
+    _verify_bytes_hash(variant_bytes, variant, expected_variant_sha256)
+    if original_bytes.count(_BAND_CONDITION) != 1:
+        raise ValueError("original source must contain one unique band condition")
+    if original_bytes.count(_ANCHOR) != 0:
         raise ValueError("original source already contains the band anchor")
-    index = anchor_indexes[0]
-    if variant_lines[index].strip() != _ANCHOR:
-        raise ValueError("band anchor must be a single source line")
-    if variant_lines[:index] + variant_lines[index + 1 :] != original_lines:
+    expected_variant = original_bytes.replace(
+        _BAND_CONDITION, _BAND_CONDITION_VARIANT, 1
+    )
+    if variant_bytes != expected_variant:
         raise ValueError("variant contains an unexpected source change")
 
 
@@ -92,10 +102,10 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]
     return result
 
 
-def _strict_json(path: Path) -> object:
+def _strict_json(body: bytes, path: Path) -> object:
     try:
         return json.loads(
-            _read(path).decode("utf-8"),
+            body.decode("utf-8"),
             parse_constant=_reject_constant,
             object_pairs_hook=_reject_duplicate_keys,
         )
@@ -137,8 +147,9 @@ def verify_control_output(
 
     if not isinstance(actual, dict):
         raise ValueError("control output must be a JSON object")
-    verify_hashes({expected_path: expected_sha256})
-    expected = _strict_json(expected_path)
+    expected_bytes = _read(expected_path)
+    _verify_bytes_hash(expected_bytes, expected_path, expected_sha256)
+    expected = _strict_json(expected_bytes, expected_path)
     if not isinstance(expected, dict):
         raise ValueError("expected control output must be a JSON object")
     if not _same_json(actual, expected):

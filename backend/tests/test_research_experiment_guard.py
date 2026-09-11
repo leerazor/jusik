@@ -30,9 +30,15 @@ def test_hash_checks_are_read_only(tmp_path: Path) -> None:
 def test_unheld_entry_allows_only_the_anchor_line(tmp_path: Path) -> None:
     original = tmp_path / "original.py"
     variant = tmp_path / "variant.py"
-    original.write_text("if target_weight > 0:\n    trade()\n", encoding="utf-8")
+    original.write_text(
+        "                                target_weight > 0\n"
+        "                                and abs(actual - target_weight)",
+        encoding="utf-8",
+    )
     variant.write_text(
-        "if target_weight > 0:\n    and positions[symbol] > 0\n    trade()\n",
+        "                                target_weight > 0\n"
+        "                                and positions[symbol] > 0\n"
+        "                                and abs(actual - target_weight)",
         encoding="utf-8",
     )
     verify_unheld_entry_source(original, variant, _digest(original), _digest(variant))
@@ -58,17 +64,37 @@ def test_unheld_entry_uses_the_real_engine_as_read_only_original(
 def test_unheld_entry_rejects_duplicate_anchor_and_extra_change(tmp_path: Path) -> None:
     original = tmp_path / "original.py"
     variant = tmp_path / "variant.py"
-    original.write_text("base\n", encoding="utf-8")
-    variant.write_text("and positions[symbol] > 0\nextra\n", encoding="utf-8")
+    original.write_text(
+        "                                target_weight > 0\n"
+        "                                and abs(actual - target_weight)",
+        encoding="utf-8",
+    )
+    variant.write_text(
+        "                                target_weight > 0\n"
+        "                                and abs(actual - target_weight)\n"
+        "                                and positions[symbol] > 0",
+        encoding="utf-8",
+    )
     with pytest.raises(ValueError, match="unexpected"):
         verify_unheld_entry_source(
             original, variant, _digest(original), _digest(variant)
         )
-    variant.write_text(
-        "and positions[symbol] > 0\nand positions[symbol] > 0\nbase\n",
+    original.write_text(
+        "                                target_weight > 0\n"
+        "                                and abs(actual - target_weight)\n"
+        "                                target_weight > 0\n"
+        "                                and abs(actual - target_weight)",
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="exactly one"):
+    variant.write_text(
+        "                                target_weight > 0\n"
+        "                                and positions[symbol] > 0\n"
+        "                                and abs(actual - target_weight)\n"
+        "                                target_weight > 0\n"
+        "                                and abs(actual - target_weight)",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="unique"):
         verify_unheld_entry_source(
             original, variant, _digest(original), _digest(variant)
         )
