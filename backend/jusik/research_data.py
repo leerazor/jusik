@@ -3,6 +3,7 @@ import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from email.utils import parsedate_to_datetime
 from typing import Protocol
 
 import httpx
@@ -21,10 +22,54 @@ DAILY_PATH = "/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice"
 DAILY_TR_ID = "FHKST03010100"
 WARMUP_CALENDAR_DAYS = 180
 MIN_WARMUP_BARS = EngineSpecification().warmup_bars
+MAX_DAILY_ATTEMPTS = 3
+MAX_RETRY_AFTER_SECONDS = 5.0
+RETRYABLE_DAILY_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+SAFE_BUSINESS_CODES = frozenset({"1"})
 
 
 class DataInsufficientError(Exception):
     """Historical input cannot support a valid comparison."""
+
+
+class DataCollectionError(Exception):
+    """An external market data request failed before validation."""
+
+
+def _collection_message(
+    action: str,
+    attempts: int,
+    *,
+    status_code: int | None = None,
+    business_code: object = None,
+) -> str:
+    details = []
+    if status_code is not None:
+        details.append(f"HTTP {status_code}")
+    if isinstance(business_code, str) and business_code in SAFE_BUSINESS_CODES:
+        details.append(f"code {business_code}")
+    details.append(f"시도 {attempts}회")
+    return f"KIS 모의투자 {action}에 실패했습니다 ({', '.join(details)})."
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _retry_after_delay(value: str, default: float) -> float | None:
+    try:
+        delay = float(value)
+    except ValueError:
+        try:
+            retry_at = parsedate_to_datetime(value)
+        except (TypeError, ValueError, OverflowError):
+            return default
+        if retry_at.tzinfo is None:
+            return default
+        delay = max(0.0, (retry_at.astimezone(UTC) - _utc_now()).total_seconds())
+    if delay > MAX_RETRY_AFTER_SECONDS:
+        return None
+    return delay if delay >= 0 else default
 
 
 class HistoricalDataProvider(Protocol):
@@ -90,21 +135,26 @@ class KisPaperHistoricalData:
     async def _authenticate(self) -> str:
         if self._token is not None and time.monotonic() < self._token_expires_at:
             return self._token.get_secret_value()
-        response = await self.client.post(
-            "/oauth2/tokenP",
-            json={
-                "grant_type": "client_credentials",
-                "appkey": self.settings.app_key.get_secret_value(),
-                "appsecret": self.settings.app_secret.get_secret_value(),
-            },
-        )
+        try:
+            response = await self.client.post(
+                "/oauth2/tokenP",
+                json={
+                    "grant_type": "client_credentials",
+                    "appkey": self.settings.app_key.get_secret_value(),
+                    "appsecret": self.settings.app_secret.get_secret_value(),
+                },
+            )
+        except httpx.RequestError:
+            raise DataCollectionError(_collection_message("인증 통신", 1)) from None
         if response.status_code != 200:
-            raise DataInsufficientError("KIS 모의투자 인증에 실패했습니다.")
+            raise DataCollectionError(
+                _collection_message("인증", 1, status_code=response.status_code)
+            )
         try:
             token = _Token.model_validate(response.json())
         except (ValidationError, ValueError):
-            raise DataInsufficientError(
-                "KIS 모의투자 인증 응답을 검증할 수 없습니다."
+            raise DataCollectionError(
+                _collection_message("인증 응답 검증", 1)
             ) from None
         self._token = token.access_token
         self._token_expires_at = time.monotonic() + token.expires_in - 60
@@ -120,38 +170,86 @@ class KisPaperHistoricalData:
         *,
         adjusted: bool,
     ) -> tuple[list[_DailyRow], str | None]:
-        await asyncio.sleep(
-            max(
-                0,
-                self._request_interval_seconds
-                - (time.monotonic() - self._last_request),
+        response: httpx.Response | None = None
+        attempts = 0
+        for attempts in range(1, MAX_DAILY_ATTEMPTS + 1):
+            await asyncio.sleep(
+                max(
+                    0,
+                    self._request_interval_seconds
+                    - (time.monotonic() - self._last_request),
+                )
             )
-        )
-        self._last_request = time.monotonic()
-        response = await self.client.get(
-            DAILY_PATH,
-            params={
-                "FID_COND_MRKT_DIV_CODE": "J",
-                "FID_INPUT_ISCD": symbol,
-                "FID_INPUT_DATE_1": start.strftime("%Y%m%d"),
-                "FID_INPUT_DATE_2": end.strftime("%Y%m%d"),
-                "FID_PERIOD_DIV_CODE": "D",
-                "FID_ORG_ADJ_PRC": "0" if adjusted else "1",
-            },
-            headers={
-                "authorization": f"Bearer {token}",
-                "appkey": self.settings.app_key.get_secret_value(),
-                "appsecret": self.settings.app_secret.get_secret_value(),
-                "tr_id": DAILY_TR_ID,
-                "custtype": "P",
-            },
-        )
+            self._last_request = time.monotonic()
+            try:
+                response = await self.client.get(
+                    DAILY_PATH,
+                    params={
+                        "FID_COND_MRKT_DIV_CODE": "J",
+                        "FID_INPUT_ISCD": symbol,
+                        "FID_INPUT_DATE_1": start.strftime("%Y%m%d"),
+                        "FID_INPUT_DATE_2": end.strftime("%Y%m%d"),
+                        "FID_PERIOD_DIV_CODE": "D",
+                        "FID_ORG_ADJ_PRC": "0" if adjusted else "1",
+                    },
+                    headers={
+                        "authorization": f"Bearer {token}",
+                        "appkey": self.settings.app_key.get_secret_value(),
+                        "appsecret": self.settings.app_secret.get_secret_value(),
+                        "tr_id": DAILY_TR_ID,
+                        "custtype": "P",
+                    },
+                )
+            except (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError):
+                if attempts == MAX_DAILY_ATTEMPTS:
+                    raise DataCollectionError(
+                        _collection_message("일봉 조회 통신", attempts)
+                    ) from None
+                await asyncio.sleep(float(attempts))
+                continue
+            except httpx.RequestError:
+                raise DataCollectionError(
+                    _collection_message("일봉 조회 통신", attempts)
+                ) from None
+
+            if response.status_code not in RETRYABLE_DAILY_STATUS_CODES:
+                break
+            if attempts == MAX_DAILY_ATTEMPTS:
+                break
+            delay = float(attempts)
+            retry_after = response.headers.get("Retry-After")
+            if retry_after is not None:
+                parsed_delay = _retry_after_delay(retry_after, delay)
+                if parsed_delay is None:
+                    break
+                delay = parsed_delay
+            await asyncio.sleep(delay)
+
+        if response is None:
+            raise DataCollectionError(_collection_message("일봉 조회 통신", attempts))
         if response.status_code != 200:
-            raise DataInsufficientError("KIS 모의투자 일봉 조회에 실패했습니다.")
+            raise DataCollectionError(
+                _collection_message(
+                    "일봉 조회", attempts, status_code=response.status_code
+                )
+            )
         try:
             payload = response.json()
-            if not isinstance(payload, dict) or payload.get("rt_cd") != "0":
-                raise ValueError
+        except ValueError:
+            raise DataCollectionError(
+                _collection_message("일봉 응답 검증", attempts)
+            ) from None
+        if not isinstance(payload, dict):
+            raise DataCollectionError(_collection_message("일봉 응답 검증", attempts))
+        if payload.get("rt_cd") != "0":
+            raise DataCollectionError(
+                _collection_message(
+                    "일봉 조회",
+                    attempts,
+                    business_code=payload.get("rt_cd"),
+                )
+            )
+        try:
             output = payload.get("output2")
             if not isinstance(output, list):
                 raise ValueError
@@ -168,11 +266,17 @@ class KisPaperHistoricalData:
                 value = metadata.get("rprs_mrkt_kor_name")
                 if isinstance(value, str):
                     market = value.strip()
-            return [_DailyRow.model_validate(row) for row in output], market
-        except (ValidationError, ValueError, TypeError):
+        except (ValueError, TypeError):
+            raise DataCollectionError(
+                _collection_message("일봉 응답 검증", attempts)
+            ) from None
+        try:
+            rows = [_DailyRow.model_validate(row) for row in output]
+        except (ValidationError, TypeError):
             raise DataInsufficientError(
                 "KIS 모의투자 일봉 응답을 검증할 수 없습니다."
             ) from None
+        return rows, market
 
     async def _series(
         self,
