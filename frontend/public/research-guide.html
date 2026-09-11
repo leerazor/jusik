@@ -11,7 +11,7 @@
     header,main { width:min(920px,calc(100% - 32px)); margin:auto; }
     header { display:flex; justify-content:space-between; align-items:center; padding:22px 0; }
     a { color:var(--green); font-weight:700; }
-    .back { border:1px solid var(--green); border-radius:10px; padding:8px 13px; text-decoration:none; white-space:nowrap; }
+    .back { display:inline-flex; align-items:center; min-height:44px; border:1px solid var(--green); border-radius:10px; padding:8px 13px; text-decoration:none; white-space:nowrap; }
     .hero { padding:42px; border-radius:24px; color:white; background:linear-gradient(135deg,#143d2c,#247653); }
     .hero h1 { margin:6px 0 12px; font-size:clamp(30px,6vw,52px); line-height:1.15; }
     .hero p { max-width:680px; margin:0; color:#dcebe3; }
@@ -28,7 +28,7 @@
     .card strong { display:block; margin-bottom:4px; color:var(--green); }
     .callout { border-left:4px solid var(--green); padding:12px 16px; background:var(--soft); }
     nav { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 0; }
-    nav a { padding:7px 11px; border-radius:999px; color:white; background:#ffffff1f; text-decoration:none; }
+    nav a { display:inline-flex; align-items:center; min-height:44px; padding:7px 11px; border-radius:999px; color:white; background:#ffffff1f; text-decoration:none; }
     table { width:100%; border-collapse:collapse; font-size:14px; }
     th,td { padding:10px; border-bottom:1px solid var(--line); text-align:left; }
     footer { padding:20px 0 48px; color:var(--muted); font-size:13px; }
@@ -48,29 +48,30 @@
     <div class="hero">
       <div class="eyebrow">PAPER RESEARCH GUIDE</div>
       <h1>전략 연구, 이 순서로 시작하세요.</h1>
-      <p>연구, 실시간 가격 확인, 앱 내부 모의 체결의 역할을 구분하면 화면을 안전하게 사용할 수 있습니다.</p>
-      <nav aria-label="안내 목차"><a href="#first-five">처음 5분</a><a href="#results">결과 읽기</a><a href="#faq">자주 묻는 문제</a></nav>
+      <p>백테스트 한 번부터 저장·비교·반복 검증과 앱 모의 운용까지, 실제 화면 순서대로 설명합니다.</p>
+      <nav aria-label="안내 목차"><a href="#first-five">처음 5분</a><a href="#repeat">정기 반복</a><a href="#results">결과 읽기</a><a href="#paper">앱 모의 운용</a><a href="#faq">자주 묻는 문제</a></nav>
     </div>
 
     <section id="first-five">
       <h2>처음 5분</h2>
       <ol>
-        <li><code>대상 저장</code>을 눌러 6자리 국내 종목 코드 1~10개를 저장합니다. 예: 삼성전자(005930), SK하이닉스(000660)의 입력값은 <code>005930, 000660</code>입니다. 현재 종목명 검색 입력은 지원하지 않으며, 종목명은 첫 일봉 수집 뒤 표시될 수 있습니다.</li>
-        <li><code>현재 설정으로 지금 실행</code>을 눌러 저장한 대상과 기간으로 연구를 시작합니다.</li>
-        <li><code>최근 실행</code>에서 상태가 <code>완료</code>인 항목을 열어 수익률, 낙폭, 비용, 거래 수를 비교합니다.</li>
-        <li>운영할 검증 전략을 골라 <code>Paper 전략으로 선택</code>을 누릅니다. 추천 표시만으로 자동 선택되지 않습니다.</li>
-        <li><code>연결 켜기</code>로 읽기 전용 실시간 시세를 연결합니다. 신호가 생기면 내용을 읽고 <code>Paper 체결 승인</code> 또는 <code>거절</code>을 누릅니다.</li>
+        <li><code>과거 데이터로 검증하기</code>에서 6자리 국내 종목 코드와 날짜를 입력합니다. 예: 삼성전자(005930), SK하이닉스(000660)의 입력값은 <code>005930, 000660</code>입니다. 종목명 검색 입력은 지원하지 않습니다.</li>
+        <li>필요하면 <code>자금·비용 및 고급 조건</code>을 열어 가정을 바꾸고 <code>백테스트 실행</code>을 누릅니다.</li>
+        <li><code>검증 결과 확인하기</code>의 <code>검증 결과 목록</code>에서 완료된 항목을 엽니다.</li>
+        <li>수익률, 최대 낙폭, 비용과 거래 수를 비교합니다. 여기까지가 기본 사용 흐름입니다.</li>
+        <li>원할 때만 정기 반복이나 앱 모의 운용을 설정합니다.</li>
       </ol>
       <p>연구 대상은 실제 보유 종목일 필요가 없습니다.</p>
-      <p class="callout">승인은 증권사 주문 승인이 아닙니다. 체결은 이 앱의 paper 원장에만 기록됩니다.</p>
+      <p class="callout">백테스트는 과거 검증 한 번입니다. 전략 연구는 같은 엔진의 결과를 저장·비교하고 반복 검증해 앱 모의 운용까지 이어가는 과정입니다.</p>
     </section>
 
-    <section>
-      <h2>수동 연구와 정기 연구</h2>
+    <section id="repeat">
+      <h2>저장한 종목을 정기적으로 검증하기</h2>
       <div class="grid">
-        <div class="card"><strong>수동 연구</strong><code>새 백테스트</code>에서 종목, 날짜, 초기 현금과 비용을 직접 정한 뒤 <code>연구 실행</code>을 누릅니다.</div>
-        <div class="card"><strong>정기 연구</strong><code>정기 연구 사용</code>, 실행 간격, 검증 기간을 저장합니다. 다음 예정 시각에 같은 대상의 새 일봉을 수집합니다.</div>
+        <div class="card"><strong>수동 연구</strong><code>과거 데이터로 검증하기</code>에서 종목과 날짜를 정한 뒤 <code>백테스트 실행</code>을 누릅니다. 이 입력은 정기 연구 대상을 바꾸지 않습니다.</div>
+        <div class="card"><strong>정기 연구</strong><code>저장한 종목을 정기적으로 검증하기</code>에서 <code>대상 저장</code>, <code>정기 연구 사용</code>, 실행 간격과 검증 기간을 저장합니다.</div>
       </div>
+      <p>정기 실행은 저장한 종목과 검증 기간, 기본 자금·비용 가정을 사용합니다. 수동 백테스트에서 바꾼 자금·비용과 시장 이벤트 입력은 이어받지 않습니다.</p>
       <p>두 방식 모두 KIS 모의투자 일봉을 사용합니다. 정기 실행의 평가 기간은 서로 겹칠 수 있으므로 매번 완전히 새로운 표본이라고 볼 수 없습니다.</p>
     </section>
 
@@ -90,10 +91,12 @@
       <p>위 값은 설명용 가상 숫자입니다. 후보가 기준보다 수익률이 높고 낙폭이 낮아 합격해도 두 전략 모두 손실일 수 있습니다.</p>
     </section>
 
-    <section>
+    <section id="paper">
       <h2>확정 일봉 신호와 실시간 가격</h2>
+      <p>먼저 <code>앱 모의 전략으로 선택</code>을 눌러 전략을 직접 고르고, <code>연결 켜기</code>로 읽기 전용 시세를 연결합니다. 추천 표시는 자동 선택이나 자동 체결을 뜻하지 않습니다.</p>
       <p>전략의 매수·매도 방향은 장이 끝난 확정 일봉으로 계산합니다. 실시간 KIS 체결가는 그 방향을 새 장중 전략으로 바꾸지 않습니다. 현재 가격이 제안의 가격 한도 안인지 확인하고, 승인 직전 시세가 신선한지 검증하는 데 사용합니다.</p>
-      <p>연결이 끊기거나 시세가 지연되거나 확정 일봉 근거가 바뀌면 paper 승인을 처리하지 않습니다.</p>
+      <p>제안 내용을 확인한 뒤 <code>모의 체결 승인</code> 또는 <code>거절</code>을 누릅니다. 연결이 끊기거나 시세가 지연되거나 확정 일봉 근거가 바뀌면 승인을 처리하지 않습니다.</p>
+      <p class="callout">승인은 증권사 주문 승인이 아닙니다. 체결은 이 앱의 모의 원장에만 기록됩니다.</p>
     </section>
 
     <section>
@@ -102,14 +105,14 @@
         <li>API 키, 모델, 일일 예산이 없으면 OpenAI 검토는 <code>꺼짐</code>입니다. 결정론적 연구는 계속 동작합니다.</li>
         <li>켜진 경우 AI는 제한된 이동평균·거래량 파라미터 후보만 제안합니다.</li>
         <li>제안 생성 뒤 새 거래일 20개 이상을 모은 후속 구간에서 기준 전략과 비교합니다.</li>
-        <li>합격해도 자동으로 paper 운영에 적용되지 않습니다. 사용자가 <code>Paper 전략으로 선택</code>해야 합니다.</li>
+        <li>합격해도 자동으로 앱 모의 운영에 적용되지 않습니다. 사용자가 <code>앱 모의 전략으로 선택</code>해야 합니다.</li>
       </ol>
       <p>AI는 합격 판정, 실행 코드 작성, 주문 실행을 맡지 않습니다.</p>
     </section>
 
     <section id="faq">
       <h2>자주 묻는 문제</h2>
-      <h3>제안이 없습니다</h3><p>완료된 최근 일봉, 선택된 paper 전략, 해당 종목의 진입·청산 조건이 모두 필요합니다. 조건이 유지 중이면 같은 신호를 반복해서 만들지 않습니다.</p>
+      <h3>제안이 없습니다</h3><p>완료된 최근 일봉, 선택된 앱 모의 전략, 해당 종목의 진입·청산 조건이 모두 필요합니다. 조건이 유지 중이면 같은 신호를 반복해서 만들지 않습니다.</p>
       <h3>실시간 시세가 지연으로 표시됩니다</h3><p>30초 동안 새 체결이 없으면 지연으로 표시합니다. 장 시작 전이나 휴장일에는 실제 체결 tick이 없을 수 있습니다.</p>
       <h3>거절하거나 만료한 제안이 다시 생기지 않습니다</h3><p>같은 전략, 확정 일봉, 신호 입력은 다시 제안하지 않습니다. 새 확정 일봉이나 실제 신호 입력 변화가 있어야 새 제안이 가능합니다.</p>
       <h3>승인이 거부됩니다</h3><p>만료, 가격 한도 이탈, 오래된 시세, 전략 변경, 현금·포지션 부족, 최신 일봉 근거 변경을 확인하세요.</p>
@@ -121,7 +124,7 @@
         <li>국내주식 일봉 추세·거래량과 KIS 체결가만 다룹니다.</li>
         <li>재무·업종 상대가치, 과거 뉴스·공시 backfill, 배당·총수익률, 호가잔량·부분 체결은 아직 포함하지 않습니다.</li>
         <li>공식 KRX 거래일 달력이 없어 모든 종목에 함께 빠진 일봉을 휴장일과 구분하지 못합니다.</li>
-        <li>모든 체결은 앱 내부 paper 시뮬레이션입니다. 실제 증권사 주문 경로는 없습니다.</li>
+        <li>모든 체결은 앱 내부 모의 시뮬레이션입니다. 실제 증권사 주문 경로는 없습니다.</li>
       </ul>
     </section>
   </main>

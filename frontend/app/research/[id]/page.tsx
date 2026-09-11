@@ -90,7 +90,7 @@ export default async function ResearchRunPage({ params, searchParams }: PageProp
   if (unavailable) {
     return (
       <main>
-        <header><Link href="/research" className="brand"><span className="mark">J</span> jusik</Link></header>
+        <header><Link href="/research" className="brand"><span className="mark">J</span> jusik</Link><Link href="/research" className="secondary-button">검증 결과 목록</Link></header>
         <section className="notice" role="alert"><h2>연구 백엔드에 연결할 수 없습니다</h2><p>서비스 실행 상태를 확인한 뒤 다시 시도하세요.</p></section>
       </main>
     );
@@ -101,32 +101,34 @@ export default async function ResearchRunPage({ params, searchParams }: PageProp
 
   return (
     <main>
-      <header>
+      <header className="research-result-header">
         <Link href="/research" className="brand">
           <span className="mark">J</span> jusik
-          <span className="brand-sub">연구 결과</span>
+          <span className="brand-sub">백테스트 결과</span>
         </Link>
         <div className="action-row">
-          <a className="secondary-button" href="/research-guide.html">사용 안내</a>
+          <Link className="secondary-button" href="/research">검증 결과 목록</Link>
+          <a className="secondary-button" href="/research-guide.html">사용 안내 보기</a>
           <span className="badge">연구 전용 · 실전 반영 불가</span>
         </div>
       </header>
       <section className="intro research-intro">
         <div>
           <p className="eyebrow">RUN {run.id.slice(0, 8)}</p>
-          <h1>{run.request.start_date}–{run.request.end_date}</h1>
-          <p className="muted">{run.request.symbols.map((symbol) => researchSymbolLabel(symbol, symbolNames)).join(" · ")}</p>
+          <h1>백테스트 결과</h1>
+          <p className="muted">{run.request.start_date}–{run.request.end_date} · {run.request.symbols.map((symbol) => researchSymbolLabel(symbol, symbolNames)).join(" · ")}</p>
         </div>
         <div className="action-row">
           <Refresh />
           {run.input_hash && (
             <form action={replayResearchRun}>
               <input type="hidden" name="id" value={run.id} />
-              <button type="submit" className="secondary-button">같은 입력 재생</button>
+              <button type="submit" className="secondary-button">저장된 데이터로 다시 검증</button>
             </form>
           )}
         </div>
       </section>
+      {run.input_hash && <p className="basis replay-note">다시 검증은 저장된 입력과 일봉을 사용하며 새 시세를 받지 않습니다.</p>}
 
       {query.error && <section className="notice" role="alert"><h2>재생을 시작하지 못했습니다</h2></section>}
       {run.error && <section className="notice" role="alert"><h2>{run.status === "insufficient" ? "검증 불충분" : "연구 실패"}</h2><p>{run.error}</p></section>}
@@ -179,12 +181,12 @@ export default async function ResearchRunPage({ params, searchParams }: PageProp
           </section>
 
           <section className="panel research-section">
-            <div className="section-title simple"><h2>기준 전략 거래 재생</h2><span className="muted">최근 체결부터 표시</span></div>
+            <div className="section-title simple"><h2>기준 전략 모의 거래 내역</h2><span className="muted">최근 체결부터 표시</span></div>
             <TradeTable data={result.baseline} symbolNames={symbolNames} />
           </section>
 
           <section className="panel research-section">
-            <div className="section-title simple"><h2>후보 전략 거래 재생</h2><span className="muted">최근 체결부터 표시</span></div>
+            <div className="section-title simple"><h2>후보 전략 모의 거래 내역</h2><span className="muted">최근 체결부터 표시</span></div>
             <TradeTable data={result.candidate} symbolNames={symbolNames} />
           </section>
 

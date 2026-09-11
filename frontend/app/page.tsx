@@ -96,6 +96,17 @@ export default async function Home() {
         </div>
         <Refresh />
       </section>
+      <section className="home-research-cta" aria-labelledby="research-cta-title">
+        <div>
+          <p className="eyebrow">PAPER RESEARCH</p>
+          <h2 id="research-cta-title">과거 데이터로 전략을 검증해 보세요.</h2>
+          <p>보유 종목과 관계없이 백테스트하고, 결과를 저장해 반복 비교할 수 있습니다.</p>
+        </div>
+        <div className="action-row">
+          <Link href="/research" className="primary-link">전략 연구 시작</Link>
+          <a href="/research-guide.html" className="secondary-button">사용 안내 보기</a>
+        </div>
+      </section>
       <div className="meta">
         <span>{updated ? `마지막 조회 ${updated} KST` : "계좌 연결 대기"}</span>
         <span>수동 갱신 · 30초 캐시</span>
