@@ -4,23 +4,36 @@
 
 ## 활성 작업
 
+없습니다.
+
+## 완료 작업
+
 ### entry-attribution
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 고정된 미보유 진입 실험 32개의 종목별 회계 손익 및 월별 포트폴리오 손익·거래·비용을 독립 재계산하고 16쌍의 차이를 웹에 공개합니다. 재계산 잔차는 0.000001원 이하여야 합니다.
 - 담당 Luna: `/root/work_attribution`
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-entry-attribution`
 - 작업 브랜치: `feat/entry-attribution`
-- 기준 커밋: `3bf4375` 이후 이 등록을 포함한 커밋
+- 기준 커밋: `ff607a7`
 - 통합 대상: 로컬 `main`
 - 입력과 선행 작업: 이전 32회 `unheld-entry-real32`의 고정 results/preregistration SHA 및 개별 artifact SHA. explore와 plan 완료
 - 수정 허용 범위: 새 `research_entry_attribution.py`, 해당 테스트, `docs/research-entry-attribution.md`만 수정합니다. 전략·엔진·PAPER·API·UI는 변경하지 않습니다.
 - 포트·테스트 DB·출력 경로: 서버·DB 없음. 전용 `.venv`와 `validation/` 사용, 기존 입력은 읽기 전용
 - 검증 방법: 종목·월 합계와 기존 지표의 일치, split 현금정산·비용·UTC 경계·변조·누락·중복·불완전 입력 테스트, 실제 32개/16쌍 분석, 결정성 비교, Ruff·mypy·독립 review·main 통합 검증
 - 보존 증거: `20260911T185925Z-entry-attribution/before.json`
-- 결과 커밋·병합·웹 게시·handoff: 완료 후 기록
+- 결과 커밋: `603d50f61182b939c1d23d1083b135748c285d26`
+- 병합 직전 main: `ff607a7`; 코드 통합 `e893698`, 최종 코드 상태 `d59a095a1d5d54421868865f0cb09b4321c880ef`
+- 이력 보존: 작업자가 최초 리뷰 커밋 `6040b37`을 amend한 사실을 확인했습니다. 감독은 최종 검토 트리를 유지하면서 최초 스냅샷도 추가 병합의 조상으로 보존했고 이후 수정은 새 커밋으로 남기도록 재지시했습니다. 최종 트리는 검토한 `603d50f`와 동일합니다.
+- 검증 결과: 신규 12개·관련 41개 테스트, 독립 리뷰 통과. main 전체 pytest 510개(기존 경고 2개), Ruff check/format 112개 파일, mypy 72개 소스 통과. UI 미변경으로 빌드는 미실행
+- 실제 결과: 32개 artifact / 16쌍 / 종목 222행 / 월 126행. 별도 계산과 손익 값 1,044개가 정확히 일치하고 최대 회계 잔차는 `2.4375E-31 KRW`. 전용 두 실행 및 main 재실행의 산출물 4개가 동일
+- 해석: 체결 금액에는 슬리피지가 반영돼 있으므로 수수료와 FX 비용만 현금흐름에서 차감합니다. 내재 슬리피지는 별도 표시합니다. 회계 귀속을 추가 매매의 인과적 이익이나 MDD 원인으로 해석하지 않습니다.
+- 웹: `/research/history`의 `entry-attribution-20260912`. 판단·상세 보고서·종목/월 전체 CSV·검증 보고서 5개, API/웹 다운로드 10개 SHA와 화면 제목 확인. 이전 51개 이력과 78개 artifact 보존
+- 보존: 고정 파일 19개·원장 9개 테이블·계약 mtime·GPU 프로세스 상태 일치. 운영 전략과 PAPER 계약 미변경
+- 산출물·정리: 워크트리 `validation/real-run-13`, `real-run-14` 및 영구 audit `20260911T185925Z-entry-attribution/verified-analysis`, `main-analysis`. 독립 환경과 재현 자료를 위해 워크트리를 보존하며 미커밋 소스·작업 서버는 없음
+- handoff: 기준 저장소 `HANDOFF.md` 최신 기여 분석 절 갱신. 이번 범위에서 원격 push·PR은 수행하지 않음
 
-## 완료 작업
+## 이전 완료 작업
 
 ## experiment-guard
 
