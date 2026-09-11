@@ -31,6 +31,10 @@ systemctl --user enable --now jusik-development-runner.timer
 
 이 절차는 설치 예시이며 실행기가 자동으로 패키지나 systemd unit을 설치하지 않습니다. WSL을 종료하면 user service도 중지되므로 재시작 후 `OnBootSec` 재실행과 상태를 확인합니다. WSL에서 로그인하지 않아도 실행하려면 사용자가 별도로 `loginctl enable-linger "$USER"`를 검토해야 합니다.
 
+## 병렬 개발과 정리
+
+실행기는 supervisor 사이클을 한 번에 하나만 실행합니다. 각 supervisor는 독립적인 하위 작업이 있으면 작업별 워크트리와 Luna 담당자를 배정해 최대 4명까지 병렬로 진행합니다. 선행 결과가 필요한 작업은 순서대로 실행하고, `main` 병합과 통합 검증은 감독이 순차 수행합니다. 병합한 워크트리는 [워크트리 운영 절차](worktree-workflow.md#정리)에 따라 결과물을 보관한 뒤 제거합니다. 이 원칙은 현재 큐와 이후 후속 작업에 동일하게 적용됩니다.
+
 ## 상태와 수동 제어
 
 ```bash
