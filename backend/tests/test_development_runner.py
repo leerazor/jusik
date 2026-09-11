@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
+import threading
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -10,7 +12,9 @@ import pytest
 from jusik.development_runner import (
     RunnerConfig,
     _next_task,
+    _safe_history_flush,
     init_config,
+    pause_runner,
     run_once,
     validate_completion,
 )
@@ -159,7 +163,8 @@ def test_run_once_fake_codex_success_preserves_private_result(tmp_path: Path) ->
     fake = tmp_path / "fake-codex.py"
     fake.write_text(
         """#!/usr/bin/env python3
-import hashlib, json, pathlib, subprocess, sys
+import hashlib, json, pathlib, subprocess, sys, time
+time.sleep(2)
 output = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])
 repo = pathlib.Path(sys.argv[sys.argv.index('-C') + 1])
 attempt = output.parent.name
@@ -242,6 +247,9 @@ def test_timeout_marks_attempt_failed_without_retrying_implicitly(
         pid = 100_001
         returncode = None
 
+        def poll(self) -> None:
+            return None
+
         def communicate(self, _prompt: bytes, timeout: int) -> None:
             raise subprocess.TimeoutExpired("fake", timeout)
 
@@ -269,3 +277,182 @@ def test_timeout_marks_attempt_failed_without_retrying_implicitly(
     task = RunnerStore(state / "runner.db", history).task("task-a")
     assert task is not None and task.status == "failed"
     assert _next_task(RunnerStore(state / "runner.db", history)) is None
+
+
+def test_live_previous_group_fails_closed_before_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    task = store.task("task-a")
+    assert task is not None
+    store.claim(task, "attempt-a", tmp_path / "out", tmp_path / "err")
+    store.set_process_group("attempt-a", 7777)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        cooldown_seconds=0,
+    )
+    monkeypatch.setattr(
+        "jusik.development_runner._process_group_alive", lambda _group: True
+    )
+    result = run_once(config)
+    assert result.status == "blocked"
+    assert store.task("task-a").status == "running"  # type: ignore[union-attr]
+
+
+def test_competing_lock_does_not_mutate_alternate_state_db(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+    )
+    monkeypatch.setattr(
+        "jusik.development_runner.fcntl.flock",
+        lambda *_args: (_ for _ in ()).throw(BlockingIOError()),
+    )
+    result = run_once(config)
+    assert result.status == "busy"
+    task = RunnerStore(state / "runner.db", history).task("task-a")
+    assert task is not None and task.status == "queued" and task.attempt_count == 0
+
+
+def test_history_outbox_retries_without_duplicate_delivery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db", tmp_path / "history")
+    store.add_outbox("event-a", "task-a", "attempt-a", "completed")
+    calls: list[str] = []
+
+    class FailingOnce:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            self.failed = False
+
+        def record(self, **kwargs: object) -> None:
+            if not self.failed:
+                self.failed = True
+                raise OSError("temporary journal failure")
+            calls.append(str(kwargs["outcome"]))
+
+    fake = FailingOnce()
+    monkeypatch.setattr(
+        "jusik.development_runner.HistoryRepository", lambda *_args, **_kwargs: fake
+    )
+    config = RunnerConfig(
+        repo=tmp_path,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+    )
+    _safe_history_flush(store, config)
+    assert store.outbox_pending()
+    _safe_history_flush(store, config)
+    _safe_history_flush(store, config)
+    assert store.outbox_pending() == []
+    assert calls == ["completed"]
+
+
+def test_quota_and_cooldown_gate_real_dispatch(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    now = datetime.now(UTC).isoformat()
+    quota_state = tmp_path / "quota-state"
+    quota_history = tmp_path / "quota-history"
+    quota_store = RunnerStore(quota_state / "runner.db", quota_history)
+    quota_store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    quota_store.record_launch(now)
+    quota_config = RunnerConfig(
+        repo=repo,
+        state_dir=quota_state,
+        history_dir=quota_history,
+        history_db=tmp_path / "quota.db",
+        daily_launches=1,
+    )
+    assert run_once(quota_config).status == "quota"
+    assert quota_store.task("task-a").status == "queued"  # type: ignore[union-attr]
+
+    cooldown_state = tmp_path / "cooldown-state"
+    cooldown_history = tmp_path / "cooldown-history"
+    cooldown_store = RunnerStore(cooldown_state / "runner.db", cooldown_history)
+    cooldown_store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    cooldown_store.set_meta("last_launch_at", now)
+    cooldown_config = RunnerConfig(
+        repo=repo,
+        state_dir=cooldown_state,
+        history_dir=cooldown_history,
+        history_db=tmp_path / "cooldown.db",
+        cooldown_seconds=3600,
+    )
+    assert run_once(cooldown_config).status == "cooldown"
+    assert cooldown_store.task("task-a").status == "queued"  # type: ignore[union-attr]
+
+
+def test_pause_and_stop_callback_interrupt_owned_child(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "sleep-codex.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n", encoding="utf-8"
+    )
+    fake.chmod(0o700)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        cooldown_seconds=0,
+    )
+    stop = threading.Event()
+    result_box: list[object] = []
+
+    def worker() -> None:
+        result_box.append(run_once(config, stop.is_set))
+
+    worker_thread = threading.Thread(target=worker)
+    worker_thread.start()
+    for _ in range(100):
+        active = store.active_attempt()
+        if active is not None and active.process_group_id is not None:
+            break
+        time.sleep(0.02)
+    stop.set()
+    worker_thread.join(timeout=10)
+    assert not worker_thread.is_alive()
+    assert result_box[0].status == "interrupted"  # type: ignore[union-attr]
+    assert store.task("task-a").status == "interrupted"  # type: ignore[union-attr]
+
+    assert store.retry("task-a")
+    store.resume()
+    paused_box: list[object] = []
+
+    def paused_worker() -> None:
+        paused_box.append(run_once(config))
+
+    paused_thread = threading.Thread(target=paused_worker)
+    paused_thread.start()
+    for _ in range(100):
+        active = store.active_attempt()
+        if active is not None and active.process_group_id is not None:
+            break
+        time.sleep(0.02)
+    pause_runner(config)
+    paused_thread.join(timeout=10)
+    assert not paused_thread.is_alive()
+    assert paused_box[0].status == "paused"  # type: ignore[union-attr]
+    assert store.task("task-a").status == "interrupted"  # type: ignore[union-attr]

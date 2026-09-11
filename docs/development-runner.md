@@ -52,4 +52,4 @@ cd backend
 .venv/bin/python -m jusik.development_runner run-once --config ~/.config/jusik/development-runner.json
 ```
 
-실행 전 local `main` branch와 tracked clean 상태가 필요합니다. untracked `HANDOFF.md`만 허용합니다. 저장소 공통 Git 디렉터리의 고정 lock이 다른 실행을 막아 SQLite와 무관하게 저장소 작업을 직렬화합니다. 각 cycle은 한 task만 처리하고, timeout·pause·SIGTERM은 process group을 정리한 뒤 시도 상태를 남깁니다.
+실행 전 local `main` branch와 tracked clean 상태가 필요합니다. untracked `HANDOFF.md`만 허용합니다. 저장소 공통 Git 디렉터리의 고정 lock이 다른 실행을 막아 SQLite와 무관하게 저장소 작업을 직렬화합니다. Codex invocation에는 연구 자료와 의존성 설치를 위한 workspace network 설정을 명시하지만 brokerage 주문 권한은 제공하지 않습니다. 각 cycle은 한 task만 처리하고, timeout·pause·SIGTERM은 소유한 process group을 정리한 뒤 시도 상태를 남깁니다. 실행 중인 이전 process group을 확인할 수 있으면 새 작업을 시작하지 않고 blocked 상태로 보존합니다.

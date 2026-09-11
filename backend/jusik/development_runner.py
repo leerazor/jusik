@@ -10,8 +10,10 @@ import os
 import re
 import signal
 import subprocess
+import threading
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -403,13 +405,36 @@ def _terminate_group(group_id: int | None, force: bool = False) -> None:
 
 def _stop_process(process: subprocess.Popen[bytes]) -> None:
     """Stop only the process group owned by this live attempt."""
-    group_id = os.getpgid(process.pid)
+    if process.poll() is not None:
+        return
+    try:
+        group_id = os.getpgid(process.pid)
+    except ProcessLookupError:
+        return
+    if group_id != process.pid or process.poll() is not None:
+        return
     _terminate_group(group_id)
     try:
         process.wait(timeout=30)
     except subprocess.TimeoutExpired:
         _terminate_group(group_id, force=True)
-        process.wait(timeout=5)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            return
+
+
+def _process_group_alive(group_id: int | None) -> bool:
+    """Conservatively detect an orphaned prior child before recovery."""
+    if group_id is None or group_id <= 1 or group_id == os.getpgrp():
+        return False
+    try:
+        os.killpg(group_id, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def pause_runner(config: RunnerConfig) -> None:
@@ -424,7 +449,9 @@ def resume_runner(config: RunnerConfig) -> None:
     _record_control_event(store, config, "resumed")
 
 
-def run_once(config: RunnerConfig) -> RunResult:
+def run_once(
+    config: RunnerConfig, stop_requested: Callable[[], bool] | None = None
+) -> RunResult:
     common = _git_common(config.repo)
     lock_path = common / "development-runner.lock"
     with lock_path.open("a+") as lock:
@@ -434,6 +461,14 @@ def run_once(config: RunnerConfig) -> RunResult:
         except BlockingIOError:
             return RunResult("busy")
         store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+        active = store.active_attempt()
+        if active is not None and _process_group_alive(active.process_group_id):
+            return RunResult(
+                "blocked",
+                active.task_id,
+                active.id,
+                "previous attempt process group is still alive",
+            )
         _safe_history_flush(store, config)
         interrupted = store.recover_running()
         if interrupted:
@@ -498,6 +533,8 @@ def run_once(config: RunnerConfig) -> RunResult:
             str(config.history_dir.parent),
             "--add-dir",
             str(config.artifact_dir),
+            "-c",
+            "sandbox_workspace_write.network_access=true",
             "--json",
             "--output-schema",
             str(schema_path),
@@ -527,14 +564,24 @@ def run_once(config: RunnerConfig) -> RunResult:
                 return RunResult("failed", task.id, attempt_id, "dispatch_error")
             store.set_process_group(attempt_id, os.getpgid(process.pid))
             deadline = time.monotonic() + config.timeout_seconds
+            input_payload: bytes | None = prompt.encode()
             while True:
-                if store.is_paused():
+                if store.is_paused() or (
+                    stop_requested is not None and stop_requested()
+                ):
                     _stop_process(process)
                     store.finish(
-                        attempt_id, task.id, "interrupted", failure_code="paused"
+                        attempt_id,
+                        task.id,
+                        "interrupted",
+                        failure_code="paused" if store.is_paused() else "signal",
                     )
                     _safe_history_flush(store, config)
-                    return RunResult("paused", task.id, attempt_id)
+                    return RunResult(
+                        "paused" if store.is_paused() else "interrupted",
+                        task.id,
+                        attempt_id,
+                    )
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     _stop_process(process)
@@ -542,14 +589,25 @@ def run_once(config: RunnerConfig) -> RunResult:
                     _safe_history_flush(store, config)
                     return RunResult("failed", task.id, attempt_id, "timeout")
                 try:
-                    process.communicate(prompt.encode(), timeout=min(1, remaining))
+                    process.communicate(input_payload, timeout=min(1, remaining))
+                    input_payload = None
                 except subprocess.TimeoutExpired:
+                    input_payload = None
                     continue
                 break
-        if store.is_paused():
-            store.finish(attempt_id, task.id, "interrupted", failure_code="paused")
+        if store.is_paused() or (stop_requested is not None and stop_requested()):
+            store.finish(
+                attempt_id,
+                task.id,
+                "interrupted",
+                failure_code="paused" if store.is_paused() else "signal",
+            )
             _safe_history_flush(store, config)
-            return RunResult("paused", task.id, attempt_id)
+            return RunResult(
+                "paused" if store.is_paused() else "interrupted",
+                task.id,
+                attempt_id,
+            )
         if process.returncode != 0:
             store.finish(attempt_id, task.id, "failed", failure_code="codex_exit")
             _safe_history_flush(store, config)
@@ -664,7 +722,18 @@ def main(argv: list[str] | None = None) -> int:
         resume_runner(config)
         print(json.dumps({"status": "resumed"}, ensure_ascii=False))
         return 0
-    result = run_once(config)
+    stop_event = threading.Event()
+
+    def request_stop(_signum: int, _frame: Any) -> None:
+        stop_event.set()
+
+    previous_term = signal.signal(signal.SIGTERM, request_stop)
+    previous_int = signal.signal(signal.SIGINT, request_stop)
+    try:
+        result = run_once(config, stop_event.is_set)
+    finally:
+        signal.signal(signal.SIGTERM, previous_term)
+        signal.signal(signal.SIGINT, previous_int)
     print(json.dumps(asdict(result), ensure_ascii=False))
     return (
         0
