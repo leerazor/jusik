@@ -6,19 +6,24 @@
 
 ## experiment-guard
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 실험 엔진의 허용된 단일 변경과 대조군 전체 JSON 일치를 검증하는 읽기 전용 helper를 구현하고 독립 검토 및 main 통합 검증을 통과합니다.
 - 담당 Luna: `/root/work_guard`
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-experiment-guard`
 - 작업 브랜치: `feat/experiment-guard`
-- 기준 커밋 SHA: `2d255285b5b801a898f67718cf793bbf20fb0cf6` 이후 이 등록 항목을 포함한 커밋
+- 기준 커밋 SHA: `e663641`
 - 통합 대상 브랜치: 로컬 `main`
 - 입력과 선행 작업: `20260911T060908Z-rebalance-band/next-hypothesis.md`, 조사 및 계획 완료
 - 수정 허용 범위: `backend/jusik/research_experiment_guard.py`, 해당 테스트, `docs/research-experiment-guard.md`
-- 포트·테스트 DB·출력 경로: 서버와 DB 없음. 전용 워크트리 `.venv`, pytest 임시 경로 및 `validation/` 사용
-- 검증 명령과 결과: pytest, Ruff check/format, mypy 및 독립 review 예정
+- 포트·테스트 DB·출력 경로: 서버와 DB 없음. 전용 워크트리 `.venv` 및 pytest 임시 경로 사용
+- 검증 명령과 결과: focused pytest 9개, Ruff check/format, mypy 통과. 독립 review의 두 P2 수정 후 재검토 통과. main 병합 후 같은 검사 통과
 - 보존 기준: 운영 엔진·원장·평가 계약·GPU 서비스 미변경. 시작 증거는 `20260911T132132Z-worktree-development/before.json`
-- 결과 커밋 SHA·통합 검증·handoff: 완료 후 기록
+- 결과 커밋 SHA: `41e3bbbac8f573a840d53d366cdef543af277792`
+- 병합 직전 main SHA: `e663641`
+- 통합 커밋 SHA: `8e421e55f2648455f6325b87738c48e12ceb0b79`
+- 통합 보존 검사: 고정 파일 19개, 원장 9개 테이블, 계약 mtime, GPU PID·재시작 상태 일치
+- 워크트리: 독립 환경과 검토 증거를 남기기 위해 이번 묶음 완료까지 보존. 작업 서버 없음
+- handoff: 기준 저장소 `HANDOFF.md`의 워크트리 개발 절
 
 ## unheld-entry-experiment
 
@@ -29,7 +34,7 @@
 
 ## 첫 운영 검증
 
-아직 수행하지 않았습니다. 첫 실제 개발 작업에서 운영 절차의 첫 운영 검증 항목을 확인하고 결과를 기록합니다.
+`experiment-guard`에서 완료했습니다. 운영 문서와 등록부를 기준 커밋에 포함했고, Luna가 전용 폴더·브랜치·가상환경에서 구현했습니다. 독립 검토, Astra의 로컬 main 병합, 통합 검사와 운영 상태 보존 검사를 통과했으며 handoff를 기록했습니다. 서버·DB·포트는 사용하지 않았습니다.
 
 ## 완료 작업
 
