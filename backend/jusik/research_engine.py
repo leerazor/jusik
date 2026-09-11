@@ -1,5 +1,6 @@
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from decimal import ROUND_FLOOR, ROUND_HALF_EVEN, Decimal, localcontext
@@ -26,16 +27,26 @@ from jusik.research_models import (
     UnfilledDecision,
     ValidationComparison,
 )
+from jusik.research_risk import ResearchRiskPolicy, ResearchRiskReport
 from jusik.research_strategy import (
     BASELINE_DEFINITION,
     CANDIDATE_DEFINITION,
     target_for_definition,
     target_invested,
 )
+from jusik.research_universe_models import (
+    CorporateActionEffect,
+    ExternalStrategyResult,
+    OfflineResearchRequest,
+    OfflineResearchSnapshot,
+)
 
 KST = ZoneInfo("Asia/Seoul")
 PERCENT = Decimal("100")
 ENGINE_SPECIFICATION = EngineSpecification()
+SignalFunction = Callable[[str, tuple[DailyBar, ...]], bool]
+SignalRequest = ResearchRunRequest | OfflineResearchRequest
+SignalSnapshot = ResearchInputSnapshot | OfflineResearchSnapshot
 
 
 def canonical_hash(value: object) -> str:
@@ -45,14 +56,19 @@ def canonical_hash(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def snapshot_hash(snapshot: ResearchInputSnapshot) -> str:
+def snapshot_hash(snapshot: ResearchInputSnapshot | OfflineResearchSnapshot) -> str:
     return canonical_hash(snapshot.model_dump(mode="json"))
 
 
 def implementation_hash() -> str:
     digest = hashlib.sha256()
     for path in sorted(
-        [Path(__file__), Path(__file__).with_name("research_strategy.py")]
+        [
+            Path(__file__),
+            Path(__file__).with_name("research_risk.py"),
+            Path(__file__).with_name("research_strategy.py"),
+            Path(__file__).with_name("research_universe_models.py"),
+        ]
     ):
         digest.update(path.name.encode())
         digest.update(path.read_bytes())
@@ -87,6 +103,8 @@ class _PortfolioState:
     fees: Decimal = Decimal()
     tax: Decimal = Decimal()
     slippage: Decimal = Decimal()
+    risk_latched: bool = False
+    corporate_action_effects: list[CorporateActionEffect] = field(default_factory=list)
 
 
 def _event_time(event: MarketEvent, field_name: str) -> datetime | None:
@@ -156,13 +174,35 @@ def _portfolio_equity(
     return value
 
 
+def _position_exposures(
+    state: _PortfolioState,
+    bars_today: dict[str, DailyBar],
+    *,
+    use_open: bool,
+) -> dict[str, Decimal]:
+    exposures: dict[str, Decimal] = {}
+    for symbol, quantity in state.positions.items():
+        bar = bars_today.get(symbol)
+        price = (
+            bar.open
+            if use_open and bar is not None
+            else bar.close
+            if bar is not None
+            else state.last_close.get(symbol)
+        )
+        if price is not None:
+            exposures[symbol] = Decimal(quantity) * price
+    return exposures
+
+
 def _execute_sell(
     state: _PortfolioState,
-    request: ResearchRunRequest,
+    request: SignalRequest,
     trading_date: date,
     symbol: str,
     bar: DailyBar,
     signal_date: date,
+    rationale: str | None = None,
 ) -> None:
     quantity = state.positions.get(symbol, 0)
     if quantity <= 0:
@@ -188,31 +228,38 @@ def _execute_sell(
             notional=notional,
             fee=fee,
             tax=tax,
-            rationale="신호일 종가에서 전략의 추세 조건이 더 이상 성립하지 않았습니다.",
+            rationale=rationale
+            or "신호일 종가에서 전략의 추세 조건이 더 이상 성립하지 않았습니다.",
         )
     )
 
 
 def _execute_buy(
     state: _PortfolioState,
-    request: ResearchRunRequest,
+    request: SignalRequest,
     trading_date: date,
     symbol: str,
     bar: DailyBar,
     position_cap: Decimal,
     signal_date: date,
+    risk_budget: Decimal | None = None,
 ) -> None:
     execution_price = bar.open * (Decimal(1) + request.slippage_rate)
     unit_cash = execution_price * (Decimal(1) + request.fee_rate)
     budget = min(state.cash, position_cap)
+    if risk_budget is not None:
+        budget = min(budget, risk_budget)
     quantity = int((budget / unit_cash).to_integral_value(rounding=ROUND_FLOOR))
     if quantity <= 0:
+        reason = "가용 현금이 1주 매수 비용보다 적습니다."
+        if risk_budget is not None and risk_budget < unit_cash:
+            reason = "연구용 진입 위험 한도 안에서 1주를 매수할 수 없습니다."
         state.unfilled.append(
             UnfilledDecision(
                 date=trading_date,
                 symbol=symbol,
                 side="buy",
-                reason="가용 현금이 1주 매수 비용보다 적습니다.",
+                reason=reason,
             )
         )
         return
@@ -262,12 +309,22 @@ def _metrics(state: _PortfolioState, initial_cash: Decimal) -> StrategyMetrics:
 
 
 def _run_strategy(
-    request: ResearchRunRequest,
-    snapshot: ResearchInputSnapshot,
+    request: SignalRequest,
+    snapshot: SignalSnapshot,
     version: str,
     definition: str,
     strategy_definition: StrategyDefinition | None = None,
+    signal: SignalFunction | None = None,
+    defer_events: bool | None = None,
+    risk_policy: ResearchRiskPolicy | None = None,
+    risk_report: ResearchRiskReport | None = None,
 ) -> StrategyResult:
+    if risk_report is not None and risk_policy is None:
+        raise ValueError("risk_report requires risk_policy.")
+    if risk_report is not None and risk_report.policy != risk_policy:
+        raise ValueError("risk_report policy does not match risk_policy.")
+    if risk_policy is not None and risk_report is None:
+        risk_report = ResearchRiskReport.start(risk_policy, request.initial_cash)
     series = {
         item.symbol: sorted(item.bars, key=lambda bar: bar.date)
         for item in snapshot.symbols
@@ -287,6 +344,14 @@ def _run_strategy(
     if not trading_dates:
         raise DataInsufficientError("비교 기간에 거래일이 없습니다.")
     state = _PortfolioState(cash=request.initial_cash)
+    external_snapshot = (
+        snapshot if isinstance(snapshot, OfflineResearchSnapshot) else None
+    )
+    actions_by_date = (
+        {action.date: action for action in external_snapshot.corporate_actions}
+        if external_snapshot is not None
+        else {}
+    )
     for symbol, bars in series.items():
         prior = [
             index for index, bar in enumerate(bars) if bar.date < request.start_date
@@ -294,7 +359,9 @@ def _run_strategy(
         if len(prior) < ENGINE_SPECIFICATION.warmup_bars:
             raise DataInsufficientError(f"{symbol}의 준비 일봉이 60개보다 적습니다.")
         desired = (
-            target_for_definition(strategy_definition, bars, prior[-1])
+            signal(symbol, tuple(bars[: prior[-1] + 1]))
+            if signal is not None
+            else target_for_definition(strategy_definition, bars, prior[-1])
             if strategy_definition is not None
             else target_invested(version, bars, prior[-1])
         )
@@ -308,6 +375,46 @@ def _run_strategy(
             for symbol, bars in series.items()
             if trading_date in indexes[symbol]
         }
+        action = actions_by_date.get(trading_date)
+        if action is not None:
+            assert external_snapshot is not None
+            symbol = external_snapshot.instruments[0].symbol
+            bar = bars_today.get(symbol)
+            if bar is None:
+                raise DataInsufficientError(
+                    "기업행동일의 원주가 시가를 확인할 수 없습니다."
+                )
+            quantity_before = state.positions.get(symbol, 0)
+            exact_quantity = Decimal(quantity_before) * action.factor
+            quantity_after = int(exact_quantity.to_integral_value(rounding=ROUND_FLOOR))
+            fractional_quantity = exact_quantity - Decimal(quantity_after)
+            cash_in_lieu = fractional_quantity * bar.open
+            if quantity_before:
+                state.cash += cash_in_lieu
+                if quantity_after:
+                    state.positions[symbol] = quantity_after
+                else:
+                    state.positions.pop(symbol, None)
+            if symbol in state.last_close:
+                state.last_close[symbol] /= action.factor
+            state.corporate_action_effects.append(
+                CorporateActionEffect(
+                    date=trading_date,
+                    symbol=symbol,
+                    factor=action.factor,
+                    quantity_before=quantity_before,
+                    quantity_after=quantity_after,
+                    fractional_quantity=fractional_quantity,
+                    cash_in_lieu=cash_in_lieu,
+                )
+            )
+        if risk_report is not None:
+            risk_report.observe_exposure(
+                trading_date,
+                "open",
+                _portfolio_equity(state, bars_today, use_open=True),
+                _position_exposures(state, bars_today, use_open=True),
+            )
         for symbol in sorted(state.pending):
             if state.pending[symbol] or symbol not in state.positions:
                 continue
@@ -337,12 +444,21 @@ def _run_strategy(
                 symbol,
                 bar,
                 state.signal_dates[symbol],
+                (
+                    "종가 기준 낙폭 한도에 도달해 연구용 위험 정책이 청산을 "
+                    "요청했습니다."
+                    if state.risk_latched
+                    else None
+                ),
             )
             state.pending.pop(symbol, None)
             state.signal_dates.pop(symbol, None)
 
         open_equity = _portfolio_equity(state, bars_today, use_open=True)
         position_cap = open_equity / Decimal(len(series))
+        opening_exposures = _position_exposures(state, bars_today, use_open=True)
+        opening_position_exposure = sum(opening_exposures.values(), Decimal())
+        cash_before_buys = state.cash
         for symbol in sorted(state.pending):
             if not state.pending[symbol] or symbol in state.positions:
                 continue
@@ -365,7 +481,10 @@ def _run_strategy(
                     )
                 )
                 continue
-            if version == CANDIDATE_VERSION:
+            should_defer_events = defer_events
+            if should_defer_events is None:
+                should_defer_events = version == CANDIDATE_VERSION or signal is not None
+            if should_defer_events:
                 deferred = _defer_event(state, snapshot.events, trading_date, market)
                 if deferred is not None:
                     event_index, event = deferred
@@ -385,6 +504,21 @@ def _run_strategy(
                         )
                     )
                     continue
+            risk_budget: Decimal | None = None
+            if risk_policy is not None:
+                same_open_cash_debit = cash_before_buys - state.cash
+                total_capacity = max(
+                    Decimal(),
+                    open_equity * risk_policy.max_total_entry_exposure
+                    - opening_position_exposure
+                    - same_open_cash_debit,
+                )
+                symbol_capacity = max(
+                    Decimal(),
+                    open_equity * risk_policy.max_symbol_entry_exposure
+                    - opening_exposures.get(symbol, Decimal()),
+                )
+                risk_budget = min(total_capacity, symbol_capacity)
             _execute_buy(
                 state,
                 request,
@@ -393,6 +527,7 @@ def _run_strategy(
                 bar,
                 position_cap,
                 state.signal_dates[symbol],
+                risk_budget,
             )
             if symbol in state.positions:
                 state.pending.pop(symbol, None)
@@ -400,16 +535,39 @@ def _run_strategy(
 
         for symbol, bar in bars_today.items():
             state.last_close[symbol] = bar.close
+        close_equity = _portfolio_equity(state, bars_today, use_open=False)
         state.equity.append(
-            EquityPoint(
-                date=trading_date,
-                equity=_portfolio_equity(state, bars_today, use_open=False),
-                cash=state.cash,
-            )
+            EquityPoint(date=trading_date, equity=close_equity, cash=state.cash)
         )
+        if risk_report is not None:
+            risk_report.observe_exposure(
+                trading_date,
+                "close",
+                close_equity,
+                _position_exposures(state, bars_today, use_open=False),
+            )
+            if risk_report.observe_close(trading_date, close_equity):
+                state.risk_latched = True
+                for symbol in [
+                    pending_symbol
+                    for pending_symbol, desired in state.pending.items()
+                    if desired
+                ]:
+                    state.pending.pop(symbol, None)
+                    state.signal_dates.pop(symbol, None)
+                for symbol in state.positions:
+                    state.pending[symbol] = False
+                    state.signal_dates[symbol] = trading_date
+        if state.risk_latched:
+            continue
         for symbol, bar in bars_today.items():
             desired = (
-                target_for_definition(
+                signal(
+                    symbol,
+                    tuple(series[symbol][: indexes[symbol][bar.date] + 1]),
+                )
+                if signal is not None
+                else target_for_definition(
                     strategy_definition,
                     series[symbol],
                     indexes[symbol][bar.date],
@@ -425,7 +583,9 @@ def _run_strategy(
                 state.pending.pop(symbol, None)
                 state.signal_dates.pop(symbol, None)
 
-    return StrategyResult(
+    if risk_report is not None:
+        risk_report.finish(state.positions)
+    result = StrategyResult(
         strategy_version=version,
         definition=definition,
         metrics=_metrics(state, request.initial_cash),
@@ -435,6 +595,15 @@ def _run_strategy(
         unfilled_decisions=state.unfilled,
         open_positions=state.positions,
     )
+    if isinstance(snapshot, OfflineResearchSnapshot):
+        return ExternalStrategyResult(
+            **result.model_dump(),
+            currency=snapshot.instruments[0].instrument.currency,
+            price_basis=snapshot.price_basis,
+            dividend_policy=snapshot.dividend_policy,
+            corporate_action_effects=state.corporate_action_effects,
+        )
+    return result
 
 
 def _run_backtest(
@@ -607,4 +776,38 @@ def run_definition_backtest(
             definition.version,
             definition.definition,
             definition,
+        )
+
+
+def run_signal_backtest(
+    request: SignalRequest,
+    snapshot: SignalSnapshot,
+    *,
+    strategy_version: str,
+    definition: str,
+    signal: SignalFunction,
+    defer_events: bool = True,
+    risk_policy: ResearchRiskPolicy | None = None,
+    risk_report: ResearchRiskReport | None = None,
+) -> StrategyResult:
+    """Run a causal close-bar signal through the shared Decimal execution engine."""
+    if (
+        request.start_date < snapshot.requested_start
+        or request.end_date > snapshot.requested_end
+    ):
+        raise DataInsufficientError("입력 스냅샷과 요청 기간이 다릅니다.")
+    if sorted(request.symbols) != sorted(item.symbol for item in snapshot.symbols):
+        raise DataInsufficientError("입력 스냅샷과 요청 종목이 다릅니다.")
+    with localcontext() as context:
+        context.prec = ENGINE_SPECIFICATION.decimal_precision
+        context.rounding = ROUND_HALF_EVEN
+        return _run_strategy(
+            request,
+            snapshot,
+            strategy_version,
+            definition,
+            signal=signal,
+            defer_events=defer_events,
+            risk_policy=risk_policy,
+            risk_report=risk_report,
         )

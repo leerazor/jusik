@@ -71,6 +71,7 @@ def test_api_runs_lists_and_replays_immutable_snapshot(
         db_path=tmp_path / "unused.db",
     )
     app = create_research_app(
+        action_collection_enabled=False,
         settings=settings,
         store=store,
         provider=StubProvider(),
@@ -132,6 +133,7 @@ def test_api_rejects_future_end_and_replay_without_snapshot(tmp_path: Path) -> N
         base_url=PAPER_BASE_URL,
     )
     app = create_research_app(
+        action_collection_enabled=False,
         settings=settings,
         store=store,
         provider=StubProvider(),
@@ -216,6 +218,7 @@ def test_operations_api_updates_independent_universe_and_paper_strategy(
         db_path=tmp_path / "research.db",
     )
     app = create_research_app(
+        action_collection_enabled=False,
         settings=settings,
         store=store,
         provider=StubProvider(),
@@ -267,6 +270,7 @@ def test_operations_api_returns_conflict_for_unvalidated_ai_strategy(
         db_path=tmp_path / "research.db",
     )
     app = create_research_app(
+        action_collection_enabled=False,
         settings=settings,
         store=run_store,
         provider=StubProvider(),

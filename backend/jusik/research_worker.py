@@ -1,11 +1,16 @@
 import asyncio
 from collections.abc import Awaitable, Callable
 
-from jusik.research_data import DataInsufficientError, HistoricalDataProvider
+from jusik.research_data import (
+    DataCollectionError,
+    DataInsufficientError,
+    HistoricalDataProvider,
+)
 from jusik.research_engine import run_backtest, snapshot_hash
 from jusik.research_store import ResearchStore
 
 CompletedHandler = Callable[[str], Awaitable[None]]
+TerminalHandler = Callable[[str, str], Awaitable[None]]
 
 
 class ResearchWorker:
@@ -14,12 +19,14 @@ class ResearchWorker:
         store: ResearchStore,
         provider: HistoricalDataProvider,
         on_completed: CompletedHandler | None = None,
+        on_terminal: TerminalHandler | None = None,
     ) -> None:
         self.store = store
         self.provider = provider
         self._queue: asyncio.Queue[str] = asyncio.Queue(maxsize=10)
         self._task: asyncio.Task[None] | None = None
         self._on_completed = on_completed
+        self._on_terminal = on_terminal
         self._enqueued: set[str] = set()
 
     def start(self) -> None:
@@ -78,8 +85,13 @@ class ResearchWorker:
                     # Deterministic research remains completed even when an optional
                     # post-processing integration fails.
                     pass
+            await self._notify_terminal(run_id, "completed")
+        except DataCollectionError as exc:
+            self.store.fail(run_id, "failed", str(exc))
+            await self._notify_terminal(run_id, "failed")
         except DataInsufficientError as exc:
             self.store.fail(run_id, "insufficient", str(exc))
+            await self._notify_terminal(run_id, "insufficient")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -88,3 +100,13 @@ class ResearchWorker:
                 "failed",
                 "연구 실행에 실패했습니다. 모의 시세 서비스와 입력값을 확인하세요.",
             )
+            await self._notify_terminal(run_id, "failed")
+
+    async def _notify_terminal(self, run_id: str, outcome: str) -> None:
+        if self._on_terminal is None:
+            return
+        try:
+            await self._on_terminal(run_id, outcome)
+        except Exception:
+            # Journal failures cannot change immutable research outcomes.
+            pass
