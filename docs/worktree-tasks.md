@@ -6,14 +6,14 @@
 
 ### development-runner
 
-- 상태: 준비
+- 상태: 진행
 - 목표와 완료 조건: 지속 개발 실행기를 설치하고 영속 큐, 중복 실행 방지, 중지/재개, 시간·실행 횟수 한도, 웹 이력 표시와 실제 Codex 실행을 검증합니다.
-- 담당 Luna: `/root/work_autodev` (계획 확정 후 배정)
+- 담당 Luna: `/root/work_attribution` (새 작업으로 재배정)
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-development-runner`
 - 작업 브랜치: `feat/development-runner`
-- 기준 커밋: 이 등록부를 포함한 준비 커밋
+- 기준 커밋: `cb075f2b09d2dbbfa55c5c58ba2dfca6dcb72313`
 - 통합 대상: 로컬 `main`
-- 입력과 선행 작업: explore 완료, plan 진행. Codex CLI 로그인과 Astra 비대화형 shell 실행 검증 완료
+- 입력과 선행 작업: explore·plan 완료. Codex CLI 로그인과 Astra 비대화형 shell 실행 검증 완료
 - 수정 허용 범위: 신규 실행기·상태 저장·테스트·systemd 템플릿·운영 문서. 기존 거래 엔진·PAPER·GPU 변경 금지
 - 포트·테스트 DB·출력 경로: 새 포트 없음. 작업별 `.venv`와 `validation/`, 테스트 DB는 임시 경로
 - 검증: 큐 전이·잠금·중단 복구·시간 한도·결과 검증·공개 문구, 독립 review, main 통합 검사, 서비스 설치·웹 확인
