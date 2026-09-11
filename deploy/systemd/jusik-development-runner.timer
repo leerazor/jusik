@@ -1,0 +1,11 @@
+[Unit]
+Description=Run one Jusik development cycle when the previous unit is inactive
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=120s
+Persistent=true
+Unit=jusik-development-runner.service
+
+[Install]
+WantedBy=timers.target

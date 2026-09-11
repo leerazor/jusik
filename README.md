@@ -199,6 +199,10 @@ npm run build
 
 ## GitHub
 
+## 지속 개발 실행기
+
+systemd user timer로 제한된 연구 작업을 직렬 실행하는 도구의 설정과 운영 절차는 [지속 개발 실행기 문서](docs/development-runner.md)를 참고하세요.
+
 remote가 없으면 README나 license 없이 빈 비공개 GitHub 저장소를 만듭니다. 그 뒤 `git remote add origin https://github.com/YOUR_USERNAME/jusik.git`로 URL을 설정합니다. Git을 아직 초기화하지 않았다면 먼저 `git init -b main`을 실행합니다.
 
 커밋 전 `git status --short`, `git check-ignore .env.prod .env.dev`를 실행하고 `git diff --cached`를 확인합니다. 프로젝트 코드와 자리표시자 설정만 stage 합니다. 첫 커밋은 `git push -u origin main`으로 push 합니다. 무시된 환경 파일을 강제로 추가하지 마세요. 이 설정은 커밋·원격 저장소 생성·push를 자동으로 하지 않습니다.

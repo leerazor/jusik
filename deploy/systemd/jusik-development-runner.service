@@ -1,0 +1,14 @@
+[Unit]
+Description=Jusik continuous development runner (one bounded cycle)
+After=default.target
+
+[Service]
+Type=exec
+WorkingDirectory=%h/projects/jusik/backend
+ExecStart=%h/projects/jusik/backend/.venv/bin/python -m jusik.development_runner run-once --config %h/.config/jusik/development-runner.json
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+UMask=0077
+Restart=no
+KillMode=control-group
+RuntimeMaxSec=95min
+TimeoutStopSec=30
