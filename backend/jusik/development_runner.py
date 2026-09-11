@@ -562,7 +562,12 @@ def run_once(
                 )
                 _safe_history_flush(store, config)
                 return RunResult("failed", task.id, attempt_id, "dispatch_error")
-            store.set_process_group(attempt_id, os.getpgid(process.pid))
+            try:
+                process_group_id = os.getpgid(process.pid)
+            except ProcessLookupError:
+                process_group_id = None
+            if process_group_id is not None:
+                store.set_process_group(attempt_id, process_group_id)
             deadline = time.monotonic() + config.timeout_seconds
             input_payload: bytes | None = prompt.encode()
             while True:
