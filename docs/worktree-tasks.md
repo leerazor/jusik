@@ -4,7 +4,21 @@
 
 ## 활성 작업
 
-없습니다. 이번 묶음의 두 작업을 완료했습니다.
+### entry-attribution
+
+- 상태: 진행
+- 목표와 완료 조건: 고정된 미보유 진입 실험 32개의 종목별 회계 손익 및 월별 포트폴리오 손익·거래·비용을 독립 재계산하고 16쌍의 차이를 웹에 공개합니다. 재계산 잔차는 0.000001원 이하여야 합니다.
+- 담당 Luna: `/root/work_attribution`
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-entry-attribution`
+- 작업 브랜치: `feat/entry-attribution`
+- 기준 커밋: `3bf4375` 이후 이 등록을 포함한 커밋
+- 통합 대상: 로컬 `main`
+- 입력과 선행 작업: 이전 32회 `unheld-entry-real32`의 고정 results/preregistration SHA 및 개별 artifact SHA. explore와 plan 완료
+- 수정 허용 범위: 새 `research_entry_attribution.py`, 해당 테스트, `docs/research-entry-attribution.md`만 수정합니다. 전략·엔진·PAPER·API·UI는 변경하지 않습니다.
+- 포트·테스트 DB·출력 경로: 서버·DB 없음. 전용 `.venv`와 `validation/` 사용, 기존 입력은 읽기 전용
+- 검증 방법: 종목·월 합계와 기존 지표의 일치, split 현금정산·비용·UTC 경계·변조·누락·중복·불완전 입력 테스트, 실제 32개/16쌍 분석, 결정성 비교, Ruff·mypy·독립 review·main 통합 검증
+- 보존 증거: `20260911T185925Z-entry-attribution/before.json`
+- 결과 커밋·병합·웹 게시·handoff: 완료 후 기록
 
 ## 완료 작업
 
