@@ -112,3 +112,20 @@
 ## 첫 운영 검증
 
 `experiment-guard`에서 완료했습니다. 운영 문서와 등록부를 기준 커밋에 포함했고, Luna가 전용 폴더·브랜치·가상환경에서 구현했습니다. 독립 검토, Astra의 로컬 main 병합, 통합 검사와 운영 상태 보존 검사를 통과했으며 handoff를 기록했습니다. 서버·DB·포트는 사용하지 않았습니다.
+
+## runner-git-access
+
+- 상태: 진행
+- 목표와 완료 조건: 자동 실행기의 Git 메타데이터 쓰기를 명시적으로 허용하고 실제 Codex의 워크트리 생성·커밋·main 병합·정리 및 보호 경로 차단을 검증한 뒤 기존 작업을 재개합니다.
+- 담당 Luna: `/root/work_attribution`
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-runner-git-access`
+- 작업 브랜치: `fix/runner-git-access`
+- 기준 커밋 SHA: 이 등록 항목을 포함한 준비 커밋(부모 `256421a`)
+- 통합 대상 브랜치: 로컬 `main`
+- 입력과 선행 작업: 조사·계획 완료. 실제 Codex named permissions profile 쓰기 시험 통과
+- 수정 허용 범위: development_runner.py, 관련 테스트, docs/development-runner.md
+- 포트·테스트 DB·출력 경로: 전용 venv와 validation. 운영 runner는 pause 상태. 영구 audit `20260911T234908Z-runner-git-access/`
+- 검증 명령과 결과: pytest, Ruff, strict mypy 및 실제 Codex Git lifecycle 검증 예정
+- 검토 결과와 남은 문제: 독립 review 예정. 글로벌 사용자 설정·quota·기존 산출물·PAPER·GPU 보존
+- 통합 커밋 SHA와 정리 여부: 통합 검증 후 archive 및 worktree 제거 예정
+- handoff 저장 경로와 갱신 여부: 기준 저장소 HANDOFF.md 완료 시 갱신
