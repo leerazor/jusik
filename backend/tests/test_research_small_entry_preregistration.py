@@ -18,7 +18,7 @@ from jusik.research_small_entry_preregistration import (
     draft_sha256,
     main,
     missing_decisions,
-    planned_notional_krw,
+    write_draft,
 )
 
 
@@ -159,11 +159,21 @@ def test_entry_classification_and_notional_accounting() -> None:
     assert classify_entry(Decimal("2")) == "additional_buy"
     assert classify_entry(None) == "unknown"
     assert classify_entry(-1) == "unknown"
-    assert planned_notional_krw(3, Decimal("100.10"), Decimal("1300")) == Decimal(
-        "390390"
+
+
+def test_forged_model_copy_is_rejected_before_canonical_export(tmp_path: Path) -> None:
+    draft = SmallEntryPreregistrationDraft()
+    forged_status = draft.model_copy(update={"status": "registered"})
+    forged_activation = draft.model_copy(update={"runtime_activation_allowed": True})
+    forged_limits = draft.risk_limits.model_copy(
+        update={"user_max_loss_pct": Decimal("999")}
     )
-    with pytest.raises(ValueError):
-        planned_notional_krw(0, 100, 1300)
+    forged_nested = draft.model_copy(update={"risk_limits": forged_limits})
+    for forged in (forged_status, forged_activation, forged_nested):
+        with pytest.raises(ValidationError):
+            canonical_bytes(forged)
+        with pytest.raises(ValidationError):
+            write_draft(forged, tmp_path / "forged")
 
 
 def test_cli_writes_three_files_and_refuses_nonempty_output(tmp_path: Path) -> None:

@@ -458,19 +458,6 @@ def classify_entry(
     return "additional_buy"
 
 
-def planned_notional_krw(
-    quantity: int | Decimal,
-    local_price: Decimal | int | float | str,
-    fx_rate: Decimal | int | float | str,
-) -> Decimal:
-    """Calculate pre-decision planned KRW notional, excluding costs."""
-
-    quantity_decimal = _decimal(quantity, "quantity", positive=True)
-    price_decimal = _decimal(local_price, "local_price", positive=True)
-    fx_decimal = _decimal(fx_rate, "fx_rate", positive=True)
-    return quantity_decimal * price_decimal * fx_decimal
-
-
 def missing_decisions(draft: SmallEntryPreregistrationDraft) -> dict[str, object]:
     draft = _validated_draft(draft)
     fields = (
