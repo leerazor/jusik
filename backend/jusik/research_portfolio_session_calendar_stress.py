@@ -395,6 +395,9 @@ def run_simulation_gate(
         audit_dir=audit_dir / "calendar-engine",
         adapter=adapter,
     )
+    (audit_dir / "calendar-engine" / "simulation.json").write_text(
+        result.model_dump_json(indent=2), encoding="utf-8"
+    )
     pristine = load_isolated_engine(audit_dir / "pristine-engine")
     control = pristine.simulate(source, candidate, start, end, config, policy)
     # For a normal-session fixture, all serialized fields must match exactly.
@@ -457,36 +460,72 @@ def reconcile_decimal_accounting(
 def replay_trade_ledger(
     source: PortfolioInput, simulation: Any, config: PortfolioConfig
 ) -> Decimal:
-    """Recompute trade execution fields from raw opens and independent FX rows."""
+    """Reconstruct cash, quantities, splits, costs, and terminal NAV independently."""
     instruments = {
         item.instruments[0].symbol: item.instruments[0] for item in source.instruments
     }
     observations = sorted(
         source.external.observations, key=lambda row: row.available_at
     )
+    bars = {
+        symbol: {bar.date: bar for bar in item.bars}
+        for symbol, item in instruments.items()
+    }
+    actions = {
+        snapshot.instruments[0].symbol: {
+            action.date: action for action in snapshot.corporate_actions
+        }
+        for snapshot in source.instruments
+    }
+    quantities = {symbol: 0 for symbol in instruments}
+    cash = config.initial_cash_krw
+    split_cash = {symbol: Decimal(0) for symbol in instruments}
+    processed_actions: set[tuple[str, date]] = set()
     residual = Decimal(0)
-    for trade in simulation.trades:
+
+    def fx_at(at: datetime, currency: str) -> Decimal:
+        if currency == "KRW":
+            return Decimal(1)
+        rows = [
+            row
+            for row in observations
+            if row.series == "usdkrw" and row.available_at <= at
+        ]
+        if not rows:
+            raise CalendarStressError("ledger_missing_fx")
+        return rows[-1].value
+
+    for trade in sorted(simulation.trades, key=lambda row: row.executed_at):
         item = instruments[trade.symbol]
-        bar = next(
-            (
-                bar
-                for bar in item.bars
-                if bar.date == trade.executed_at.astimezone(UTC).date()
-            ),
-            None,
-        )
+        trade_day = trade.executed_at.astimezone(UTC).date()
+        for symbol, action_rows in actions.items():
+            for action_day in sorted(
+                day
+                for day in action_rows
+                if day <= trade_day and (symbol, day) not in processed_actions
+            ):
+                action = action_rows[action_day]
+                if action_day not in bars[symbol]:
+                    continue
+                exact = Decimal(quantities[symbol]) * action.factor
+                whole = int(exact.to_integral_value(rounding="ROUND_FLOOR"))
+                fraction = exact - whole
+                if fraction:
+                    split_value = (
+                        fraction
+                        * bars[symbol][action_day].open
+                        * fx_at(
+                            trade.executed_at, instruments[symbol].instrument.currency
+                        )
+                    )
+                    cash += split_value
+                    split_cash[symbol] += split_value
+                quantities[symbol] = whole
+                processed_actions.add((symbol, action_day))
+        bar = bars[trade.symbol].get(trade_day)
         if bar is None:
             raise CalendarStressError(f"ledger_missing_raw_open:{trade.symbol}")
-        fx = Decimal(1)
-        if item.instrument.currency == "USD":
-            rows = [
-                row
-                for row in observations
-                if row.series == "usdkrw" and row.available_at <= trade.executed_at
-            ]
-            if not rows:
-                raise CalendarStressError("ledger_missing_fx")
-            fx = rows[-1].value
+        fx = fx_at(trade.executed_at, item.instrument.currency)
         multiplier = (
             Decimal(1) - config.slippage_rate
             if trade.side == "sell"
@@ -494,13 +533,72 @@ def replay_trade_ledger(
         )
         expected_price = bar.open * multiplier
         expected_notional = Decimal(trade.quantity) * expected_price * fx
-        residual += abs(trade.local_price - expected_price)
-        residual += abs(trade.notional_krw - expected_notional)
-        if item.instrument.currency == "USD" and trade.fx_cost_krw <= 0:
-            raise CalendarStressError("ledger_fx_cost_missing")
+        local_notional = Decimal(trade.quantity) * expected_price
+        fee_local = local_notional * config.fee_rate
+        base = (
+            (local_notional + fee_local) * fx
+            if trade.side == "buy"
+            else (local_notional - fee_local) * fx
+        )
+        expected_fx_cost = (
+            base * config.fx_spread_rate
+            if item.instrument.currency == "USD"
+            else Decimal(0)
+        )
+        expected_cost = (
+            fee_local * fx
+            + Decimal(trade.quantity) * bar.open * config.slippage_rate * fx
+        )
+        if trade.side == "buy":
+            cash -= base + expected_fx_cost
+            quantities[trade.symbol] += trade.quantity
+        else:
+            cash += base - expected_fx_cost
+            quantities[trade.symbol] -= trade.quantity
+        residual += abs(trade.local_price - expected_price) + abs(
+            trade.notional_krw - expected_notional
+        )
+        residual += abs(trade.transaction_cost_krw - expected_cost) + abs(
+            trade.fx_cost_krw - expected_fx_cost
+        )
+    final_at = max(
+        (trade.executed_at for trade in simulation.trades),
+        default=datetime.combine(date.today(), time(), UTC),
+    )
+    for symbol, action_rows in actions.items():
+        for action_day in sorted(action_rows):
+            if (
+                action_day in bars[symbol]
+                and (symbol, action_day) not in processed_actions
+            ):
+                action = action_rows[action_day]
+                exact = Decimal(quantities[symbol]) * action.factor
+                whole = int(exact.to_integral_value(rounding="ROUND_FLOOR"))
+                fraction = exact - whole
+                if fraction:
+                    split_value = (
+                        fraction
+                        * bars[symbol][action_day].open
+                        * fx_at(final_at, instruments[symbol].instrument.currency)
+                    )
+                    cash += split_value
+                    split_cash[symbol] += split_value
+                quantities[symbol] = whole
+                processed_actions.add((symbol, action_day))
+    for symbol in set(split_cash) | set(simulation.split_cash_in_lieu_krw):
+        residual += abs(
+            split_cash.get(symbol, Decimal(0))
+            - simulation.split_cash_in_lieu_krw.get(symbol, Decimal(0))
+        )
+    terminal = Decimal(0)
+    for position in simulation.positions:
+        if quantities[position.symbol] != position.quantity:
+            raise CalendarStressError("ledger_terminal_quantity_mismatch")
+        terminal += Decimal(position.quantity) * position.local_close * position.fx_rate
+    residual += abs(cash + terminal - simulation.metrics.final_equity_krw)
     if residual > Decimal("0.000001"):
         raise CalendarStressError(f"ledger_residual:{residual}")
-    return residual
+    return Decimal(residual)
 
 
 def run_stress_harness(
@@ -578,23 +676,13 @@ def run_stress_harness(
             raise CalendarStressError("synthetic_fx_cost_missing")
         if not any(value > 0 for value in simulation.split_cash_in_lieu_krw.values()):
             raise CalendarStressError("synthetic_fractional_split_missing")
-        replay_trade_ledger(source, simulation, config)
+        residual = replay_trade_ledger(source, simulation, config)
         (output_dir / "simulation.json").write_text(
             simulation.model_dump_json(indent=2), encoding="utf-8"
         )
         validate_feature_cutoff(
             [type("Feature", (), {"published_at": datetime(2024, 1, 2, tzinfo=UTC)})()],
             datetime(2024, 1, 3, tzinfo=UTC),
-        )
-        residual = reconcile_decimal_accounting(
-            initial_cash=Decimal("1000000"),
-            final_cash=Decimal("1200000"),
-            terminal_value=Decimal("220000"),
-            proceeds=Decimal("500000"),
-            spending=Decimal("300000"),
-            split_cash=Decimal("100"),
-            fees=Decimal("19.5"),
-            fx_cost=Decimal("80.5"),
         )
         if abs(residual) > Decimal("0.000001"):
             raise CalendarStressError(f"accounting_residual:{residual}")
