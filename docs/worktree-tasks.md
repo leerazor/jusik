@@ -115,7 +115,7 @@
 
 ## runner-git-access
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 자동 실행기의 Git 메타데이터 쓰기를 명시적으로 허용하고 실제 Codex의 워크트리 생성·커밋·main 병합·정리 및 보호 경로 차단을 검증한 뒤 기존 작업을 재개합니다.
 - 담당 Luna: 별도 Codex CLI `gpt-5.6-luna` (내장 agent의 세션 한도로 대체)
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-runner-git-access`
@@ -125,7 +125,10 @@
 - 입력과 선행 작업: 조사·계획 완료. 실제 Codex named permissions profile 쓰기 시험 통과
 - 수정 허용 범위: development_runner.py, 관련 테스트, docs/development-runner.md
 - 포트·테스트 DB·출력 경로: 전용 venv와 validation. 운영 runner는 pause 상태. 영구 audit `20260911T234908Z-runner-git-access/`
-- 검증 명령과 결과: pytest, Ruff, strict mypy 및 실제 Codex Git lifecycle 검증 예정
-- 검토 결과와 남은 문제: 독립 review 예정. 글로벌 사용자 설정·quota·기존 산출물·PAPER·GPU 보존
-- 통합 커밋 SHA와 정리 여부: 통합 검증 후 archive 및 worktree 제거 예정
-- handoff 저장 경로와 갱신 여부: 기준 저장소 HANDOFF.md 완료 시 갱신
+- 검증 명령과 결과: runner 22개, main 전체 pytest 532개(기존 경고 2개), Ruff check/format 115개 파일, strict mypy 74개 소스 통과. 실제 Codex exec 및 통합 helper 설정의 Git lifecycle·보호 경로·artifact 쓰기 검증 통과
+- 검토 결과와 남은 문제: 독립 검토의 artifact 경로·기존 권한·테스트 격리 지적 수정 후 재검토 통과. 사용자 설정·quota·기존 산출물·PAPER·GPU 보존. 전용 환경의 선택 PyTorch 미설치로 최초 전체 검사 12개 실패, 최종 main 전체 검사 통과
+- 결과 커밋 SHA: `9e0fcb1`, `21a9856`, `f6ba0aa`
+- 병합 직전 main SHA: `e054390`
+- 통합 커밋 SHA와 정리 여부: `58f5443a8f43428a717b707bb80cbb667db44706`. 검증 로그·환경 버전 보존 및 해시 확인 후 워크트리 제거 완료. 브랜치 보존
+- 웹: `/research/history`의 `runner-git-access-20260912`. 기존 seed 52개·artifact 83개 보존, API/웹 다운로드 SHA와 제목 확인
+- handoff 저장 경로와 갱신 여부: 기준 저장소 HANDOFF.md 복구 절과 영구 audit activation.json에서 재개 상태 확인
