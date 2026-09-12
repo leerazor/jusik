@@ -513,7 +513,7 @@
 
 ## portfolio-held-band-cce0
 
-- 상태: 준비
+- 상태: 검증
 - 목표와 완료 조건: corrected-entry 동일 엔진에서 2%p/4%p와 비용 1/2배를 7개 fold 및 continuous에 정확히 32회 실행하고, 16개 전체 exact control 및 Decimal 회계를 검증합니다.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자. explore 후 순차 plan, 독립 review.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-cce0
@@ -527,3 +527,15 @@
 - 제외: 제품 엔진/DB/PAPER 설정/runner/GPU 변경, 주문, remote push/refetch, 원본 b2 simulation 사용, retuning/winner selection.
 - 종료 조건: main 통합·검사·연구 게시·영구 evidence/hash/handoff 저장 후 병합 워크트리 정리. broader engineering gaps를 결과 이후 읽기 전용 확인하여 즉시 실행 가능한 successor 최대 하나만 제안합니다.
 - 실행기 확인: 현재 running attempt는 이 task/attempt 하나이며 CLI completion 경로를 읽기 전용 확인했습니다. 실행기 상태는 변경하지 않습니다.
+
+- 결과 커밋 SHA: 구현 `a37cdda51e203226e0127daef5f54556b6ba03df`, 최종 문서 `246d348dbd88b44fec2970acc399180aeb6d7edc`.
+- 병합 직전 main SHA: `6fd7346bc6a799a932db17438e377d17196a02ed`.
+- 통합 커밋 SHA: 구현 `7486b2c9ac51edff0d36a68dbcb48293a47d32ab`, 검증 문서 `2aba6eb8c433204e384bc44b8f9d2eff2f8a4d8e`.
+- 검토 결과: 독립 사전·결과·최종 코드/문서 review 통과. 초기 엔진 선택, JSON tuple key, eager hash fallback, Decimal precision 및 실패 산출물 보존 문제를 실행 전에 수정했습니다. 독립 verifier의 strict next-open/가격 exact 보강은 저장 결과에만 적용했으며 역사 재실행은 없습니다.
+- 실제 결과: 정확히 32회 완료, corrected control 16개 전체 typed JSON exact equality. 2,347 trades 원시 개장가·FX·현금·최종 자산 독립 재계산, 최대 금액 잔차 4e-31 KRW. 양 비용 fold return delta 중앙값 0, fold 4 음수, fold 1/2/3/6 전체 결과 동일. continuous delta는 별도로 +1.052528/+0.817125%p이며 승자 선정은 하지 않습니다.
+- 검증 결과: main pytest 71 passed(기존 deprecation 경고 2개), strict mypy 84개 소스, Ruff check/format, git diff --check 통과. 별도 입력 경계 26개와 모의 runner 실패/성공 5개 시나리오 통과. frontend 미변경으로 build 비적용. 통합 검사 실패 없음.
+- 게시 결과: /research/history 항목 `portfolio-held-band-interaction-v1-cce0cdf0e5ea43e4a088f2dfe5c2fa74`; API/웹 다운로드 200과 문서 SHA 일치. 기존 seed 항목 63개와 artifact 109개 보존, DB 변경 없음.
+- 보존·정리: 영구 audit에 실제/모의 산출물, 입력/소스/검사/hash/review/환경을 보존했습니다. 이번 워크트리는 handoff와 archive hash 검증 뒤 정리 대기입니다. 기존 HANDOFF.md와 이전 4840 워크트리는 보존합니다.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-interaction-v1-cce0cdf0e5ea43e4a088f2dfe5c2fa74/handoff-final.md.
+- 남은 실패: 실제 실행·통합 실패 없음. 후향/PIT 미인증, 조기 폐장과 broker receipt 부재는 연구 한계입니다.
+- 후속 제안: `portfolio-session-calendar-stress-v1` 하나. 검증된 offline calendar를 쓰는 격리 adapter/복사 엔진과 synthetic 테스트 3개 신규 파일만 허용하며 제품/PAPER/DB/runner/GPU 변경과 역사 재실행을 제외합니다.
