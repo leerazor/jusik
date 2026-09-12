@@ -599,12 +599,12 @@
 
 ## portfolio-held-band-cost-path-0f90
 
-- 상태: 준비
+- 상태: 검증
 - 목표와 완료 조건: 저장48개 hash 및 회계 검증 후32개 비용 비교와16개 밴드 분해 차이, 음수 결과와 결정적 출력 증거를 보존합니다. 역사 실행·외부 수집·튜닝은0회, 분석은2회 이하 및15분 한도입니다.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자. 감독 explore 후 순차 plan, 별도 review를 수행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-cost-path-0f90
 - 작업 브랜치: feat/portfolio-held-band-cost-path-0f90
-- 기준 커밋 SHA: 9bd0c3e96495ad5cacfa5585d3de413f428a2b66 (등록부 커밋 뒤 실제 생성 SHA 기록)
+- 기준 커밋 SHA: cf0db95 (등록부를 포함한 실제 생성 기준)
 - 통합 대상 브랜치: local main
 - 입력과 선행 작업: portfolio-held-band-cost3-stress-v1-f9aecd54dffc4931a6100ac2de8c8cd3/experiment의 results, preregistration, manifest와 simulations48개. 상위3개 hash 검증 일치.
 - 수정 허용 범위: 신규 research_portfolio_cost_path_attribution 모듈, 대응 테스트, 한국어 연구 문서. 기존 attribution 회계를 재사용합니다.
@@ -613,3 +613,8 @@
 - 종료 조건: 검토·main 통합 검사·handoff 및 필요한 웹 게시 후 영구 evidence/hash 확인, worktree 정리.
 - 보존 조건: 자본1억원, 사용자 손실20%, leverage cap20%, frozen drawdown.10 및 PAPER10% 불변. 실주문/remote push/PAPER engine·DB/GPU 변경 금지.
 - 실행기 확인: 현재 task/attempt 하나만 running이며 CLI output은 해당 attempt/completion.json입니다. runner를 중지하지 않습니다. 기존 HANDOFF.md 및 두 worktree를 보존합니다.
+
+- 실행 결과: 원자료 분석2회, 추가 역사 실행·외부 수집·튜닝0회. 원자료 실행의 보수적 시간 상한534.205초. 32개 비용 비교·16개 밴드 차이를 저장하고 후속 검증과 표 생성은 저장 출력만 사용했습니다.
+- 독립 결과 검산: 32개 비교 모두 순손익 감소. 종목 합계와 NAV 차이 최대7.156250e-31 KRW. continuous 비용2에서 .04의 비용 증가가 작아도 경로 악화로 순손익 감소가 더 큰 음수 사례를 보존합니다.
+- 검토 보완: manifest 상수, 누락된 분해항, 실제 residual 검산, 합성48 loader, CLI 출력 일치, 테스트 상수 복원 지적을 수정했습니다. 최종 리뷰와 main 통합 검사는 아래에 기록합니다.
+- 초기 커밋 보존: 작업자가 초기 커밋95ab4d를 대체하여 원본을 archive/portfolio-cost-path-initial-0f90 및 durable initial-development.bundle에 보존했습니다. 이후 수정은 추가 커밋으로 수행했습니다.
