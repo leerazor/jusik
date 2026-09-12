@@ -157,20 +157,21 @@
 
 ## future-observation-protocol-v1-63c4
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 후향 자료와 분리된 미래 관측 설계를 문서화하고 미확보 자료를 구분합니다. 독립 검토, 로컬 main 통합, 검사와 영구 handoff를 완료합니다.
 - 담당 Luna: /root/protocol_luna (gpt-5.6-luna)
 - 워크트리 절대 경로: /home/kwl/projects/jusik-future-observation-63c4
 - 작업 브랜치: docs/future-observation-63c4
-- 기준 커밋 SHA: 등록부 커밋 직후 HEAD (아래 최종 기록에서 확정)
+- 기준 커밋 SHA: a6863b756e24e0d3549b46f0453583e60070a5d0
 - 통합 대상 브랜치: local main
 - 입력과 선행 작업: explore·plan 완료, 이전 시도 protocol-draft.md 및 현재 prospective/boundary 코드
 - 수정 허용 범위: docs/research-future-observation-protocol.md, docs/research.md의 링크
 - 포트·테스트 DB·출력 경로: 서버·운영 DB 사용 없음. 검사는 격리 임시 경로 사용
-- 검증 명령과 결과: 문서 링크·계약 일치·git diff --check, 기존 관련 pytest/Ruff/mypy 예정
-- 결과 커밋 SHA: 대기
-- 검토 결과와 남은 문제: 대기; 미래 성과 검증은 이번 설계 범위 밖
-- 병합 직전 main SHA: 대기
-- 통합 커밋 SHA와 정리 여부: 대기
+- 검증 명령과 결과: main 문서 링크·계약 일치·git diff --check·변경 범위·보존 해시 통과. prospective/boundary pytest 40개 통과(기존 경고 2개), Ruff check/format 8개 파일, strict mypy 4개 소스 통과. 문서 변경으로 frontend build 비적용
+- 결과 커밋 SHA: d80abd9c8d8bdc0bfb1733891967f5675d18432b
+- 검토 결과와 남은 문제: 독립 review 초기 지적 수정 후 최종 통과. 미래 관측·운영 등록·성과 검증은 완료되지 않았으며 설계 범위 밖
+- 병합 직전 main SHA: a6863b756e24e0d3549b46f0453583e60070a5d0
+- 통합 커밋 SHA와 정리 여부: 69894b0e89b227ae24aa1a15fb0b30c234d7f514. 영구 audit에 증거 16개·SHA-256·handoff 보존 및 해시 확인 후 clean 워크트리 제거 완료. 브랜치 보존
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-protocol-v1-63c4e3f2380b4e149d60d17db90459c7/handoff.md 예정
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-protocol-v1-63c4e3f2380b4e149d60d17db90459c7/handoff.md 저장 완료
+- 웹: runner completion/outbox를 통한 상태 기록 대상. 직접 게시·history 변경은 하지 않았습니다. 기존 미추적 HANDOFF.md를 보존했습니다.
