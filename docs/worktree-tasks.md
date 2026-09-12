@@ -510,3 +510,20 @@
 - 통합 검증 실패 원인과 복구 결과: 검사 실패 없음. 게시 directory rename은 mount EBUSY였으나 새 artifact와 seed 파일의 원자적 교체로 완료했습니다. 실패 시 생성된 임시 복사본도 영구 보존본을 확인한 뒤 제거했습니다.
 - handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-next-development-selection-v1-bbbd21c0082348b09c073c45d73f3e17/handoff-final.md`. 기존 root HANDOFF.md는 보존했습니다.
 - 후속 작업: `portfolio-held-band-interaction-v1` 하나를 completion.followup으로 제출합니다. 기존 corrected-entry 2%p와 새 4%p를 동일 frozen engine에서 32회 비교하는 별도 격리 실험이며 이번 선정 작업에서는 실행하지 않았습니다.
+
+## portfolio-held-band-cce0
+
+- 상태: 준비
+- 목표와 완료 조건: corrected-entry 동일 엔진에서 2%p/4%p와 비용 1/2배를 7개 fold 및 continuous에 정확히 32회 실행하고, 16개 전체 exact control 및 Decimal 회계를 검증합니다.
+- 담당 Luna: gpt-5.6-luna 단일 구현 소유자. explore 후 순차 plan, 독립 review.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-cce0
+- 작업 브랜치: feat/portfolio-held-band-cce0
+- 기준 커밋 SHA: 9bafb0ce7bfef4f826669045e3ffc428b96fdf8a (이 등록 커밋을 실제 생성 기준으로 사용합니다.)
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: 지정 source 3개, corrected preregistration/results 및 variant simulation 16개. 총 입력 21개와 core 4개 SHA 검증 통과.
+- 수정 허용 범위: backend/jusik/research_portfolio_held_band_experiment.py, backend/tests/test_research_portfolio_held_band_experiment.py, docs/research/portfolio-held-band-interaction-v1.md. 등록부는 Astra만 수정합니다.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 워크트리 전용 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-interaction-v1-cce0cdf0e5ea43e4a088f2dfe5c2fa74.
+- 검증 명령과 결과: synthetic pytest, 관련 회귀 pytest, Ruff check/format, strict mypy, 전체 exact control 16개, Decimal 회계 32개, 입력 전후 SHA, 독립 review, main 통합 검사.
+- 제외: 제품 엔진/DB/PAPER 설정/runner/GPU 변경, 주문, remote push/refetch, 원본 b2 simulation 사용, retuning/winner selection.
+- 종료 조건: main 통합·검사·연구 게시·영구 evidence/hash/handoff 저장 후 병합 워크트리 정리. broader engineering gaps를 결과 이후 읽기 전용 확인하여 즉시 실행 가능한 successor 최대 하나만 제안합니다.
+- 실행기 확인: 현재 running attempt는 이 task/attempt 하나이며 CLI completion 경로를 읽기 전용 확인했습니다. 실행기 상태는 변경하지 않습니다.
