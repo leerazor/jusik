@@ -3,6 +3,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -781,6 +782,165 @@ def test_collection_only_daemon_does_not_resolve_device(
         == 0
     )
     assert seen == [True]
+
+
+def test_collection_only_preserves_external_portfolio_history_and_optimizer_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = REGISTRY[7]
+    monkeypatch.setattr(universe_module, "REGISTRY", (selected,))
+    input_store = UniverseInputStore(tmp_path / "input.db")
+    external_store = ExternalStore(tmp_path / "external.db")
+    optimizer_store = OptimizerStore(tmp_path / "optimizer.db")
+    result_store = UniverseResultStore(tmp_path / "optimizer.db")
+    optimizer_store.begin("existing", "source", "hash")
+    collected = _collected(selected.symbol)
+    calls: list[str] = []
+
+    async def collect_external(*_args: object, **_kwargs: object) -> dict[str, str]:
+        calls.append("external")
+        return {}
+
+    async def collect(
+        *_args: object, **_kwargs: object
+    ) -> list[CollectedUniverseSnapshot]:
+        calls.append("stocks")
+        input_store.save_success(collected)
+        return [collected]
+
+    class History:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def record(self, **_kwargs: object) -> None:
+            calls.append("history")
+
+    monkeypatch.setattr(universe_module, "collect_external_sources", collect_external)
+    monkeypatch.setattr(universe_module, "collect_all", collect)
+    monkeypatch.setattr(universe_module, "HistoryRepository", History)
+    monkeypatch.setattr(
+        universe_module,
+        "run_from_stores",
+        lambda *_args: calls.append("portfolio") or SimpleNamespace(run_id="run"),
+    )
+    monkeypatch.setattr(
+        universe_module,
+        "write_reports",
+        lambda *_args: calls.append("report"),
+    )
+    monkeypatch.setattr(
+        universe_module,
+        "optimize_walk_forward_snapshot",
+        lambda *_args, **_kwargs: pytest.fail("optimizer must not run"),
+    )
+    asyncio.run(
+        universe_module._run_cycle(
+            input_store,
+            optimizer_store,
+            result_store,
+            tmp_path / "artifacts",
+            tmp_path / "reports",
+            "cuda",
+            lambda: False,
+            None,
+            external_store=external_store,
+            collection_only=True,
+        )
+    )
+    assert calls == ["external", "stocks", "portfolio", "history", "report"]
+    assert optimizer_store.status()["run_counts"] == {"running": 1}
+
+
+def test_collection_only_wait_heartbeat_keeps_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    modes: list[str] = []
+    original_heartbeat = OptimizerStore.daemon_heartbeat
+
+    async def cycle(*_args: object, **_kwargs: object) -> bool:
+        return False
+
+    def heartbeat(
+        store: OptimizerStore, running: bool, *, mode: str = "optimizer"
+    ) -> None:
+        modes.append(mode)
+        original_heartbeat(store, running, mode=mode)
+
+    def stop_after_sleep(_seconds: float) -> None:
+        OptimizerStore(tmp_path / "optimizer.db").request_stop()
+
+    monkeypatch.setattr(universe_module, "_run_cycle", cycle)
+    monkeypatch.setattr(OptimizerStore, "daemon_heartbeat", heartbeat)
+    monkeypatch.setattr(universe_module.time, "sleep", stop_after_sleep)
+    assert (
+        universe_module.run_daemon(
+            tmp_path / "input.db",
+            tmp_path / "external.db",
+            tmp_path / "optimizer.db",
+            tmp_path / "artifacts",
+            tmp_path / "reports",
+            device="cuda",
+            once=False,
+            poll_seconds=1,
+            collection_only=True,
+        )
+        == 0
+    )
+    assert modes == ["collection-only", "collection-only", "collection-only"]
+
+
+def test_default_daemon_resolves_requested_device(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    resolved: list[str] = []
+
+    async def cycle(*_args: object, **_kwargs: object) -> bool:
+        return False
+
+    monkeypatch.setattr(universe_module, "_run_cycle", cycle)
+    monkeypatch.setattr(universe_module, "_resolve_device", resolved.append)
+    assert (
+        universe_module.run_daemon(
+            tmp_path / "input.db",
+            tmp_path / "external.db",
+            tmp_path / "optimizer.db",
+            tmp_path / "artifacts",
+            tmp_path / "reports",
+            device="cpu",
+            once=True,
+        )
+        == 0
+    )
+    assert resolved == ["cpu"]
+
+
+def test_collection_only_cli_flag_is_forwarded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    forwarded: dict[str, object] = {}
+
+    def run(*_args: object, **kwargs: object) -> int:
+        forwarded.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(universe_module, "run_daemon", run)
+    assert (
+        universe_module.main(
+            [
+                "--input-db",
+                str(tmp_path / "input.db"),
+                "--external-db",
+                str(tmp_path / "external.db"),
+                "--optimizer-db",
+                str(tmp_path / "optimizer.db"),
+                "run",
+                "--once",
+                "--collection-only",
+            ]
+        )
+        == 0
+    )
+    assert forwarded["collection_only"] is True
 
 
 def test_interrupted_optimization_records_stopped_mapping_and_report(
