@@ -20,6 +20,7 @@ from jusik.research_optimizer import (
     training_examples,
     walk_forward_folds,
 )
+from jusik.research_optimizer_store import OptimizerStore
 from jusik.research_risk import ResearchRiskPolicy
 from jusik.research_universe import collect_all, universe_status, write_reports
 from jusik.research_universe_data import (
@@ -698,6 +699,88 @@ def test_failed_refresh_evaluates_new_snapshot_after_old_completed_result(
     )
 
     assert seen == ["universe:NVDA:new-snapshot"]
+
+
+def test_collection_only_preserves_collection_and_skips_optimizer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    selected = REGISTRY[7]
+    monkeypatch.setattr(universe_module, "REGISTRY", (selected,))
+    input_store = UniverseInputStore(tmp_path / "input.db")
+    optimizer_store = OptimizerStore(tmp_path / "optimizer.db")
+    result_store = UniverseResultStore(tmp_path / "optimizer.db")
+    collected = _collected(selected.symbol)
+    calls: list[str] = []
+
+    async def collect(
+        *_args: object, **_kwargs: object
+    ) -> list[CollectedUniverseSnapshot]:
+        calls.append("collect")
+        input_store.save_success(collected)
+        return [collected]
+
+    monkeypatch.setattr(universe_module, "collect_all", collect)
+    monkeypatch.setattr(
+        universe_module,
+        "optimize_walk_forward_snapshot",
+        lambda *_args, **_kwargs: pytest.fail("optimizer must not run"),
+    )
+    asyncio.run(
+        universe_module._run_cycle(
+            input_store,
+            optimizer_store,
+            result_store,
+            tmp_path / "artifacts",
+            tmp_path / "reports",
+            "cuda",
+            lambda: False,
+            None,
+            collection_only=True,
+        )
+    )
+    assert calls == ["collect"]
+    assert result_store.statuses() == {}
+
+
+def test_daemon_mode_metadata_is_recorded_without_optimizer_rows(
+    tmp_path: Path,
+) -> None:
+    store = OptimizerStore(tmp_path / "optimizer.db")
+    store.daemon_heartbeat(True, mode="collection-only")
+    status = store.status()
+    assert status["daemon_status"] == "running"
+    assert status["daemon_mode"] == "collection-only"
+
+
+def test_collection_only_daemon_does_not_resolve_device(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[bool] = []
+
+    async def cycle(*_args: object, **kwargs: object) -> bool:
+        seen.append(bool(kwargs["collection_only"]))
+        return False
+
+    monkeypatch.setattr(universe_module, "_run_cycle", cycle)
+    monkeypatch.setattr(
+        universe_module,
+        "_resolve_device",
+        lambda _device: pytest.fail("collection-only must not resolve device"),
+    )
+    assert (
+        universe_module.run_daemon(
+            tmp_path / "input.db",
+            tmp_path / "external.db",
+            tmp_path / "optimizer.db",
+            tmp_path / "artifacts",
+            tmp_path / "reports",
+            device="cuda",
+            once=True,
+            collection_only=True,
+        )
+        == 0
+    )
+    assert seen == [True]
 
 
 def test_interrupted_optimization_records_stopped_mapping_and_report(

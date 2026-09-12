@@ -522,6 +522,7 @@ async def _run_cycle(
     fixtures_dir: Path | None,
     external_store: ExternalStore | None = None,
     refresh_stocks: bool = True,
+    collection_only: bool = False,
 ) -> bool:
     captured = datetime.now(UTC)
     if external_store is not None:
@@ -552,7 +553,7 @@ async def _run_cycle(
     latest_external = (
         external_store.snapshot()
         if external_store is not None
-        else ExternalFeatureSnapshot(observations=[])
+        else ExternalFeatureSnapshot(observations=())
     )
     if external_store is not None:
         history = HistoryRepository(
@@ -587,6 +588,12 @@ async def _run_cycle(
                 outcome="failed",
                 occurred_at=captured,
             )
+    if collection_only:
+        write_reports(
+            report_dir,
+            universe_status(input_store, result_store, external_store),
+        )
+        return False
     for instrument in REGISTRY:
         if instrument.symbol in collected_by_symbol:
             continue
@@ -706,6 +713,7 @@ def run_daemon(
     once: bool,
     poll_seconds: int = DEFAULT_POLL_SECONDS,
     fixtures_dir: Path | None = None,
+    collection_only: bool = False,
 ) -> int:
     input_store = UniverseInputStore(input_db)
     external_store = ExternalStore(external_db)
@@ -719,9 +727,12 @@ def run_daemon(
         except BlockingIOError:
             print("optimizer is already running", file=sys.stderr)
             return 2
-        _resolve_device(device)
+        if not collection_only:
+            _resolve_device(device)
         optimizer_store.clear_stop()
-        optimizer_store.daemon_heartbeat(True)
+        optimizer_store.daemon_heartbeat(
+            True, mode="collection-only" if collection_only else "optimizer"
+        )
         interrupted = False
 
         def request_stop(_signum: int, _frame: FrameType | None) -> None:
@@ -754,6 +765,7 @@ def run_daemon(
                             fixtures_dir,
                             external_store,
                             refresh_stocks=refresh_stocks,
+                            collection_only=collection_only,
                         )
                     )
                     if refresh_stocks:
@@ -768,9 +780,13 @@ def run_daemon(
                         return 0
                     time.sleep(1)
                     waited += 1
-                    optimizer_store.daemon_heartbeat(True)
+                    optimizer_store.daemon_heartbeat(
+                        True, mode="collection-only" if collection_only else "optimizer"
+                    )
         finally:
-            optimizer_store.daemon_heartbeat(False)
+            optimizer_store.daemon_heartbeat(
+                False, mode="collection-only" if collection_only else "optimizer"
+            )
             signal.signal(signal.SIGTERM, previous_term)
             signal.signal(signal.SIGINT, previous_int)
 
@@ -786,6 +802,11 @@ def _parser() -> argparse.ArgumentParser:
     run = subparsers.add_parser("run")
     run.add_argument("--once", action="store_true")
     run.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
+    run.add_argument(
+        "--collection-only",
+        action="store_true",
+        help="collect data and run portfolio research without per-symbol optimizer",
+    )
     run.add_argument("--poll-seconds", type=int, default=DEFAULT_POLL_SECONDS)
     run.add_argument("--fixtures-dir", type=Path)
     subparsers.add_parser("status")
@@ -848,6 +869,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             once=arguments.once,
             poll_seconds=arguments.poll_seconds,
             fixtures_dir=arguments.fixtures_dir,
+            collection_only=arguments.collection_only,
         )
     except (sqlite3.Error, DataCollectionError, DataInsufficientError):
         print("universe research storage or input is invalid", file=sys.stderr)

@@ -50,7 +50,12 @@ COMMON_PROMPT = (
     "bounded plan, assign at most four Luna worktrees, review the implementation, "
     "then Astra merges to local main and runs checks and handoff/web publication "
     "when applicable. Preserve unrelated work and never use real orders, remote "
-    "push, PAPER engine or PAPER database mutation, or GPU changes."
+    "push, PAPER engine or PAPER database mutation, arbitrary service changes, "
+    "or unapproved GPU changes. GPU use is opt-in and on-demand only: for portfolio "
+    "stress work use "
+    "python -m jusik.research_portfolio_gpu_stress --request PATH --output-dir PATH "
+    "--device auto|cpu|cuda with pinned input, seed, bounds, and CPU parity; "
+    "never promote approximate stress results."
 )
 RUNTIME_PROMPT_SUFFIX = (
     "Before removing any merged worktree after integration checks, archive all "
