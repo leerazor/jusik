@@ -860,6 +860,8 @@ def test_empty_queue_planner_proposes_then_dispatches_research_child(
     assert "never use real orders" in research.prompt
     assert "PAPER engine" in research.prompt
     assert "GPU changes" in research.prompt
+    assert "research_portfolio_gpu_stress" in research.prompt
+    assert "CPU parity" in research.prompt
 
     dispatched = run_once(config)
     assert dispatched.status == "blocked"
