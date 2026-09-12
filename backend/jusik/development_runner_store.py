@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass
@@ -196,6 +197,7 @@ class RunnerStore:
         output_path: Path,
         stderr_path: Path,
         launched_at: str | None = None,
+        history_outcome: str = "started",
     ) -> RunnerAttempt:
         now = utc_now()
         with self._connect() as db:
@@ -226,11 +228,11 @@ class RunnerStore:
                     "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                     (launched_at,),
                 )
-            identity = f"development-runner:{task.id}:{attempt_id}:started"
+            identity = f"development-runner:{task.id}:{attempt_id}:{history_outcome}"
             db.execute(
                 "INSERT OR IGNORE INTO history_outbox "
                 "(id,task_id,attempt_id,outcome) VALUES(?,?,?,?)",
-                (identity, task.id, attempt_id, "started"),
+                (identity, task.id, attempt_id, history_outcome),
             )
             db.commit()
         return RunnerAttempt(attempt_id, task.id, "running", None, str(output_path))
@@ -279,6 +281,120 @@ class RunnerStore:
             )
             db.commit()
 
+    def finish_planning(
+        self,
+        attempt_id: str,
+        task_id: str,
+        status: str,
+        evidence: dict[str, Any],
+        fingerprint: str,
+        expected_tasks: list[tuple[str, str, str | None]],
+        current_fingerprint: str | None = None,
+        proposal: tuple[str, str, str] | None = None,
+    ) -> bool:
+        """Finish planner and enqueue proposal in one locked transaction."""
+        now = utc_now()
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            prior = db.execute(
+                "SELECT status FROM attempts WHERE id=? AND task_id=?",
+                (attempt_id, task_id),
+            ).fetchone()
+            if prior is None or prior["status"] != "running":
+                db.rollback()
+                if prior is not None and prior["status"] == "completed":
+                    return True
+                raise ValueError("planning attempt is not running")
+            snapshot = db.execute(
+                "SELECT id,status,last_attempt_id FROM tasks "
+                "WHERE area != '__planning__' ORDER BY id"
+            ).fetchall()
+            actual = json.dumps(
+                [
+                    (str(r["id"]), str(r["status"]), r["last_attempt_id"])
+                    for r in snapshot
+                ],
+                sort_keys=True,
+            )
+            expected = json.dumps(sorted(expected_tasks), sort_keys=True)
+            if (
+                current_fingerprint is not None and current_fingerprint != fingerprint
+            ) or hashlib.sha256(expected.encode()).hexdigest() != hashlib.sha256(
+                actual.encode()
+            ).hexdigest():
+                db.execute(
+                    "UPDATE attempts SET status='failed',ended_at=?,failure_code=? WHERE id=?",  # noqa: E501
+                    (now, "planning_stale", attempt_id),
+                )
+                db.execute(
+                    "UPDATE tasks SET status='failed',updated_at=? WHERE id=?",
+                    (now, task_id),
+                )
+                db.execute(
+                    "INSERT OR IGNORE INTO history_outbox(id,task_id,attempt_id,outcome) VALUES(?,?,?,?)",  # noqa: E501
+                    (
+                        f"development-runner:{task_id}:{attempt_id}:planning_stale",
+                        task_id,
+                        attempt_id,
+                        "planning_stale",
+                    ),
+                )
+                db.commit()
+                return False
+            if proposal is not None:
+                pending = db.execute(
+                    "SELECT COUNT(*) AS count FROM tasks WHERE area != '__planning__' "
+                    "AND status NOT IN ('completed','failed')"
+                ).fetchone()
+                if int(pending["count"]) >= 8:
+                    db.rollback()
+                    raise ValueError("research queue is full")
+                proposal_id, area, prompt = proposal
+                db.execute(
+                    "INSERT INTO tasks(id,area,prompt,status,created_at,updated_at) "
+                    "VALUES(?,?,?,'queued',?,?)",
+                    (proposal_id, area, prompt, now, now),
+                )
+            db.execute(
+                "UPDATE attempts SET status='completed',ended_at=?,evidence_json=?,"
+                "failure_code=? WHERE id=?",
+                (
+                    now,
+                    json.dumps(evidence, sort_keys=True),
+                    f"planning_{status}",
+                    attempt_id,
+                ),
+            )
+            db.execute(
+                "UPDATE tasks SET status='completed',updated_at=? WHERE id=?",
+                (now, task_id),
+            )
+            outcome = f"planning_{status}"
+            db.execute(
+                "INSERT OR IGNORE INTO history_outbox(id,task_id,attempt_id,outcome) "
+                "VALUES(?,?,?,?)",
+                (
+                    f"development-runner:{task_id}:{attempt_id}:{outcome}",
+                    task_id,
+                    attempt_id,
+                    outcome,
+                ),
+            )
+            if proposal is not None:
+                db.execute(
+                    "INSERT OR IGNORE INTO history_outbox "
+                    "(id,task_id,attempt_id,outcome) "
+                    "VALUES(?,?,?,?)",
+                    (
+                        f"development-runner:{task_id}:{attempt_id}:proposal",
+                        proposal[0],
+                        attempt_id,
+                        "planning_proposed",
+                    ),
+                )
+            db.commit()
+        return True
+
     def pause(self) -> None:
         self.set_meta("paused", "1")
 
@@ -321,7 +437,8 @@ class RunnerStore:
         with self._connect() as db:
             rows = db.execute(
                 "SELECT id,task_id,attempt_id,outcome FROM history_outbox "
-                "WHERE delivered_at IS NULL ORDER BY id"
+                "WHERE delivered_at IS NULL ORDER BY "
+                "CASE WHEN outcome='started' THEN 1 ELSE 0 END, rowid"
             ).fetchall()
         return [
             (str(r["id"]), str(r["task_id"]), str(r["attempt_id"]), str(r["outcome"]))
