@@ -140,6 +140,7 @@ class ReceiptResult(BaseModel):
 
     receipt_index: int = Field(ge=0)
     received_at: str | None
+    available_at_check: bool | None
     event_at: str
     read_started_at: str
     read_finished_at: str
@@ -205,6 +206,8 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
         hashes = list(dict.fromkeys(digest for _, _, digest in entries))
         available_hashes: set[str] = set()
         available_receipts = 0
+        deferred_receipts = 0
+        clock_invalid_receipts = 0
         receipts: list[ReceiptResult] = []
         reasons: list[str] = []
         classes: list[Classification] = []
@@ -212,29 +215,38 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
         future_receipt = False
         previous_received: datetime | None = None
         for index, item, digest in entries:
+            available: bool | None = None
+            received_parsed = False
             try:
                 received = _utc(item.received_at, "received_at")
+                received_parsed = True
+                available = received <= checked
                 _utc(item.event_at, "event_at")
                 read_started = _utc(item.read_started_at, "read_started_at")
                 read_finished = _utc(item.read_finished_at, "read_finished_at")
                 if read_finished < read_started:
                     raise ValueError("clock_invalid")
                 received_text = received.isoformat()
-                future_receipt = future_receipt or received > checked
-                if received <= checked:
+                future_receipt = future_receipt or not available
+                if available:
                     available_hashes.add(digest)
                     available_receipts += 1
+                else:
+                    deferred_receipts += 1
                 if previous_received is not None and received < previous_received:
-                    invalid = True
-                    reasons.append("receipt_clock_reversed")
+                    if available:
+                        invalid = True
+                        reasons.append("receipt_clock_reversed")
                 previous_received = received
             except (TypeError, ValueError, OverflowError):
-                invalid = True
+                if available is True or not received_parsed:
+                    clock_invalid_receipts += 1
                 received_text = str(item.received_at)
             receipts.append(
                 ReceiptResult(
                     receipt_index=index,
                     received_at=received_text,
+                    available_at_check=available,
                     event_at=str(item.event_at),
                     read_started_at=str(item.read_started_at),
                     read_finished_at=str(item.read_finished_at),
@@ -243,10 +255,10 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                     evidence_flags=sorted(item.evidence_flags),
                 )
             )
-        if invalid:
+        if invalid or clock_invalid_receipts:
             classes.append("clock_invalid")
             reasons.append("invalid_or_reversed_clock")
-        if len(available_hashes) > 1 or (invalid and len(hashes) > 1):
+        if len(available_hashes) > 1:
             classes.append("conflict")
             reasons.append("same_source_and_id_have_different_raw_hashes")
         if available_receipts > 1 and len(available_hashes) < available_receipts:
@@ -257,7 +269,10 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
             reasons.append("receipt_is_after_checked_at")
         first = entries[0][1]
         flags = frozenset(
-            flag for _, item, _ in entries for flag in item.evidence_flags
+            flag
+            for receipt, (_, item, _) in zip(receipts, entries)
+            if receipt.available_at_check is True
+            for flag in item.evidence_flags
         )
         for flag in ("unavailable", "unverified_provenance"):
             if flag in flags:
@@ -273,9 +288,13 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                 else:
                     classes.append("out_of_window")
                     reasons.append("receipt_outside_window")
-                if _utc(first.event_at, "event_at") < start and first_received >= start:
+                if (
+                    start <= first_received < end
+                    and first_received <= checked
+                    and _utc(first.event_at, "event_at") < start
+                ):
                     classes.append("late_arrival")
-                    reasons.append("event_precedes_window_but_receipt_is_in_window")
+                    reasons.append("event_precedes_window_and_receipt_is_in_window")
         except (TypeError, ValueError, OverflowError):
             pass
         if len(classes) > 1 and (
@@ -299,6 +318,9 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                 evidence_counts={
                     "receipts": len(receipts),
                     "raw_versions": len(hashes),
+                    "available_receipts": available_receipts,
+                    "deferred_receipts": deferred_receipts,
+                    "clock_invalid_receipts": clock_invalid_receipts,
                 },
             )
         )

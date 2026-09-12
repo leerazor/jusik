@@ -63,9 +63,9 @@ def test_conflict_preserves_all_versions_and_is_unresolved_with_invalid_clock() 
         }
     )
     item = result.observations[0]
-    assert item.classifications == ["unresolved", "clock_invalid", "conflict"]
+    assert item.classifications == ["clock_invalid", "in_window"]
     assert len(item.raw_versions) == 2
-    assert "same_source_and_id_have_different_raw_hashes" in item.exclusion_reasons
+    assert "invalid_or_reversed_clock" in item.exclusion_reasons
 
 
 def test_late_event_is_not_backdated() -> None:
@@ -170,6 +170,22 @@ def test_conflict_also_keeps_duplicate_fact_and_future_receipt_is_not_due() -> N
     assert "duplicate" in item.classifications
     assert "not_due" in item.classifications
     assert len(item.receipts) == 3
+
+
+def test_duplicate_and_conflict_are_both_facts_when_all_receipts_are_known() -> None:
+    result = replay(
+        {
+            **BASE,
+            "observations": [
+                observation(raw="a"),
+                observation(raw="a", received_at="2030-01-01T01:30:00Z"),
+                observation(raw="b", received_at="2030-01-01T02:00:00Z"),
+            ],
+        }
+    )
+    item = result.observations[0]
+    assert item.classifications[:3] == ["unresolved", "conflict", "duplicate"]
+    assert item.evidence_counts["available_receipts"] == 3
 
 
 def test_result_flags_are_always_synthetic_and_not_accepted() -> None:

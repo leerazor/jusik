@@ -10,7 +10,7 @@
 
 ## 분류와 보존
 
-수신 구간은 UTC 기준 `[window_start_at, window_end_at)`이다. `event_at`이 구간 시작보다 이른데 수신은 구간 안이면 `late_arrival`이라는 사실만 표시한다. 지연 허용 시간이나 성과 정책은 추론하지 않는다. event 시각은 수신 가능 시각을 소급하지 않는다. 같은 source와 ID의 같은 raw hash는 논리 관측 한 건과 모든 receipt를 보존하며 `duplicate`를 표시한다. 다른 hash는 모든 raw와 hash를 보존하고 `conflict`를 표시한다. clock 오류나 conflict가 다른 후보와 겹치면 판단 순서를 만들지 않고 `unresolved`를 추가하며 후보 분류와 이유를 모두 남긴다. 원문 hash는 원문 UTF-8 bytes의 SHA-256이다.
+수신 구간은 UTC 기준 `[window_start_at, window_end_at)`이다. 각 receipt의 `available_at_check`는 parsed `received_at <= checked_at`일 때만 true이며, 미래는 false, 수신 시각 오류는 null이다. 이는 표본 승인이나 provenance 검증이 아니다. `event_at`이 구간 시작보다 이른데 수신은 구간 안이면 `late_arrival`이라는 사실만 표시한다. 지연 허용 시간이나 성과 정책은 추론하지 않는다. event 시각은 수신 가능 시각을 소급하지 않는다. 같은 source와 ID의 같은 raw hash는 논리 관측 한 건과 모든 receipt를 보존하며 `duplicate`를 표시한다. 다른 hash는 모든 raw와 hash를 보존하고 `conflict`를 표시한다. clock 오류나 conflict가 다른 후보와 겹치면 판단 순서를 만들지 않고 `unresolved`를 추가하며 후보 분류와 이유를 모두 남긴다. 원문 hash는 원문 UTF-8 bytes의 SHA-256이다.
 
 ## copyable synthetic fixture
 
