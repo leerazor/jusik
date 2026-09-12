@@ -460,7 +460,7 @@
 
 ## portfolio-exposure-cost-734e
 
-- 상태: 차단
+- 상태: 완료
 - 목표와 완료 조건: 동결 32개 시뮬레이션의 노출·실제 비용 비교와 사전 고정 1/2/3배 산술 민감도, 독립 검토, main 통합 검사, 한국어 연구 게시 및 영구 증거 보존.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-exposure-cost-734e
@@ -473,3 +473,16 @@
 - 검증 방법: 합성 경계·회계 pytest, Ruff check/format, strict mypy, 동결 입력 전후 SHA, 반복 출력, 독립 review, main 검사, 웹/API 및 다운로드 SHA.
 - 제외: 운영 엔진/PAPER/설정/DB/collector/order/GPU 변경, 재수집·정책 활성화·remote push 없음. PAPER 10% 유지. 노출 정규화 승자 선정·탐색·가상 MDD/실현 가능성 주장 없음.
 - 종료 조건: 통합 검사와 영구 evidence/hash/handoff 보존 후 병합 worktree 정리. followup=null; 대기 중 portfolio-next-development-selection-v1에서 다음 작업 결정.
+
+- 결과 커밋 SHA: 4620a84fb17dcf1b0eba82b05f012a9fde7d5b6e. 구현 커밋과 후속 회귀 보완 이력 보존.
+- 병합 직전 main SHA: a543d79235ffb357b4130b6cf0884da18c079c6f. 최초 통합 후 타입 오류 수정 별도 병합.
+- 통합 커밋 SHA: 5022efa9a5cb6f25a64890bf149847935b2a48ff
+- 독립 검토: 최종 승인. UTC 정렬 미적용, 구현을 호출하지 않는 테스트와 누락 경계, 입력 manifest 재읽기 문제 해결. 필수 11개 테스트 독립 통과.
+- 통합 검사: pytest 52개, Ruff check/format, strict mypy 84개 소스, diff 통과. 기존 deprecation 경고 2개, frontend 미변경으로 build 비적용.
+- 통합 실패 및 복구: 첫 전체 mypy에서 frozen PortfolioSimulation에 대입하는 불필요한 fallback 실패. 해당 분기를 제거한 별도 커밋을 검토·병합하고 모든 통합 검사 재통과. 실패 로그 보존.
+- 계산 근거: 실제 32행, UTC 마지막 일별 노출 4,696행, 실제 c2-c1 16행, 사전 고정 1/2/3배 산술 48행. 독립 원본 계산 5,080개 값 일치, 최종 7개 산출물 반복 byte 동일.
+- 게시: /research/history 한국어 전체 행 보고서·manifest·검사 3개 artifact, 웹/API와 다운로드 6개 SHA 검증. 기존 history 항목 보존.
+- 보존: frozen 입력과 기존 backend/frontend/deploy SHA 불변. 초기 작업자 amend 발견 후 원래 검토 커밋912160f를 archive/exposure-cost-original-734e와 patch에 보존하고 이후 수정은 별도 커밋으로 진행.
+- 정리: 환경·결과·검사·hash·handoff 영구 보관 및 검증 후 git worktree remove로 이번 병합 워크트리만 제거. force 미사용. 작업 브랜치, 기존 HANDOFF와 이전4840 워크트리 보존.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-exposure-cost-tradeoff-v1-734e493df492407891611c190b42a54b/handoff-final.md
+- 남은 작업: 없음. followup=null; 대기 중 portfolio-next-development-selection-v1에서 두 분석을 통합 검토합니다.
