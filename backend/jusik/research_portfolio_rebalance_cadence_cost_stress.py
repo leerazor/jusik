@@ -617,6 +617,32 @@ def _exposure(sim: PortfolioSimulation) -> dict[str, str]:
     }
 
 
+def _reentry_summary(sim: PortfolioSimulation) -> dict[str, Any]:
+    ready = [event for event in sim.policy_events if event.kind == "reentry_ready"]
+    reentries = [event for event in sim.policy_events if event.kind == "reentry"]
+    delays: list[str | None] = []
+    used = 0
+    for ready_event in ready:
+        next_reentry = next(
+            (event for event in reentries[used:] if event.at >= ready_event.at), None
+        )
+        if next_reentry is None:
+            delays.append(None)
+        else:
+            delays.append(str((next_reentry.at - ready_event.at).total_seconds()))
+            used = reentries.index(next_reentry) + 1
+    return {
+        "ready_utc": [event.at.isoformat() for event in ready],
+        "reentry_utc": [event.at.isoformat() for event in reentries],
+        "delay_seconds": delays,
+        "never_ready_count": max(
+            0,
+            sum(event.kind == "risk_exit" for event in sim.policy_events)
+            - len(ready),
+        ),
+    }
+
+
 def _row(
     period: dict[str, Any],
     arm: str,
@@ -638,6 +664,7 @@ def _row(
             event.kind == "band_skip" for event in sim.policy_events
         ),
         "leverage": _exposure(sim),
+        "reentry": _reentry_summary(sim),
         "final_cash_krw": str(sim.equity[-1].cash_krw),
         "final_quantities": {
             position.symbol: position.quantity for position in sim.positions
