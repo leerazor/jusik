@@ -17,6 +17,7 @@ from jusik.development_runner import (
     RunResult,
     _git_common,
     _next_task,
+    _prepare_artifact_dir,
     _safe_history_flush,
     init_config,
     pause_runner,
@@ -43,6 +44,27 @@ def _repo(tmp_path: Path) -> Path:
     _git(repo, "add", "README.md")
     _git(repo, "commit", "-m", "initial")
     return repo
+
+
+@pytest.mark.parametrize("mode", [0o750, 0o770])
+def test_prepare_artifact_dir_preserves_existing_mode(
+    tmp_path: Path, mode: int
+) -> None:
+    artifact = tmp_path / "existing"
+    artifact.mkdir(mode=mode)
+    artifact.chmod(mode)
+
+    assert _prepare_artifact_dir(artifact) == artifact.resolve()
+    assert artifact.stat().st_mode & 0o777 == mode
+
+
+def test_prepare_artifact_dir_creates_missing_directory_with_private_mode(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "missing" / "nested"
+
+    assert _prepare_artifact_dir(artifact) == artifact.resolve()
+    assert artifact.stat().st_mode & 0o777 == 0o700
 
 
 def test_interrupted_attempt_is_quarantined_until_explicit_retry(
@@ -104,6 +126,7 @@ def test_validate_completion_checks_commit_and_evidence(tmp_path: Path) -> None:
         state_dir=tmp_path / "state",
         history_dir=tmp_path / "history",
         history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
     )
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
     store.enqueue("task-a", "entry-amount-distribution", "prompt")
@@ -133,7 +156,11 @@ def test_validate_completion_checks_commit_and_evidence(tmp_path: Path) -> None:
 
 def test_validate_completion_allows_explicit_blocked_result(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
-    config = RunnerConfig(repo=repo, state_dir=tmp_path / "state")
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        artifact_dir=tmp_path / "artifact",
+    )
     store = RunnerStore(config.state_dir / "runner.db")
     store.enqueue("task-a", "future-observation-protocol", "prompt")
     task = store.task("task-a")
@@ -179,6 +206,7 @@ def test_invalid_repo_does_not_create_child_or_change_task(tmp_path: Path) -> No
         state_dir=state,
         history_dir=history,
         history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
     )
 
     result = run_once(config)
@@ -457,7 +485,11 @@ output.write_text(json.dumps(payload), encoding='utf-8')
 
 def test_config_rejects_unbounded_launch_settings(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
-        RunnerConfig(repo=tmp_path, daily_launches=9)
+        RunnerConfig(
+            repo=tmp_path,
+            artifact_dir=tmp_path / "artifact",
+            daily_launches=9,
+        )
 
 
 def test_pause_and_utc_launch_count_are_durable(tmp_path: Path) -> None:
@@ -569,6 +601,7 @@ def test_competing_lock_does_not_mutate_alternate_state_db(
         state_dir=state,
         history_dir=history,
         history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
     )
     monkeypatch.setattr(
         "jusik.development_runner.fcntl.flock",
@@ -606,6 +639,7 @@ def test_history_outbox_retries_without_duplicate_delivery(
         state_dir=tmp_path / "state",
         history_dir=tmp_path / "history",
         history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
     )
     _safe_history_flush(store, config)
     assert store.outbox_pending()
@@ -628,6 +662,7 @@ def test_quota_and_cooldown_gate_real_dispatch(tmp_path: Path) -> None:
         state_dir=quota_state,
         history_dir=quota_history,
         history_db=tmp_path / "quota.db",
+        artifact_dir=tmp_path / "quota-artifact",
         daily_launches=1,
     )
     assert run_once(quota_config).status == "quota"
@@ -643,6 +678,7 @@ def test_quota_and_cooldown_gate_real_dispatch(tmp_path: Path) -> None:
         state_dir=cooldown_state,
         history_dir=cooldown_history,
         history_db=tmp_path / "cooldown.db",
+        artifact_dir=tmp_path / "cooldown-artifact",
         cooldown_seconds=3600,
     )
     assert run_once(cooldown_config).status == "cooldown"

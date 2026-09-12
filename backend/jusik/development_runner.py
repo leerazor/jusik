@@ -198,7 +198,7 @@ def _prepare_artifact_dir(path: Path) -> Path:
         resolved = path.expanduser().resolve()
     except (OSError, RuntimeError) as exc:
         raise OSError("artifact directory is not usable") from exc
-    _secure_dir(resolved)
+    resolved.mkdir(parents=True, exist_ok=True, mode=0o700)
     if not resolved.is_dir() or not os.access(resolved, os.W_OK):
         raise OSError("artifact directory is not writable")
     return resolved
