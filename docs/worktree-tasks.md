@@ -203,3 +203,19 @@
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-evidence-v1-722bb6f1d10a42318b502092d64dac39/handoff.md
 - 웹: runner completion/outbox의 상태 기록 대상이며 직접 게시하지 않았다. 기존 미추적 HANDOFF.md 보존
+
+
+## portfolio-stress-e16e
+
+- 상태: 준비
+- 목표와 완료 조건: 고정 오프라인 스트레스 재계산과 문서 검토·main 통합·검사·영구 handoff. 미래 성과는 자료 부족으로 차단합니다.
+- 담당 Luna: stress_luna (gpt-5.6-luna), 문서 단일 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-stress-e16e
+- 작업 브랜치: docs/portfolio-stress-e16e
+- 기준 커밋 SHA: 29c5327768e298a284171cce8ec933e1a274ed29 (등록 준비 전 main; 실제 기준은 준비 커밋)
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: explore 조사와 bounded plan 완료. 기존 고정 baseline과 robustness CLI
+- 수정 허용 범위: docs/research/portfolio-stress-robustness-v1.md (Luna); 등록부·audit·검사 (Astra)
+- 포트·테스트 DB·출력 경로: 서버 없음, 테스트는 임시 DB. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-stress-robustness-v1-e16e783562a544cf8fdef38180db34b0
+- 검증 계획: 고정 SHA, 7 folds/147회 평가, 시간 분리, 관련 pytest·Ruff·strict mypy·독립 review
+- 중단 조건: 고정 입력 hash 불일치 또는 계산 실패. 엔진·PAPER·주문·remote·GPU 변경 금지
