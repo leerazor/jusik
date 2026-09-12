@@ -19,6 +19,10 @@ PRECISION = 50
 RESULTS_SHA256 = "5c2de5987dd099de64736e1d5ebe9a14e25a43f089bc4a1dc60d924a645e7cc4"
 ATTRIBUTION_SHA256 = "3955050f3d29ed42f64988a502705cdfff1c2591bfb084d0c7acb0050dd189d9"
 FIXED_INITIAL_CAPITAL = Decimal("100000000")
+FORMULA = (
+    "remaining_pnl = total_pnl - symbol_net_pnl; "
+    "ratio = remaining_pnl / fixed_initial_capital; advantage = variant - control"
+)
 DEFAULT_ATTRIBUTION = Path(
     "/home/kwl/.local/share/jusik/portfolio-audit/20260911T185925Z-entry-attribution/verified-analysis/attribution.json"
 )
@@ -95,6 +99,20 @@ def _read_saved(path: Path) -> dict[str, Any]:
     return data
 
 
+def _read_results(path: Path) -> tuple[bytes, dict[str, Any]]:
+    body = path.read_bytes()
+    actual = hashlib.sha256(body).hexdigest()
+    if actual != RESULTS_SHA256:
+        raise ValueError(f"results hash mismatch: {actual} != {RESULTS_SHA256}")
+    try:
+        data = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("results is not UTF-8 JSON") from exc
+    if not isinstance(data, dict):
+        raise ValueError("results must be an object")
+    return body, data
+
+
 def _canonical(value: Any) -> Any:
     if isinstance(value, dict):
         return {k: _canonical(v) for k, v in value.items() if k != "formula"}
@@ -109,13 +127,20 @@ def analyze(
     """Reconcile frozen entry attribution and calculate symbol-removal arithmetic."""
     with localcontext() as ctx:
         ctx.prec = PRECISION
-        fresh = entry_analyze(input_dir)
         saved = _read_saved(saved_attribution)
-        if _canonical(saved) != _canonical(_json(fresh)):
+        if saved.get("formula") != (
+            "signed_raw_notional - transaction_cost - fx_cost + terminal + "
+            "split_cash_in_lieu; equivalent to signed_execution_notional - fee "
+            "- fx_cost + terminal + split_cash_in_lieu"
+        ):
+            raise ValueError("saved attribution formula mismatch")
+        fresh = entry_analyze(input_dir)
+        saved_without_formula = {k: v for k, v in saved.items() if k != "formula"}
+        if _canonical(saved_without_formula) != _canonical(_json(fresh)):
             raise ValueError(
                 "saved attribution does not reconcile with recomputed attribution"
             )
-        results = json.loads((input_dir / "results.json").read_text(encoding="utf-8"))
+        _results_body, results = _read_results(input_dir / "results.json")
         evaluations = results.get("evaluations")
         if not isinstance(evaluations, list) or len(evaluations) != 32:
             raise ValueError("results must contain exactly 32 evaluations")
@@ -140,29 +165,47 @@ def analyze(
             (p, a, c) for p in PERIODS for a in ("control", "variant") for c in (1, 2)
         }:
             raise ValueError("evaluation set is incomplete")
+        expected_pairs = {(period, cost) for period in PERIODS for cost in (1, 2)}
+        pair_map = {
+            (str(pair.get("period")), int(pair.get("cost_multiplier"))): pair
+            for pair in fresh.get("pairs", [])
+        }
+        if set(pair_map) != expected_pairs or len(fresh.get("pairs", [])) != 16:
+            raise ValueError("pair set is incomplete or duplicated")
         source_rows = {
             (r["period"], int(r["cost_multiplier"]), r["symbol"]): r
             for r in fresh["symbol_rows"]
         }
+        if len(source_rows) != len(fresh["symbol_rows"]):
+            raise ValueError("duplicate source symbol row")
+        observed_symbols = {key[2] for key in source_rows}
+        if not observed_symbols <= set(SYMBOLS):
+            raise ValueError("source contains unknown symbol")
         rows: list[dict[str, Any]] = []
         pairs: list[dict[str, Any]] = []
         for period in PERIODS:
             for cost in (1, 2):
                 ckey = (period, "control", cost)
                 capital = capitals[ckey]
-                pair = next(
-                    p
-                    for p in fresh["pairs"]
-                    if p["period"] == period and p["cost_multiplier"] == cost
-                )
+                pair = pair_map[(period, cost)]
                 ctotal = _dec(pair["control_final_equity"], "control final") - capital
                 vtotal = _dec(pair["variant_final_equity"], "variant final") - capital
                 advantage_before = vtotal - ctotal
+                c_sum = Decimal(0)
+                v_sum = Decimal(0)
                 for symbol in SYMBOLS:
                     source = source_rows.get((period, cost, symbol), {})
                     c_pnl = _dec(source.get("control_net_pnl", 0), "control symbol pnl")
                     v_pnl = _dec(source.get("variant_net_pnl", 0), "variant symbol pnl")
                     delta = v_pnl - c_pnl
+                    if (
+                        source
+                        and _dec(source.get("delta_net_pnl"), "delta symbol pnl")
+                        != delta
+                    ):
+                        raise ValueError("source delta PnL mismatch")
+                    c_sum += c_pnl
+                    v_sum += v_pnl
                     c_remaining, v_remaining = ctotal - c_pnl, vtotal - v_pnl
                     advantage_after = v_remaining - c_remaining
                     if abs(advantage_after - (advantage_before - delta)) > TOLERANCE:
@@ -192,6 +235,10 @@ def analyze(
                             "source_symbol_present": bool(source),
                         }
                     )
+                if abs(c_sum - ctotal) > TOLERANCE or abs(v_sum - vtotal) > TOLERANCE:
+                    raise ValueError("symbol PnL does not reconcile with pair totals")
+                if _dec(pair.get("delta_pnl"), "pair delta PnL") != advantage_before:
+                    raise ValueError("pair delta PnL mismatch")
                 pairs.append(
                     {
                         "period": period,
@@ -218,16 +265,15 @@ def analyze(
                 "saved_attribution_sha256": ATTRIBUTION_SHA256,
                 "results_sha256": RESULTS_SHA256,
                 "recomputed_attribution_reconciled": True,
-                "symbol_count": 16,
-                "pair_count": 16,
+                "artifact_count": 32,
+                "symbol_count": len(SYMBOLS),
+                "pair_count": len(expected_pairs),
+                "residuals": fresh.get("residuals", {}),
+                "source_hashes": fresh.get("source_hashes", {}),
             },
             "pairs": pairs,
             "symbol_rows": rows,
-            "formula": (
-                "remaining_pnl = total_pnl - symbol_net_pnl; "
-                "ratio = remaining_pnl / fixed_initial_capital; "
-                "advantage = variant - control"
-            ),
+            "formula": FORMULA,
             "interpretation_limits": (
                 "동결 경로의 사후 산술 민감도이며 재배분·재시뮬레이션·"
                 "인과 추론·제외 권고가 아닙니다."
@@ -265,19 +311,24 @@ def write_outputs(result: dict[str, Any], output_dir: Path) -> None:
     lines = [
         "# 종목 제거 산술 민감도",
         "",
-        "동결 attribution의 7개 fold와 continuous를 합산하지 않고 각각 계산했습니다.",
+        "고정 초기자본 100,000,000 KRW를 분모로 사용했습니다.",
         "",
-        f"strict flip: {len(flips)}건",
+        "7개 fold와 continuous를 합산하지 않고 각각 계산했습니다.",
     ]
-    lines.extend(
-        f"- {r['period']} c{r['cost_multiplier']} {r['symbol']}: "
-        f"{r['advantage_before']} -> {r['advantage_after']}"
-        for r in flips
-    )
+    for period in PERIODS:
+        period_flips = [r for r in flips if r["period"] == period]
+        lines += ["", f"## {period}", "", f"strict flip: {len(period_flips)}건"]
+        lines.extend(
+            f"- c{r['cost_multiplier']} {r['symbol']}: "
+            f"{r['advantage_before']} -> {r['advantage_after']}"
+            for r in period_flips
+        )
+        if not period_flips:
+            lines.append("- strict flip 없음")
     lines += [
         "",
         "이 결과는 재배분·재시뮬레이션·인과 효과·제외 권고가 아닌 "
-        "고정 자본 사후 산술입니다.",
+        "고정 자본 사후 산술이며 PAPER 10% 제한은 변경하지 않습니다.",
     ]
     _write_exclusive(output_dir / "report.md", ("\n".join(lines) + "\n").encode())
 
