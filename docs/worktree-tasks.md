@@ -4,7 +4,7 @@
 
 ## 활성 작업
 
-`paper-signal-evidence-v1-722b` 진행 중. 아래 작업 기록을 참조합니다.
+없습니다. 자동 개발 큐와 실행 중인 작업은 전용 runner DB와 웹 연구 이력에서 확인합니다.
 
 ## 완료 작업
 
@@ -179,12 +179,12 @@
 
 ## paper-signal-evidence-v1-722b
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 저장된 실시간 PAPER 시세 근거를 읽기 전용 수집하고 출처·제한을 문서화합니다. 독립 검토, main 통합, 검사, 영구 근거와 handoff 보존을 완료합니다.
 - 담당 Luna: paper_luna (gpt-5.6-luna), 문서 단일 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-paper-signal-722b
 - 작업 브랜치: docs/paper-signal-722b
-- 기준 커밋 SHA: 준비 커밋 생성 후 기록
+- 기준 커밋 SHA: 0676b70 (작업 등록 준비 커밋)
 - 통합 대상 브랜치: local main
 - 입력과 선행 작업: explore·plan 순차 완료. 이전 시도 collector와 기존 research_signal_validation 재사용
 - 수정 허용 범위: docs/research/paper-signal-evidence-v1.md (Luna); 등록부·영구 audit 수집·검증·handoff (Astra)
@@ -192,3 +192,14 @@
 - 영구 산출물: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-evidence-v1-722bb6f1d10a42318b502092d64dac39
 - 검증 계획: snapshot integrity와 재분석 일치, validation/kis_stream pytest, Ruff check/format, strict mypy, 문서 독립 review와 main 통합 재검사
 - 중단 조건: 원본 수집 중 변경·무결성 실패·해시 불일치. 운영 DB·engine·broker·주문·GPU·remote 변경 금지
+
+- 결과 커밋 SHA: 4f0542f (Luna)
+- 병합 직전 main SHA: 0676b70
+- 통합 커밋 SHA: e9d7b5da40218a36a84fd6e7552cfc88f7dc7c1a
+- 검토 결과: 독립 snapshot 재분석·별도 집계 일치. 문서 경로·환경 설명 수정 후 독립 검토 통과
+- 검증 결과: 통합 전후 pytest 29개 통과(기존 경고 2개), Ruff check/format 4파일, strict mypy 2소스 통과. 문서 hash 일치·diff check·baseline 보존 확인. frontend build 해당 없음
+- 관측 결과: 저장 관찰 21,937건, 판단·체결 0건. 선택일 2026-09-11의 6,240분 중 6,164분 관측, 미래 시각 이상 249건. current_feed=null, operational_unproven 유지
+- 정리: 필요한 근거 99파일과 SHA-256·handoff를 영구 audit에 먼저 보존·검증했다. clean worktree 제거 완료, 브랜치 보존. 최종 보존 목록은 manifest.json 참조
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-evidence-v1-722bb6f1d10a42318b502092d64dac39/handoff.md
+- 웹: runner completion/outbox의 상태 기록 대상이며 직접 게시하지 않았다. 기존 미추적 HANDOFF.md 보존
