@@ -567,3 +567,21 @@
 - 통합 커밋 및 정리: 14개 필수 영구 파일의 SHA를 정리 전후 대조한 뒤 이번 워크트리와 전용 브랜치를 force 없이 제거했습니다. 이전4840 워크트리와 기존 HANDOFF 내용을 보존했습니다.
 - 문서 통합 보완: 감독이 planning 권한 설명에서 읽기 전용 명령 허용 범위와 transaction 내부 재검증을 명확히 했습니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/20260912T114934Z-empty-queue-planner/handoff-final.md. root HANDOFF.md에서 연결합니다.
+
+
+## portfolio-held-band-cost3-f9ae
+
+- 상태: 준비
+- 목표와 완료 조건: held-band 저장 32개 전체 JSON exact replay 후 비용 3배 16개를 실행하고, 고정체결 산술과 실제 순손익·MDD·회전율 및 현금·수량 차이를 검증합니다.
+- 담당 Luna: gpt-5.6-luna 단일 구현 소유자; explore, 순차 plan, 독립 review 후 Astra 통합.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-cost3-f9ae
+- 작업 브랜치: feat/portfolio-held-band-cost3-f9ae
+- 기준 커밋 SHA: 15213cdd353de92193077ce2aef660c807a6d7d4 (이 등록 커밋을 실제 생성 기준으로 사용합니다.)
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: held-band experiment의 고정 results/preregistration/hash-manifest, frozen source와 corrected engine 및 simulation 32개.
+- 수정 허용 범위: backend/jusik/research_portfolio_held_band_cost3_stress.py, backend/tests/test_research_portfolio_held_band_cost3_stress.py, docs/research/portfolio-held-band-cost3-stress-v1.md. 등록부는 Astra만 수정합니다.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 독립 worktree venv/tmp; 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-cost3-stress-v1-f9aecd54dffc4931a6100ac2de8c8cd3.
+- 검증 명령과 결과: 관련 pytest·Ruff·strict mypy, 역사 실행 전 +1 KRW 변조 검출, 32 exact replays, 16 stress, Decimal 회계와 cutoff/next-open/UTC, 독립 review, main 통합 검사 예정.
+- 종료 조건: 48회 이하·60분 한도; hash/replay/회계/누출 실패 시 즉시 중단·증거 보존·재시도 금지. 성공 시 로컬 통합·검사·handoff와 필요한 게시 후 durable 보존을 확인하고 이번 worktree만 정리합니다.
+- 보존 조건: 자본 1억원, 최대 손실 허용20%, leverage 배분 cap20%, frozen drawdown_limit=.10/gross_cap=.60/symbol_cap=.20. PAPER10%와 실거래 유예. 제품/DB/config/remote/주문/GPU 불변.
+- 실행기 확인: running attempt는 portfolio-held-band-cost3-stress-v1 / f9aecd54dffc4931a6100ac2de8c8cd3 하나입니다. 실행기 상태를 변경하지 않습니다.
