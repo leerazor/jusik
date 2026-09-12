@@ -457,3 +457,19 @@
 - 보존·정리: 원본 123개 hash 항목 불변. 증거·환경·소스·hash·handoff 67개 파일 영구 보존 검증 후 git worktree remove로 이번 병합 워크트리 제거. 브랜치, 기존 HANDOFF.md, 이전4840 워크트리 보존.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-removal-attribution-v1-15a65c0ea4694f0da1b0c8affd420f65/handoff-final.md
 - 남은 작업: 없음. followup=null; 대기 중 portfolio-next-development-selection-v1이 두 분석을 통합합니다.
+
+## portfolio-exposure-cost-734e
+
+- 상태: 준비
+- 목표와 완료 조건: 동결 32개 시뮬레이션의 노출·실제 비용 비교와 사전 고정 1/2/3배 산술 민감도, 독립 검토, main 통합 검사, 한국어 연구 게시 및 영구 증거 보존.
+- 담당 Luna: gpt-5.6-luna 단일 구현 소유자.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-exposure-cost-734e
+- 작업 브랜치: feat/portfolio-exposure-cost-734e
+- 기준 커밋 SHA: 292f663527e85ec1f1b901fe6039ea5b24ddddac. 등록 커밋을 실제 생성 기준으로 사용합니다.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 지정 unheld-entry-real32 읽기 전용. explore 완료, plan 단계 후 구현. 계산 전에 audit/preregistered-diagnostics.json에 1/2/3배와 초기 1억 원 고정.
+- 수정 허용 범위: backend/jusik/research_portfolio_exposure_cost.py, 대응 tests, docs/research/portfolio-exposure-cost-tradeoff-v1.md. 등록부는 감독만 관리합니다.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 독립 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-exposure-cost-tradeoff-v1-734e493df492407891611c190b42a54b
+- 검증 방법: 합성 경계·회계 pytest, Ruff check/format, strict mypy, 동결 입력 전후 SHA, 반복 출력, 독립 review, main 검사, 웹/API 및 다운로드 SHA.
+- 제외: 운영 엔진/PAPER/설정/DB/collector/order/GPU 변경, 재수집·정책 활성화·remote push 없음. PAPER 10% 유지. 노출 정규화 승자 선정·탐색·가상 MDD/실현 가능성 주장 없음.
+- 종료 조건: 통합 검사와 영구 evidence/hash/handoff 보존 후 병합 worktree 정리. followup=null; 대기 중 portfolio-next-development-selection-v1에서 다음 작업 결정.
