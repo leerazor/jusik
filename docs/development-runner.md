@@ -17,7 +17,7 @@ cd backend
   --artifact-dir ~/.local/share/jusik/portfolio-audit
 ```
 
-설정 파일에는 저장소, Codex 실행 파일, 상태·history·artifact 경로, 시도 제한(기본 90분), UTC 일일 실행 상한(기본 8회, 허용 범위 1~24회), 실행 간 대기(기본 60초)를 명시합니다. 일일 상한은 금액·토큰 예산이 아니라 자식 Codex dispatch 횟수 제한입니다. 90분 시도 제한과 실행 간 60초 cooldown은 그대로 유지합니다. 현재 설치 설정은 supervisor가 병합 후 24회로 변경합니다. history는 연구 화면의 기존 `~/.local/share/jusik/research-history`와 journal DB를 사용해야 기록이 웹에 나타납니다. `artifact_dir`는 `~/.local/share/jusik/portfolio-audit`를 사용해 분석 산출물을 검증하고 Codex named permission profile의 허용 루트로 제공합니다. 큐의 초기 작업은 entry amount distribution, 작은 진입 제약의 선행 조건, 미래 관찰 프로토콜, PAPER 신호 근거, portfolio stress robustness 순서이며 최대 8개의 미완료 작업만 유지합니다.
+설정 파일에는 저장소, Codex 실행 파일, 상태·history·artifact 경로, 시도 제한(기본 90분), UTC 일일 실행 상한(기본 8회, 허용 범위 1~24회), 실행 간 대기(기본 60초)를 명시합니다. 일일 상한은 금액·토큰 예산이 아니라 자식 Codex dispatch 횟수 제한입니다. 90분 시도 제한과 실행 간 60초 cooldown은 그대로 유지합니다. 현재 설치 설정은 하루 24회입니다. history는 연구 화면의 기존 `~/.local/share/jusik/research-history`와 journal DB를 사용해야 기록이 웹에 나타납니다. `artifact_dir`는 `~/.local/share/jusik/portfolio-audit`를 사용해 분석 산출물을 검증하고 Codex named permission profile의 허용 루트로 제공합니다. 큐의 초기 작업은 entry amount distribution, 작은 진입 제약의 선행 조건, 미래 관찰 프로토콜, PAPER 신호 근거, portfolio stress robustness 순서이며 최대 8개의 미완료 작업만 유지합니다.
 
 systemd 파일은 설치 위치에 맞게 검토한 뒤 사용자 단위로 등록합니다. 이 저장소에서는 설치 명령을 자동 실행하지 않습니다.
 
@@ -68,10 +68,10 @@ cd backend
 
 각 runtime prompt는 통합 검사가 끝난 뒤 병합 worktree를 제거하기 전에 필요한 evidence, SHA-256 hash, handoff를 허용된 durable root에 보관하도록 요구합니다. completion JSON은 worktree 정리 뒤에도 남아 있는 파일만 참조해야 합니다. worktree 생성·통합·검증·정리의 전체 절차는 [워크트리 운영 절차](worktree-workflow.md#정리)를 따릅니다.
 
-## Empty queue planning
+## 빈 큐 자동 연구 계획
 
 `planning_enabled=true`이고 실행 가능한 연구 작업이 없으며 queued/running 연구 작업도 없을 때, 실행기는 내부 예약 영역 `__planning__`에서 planner를 한 번 dispatch합니다. planner는 기존 연구 task snapshot, 검증된 `main` HEAD, UTC 날짜를 fingerprint로 묶고 cost-adjusted portfolio return/risk/turnover 실험을 우선 검토합니다. planner state/history는 연구 pending 상한 8개에 포함하지 않습니다.
 
-planner는 최대 하나의 새 연구 task만 제안하거나, 고정된 한국어 대기 상태를 남깁니다. 제안 prompt에는 Objective, Scope, Inputs, Computation cap, Tests, Stop condition의 6개 섹션을 순서대로 짧게 담고 1600자 이내를 목표로 합니다(검증 hard cap 2000자). 기존 evidence만 SHA-256으로 참조할 수 있습니다. planner 결과 검증, 연구 task enqueue, planner 완료, history outbox 기록은 하나의 SQLite transaction으로 처리합니다. 입력 fingerprint가 바뀌면 재검토하고, 같은 fingerprint의 failed/interrupted/terminal planner는 자동 재시도하지 않습니다.
+planner는 최대 하나의 새 연구 task만 제안하거나, 고정된 한국어 대기 상태를 남깁니다. 제안 prompt에는 Objective, Scope, Inputs, Computation cap, Tests, Stop condition의 6개 섹션을 순서대로 짧게 담고 1600자 이내를 목표로 합니다(검증 hard cap 2000자). 기존 evidence만 SHA-256으로 참조할 수 있습니다. 제안을 검증한 뒤 연구 task enqueue, planner 완료, history outbox 기록을 하나의 SQLite transaction으로 처리합니다. 이 transaction 안에서 연구 task snapshot과 대기 상한을 다시 확인합니다. 입력 fingerprint가 바뀌면 재검토하고, 같은 fingerprint의 failed/interrupted/terminal planner는 자동 재시도하지 않습니다.
 
-planner dispatch는 별도 `jusik-planning` named profile을 사용합니다. profile은 `:read-only`를 상속하고 해당 attempt directory만 write, network는 disabled로 둡니다. planner는 repository, DB, config, remote, order API를 수정하거나 subagent/command를 사용할 수 없습니다. 일반 연구 task의 `jusik-development` profile과 PAPER10% contract는 변경하지 않습니다. `planning_enabled` 기본값은 `false`입니다.
+planner dispatch는 별도 `jusik-planning` named profile을 사용합니다. profile은 `:read-only`를 상속하고 해당 attempt directory만 write, network는 disabled로 둡니다. planner는 읽기 전용 명령으로 근거를 확인할 수 있지만 repository, DB, config, remote, order API를 변경하거나 subagent를 생성할 수 없습니다. network 제한은 자식 셸 명령에 적용됩니다. 일반 연구 task의 `jusik-development` profile과 PAPER10% contract는 변경하지 않습니다. `planning_enabled` 기본값은 `false`이며 현재 설치 설정에서는 `true`로 활성화했습니다.

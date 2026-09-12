@@ -543,7 +543,7 @@
 
 ## empty-queue-planner
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 연구 큐가 비면 기존 결과를 근거로 읽기 전용 Astra 계획을 실행하고 검증된 후속 과제 하나를 원자적으로 등록합니다. 대기·중복·실패·한도·권한 및 다음 주기 실행을 검증합니다.
 - 담당 Luna: gpt-5.6-luna, 단일 구현 소유자. 감독 조사와 순차 계획 완료 후 구현, 독립 검토를 수행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-empty-queue-planner
@@ -556,3 +556,14 @@
 - 검증 명령과 결과: 관련 pytest, Ruff check/format, strict mypy, 실제 read-only sandbox와 Codex 계획 및 다음 주기 dispatch 검증 예정.
 - 종료 조건: 독립 review, main 병합/통합 검사, 웹 기록, 운영 활성화, 증거/hash/handoff 보존 후 이번 worktree 정리.
 - 보존 조건: 하루 한도24 및 기존 이력, PAPER/실거래/전략/운영 DB/GPU 설정은 유지합니다. 계획도 기존 quota와 lifecycle을 사용합니다.
+
+- 통합 검증 실패 및 복구: main 병합 6f07ab177b9f6e4fc708f281acebe8e2dfe31f94에서 pytest55·Ruff lint·strict mypy는 통과했고 테스트 파일 한 줄 format 검사만 실패했습니다. Luna의 포맷 수정 및 통합 재검증 전 정리와 운영 재개를 보류합니다.
+
+- 결과 커밋 SHA: 구현 ca4527e, 보완 e68a1b9, 회귀 검증5793462·6869012·631ff2f, 포맷 c1a1d26.
+- 병합 직전 main SHA: 66a29ee. 기능 통합6f07ab177b9f6e4fc708f281acebe8e2dfe31f94, 포맷 복구 통합663a643ea90bc09bb08c1a065e3b7e7c5952dcd5.
+- 최종 검증: main pytest55·Ruff lint·strict mypy 통과. 포맷 실패는 복구 병합 뒤 format/lint/diff 통과 및 AST 동일성으로 해소했습니다. 독립 소스 검토 통과. 테스트의 gate 허위 통과와 outside-root 해시 혼입은 별도 수정·검증했습니다.
+- 실제 실행 증거: 읽기 전용 profile의 attempt 쓰기 허용 및 source/Git/다른 state/artifact/network 차단. 격리 synthetic fixture에서 실제 Astra 제안 등록, 다음 주기의 stub child 선택 확인. 실제 연구/수익 검증으로 혼동하지 않습니다.
+- 운영 반영: planning_enabled=true, 하루24회 및 기존 모든 launch/task 기록 보존. queued portfolio-session-calendar-stress-v1부터 재개합니다. 실제 재개 상태는 영구 audit의 activation.json에 기록합니다.
+- 통합 커밋 및 정리: 14개 필수 영구 파일의 SHA를 정리 전후 대조한 뒤 이번 워크트리와 전용 브랜치를 force 없이 제거했습니다. 이전4840 워크트리와 기존 HANDOFF 내용을 보존했습니다.
+- 문서 통합 보완: 감독이 planning 권한 설명에서 읽기 전용 명령 허용 범위와 transaction 내부 재검증을 명확히 했습니다.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/20260912T114934Z-empty-queue-planner/handoff-final.md. root HANDOFF.md에서 연결합니다.
