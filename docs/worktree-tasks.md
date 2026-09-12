@@ -539,3 +539,20 @@
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-interaction-v1-cce0cdf0e5ea43e4a088f2dfe5c2fa74/handoff-final.md.
 - 남은 실패: 실제 실행·통합 실패 없음. 후향/PIT 미인증, 조기 폐장과 broker receipt 부재는 연구 한계입니다.
 - 후속 제안: `portfolio-session-calendar-stress-v1` 하나. 검증된 offline calendar를 쓰는 격리 adapter/복사 엔진과 synthetic 테스트 3개 신규 파일만 허용하며 제품/PAPER/DB/runner/GPU 변경과 역사 재실행을 제외합니다.
+
+
+## empty-queue-planner
+
+- 상태: 진행
+- 목표와 완료 조건: 연구 큐가 비면 기존 결과를 근거로 읽기 전용 Astra 계획을 실행하고 검증된 후속 과제 하나를 원자적으로 등록합니다. 대기·중복·실패·한도·권한 및 다음 주기 실행을 검증합니다.
+- 담당 Luna: gpt-5.6-luna, 단일 구현 소유자. 감독 조사와 순차 계획 완료 후 구현, 독립 검토를 수행합니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-empty-queue-planner
+- 작업 브랜치: feat/empty-queue-planner
+- 기준 커밋 SHA: 73fdc43de94c39825731002f6f91fea8a764a660 (등록 커밋을 실제 생성 기준으로 사용합니다.)
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: 기존 runner/store 및 history 흐름. 진행 중 held-band 작업 완료 후 pause와 서비스 inactive 확인.
+- 수정 허용 범위: backend/jusik/development_runner{,_store,_planning}.py, 관련 runner/planning tests, docs/development-runner.md. 등록부·handoff·운영 설정은 감독만 관리합니다.
+- 포트·테스트 DB·출력 경로: 독립 worktree venv와 임시 fixtures. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260912T114934Z-empty-queue-planner.
+- 검증 명령과 결과: 관련 pytest, Ruff check/format, strict mypy, 실제 read-only sandbox와 Codex 계획 및 다음 주기 dispatch 검증 예정.
+- 종료 조건: 독립 review, main 병합/통합 검사, 웹 기록, 운영 활성화, 증거/hash/handoff 보존 후 이번 worktree 정리.
+- 보존 조건: 하루 한도24 및 기존 이력, PAPER/실거래/전략/운영 DB/GPU 설정은 유지합니다. 계획도 기존 quota와 lifecycle을 사용합니다.
