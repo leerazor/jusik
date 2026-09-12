@@ -58,7 +58,9 @@ def _input_paths(archive: Path) -> tuple[Path, Path]:
     return archive / ANOMALIES_RELATIVE, archive / REPLAY_RELATIVE
 
 
-def _verify_manifest(archive: Path) -> dict[str, str]:
+def _verify_manifest(
+    archive: Path, required_paths: set[str] | None = None
+) -> dict[str, str]:
     manifest_path = next(
         (archive / name for name in MANIFEST_NAMES if (archive / name).is_file()), None
     )
@@ -94,7 +96,27 @@ def _verify_manifest(archive: Path) -> dict[str, str]:
     if len(result) != len(entries):
         raise EpisodesError("manifest_duplicate_path")
     result[manifest_path.name] = _sha256(manifest_path)
+    if required_paths and not required_paths.issubset(result):
+        raise EpisodesError("manifest_required_path_missing")
     return result
+
+
+def _guard_output_inputs(output: Path, paths: Iterable[Path]) -> None:
+    if output.exists() and output.is_symlink():
+        raise EpisodesError("output_symlink_rejected")
+    if not output.exists():
+        return
+    inodes = {
+        (path.stat().st_dev, path.stat().st_ino) for path in paths if path.is_file()
+    }
+    for candidate in output.rglob("*"):
+        if candidate.is_symlink():
+            raise EpisodesError("output_symlink_rejected")
+        if (
+            candidate.is_file()
+            and (candidate.stat().st_dev, candidate.stat().st_ino) in inodes
+        ):
+            raise EpisodesError("output_hardlink_rejected")
 
 
 def _guard_archive(
@@ -145,7 +167,18 @@ def _guard_archive(
         ANOMALIES_RELATIVE.as_posix(): _sha256(anomaly_path),
         REPLAY_RELATIVE.as_posix(): _sha256(replay_path),
     }
-    hashes.update({f"{key}": value for key, value in _verify_manifest(archive).items()})
+    hashes.update(
+        {
+            f"{key}": value
+            for key, value in _verify_manifest(
+                archive, {ANOMALIES_RELATIVE.as_posix(), REPLAY_RELATIVE.as_posix()}
+            ).items()
+        }
+    )
+    manifest_paths = [
+        archive / name for name in MANIFEST_NAMES if (archive / name).is_file()
+    ]
+    _guard_output_inputs(output, [anomaly_path, replay_path, *manifest_paths])
     if not allow_unpinned:
         if hashes[ANOMALIES_RELATIVE.as_posix()] != ANOMALIES_SHA256:
             raise EpisodesError("approved_hash_mismatch:analysis/anomalies.csv")
@@ -307,9 +340,20 @@ def analyze_archive(
                 for key, value in evidence_before.items()
             }
         )
-        evidence_manifest = _verify_manifest(evidence)
+        evidence_manifest = _verify_manifest(
+            evidence, {item.relative.as_posix() for item in evidence_inputs}
+        )
         before.update(
             {f"evidence:{key}": value for key, value in evidence_manifest.items()}
+        )
+        _guard_output_inputs(
+            output_dir.resolve(),
+            [item.path for item in evidence_inputs]
+            + [
+                evidence / name
+                for name in MANIFEST_NAMES
+                if (evidence / name).is_file()
+            ],
         )
         calendar = _load_calendar(
             evidence / "source/jusik/data/market_sessions_2023_2026.json"
