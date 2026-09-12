@@ -6,7 +6,7 @@ import subprocess
 import threading
 import time
 import tomllib
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -483,12 +483,28 @@ output.write_text(json.dumps(payload), encoding='utf-8')
     assert task is not None and task.status == "completed"
 
 
-def test_config_rejects_unbounded_launch_settings(tmp_path: Path) -> None:
+@pytest.mark.parametrize("daily_launches", [1, 8, 24])
+def test_config_accepts_supported_launch_settings(
+    tmp_path: Path, daily_launches: int
+) -> None:
+    config = RunnerConfig(
+        repo=tmp_path,
+        artifact_dir=tmp_path / "artifact",
+        daily_launches=daily_launches,
+    )
+
+    assert config.daily_launches == daily_launches
+
+
+@pytest.mark.parametrize("daily_launches", [0, 25])
+def test_config_rejects_unbounded_launch_settings(
+    tmp_path: Path, daily_launches: int
+) -> None:
     with pytest.raises(ValueError):
         RunnerConfig(
             repo=tmp_path,
             artifact_dir=tmp_path / "artifact",
-            daily_launches=9,
+            daily_launches=daily_launches,
         )
 
 
@@ -683,6 +699,97 @@ def test_quota_and_cooldown_gate_real_dispatch(tmp_path: Path) -> None:
     )
     assert run_once(cooldown_config).status == "cooldown"
     assert cooldown_store.task("task-a").status == "queued"  # type: ignore[union-attr]
+
+
+def test_daily_launch_limit_allows_ninth_dispatch_at_limit_24(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "fake-codex.py"
+    fake.write_text(
+        """#!/usr/bin/env python3
+import json, pathlib, sys
+output = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])
+output.write_text(json.dumps({
+    'task_id': 'task-a',
+    'attempt_id': output.parent.name,
+    'status': 'blocked',
+    'integrated_commit': None,
+    'evidence': [],
+    'tests_passed': False,
+    'review_passed': False,
+    'handoff_path': None,
+    'blocked_reason': 'test block',
+    'followup': None,
+}), encoding='utf-8')
+""",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    artifact = tmp_path / "artifact"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    old_launches = [
+        (today + timedelta(seconds=index)).isoformat() for index in range(8)
+    ]
+    for launched_at in old_launches:
+        store.record_launch(launched_at)
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=artifact,
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    assert store.launch_count(today.strftime("%Y-%m-%d")) == 9
+    assert store.task("task-a").attempt_count == 1  # type: ignore[union-attr]
+    assert store.launch_count("2099-01-01") == 0
+
+
+def test_daily_launch_limit_blocks_at_limit_24_without_dispatch(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "must-not-run"
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    old_launches = [
+        (today + timedelta(seconds=index)).isoformat() for index in range(24)
+    ]
+    for launched_at in old_launches:
+        store.record_launch(launched_at)
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+
+    result = run_once(config)
+
+    assert result.status == "quota"
+    task = store.task("task-a")
+    assert task is not None and task.status == "queued"
+    assert task.attempt_count == 0
+    assert store.launch_count(today.strftime("%Y-%m-%d")) == 24
+    assert not fake.exists()
 
 
 def test_pause_and_stop_callback_interrupt_owned_child(tmp_path: Path) -> None:

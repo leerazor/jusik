@@ -95,7 +95,7 @@ class RunnerConfig(BaseModel):
     history_db: Path = DEFAULT_HISTORY_DB
     artifact_dir: Path = DEFAULT_ARTIFACTS
     timeout_seconds: int = Field(default=5400, ge=60, le=5400)
-    daily_launches: int = Field(default=8, ge=1, le=8)
+    daily_launches: int = Field(default=8, ge=1, le=24)
     cooldown_seconds: int = Field(default=60, ge=0, le=86400)
 
 
