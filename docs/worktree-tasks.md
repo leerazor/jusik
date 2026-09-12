@@ -381,7 +381,7 @@
 
 ## future-observation-revision-9773
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 합성 revision-link 구조 감사, 독립 기대값·검토·main 검사·공개 보고·영구 증거 보존.
 - 담당 Luna: revision_luna (gpt-5.6-luna), 단일 구현 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-future-observation-revision-9773
@@ -393,3 +393,14 @@
 - 포트·테스트 DB·출력 경로: 서버/DB 없음. worktree .venv/tmp/cache 격리. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/future-observation-revision-link-audit-v1-97739cd36077413eab39ecf6961f673c
 - 검증 방법: 신규+replay pytest, Ruff check/format, strict mypy, 독립 review, main 재검사.
 - 중단 조건: 합성 구조 감사만 수행하며 selection/temporal policy는 미정. PAPER/실주문/DB/collector/GPU/runner/quota/remote 변경 금지.
+
+- 결과 커밋 SHA: b72e91dcd1f29109746fb00afcc01e3a071b6b8d (초기 검토 수정 이력 보존)
+- 병합 직전 main SHA: ea76c5646add58ec714698336c408a88d0d9f4e7
+- 통합 커밋 SHA: d87174ac722bbd420f0747624afbc92c5810a240
+- 검토 결과: 최종 독립 검토 승인. synthetic 강제·다중 부모 SCC·필수 회귀와 한도 검사 지적 해결.
+- 통합 검증: 신규+replay pytest 38개, Ruff check/format, strict mypy 두 파일, diff 통과. 감독 독립 10 fixture·raw/availability/CLI bytes, 검토자 512 graph oracle 일치.
+- 검사 제한: frontend 변경 없어 build 비적용. 전체 backend 검사 대신 요청된 집중 검사 수행.
+- 웹: /research/history 한국어 보고서와 검사 요약, API/web 제목 및 4개 첨부 다운로드 SHA 검증. 기존 공개 항목 보존.
+- 정리: 근거·환경·hash·handoff 65파일을 먼저 영구 보관·검증한 뒤 작업 생성물과 병합 worktree 제거. 브랜치 보존. 기존 HANDOFF와 다른 워크트리 보존.
+- 통합 검증 실패 원인과 복구 결과: 통합 실패 없음. 작업 환경 초기 Python 경로 문제는 격리된 Python3.13 venv 재생성으로 해결.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-revision-link-audit-v1-97739cd36077413eab39ecf6961f673c/handoff.md
