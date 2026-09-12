@@ -23,6 +23,7 @@ from jusik.research_signal_timestamp_forensics import (
     NOW,
     _load_calendar,
     _parse_observations,
+    _fingerprint,
     _validate_archive,
 )
 from jusik.research_universe_data import REGISTRY
@@ -156,7 +157,6 @@ def _active_grid(calendar: Any) -> tuple[dict[str, set[str]], dict[str, str]]:
 
 def aggregate_rows(
     selected_rows: Iterable[Mapping[str, Any]],
-    anomaly_rows: Iterable[Mapping[str, Any]] | None = None,
     *,
     active_symbols: Mapping[str, Iterable[str]] | Iterable[str] | None = None,
     session_keys: Mapping[str, str] | None = None,
@@ -172,10 +172,6 @@ def aggregate_rows(
         lambda: {"observed": set(), "anomalous": set(), "ids": []}
     )
     selected = list(selected_rows)
-    anomaly_ids: set[str] = set()
-    if anomaly_rows is not None:
-        for row in anomaly_rows:
-            anomaly_ids.add(str(row["observation_id"]))
     for row in selected:
         symbol = str(row["symbol"])
         minute = _minute(str(row["market_at"]))
@@ -186,8 +182,6 @@ def aggregate_rows(
         if raw_latency is not None:
             latency = int(raw_latency)
             is_anomaly = latency < FUTURE_LIMIT_US or latency > STALE_LIMIT_US
-        if anomaly_ids and str(row.get("observation_id")) in anomaly_ids:
-            is_anomaly = True
         if is_anomaly:
             group["anomalous"].add(symbol)
             group["ids"].append(str(row["observation_id"]))
@@ -230,7 +224,6 @@ def aggregate_rows(
         pairs.update(itertools.combinations(item, 2))
     episodes: list[list[str]] = []
     previous: datetime | None = None
-    previous_active: set[str] | None = None
     previous_session: str | None = None
     for minute in sorted(coincident):
         current = datetime.fromisoformat(minute.replace("Z", "+00:00"))
@@ -238,7 +231,6 @@ def aggregate_rows(
             previous is None
             or current - previous != timedelta(minutes=1)
             or current.date() != previous.date()
-            or previous_active != active.get(minute, set())
             or (
                 session_keys is not None
                 and previous_session != session_keys.get(minute)
@@ -247,7 +239,6 @@ def aggregate_rows(
             episodes.append([])
         episodes[-1].append(minute)
         previous = current
-        previous_active = active.get(minute, set())
         previous_session = (
             session_keys.get(minute) if session_keys is not None else None
         )
@@ -291,9 +282,21 @@ def analyze_archive(
     anomaly_path, replay_path, before = _guard_archive(
         archive_root, output_dir, allow_unpinned
     )
+    evidence = (evidence_root or archive_root).resolve()
     try:
-        evidence = (evidence_root or archive_root).resolve()
-        _validate_archive(evidence, output_dir.resolve(), allow_unpinned=allow_unpinned)
+        evidence_inputs, evidence_before, _, _ = _validate_archive(
+            evidence, output_dir.resolve(), allow_unpinned=allow_unpinned
+        )
+        before.update(
+            {
+                f"evidence:{key}": value["sha256"]
+                for key, value in evidence_before.items()
+            }
+        )
+        evidence_manifest = _verify_manifest(evidence)
+        before.update(
+            {f"evidence:{key}": value for key, value in evidence_manifest.items()}
+        )
         calendar = _load_calendar(
             evidence / "source/jusik/data/market_sessions_2023_2026.json"
         )
@@ -360,7 +363,7 @@ def analyze_archive(
     if expected_anomaly_ids != actual_anomaly_ids:
         raise EpisodesError("anomaly_reconciliation_failed")
     result = aggregate_rows(
-        actual_rows, anomaly_rows, active_symbols=active_grid, session_keys=session_keys
+        actual_rows, active_symbols=active_grid, session_keys=session_keys
     )
     after = {
         ANOMALIES_RELATIVE.as_posix(): _sha256(anomaly_path),
@@ -368,6 +371,15 @@ def analyze_archive(
     }
     after.update(
         {key: value for key, value in _verify_manifest(archive_root.resolve()).items()}
+    )
+    evidence_after = _fingerprint(evidence_inputs)
+    if evidence_before != evidence_after:
+        raise EpisodesError("input_changed_during_analysis")
+    after.update(
+        {f"evidence:{key}": value["sha256"] for key, value in evidence_after.items()}
+    )
+    after.update(
+        {f"evidence:{key}": value for key, value in _verify_manifest(evidence).items()}
     )
     if before != after:
         raise EpisodesError("input_changed_during_analysis")

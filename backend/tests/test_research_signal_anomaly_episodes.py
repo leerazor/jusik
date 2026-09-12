@@ -50,3 +50,32 @@ def test_shuffled_rows_are_deterministic() -> None:
         _row("b", "BBB", "00:00", -3_000_000),
     ]
     assert aggregate_rows(rows) == aggregate_rows(reversed(rows))
+
+
+def test_observed_membership_change_does_not_split_implicit_session() -> None:
+    rows = [
+        _row("a", "AAA", "00:00", -3_000_000),
+        _row("b", "BBB", "00:00", -3_000_000),
+        _row("c", "AAA", "00:01", -3_000_000),
+        _row("d", "BBB", "00:01", -3_000_000),
+        _row("e", "CCC", "00:01", 0),
+    ]
+    result = aggregate_rows(rows)
+    assert result["episodes"] == [["2026-09-11T00:00:00Z", "2026-09-11T00:01:00Z"]]
+
+
+def test_explicit_session_key_splits_adjacent_minutes() -> None:
+    rows = [
+        _row("a", "AAA", "00:00", -3_000_000),
+        _row("b", "BBB", "00:00", -3_000_000),
+        _row("c", "AAA", "00:01", -3_000_000),
+        _row("d", "BBB", "00:01", -3_000_000),
+    ]
+    result = aggregate_rows(
+        rows,
+        session_keys={
+            "2026-09-11T00:00:00Z": "KRX:2026-09-11",
+            "2026-09-11T00:01:00Z": "NYS:2026-09-11",
+        },
+    )
+    assert result["episodes"] == [["2026-09-11T00:00:00Z"], ["2026-09-11T00:01:00Z"]]
