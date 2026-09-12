@@ -378,3 +378,18 @@
 - 검증 명령과 결과: baseline draft pytest 19개 및 mypy jusik 79개 통과. 신규 경계·회귀·Ruff·mypy와 archive replay를 추가 실행한다.
 - 검토 결과와 남은 문제: 구현 후 독립 검토 예정.
 - 보존 및 제외: 기존 HANDOFF.md 보존. PAPER/DB/orders/collector/GPU/runner/quota/remote 및 과거 blocked 작업 변경 없음.
+
+## future-observation-revision-9773
+
+- 상태: 진행
+- 목표와 완료 조건: 합성 revision-link 구조 감사, 독립 기대값·검토·main 검사·공개 보고·영구 증거 보존.
+- 담당 Luna: revision_luna (gpt-5.6-luna), 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-future-observation-revision-9773
+- 작업 브랜치: feat/future-observation-revision-9773
+- 기준 커밋 SHA: 824f2a357e9b800050138157814f9078525a15f6; 등록 커밋을 생성 기준으로 사용합니다.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: replay·프로토콜 읽기 전용 explore, bounded plan 완료.
+- 수정 허용 범위: backend/jusik/research_future_observation_revision_audit.py, backend/tests/test_research_future_observation_revision_audit.py, docs/research/future-observation-revision-link-audit-v1.md
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. worktree .venv/tmp/cache 격리. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/future-observation-revision-link-audit-v1-97739cd36077413eab39ecf6961f673c
+- 검증 방법: 신규+replay pytest, Ruff check/format, strict mypy, 독립 review, main 재검사.
+- 중단 조건: 합성 구조 감사만 수행하며 selection/temporal policy는 미정. PAPER/실주문/DB/collector/GPU/runner/quota/remote 변경 금지.
