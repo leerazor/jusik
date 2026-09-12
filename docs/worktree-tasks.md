@@ -432,7 +432,7 @@
 
 ## portfolio-symbol-removal-15a6
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: 고정 32개 simulation의 모든 종목 기여분 차감 산술 민감도, 부호 반전 식별, 독립 검토, main 통합 검사, 한국어 연구 이력 게시와 영구 증거 보존.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-symbol-removal-15a6
@@ -445,3 +445,15 @@
 - 검증 방법: 합성 경계 및 기존 attribution pytest, Ruff check/format, strict mypy, 고정 입력 반복 출력·SHA 대사, 독립 review, main 재검사, 웹/API 다운로드 SHA.
 - 제외: 재배분·재시뮬레이션·미래 자료·정책 활성화·PAPER/운영 DB·collector/order/GPU·runner·remote push 변경 없음. PAPER 10% 유지.
 - 종료 조건: auditable 결과와 구현 workflow 완료. followup=null, 대기 중 portfolio-next-development-selection-v1이 두 분석을 통합합니다.
+
+- 결과 커밋 SHA: 0b62dc1b9842e47fa196a9074e743f523d0511ab (선행 7029a56, ffd9449 수정 이력 보존).
+- 병합 직전 main SHA: 66361d85edfc89a363c0eedaf7f08722e1e2c84e
+- 통합 커밋 SHA: 6bf9910ccadf4abd4cc5b1c22ba50b46f73e10f4
+- 검토 결과: 독립 review 승인. 초기 SHA 재읽기·회귀 테스트·formula 비교·문서 hash 지적을 해결했고 production 9개 및 synthetic fault 8개 probe 통과.
+- 통합 검증: pytest 42개, Ruff check/format, strict mypy 83개 소스, diff check 통과. 동결 입력 256행과 독립 계산의 1,536개 금액·비율, 부호 반전 표시 일치. JSON/CSV/report 반복 byte 동일.
+- 검사 제한 및 복구: 격리 venv 전체 mypy는 기존 optimizer의 torch 미설치로 실패했으나 신규 모듈·테스트 strict 통과, GPU 설치 없이 main 기존 환경 전체 검사 통과. 기존 deprecation 경고 2개. UI 미변경으로 frontend build 비적용. 통합 검사 실패 없음.
+- 결과: fold_1 c1 000660·AMD·COHR·SOXL, c2 000660·COHR·SOXL에서만 strict flip 7건. fold_2~7 및 continuous 없음. 고정 초기자본 1억 원, 재배분 없는 사후 산술.
+- 게시: /research/history 한국어 전체 256행 보고서·manifest·검사 3개 artifact. API/웹 및 6개 다운로드 SHA 검증, 기존 seed 항목 보존.
+- 보존·정리: 원본 123개 hash 항목 불변. 증거·환경·소스·hash·handoff 67개 파일 영구 보존 검증 후 git worktree remove로 이번 병합 워크트리 제거. 브랜치, 기존 HANDOFF.md, 이전4840 워크트리 보존.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-removal-attribution-v1-15a65c0ea4694f0da1b0c8affd420f65/handoff-final.md
+- 남은 작업: 없음. followup=null; 대기 중 portfolio-next-development-selection-v1이 두 분석을 통합합니다.
