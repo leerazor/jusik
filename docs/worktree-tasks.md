@@ -630,7 +630,7 @@
 
 ## portfolio-rebalance-cadence-e017
 
-- 상태: 준비
+- 상태: 차단
 - 목표와 완료 조건: corrected-entry band 0.02를 고정하여 4/8주 × 비용1/2/3 × 7개 독립 fold 및 continuous의 48회만 실행합니다. 4주 control24 전체 JSON exact replay를 먼저 통과해야 합니다.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자. explore, plan, 독립 review는 읽기 전용으로 수행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-rebalance-cadence-e017
@@ -645,3 +645,10 @@
 - 보고 기준: 동일 anchor, reentry_ready부터 reentry까지 시간 및 recovery_reset/기간 말 censoring을 보존합니다. frozen frequency_skip의 four-week cadence 문구는 legacy label임을 명시합니다. 승자 선택·합성·retuning·정책 승격 없음.
 - 실행기 확인: 현재 task/attempt가 running인 자동 dispatch입니다. runner를 중지하지 않습니다. 기존 HANDOFF.md와 이전 두 worktree는 보존합니다.
 - 종료 조건: 독립 검토, Astra main 병합과 통합 검사, 필요한 게시 및 handoff, 영구 evidence/hash 보존 후 이번 worktree만 정리합니다.
+
+- 실제 실행 결과: CLI 한 번이 preregistration 출력에서 KeyError(input_paths)로 중단되었습니다. cost3 입력의 source_paths를 legacy 키로 읽은 구현 오류이며 원천 입력 누락이 아닙니다. ledger0개, simulation0/48, 재시도0회입니다.
+- 최종 검증: Astra의 관련 pytest59개 통과(경고2), Ruff lint/format 통과. runner와 새 테스트를 함께 검사한 strict mypy는 오류4개로 실패했습니다. final-checks.json과 로그를 영구 audit에 보존했습니다.
+- 검토 결과: 독립 실패 검토에서 초기 readiness PASS를 철회했습니다. tests_passed=false, review_passed=false이며 실제 비교 지표는 없습니다.
+- 통합·정리: 구현 미병합, 통합 검사·웹 연구 보고서 게시 미실시. 차단 worktree와 branch를 보존합니다. main의 변경은 작업 등록부뿐이며 기존 HANDOFF.md와 이전 worktree를 보존합니다.
+- 재개 조건: source_paths 출력 계약과 실제 metadata를 사용하는 회귀 fixture, strict mypy 오류를 수정·검증한 뒤 새 명시적 시도로 수행해야 합니다. 이번 attempt에서 재실행하지 않습니다.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e0176881b1d34518805032c279324417/handoff-final.md.
