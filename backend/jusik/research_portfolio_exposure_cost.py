@@ -118,12 +118,12 @@ def _load_simulations(
 def _exposure(
     sim: PortfolioSimulation,
 ) -> tuple[Decimal | None, str | None, dict[str, Decimal]]:
-    points = sorted(enumerate(sim.equity), key=lambda item: (item[1].at, item[0]))
-    for _, point in points:
+    for point in sim.equity:
         if point.at.tzinfo is None:
             raise ValueError("equity timestamps must be timezone aware")
         if point.cash_krw > point.equity_krw:
             raise ValueError("cash cannot exceed equity")
+    points = sorted(enumerate(sim.equity), key=lambda item: (item[1].at, item[0]))
     for trade in sim.trades:
         if trade.decided_at.tzinfo is None or trade.executed_at.tzinfo is None:
             raise ValueError("trade timestamps must be timezone aware")
