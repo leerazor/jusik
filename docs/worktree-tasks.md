@@ -4,7 +4,7 @@
 
 ## 활성 작업
 
-없습니다. 자동 개발 큐와 실행 중인 작업은 전용 runner DB와 웹 연구 이력에서 확인합니다.
+`paper-signal-evidence-v1-722b` 진행 중. 아래 작업 기록을 참조합니다.
 
 ## 완료 작업
 
@@ -175,3 +175,20 @@
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-protocol-v1-63c4e3f2380b4e149d60d17db90459c7/handoff.md 저장 완료
 - 웹: runner completion/outbox를 통한 상태 기록 대상. 직접 게시·history 변경은 하지 않았습니다. 기존 미추적 HANDOFF.md를 보존했습니다.
+
+
+## paper-signal-evidence-v1-722b
+
+- 상태: 진행
+- 목표와 완료 조건: 저장된 실시간 PAPER 시세 근거를 읽기 전용 수집하고 출처·제한을 문서화합니다. 독립 검토, main 통합, 검사, 영구 근거와 handoff 보존을 완료합니다.
+- 담당 Luna: paper_luna (gpt-5.6-luna), 문서 단일 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-paper-signal-722b
+- 작업 브랜치: docs/paper-signal-722b
+- 기준 커밋 SHA: 준비 커밋 생성 후 기록
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: explore·plan 순차 완료. 이전 시도 collector와 기존 research_signal_validation 재사용
+- 수정 허용 범위: docs/research/paper-signal-evidence-v1.md (Luna); 등록부·영구 audit 수집·검증·handoff (Astra)
+- 포트·테스트 DB·출력 경로: 서버 없음. 테스트는 임시 DB, 수집은 audit/private 복사본만 사용
+- 영구 산출물: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-evidence-v1-722bb6f1d10a42318b502092d64dac39
+- 검증 계획: snapshot integrity와 재분석 일치, validation/kis_stream pytest, Ruff check/format, strict mypy, 문서 독립 review와 main 통합 재검사
+- 중단 조건: 원본 수집 중 변경·무결성 실패·해시 불일치. 운영 DB·engine·broker·주문·GPU·remote 변경 금지
