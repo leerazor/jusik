@@ -4,7 +4,19 @@
 
 ## 활성 작업
 
-없습니다. 자동 개발 큐와 실행 중인 작업은 전용 runner DB와 웹 연구 이력에서 확인합니다.
+### entry-amount-distribution-v1
+
+- 상태: 진행
+- 목표와 완료 조건: 기존 32개 결과의 진입 금액 분포 분석을 재사용해 저장소에 통합하고 재현·독립 리뷰·게시·handoff를 완료합니다. 거래 제약은 구현하지 않습니다.
+- 담당 Luna: entry_amount (gpt-5.6-luna), 단일 구현 소유자
+- 워크트리: /home/kwl/projects/jusik-entry-amount-distribution-v1; 브랜치 feat/entry-amount-distribution-v1
+- 기준: 이 등록부 커밋; 통합 대상 로컬 main
+- 입력과 계획: b73bef5d 시도의 완료된 explore/plan, analysis/analyze.py·test_analyze.py와 독립 계산을 재사용합니다. 새 조사는 현재 코드 호환성에 한정합니다. 고정 원본 32개·manifest를 읽기 전용으로 검증합니다.
+- 수정 허용 범위: backend/jusik/research_entry_amount_distribution.py, 대응 테스트, docs/research/entry-amount-distribution-v1.md. 등록부·게시·handoff는 Astra 소유입니다.
+- 환경: 워크트리 전용 .venv 및 validation, 서버·DB 없음. 영구 audit entry-amount-distribution-v1-5ed7695c
+- 검증: focused pytest, Ruff, strict mypy, 고정 입력 재현 및 기존 독립 수치 대조, 독립 review, main 재실행
+- 중단 조건: 입력 해시·회계·수량 불일치. 임계값 선택·추가 전략 실험은 범위 밖입니다.
+- 결과·통합·handoff: 진행 후 기록. 실주문·push·PAPER 엔진/DB·GPU 변경 금지.
 
 ## 완료 작업
 
