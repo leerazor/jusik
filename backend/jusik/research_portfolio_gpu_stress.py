@@ -70,8 +70,12 @@ def _decimal(value: object, label: str) -> Decimal:
     return result
 
 
-def load_request(path: Path) -> tuple[Request, dict[str, Any]]:
-    raw = json.loads(path.read_text(encoding="utf-8"))
+def load_request(
+    path: Path, raw_bytes: bytes | None = None
+) -> tuple[Request, dict[str, Any]]:
+    raw = json.loads(
+        (raw_bytes if raw_bytes is not None else path.read_bytes()).decode("utf-8")
+    )
     entries = raw.get("cases") if isinstance(raw, dict) else None
     if not isinstance(entries, list) or not 1 <= len(entries) <= 4:
         raise ValueError("request must contain one to four cases")
@@ -304,6 +308,7 @@ def _benchmark(
     import torch
 
     if device == "cuda":
+        torch.cuda.reset_peak_memory_stats()
         torch.cuda.synchronize()
     _torch_run(paths, indices[: min(8, len(indices))], device)
     if device == "cuda":
@@ -318,6 +323,7 @@ def _benchmark(
     try:
         for threads in (2, 8):
             torch.set_num_threads(threads)
+            _torch_run(paths, indices, "cpu")
             started = time.perf_counter()
             _torch_run(paths, indices, "cpu")
             measurements[str(threads)] = time.perf_counter() - started
@@ -340,9 +346,10 @@ def run(
 ) -> dict[str, Any]:
     if output_dir.is_symlink() or output_dir.exists():
         raise ValueError("output directory must be new and not a symlink")
-    request, raw = load_request(request_path)
+    request_bytes = request_path.read_bytes()
+    request, raw = load_request(request_path, request_bytes)
     times, paths, source_metrics = validate_inputs(request)
-    if request.scenarios * request.horizon * len(paths) * 8 > GPU_MEMORY_CAP_BYTES:
+    if request.scenarios * request.horizon * len(paths) * 64 > GPU_MEMORY_CAP_BYTES:
         raise ValueError("requested GPU memory exceeds 2 GiB cap")
     indices = generate_indices(
         request.seed,
@@ -411,7 +418,7 @@ def run(
     _write(
         output_dir / "preregistration.json",
         {
-            "request_sha256": sha256(request_path),
+            "request_sha256": hashlib.sha256(request_bytes).hexdigest(),
             "indices_sha256": index_hash,
             "source_metrics": source_metrics,
             "retrospective_descriptive_only": True,
