@@ -16,3 +16,9 @@ cd backend
 성공하면 출력 디렉터리에 `public-manifest.json`과 `report.md`를 만든다. 두 파일에는 역할, raw/canonical SHA-256, 별도 identity, 검증 결과와 역사 자료 재사용·전향 검증 부적격·활성화 금지만 담기며 로컬 경로와 실행 시각은 담기지 않는다. 출력은 결정적이므로 같은 입력에서 byte 단위로 같다.
 
 이 결과는 `status=draft`이고 `runtime_activation_allowed=false`인 감사 증거다. 검증 통과가 실행 승인이나 전향 검증 결과를 의미하지 않는다.
+
+## 신뢰 경계
+
+검증은 고정된 보관 snapshot의 네 파일과 원본 manifest 선언이 서로 일치하는지만 증명한다. manifest의 역할 경로는 원본 archive의 절대 경로로 고정되며, 네 파일을 다른 bundle root로 옮길 때도 파일 내용과 manifest의 원본 경로를 그대로 보존해야 한다. 임의 suffix가 붙은 경로는 역할로 인정하지 않는다.
+
+이 결과는 자료의 외부 진본성, 연구 성능, 미래 자료에 대한 전향 검증, 실행 가능성을 증명하지 않는다. 역사 자료 재사용과 `runtime_activation_allowed=false` 계약은 검증 성공 뒤에도 유지된다.
