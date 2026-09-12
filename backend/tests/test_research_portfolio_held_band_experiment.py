@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-import json
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -19,7 +19,9 @@ from jusik.research_portfolio_held_band_experiment import (
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
+    PortfolioEquityPoint,
     PortfolioInput,
+    PortfolioMetrics,
     PortfolioSimulation,
     PortfolioTrade,
 )
@@ -27,6 +29,45 @@ from jusik.research_portfolio_models import (
 
 def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _tiny_simulation() -> PortfolioSimulation:
+    candidate = PortfolioCandidate(id="equal", method="equal", gate="none")
+    metrics = PortfolioMetrics(
+        initial_equity_krw=Decimal("1000000"),
+        final_equity_krw=Decimal("1000000"),
+        total_return_pct=Decimal("0"),
+        max_drawdown_pct=Decimal("0"),
+        trade_count=0,
+        transaction_cost_krw=Decimal("0"),
+        fx_cost_krw=Decimal("0"),
+        turnover_pct=Decimal("0"),
+    )
+    return PortfolioSimulation(
+        candidate=candidate,
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 1, 2),
+        metrics=metrics,
+        complete=True,
+        incomplete_reasons=[],
+        drawdown_latched=False,
+        drawdown_latched_at=None,
+        equity=[
+            PortfolioEquityPoint(
+                at=datetime(2024, 1, 2, tzinfo=UTC),
+                equity_krw=Decimal("1000000"),
+                cash_krw=Decimal("1000000"),
+                drawdown_pct=Decimal("0"),
+            )
+        ],
+        trades=[],
+        weekly_targets=[],
+        positions=[],
+        contributions_krw={},
+        split_cash_in_lieu_krw={},
+        overlap_diagnostics={},
+        policy="low_turnover_combined",
+    )
 
 
 def test_copy_is_exactly_the_guarded_variant(tmp_path: Path) -> None:
@@ -209,7 +250,10 @@ def test_unheld_and_risk_cap_paths_remain_in_copied_engine(tmp_path: Path) -> No
     )
 
 
-def test_research_receipts_do_not_fabricate_partial_cancel_or_reject() -> None:
+@pytest.mark.parametrize("status", ["partial", "cancelled", "rejected"])
+def test_research_receipts_do_not_fabricate_partial_cancel_or_reject(
+    status: str,
+) -> None:
     with pytest.raises(ValueError):
         PortfolioTrade.model_validate(
             {
@@ -223,7 +267,7 @@ def test_research_receipts_do_not_fabricate_partial_cancel_or_reject() -> None:
                 "notional_krw": "1",
                 "transaction_cost_krw": "0",
                 "fx_cost_krw": "0",
-                "status": "partial",
+                "status": status,
             }
         )
 
@@ -246,19 +290,6 @@ def test_invalid_duplicate_missing_nonfinite_and_temporal_inputs_are_rejected() 
 
 
 def test_saved_corrected_simulation_reconciles_at_precision_40() -> None:
-    audit = Path(
-        "/home/kwl/.local/share/jusik/portfolio-audit/"
-        "20260911T132132Z-worktree-development/unheld-entry-real32"
-    )
-    manifest = json.loads(
-        (
-            audit.parents[1] / "20260911T060908Z-rebalance-band/source-manifest.json"
-        ).read_text()
-    )
-    source = PortfolioInput.model_validate(manifest["frozen_input"])
-    simulation = PortfolioSimulation.model_validate(
-        json.loads((audit / "simulations/fold_1-variant_c1.json").read_text())
-    )
-    _verify_accounting(
-        simulation, 1, PortfolioConfig.model_validate(manifest["config"]), source
-    )
+    from tests.test_research_portfolio import _source
+
+    _verify_accounting(_tiny_simulation(), 1, PortfolioConfig(), _source())

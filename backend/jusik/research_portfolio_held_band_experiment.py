@@ -214,8 +214,8 @@ def _frozen_checks(
             raise RuntimeError(
                 f"required imported module is unavailable: {module_name}"
             )
-        checks[Path(str(module.__file__))] = CORE_HASHES.get(
-            digest_name, IMPORTED_HASHES[digest_name]
+        checks[Path(str(module.__file__))] = (
+            CORE_HASHES.get(digest_name) or IMPORTED_HASHES[digest_name]
         )
     return checks
 
@@ -643,14 +643,25 @@ def run_experiment(
             _write_exclusive(
                 output_dir / "ledger.json", {"run_id": RUN_ID, "ledger": ledger}
             )
+        if final_hash_error is not None:
+            if (output_dir / "results.json").exists():
+                (output_dir / "results.json").unlink()
+            if not (output_dir / "failure.json").exists():
+                _write_exclusive(
+                    output_dir / "failure.json",
+                    {
+                        "run_id": RUN_ID,
+                        "error": final_hash_error,
+                        "ledger": ledger,
+                    },
+                )
+            raise RuntimeError(final_hash_error)
         manifest = {
             str(path.relative_to(output_dir)): sha256(path)
             for path in output_dir.rglob("*")
             if path.is_file() and path.name != "hash-manifest.json"
         }
         _write_exclusive(output_dir / "hash-manifest.json", manifest)
-        if final_hash_error is not None:
-            raise RuntimeError(final_hash_error)
 
 
 def main(argv: list[str] | None = None) -> int:
