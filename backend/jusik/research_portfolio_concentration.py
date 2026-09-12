@@ -113,14 +113,6 @@ def _read_results(path: Path) -> tuple[bytes, dict[str, Any]]:
     return body, data
 
 
-def _canonical(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {k: _canonical(v) for k, v in value.items() if k != "formula"}
-    if isinstance(value, list):
-        return [_canonical(v) for v in value]
-    return value
-
-
 def analyze(
     input_dir: Path, saved_attribution: Path = DEFAULT_ATTRIBUTION
 ) -> dict[str, Any]:
@@ -136,7 +128,7 @@ def analyze(
             raise ValueError("saved attribution formula mismatch")
         fresh = entry_analyze(input_dir)
         saved_without_formula = {k: v for k, v in saved.items() if k != "formula"}
-        if _canonical(saved_without_formula) != _canonical(_json(fresh)):
+        if saved_without_formula != _json(fresh):
             raise ValueError(
                 "saved attribution does not reconcile with recomputed attribution"
             )

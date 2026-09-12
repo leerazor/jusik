@@ -18,6 +18,8 @@ CLI는 `--input-dir`, `--saved-attribution`, `--output-dir`를 받는다. 저장
 | fold_1 | 2 | COHR | -14851.0708429977731907888934323730468 | 218971.97656513708043569791075584960945000 |
 | fold_1 | 2 | SOXL | -14851.0708429977731907888934323730468 | 316230.974729257940438153333871777343825000 |
 
-입력 SHA-256은 attribution `3955050f3d29ed42f64988a502705cdfff1c2591bfb084d0c7acb0050dd189d`, results `5c2de5987dd099de64736e1d5ebe9a14e25a43f089bc4a1dc60d924a645e7cc4`다. 검증 명령은 `backend/.venv/bin/pytest -q backend/tests/test_research_portfolio_concentration.py`, `backend/.venv/bin/ruff check ...`, `backend/.venv/bin/mypy backend/jusik/research_portfolio_concentration.py`이며 실제 replay는 CLI를 동일 입력으로 2회 실행해 JSON/CSV/report 바이트를 비교했다.
+입력 SHA-256은 attribution `3955050f3d29ed42f64988a502705cdfff1c2591bfb084d0c7acb0050dd189d9`, results `5c2de5987dd099de64736e1d5ebe9a14e25a43f089bc4a1dc60d924a645e7cc4`다. 검증 명령은 `cd backend && .venv/bin/python -m pytest -q tests/test_research_portfolio_concentration.py`, `cd backend && .venv/bin/ruff check jusik/research_portfolio_concentration.py tests/test_research_portfolio_concentration.py`, `cd backend && .venv/bin/python -m mypy jusik/research_portfolio_concentration.py tests/test_research_portfolio_concentration.py`이며 실제 replay는 CLI를 동일 입력으로 2회 실행해 JSON/CSV/report 바이트를 비교했다.
+
+관측된 strict flip은 fold_1에만 있었고, fold_2·fold_3·fold_4·fold_5·fold_6·fold_7 및 continuous에서는 strict flip이 없었다. tie 전이도 실제 동결 자료에서는 없으며, tie와 0 전이는 합성 fixture로 검증했다.
 
 이 결과는 이미 실현된 경로의 고정 자본 사후 산술 민감도다. 자금 재배분이나 재시뮬레이션을 수행하지 않으며, 종목을 거래하지 않았을 때의 수익률·인과 효과·제외 권고를 뜻하지 않는다. PAPER 10% 운영 제한은 변경하지 않는다.
