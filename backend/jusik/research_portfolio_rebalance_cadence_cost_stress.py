@@ -198,24 +198,6 @@ def _artifact_key(name: str) -> tuple[str, str, int]:
     return period, arm, int(cost_text)
 
 
-def _control_hashes(prereg: dict[str, Any]) -> dict[str, str]:
-    """Normalize the prior preregistration's historical variant-labelled keys."""
-    raw = prereg.get("control_hashes")
-    if not isinstance(raw, dict) or len(raw) != 16:
-        raise ValueError("legacy control hash section is malformed")
-    normalized = {
-        name.replace("-variant_", "-control_"): digest for name, digest in raw.items()
-    }
-    expected = {
-        f"{period}-control_c{cost}.json"
-        for period in PERIOD_NAMES
-        for cost in FULL_COSTS
-    }
-    if set(normalized) != expected:
-        raise ValueError("corrected control hashes do not cover all control cells")
-    return normalized
-
-
 def _verify_frozen_artifacts(
     prior_audit: Path,
     source: PortfolioInput,
@@ -673,8 +655,10 @@ def _reentry_summary(sim: PortfolioSimulation) -> dict[str, Any]:
         risk["status"] = "censored"
         risk_episodes.append(risk)
     for item in waits:
-        endpoint = item.get("reentry_utc") or item.get("reset_utc") or item.get(
-            "censor_end_utc"
+        endpoint = (
+            item.get("reentry_utc")
+            or item.get("reset_utc")
+            or item.get("censor_end_utc")
         )
         if endpoint is not None:
             item["observed_wait_seconds"] = (
@@ -742,38 +726,6 @@ def _row(
 
 def _quantities(sim: PortfolioSimulation) -> dict[str, int]:
     return {position.symbol: position.quantity for position in sim.positions}
-
-
-def _cost3_summary(pairs: list[dict[str, Any]]) -> dict[str, Any]:
-    fold_pairs = [
-        pair
-        for pair in pairs
-        if pair["cost_multiplier"] == COST3 and pair["period"] != "continuous"
-    ]
-    returns = [Decimal(pair["deltas"]["total_return_pct"]) for pair in fold_pairs]
-
-    def median(values: list[Decimal]) -> Decimal:
-        ordered_values = sorted(values)
-        middle = len(ordered_values) // 2
-        return (
-            ordered_values[middle]
-            if len(ordered_values) % 2
-            else (ordered_values[middle - 1] + ordered_values[middle]) / 2
-        )
-
-    return {
-        "fold_return_delta_median_pp": str(median(returns)),
-        "fold_mdd_delta_median_pp": str(
-            median([Decimal(pair["deltas"]["max_drawdown_pct"]) for pair in fold_pairs])
-        ),
-        "fold_turnover_delta_median_pp": str(
-            median([Decimal(pair["deltas"]["turnover_pct"]) for pair in fold_pairs])
-        ),
-        "positive_fold_count": sum(value > 0 for value in returns),
-        "negative_fold_count": sum(value < 0 for value in returns),
-        "zero_fold_count": sum(value == 0 for value in returns),
-        "scope": "seven independent folds; continuous is reported separately",
-    }
 
 
 def _delta(left: object, right: object) -> Decimal:
@@ -903,10 +855,11 @@ def _run_experiment_inner(
             "held_helper_sha256": HELD_HELPER_SHA256,
             "base_config": base.model_dump(mode="json"),
             "validated_configs": {
-                f"{weeks}w-c{cost}": _cadence_config(
-                    base, weeks, cost
-                ).model_dump(mode="json")
-                for weeks in (4, 8) for cost in (1, 2, 3)
+                f"{weeks}w-c{cost}": _cadence_config(base, weeks, cost).model_dump(
+                    mode="json"
+                )
+                for weeks in (4, 8)
+                for cost in (1, 2, 3)
             },
             "runner_sha256": sha256(Path(__file__)),
         },
@@ -918,77 +871,71 @@ def _run_experiment_inner(
     for arm, weeks in (("control", 4), ("variant", 8)):
         for period in periods:
             for cost in FULL_COSTS:
-                    if len(ledger) >= EVALUATION_CAP:
-                        raise RuntimeError("evaluation cap exceeded")
-                    if plan[plan_index] != (arm, cost, period["name"]):
-                        raise RuntimeError("evaluation order diverged from frozen plan")
-                    plan_index += 1
-                    if clock() >= deadline:
-                        raise TimeoutError(
-                            "execution deadline exceeded before simulation"
-                        )
-                    ledger.append(
-                        {
-                            "index": len(ledger),
-                            "phase": "control" if arm == "control" else "variant",
-                            "period": period["name"],
-                            "arm": arm,
-                            "cost": cost,
-                            "status": "reserved",
-                            "deadline_seconds": DEADLINE_SECONDS,
-                        }
+                if len(ledger) >= EVALUATION_CAP:
+                    raise RuntimeError("evaluation cap exceeded")
+                if plan[plan_index] != (arm, cost, period["name"]):
+                    raise RuntimeError("evaluation order diverged from frozen plan")
+                plan_index += 1
+                if clock() >= deadline:
+                    raise TimeoutError("execution deadline exceeded before simulation")
+                ledger.append(
+                    {
+                        "index": len(ledger),
+                        "phase": "control" if arm == "control" else "variant",
+                        "period": period["name"],
+                        "arm": arm,
+                        "cost": cost,
+                        "status": "reserved",
+                        "deadline_seconds": DEADLINE_SECONDS,
+                    }
+                )
+                _checkpoint(
+                    output_dir / "ledger.json",
+                    {
+                        "run_id": RUN_ID,
+                        "cap": EVALUATION_CAP,
+                        "deadline_seconds": DEADLINE_SECONDS,
+                        "ledger": ledger,
+                    },
+                )
+                config = _cadence_config(base, weeks, cost)
+                sim = _run_call(variant.simulate, source, candidate, period, config)
+                _verify_simulation_contract(sim, period, candidate, config)
+                if clock() >= deadline:
+                    raise TimeoutError("execution deadline exceeded after simulation")
+                artifact = (
+                    output_dir / "simulations" / f"{period['name']}-{arm}_c{cost}.json"
+                )
+                payload = sim.model_dump(mode="json")
+                _write_exclusive(artifact, payload)
+                accounting = _verify_accounting(sim, cost, config, source)
+                if arm == "control":
+                    expected_name = f"{period['name']}-control_c{cost}.json"
+                    expected_path = prior_audit / "simulations" / expected_name
+                    expected_hash = next(
+                        item["sha256"]
+                        for item in prior_results["evaluations"]
+                        if item["artifact"] == expected_name
                     )
-                    _checkpoint(
-                        output_dir / "ledger.json",
-                        {
-                            "run_id": RUN_ID,
-                            "cap": EVALUATION_CAP,
-                            "deadline_seconds": DEADLINE_SECONDS,
-                            "ledger": ledger,
-                        },
-                    )
-                    config = _cadence_config(base, weeks, cost)
-                    sim = _run_call(variant.simulate, source, candidate, period, config)
-                    _verify_simulation_contract(sim, period, candidate, config)
-                    if clock() >= deadline:
-                        raise TimeoutError(
-                            "execution deadline exceeded after simulation"
-                        )
-                    artifact = (
-                        output_dir
-                        / "simulations"
-                        / f"{period['name']}-{arm}_c{cost}.json"
-                    )
-                    payload = sim.model_dump(mode="json")
-                    _write_exclusive(artifact, payload)
-                    accounting = _verify_accounting(sim, cost, config, source)
-                    if arm == "control":
-                        expected_name = f"{period['name']}-control_c{cost}.json"
-                        expected_path = prior_audit / "simulations" / expected_name
-                        expected_hash = next(
-                            item["sha256"]
-                            for item in prior_results["evaluations"]
-                            if item["artifact"] == expected_name
-                        )
-                        _verify_exact_replay(payload, expected_path, expected_hash)
-                    simulations[(period["name"], arm, cost)] = sim
-                    rows.append(_row(period, arm, cost, sim, accounting, artifact))
-                    ledger[-1].update(
-                        {
-                            "status": "saved",
-                            "artifact": artifact.name,
-                            "sha256": sha256(artifact),
-                        }
-                    )
-                    _checkpoint(
-                        output_dir / "ledger.json",
-                        {
-                            "run_id": RUN_ID,
-                            "cap": EVALUATION_CAP,
-                            "deadline_seconds": DEADLINE_SECONDS,
-                            "ledger": ledger,
-                        },
-                    )
+                    _verify_exact_replay(payload, expected_path, expected_hash)
+                simulations[(period["name"], arm, cost)] = sim
+                rows.append(_row(period, arm, cost, sim, accounting, artifact))
+                ledger[-1].update(
+                    {
+                        "status": "saved",
+                        "artifact": artifact.name,
+                        "sha256": sha256(artifact),
+                    }
+                )
+                _checkpoint(
+                    output_dir / "ledger.json",
+                    {
+                        "run_id": RUN_ID,
+                        "cap": EVALUATION_CAP,
+                        "deadline_seconds": DEADLINE_SECONDS,
+                        "ledger": ledger,
+                    },
+                )
         _verify_runtime_hashes(engine_source)
         _verify_prior_inputs_unchanged(prior_audit, source, base, prereg, prior_results)
     if len(rows) != EVALUATION_CAP:
@@ -1058,7 +1005,11 @@ def _run_experiment_inner(
         "run_id": RUN_ID,
         "evaluations": rows,
         "pairs": pairs,
-        "summary": _cost3_summary(pairs),
+        "summary": {
+            "scope": "paired seven independent folds; continuous is separate",
+            "cost_multipliers": [1, 2, 3],
+            "cadences_weeks": [4, 8],
+        },
         "all_complete": True,
         "full_replay_count": FULL_EVALUATION_COUNT,
         "variant_count": VARIANT_EVALUATION_COUNT,

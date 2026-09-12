@@ -53,13 +53,29 @@ def test_runner_plan_is_24_control_then_24_variant() -> None:
 
 
 @pytest.mark.parametrize("weeks", [4, 8])
+@pytest.mark.parametrize("holiday", [False, True])
 def test_copied_engine_keeps_risk_weekly_and_changes_only_reentry_cadence(
     weeks: int,
+    holiday: bool,
     tmp_path: Path,
 ) -> None:
     from tests.test_research_portfolio import _episode_source
 
     source = _episode_source()
+    if holiday:
+        snapshots = []
+        for snapshot in source.instruments:
+            instrument = snapshot.instruments[0]
+            snapshots.append(
+                snapshot.model_copy(
+                    update={
+                        "instruments": [
+                            instrument.model_copy(update={"bars": instrument.bars[1:]})
+                        ]
+                    }
+                )
+            )
+        source = source.model_copy(update={"instruments": snapshots})
     config = _cadence_config(PortfolioConfig(), weeks, 1)
     engine = Path(__file__).parents[1] / "jusik" / "research_portfolio_engine.py"
     _original, variant_path = _copy_engine(engine, tmp_path)
@@ -81,7 +97,11 @@ def test_copied_engine_keeps_risk_weekly_and_changes_only_reentry_cadence(
     assert risk.at.weekday() != 0
     assert confirmations[0].at.date() >= liquidation.at.date() + timedelta(days=28)
     assert len(confirmations) == 2
-    assert any(event.kind == "reentry" for event in events)
+    assert (confirmations[1].at - confirmations[0].at).days >= 7
+    reentry = next(event for event in events if event.kind == "reentry")
+    assert reentry.at.tzinfo == UTC
+    assert reentry.at.hour == 0
+    assert reentry.at.weekday() == 0
 
 
 def test_control_json_mismatch_stops(tmp_path: Path) -> None:
