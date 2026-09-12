@@ -157,6 +157,8 @@ def _cadence_config(base: PortfolioConfig, weeks: int, cost: int) -> PortfolioCo
     """Build the study arm while changing cadence and cost only."""
     if weeks not in {4, 8} or cost not in {1, 2, 3}:
         raise ValueError("only cadence 4/8 and cost multipliers 1/2/3 are allowed")
+    if base.low_turnover_weeks != 4 or base.low_turnover_band != Decimal("0.02"):
+        raise ValueError("frozen base cadence and corrected-entry band changed")
     values = base.model_dump()
     values.update(
         low_turnover_weeks=weeks,
@@ -618,27 +620,48 @@ def _exposure(sim: PortfolioSimulation) -> dict[str, str]:
 
 
 def _reentry_summary(sim: PortfolioSimulation) -> dict[str, Any]:
+    episodes: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for event in sorted(sim.policy_events, key=lambda item: item.at):
+        if event.kind == "risk_exit":
+            if current is not None:
+                current["status"] = "censored"
+                episodes.append(current)
+            current = {"exit_utc": event.at.isoformat(), "status": "open"}
+        elif current is not None and event.kind == "reentry_ready":
+            current["ready_utc"] = event.at.isoformat()
+        elif current is not None and event.kind == "recovery_reset":
+            current["status"] = "reset"
+            episodes.append(current)
+            current = None
+        elif current is not None and event.kind == "reentry":
+            current["reentry_utc"] = event.at.isoformat()
+            current["status"] = "reentered"
+            episodes.append(current)
+            current = None
+    if current is not None:
+        current["status"] = "censored"
+        episodes.append(current)
     ready = [event for event in sim.policy_events if event.kind == "reentry_ready"]
     reentries = [event for event in sim.policy_events if event.kind == "reentry"]
-    delays: list[str | None] = []
-    used = 0
-    for ready_event in ready:
-        next_reentry = next(
-            (event for event in reentries[used:] if event.at >= ready_event.at), None
+    delays = [
+        str(
+            (next_event.at - event.at).total_seconds()
         )
-        if next_reentry is None:
-            delays.append(None)
-        else:
-            delays.append(str((next_reentry.at - ready_event.at).total_seconds()))
-            used = reentries.index(next_reentry) + 1
+        if (next_event := next(
+            (candidate for candidate in reentries if candidate.at >= event.at), None
+        ))
+        else None
+        for event in ready
+    ]
     return {
         "ready_utc": [event.at.isoformat() for event in ready],
         "reentry_utc": [event.at.isoformat() for event in reentries],
         "delay_seconds": delays,
-        "never_ready_count": max(
-            0,
-            sum(event.kind == "risk_exit" for event in sim.policy_events)
-            - len(ready),
+        "episodes": episodes,
+        "never_ready_count": sum(
+            episode.get("status") == "censored" and "ready_utc" not in episode
+            for episode in episodes
         ),
     }
 
@@ -770,6 +793,10 @@ def _run_experiment_inner(
     deadline = clock() + DEADLINE_SECONDS
     _ACTIVE_DEADLINE = _arm_deadline(DEADLINE_SECONDS)
     _empty_output(output_dir)
+    _write_exclusive(
+        output_dir / ".run-lock",
+        {"run_id": RUN_ID, "status": "active", "pid": os.getpid()},
+    )
     ledger: list[dict[str, Any]] = []
     _checkpoint(
         output_dir / "ledger.json",
@@ -816,7 +843,7 @@ def _run_experiment_inner(
             "periods": periods,
             "evaluation_count": EVALUATION_CAP,
             "full_replay_count": FULL_EVALUATION_COUNT,
-            "cash_mutation_rejection_checks": FULL_EVALUATION_COUNT,
+            "cash_mutation_rejection_checks": 48,
             "source_run_id": prior_results.get("source_run_id"),
             "point_in_time_verified": False,
             "automatic_trading_eligible": False,
@@ -912,40 +939,6 @@ def _run_experiment_inner(
         _verify_prior_inputs_unchanged(prior_audit, source, base, prereg, prior_results)
     if len(rows) != EVALUATION_CAP:
         raise RuntimeError("runner did not produce exactly 48 evaluations")
-    for row in rows:
-        if row["cost_multiplier"] != 3:
-            continue
-        period, arm = row["period"], row["arm"]
-        c1 = simulations[(period, arm, 1)]
-        row["fixed_cost3_net_pnl_krw"] = str(
-            c1.metrics.final_equity_krw
-            - c1.metrics.initial_equity_krw
-            - Decimal(2) * (c1.metrics.transaction_cost_krw + c1.metrics.fx_cost_krw)
-        )
-        row["actual_minus_fixed_cost3_krw"] = str(
-            (
-                simulations[(period, arm, 3)].metrics.final_equity_krw
-                - simulations[(period, arm, 3)].metrics.initial_equity_krw
-            )
-            - Decimal(row["fixed_cost3_net_pnl_krw"])
-        )
-        c1_row = next(
-            item
-            for item in rows
-            if item["period"] == period
-            and item["arm"] == arm
-            and item["cost_multiplier"] == 1
-        )
-        row["cash_delta_vs_c1_krw"] = str(
-            Decimal(row["final_cash_krw"]) - Decimal(c1_row["final_cash_krw"])
-        )
-        c1_quantities = c1_row["final_quantities"]
-        symbols = sorted(set(c1_quantities) | set(row["final_quantities"]))
-        row["quantity_delta_vs_c1"] = {
-            symbol: row["final_quantities"].get(symbol, 0)
-            - c1_quantities.get(symbol, 0)
-            for symbol in symbols
-        }
     pairs: list[dict[str, Any]] = []
     for period in periods:
         for cost in FULL_COSTS:

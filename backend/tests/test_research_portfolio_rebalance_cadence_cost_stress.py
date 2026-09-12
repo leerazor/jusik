@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -12,6 +14,8 @@ from jusik.research_portfolio_rebalance_cadence_cost_stress import (
     RATE_3X,
     VARIANT_EVALUATION_COUNT,
     _cadence_config,
+    _empty_output,
+    _reentry_summary,
     preflight,
 )
 
@@ -47,3 +51,29 @@ def test_frozen_cost3_inputs_preflight() -> None:
     result = preflight(audit)
     assert result["evaluation_count"] == 24
     assert result["historical_calls"] == 0
+
+
+def test_reentry_ready_delay_and_censored_episode_are_preserved() -> None:
+    start = datetime(2025, 1, 6, tzinfo=UTC)
+    events = [
+        SimpleNamespace(kind="risk_exit", at=start),
+        SimpleNamespace(kind="reentry_ready", at=start + timedelta(days=35)),
+        SimpleNamespace(kind="reentry", at=start + timedelta(days=42)),
+        SimpleNamespace(kind="risk_exit", at=start + timedelta(days=60)),
+        SimpleNamespace(kind="reentry_ready", at=start + timedelta(days=90)),
+    ]
+    result = _reentry_summary(SimpleNamespace(policy_events=events))
+    assert result["ready_utc"] == [
+        (start + timedelta(days=35)).isoformat(),
+        (start + timedelta(days=90)).isoformat(),
+    ]
+    assert result["delay_seconds"] == ["604800.0", None]
+    assert result["reentry_utc"] == [(start + timedelta(days=42)).isoformat()]
+
+
+def test_existing_output_refuses_resume(tmp_path: Path) -> None:
+    output = tmp_path / "existing"
+    output.mkdir()
+    (output / "ledger.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="retry/resume"):
+        _empty_output(output)

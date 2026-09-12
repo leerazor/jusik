@@ -7,8 +7,9 @@
 
 7개 독립 fold와 continuous를 같은 anchor로 사용한다. fold를 합성하지 않으며,
 period별 순수익·MDD·거래 수·turnover·transaction/FX 비용과 ready 이후 reentry
-대기 시간을 paired로 기록한다. 위험 close와 recovery/cooldown 감시는 기존 주간
-시점을 유지하고 cadence가 위험 청산을 우회하지 않는다. historical/PIT 결과는
+대기 시간을 paired로 기록한다. 위험 close 감시는 기존 close sample 시점을
+유지하고 recovery/cooldown 평가는 기존 주간 시점을 유지하며 cadence가 위험
+청산을 우회하지 않는다. historical/PIT 결과는
 실시간 신호 검증으로 해석하지 않으며, partial/cancel/reject 체결 상태는 지원하지
 않는 historical fill 의미를 결과에 명시한다.
 
