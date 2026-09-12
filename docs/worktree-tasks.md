@@ -258,3 +258,20 @@
 - 통합 검증 실패 원인과 복구 결과: 통합 검사 실패 없음. 사전 감독 mypy의 잘못된 cwd를 backend로 바꾸어 프로젝트 Pydantic plugin 및 strict 설정 적용 후 통과했습니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-timestamp-forensics-v1-a77ec18fbf634b3694afa8da08ef11c6/handoff.md. 기존 루트 미추적 HANDOFF.md는 그대로 보존했습니다.
 - 후속 후보: 독립 근거의 68개 다중 종목 이상 분을 이용한 오프라인 동시 발생/연속 episode 분석 1개. 범위·입력·테스트·종료 조건은 영구 followup.json에 기록했습니다.
+
+
+## small-entry-draft-a55b
+
+- 상태: 준비
+- 목표와 완료 조건: 신규 소액 진입 사전등록 초안 명세·검증기·테스트를 만들고 독립 검토, local main 통합 검사, 한국어 웹 게시와 영구 근거 보존을 완료합니다. 금융 승인이나 정책 실행은 포함하지 않습니다.
+- 담당 Luna: small_entry_luna (gpt-5.6-luna), 신규 세 파일 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-small-entry-draft-a55b
+- 작업 브랜치: feat/small-entry-draft-a55b
+- 기준 커밋 SHA: 8882bd8287759edc047adc296da129cded8950dc (등록 전 main; 생성 기준은 준비 커밋)
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: explore 완료, 순차 bounded plan. 완료 entry amount 분석과 original unheld-band는 역사 맥락으로만 사용합니다. 과거 blocked 작업은 보존합니다.
+- 수정 허용 범위: backend/jusik/research_small_entry_preregistration.py, backend/tests/test_research_small_entry_preregistration.py, docs/research/small-entry-preregistration-draft-v1.md. Astra는 등록부·audit·공개 history·handoff를 담당합니다.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. worktree 내부 .venv, .artifacts, tmp 경로 격리.
+- 영구 산출물: /home/kwl/.local/share/jusik/portfolio-audit/small-entry-preregistration-draft-v1-a55b6ee8a036463da688fafe04567542
+- 검증 방법: threshold/time/period/hash 경계, canonical roundtrip와 별도 identity, populated draft 불변성, pytest·Ruff·strict mypy·독립 review·main 재검사.
+- 중단 조건: 세 파일 도구 완료. 임계값 탐색·정책 실행·PAPER 코드/config/DB·collector/order/GPU·runner/quota·remote 변경 금지. 미래 자료 부재는 도구 완료를 막지 않습니다.
