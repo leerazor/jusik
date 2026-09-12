@@ -675,7 +675,7 @@
 
 - 상태: 진행
 - 목표와 완료 조건: 사용자가 승인한 GPU 역할 전환. 수집·기존 결과를 유지하면서 GPU를 요청 기반 포트폴리오 스트레스 실험에 사용합니다.
-- 담당 Luna: gpt-5.6-luna, 작업별 단일 구현 소유자. 독립 조사·순차 계획 완료.
+- 담당 Luna: 초기 CLI Luna가 CUDA·신규 테스트 미완성 상태로 종료하여 결과를 채택하지 않았습니다. 종료 확인 후 native Luna `collector_transition`에 단일 구현 소유권을 이전했습니다. 동시 구현 담당자는 없습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-gpu-portfolio-stress
 - 작업 브랜치: feat/gpu-portfolio-stress
 - 기준 커밋 SHA: 7544e986101d1bcdad166576254cb3836bae8266; 이 등록 커밋을 실제 생성 기준으로 사용합니다.
