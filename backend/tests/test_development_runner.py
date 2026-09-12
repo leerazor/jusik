@@ -869,10 +869,21 @@ def test_empty_queue_planner_proposes_then_dispatches_research_child(
 
 
 @pytest.mark.parametrize(
-    "gate", ["paused", "quota", "cooldown", "dependency", "queue_full", "live_pgid"]
+    ("gate", "expected_status"),
+    [
+        ("paused", "paused"),
+        ("quota", "quota"),
+        ("cooldown", "cooldown"),
+        ("dependency", "idle"),
+        ("queue_full", "idle"),
+        ("live_pgid", "blocked"),
+    ],
 )
 def test_planner_branch_obeys_all_dispatch_gates_without_claiming(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, gate: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    gate: str,
+    expected_status: str,
 ) -> None:
     repo = _repo(tmp_path)
     state = tmp_path / "state"
@@ -925,6 +936,14 @@ def test_planner_branch_obeys_all_dispatch_gates_without_claiming(
         "jusik.development_runner._git",
         lambda *_args, **_kwargs: type("Result", (), {"stdout": "a" * 40})(),
     )
+    monkeypatch.setattr(
+        "jusik.development_runner._git_ready", lambda _repo: (True, "")
+    )
+
+    def no_claim(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("planner gate claimed a task")
+
+    monkeypatch.setattr(RunnerStore, "claim", no_claim)
     config = RunnerConfig(
         repo=repo,
         codex="must-not-run",
@@ -937,7 +956,7 @@ def test_planner_branch_obeys_all_dispatch_gates_without_claiming(
         cooldown_seconds=3600 if gate == "cooldown" else 0,
     )
     result = run_once(config)
-    assert result.status in {"paused", "quota", "cooldown", "idle", "blocked"}
+    assert result.status == expected_status
     if gate != "live_pgid":
         assert not any(task.area == PLANNING_AREA for task in store.tasks())
     assert all(

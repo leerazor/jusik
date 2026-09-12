@@ -298,7 +298,6 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
     assert len([t for t in store.tasks() if t.area == PLANNING_AREA]) == 3
 
     # Main HEAD changes independently of planner-only records.
-    Clock.value = "2026-09-14"
     monkeypatch.setattr(
         development_runner,
         "_git",
@@ -322,7 +321,7 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
             {"sha256": "0" * 64}
         ),
         lambda payload, evidence, attempt: payload["proposal"]["evidence"][0].update(
-            {"path": str(evidence.parent / "outside.json")}
+            {"path": str(evidence.parent.parent / "outside.json")}
         ),
         lambda payload, evidence, attempt: (
             (evidence.parent / "link.json").symlink_to(evidence),
@@ -350,6 +349,8 @@ def test_planning_result_rejects_invalid_evidence_and_identity_fields(
     config = _config(tmp_path)
     evidence = config.repo / "evidence.json"
     evidence.write_text("evidence\n", encoding="utf-8")
+    outside = tmp_path / "outside.json"
+    outside.write_text("outside\n", encoding="utf-8")
     attempt = tmp_path / "attempt"
     attempt.mkdir()
     digest = fingerprint([], "a" * 40, "2026-09-12")
