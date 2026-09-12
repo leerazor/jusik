@@ -207,7 +207,7 @@
 
 ## portfolio-stress-e16e
 
-- 상태: 준비
+- 상태: 차단 (오프라인 검토·문서 통합 완료, 미래 성과 미확보)
 - 목표와 완료 조건: 고정 오프라인 스트레스 재계산과 문서 검토·main 통합·검사·영구 handoff. 미래 성과는 자료 부족으로 차단합니다.
 - 담당 Luna: stress_luna (gpt-5.6-luna), 문서 단일 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-stress-e16e
@@ -219,3 +219,14 @@
 - 포트·테스트 DB·출력 경로: 서버 없음, 테스트는 임시 DB. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-stress-robustness-v1-e16e783562a544cf8fdef38180db34b0
 - 검증 계획: 고정 SHA, 7 folds/147회 평가, 시간 분리, 관련 pytest·Ruff·strict mypy·독립 review
 - 중단 조건: 고정 입력 hash 불일치 또는 계산 실패. 엔진·PAPER·주문·remote·GPU 변경 금지
+
+- 결과 커밋 SHA: c52b08d65aa4fda62793b23da3f64f4300c2419e
+- 병합 직전 main SHA: a7e18e71d5cd305d0c73e93d978e6c6772dd3834
+- 통합 커밋 SHA: a63ef98b8fd46d09a3a5f3e13dc29db0a3fff54c
+- 검토 결과: 독립 검토 통과. source/code/spec/산출물 해시, 9개 요약 수치, fold 시간 분리, 이전 결과 일치 검증. 재현 경로와 미래 평가 표현 수정
+- 검증 결과: 통합 전후 pytest 31개 통과(기존 경고 2개), Ruff check/format 및 strict mypy 통과. diff check·문서 hash·기존 HANDOFF와 엔진 보존 확인. frontend build 비적용
+- 연구 결과: 7/7 folds, 147회 평가, 774 union dates. 생성 시각 외 이전 결과 일치. 2026-09-12 기준 미래 평가 기간이 아직 시작되지 않아 성과 검증 차단
+- 정리: 필요한 근거·SHA-256·handoff 26파일을 영구 audit에 보존하고 검증한 후 clean merged worktree 제거 완료. 브랜치 보존
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-stress-robustness-v1-e16e783562a544cf8fdef38180db34b0/handoff.md
+- 웹: runner completion/outbox 상태 기록 대상. 직접 게시·PAPER DB 변경 없음. 기존 미추적 HANDOFF.md 보존
