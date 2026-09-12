@@ -16,3 +16,13 @@ diagnostic_net_pnl = baseline_net_pnl
 이 산술 행은 비용만 추가된 고정 체결 가정이다. 실제 2x 실행의 현금·체결 결과를 대체하지 않으며 MDD, feasibility, 노출 대비 수익률 순위, param search, policy activation을 주장하지 않는다. PAPER 10% 제한은 유지되며 주문을 제출하지 않는다.
 
 실제 frozen run에서 continuous 기간 c2-c1은 control 거래 수 171→174(차이 +3), variant 308→313(차이 +5)였고, 두 arm 모두 순손익 차이는 음수였다. 이는 비용과 체결 변화의 기술적 관찰이며 정책 채택 판정이 아니다. 전체 원자료와 전체 행은 durable audit의 `luna-analysis` 산출물(`diagnostics.json`, `daily.csv`, `comparisons.csv`, `arithmetic.csv`, `assumptionsmanifest.json`)에서 재현한다.
+
+재현 명령은 다음과 같다.
+
+```bash
+backend/.venv313/bin/python -m jusik.research_portfolio_exposure_cost \
+  --input-dir /home/kwl/.local/share/jusik/portfolio-audit/20260911T132132Z-worktree-development/unheld-entry-real32 \
+  --output-dir /home/kwl/.local/share/jusik/portfolio-audit/portfolio-exposure-cost-tradeoff-v1-734e493df492407891611c190b42a54b/luna-analysis-final3
+```
+
+최종 산출물 디렉터리는 durable audit의 `luna-analysis-final3`이며, `luna-analysis-final4`에 한 번 더 실행해 모든 파일 바이트가 일치함을 확인했다. 실행 로그와 환경은 `luna-final-pytest.log`, `luna-final-ruff.log`, `luna-final-mypy.log`, `luna-final-environment.txt`, `luna-final-determinism.log`에 보존했다.
