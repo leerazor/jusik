@@ -627,3 +627,21 @@
 - 보존·정리: 필수158개 durable 파일을 정리 전후 SHA 대조했습니다. 이번 worktree·전용 작업 브랜치를 force 없이 제거했습니다. 기존56b9·4840 worktree와 기존 HANDOFF.md 내용을 보존했습니다. 초기 커밋 보존용 archive branch와 bundle은 유지합니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-cost-path-attribution-v1-0f907dc6cd5b40cf9604af0bccbb2acd/handoff-final.md.
 - 남은 작업: 승인 범위 없음. 부분체결·취소·거절은 unsupported이며 실거래 유예와 기존 제약을 유지합니다.
+
+## portfolio-rebalance-cadence-e017
+
+- 상태: 준비
+- 목표와 완료 조건: corrected-entry band 0.02를 고정하여 4/8주 × 비용1/2/3 × 7개 독립 fold 및 continuous의 48회만 실행합니다. 4주 control24 전체 JSON exact replay를 먼저 통과해야 합니다.
+- 담당 Luna: gpt-5.6-luna 단일 구현 소유자. explore, plan, 독립 review는 읽기 전용으로 수행합니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-rebalance-cadence-e017
+- 작업 브랜치: feat/portfolio-rebalance-cadence-e017
+- 기준 커밋 SHA: 5529a54dcd9b7d016586b6bd021d91f7164726ff 이후 이 등록부를 포함한 준비 커밋입니다.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: cost3 f9aecd54 experiment 및 원천 manifest. 54개 artifact와 source/core/helper/runner를 포함한 68개 hash 일치를 input-preflight.json에 기록했습니다.
+- 수정 허용 범위: 신규 research_portfolio_rebalance_cadence_cost_stress 모듈, 대응 테스트, 한국어 연구 보고서. 등록부는 Astra만 수정합니다.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 독립 worktree venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e0176881b1d34518805032c279324417.
+- 검증 명령과 결과: 관련 pytest, Ruff lint/format, strict mypy. control 전체 JSON, hash, temporal cutoff, cadence/holiday/UTC, 위험 청산 및 recovery/cooldown, Decimal residual≤0.000001 KRW를 검사합니다.
+- 제한: 최대48회/60분, 재시도·외부 수집 없음. 입력/hash/control/회계 실패 시 중단합니다. 1억원/손실한도20%/leverage20%/frozen drawdown10%를 유지합니다. PAPER/제품엔진/DB/config/주문/remote/GPU 변경 금지.
+- 보고 기준: 동일 anchor, reentry_ready부터 reentry까지 시간 및 recovery_reset/기간 말 censoring을 보존합니다. frozen frequency_skip의 four-week cadence 문구는 legacy label임을 명시합니다. 승자 선택·합성·retuning·정책 승격 없음.
+- 실행기 확인: 현재 task/attempt가 running인 자동 dispatch입니다. runner를 중지하지 않습니다. 기존 HANDOFF.md와 이전 두 worktree는 보존합니다.
+- 종료 조건: 독립 검토, Astra main 병합과 통합 검사, 필요한 게시 및 handoff, 영구 evidence/hash 보존 후 이번 worktree만 정리합니다.
