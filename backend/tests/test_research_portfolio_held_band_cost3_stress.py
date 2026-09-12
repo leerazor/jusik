@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import signal
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from jusik.research_external_models import ExternalObservation
 from jusik.research_portfolio_held_band_cost3_stress import (
     COST3,
     DEADLINE_SECONDS,
@@ -20,6 +21,8 @@ from jusik.research_portfolio_held_band_cost3_stress import (
     _arm_deadline,
     _config,
     _disarm_deadline,
+    _source_fx,
+    _verify_accounting,
     _verify_exact_replay,
     _verify_temporal_accounting,
     preflight,
@@ -104,6 +107,8 @@ def test_preflight_uses_stored_artifacts_without_simulate() -> None:
         "/home/kwl/.local/share/jusik/portfolio-audit/"
         "portfolio-held-band-interaction-v1-cce0cdf0e5ea43e4a088f2dfe5c2fa74/experiment"
     )
+    if not audit.exists():
+        pytest.skip("trusted stored artifact audit is unavailable")
     result = preflight(audit)
     assert result["evaluation_count"] == FULL_EVALUATION_COUNT
     assert result["historical_calls"] == 0
@@ -126,7 +131,14 @@ def _fake_contract() -> tuple[PortfolioConfig, dict[str, Any], dict[str, Any]]:
     }
     return (
         PortfolioConfig(),
-        {"periods": periods, "control_hashes": hashes},
+        {
+            "periods": periods,
+            "control_hashes": hashes,
+            "input_paths": {},
+            "source_hashes": {},
+            "core_hashes": {},
+            "imported_helper_hashes": {},
+        },
         {
             "source_run_id": "synthetic",
             "evaluations": [
@@ -181,6 +193,10 @@ def test_synthetic_run_orders_32_full_before_16_cost3(
     monkeypatch.setattr(
         "jusik.research_portfolio_held_band_cost3_stress._verify_accounting",
         lambda *_args: {"residual": Decimal(0)},
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._held_verify_runtime_hashes",
+        lambda *_args: None,
     )
     monkeypatch.setattr(
         "jusik.research_portfolio_held_band_cost3_stress._verify_exact_replay",
@@ -243,6 +259,10 @@ def test_replay_failure_stops_before_cost3_and_preserves_failure(
         "jusik.research_portfolio_held_band_cost3_stress._verify_accounting",
         lambda *_args: {"residual": Decimal(0)},
     )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._held_verify_runtime_hashes",
+        lambda *_args: None,
+    )
     replay_count = 0
 
     def fail_replay(*_args: object) -> None:
@@ -269,6 +289,57 @@ def test_replay_failure_stops_before_cost3_and_preserves_failure(
     assert len(failure["ledger"]["ledger"]) == 3
 
 
+def test_incomplete_simulation_stops_before_the_next_call(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    base, prereg, results = _fake_contract()
+    calls = 0
+
+    def incomplete_call(*_args: object) -> PortfolioSimulation:
+        nonlocal calls
+        calls += 1
+        return _simulation().model_copy(
+            update={"complete": False, "incomplete_reasons": ["synthetic"]}
+        )
+
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._prior_inputs",
+        lambda _path: (_source_for_test(), base, prereg, results),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._verify_runtime_hashes",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._copy_engine",
+        lambda _engine, output: (output / "original.py", output / "variant.py"),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._load_copy",
+        lambda *_args: SimpleNamespace(simulate=lambda *_args: _simulation()),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._run_call",
+        incomplete_call,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress.sha256",
+        lambda path: (
+            "7d9ccd0d8fef90b11779d4e8c98041eadf8aeac94eb3d289318145504483b442"
+            if path.name == "variant.py"
+            else "digest"
+        ),
+    )
+    with pytest.raises(RuntimeError, match="incomplete simulation"):
+        run_experiment(
+            tmp_path / "prior",
+            tmp_path / "engine.py",
+            tmp_path / "incomplete-output",
+            allow_historical_execution=True,
+        )
+    assert calls == 1
+
+
 def test_without_explicit_approval_never_calls_simulate(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -288,10 +359,30 @@ def test_without_explicit_approval_never_calls_simulate(
         "jusik.research_portfolio_held_band_cost3_stress._copy_engine",
         lambda *_args: (_args[1] / "original.py", _args[1] / "variant.py"),
     )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._verify_runtime_hashes",
+        lambda *_args: None,
+    )
     with pytest.raises(PermissionError):
         run_experiment(tmp_path / "prior", tmp_path / "engine.py", tmp_path / "output")
     assert calls == 0
     assert (tmp_path / "output" / "failure.json").exists()
+
+
+def test_existing_output_refusal_preserves_successful_ledger(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "existing-output"
+    output.mkdir()
+    ledger = output / "ledger.json"
+    results = output / "results.json"
+    ledger.write_text('{"status": "saved"}\n', encoding="utf-8")
+    results.write_text('{"status": "complete"}\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="new or empty"):
+        run_experiment(tmp_path / "prior", tmp_path / "engine.py", output)
+    assert not (output / "failure.json").exists()
+    assert ledger.read_text(encoding="utf-8") == '{"status": "saved"}\n'
+    assert results.read_text(encoding="utf-8") == '{"status": "complete"}\n'
 
 
 def test_process_deadline_interrupts_in_flight_work() -> None:
@@ -318,3 +409,62 @@ def test_terminal_cash_plus_one_is_rejected() -> None:
     )
     with pytest.raises(ValueError, match="ending cash"):
         _verify_temporal_accounting(bad, config, source)
+
+
+def test_runtime_accounting_gate_rejects_cash_mutation_even_if_held_checker_passes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source_for_test()
+    config = PortfolioConfig(initial_cash_krw=Decimal("1000000"))
+    simulation = _simulation()
+    bad = simulation.model_copy(
+        update={
+            "equity": [
+                simulation.equity[0].model_copy(
+                    update={"cash_krw": Decimal("1000001")}
+                )
+            ]
+        }
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._held_verify_accounting",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress.attribute_simulation",
+        lambda *_args: {"residual": Decimal(0)},
+    )
+    with pytest.raises(ValueError, match="ending cash"):
+        _verify_accounting(bad, 1, config, source)
+
+
+def test_source_fx_is_point_in_time_and_freshness_checked() -> None:
+    source = _source_for_test()
+    observed = date(2024, 2, 5)
+    at = datetime(2024, 2, 5, 12, tzinfo=UTC)
+    newer = ExternalObservation(
+        series="usdkrw",
+        observed_on=observed,
+        value=Decimal("1400"),
+        available_at=datetime(2024, 2, 5, 11, tzinfo=UTC),
+        revision="later",
+    )
+    future = ExternalObservation(
+        series="usdkrw",
+        observed_on=observed,
+        value=Decimal("9999"),
+        available_at=at + timedelta(minutes=1),
+        revision="future",
+    )
+    checked = source.model_copy(
+        update={
+            "external": source.external.model_copy(
+                update={"observations": (*source.external.observations, newer, future)}
+            )
+        }
+    )
+    assert _source_fx(checked, at, PortfolioConfig()) == Decimal("1400")
+    assert (
+        _source_fx(checked, datetime(2024, 12, 1, tzinfo=UTC), PortfolioConfig())
+        is None
+    )

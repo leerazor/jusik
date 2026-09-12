@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import jusik.research_portfolio_held_band_experiment as held_band_experiment
 from jusik.research_entry_attribution import attribute_simulation
 from jusik.research_experiment_guard import verify_control_output, verify_hashes
 from jusik.research_portfolio_held_band_experiment import (
@@ -30,6 +31,9 @@ from jusik.research_portfolio_held_band_experiment import (
 )
 from jusik.research_portfolio_held_band_experiment import (
     _verify_accounting as _held_verify_accounting,
+)
+from jusik.research_portfolio_held_band_experiment import (
+    _verify_runtime_hashes as _held_verify_runtime_hashes,
 )
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
@@ -51,6 +55,9 @@ RATE_3X = Decimal("0.003")
 TOLERANCE_KRW = Decimal("0.000001")
 _ACTIVE_DEADLINE: tuple[Any, tuple[float, float]] | None = None
 VARIANT_SHA256 = "7d9ccd0d8fef90b11779d4e8c98041eadf8aeac94eb3d289318145504483b442"
+HELD_HELPER_SHA256 = (
+    "bd33825fd08d55278ea7ed994d73672404a3d30530213f7e6efd2577b9abf29b"
+)
 PRIOR_RESULTS_SHA256 = (
     "6c20c79552964182d52e5a9ce8571747ddf97a21a9c7b5c46b2dc827e167479b"
 )
@@ -58,40 +65,6 @@ PRIOR_PREREG_SHA256 = "fa5065df2ae70d024656209b0a33b755071c1441ecfa3406db99973fd
 PRIOR_MANIFEST_SHA256 = (
     "bba3822f08a648462c8a2634c9402b545c833ad854bcb924fac96adb75d366a2"
 )
-CORE_HASHES = {
-    "research_portfolio_engine.py": (
-        "8790405075a22548f7490c8d4cced8845d3067cba647568a2169a908fe339ed2"
-    ),
-    "research_portfolio_models.py": (
-        "e1fda47a0dc4cb37e4186b778d902cd293e6e2ec1fbd1be2b367bb967c865024"
-    ),
-    "research_external_features.py": (
-        "d44346d43ebc00f18381058ad649e944bb022e6a3868d2f38a8c5edbec49e572"
-    ),
-    "research_risk.py": (
-        "8e79dfa98defec7c9f28fcb8d035e5662903f229f3d6b80997b98b3773f88fcc"
-    ),
-}
-IMPORTED_HASHES = {
-    "research_entry_attribution.py": (
-        "3013c6ba8ddbd0ec001462272ee9808ee105afcc939fd25360233c69df594f56"
-    ),
-    "research_unheld_entry_experiment.py": (
-        "a31a455ae79dddce3b19248bc85a4068be49d0d7d0f06bea50422818b866f6d8"
-    ),
-    "research_experiment_guard.py": (
-        "5e9a9cb9b25ccbf73becb9a7a6cb10914e8f5ef1ba378a2a687e7a21bc5a2bd0e"
-    ),
-    "research_external_models.py": (
-        "fa83ef9b7c294e5b9a687969ae0cf0c9fe20d9b690cc90ab7ee3175be4918e0a"
-    ),
-    "research_models.py": (
-        "1d518334aadef618b69f350bc2aa52fd16b4dfd52d23ce7fe62d093ea45d7770"
-    ),
-    "research_universe_models.py": (
-        "f5627aac31e19e34a91800a90400e4bc8a130ee93b89f5404240b20eb9cf87c4"
-    ),
-}
 
 
 def sha256(path: Path) -> str:
@@ -293,6 +266,18 @@ def _verify_frozen_artifacts(
             ):
                 raise ValueError(f"frozen metric mismatch: {name} {metric}")
         _verify_accounting(simulation, cost, config, source)
+        mutated_equity = [*simulation.equity]
+        terminal = mutated_equity[-1]
+        mutated_equity[-1] = terminal.model_copy(
+            update={"cash_krw": terminal.cash_krw + Decimal(1)}
+        )
+        mutated = simulation.model_copy(update={"equity": mutated_equity})
+        try:
+            _verify_accounting(mutated, cost, config, source)
+        except ValueError:
+            pass
+        else:
+            raise RuntimeError(f"cash mutation accepted: {name}")
 
 
 def _prior_inputs(
@@ -304,6 +289,9 @@ def _prior_inputs(
         prior_audit / "results.json",
         prior_audit / "hash-manifest.json",
     )
+    prior_manifest = _load_json(manifest_path)
+    if not isinstance(prior_manifest, dict):
+        raise ValueError("prior hash manifest is malformed")
     verify_hashes(
         {
             prereg_path: PRIOR_PREREG_SHA256,
@@ -311,6 +299,11 @@ def _prior_inputs(
             manifest_path: PRIOR_MANIFEST_SHA256,
         }
     )
+    for relative, digest in prior_manifest.items():
+        path = (prior_audit / relative).resolve()
+        if prior_audit not in path.parents or not path.is_file():
+            raise ValueError(f"prior manifest path is invalid: {relative}")
+        verify_hashes({path: digest})
     prereg = _load_json(prereg_path)
     results = _load_json(results_path)
     if (
@@ -337,6 +330,18 @@ def _prior_inputs(
         verify_hashes({prior_audit / "simulations" / filename: digest})
     _verify_frozen_artifacts(prior_audit, source, base, prereg, results)
     return source, base, prereg, results
+
+
+def _verify_prior_inputs_unchanged(
+    prior_audit: Path,
+    source: PortfolioInput,
+    base: PortfolioConfig,
+    prereg: dict[str, Any],
+    results: dict[str, Any],
+) -> None:
+    current = _prior_inputs(prior_audit)
+    if current != (source, base, prereg, results):
+        raise ValueError("frozen inputs changed during execution")
 
 
 def _source_maps(
@@ -366,6 +371,26 @@ def _source_maps(
     return opens, bars, snapshots
 
 
+def _source_fx(
+    source: PortfolioInput, at: datetime, config: PortfolioConfig
+) -> Decimal | None:
+    rows = [
+        item
+        for item in source.external.observations
+        if item.series == "usdkrw"
+        and item.observed_on <= at.date()
+        and item.available_at <= at
+    ]
+    if not rows:
+        return None
+    latest = max(
+        rows, key=lambda item: (item.observed_on, item.available_at, item.revision)
+    )
+    if (at.date() - latest.observed_on).days > config.external_max_age_days:
+        return None
+    return latest.value
+
+
 def preflight(prior_audit: Path) -> dict[str, Any]:
     """Run the stored-input checks without creating output or calling simulate."""
     source, base, prereg, results = _prior_inputs(prior_audit)
@@ -375,6 +400,7 @@ def preflight(prior_audit: Path) -> dict[str, Any]:
         "preregistration": prereg,
         "results": results,
         "evaluation_count": FULL_EVALUATION_COUNT,
+        "cash_mutation_rejection_checks": FULL_EVALUATION_COUNT,
         "historical_calls": 0,
     }
 
@@ -418,6 +444,14 @@ def _verify_temporal_accounting(
             raise ValueError(f"trade is not next valid open: {trade.symbol}")
         raw = opens[trade.symbol][trade.executed_at]
         sign = Decimal(1) if trade.side == "buy" else Decimal(-1)
+        if currencies[trade.symbol] == "USD":
+            expected_fx_rate = _source_fx(source, trade.executed_at, config)
+            if expected_fx_rate is None or trade.fx_rate != expected_fx_rate:
+                raise ValueError(
+                    f"FX rate does not match source observation: {trade.symbol}"
+                )
+        elif trade.fx_rate != Decimal(1):
+            raise ValueError(f"KRW trade has non-unit FX rate: {trade.symbol}")
         expected_price = raw * (Decimal(1) + sign * config.slippage_rate)
         if trade.local_price != expected_price:
             raise ValueError(f"execution price does not match raw open: {trade.symbol}")
@@ -455,15 +489,9 @@ def _verify_temporal_accounting(
             whole = int(exact)
             cash_in_lieu = (exact - whole) * opens[symbol][open_moment]
             if currencies[symbol] == "USD":
-                # Split cash uses the same FX observation as the engine's open.
-                fx = next(
-                    (
-                        trade.fx_rate
-                        for trade in trade_by_day[day]
-                        if trade.symbol == symbol
-                    ),
-                    Decimal(1),
-                )
+                fx = _source_fx(source, open_moment, config)
+                if fx is None:
+                    raise ValueError(f"missing split FX source observation: {symbol}")
                 cash_in_lieu *= fx
             cash += cash_in_lieu
             split_cash[symbol] += cash_in_lieu
@@ -503,10 +531,18 @@ def _verify_temporal_accounting(
             raise ValueError(
                 f"terminal local mark does not match source close: {position.symbol}"
             )
-        expected_fx = position.fx_rate
+        terminal_fx = (
+            _source_fx(source, final_at, config)
+            if position.currency == "USD"
+            else Decimal(1)
+        )
+        if terminal_fx is None or position.fx_rate != terminal_fx:
+            raise ValueError(
+                f"terminal FX rate does not match source: {position.symbol}"
+            )
         _close(
             position.value_krw,
-            Decimal(position.quantity) * position.local_close * expected_fx,
+            Decimal(position.quantity) * position.local_close * terminal_fx,
             "terminal position value",
         )
         terminal += position.value_krw
@@ -523,6 +559,13 @@ def _verify_accounting(
     accounting = attribute_simulation(sim, cost)
     _verify_temporal_accounting(sim, config, source)
     return accounting
+
+
+def _verify_runtime_hashes(engine_source: Path) -> None:
+    """Reuse the held runner's immutable import checks and pin its helper."""
+    _held_verify_runtime_hashes(engine_source)
+    helper = Path(str(held_band_experiment.__file__))
+    verify_hashes({helper: HELD_HELPER_SHA256})
 
 
 def _verify_exact_replay(
@@ -589,6 +632,9 @@ def _row(
             position.symbol: position.quantity for position in sim.positions
         },
         "accounting_residual": str(accounting["residual"]),
+        "net_pnl_krw": str(
+            sim.metrics.final_equity_krw - sim.metrics.initial_equity_krw
+        ),
         "artifact": artifact.name,
         "sha256": sha256(artifact),
     }
@@ -605,14 +651,23 @@ def _cost3_summary(pairs: list[dict[str, Any]]) -> dict[str, Any]:
         if pair["cost_multiplier"] == COST3 and pair["period"] != "continuous"
     ]
     returns = [Decimal(pair["deltas"]["total_return_pct"]) for pair in fold_pairs]
-    ordered = sorted(returns)
-    median = (
-        ordered[len(ordered) // 2]
-        if len(ordered) % 2
-        else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2
-    )
+    def median(values: list[Decimal]) -> Decimal:
+        ordered_values = sorted(values)
+        middle = len(ordered_values) // 2
+        return (
+            ordered_values[middle]
+            if len(ordered_values) % 2
+            else (ordered_values[middle - 1] + ordered_values[middle]) / 2
+        )
+
     return {
-        "fold_return_delta_median_pp": str(median),
+        "fold_return_delta_median_pp": str(median(returns)),
+        "fold_mdd_delta_median_pp": str(
+            median([Decimal(pair["deltas"]["max_drawdown_pct"]) for pair in fold_pairs])
+        ),
+        "fold_turnover_delta_median_pp": str(
+            median([Decimal(pair["deltas"]["turnover_pct"]) for pair in fold_pairs])
+        ),
         "positive_fold_count": sum(value > 0 for value in returns),
         "negative_fold_count": sum(value < 0 for value in returns),
         "zero_fold_count": sum(value == 0 for value in returns),
@@ -652,6 +707,9 @@ def _run_experiment_inner(
     clock: Callable[[], float] = time.monotonic,
 ) -> dict[str, Any]:
     """Run only after explicit approval; all preflight is read-only."""
+    global _ACTIVE_DEADLINE
+    deadline = clock() + DEADLINE_SECONDS
+    _ACTIVE_DEADLINE = _arm_deadline(DEADLINE_SECONDS)
     _empty_output(output_dir)
     ledger: list[dict[str, Any]] = []
     _checkpoint(
@@ -663,6 +721,7 @@ def _run_experiment_inner(
             "ledger": ledger,
         },
     )
+    _verify_runtime_hashes(engine_source)
     source, base, prereg, prior_results = _prior_inputs(prior_audit)
     periods = _periods(prereg)
     candidate = PortfolioCandidate(
@@ -678,9 +737,6 @@ def _run_experiment_inner(
     if sha256(variant_path) != VARIANT_SHA256:
         raise ValueError("guarded variant hash mismatch")
     variant = _load_copy(variant_path, "held_band_cost3_variant_engine")
-    deadline = clock() + DEADLINE_SECONDS
-    global _ACTIVE_DEADLINE
-    _ACTIVE_DEADLINE = _arm_deadline(DEADLINE_SECONDS)
     _checkpoint(
         output_dir / "ledger.json",
         {
@@ -706,9 +762,22 @@ def _run_experiment_inner(
                 "slippage": str(RATE_3X),
                 "fx_spread": str(RATE_3X),
             },
+            "cash_mutation_rejection_checks": FULL_EVALUATION_COUNT,
             "source_run_id": prior_results.get("source_run_id"),
             "point_in_time_verified": False,
             "automatic_trading_eligible": False,
+            "source_paths": prereg["input_paths"],
+            "source_hashes": prereg["source_hashes"],
+            "core_hashes": prereg["core_hashes"],
+            "imported_helper_hashes": prereg["imported_helper_hashes"],
+            "held_helper_sha256": HELD_HELPER_SHA256,
+            "base_config": base.model_dump(mode="json"),
+            "validated_configs": {
+                f"{band}-c{cost}": _config(base, band, cost).model_dump(mode="json")
+                for band in ("0.02", "0.04")
+                for cost in (1, 2, 3)
+            },
+            "runner_sha256": sha256(Path(__file__)),
         },
     )
     rows: list[dict[str, Any]] = []
@@ -745,6 +814,10 @@ def _run_experiment_inner(
                     )
                     config = _config(base, band, cost)
                     sim = _run_call(variant.simulate, source, candidate, period, config)
+                    if not sim.complete or sim.incomplete_reasons:
+                        raise RuntimeError(
+                            f"incomplete simulation: {period['name']} {arm} cost {cost}"
+                        )
                     if clock() >= deadline:
                         raise TimeoutError(
                             "execution deadline exceeded after simulation"
@@ -784,6 +857,10 @@ def _run_experiment_inner(
                             "ledger": ledger,
                         },
                     )
+        _verify_runtime_hashes(engine_source)
+        _verify_prior_inputs_unchanged(
+            prior_audit, source, base, prereg, prior_results
+        )
     if len(rows) != EVALUATION_CAP:
         raise RuntimeError("runner did not produce exactly 48 evaluations")
     for row in rows:
@@ -813,6 +890,13 @@ def _run_experiment_inner(
         row["cash_delta_vs_c1_krw"] = str(
             Decimal(row["final_cash_krw"]) - Decimal(c1_row["final_cash_krw"])
         )
+        c1_quantities = c1_row["final_quantities"]
+        symbols = sorted(set(c1_quantities) | set(row["final_quantities"]))
+        row["quantity_delta_vs_c1"] = {
+            symbol: row["final_quantities"].get(symbol, 0)
+            - c1_quantities.get(symbol, 0)
+            for symbol in symbols
+        }
     pairs: list[dict[str, Any]] = []
     for period in periods:
         for cost in (*FULL_COSTS, COST3):
@@ -857,6 +941,16 @@ def _run_experiment_inner(
                             variant_sim.equity[-1].cash_krw
                             - control.equity[-1].cash_krw
                         ),
+                        "net_pnl_krw": str(
+                            (
+                                variant_sim.metrics.final_equity_krw
+                                - variant_sim.metrics.initial_equity_krw
+                            )
+                            - (
+                                control.metrics.final_equity_krw
+                                - control.metrics.initial_equity_krw
+                            )
+                        ),
                     },
                     "quantity_effect": {
                         symbol: variant_qty.get(symbol, 0) - control_qty.get(symbol, 0)
@@ -899,6 +993,12 @@ def run_experiment(
     clock: Callable[[], float] = time.monotonic,
 ) -> dict[str, Any]:
     """Run the bounded experiment and preserve a failure record on every abort."""
+    # Refuse an existing run before entering the failure writer.  This keeps a
+    # successful ledger/results pair immutable when a caller accidentally reruns.
+    if output_dir.exists() and (
+        not output_dir.is_dir() or any(output_dir.iterdir())
+    ):
+        raise ValueError("output must be new or empty; retry/resume is refused")
     try:
         return _run_experiment_inner(
             prior_audit,

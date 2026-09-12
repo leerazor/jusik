@@ -6,7 +6,7 @@
 
 runner는 실행 전에 prior `results.json`, `preregistration.json`, `hash-manifest.json`, frozen source와 32개 simulation을 SHA-256으로 확인한다. 각 저장 simulation은 기존 `attribute_simulation(sim, cost)`와 held-band `_verify_accounting`으로 다시 계산하고, raw open·strict `decision_at < execution_at`·다음 유효 개장·UTC·split floor/현금·최종 수량·source close terminal mark·현금+보유자산 NAV를 별도로 확인한다. hash, 회계, 시간, completeness 또는 누출 검증이 실패하면 즉시 중단하며 재시도하지 않는다. 저장 결과의 terminal cash에 임의 `+1 KRW`를 더한 복사본도 거부한다.
 
-승인된 실행에서는 먼저 두 band × 두 비용 × 8 period의 32개 full JSON을 순서대로 생성한다. 32개 각 셀은 prior JSON과 full JSON equality 및 SHA-256으로 대조한다. 이 32개가 모두 완료된 뒤에만 두 band × cost 3의 16개를 생성한다. 호출 전 ledger에 셀을 예약하고 전체 cap `48`, in-flight deadline `3600 seconds`를 검사한다. 출력 파일은 exclusive create이며 기존 출력 디렉터리의 재개·덮어쓰기는 허용하지 않는다.
+승인된 실행에서는 먼저 두 band × 두 비용 × 8 period, 즉 control과 variant 각 16개씩 총 32개의 full JSON을 순서대로 생성한다. 32개 모든 셀은 prior JSON과 full JSON equality 및 SHA-256으로 대조한다. 이 32개가 모두 완료된 뒤에만 두 band × cost 3의 16개를 생성한다. 호출 전 ledger에 셀을 예약하고 전체 cap `48`, in-flight deadline `3600 seconds`를 검사한다. 출력 파일은 exclusive create이며 기존 출력 디렉터리의 재개·덮어쓰기는 허용하지 않는다.
 
 현재 구현은 historical 실행 승인 플래그가 없으면 `simulate`를 호출하지 않는다. 이 작업에서는 Astra의 독립 review 전이 전까지 실제 historical 실행을 수행하지 않았다. PAPER 10% 설정은 유지하고 live trading은 유예한다. PAPER 설정·주문·DB·제품 engine·remote data·GPU는 연구 범위가 아니다.
 
