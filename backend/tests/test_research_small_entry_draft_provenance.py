@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -84,6 +85,7 @@ def test_synthetic_bundle_validates_and_public_outputs_are_deterministic(
     second = tmp_path / "out-second"
     provenance.write_public_outputs(result, second)
     assert first == {path.name: path.read_bytes() for path in second.iterdir()}
+    assert json.loads(result.public_manifest_bytes()) == result.public_manifest
 
 
 @pytest.mark.parametrize("role", [*ROLE_PATHS, "manifest"])
@@ -214,6 +216,49 @@ def test_root_and_output_ancestor_symlinks_are_rejected(
         provenance.write_public_outputs(
             provenance.validate_bundle(root), output_parent / "out"
         )
+
+
+def test_output_under_input_or_same_directory_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _synthetic_bundle(tmp_path, monkeypatch)
+    result = provenance.validate_bundle(root)
+    with pytest.raises(provenance.BundleValidationError, match="outside"):
+        provenance.write_public_outputs(result, root)
+    with pytest.raises(provenance.BundleValidationError, match="outside"):
+        provenance.write_public_outputs(result, root / "output")
+
+
+@pytest.mark.parametrize("replacement", ["directory", "fifo"])
+def test_non_regular_role_input_is_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, replacement: str
+) -> None:
+    root = _synthetic_bundle(tmp_path, monkeypatch)
+    draft = root / ROLE_PATHS["draft"]
+    draft.unlink()
+    if replacement == "directory":
+        draft.mkdir()
+    else:
+        draft.parent.mkdir(parents=True, exist_ok=True)
+        os.mkfifo(draft)
+    with pytest.raises(provenance.BundleValidationError, match="regular file"):
+        provenance.validate_bundle(root)
+
+
+def test_suffix_alias_path_does_not_select_a_role(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _synthetic_bundle(tmp_path, monkeypatch)
+    manifest_path = root / "manifest.json"
+    entries = json.loads(manifest_path.read_text())
+    entries[0]["path"] = str(
+        (provenance.ARCHIVE_ROOT / "suffix-alias" / ROLE_PATHS["draft"]).absolute()
+    )
+    body = json.dumps(entries, separators=(",", ":")).encode()
+    manifest_path.write_bytes(body)
+    monkeypatch.setattr(provenance, "MANIFEST_SHA256", hashlib.sha256(body).hexdigest())
+    with pytest.raises(provenance.BundleValidationError, match="missing role"):
+        provenance.validate_bundle(root)
 
     root = _synthetic_bundle(tmp_path / "symlink", monkeypatch)
     draft = root / ROLE_PATHS["draft"]
