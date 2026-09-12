@@ -672,6 +672,15 @@ def _reentry_summary(sim: PortfolioSimulation) -> dict[str, Any]:
     if risk is not None:
         risk["status"] = "censored"
         risk_episodes.append(risk)
+    for item in waits:
+        endpoint = item.get("reentry_utc") or item.get("reset_utc") or item.get(
+            "censor_end_utc"
+        )
+        if endpoint is not None:
+            item["observed_wait_seconds"] = (
+                datetime.fromisoformat(endpoint)
+                - datetime.fromisoformat(item["ready_utc"])
+            ).total_seconds()
     ready = [wait_item for wait_item in waits if "ready_utc" in wait_item]
     delays = [
         str(
