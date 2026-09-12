@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -21,6 +22,7 @@ from jusik.research_portfolio_rebalance_cadence_cost_stress import (
     _reentry_summary,
     _verify_exact_replay,
     preflight,
+    run_experiment,
 )
 
 
@@ -42,9 +44,7 @@ def test_cadence_study_contract() -> None:
 
 
 def test_runner_plan_is_24_control_then_24_variant() -> None:
-    periods = [{"name": f"fold_{i}"} for i in range(1, 8)] + [
-        {"name": "continuous"}
-    ]
+    periods = [{"name": f"fold_{i}"} for i in range(1, 8)] + [{"name": "continuous"}]
     plan = _evaluation_plan(periods)
     assert len(plan) == 48
     assert all(item[0] == "control" for item in plan[:24])
@@ -54,7 +54,8 @@ def test_runner_plan_is_24_control_then_24_variant() -> None:
 
 @pytest.mark.parametrize("weeks", [4, 8])
 def test_copied_engine_keeps_risk_weekly_and_changes_only_reentry_cadence(
-    weeks: int, tmp_path: Path,
+    weeks: int,
+    tmp_path: Path,
 ) -> None:
     from tests.test_research_portfolio import _episode_source
 
@@ -76,9 +77,7 @@ def test_copied_engine_keeps_risk_weekly_and_changes_only_reentry_cadence(
     liquidation = next(
         event for event in events if event.kind == "liquidation_complete"
     )
-    confirmations = [
-        event for event in events if event.kind == "recovery_confirmation"
-    ]
+    confirmations = [event for event in events if event.kind == "recovery_confirmation"]
     assert risk.at.weekday() != 0
     assert confirmations[0].at.date() >= liquidation.at.date() + timedelta(days=28)
     assert len(confirmations) == 2
@@ -94,6 +93,99 @@ def test_control_json_mismatch_stops(tmp_path: Path) -> None:
             expected,
             hashlib.sha256(expected.read_bytes()).hexdigest(),
         )
+
+
+def _synthetic_contract() -> tuple[
+    Any, PortfolioConfig, dict[str, Any], dict[str, Any]
+]:
+    from tests.test_research_portfolio import _source
+
+    periods = [
+        {"name": name, "start": "2024-01-01", "end": "2024-01-02"}
+        for name in [f"fold_{n}" for n in range(1, 8)] + ["continuous"]
+    ]
+    artifacts = [
+        {"artifact": f"{period['name']}-{arm}_c{cost}.json", "sha256": "digest"}
+        for period in periods
+        for arm in ("control", "variant")
+        for cost in (1, 2, 3)
+    ]
+    return (
+        _source(),
+        PortfolioConfig(),
+        {
+            "periods": periods,
+            "input_paths": {},
+            "source_hashes": {},
+            "core_hashes": {},
+            "imported_helper_hashes": {},
+        },
+        {"source_run_id": "synthetic", "evaluations": artifacts},
+    )
+
+
+@pytest.mark.parametrize("fail_at", [None, 24])
+def test_run_experiment_executes_control_24_then_variant_24(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fail_at: int | None
+) -> None:
+    from tests.test_research_portfolio_held_band_cost3_stress import _runner_simulation
+
+    source, base, prereg, results = _synthetic_contract()
+    calls: list[int] = []
+    replays: list[int] = []
+
+    def simulate(*args: object) -> Any:
+        calls.append(args[4].low_turnover_weeks)
+        return _runner_simulation()
+
+    module = "jusik.research_portfolio_rebalance_cadence_cost_stress"
+    monkeypatch.setattr(
+        module + "._prior_inputs", lambda _path: (source, base, prereg, results)
+    )
+    monkeypatch.setattr(module + "._verify_prior_inputs_unchanged", lambda *args: None)
+    monkeypatch.setattr(module + "._verify_runtime_hashes", lambda *args: None)
+    monkeypatch.setattr(
+        module + "._verify_accounting", lambda *args: {"residual": Decimal(0)}
+    )
+
+    def replay(*_args: object) -> None:
+        replays.append(len(calls))
+        if fail_at == len(replays):
+            raise ValueError("synthetic control mismatch")
+
+    monkeypatch.setattr(module + "._verify_exact_replay", replay)
+    monkeypatch.setattr(
+        module + "._copy_engine",
+        lambda _engine, output: (output / "o.py", output / "v.py"),
+    )
+    monkeypatch.setattr(
+        module + ".sha256",
+        lambda _path: (
+            "7d9ccd0d8fef90b11779d4e8c98041eadf8aeac94eb3d289318145504483b442"
+        ),
+    )
+    monkeypatch.setattr(
+        module + "._load_copy", lambda *_args: SimpleNamespace(simulate=simulate)
+    )
+    if fail_at is None:
+        result = run_experiment(
+            tmp_path / "prior",
+            tmp_path / "engine.py",
+            tmp_path / "out",
+            allow_historical_execution=True,
+        )
+        assert result["evaluation_count"] == 48
+        assert calls == [4] * 24 + [8] * 24
+    else:
+        with pytest.raises(ValueError, match="synthetic control mismatch"):
+            run_experiment(
+                tmp_path / "prior",
+                tmp_path / "engine.py",
+                tmp_path / "out",
+                allow_historical_execution=True,
+            )
+        assert calls == [4] * 24
+        assert (tmp_path / "out" / "failure.json").exists()
 
 
 @pytest.mark.parametrize("weeks", [0, 3, 9])
