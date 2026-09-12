@@ -2,7 +2,10 @@
 
 이 문서는 보존된 timestamp forensics 결과에서 같은 UTC 분에 두 종목 이상에서
 관측된 anomaly를 집계한 재현 결과다. 입력은 보존된 anomaly CSV와 독립 재생
-JSON이며, 분석기는 입력을 수정하지 않고 시작·종료 SHA-256을 대조한다.
+JSON이다. 분석기는 immutable snapshot, provenance, calendar, 두 산출물과
+manifest를 검증하고 시작·종료 SHA-256을 대조한다. registry/calendar가 정의한
+780개 active market minute grid를 사용하며, observed denominator는 해당 분에
+실제로 관측된 unique symbol 수다.
 
 `received_at - market_at`이 -2초보다 작거나 15초보다 큰 경우만 anomaly로
 분류한다. 경계값은 strict 비교라서 정확히 -2초와 15초인 관측은 정상이다.
@@ -29,3 +32,7 @@ PYTHONPATH=backend backend/.venv/bin/python -m jusik.research_signal_anomaly_epi
 `pairwise_counts`, 총 관측·anomaly·동시 분·에피소드 수, 그리고 입력
 `input_hashes`가 포함된다. 출력 디렉터리는 archive 밖이어야 하며, 기본 실행은
 고정 입력 SHA가 다르면 중단한다.
+
+순수 `aggregate_rows` 호출에서 session 및 local-date 경계를 보존하려면 caller가
+각 UTC minute의 calendar 기반 `session_keys`(exchange와 local session date 포함)를
+제공해야 한다. 이를 생략하면 UTC 60초 간격과 UTC 날짜 경계만 분리 기준으로 쓴다.

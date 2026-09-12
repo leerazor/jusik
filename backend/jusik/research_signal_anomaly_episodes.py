@@ -167,18 +167,11 @@ def _guard_archive(
         ANOMALIES_RELATIVE.as_posix(): _sha256(anomaly_path),
         REPLAY_RELATIVE.as_posix(): _sha256(replay_path),
     }
-    hashes.update(
-        {
-            f"{key}": value
-            for key, value in _verify_manifest(
-                archive, {ANOMALIES_RELATIVE.as_posix(), REPLAY_RELATIVE.as_posix()}
-            ).items()
-        }
+    manifest_hashes = _verify_manifest(
+        archive, {ANOMALIES_RELATIVE.as_posix(), REPLAY_RELATIVE.as_posix()}
     )
-    manifest_paths = [
-        archive / name for name in MANIFEST_NAMES if (archive / name).is_file()
-    ]
-    _guard_output_inputs(output, [anomaly_path, replay_path, *manifest_paths])
+    hashes.update({f"{key}": value for key, value in manifest_hashes.items()})
+    _guard_output_inputs(output, [archive / key for key in manifest_hashes])
     if not allow_unpinned:
         if hashes[ANOMALIES_RELATIVE.as_posix()] != ANOMALIES_SHA256:
             raise EpisodesError("approved_hash_mismatch:analysis/anomalies.csv")
@@ -347,13 +340,7 @@ def analyze_archive(
             {f"evidence:{key}": value for key, value in evidence_manifest.items()}
         )
         _guard_output_inputs(
-            output_dir.resolve(),
-            [item.path for item in evidence_inputs]
-            + [
-                evidence / name
-                for name in MANIFEST_NAMES
-                if (evidence / name).is_file()
-            ],
+            output_dir.resolve(), [evidence / key for key in evidence_manifest]
         )
         calendar = _load_calendar(
             evidence / "source/jusik/data/market_sessions_2023_2026.json"
@@ -448,6 +435,24 @@ def analyze_archive(
         json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    final = {
+        ANOMALIES_RELATIVE.as_posix(): _sha256(anomaly_path),
+        REPLAY_RELATIVE.as_posix(): _sha256(replay_path),
+    }
+    final.update(
+        {key: value for key, value in _verify_manifest(archive_root.resolve()).items()}
+    )
+    final.update(
+        {
+            f"evidence:{key}": value["sha256"]
+            for key, value in _fingerprint(evidence_inputs).items()
+        }
+    )
+    final.update(
+        {f"evidence:{key}": value for key, value in _verify_manifest(evidence).items()}
+    )
+    if before != final:
+        raise EpisodesError("input_changed_during_analysis")
     return result
 
 
