@@ -656,7 +656,7 @@
 
 ## gpu-collector-mode
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 사용자가 승인한 GPU 역할 전환. 수집·기존 결과를 유지하면서 GPU를 요청 기반 포트폴리오 스트레스 실험에 사용합니다.
 - 담당 Luna: gpt-5.6-luna, 작업별 단일 구현 소유자. 독립 조사·순차 계획 완료.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-gpu-collector-mode
@@ -671,9 +671,16 @@
 - 종료 조건: main 병합·검증, 실제 역할 전환·웹 게시·SHA/handoff 보관, 병합 worktree 정리, 자동 개발 재개.
 
 
+- 실제 공통 생성 기준: `6ee4be69d3e5d03f40969fee40cae5ca5c308faa`.
+- 결과·검증: local main 최종 구현 `844cf6089820815427db03d3baef40d95fa80c9a`; 영향 통합 pytest86개, 후속 stress17개, Ruff check·format 및 변경 파일 strict mypy 통과. 기존 transitive type 오류는 별도 기록. 독립 최종 검토 P1/P2 없음.
+- 실제 적용: CPU collection-only 수집·보고서 갱신 확인. CUDA512/4096 parity 최대1.53e-12%p; auto512 CPU/4096 CUDA 확인. 웹 이력·다운로드4경로 검증.
+- 복구 기록: 첫 stress 통합에서 torch 설치 환경 타입 오류2개를 발견해635b5ec로 수정 후 재검증했습니다. 초기 CLI 초안은 CUDA·신규 테스트 미완성으로 채택하지 않았습니다.
+- 보존·정리: 원본 설정, source patch·환경·SHA manifest·실험·검토·통합 결과를 `/home/kwl/.local/share/jusik/portfolio-audit/20260912T212923Z-gpu-role-transition`에 보관하고 병합 worktree와 branch를 정리했습니다. 기존 미병합3개는 보존합니다.
+- handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260912T212923Z-gpu-role-transition/HANDOFF.md`. 자동 실행 재개 확인은 같은 경로 runner-activation.json을 확인합니다.
+
 ## gpu-portfolio-stress
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 사용자가 승인한 GPU 역할 전환. 수집·기존 결과를 유지하면서 GPU를 요청 기반 포트폴리오 스트레스 실험에 사용합니다.
 - 담당 Luna: 초기 CLI Luna가 CUDA·신규 테스트 미완성 상태로 종료하여 결과를 채택하지 않았습니다. 종료 확인 후 native Luna `collector_transition`에 단일 구현 소유권을 이전했습니다. 동시 구현 담당자는 없습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-gpu-portfolio-stress
@@ -686,3 +693,10 @@
 - 검증: focused pytest/Ruff check·format/strict mypy, 독립 review, main 통합 검사. GPU 실제512/4096 시나리오·CPU parity 및 collection-only 활성화는 감독 수행.
 - 보존: PAPER/live 엔진·DB·동결 계약10% 유지. 기존 GPU 서비스의 CPU 수집 모드 전환은 사용자 명시 승인 범위이며 감독이 원본 unit 보관 후 적용합니다.
 - 종료 조건: main 병합·검증, 실제 역할 전환·웹 게시·SHA/handoff 보관, 병합 worktree 정리, 자동 개발 재개.
+
+- 실제 공통 생성 기준: `6ee4be69d3e5d03f40969fee40cae5ca5c308faa`.
+- 결과·검증: local main 최종 구현 `844cf6089820815427db03d3baef40d95fa80c9a`; 영향 통합 pytest86개, 후속 stress17개, Ruff check·format 및 변경 파일 strict mypy 통과. 기존 transitive type 오류는 별도 기록. 독립 최종 검토 P1/P2 없음.
+- 실제 적용: CPU collection-only 수집·보고서 갱신 확인. CUDA512/4096 parity 최대1.53e-12%p; auto512 CPU/4096 CUDA 확인. 웹 이력·다운로드4경로 검증.
+- 복구 기록: 첫 stress 통합에서 torch 설치 환경 타입 오류2개를 발견해635b5ec로 수정 후 재검증했습니다. 초기 CLI 초안은 CUDA·신규 테스트 미완성으로 채택하지 않았습니다.
+- 보존·정리: 원본 설정, source patch·환경·SHA manifest·실험·검토·통합 결과를 `/home/kwl/.local/share/jusik/portfolio-audit/20260912T212923Z-gpu-role-transition`에 보관하고 병합 worktree와 branch를 정리했습니다. 기존 미병합3개는 보존합니다.
+- handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260912T212923Z-gpu-role-transition/HANDOFF.md`. 자동 실행 재개 확인은 같은 경로 runner-activation.json을 확인합니다.
