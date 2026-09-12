@@ -439,6 +439,8 @@ def enrich_report(report: dict[str, Any]) -> dict[str, Any]:
         if len(set(keys)) != len(keys):
             raise ValueError("saved report contains duplicate comparisons")
         for item in paths:
+            for symbol_row in item.get("symbols", []):
+                symbol_row.pop("cost_path_delta", None)
             residual = (
                 Decimal(item["aggregate_delta_pre_cost"])
                 - Decimal(item["aggregate_delta_transaction_fx"])
@@ -448,6 +450,26 @@ def enrich_report(report: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError(
                     "saved report aggregate reconciliation exceeds tolerance"
                 )
+            if item.get("symbols"):
+                for field, aggregate in (
+                    ("delta_net_pnl", "aggregate_delta_net_pnl"),
+                    ("delta_transaction_fx", "aggregate_delta_transaction_fx"),
+                    ("delta_total_before_cost", "aggregate_delta_pre_cost"),
+                ):
+                    total = sum(
+                        (Decimal(row[field]) for row in item["symbols"]), Decimal(0)
+                    )
+                    if abs(total - Decimal(item[aggregate])) > TOLERANCE:
+                        raise ValueError("saved report symbol sum mismatch")
+            if (
+                "final_nav_delta_krw" in item
+                and abs(
+                    Decimal(item["final_nav_delta_krw"])
+                    - Decimal(item["aggregate_delta_net_pnl"])
+                )
+                > TOLERANCE
+            ):
+                raise ValueError("saved report NAV mismatch")
         index = dict(zip(keys, paths, strict=True))
         decomposition = []
         for period in PERIODS:
@@ -542,17 +564,17 @@ def analyze(input_dir: Path, output_dir: Path) -> dict[str, Any]:
                 "cost-path accounting attribution; no causal or pure-price effect claim"
             ],
         }
+        enriched = enrich_report(report)
         output_dir.mkdir(parents=True, exist_ok=True)
         (output_dir / "report.json").write_text(
             json.dumps(
-                _json_value(report), ensure_ascii=False, indent=2, sort_keys=True
+                _json_value(enriched), ensure_ascii=False, indent=2, sort_keys=True
             )
             + "\n",
             encoding="utf-8",
         )
-    enriched = enrich_report(report)
     (output_dir / "report.md").write_text(render_markdown(enriched), encoding="utf-8")
-    return report
+    return enriched
 
 
 def main(argv: list[str] | None = None) -> int:
