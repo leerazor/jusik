@@ -141,6 +141,7 @@ class ReceiptResult(BaseModel):
     receipt_index: int = Field(ge=0)
     received_at: str | None
     available_at_check: bool | None
+    clock_invalid: bool
     event_at: str
     read_started_at: str
     read_finished_at: str
@@ -208,6 +209,7 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
         available_receipts = 0
         deferred_receipts = 0
         clock_invalid_receipts = 0
+        unknown_receipts = 0
         receipts: list[ReceiptResult] = []
         reasons: list[str] = []
         classes: list[Classification] = []
@@ -216,16 +218,12 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
         previous_received: datetime | None = None
         for index, item, digest in entries:
             available: bool | None = None
+            receipt_clock_invalid = False
             received_parsed = False
             try:
                 received = _utc(item.received_at, "received_at")
                 received_parsed = True
                 available = received <= checked
-                _utc(item.event_at, "event_at")
-                read_started = _utc(item.read_started_at, "read_started_at")
-                read_finished = _utc(item.read_finished_at, "read_finished_at")
-                if read_finished < read_started:
-                    raise ValueError("clock_invalid")
                 received_text = received.isoformat()
                 future_receipt = future_receipt or not available
                 if available:
@@ -233,20 +231,36 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                     available_receipts += 1
                 else:
                     deferred_receipts += 1
-                if previous_received is not None and received < previous_received:
-                    if available:
-                        invalid = True
-                        reasons.append("receipt_clock_reversed")
-                previous_received = received
+                if (
+                    available
+                    and previous_received is not None
+                    and received < previous_received
+                ):
+                    invalid = True
+                    receipt_clock_invalid = True
+                    reasons.append("receipt_clock_reversed")
+                if available:
+                    previous_received = received
+                _utc(item.event_at, "event_at")
+                read_started = _utc(item.read_started_at, "read_started_at")
+                read_finished = _utc(item.read_finished_at, "read_finished_at")
+                if read_finished < read_started:
+                    raise ValueError("clock_invalid")
             except (TypeError, ValueError, OverflowError):
+                receipt_clock_invalid = True
                 if available is True or not received_parsed:
                     clock_invalid_receipts += 1
-                received_text = str(item.received_at)
+                    invalid = True
+                if not received_parsed:
+                    unknown_receipts += 1
+                    available = None
+                    received_text = str(item.received_at)
             receipts.append(
                 ReceiptResult(
                     receipt_index=index,
                     received_at=received_text,
                     available_at_check=available,
+                    clock_invalid=receipt_clock_invalid,
                     event_at=str(item.event_at),
                     read_started_at=str(item.read_started_at),
                     read_finished_at=str(item.read_finished_at),
@@ -321,6 +335,7 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                     "available_receipts": available_receipts,
                     "deferred_receipts": deferred_receipts,
                     "clock_invalid_receipts": clock_invalid_receipts,
+                    "unknown_receipts": unknown_receipts,
                 },
             )
         )

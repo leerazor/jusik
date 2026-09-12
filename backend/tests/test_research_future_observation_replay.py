@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from datetime import UTC, datetime
 
 import pytest
@@ -63,7 +66,7 @@ def test_conflict_preserves_all_versions_and_is_unresolved_with_invalid_clock() 
         }
     )
     item = result.observations[0]
-    assert item.classifications == ["clock_invalid", "in_window"]
+    assert item.classifications == ["unresolved", "clock_invalid", "conflict"]
     assert len(item.raw_versions) == 2
     assert "invalid_or_reversed_clock" in item.exclusion_reasons
 
@@ -195,3 +198,81 @@ def test_result_flags_are_always_synthetic_and_not_accepted() -> None:
     assert result.accepted_nav is False
     assert result.evaluation_inputs_complete is False
     assert result.checked_at == datetime(2030, 1, 2, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("value", [None, False, "true", 1])
+def test_cli_rejects_non_literal_synthetic(tmp_path, value: object) -> None:
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text(json.dumps({**BASE, "synthetic": value}), encoding="utf-8")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "jusik.research_future_observation_replay",
+            "--fixture",
+            str(fixture),
+            "--output",
+            str(tmp_path / "out.json"),
+        ],
+        env={"PYTHONPATH": "backend"},
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+
+
+def test_cli_is_deterministic_and_refuses_malformed_oversize_and_alias(
+    tmp_path,
+) -> None:
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text(json.dumps(BASE), encoding="utf-8")
+    output = tmp_path / "out.json"
+    command = [
+        sys.executable,
+        "-m",
+        "jusik.research_future_observation_replay",
+        "--fixture",
+        str(fixture),
+        "--output",
+        str(output),
+    ]
+    first = subprocess.run(command, env={"PYTHONPATH": "backend"}, capture_output=True)
+    assert first.returncode == 0
+    payload = output.read_bytes()
+    second = subprocess.run(command, env={"PYTHONPATH": "backend"}, capture_output=True)
+    assert second.returncode != 0 and output.read_bytes() == payload
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text("{", encoding="utf-8")
+    malformed_command = [
+        sys.executable,
+        "-m",
+        "jusik.research_future_observation_replay",
+        "--fixture",
+        str(malformed),
+        "--output",
+        str(tmp_path / "bad.json"),
+    ]
+    assert (
+        subprocess.run(malformed_command, env={"PYTHONPATH": "backend"}).returncode != 0
+    )
+    alias = tmp_path / "alias.json"
+    alias.hardlink_to(fixture)
+    assert (
+        subprocess.run(
+            [*command[:5], str(fixture), "--output", str(alias)],
+            env={"PYTHONPATH": "backend"},
+        ).returncode
+        != 0
+    )
+    large = tmp_path / "large.json"
+    large.write_bytes(b"{" + b"x" * (4 * 1024 * 1024) + b"}")
+    large_command = [
+        sys.executable,
+        "-m",
+        "jusik.research_future_observation_replay",
+        "--fixture",
+        str(large),
+        "--output",
+        str(tmp_path / "large-out.json"),
+    ]
+    assert subprocess.run(large_command, env={"PYTHONPATH": "backend"}).returncode != 0
