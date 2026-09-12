@@ -599,7 +599,7 @@
 
 ## portfolio-held-band-cost-path-0f90
 
-- 상태: 검증
+- 상태: 완료
 - 목표와 완료 조건: 저장48개 hash 및 회계 검증 후32개 비용 비교와16개 밴드 분해 차이, 음수 결과와 결정적 출력 증거를 보존합니다. 역사 실행·외부 수집·튜닝은0회, 분석은2회 이하 및15분 한도입니다.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자. 감독 explore 후 순차 plan, 별도 review를 수행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-cost-path-0f90
@@ -618,3 +618,12 @@
 - 독립 결과 검산: 32개 비교 모두 순손익 감소. 종목 합계와 NAV 차이 최대7.156250e-31 KRW. continuous 비용2에서 .04의 비용 증가가 작아도 경로 악화로 순손익 감소가 더 큰 음수 사례를 보존합니다.
 - 검토 보완: manifest 상수, 누락된 분해항, 실제 residual 검산, 합성48 loader, CLI 출력 일치, 테스트 상수 복원 지적을 수정했습니다. 최종 리뷰와 main 통합 검사는 아래에 기록합니다.
 - 초기 커밋 보존: 작업자가 초기 커밋95ab4d를 대체하여 원본을 archive/portfolio-cost-path-initial-0f90 및 durable initial-development.bundle에 보존했습니다. 이후 수정은 추가 커밋으로 수행했습니다.
+
+- 결과 커밋 SHA: 최종 `10ff83952e45a788b08432e3daabb4217362876a`.
+- 병합 직전 main SHA: `ec0ff7fa4c0a1632e2465cb7a860540740e55921`. 통합 커밋 SHA: `f33e06c54ee5126fc3be3f807822dbdefbddbc64`.
+- 검토 결과: 독립 PASS. 추가 합성 fixture7개, 실제 저장 출력32/16 검산, pinned hash 전역 상태 복원 검증 통과.
+- 통합 검증: main pytest25개, Ruff lint/format, strict mypy2개 파일, diff 검사 및 기존 코드·48개 입력 hash 보존 통과. frontend 미변경으로 build 비적용.
+- 게시: 연구 history 항목 `portfolio-held-band-cost-path-attribution-v1-0f907dc6cd5b40cf9604af0bccbb2acd`, API/웹 다운로드200 및 SHA 일치. 기존 이력66개/artifact112개 보존, DB 미접근. mounted history root의 directory rename은 EBUSY로 실패하여 검증된 seed를 루트 내부 atomic file replace로 게시했습니다.
+- 보존·정리: 필수158개 durable 파일을 정리 전후 SHA 대조했습니다. 이번 worktree·전용 작업 브랜치를 force 없이 제거했습니다. 기존56b9·4840 worktree와 기존 HANDOFF.md 내용을 보존했습니다. 초기 커밋 보존용 archive branch와 bundle은 유지합니다.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-cost-path-attribution-v1-0f907dc6cd5b40cf9604af0bccbb2acd/handoff-final.md.
+- 남은 작업: 승인 범위 없음. 부분체결·취소·거절은 unsupported이며 실거래 유예와 기존 제약을 유지합니다.
