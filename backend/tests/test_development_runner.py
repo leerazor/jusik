@@ -936,9 +936,7 @@ def test_planner_branch_obeys_all_dispatch_gates_without_claiming(
         "jusik.development_runner._git",
         lambda *_args, **_kwargs: type("Result", (), {"stdout": "a" * 40})(),
     )
-    monkeypatch.setattr(
-        "jusik.development_runner._git_ready", lambda _repo: (True, "")
-    )
+    monkeypatch.setattr("jusik.development_runner._git_ready", lambda _repo: (True, ""))
 
     def no_claim(*_args: Any, **_kwargs: Any) -> Any:
         raise AssertionError("planner gate claimed a task")
