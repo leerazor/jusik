@@ -489,15 +489,24 @@
 
 ## portfolio-next-development-selection-bbbd
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 완료 증거를 검증한 뒤 corrected-entry 2%p/4%p 보유 밴드 격리 실험 하나를 실행 가능한 후속 과제로 명세하고 한국어 이력에 게시합니다.
 - 담당 Luna: `/root/code_selection`
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-next-selection-bbbd`
 - 작업 브랜치: `docs/portfolio-next-selection-bbbd`
-- 기준 커밋 SHA: `c79a4eeab4babf8974c61dc670ca0eeb0536ed18` (등록부 커밋 전 main)
+- 기준 커밋 SHA: `863d908b3ba34865b9a5deedf786575e62cdf092` (등록부를 포함한 실제 워크트리 기준)
 - 통합 대상 브랜치: 로컬 `main`
 - 입력과 선행 작업: explore와 순차 plan 완료. 두 선행 completion의 모든 evidence SHA 및 main 조상 관계를 감독이 검증했습니다.
 - 수정 허용 범위: `docs/research/portfolio-next-development-selection-v1.md`만 Luna가 수정합니다. 등록부와 영구 증거 및 게시 기록은 감독이 관리합니다.
 - 포트·테스트 DB·출력 경로: 서버와 DB 없음. 독립 워크트리; 영구 audit `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-next-development-selection-v1-bbbd21c0082348b09c073c45d73f3e17`.
 - 검증 명령과 결과: 기준 관련 pytest 44 passed. 문서 수치·중복 작업·고정 입력 검토 후 관련 pytest/Ruff/strict mypy를 통합 재검증합니다.
 - 종료 조건: 독립 review, main 병합/검사, 웹 게시, 영구 SHA/environment/handoff 저장 후 병합 워크트리를 정리합니다. 코드·PAPER·운영 설정·runner·GPU·기존 연구 자료는 수정하지 않습니다.
+- 결과 커밋 SHA: `5beebcf92c131bb45051d640b1a59f7847f04cdb`
+- 검토 결과와 남은 문제: 독립 `/root/review` 통과. 대조군 경로, 전체 model exact equality, 동일 corrected engine/hash 및 근거 참조를 수정하고 재검토했습니다. 남은 차단 사항 없음.
+- 병합 직전 main SHA: `863d908b3ba34865b9a5deedf786575e62cdf092`
+- 통합 커밋 SHA와 정리 여부: `ac238c68238f4304380442aee3c9a0e94731fc3e`. 영구 증거와 handoff 및 SHA를 먼저 보존한 후 워크트리와 병합 브랜치를 제거했습니다.
+- 통합 검증: 관련 pytest 44 passed(기존 경고 2개), Ruff 8개 source/test 통과, strict mypy 4개 source 통과, git diff --check 통과. 문서만 변경하여 frontend build는 해당하지 않습니다.
+- 게시 결과: `/research/history` 항목 `portfolio-next-development-selection-v1-bbbd21c0082348b09c073c45d73f3e17`. API/웹 다운로드 200 및 문서 SHA 일치, 기존 이력 62개·산출물 108개 보존.
+- 통합 검증 실패 원인과 복구 결과: 검사 실패 없음. 게시 directory rename은 mount EBUSY였으나 새 artifact와 seed 파일의 원자적 교체로 완료했습니다. 실패 시 생성된 임시 복사본도 영구 보존본을 확인한 뒤 제거했습니다.
+- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-next-development-selection-v1-bbbd21c0082348b09c073c45d73f3e17/handoff-final.md`. 기존 root HANDOFF.md는 보존했습니다.
+- 후속 작업: `portfolio-held-band-interaction-v1` 하나를 completion.followup으로 제출합니다. 기존 corrected-entry 2%p와 새 4%p를 동일 frozen engine에서 32회 비교하는 별도 격리 실험이며 이번 선정 작업에서는 실행하지 않았습니다.
