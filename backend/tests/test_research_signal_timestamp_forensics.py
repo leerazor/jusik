@@ -149,7 +149,7 @@ def _archive(tmp_path: Path, rows: list[tuple[Any, ...]]) -> Path:
 def _default_rows() -> list[tuple[Any, ...]]:
     return [
         _row(1, "005930", "2026-09-11T00:00:00Z", "2026-09-10T23:59:58Z"),
-        _row(2, "005930", "2026-09-11T00:01:00Z", "2026-09-10T23:58:57.999999Z"),
+        _row(2, "005930", "2026-09-11T00:01:00Z", "2026-09-11T00:00:57.999999Z"),
         _row(3, "005930", "2026-09-11T00:02:00Z", "2026-09-11T00:02:15Z"),
         _row(4, "005930", "2026-09-11T00:03:00Z", "2026-09-11T00:03:15.000001Z"),
         # Same symbol/minute/reason is retained for latency and deduplicated by
@@ -187,10 +187,11 @@ def test_boundaries_dates_duplicates_and_raw_timestamps(tmp_path: Path) -> None:
         "observation-4",
     }
     future = next(row for row in anomaly_rows if row["kind"] == "future")
+    assert future["milliseconds"] == "-2000.001"
     assert future["quote_market_at_raw"] == "2026-09-11T00:01:00Z"
-    assert future["quote_received_at_raw"] == "2026-09-10T23:58:57.999999Z"
+    assert future["quote_received_at_raw"] == "2026-09-11T00:00:57.999999Z"
     assert future["db_market_at"] == "2026-09-11T00:01:00Z"
-    assert future["db_received_at"] == "2026-09-10T23:58:57.999999Z"
+    assert future["db_received_at"] == "2026-09-11T00:00:57.999999Z"
 
 
 def test_empty_and_more_than_fifty_anomalies_are_not_truncated(tmp_path: Path) -> None:
@@ -279,6 +280,12 @@ def test_output_may_not_overlap_archive(tmp_path: Path) -> None:
         analyze_archive(archive, archive / "results", allow_unpinned=True)
 
 
+def test_archive_path_is_encoded_as_sqlite_uri(tmp_path: Path) -> None:
+    archive = _archive(tmp_path / "archive?# with spaces", _default_rows())
+    summary = analyze_archive(archive, tmp_path / "special-output", allow_unpinned=True)
+    assert summary["totals"]["latency_samples"] == 7
+
+
 def test_source_and_output_aliases_are_rejected(tmp_path: Path) -> None:
     source_alias_archive = _archive(tmp_path / "source", [])
     source_file = source_alias_archive / "source/jusik/research_quote_models.py"
@@ -297,3 +304,20 @@ def test_source_and_output_aliases_are_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(ForensicsError, match="output_hardlink_rejected"):
         analyze_archive(output_alias_archive, output, allow_unpinned=True)
+
+
+def test_forged_self_consistent_archive_is_rejected_before_sqlite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive = _archive(tmp_path, _default_rows())
+    opened = False
+
+    def spy_connect(*args: Any, **kwargs: Any) -> sqlite3.Connection:
+        nonlocal opened
+        opened = True
+        raise AssertionError("SQLite must not open for an unapproved archive")
+
+    monkeypatch.setattr(sqlite3, "connect", spy_connect)
+    with pytest.raises(ForensicsError, match="approved_hash_mismatch"):
+        analyze_archive(archive, tmp_path / "forged-output")
+    assert not opened

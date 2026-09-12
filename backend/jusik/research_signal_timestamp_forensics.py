@@ -512,7 +512,7 @@ def analyze_archive(
     calendar = _load_calendar(archive / CODE_RELATIVES[2])
     try:
         connection = sqlite3.connect(
-            f"file:{db_path}?mode=ro&immutable=1", uri=True, timeout=0.1
+            f"{db_path.as_uri()}?mode=ro&immutable=1", uri=True, timeout=0.1
         )
     except sqlite3.Error as exc:
         raise ForensicsError("snapshot_open_failed") from exc
