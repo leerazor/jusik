@@ -571,7 +571,7 @@
 
 ## portfolio-held-band-cost3-f9ae
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: held-band 저장 32개 전체 JSON exact replay 후 비용 3배 16개를 실행하고, 고정체결 산술과 실제 순손익·MDD·회전율 및 현금·수량 차이를 검증합니다.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자; explore, 순차 plan, 독립 review 후 Astra 통합.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-cost3-f9ae
@@ -585,3 +585,13 @@
 - 종료 조건: 48회 이하·60분 한도; hash/replay/회계/누출 실패 시 즉시 중단·증거 보존·재시도 금지. 성공 시 로컬 통합·검사·handoff와 필요한 게시 후 durable 보존을 확인하고 이번 worktree만 정리합니다.
 - 보존 조건: 자본 1억원, 최대 손실 허용20%, leverage 배분 cap20%, frozen drawdown_limit=.10/gross_cap=.60/symbol_cap=.20. PAPER10%와 실거래 유예. 제품/DB/config/remote/주문/GPU 불변.
 - 실행기 확인: running attempt는 portfolio-held-band-cost3-stress-v1 / f9aecd54dffc4931a6100ac2de8c8cd3 하나입니다. 실행기 상태를 변경하지 않습니다.
+
+- 결과 커밋 SHA: 구현 `21bbb9adbe7a9fc0dd6322689bbf502eaa36d057`, metadata 보완 `5c53b04ea77956e63e309b273fdd87d0184a1729`, 포맷 `e4782741b6427fe70bcafc5ee5128989a086a2c1`, 보고서 `0ea1fbe86cf349ba464698e2eb9a8382164a2783`.
+- 병합 직전 main SHA: `06a8924468811c7adb478aa80e13ad58b4c739b6`. 통합 커밋 SHA: `1698741c1eaab4bda9e9b41301dce3a11ad42177`.
+- 실제 결과: 32개 전체 JSON exact replay 뒤 16개 비용3 스트레스, 총48회·30.6658초·재시도0. 초기 +1 KRW 변조32개 거부. 독립48개 회계 최대 오차4e-31 KRW. fold 수익률/MDD/회전율 차이 중앙값 모두0, fold4 수익률 차이는 음수이며 actual3x가 fixed 산술보다 낮은 경우10/16입니다. Continuous는 별도로 보고했습니다.
+- 검토 결과: 초기 runtime 변조/FX/helper hash/완전성/중앙값/metadata 지적을 역사 실행 전에 보완하고 독립 코드·결과 review를 통과했습니다. source AST가 동일한 포맷 보완도 확인했습니다. 독립 verifier와 보고서 파서 개발 중 스키마 오류는 증거에 보존했고 실제 입력·replay·회계·누출 실패는 없습니다.
+- 통합 검증: pytest75개, strict mypy86개 소스, Ruff lint/format, diff 검사 통과. 기존 tracked215개 보존. 워크트리 전체 mypy는 선택 의존성 torch 부재로 제한됐으나 관련 모듈 및 main 전체 mypy는 통과했습니다. torch 설치나 GPU 변경은 없습니다. frontend 미변경으로 build 비적용.
+- 게시: 연구 history 항목 `portfolio-held-band-cost3-stress-v1-f9aecd54dffc4931a6100ac2de8c8cd3`, API/웹 다운로드200 및 SHA 일치. 기존 이력65개와 artifact111개 보존, DB 변경 없음.
+- 보존·정리: 입력·소스·실제48개 결과·검사·review·publication·handoff 포함 영구575개 파일을 정리 전후 SHA 대조했습니다. 이번 워크트리·전용 브랜치를 force 없이 제거했고 기존 HANDOFF.md와 이전 두 워크트리를 보존했습니다.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-cost3-stress-v1-f9aecd54dffc4931a6100ac2de8c8cd3/handoff-final.md.
+- 남은 작업: 요청 범위 없음. 후향/PIT 미인증, 조기 폐장·partial/cancel/reject 미지원은 유지합니다. 추가 배수/밴드 탐색, 승자 선정, 정책 승격, 손실 보장은 없습니다.
