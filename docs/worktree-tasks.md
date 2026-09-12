@@ -343,20 +343,22 @@
 
 ## signal-anomaly-episodes-21ce
 
-- 상태: 준비
-- 목표와 완료 조건: 동결 신호의 분별 동시 이상/episodes utility, 테스트, 한국어 보고서; 249 IDs, 68분, 최대5종목 일치
-- 담당 Luna: gpt-5.6-luna 단일 구현 작업자
-- 워크트리 절대 경로: /home/kwl/projects/jusik-signal-anomaly-episodes-21ce
-- 작업 브랜치: feat/signal-anomaly-episodes-21ce
-- 기준 커밋 SHA: 등록 커밋 직후 HEAD (registration.json에 기록)
+- 상태: 완료
+- 목표와 완료 조건: 동결 신호의 분별 동시 이상/episodes utility, matching pytest, 한국어 보고서; 249 IDs, 68분, 최대5종목, 65 episodes 및 독립 분모/종목쌍 집계 일치
+- 담당 Luna: gpt-5.6-luna 단일 구현 작업자; Astra 감독과 별도 독립 검토
+- 워크트리 절대 경로: /home/kwl/projects/jusik-signal-anomaly-episodes-21ce (통합 검사 및 증거 보관 후 제거 완료)
+- 작업 브랜치: feat/signal-anomaly-episodes-21ce (보존)
+- 기준 커밋 SHA 및 병합 직전 main: 1876d8eb11ac7747dba3a08e90eb0a4486d81ac8
 - 통합 대상 브랜치: 로컬 main
-- 입력과 선행 작업: 지정된 evidence/timestamp archive manifest 전체 검증; explore와 plan 완료
-- 수정 허용 범위: backend/jusik/research_signal_anomaly_episodes.py, backend/tests/test_research_signal_anomaly_episodes.py, docs/research/paper-signal-coincident-anomaly-episodes-v1.md
-- 포트·테스트 DB·출력 경로: 전용 venv/pytest tmp; durable audit /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-coincident-anomaly-episodes-v1-21ce4592e34a4ee78332f2dbff95f994
-- 검증 명령과 결과: 예정 pytest, Ruff check/format, strict mypy, immutable frozen replay, 독립 review, 통합 후 반복검증
-- 결과 커밋 SHA: 대기
-- 검토 결과와 남은 문제: 대기
-- 병합 직전 main SHA: 대기
-- 통합 커밋 SHA와 정리 여부: 대기
-- 통합 검증 실패 원인과 복구 결과: 해당 없음
-- handoff 저장 경로와 갱신 여부: 위 durable audit/handoff.md 예정
+- 입력과 선행 작업: 지정 evidence/timestamp archive manifest 전체 검증; explore/plan 완료; offline immutable snapshot만 재선택
+- 수정 허용 범위와 결과: backend/jusik/research_signal_anomaly_episodes.py, backend/tests/test_research_signal_anomaly_episodes.py, docs/research/paper-signal-coincident-anomaly-episodes-v1.md
+- 포트·테스트 DB·출력 경로: 작업 전용 venv/pytest tmp; 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-coincident-anomaly-episodes-v1-21ce4592e34a4ee78332f2dbff95f994
+- 검증 명령과 결과: main pytest 44개, Ruff check/format, strict mypy utility/tests, git diff 통과. 780분 grid·770개 관측 분·6,164행·249 IDs·68분·max5·65 episodes, 독립 observed/active 분모·종목 집합·종목쌍·에피소드 및 반복 출력 바이트 일치
+- 결과 커밋 SHA: edc09685cbd6640cbddf8d96bc49500d374d9e4d
+- 검토 결과와 남은 문제: 초기 분모/session/manifest/output 보호 누락 수정 후 독립 승인; 중요 잔여 문제 없음. 기존 dependency deprecation warning 2건, frontend 변경 없어 build 해당 없음
+- 통합 커밋 SHA: b407810d3822db866dc44d4bd061224d68fe48b3
+- 정리 여부: source·환경·로그·SHA·handoff 55파일을 durable archive에 검증·보관한 뒤 git worktree remove 완료. 기존 HANDOFF.md 보존
+- 통합 검증 실패 원인과 복구 결과: 통합 실패 없음. worker mypy는 처음 root cwd에서 backend 설정 미적용으로 실패했으나 올바른 cwd에서 통과
+- 웹 게시: /research/history sanitized 한국어 보고서와 검사 근거, API/web/download 4개 SHA 검증 및 기존 공개 항목 보존
+- 보존: 원본 archive와 기존 handoff 213개 hash, 등록부 외 기존 tracked 196개 파일 불변. 운영 PAPER/DB/orders/GPU/runner/quota·remote 변경 없음
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-coincident-anomaly-episodes-v1-21ce4592e34a4ee78332f2dbff95f994/handoff.md
