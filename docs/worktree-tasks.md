@@ -262,7 +262,7 @@
 
 ## small-entry-draft-a55b
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: 신규 소액 진입 사전등록 초안 명세·검증기·테스트를 만들고 독립 검토, local main 통합 검사, 한국어 웹 게시와 영구 근거 보존을 완료합니다. 금융 승인이나 정책 실행은 포함하지 않습니다.
 - 담당 Luna: draft_luna (gpt-5.6-luna), 신규 세 파일 단일 구현 소유자. 초기 작업자는 파일 수정 전에 중단했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-small-entry-draft-a55b
@@ -275,3 +275,16 @@
 - 영구 산출물: /home/kwl/.local/share/jusik/portfolio-audit/small-entry-preregistration-draft-v1-a55b6ee8a036463da688fafe04567542
 - 검증 방법: threshold/time/period/hash 경계, canonical roundtrip와 별도 identity, populated draft 불변성, pytest·Ruff·strict mypy·독립 review·main 재검사.
 - 중단 조건: 세 파일 도구 완료. 임계값 탐색·정책 실행·PAPER 코드/config/DB·collector/order/GPU·runner/quota·remote 변경 금지. 미래 자료 부재는 도구 완료를 막지 않습니다.
+
+- 결과 커밋 SHA: 0f8e1c674bc1535ee80caf500973b143123551e8, 92f3648481a8822a603eedcc82a1213c00d33452
+- 병합 직전 main SHA: 03cdafd4b476c55430093d3dad2a6f453e286d80
+- 통합 커밋 SHA: 4bd8a85e2d3c482fddaca47a85fe8d64c51d65ad
+- 검토 결과: 독립 검토 통과. 추가 금액 계산 helper의 Decimal context 반올림 지적을 helper 제거로 해결하고 위조 상태·중첩 위험 한도의 출력 거부 회귀를 추가했습니다.
+- 통합 검증 결과: 신규19개 및 기존 금액 분석6개 pytest 합계25개, Ruff check/format, 설정된 strict mypy 신규 소스·테스트2파일, diff 검사 통과. 기본·합성 완전 입력 반복 canonical 출력/roundtrip/낮은 Decimal context 바이트와 SHA 일치.
+- 검사 제한: 전체 backend mypy의 torch 타입 정보 누락·기존 테스트 모듈 중복2오류를 변경 전 main에서도 재현했습니다. frontend build 비적용. 엔진·실험 정책 실행 테스트는 범위에서 제외했습니다.
+- 결과: 기본4개 결정은 null, 모든 입력이 있어도 draft 및 활성화 금지. canonical draft SHA 71691f864ccc0e61e351b52298027e6df4e8c864ab9c15f16ae0887bbfe35dbb. PAPER10% 계약과 기존 코드/config/HANDOFF·역사 입력 SHA 보존.
+- 웹: /research/history 한국어 보고서·검사 요약 게시 완료. API/웹 제목과4개 첨부 다운로드 SHA 및 기존 seed 이력 보존 확인.
+- 정리: 근거62파일·환경·SHA·handoff를 영구 audit에 먼저 보존·검증한 뒤 작업 생성물과 병합 worktree를 git worktree remove로 제거했습니다. 브랜치는 보존했습니다. 최종 manifest.json에 정리 후 추가 기록까지 포함합니다.
+- 통합 검증 실패 원인과 복구 결과: 통합 검사 실패 없음.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/small-entry-preregistration-draft-v1-a55b6ee8a036463da688fafe04567542/handoff.md. 기존 root HANDOFF.md 보존.
+- 후속 후보: 초안의 선언 SHA와 실제 보관 출처를 검증하는 신규 오프라인 provenance bundle verifier1개. exact scope/input/tests/stop은 영구 followup.json 참조. 미래 자료·금융 승인 불필요.
