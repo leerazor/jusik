@@ -460,7 +460,7 @@
 
 ## portfolio-exposure-cost-734e
 
-- 상태: 준비
+- 상태: 검증
 - 목표와 완료 조건: 동결 32개 시뮬레이션의 노출·실제 비용 비교와 사전 고정 1/2/3배 산술 민감도, 독립 검토, main 통합 검사, 한국어 연구 게시 및 영구 증거 보존.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-exposure-cost-734e
