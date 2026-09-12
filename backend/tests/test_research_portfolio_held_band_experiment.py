@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -13,11 +14,13 @@ from jusik.research_portfolio_held_band_experiment import (
     _config,
     _copy_engine,
     _load_copy,
+    _verify_accounting,
 )
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
     PortfolioInput,
+    PortfolioSimulation,
     PortfolioTrade,
 )
 
@@ -240,3 +243,22 @@ def test_invalid_duplicate_missing_nonfinite_and_temporal_inputs_are_rejected() 
 
     with pytest.raises(ValueError):
         PortfolioConfig.model_validate({"fee_rate": "Infinity"})
+
+
+def test_saved_corrected_simulation_reconciles_at_precision_40() -> None:
+    audit = Path(
+        "/home/kwl/.local/share/jusik/portfolio-audit/"
+        "20260911T132132Z-worktree-development/unheld-entry-real32"
+    )
+    manifest = json.loads(
+        (
+            audit.parents[1] / "20260911T060908Z-rebalance-band/source-manifest.json"
+        ).read_text()
+    )
+    source = PortfolioInput.model_validate(manifest["frozen_input"])
+    simulation = PortfolioSimulation.model_validate(
+        json.loads((audit / "simulations/fold_1-variant_c1.json").read_text())
+    )
+    _verify_accounting(
+        simulation, 1, PortfolioConfig.model_validate(manifest["config"]), source
+    )

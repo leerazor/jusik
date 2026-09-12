@@ -4,7 +4,7 @@
 
 현재 저장소 변경은 실행 경로와 합성 검증만 포함한다. 고정 자료의 역사 실행은 아직 수행하지 않았으며, 결과·비교·회계 검증은 승인된 전용 audit 디렉터리에 32회 실행 후 추가한다. 따라서 이 문서에는 새 성과 주장이나 승자 판정이 없다.
 
-검증 범위에는 복사 엔진의 단일 held-position guard와 정확한 `0.02`/`0.04` 경계, 미보유·목표 0·cap·risk 경로, Decimal 회계 attribution, 0·음수·누락·비유한 설정 거부가 포함된다. 휴일·UTC·결정 cutoff와 다음 유효 개장 체결은 기존 엔진의 이벤트 순서를 보존하는 방식으로 실행에서 확인한다. 부분 체결·취소·거절 receipt는 현재 연구 모델이 표현하지 않으므로 합성 성공 체결로 만들지 않고 unsupported로 기록한다. 조기 폐장 데이터는 고정 엔진의 시장 시간 모델 범위 밖이므로 지원하지 않는다.
+검증 범위에는 copied engine의 실제 `simulate` 경로에서 보유 상태를 만든 단일 held-position guard와 정확한 `0.02`/`0.04` 경계의 below/equal/above 체결 수량, 미보유·목표 0·cap·risk 경로, Decimal 회계 attribution, 0·음수·누락·중복·비유한 설정 거부가 포함된다. 휴일·UTC·결정 cutoff와 다음 유효 개장 체결은 기존 엔진의 이벤트 순서를 보존하는 방식으로 실행에서 확인한다. 부분 체결·취소·거절 receipt는 현재 연구 모델이 표현하지 않으므로 합성 성공 체결로 만들지 않고 unsupported로 기록한다. 조기 폐장 데이터는 고정 엔진의 시장 시간 모델 범위 밖이므로 지원하지 않는다.
 
 실행 조건은 7개 독립 fold와 continuous를 합치지 않고, 비용 배수 1·2 및 밴드 2%p·4%p를 각 조합으로 한정한다. 대조군은 corrected-entry `*-variant_c{1,2}.json` 16개와 전체 JSON을 exact equality로 비교하고, Decimal reconciliation에만 `1e-6 KRW` 이하 허용오차를 쓴다. 자동 주문, PAPER 설정, GPU, DB, 제품 엔진 변경은 연구 범위가 아니다.
 

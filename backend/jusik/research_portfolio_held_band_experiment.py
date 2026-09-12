@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import importlib
 import importlib.util
 import json
 import os
@@ -88,6 +89,9 @@ IMPORTED_HASHES = {
     "research_external_models.py": (
         "fa83ef9b7c294e5b9a687969ae0cf0c9fe20d9b690cc90ab7ee3175be4918e0a"
     ),
+    "research_models.py": (
+        "1d518334aadef618b69f350bc2aa52fd16b4dfd52d23ce7fe62d093ea45d7770"
+    ),
     "research_universe_models.py": (
         "f5627aac31e19e34a91800a90400e4bc8a130ee93b89f5404240b20eb9cf87c4"
     ),
@@ -133,6 +137,87 @@ def _checkpoint(path: Path, value: object) -> None:
 
 def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _verify_runtime_hashes(engine_source: Path) -> None:
+    modules = {
+        "research_external_features.py": "jusik.research_external_features",
+        "research_portfolio_models.py": "jusik.research_portfolio_models",
+        "research_external_models.py": "jusik.research_external_models",
+        "research_models.py": "jusik.research_models",
+        "research_universe_models.py": "jusik.research_universe_models",
+        "research_risk.py": "jusik.research_risk",
+        "research_entry_attribution.py": "jusik.research_entry_attribution",
+        "research_unheld_entry_experiment.py": "jusik.research_unheld_entry_experiment",
+        "research_experiment_guard.py": "jusik.research_experiment_guard",
+    }
+    checks: dict[Path, str] = {
+        engine_source: CORE_HASHES["research_portfolio_engine.py"]
+    }
+    for filename, module_name in modules.items():
+        module = sys.modules.get(module_name)
+        if module is None:
+            module = importlib.import_module(module_name)
+        if module is None or not getattr(module, "__file__", None):
+            raise RuntimeError(
+                f"required imported module is unavailable: {module_name}"
+            )
+        checks[Path(str(module.__file__))] = (
+            CORE_HASHES.get(filename) or IMPORTED_HASHES[filename]
+        )
+    verify_hashes(checks)
+
+
+def _frozen_checks(
+    *,
+    prior_audit: Path,
+    frozen_dir: Path,
+    source_dir: Path,
+    engine_source: Path,
+    expected_controls: dict[str, str],
+    original_path: Path,
+    variant_path: Path,
+    original_hash: str,
+    variant_hash: str,
+) -> dict[Path, str]:
+    checks: dict[Path, str] = {
+        **{frozen_dir / name: digest for name, digest in SOURCE_HASHES.items()},
+        prior_audit / "preregistration.json": CORRECTED_PREREGISTRATION_SHA256,
+        prior_audit / "results.json": CORRECTED_RESULTS_SHA256,
+        engine_source: CORE_HASHES["research_portfolio_engine.py"],
+        original_path: original_hash,
+        variant_path: variant_hash,
+        Path(__file__): sha256(Path(__file__)),
+    }
+    checks.update(
+        {
+            source_dir / filename: digest
+            for filename, digest in expected_controls.items()
+        }
+    )
+    for module_name, digest_name in (
+        ("jusik.research_portfolio_models", "research_portfolio_models.py"),
+        ("jusik.research_external_features", "research_external_features.py"),
+        ("jusik.research_external_models", "research_external_models.py"),
+        ("jusik.research_models", "research_models.py"),
+        ("jusik.research_universe_models", "research_universe_models.py"),
+        ("jusik.research_risk", "research_risk.py"),
+        ("jusik.research_entry_attribution", "research_entry_attribution.py"),
+        (
+            "jusik.research_unheld_entry_experiment",
+            "research_unheld_entry_experiment.py",
+        ),
+        ("jusik.research_experiment_guard", "research_experiment_guard.py"),
+    ):
+        module = sys.modules.get(module_name)
+        if module is None or not getattr(module, "__file__", None):
+            raise RuntimeError(
+                f"required imported module is unavailable: {module_name}"
+            )
+        checks[Path(str(module.__file__))] = CORE_HASHES.get(
+            digest_name, IMPORTED_HASHES[digest_name]
+        )
+    return checks
 
 
 def _load_copy(path: Path, name: str) -> ModuleType:
@@ -236,6 +321,7 @@ def _row(
         "arm": arm,
         "cost_multiplier": cost,
         "complete": sim.complete,
+        "failure_reason": None,
         **payload["metrics"],
         "actual_unheld_entry_count": entry_metrics(sim, source)[
             "actual_unheld_entry_count"
@@ -264,36 +350,38 @@ def _verify_accounting(
     config: PortfolioConfig,
     source: PortfolioInput,
 ) -> None:
-    for value in (
-        sim.metrics.initial_equity_krw,
-        sim.metrics.final_equity_krw,
-        sim.metrics.turnover_pct,
-        *(trade.notional_krw for trade in sim.trades),
-    ):
-        if not value.is_finite():
-            raise ValueError("non-finite financial value")
-    if sim.metrics.trade_count != len(sim.trades):
-        raise ValueError("trade_count does not equal serialized trades")
-    notional = sum((trade.notional_krw for trade in sim.trades), Decimal(0))
-    expected_turnover = notional / config.initial_cash_krw * 100
-    if sim.metrics.turnover_pct != expected_turnover:
-        raise ValueError("turnover does not reconcile to trade notionals")
-    fee_rate = FEE_RATE * cost
-    spread = config.fx_spread_rate
-    currencies = {
-        item.instruments[0].symbol: item.instruments[0].instrument.currency
-        for item in source.instruments
-    }
-    for trade in sim.trades:
-        if currencies[trade.symbol] == "KRW":
-            if trade.fx_cost_krw != Decimal("0"):
-                raise ValueError("KRW trade has nonzero FX cost")
-            continue
-        base = trade.notional_krw * (Decimal("1") + fee_rate)
-        gross = trade.notional_krw * (Decimal("1") - fee_rate)
-        expected = (base if trade.side == "buy" else gross) * spread
-        if abs(trade.fx_cost_krw - expected) > Decimal("0.000001"):
-            raise ValueError("FX cost does not reconcile independently")
+    with localcontext() as context:
+        context.prec = 40
+        for value in (
+            sim.metrics.initial_equity_krw,
+            sim.metrics.final_equity_krw,
+            sim.metrics.turnover_pct,
+            *(trade.notional_krw for trade in sim.trades),
+        ):
+            if not value.is_finite():
+                raise ValueError("non-finite financial value")
+        if sim.metrics.trade_count != len(sim.trades):
+            raise ValueError("trade_count does not equal serialized trades")
+        notional = sum((trade.notional_krw for trade in sim.trades), Decimal(0))
+        expected_turnover = notional / config.initial_cash_krw * 100
+        if sim.metrics.turnover_pct != expected_turnover:
+            raise ValueError("turnover does not reconcile to trade notionals")
+        fee_rate = FEE_RATE * cost
+        spread = config.fx_spread_rate
+        currencies = {
+            item.instruments[0].symbol: item.instruments[0].instrument.currency
+            for item in source.instruments
+        }
+        for trade in sim.trades:
+            if currencies[trade.symbol] == "KRW":
+                if trade.fx_cost_krw != Decimal("0"):
+                    raise ValueError("KRW trade has nonzero FX cost")
+                continue
+            base = trade.notional_krw * (Decimal("1") + fee_rate)
+            gross = trade.notional_krw * (Decimal("1") - fee_rate)
+            expected = (base if trade.side == "buy" else gross) * spread
+            if abs(trade.fx_cost_krw - expected) > Decimal("0.000001"):
+                raise ValueError("FX cost does not reconcile independently")
 
 
 def run_experiment(
@@ -323,18 +411,12 @@ def run_experiment(
                 for name, digest in CORE_HASHES.items()
             }
         )
-        verify_hashes(
-            {
-                engine_source.parent / name: digest
-                for name, digest in IMPORTED_HASHES.items()
-            }
-        )
         source = PortfolioInput.model_validate(manifest["frozen_input"])
         base = PortfolioConfig.model_validate(manifest["config"])
         control = _load_json(prior_audit / "preregistration.json")
         control_result = _load_json(prior_audit / "results.json")
         expected_controls = {
-            (row["period"], row["cost_multiplier"]): row["sha256"]
+            f"{row['period']}-variant_c{row['cost_multiplier']}.json": row["sha256"]
             for row in control_result["evaluations"]
             if row["arm"] == "variant"
         }
@@ -342,8 +424,8 @@ def run_experiment(
             raise ValueError("corrected results must pin exactly 16 control artifacts")
         verify_hashes(
             {
-                source_dir / f"{period}-variant_c{cost}.json": digest
-                for (period, cost), digest in expected_controls.items()
+                source_dir / filename: digest
+                for filename, digest in expected_controls.items()
             }
         )
         periods = control.get("periods") or _periods(source_result, robustness)
@@ -369,12 +451,27 @@ def run_experiment(
         # Both arms use the same corrected-entry variant engine.  Only the
         # validated low-turnover band differs between them.
         variant = _load_copy(variant_path, "held_band_variant_engine")
+        if Path(str(variant.__file__)).resolve() != variant_path.resolve():
+            raise RuntimeError("variant engine was not loaded from its guarded copy")
+        _verify_runtime_hashes(engine_source)
+        frozen_checks = _frozen_checks(
+            prior_audit=prior_audit,
+            frozen_dir=frozen_dir,
+            source_dir=source_dir,
+            engine_source=engine_source,
+            expected_controls=expected_controls,
+            original_path=original_path,
+            variant_path=variant_path,
+            original_hash=original_hash,
+            variant_hash=variant_hash,
+        )
+        verify_hashes(frozen_checks)
         (output_dir / "simulations").mkdir()
         _write_exclusive(
             output_dir / "preregistration.json",
             {
                 "run_id": RUN_ID,
-                "variant_engine_sha256": variant_hash,
+                "engine_variant_sha256": variant_hash,
                 "bands": ["0.02", "0.04"],
                 "periods": periods,
                 "cost_multipliers": [1, 2],
@@ -388,6 +485,17 @@ def run_experiment(
                 "core_hashes": CORE_HASHES,
                 "imported_helper_hashes": IMPORTED_HASHES,
                 "control_hashes": expected_controls,
+                "runner_sha256": sha256(Path(__file__)),
+                "evaluation_count": 32,
+                "control_count": 16,
+                "variant_count": 16,
+                "input_paths": {
+                    **{name: str(frozen_dir / name) for name in SOURCE_HASHES},
+                    "corrected_preregistration.json": str(
+                        prior_audit / "preregistration.json"
+                    ),
+                    "corrected_results.json": str(prior_audit / "results.json"),
+                },
             },
         )
         rows: list[dict[str, object]] = []
@@ -441,20 +549,13 @@ def run_experiment(
                         )
                     if arm == "control":
                         expected = source_dir / f"{period['name']}-variant_c{cost}.json"
-                        expected_sha = expected_controls[(period["name"], cost)]
+                        expected_sha = expected_controls[
+                            f"{period['name']}-variant_c{cost}.json"
+                        ]
                         verify_control_output(payload, expected, expected_sha)
                     rows.append(_row(period, arm, cost, sim, variant, source, artifact))
             if arm == "control":
-                verify_hashes(
-                    {
-                        engine_source.parent / name: digest
-                        for name, digest in CORE_HASHES.items()
-                    }
-                    | {
-                        engine_source.parent / name: digest
-                        for name, digest in IMPORTED_HASHES.items()
-                    }
-                )
+                verify_hashes(frozen_checks)
         for period in periods:
             for cost in (1, 2):
                 c = next(
@@ -528,6 +629,16 @@ def run_experiment(
         )
         raise
     finally:
+        final_hash_error: str | None = None
+        try:
+            if "frozen_checks" in locals():
+                verify_hashes(frozen_checks)
+            else:
+                _verify_runtime_hashes(engine_source)
+        except BaseException as error:
+            final_hash_error = repr(error)
+            ledger.append({"status": "final_hash_failure", "error": final_hash_error})
+        _checkpoint(output_dir / "ledger.json", {"run_id": RUN_ID, "ledger": ledger})
         if not (output_dir / "ledger.json").exists():
             _write_exclusive(
                 output_dir / "ledger.json", {"run_id": RUN_ID, "ledger": ledger}
@@ -538,6 +649,8 @@ def run_experiment(
             if path.is_file() and path.name != "hash-manifest.json"
         }
         _write_exclusive(output_dir / "hash-manifest.json", manifest)
+        if final_hash_error is not None:
+            raise RuntimeError(final_hash_error)
 
 
 def main(argv: list[str] | None = None) -> int:
