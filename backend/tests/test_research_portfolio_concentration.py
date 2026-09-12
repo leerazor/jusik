@@ -150,6 +150,14 @@ def test_precision_independent_output_and_nonempty_refusal(
     assert result["symbol_rows"] == other["symbol_rows"]
     output = tmp_path / "output"
     module.write_outputs(result, output)
+    second_output = tmp_path / "second-output"
+    module.write_outputs(other, second_output)
+    assert (output / "concentration.json").read_bytes() == (
+        second_output / "concentration.json"
+    ).read_bytes()
+    assert (output / "concentration.csv").read_bytes() == (
+        second_output / "concentration.csv"
+    ).read_bytes()
     with pytest.raises(ValueError, match="new or empty"):
         module.write_outputs(result, output)
 
