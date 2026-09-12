@@ -47,7 +47,7 @@ future-observation-protocol-v1-draft-63c4e3f2380b4e149d60d17db90459c7/
 등록된 기간의 포함 규칙은 실제 수신 시각 `received_at`을 UTC로 정규화한 반열린 구간 `[start, end)`이다. `received_at == start`는 포함하고 `received_at == end`는 제외한다. `event_at` 또는 `market_at`만으로 포함 여부를 정하지 않으며, timezone 정보가 없는 시각은 유효 관측으로 등록하지 않는다. 각 레코드는 다음을 함께 보존한다.
 
 - protocol ID/version, source identity, 관측 ID, symbol과 event/market 시각
-- 원문 bytes 또는 canonical 원문, 원문 경로, 원문 크기와 SHA-256
+- 원문 raw bytes, 원문 경로, 원문 크기와 SHA-256; normalized/canonical derivative는 별도
 - 읽기 시작·종료 시각(`read_started_at`, `read_finished_at`)과 수신 시각
 - parser/schema version, 연결된 입력·quote·FX provenance ID와 hash
 - 상태, 오류 코드, 중복·충돌·late·revision·missing·clock·truncation 표지
@@ -58,7 +58,7 @@ future-observation-protocol-v1-draft-63c4e3f2380b4e149d60d17db90459c7/
 
 동일 source와 관측 ID가 같은 원문 hash로 다시 도착하면 최초 실제 수신 시각과 raw bytes를 불변으로 보존하고, 반복 수신 사실은 별도 receipt로 남기되 집계의 논리 관측은 한 건으로 센다. 나중의 반복 수신은 최초 관측을 수신 구간 안으로 이동시키지 않는다. 같은 ID에 다른 원문이 오면 `conflict`로 모두 보존하며 먼저 저장된 값을 덮어쓰거나 선택하지 않는다. 내용 변경이 source revision으로 명시되면 새 revision 레코드로 append하고 이전 revision과 유효 시각을 연결한다. 나중에 도착한 과거 event는 `late_arrival`로 표시하며 과거 시점에 알려졌다고 소급하지 않는다.
 
-필수 관측 또는 경계 artifact가 없으면 `missing`으로 기록한다. 읽기 실패·미래 source 자체의 미가용·원문 손상은 `unavailable`로, 원문은 있으나 source·시각·선택 근거를 확인하지 못한 경우는 `unverified_provenance`로 구분한다. 시계가 역행하거나 UTC 변환이 불가능하면 해당 레코드를 유효 표본으로 세지 않고 `clock_invalid`를 남긴다. byte·행·표본 제한으로 일부만 읽었으면 `truncated`와 전체·읽은·미검사 건수를 함께 남긴다. 종료 시점에 남은 결손, 충돌, 지연, 정정과 제한 초과는 결과의 일부이며 유리한 기간으로 교체하지 않는다.
+해당 시각이 아직 오지 않은 경계는 `not_due`로 기록하며 결손으로 세지 않는다. 경계가 도래했거나 수신 구간이 닫힌 뒤 필수 관측 또는 경계 artifact가 없으면 `missing`으로 기록한다. 읽기 실패·미래 source 자체의 미가용·원문 손상은 `unavailable`로, 원문은 있으나 source·시각·선택 근거를 확인하지 못한 경우는 `unverified_provenance`로 구분한다. 시계가 역행하거나 UTC 변환이 불가능하면 해당 레코드를 유효 표본으로 세지 않고 `clock_invalid`를 남긴다. byte·행·표본 제한으로 일부만 읽었으면 `truncated`와 전체·읽은·미검사 건수를 함께 남긴다. 종료 시점에 남은 결손, 충돌, 지연, 정정과 제한 초과는 결과의 일부이며 유리한 기간으로 교체하지 않는다.
 
 ## 현재 코드와 경계 증거의 의미
 
