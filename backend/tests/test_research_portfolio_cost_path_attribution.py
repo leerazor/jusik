@@ -1,5 +1,6 @@
 import hashlib
 import json
+from collections.abc import Generator
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -19,6 +20,20 @@ from jusik.research_portfolio_models import (
     PortfolioMetrics,
     PortfolioSimulation,
 )
+
+
+@pytest.fixture(autouse=True)
+def restore_pinned_hash_constants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[None]:
+    originals = {
+        "RESULTS_SHA256": attribution.RESULTS_SHA256,
+        "PREREGISTRATION_SHA256": attribution.PREREGISTRATION_SHA256,
+        "MANIFEST_SHA256": attribution.MANIFEST_SHA256,
+    }
+    yield
+    for name, value in originals.items():
+        monkeypatch.setattr(attribution, name, value)
 
 
 def test_first_trade_path_mismatch_is_utc_sorted_and_excludes_price() -> None:
