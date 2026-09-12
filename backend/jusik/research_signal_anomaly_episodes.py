@@ -21,9 +21,9 @@ from jusik.research_signal_timestamp_forensics import (
     DATE,
     DB_RELATIVE,
     NOW,
+    _fingerprint,
     _load_calendar,
     _parse_observations,
-    _fingerprint,
     _validate_archive,
 )
 from jusik.research_universe_data import REGISTRY

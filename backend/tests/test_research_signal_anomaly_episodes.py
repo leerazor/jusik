@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -15,7 +14,6 @@ from jusik.research_signal_anomaly_episodes import (
     aggregate_rows,
     analyze_archive,
 )
-from jusik.research_signal_anomaly_episodes import aggregate_rows
 
 
 def _row(oid: str, symbol: str, minute: str, latency: int) -> dict[str, object]:
