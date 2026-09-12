@@ -624,18 +624,33 @@ def _reentry_summary(sim: PortfolioSimulation) -> dict[str, Any]:
     waits: list[dict[str, Any]] = []
     risk: dict[str, Any] | None = None
     wait: dict[str, Any] | None = None
+    risk_id = -1
     for event in sorted(sim.policy_events, key=lambda item: item.at):
         if event.kind == "risk_exit":
             if risk is not None:
                 risk["status"] = "censored"
                 risk_episodes.append(risk)
-            risk = {"exit_utc": event.at.isoformat(), "status": "open"}
+            risk_id += 1
+            risk = {
+                "risk_id": risk_id,
+                "exit_utc": event.at.isoformat(),
+                "status": "open",
+                "ever_ready": False,
+            }
             wait = None
+        elif risk is not None and event.kind == "liquidation_complete":
+            risk["liquidation_utc"] = event.at.isoformat()
         elif risk is not None and event.kind == "reentry_ready":
+            risk["ever_ready"] = True
             if wait is not None:
                 wait["status"] = "reset"
                 waits.append(wait)
-            wait = {"ready_utc": event.at.isoformat(), "status": "open"}
+            wait = {
+                "risk_id": risk["risk_id"],
+                "exit_utc": risk["exit_utc"],
+                "ready_utc": event.at.isoformat(),
+                "status": "open",
+            }
         elif risk is not None and event.kind == "recovery_reset" and wait is not None:
             wait["status"] = "reset"
             wait["reset_utc"] = event.at.isoformat()
@@ -677,14 +692,7 @@ def _reentry_summary(sim: PortfolioSimulation) -> dict[str, Any]:
         "delay_seconds": delays,
         "waits": waits,
         "risk_episodes": risk_episodes,
-        "never_ready_count": sum(
-            item["status"] == "censored" and not any(
-                wait_item.get("ready_utc")
-                and wait_item["ready_utc"] >= item["exit_utc"]
-                for wait_item in waits
-            )
-            for item in risk_episodes
-        ),
+        "never_ready_count": sum(not item["ever_ready"] for item in risk_episodes),
     }
 
 
@@ -780,6 +788,16 @@ def _run_call(
         config,
         "low_turnover_combined",
     )
+
+
+def _evaluation_plan(periods: list[dict[str, Any]]) -> list[tuple[str, int, str]]:
+    """Return the immutable 24-control then 24-variant call plan."""
+    return [
+        (arm, cost, period["name"])
+        for arm, weeks in (("control", 4), ("variant", 8))
+        for period in periods
+        for cost in FULL_COSTS
+    ]
 
 
 def _verify_simulation_contract(
