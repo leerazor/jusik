@@ -323,15 +323,20 @@
 
 ## runner-daily-limit
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 기존 실행 이력을 보존하며 일일 설정 상한을 24회까지 지원하고 설치 설정을 24회로 조정해 대기 연구를 재개합니다.
 - 담당 Luna: 별도 Codex CLI gpt-5.6-luna
 - 워크트리 절대 경로: /home/kwl/projects/jusik-runner-daily-limit
 - 작업 브랜치: fix/runner-daily-limit
-- 기준 커밋 SHA: 이 등록 항목을 포함한 준비 커밋(부모 b8d6d22)
+- 기준 커밋 SHA: 8d9333f
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: UTC 실행 8회/설정8로 quota 대기 확인; 후속3개 queued, timer 정상
 - 수정 허용 범위: development_runner.py, 해당 tests, docs/development-runner.md
 - 포트·테스트 DB·출력 경로: 전용 venv/임시DB, 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260912T061307Z-runner-daily-limit
-- 검증 명령과 결과: focused pytest/Ruff/strictmypy 및 독립review 예정
+- 검증 명령과 결과: worker/main focused pytest 28개, Ruff check/format, strict mypy 통과. 독립 review P1/P2 없음
 - 보존·종료: store/실행이력/90분제한/cooldown/PAPER/GPU 유지, main 검증 후 archive·worktree 정리·handoff·웹 게시
+- 결과 커밋: ffdd7e3fb76a4120f5e05a988f0f2083089b7309
+- 통합 커밋: ebc42b29c32734e86bbb71cdc0389171ea5166b1
+- 정리: 로그·환경·해시 archive 후 worktree 제거, 브랜치 보존
+- 설치: daily_launches 8에서24 변경, 나머지 설정과 과거 launch 행 전체 보존
+- 재개·웹·handoff: HANDOFF.md 최신 절 및 audit activation.json 참조
