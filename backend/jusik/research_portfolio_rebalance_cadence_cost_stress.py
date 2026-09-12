@@ -620,48 +620,70 @@ def _exposure(sim: PortfolioSimulation) -> dict[str, str]:
 
 
 def _reentry_summary(sim: PortfolioSimulation) -> dict[str, Any]:
-    episodes: list[dict[str, Any]] = []
-    current: dict[str, Any] | None = None
+    risk_episodes: list[dict[str, Any]] = []
+    waits: list[dict[str, Any]] = []
+    risk: dict[str, Any] | None = None
+    wait: dict[str, Any] | None = None
     for event in sorted(sim.policy_events, key=lambda item: item.at):
         if event.kind == "risk_exit":
-            if current is not None:
-                current["status"] = "censored"
-                episodes.append(current)
-            current = {"exit_utc": event.at.isoformat(), "status": "open"}
-        elif current is not None and event.kind == "reentry_ready":
-            current["ready_utc"] = event.at.isoformat()
-        elif current is not None and event.kind == "recovery_reset":
-            current["status"] = "reset"
-            episodes.append(current)
-            current = None
-        elif current is not None and event.kind == "reentry":
-            current["reentry_utc"] = event.at.isoformat()
-            current["status"] = "reentered"
-            episodes.append(current)
-            current = None
-    if current is not None:
-        current["status"] = "censored"
-        episodes.append(current)
-    ready = [event for event in sim.policy_events if event.kind == "reentry_ready"]
-    reentries = [event for event in sim.policy_events if event.kind == "reentry"]
+            if risk is not None:
+                risk["status"] = "censored"
+                risk_episodes.append(risk)
+            risk = {"exit_utc": event.at.isoformat(), "status": "open"}
+            wait = None
+        elif risk is not None and event.kind == "reentry_ready":
+            if wait is not None:
+                wait["status"] = "reset"
+                waits.append(wait)
+            wait = {"ready_utc": event.at.isoformat(), "status": "open"}
+        elif risk is not None and event.kind == "recovery_reset" and wait is not None:
+            wait["status"] = "reset"
+            wait["reset_utc"] = event.at.isoformat()
+            waits.append(wait)
+            wait = None
+        elif risk is not None and event.kind == "reentry" and wait is not None:
+            wait["status"] = "completed"
+            wait["reentry_utc"] = event.at.isoformat()
+            waits.append(wait)
+            risk["status"] = "reentered"
+            risk_episodes.append(risk)
+            risk = None
+            wait = None
+    period_end = datetime.combine(sim.period_end, clock_time.max, UTC)
+    if wait is not None:
+        wait["status"] = "censored"
+        wait["censor_end_utc"] = period_end.isoformat()
+        waits.append(wait)
+    if risk is not None:
+        risk["status"] = "censored"
+        risk_episodes.append(risk)
+    ready = [wait_item for wait_item in waits if "ready_utc" in wait_item]
     delays = [
         str(
-            (next_event.at - event.at).total_seconds()
+            (
+                datetime.fromisoformat(item["reentry_utc"])
+                - datetime.fromisoformat(item["ready_utc"])
+            ).total_seconds()
         )
-        if (next_event := next(
-            (candidate for candidate in reentries if candidate.at >= event.at), None
-        ))
+        if item["status"] == "completed"
         else None
-        for event in ready
+        for item in ready
     ]
     return {
-        "ready_utc": [event.at.isoformat() for event in ready],
-        "reentry_utc": [event.at.isoformat() for event in reentries],
+        "ready_utc": [item["ready_utc"] for item in ready],
+        "reentry_utc": [
+            item["reentry_utc"] for item in waits if item["status"] == "completed"
+        ],
         "delay_seconds": delays,
-        "episodes": episodes,
+        "waits": waits,
+        "risk_episodes": risk_episodes,
         "never_ready_count": sum(
-            episode.get("status") == "censored" and "ready_utc" not in episode
-            for episode in episodes
+            item["status"] == "censored" and not any(
+                wait_item.get("ready_utc")
+                and wait_item["ready_utc"] >= item["exit_utc"]
+                for wait_item in waits
+            )
+            for item in risk_episodes
         ),
     }
 

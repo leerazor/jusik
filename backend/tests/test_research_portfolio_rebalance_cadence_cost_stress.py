@@ -58,17 +58,23 @@ def test_reentry_ready_delay_and_censored_episode_are_preserved() -> None:
     events = [
         SimpleNamespace(kind="risk_exit", at=start),
         SimpleNamespace(kind="reentry_ready", at=start + timedelta(days=35)),
-        SimpleNamespace(kind="reentry", at=start + timedelta(days=42)),
-        SimpleNamespace(kind="risk_exit", at=start + timedelta(days=60)),
+        SimpleNamespace(kind="recovery_reset", at=start + timedelta(days=60)),
         SimpleNamespace(kind="reentry_ready", at=start + timedelta(days=90)),
+        SimpleNamespace(kind="reentry", at=start + timedelta(days=97)),
     ]
-    result = _reentry_summary(SimpleNamespace(policy_events=events))
+    result = _reentry_summary(
+        SimpleNamespace(
+            policy_events=events, period_end=start.date() + timedelta(days=100)
+        )
+    )
     assert result["ready_utc"] == [
         (start + timedelta(days=35)).isoformat(),
         (start + timedelta(days=90)).isoformat(),
     ]
-    assert result["delay_seconds"] == ["604800.0", None]
-    assert result["reentry_utc"] == [(start + timedelta(days=42)).isoformat()]
+    assert result["delay_seconds"] == [None, "604800.0"]
+    assert result["reentry_utc"] == [(start + timedelta(days=97)).isoformat()]
+    assert result["never_ready_count"] == 0
+    assert [item["status"] for item in result["waits"]] == ["reset", "completed"]
 
 
 def test_existing_output_refuses_resume(tmp_path: Path) -> None:
@@ -77,3 +83,15 @@ def test_existing_output_refuses_resume(tmp_path: Path) -> None:
     (output / "ledger.json").write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="retry/resume"):
         _empty_output(output)
+
+
+def test_never_ready_risk_episode_is_censored() -> None:
+    start = datetime(2025, 1, 6, tzinfo=UTC)
+    result = _reentry_summary(
+        SimpleNamespace(
+            policy_events=[SimpleNamespace(kind="risk_exit", at=start)],
+            period_end=start.date() + timedelta(days=10),
+        )
+    )
+    assert result["never_ready_count"] == 1
+    assert result["risk_episodes"][0]["status"] == "censored"
