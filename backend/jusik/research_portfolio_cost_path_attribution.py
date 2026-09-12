@@ -187,6 +187,9 @@ def load_frozen(input_dir: Path) -> dict[tuple[str, str, int], PortfolioSimulati
     )
     if not isinstance(files, dict):
         raise ValueError("simulation hash manifest is missing")
+    actual_files = {path.name for path in (input_dir / "simulations").glob("*.json")}
+    if actual_files != names:
+        raise ValueError("simulation filesystem is not exactly 48 files")
     output: dict[tuple[str, str, int], PortfolioSimulation] = {}
     for name in sorted(names):
         rel = f"simulations/{name}"
@@ -435,6 +438,16 @@ def enrich_report(report: dict[str, Any]) -> dict[str, Any]:
         keys = [(r["period"], r["arm"], r["to_cost"]) for r in paths]
         if len(set(keys)) != len(keys):
             raise ValueError("saved report contains duplicate comparisons")
+        for item in paths:
+            residual = (
+                Decimal(item["aggregate_delta_pre_cost"])
+                - Decimal(item["aggregate_delta_transaction_fx"])
+                - Decimal(item["aggregate_delta_net_pnl"])
+            )
+            if abs(residual) > TOLERANCE:
+                raise ValueError(
+                    "saved report aggregate reconciliation exceeds tolerance"
+                )
         index = dict(zip(keys, paths, strict=True))
         decomposition = []
         for period in PERIODS:

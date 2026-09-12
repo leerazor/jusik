@@ -1,6 +1,6 @@
 import json
 from datetime import UTC, datetime, timedelta, timezone
-from decimal import Decimal
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -8,6 +8,7 @@ import pytest
 from jusik.research_portfolio_cost_path_attribution import (
     enrich_report,
     first_trade_path_mismatch,
+    load_frozen,
 )
 
 
@@ -62,9 +63,11 @@ def _saved_report() -> dict[str, Any]:
                         "to_cost": high,
                         "aggregate_delta_net_pnl": "-1.000001"
                         if arm == "variant"
-                        else "1.000000",
+                        else "-1.000000",
                         "aggregate_delta_transaction_fx": "2.000000",
-                        "aggregate_delta_pre_cost": "1.000000",
+                        "aggregate_delta_pre_cost": "0.999999"
+                        if arm == "variant"
+                        else "1.000000",
                         "aggregate_reconciliation_residual": "0.000000",
                         "turnover_delta_pp": "-2.5",
                         "max_drawdown_delta_pp": "0.5",
@@ -83,13 +86,13 @@ def test_enrichment_preserves_negative_and_zero_and_is_deterministic() -> None:
         first["variant_control_decomposition"][0][
             "variant_minus_control_aggregate_delta_net_pnl"
         ]
-        == "-2.000001"
+        == "-0.000001"
     )
     assert (
         first["variant_control_decomposition"][0][
             "variant_minus_control_aggregate_delta_pre_cost"
         ]
-        == "0.000000"
+        == "-0.000001"
     )
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
 
@@ -120,8 +123,9 @@ def test_known_same_path_cost_only_and_rounding_boundaries() -> None:
         ]
         == "0.000000"
     )
-    assert Decimal("0.000001") <= Decimal("0.000001")
-    assert Decimal("0.000002") > Decimal("0.000001")
+    report["cost_comparisons"][0]["aggregate_delta_pre_cost"] = "0.000002"
+    with pytest.raises(ValueError, match="exceeds tolerance"):
+        enrich_report(report)
 
 
 def test_timezone_same_instant_and_quantity_mismatch_are_path_differences() -> None:
@@ -152,3 +156,16 @@ def test_timezone_same_instant_and_quantity_mismatch_are_path_differences() -> N
         )
         is not None
     )
+
+
+def test_synthetic_loader_rejects_extra_file(tmp_path: Path) -> None:
+    # The production loader's exact-file guard is exercised without loading real inputs.
+    root = tmp_path / "input"
+    (root / "simulations").mkdir(parents=True)
+    for index in range(48):
+        (root / "simulations" / f"fixture-{index}.json").write_text("{}")
+    (root / "simulations" / "extra.json").write_text("{}")
+    with pytest.raises(
+        (FileNotFoundError, ValueError), match="hash|filesystem|evaluation|results"
+    ):
+        load_frozen(root)
