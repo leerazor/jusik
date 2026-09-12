@@ -288,3 +288,20 @@
 - 통합 검증 실패 원인과 복구 결과: 통합 검사 실패 없음.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/small-entry-preregistration-draft-v1-a55b6ee8a036463da688fafe04567542/handoff.md. 기존 root HANDOFF.md 보존.
 - 후속 후보: 초안의 선언 SHA와 실제 보관 출처를 검증하는 신규 오프라인 provenance bundle verifier1개. exact scope/input/tests/stop은 영구 followup.json 참조. 미래 자료·금융 승인 불필요.
+
+
+## future-observation-replay-0bb3
+
+- 상태: 준비
+- 목표와 완료 조건: 합성 fixture 전용 순수 관측 분류기와 오프라인 CLI를 구현하고 독립 기대값·pytest·검토·main 통합·웹 보고 및 영구 증거 보존을 완료합니다.
+- 담당 Luna: replay_luna (gpt-5.6-luna), 신규 세 파일 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-future-observation-replay-0bb3
+- 작업 브랜치: feat/future-observation-replay-0bb3
+- 기준 커밋 SHA: de52818e3ec249ef1bd9e42e80ad2304befa1eb1 (등록 전 main; 생성 기준은 준비 커밋)
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 기존 미래 관측 초안, readiness/receipt seam 읽기 전용 조사 완료. 순차 bounded plan과 독립 합성 기대값을 사용합니다.
+- 수정 허용 범위: backend/jusik/research_future_observation_replay.py, backend/tests/test_research_future_observation_replay.py, docs/research/future-observation-protocol-replay-v1.md. Astra는 등록부·audit·공개 history·handoff 담당.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. worktree 내부 .venv, .artifacts, tmp와 cache 격리.
+- 영구 산출물: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-protocol-replay-v1-0bb3f02db53540c9b6da3e631c76aa9b
+- 검증 방법: UTC 반열린 구간, 최초 receipt 불변, 중복·충돌·late, not_due/missing, clock/truncation, 미정 우선순위 보존, 고정 synthetic 불변성. pytest·Ruff·strict mypy·독립 review와 main 재검사.
+- 중단 조건: 결정론적 합성 replay 도구까지. 미래 데이터 부재는 blocker가 아닙니다. PAPER 코드/config/contracts/DB·collector·order·GPU·runner/quota·remote 변경 금지.
