@@ -523,8 +523,11 @@ def _run_planning(
         f"Current main HEAD: {main_head}\nAllowed areas: {sorted(ALLOWED_AREAS)}\n"
         f"Permitted evidence roots: "
         f"{[str(path.resolve()) for path in evidence_roots]}\n"
-        "Return planning JSON only. Proposal prompt must state objective, scope, "
-        "inputs, computation cap, tests, and stop condition. Do not modify repo, "
+        "Return planning JSON only. The proposal prompt MUST contain six concise "
+        "labelled sections in this order: Objective, Scope, Inputs, Computation cap, "
+        "Tests, Stop condition. Keep it under 1600 characters (hard maximum 2000); "
+        "put all six labels and short substantive values first, then omit detail. "
+        "Refer to evidence instead of repeating long context. Do not modify repo, "
         "database, config, remote, orders, or create subagents. Use private bounded "
         "wait_reason with missing input and resume condition when waiting. Cite "
         "existing permitted evidence only; never cite this attempt's files."
@@ -610,6 +613,16 @@ def _run_planning(
         )
     try:
         payload = json.loads(output_path.read_text(encoding="utf-8"))
+        if store.is_paused() or (stop_requested is not None and stop_requested()):
+            store.finish(
+                attempt_id,
+                task.id,
+                "interrupted",
+                failure_code="paused" if store.is_paused() else "signal",
+            )
+            return RunResult(
+                "paused" if store.is_paused() else "interrupted", task.id, attempt_id
+            )
         result = validate_planning_result(
             payload,
             task.id,
@@ -633,8 +646,22 @@ def _run_planning(
     proposal = (
         None
         if result.proposal is None
-        else (result.proposal.id, result.proposal.area, result.proposal.prompt)
+        else (
+            result.proposal.id,
+            result.proposal.area,
+            f"{COMMON_PROMPT}\n\n{result.proposal.prompt}",
+        )
     )
+    if store.is_paused() or (stop_requested is not None and stop_requested()):
+        store.finish(
+            attempt_id,
+            task.id,
+            "interrupted",
+            failure_code="paused" if store.is_paused() else "signal",
+        )
+        return RunResult(
+            "paused" if store.is_paused() else "interrupted", task.id, attempt_id
+        )
     try:
         committed = store.finish_planning(
             attempt_id,
@@ -645,6 +672,16 @@ def _run_planning(
             snapshot,
             current_digest,
             proposal,
+        )
+    except RuntimeError:
+        store.finish(
+            attempt_id,
+            task.id,
+            "interrupted",
+            failure_code="paused" if store.is_paused() else "signal",
+        )
+        return RunResult(
+            "paused" if store.is_paused() else "interrupted", task.id, attempt_id
         )
     except ValueError:
         store.finish(attempt_id, task.id, "failed", failure_code="planning_invalid")
@@ -939,6 +976,7 @@ def run_once(
             pending = [
                 item
                 for item in store.tasks()
+                if item.area != PLANNING_AREA
                 if item.status not in {"completed", "failed"}
             ]
             if len(pending) < 8:

@@ -22,6 +22,7 @@ def _config(tmp_path: Path) -> RunnerConfig:
         repo=repo,
         state_dir=tmp_path / "state",
         history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
         artifact_dir=tmp_path / "artifact",
     )
 
@@ -96,7 +97,13 @@ def test_finish_planning_is_atomic_and_exact_replay_is_idempotent(
     store.enqueue("planner-task", PLANNING_AREA, "internal")
     task = store.task("planner-task")
     assert task is not None
-    store.claim(task, "attempt", tmp_path / "out", tmp_path / "err")
+    store.claim(
+        task,
+        "attempt",
+        tmp_path / "out",
+        tmp_path / "err",
+        history_outcome="planning_started",
+    )
     snapshot: list[tuple[str, str, str | None]] = []
     digest = hashlib.sha256(b"[]").hexdigest()
     assert (
@@ -126,6 +133,63 @@ def test_finish_planning_is_atomic_and_exact_replay_is_idempotent(
     )
     assert store.outbox_pending() == before
     assert len([item for item in store.tasks() if item.area != PLANNING_AREA]) == 1
+
+
+def test_planning_outbox_preserves_started_then_terminal_then_proposal(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.enqueue("planner-task", PLANNING_AREA, "internal")
+    task = store.task("planner-task")
+    assert task is not None
+    store.claim(
+        task,
+        "attempt",
+        tmp_path / "out",
+        tmp_path / "err",
+        history_outcome="planning_started",
+    )
+    store.finish_planning(
+        "attempt",
+        "planner-task",
+        "proposed",
+        {"status": "proposed"},
+        hashlib.sha256(b"[]").hexdigest(),
+        [],
+        proposal=("next-research-v1", "portfolio-stress-robustness", "prompt"),
+    )
+    assert [item[3] for item in store.outbox_pending()] == [
+        "planning_started",
+        "planning_proposed",
+        "planning_proposed",
+    ]
+
+
+def test_completed_planning_replay_does_not_rewrite_snapshot_or_outbox(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.enqueue("planner-task", PLANNING_AREA, "internal")
+    task = store.task("planner-task")
+    assert task is not None
+    store.claim(task, "attempt", tmp_path / "out", tmp_path / "err")
+    digest = hashlib.sha256(b"[]").hexdigest()
+    store.finish_planning(
+        "attempt", "planner-task", "waiting", {"status": "waiting"}, digest, []
+    )
+    before_tasks = store.tasks()
+    before_outbox = store.outbox_pending()
+    assert store.finish_planning(
+        "attempt",
+        "planner-task",
+        "proposed",
+        {"status": "proposed"},
+        "f" * 64,
+        [("unexpected", "queued", None)],
+        proposal=("another-research", "portfolio-stress-robustness", "prompt"),
+    )
+    assert store.tasks() == before_tasks
+    assert store.outbox_pending() == before_outbox
 
 
 def test_planner_profile_is_readonly_and_writes_only_attempt_directory(

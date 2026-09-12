@@ -80,7 +80,10 @@ def test_interrupted_attempt_is_quarantined_until_explicit_retry(
     recovered = store.recover_running()
     assert [attempt.id for attempt in recovered] == ["attempt-a"]
     assert store.task("task-a").status == "interrupted"  # type: ignore[union-attr]
-    assert store.outbox_pending()[0][3] == "interrupted"
+    assert [item[3] for item in store.outbox_pending()[:2]] == [
+        "started",
+        "interrupted",
+    ]
     assert store.retry("task-a")
     assert _next_task(store).id == "task-a"  # type: ignore[union-attr]
 
@@ -790,6 +793,78 @@ def test_daily_launch_limit_blocks_at_limit_24_without_dispatch(
     assert task.attempt_count == 0
     assert store.launch_count(today.strftime("%Y-%m-%d")) == 24
     assert not fake.exists()
+
+
+def test_empty_queue_planner_proposes_then_dispatches_research_child(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "fake-codex.py"
+    evidence = repo / "README.md"
+    evidence_hash = hashlib.sha256(evidence.read_bytes()).hexdigest()
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "args = sys.argv\n"
+        "prompt = sys.stdin.read()\n"
+        "output = Path(args[args.index('-o') + 1])\n"
+        "fields = {}\n"
+        "for line in prompt.splitlines():\n"
+        "    if ': ' in line:\n"
+        "        key, value = line.split(': ', 1)\n"
+        "        fields[key] = value\n"
+        "if any('planning.schema.json' in arg for arg in args):\n"
+        "    payload = {'task_id': fields['Task id'],\n"
+        "      'attempt_id': fields['Attempt id'],\n"
+        "      'fingerprint': fields['Fingerprint'], 'status': 'proposed',\n"
+        "      'proposal': {'id': 'planned-research-v1',\n"
+        "       'area': 'portfolio-stress-robustness',\n"
+        "       'prompt': ('Objective: compare costs. Scope: current universe. '\n"
+        "         'Inputs: existing evidence. Computation cap: small. '\n"
+        "         'Tests: deterministic. Stop condition: stop at cap.'),\n"
+        f"       'evidence': [{{'path': {str(evidence)!r},\n"
+        f"         'sha256': '{evidence_hash}'}}]}},\n"
+        "      'wait_reason': None}\n"
+        "else:\n"
+        "    payload = {'task_id': fields['Task id'],\n"
+        "      'attempt_id': fields['Attempt id'],\n"
+        "      'status': 'blocked', 'integrated_commit': None, 'evidence': [],\n"
+        "      'tests_passed': False, 'review_passed': False, 'handoff_path': None,\n"
+        "      'blocked_reason': 'offline fixture', 'followup': None}\n"
+        "output.write_text(json.dumps(payload), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        planning_enabled=True,
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+
+    planned = run_once(config)
+    assert planned.status == "completed"
+    store = RunnerStore(state / "runner.db", history)
+    research = store.task("planned-research-v1")
+    assert research is not None and research.status == "queued"
+    assert "Follow the repository workflow" in research.prompt
+    assert "never use real orders" in research.prompt
+    assert "PAPER engine" in research.prompt
+    assert "GPU changes" in research.prompt
+
+    dispatched = run_once(config)
+    assert dispatched.status == "blocked"
+    assert research.id == dispatched.task_id
+    assert store.task(research.id).status == "blocked"  # type: ignore[union-attr]
+    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 2
 
 
 def test_pause_and_stop_callback_interrupt_owned_child(tmp_path: Path) -> None:

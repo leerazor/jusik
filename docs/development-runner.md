@@ -72,6 +72,6 @@ cd backend
 
 `planning_enabled=true`이고 실행 가능한 연구 작업이 없으며 queued/running 연구 작업도 없을 때, 실행기는 내부 예약 영역 `__planning__`에서 planner를 한 번 dispatch합니다. planner는 기존 연구 task snapshot, 검증된 `main` HEAD, UTC 날짜를 fingerprint로 묶고 cost-adjusted portfolio return/risk/turnover 실험을 우선 검토합니다. planner state/history는 연구 pending 상한 8개에 포함하지 않습니다.
 
-planner는 최대 하나의 새 연구 task만 제안하거나, 고정된 한국어 대기 상태를 남깁니다. 제안 prompt에는 objective, scope, inputs, computation cap, tests, stop condition이 있어야 하며 기존 evidence만 SHA-256으로 참조할 수 있습니다. planner 결과 검증, 연구 task enqueue, planner 완료, history outbox 기록은 하나의 SQLite transaction으로 처리합니다. 입력 fingerprint가 바뀌면 재검토하고, 같은 fingerprint의 failed/interrupted/terminal planner는 자동 재시도하지 않습니다.
+planner는 최대 하나의 새 연구 task만 제안하거나, 고정된 한국어 대기 상태를 남깁니다. 제안 prompt에는 Objective, Scope, Inputs, Computation cap, Tests, Stop condition의 6개 섹션을 순서대로 짧게 담고 1600자 이내를 목표로 합니다(검증 hard cap 2000자). 기존 evidence만 SHA-256으로 참조할 수 있습니다. planner 결과 검증, 연구 task enqueue, planner 완료, history outbox 기록은 하나의 SQLite transaction으로 처리합니다. 입력 fingerprint가 바뀌면 재검토하고, 같은 fingerprint의 failed/interrupted/terminal planner는 자동 재시도하지 않습니다.
 
 planner dispatch는 별도 `jusik-planning` named profile을 사용합니다. profile은 `:read-only`를 상속하고 해당 attempt directory만 write, network는 disabled로 둡니다. planner는 repository, DB, config, remote, order API를 수정하거나 subagent/command를 사용할 수 없습니다. 일반 연구 task의 `jusik-development` profile과 PAPER10% contract는 변경하지 않습니다. `planning_enabled` 기본값은 `false`입니다.

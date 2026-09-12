@@ -300,11 +300,18 @@ class RunnerStore:
                 "SELECT status FROM attempts WHERE id=? AND task_id=?",
                 (attempt_id, task_id),
             ).fetchone()
+            if prior is not None and prior["status"] == "completed":
+                db.rollback()
+                return True
             if prior is None or prior["status"] != "running":
                 db.rollback()
-                if prior is not None and prior["status"] == "completed":
-                    return True
                 raise ValueError("planning attempt is not running")
+            paused = db.execute(
+                "SELECT value FROM runner_meta WHERE key='paused'"
+            ).fetchone()
+            if paused is not None and paused["value"] == "1":
+                db.rollback()
+                raise RuntimeError("planning interrupted")
             snapshot = db.execute(
                 "SELECT id,status,last_attempt_id FROM tasks "
                 "WHERE area != '__planning__' ORDER BY id"
@@ -437,8 +444,7 @@ class RunnerStore:
         with self._connect() as db:
             rows = db.execute(
                 "SELECT id,task_id,attempt_id,outcome FROM history_outbox "
-                "WHERE delivered_at IS NULL ORDER BY "
-                "CASE WHEN outcome='started' THEN 1 ELSE 0 END, rowid"
+                "WHERE delivered_at IS NULL ORDER BY rowid"
             ).fetchall()
         return [
             (str(r["id"]), str(r["task_id"]), str(r["attempt_id"]), str(r["outcome"]))
