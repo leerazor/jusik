@@ -340,3 +340,23 @@
 - 정리: 로그·환경·해시 archive 후 worktree 제거, 브랜치 보존
 - 설치: daily_launches 8에서24 변경, 나머지 설정과 과거 launch 행 전체 보존
 - 재개·웹·handoff: HANDOFF.md 최신 절 및 audit activation.json 참조
+
+## signal-anomaly-episodes-21ce
+
+- 상태: 준비
+- 목표와 완료 조건: 동결 신호의 분별 동시 이상/episodes utility, 테스트, 한국어 보고서; 249 IDs, 68분, 최대5종목 일치
+- 담당 Luna: gpt-5.6-luna 단일 구현 작업자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-signal-anomaly-episodes-21ce
+- 작업 브랜치: feat/signal-anomaly-episodes-21ce
+- 기준 커밋 SHA: 등록 커밋 직후 HEAD (registration.json에 기록)
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: 지정된 evidence/timestamp archive manifest 전체 검증; explore와 plan 완료
+- 수정 허용 범위: backend/jusik/research_signal_anomaly_episodes.py, backend/tests/test_research_signal_anomaly_episodes.py, docs/research/paper-signal-coincident-anomaly-episodes-v1.md
+- 포트·테스트 DB·출력 경로: 전용 venv/pytest tmp; durable audit /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-coincident-anomaly-episodes-v1-21ce4592e34a4ee78332f2dbff95f994
+- 검증 명령과 결과: 예정 pytest, Ruff check/format, strict mypy, immutable frozen replay, 독립 review, 통합 후 반복검증
+- 결과 커밋 SHA: 대기
+- 검토 결과와 남은 문제: 대기
+- 병합 직전 main SHA: 대기
+- 통합 커밋 SHA와 정리 여부: 대기
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- handoff 저장 경로와 갱신 여부: 위 durable audit/handoff.md 예정
