@@ -21,6 +21,15 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from jusik.development_runner_planning import (
+    PLANNING_AREA,
+    PLANNING_SCHEMA,
+    planner_task_id,
+    validate_planning_result,
+)
+from jusik.development_runner_planning import (
+    fingerprint as planning_fingerprint,
+)
 from jusik.development_runner_store import RunnerStore, RunnerTask
 from jusik.research_history import HistoryRepository
 
@@ -97,6 +106,7 @@ class RunnerConfig(BaseModel):
     timeout_seconds: int = Field(default=5400, ge=60, le=5400)
     daily_launches: int = Field(default=8, ge=1, le=24)
     cooldown_seconds: int = Field(default=60, ge=0, le=86400)
+    planning_enabled: bool = False
 
 
 class Evidence(BaseModel):
@@ -311,19 +321,30 @@ def _codex_command(
     common: Path,
     schema_path: Path,
     output_path: Path,
+    *,
+    planning: bool = False,
 ) -> list[str]:
-    filesystem = f'{json.dumps(str(common))}="write"'
-    workspace_roots = ",".join(
-        f"{json.dumps(str(root))}=true" for root in _codex_workspace_roots(config)
-    )
-    profile = (
-        "permissions.jusik-development={"
-        'extends=":workspace",'
-        f"filesystem={{{filesystem}}},"
-        f"workspace_roots={{{workspace_roots}}},"
-        "network={enabled=true}"
-        "}"
-    )
+    if planning:
+        profile = (
+            'permissions.jusik-planning={extends=":read-only",'
+            f'filesystem={{{json.dumps(str(output_path.parent.resolve()))}="write"}},'
+            "network={enabled=false}}"
+        )
+        permission = "jusik-planning"
+    else:
+        filesystem = f'{json.dumps(str(common))}="write"'
+        workspace_roots = ",".join(
+            f"{json.dumps(str(root))}=true" for root in _codex_workspace_roots(config)
+        )
+        profile = (
+            "permissions.jusik-development={"
+            'extends=":workspace",'
+            f"filesystem={{{filesystem}}},"
+            f"workspace_roots={{{workspace_roots}}},"
+            "network={enabled=true}"
+            "}"
+        )
+        permission = "jusik-development"
     return [
         config.codex,
         "-a",
@@ -333,7 +354,7 @@ def _codex_command(
         "-m",
         "gpt-6-astra",
         "-c",
-        'default_permissions="jusik-development"',
+        f'default_permissions="{permission}"',
         "-c",
         profile,
         "--json",
@@ -425,7 +446,7 @@ def validate_completion(
 def _next_task(store: RunnerStore) -> RunnerTask | None:
     now = datetime.now(UTC)
     for task in store.tasks():
-        if task.status != "queued":
+        if task.status != "queued" or task.area == PLANNING_AREA:
             continue
         if task.depends_on is not None:
             dependency = store.task(task.depends_on)
@@ -437,13 +458,257 @@ def _next_task(store: RunnerStore) -> RunnerTask | None:
     return None
 
 
+def _research_snapshot(store: RunnerStore) -> list[tuple[str, str, str | None]]:
+    return sorted(
+        (task.id, task.status, task.last_attempt_id)
+        for task in store.tasks()
+        if task.area != PLANNING_AREA
+    )
+
+
+def _planning_task(
+    store: RunnerStore, repo: Path
+) -> tuple[RunnerTask, str, list[tuple[str, str, str | None]]] | None:
+    tasks = _research_snapshot(store)
+    if any(status in {"queued", "running"} for _, status, _ in tasks):
+        return None
+    if sum(status not in {"completed", "failed"} for _, status, _ in tasks) >= 8:
+        return None
+    head = _git(repo, "rev-parse", "main").stdout.strip()
+    day = datetime.now(UTC).date().isoformat()
+    digest = planning_fingerprint(tasks, head, day)
+    existing = store.task(planner_task_id(digest))
+    if existing is not None:
+        return (existing, digest, tasks) if existing.status == "queued" else None
+    task_id = planner_task_id(digest)
+    store.enqueue(
+        task_id,
+        PLANNING_AREA,
+        "Plan exactly one useful bounded portfolio research job. Prefer cost-adjusted "
+        "return/risk/turnover experiments under the current mandate: 100m KRW, "
+        "max loss 20%, leveraged allocation 20%, low turnover with realtime signal "
+        "detection, live trading deferred. Keep PAPER10% unchanged. "
+        "Return planning JSON.",
+    )
+    task = store.task(task_id)
+    return (task, digest, tasks) if task is not None else None
+
+
+def _run_planning(
+    config: RunnerConfig,
+    common: Path,
+    store: RunnerStore,
+    candidate: tuple[RunnerTask, str, list[tuple[str, str, str | None]]],
+    stop_requested: Callable[[], bool] | None,
+    started_at: datetime,
+) -> RunResult:
+    task, digest, snapshot = candidate
+    attempt_id = uuid.uuid4().hex
+    attempt_dir = config.state_dir / "attempts" / attempt_id
+    _secure_dir(attempt_dir)
+    output_path = attempt_dir / "planning.json"
+    stderr_path = attempt_dir / "stderr.log"
+    stdout_path = attempt_dir / "stdout.jsonl"
+    main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
+    evidence_roots = (
+        config.repo,
+        config.repo.parent,
+        config.state_dir,
+        config.history_dir,
+        config.artifact_dir,
+    )
+    prompt = (
+        f"Task id: {task.id}\nAttempt id: {attempt_id}\nFingerprint: {digest}\n\n"
+        f"{task.prompt}\nResearch snapshot: {json.dumps(snapshot, sort_keys=True)}\n"
+        f"Current main HEAD: {main_head}\nAllowed areas: {sorted(ALLOWED_AREAS)}\n"
+        f"Permitted evidence roots: "
+        f"{[str(path.resolve()) for path in evidence_roots]}\n"
+        "Return planning JSON only. The proposal prompt MUST contain six concise "
+        "labelled sections in this order: Objective, Scope, Inputs, Computation cap, "
+        "Tests, Stop condition. Keep it under 1600 characters (hard maximum 2000); "
+        "put all six labels and short substantive values first, then omit detail. "
+        "Refer to evidence instead of repeating long context. Do not modify repo, "
+        "database, config, remote, orders, or create subagents. Use private bounded "
+        "wait_reason with missing input and resume condition when waiting. Cite "
+        "existing permitted evidence only; never cite this attempt's files."
+    )
+    _write_private(attempt_dir / "prompt.txt", prompt.encode())
+    _write_private(stdout_path, b"")
+    try:
+        store.claim(
+            task,
+            attempt_id,
+            output_path,
+            stderr_path,
+            started_at.isoformat(),
+            history_outcome="planning_started",
+        )
+        _safe_history_flush(store, config)
+    except ValueError:
+        return RunResult("idle")
+    schema_path = attempt_dir / "planning.schema.json"
+    _write_private(
+        schema_path, (json.dumps(PLANNING_SCHEMA, sort_keys=True) + "\n").encode()
+    )
+    command = _codex_command(config, common, schema_path, output_path, planning=True)
+    with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=config.repo,
+                stdin=subprocess.PIPE,
+                stdout=stdout,
+                stderr=stderr,
+                start_new_session=True,
+            )
+        except OSError:
+            store.finish(attempt_id, task.id, "failed", failure_code="dispatch_error")
+            return RunResult("failed", task.id, attempt_id, "dispatch_error")
+        try:
+            group_id = os.getpgid(process.pid)
+        except ProcessLookupError:
+            group_id = None
+        if group_id is not None:
+            store.set_process_group(attempt_id, group_id)
+        deadline = time.monotonic() + config.timeout_seconds
+        data: bytes | None = prompt.encode()
+        while True:
+            if store.is_paused() or (stop_requested is not None and stop_requested()):
+                _stop_process(process)
+                store.finish(
+                    attempt_id,
+                    task.id,
+                    "interrupted",
+                    failure_code="paused" if store.is_paused() else "signal",
+                )
+                return RunResult(
+                    "paused" if store.is_paused() else "interrupted",
+                    task.id,
+                    attempt_id,
+                )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                _stop_process(process)
+                store.finish(attempt_id, task.id, "failed", failure_code="timeout")
+                return RunResult("failed", task.id, attempt_id, "timeout")
+            try:
+                process.communicate(data, timeout=min(1, remaining))
+                data = None
+            except subprocess.TimeoutExpired:
+                data = None
+                continue
+            break
+    if process.returncode != 0:
+        store.finish(attempt_id, task.id, "failed", failure_code="codex_exit")
+        return RunResult("failed", task.id, attempt_id, "codex_exit")
+    if store.is_paused() or (stop_requested is not None and stop_requested()):
+        store.finish(
+            attempt_id,
+            task.id,
+            "interrupted",
+            failure_code="paused" if store.is_paused() else "signal",
+        )
+        return RunResult(
+            "paused" if store.is_paused() else "interrupted", task.id, attempt_id
+        )
+    try:
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+        if store.is_paused() or (stop_requested is not None and stop_requested()):
+            store.finish(
+                attempt_id,
+                task.id,
+                "interrupted",
+                failure_code="paused" if store.is_paused() else "signal",
+            )
+            return RunResult(
+                "paused" if store.is_paused() else "interrupted", task.id, attempt_id
+            )
+        result = validate_planning_result(
+            payload,
+            task.id,
+            attempt_id,
+            digest,
+            config,
+            attempt_dir,
+            ALLOWED_AREAS,
+            {item.id for item in store.tasks()},
+        )
+        ready, reason = _git_ready(config.repo)
+        if not ready:
+            raise ValueError(reason)
+        current_head = _git(config.repo, "rev-parse", "main").stdout.strip()
+        current_digest = planning_fingerprint(
+            snapshot, current_head, started_at.date().isoformat()
+        )
+    except (OSError, json.JSONDecodeError, ValueError, subprocess.CalledProcessError):
+        store.finish(attempt_id, task.id, "failed", failure_code="planning_invalid")
+        return RunResult("failed", task.id, attempt_id, "planning_invalid")
+    proposal = (
+        None
+        if result.proposal is None
+        else (
+            result.proposal.id,
+            result.proposal.area,
+            f"{COMMON_PROMPT}\n\n{result.proposal.prompt}",
+        )
+    )
+    if store.is_paused() or (stop_requested is not None and stop_requested()):
+        store.finish(
+            attempt_id,
+            task.id,
+            "interrupted",
+            failure_code="paused" if store.is_paused() else "signal",
+        )
+        return RunResult(
+            "paused" if store.is_paused() else "interrupted", task.id, attempt_id
+        )
+    try:
+        committed = store.finish_planning(
+            attempt_id,
+            task.id,
+            result.status,
+            result.model_dump(),
+            digest,
+            snapshot,
+            current_digest,
+            proposal,
+        )
+    except RuntimeError:
+        store.finish(
+            attempt_id,
+            task.id,
+            "interrupted",
+            failure_code="paused" if store.is_paused() else "signal",
+        )
+        return RunResult(
+            "paused" if store.is_paused() else "interrupted", task.id, attempt_id
+        )
+    except ValueError:
+        store.finish(attempt_id, task.id, "failed", failure_code="planning_invalid")
+        return RunResult("failed", task.id, attempt_id, "planning_invalid")
+    _safe_history_flush(store, config)
+    return RunResult(
+        "completed" if committed else "blocked",
+        task.id,
+        attempt_id,
+        None if committed else "planning_stale",
+    )
+
+
 def _history_flush(store: RunnerStore, config: RunnerConfig) -> None:
     repository = HistoryRepository(config.history_dir, config.history_db)
     for identity, task_id, attempt_id, outcome in store.outbox_pending():
+        planning = outcome.startswith("planning_") or outcome == "planning_started"
+        title = "자동 연구 계획기" if planning else "자동 개발 실행기"
+        summary = (
+            "연구 계획 상태가 기록되었습니다."
+            if planning
+            else "개발 cycle 상태가 기록되었습니다."
+        )
         repository.record(
             identity=identity,
-            title="자동 개발 실행기",
-            summary="개발 cycle 상태가 기록되었습니다.",
+            title=title,
+            summary=summary,
             category="development",
             outcome=outcome,
             run_ids=[task_id, attempt_id],
@@ -565,7 +830,22 @@ def run_once(
             return RunResult("cooldown")
         task = _next_task(store)
         if task is None:
-            return RunResult("idle")
+            if not config.planning_enabled:
+                return RunResult("idle")
+            candidate = _planning_task(store, config.repo)
+            if candidate is None:
+                return RunResult("idle")
+            try:
+                _prepare_artifact_dir(config.artifact_dir)
+            except OSError:
+                return RunResult(
+                    "blocked", candidate[0].id, reason="artifact directory unavailable"
+                )
+            result = _run_planning(
+                config, common, store, candidate, stop_requested, now
+            )
+            _safe_history_flush(store, config)
+            return result
         try:
             _prepare_artifact_dir(config.artifact_dir)
         except OSError:
@@ -696,6 +976,7 @@ def run_once(
             pending = [
                 item
                 for item in store.tasks()
+                if item.area != PLANNING_AREA
                 if item.status not in {"completed", "failed"}
             ]
             if len(pending) < 8:

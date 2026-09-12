@@ -24,6 +24,7 @@ from jusik.development_runner import (
     run_once,
     validate_completion,
 )
+from jusik.development_runner_planning import PLANNING_AREA
 from jusik.development_runner_store import RunnerStore
 
 
@@ -80,7 +81,10 @@ def test_interrupted_attempt_is_quarantined_until_explicit_retry(
     recovered = store.recover_running()
     assert [attempt.id for attempt in recovered] == ["attempt-a"]
     assert store.task("task-a").status == "interrupted"  # type: ignore[union-attr]
-    assert store.outbox_pending()[0][3] == "interrupted"
+    assert [item[3] for item in store.outbox_pending()[:2]] == [
+        "started",
+        "interrupted",
+    ]
     assert store.retry("task-a")
     assert _next_task(store).id == "task-a"  # type: ignore[union-attr]
 
@@ -790,6 +794,318 @@ def test_daily_launch_limit_blocks_at_limit_24_without_dispatch(
     assert task.attempt_count == 0
     assert store.launch_count(today.strftime("%Y-%m-%d")) == 24
     assert not fake.exists()
+
+
+def test_empty_queue_planner_proposes_then_dispatches_research_child(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "fake-codex.py"
+    evidence = repo / "README.md"
+    evidence_hash = hashlib.sha256(evidence.read_bytes()).hexdigest()
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "args = sys.argv\n"
+        "prompt = sys.stdin.read()\n"
+        "output = Path(args[args.index('-o') + 1])\n"
+        "fields = {}\n"
+        "for line in prompt.splitlines():\n"
+        "    if ': ' in line:\n"
+        "        key, value = line.split(': ', 1)\n"
+        "        fields[key] = value\n"
+        "if any('planning.schema.json' in arg for arg in args):\n"
+        "    payload = {'task_id': fields['Task id'],\n"
+        "      'attempt_id': fields['Attempt id'],\n"
+        "      'fingerprint': fields['Fingerprint'], 'status': 'proposed',\n"
+        "      'proposal': {'id': 'planned-research-v1',\n"
+        "       'area': 'portfolio-stress-robustness',\n"
+        "       'prompt': ('Objective: compare costs. Scope: current universe. '\n"
+        "         'Inputs: existing evidence. Computation cap: small. '\n"
+        "         'Tests: deterministic. Stop condition: stop at cap.'),\n"
+        f"       'evidence': [{{'path': {str(evidence)!r},\n"
+        f"         'sha256': '{evidence_hash}'}}]}},\n"
+        "      'wait_reason': None}\n"
+        "else:\n"
+        "    payload = {'task_id': fields['Task id'],\n"
+        "      'attempt_id': fields['Attempt id'],\n"
+        "      'status': 'blocked', 'integrated_commit': None, 'evidence': [],\n"
+        "      'tests_passed': False, 'review_passed': False, 'handoff_path': None,\n"
+        "      'blocked_reason': 'offline fixture', 'followup': None}\n"
+        "output.write_text(json.dumps(payload), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        planning_enabled=True,
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+
+    planned = run_once(config)
+    assert planned.status == "completed"
+    store = RunnerStore(state / "runner.db", history)
+    research = store.task("planned-research-v1")
+    assert research is not None and research.status == "queued"
+    assert "Follow the repository workflow" in research.prompt
+    assert "never use real orders" in research.prompt
+    assert "PAPER engine" in research.prompt
+    assert "GPU changes" in research.prompt
+
+    dispatched = run_once(config)
+    assert dispatched.status == "blocked"
+    assert research.id == dispatched.task_id
+    assert store.task(research.id).status == "blocked"  # type: ignore[union-attr]
+    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 2
+
+
+@pytest.mark.parametrize(
+    ("gate", "expected_status"),
+    [
+        ("paused", "paused"),
+        ("quota", "quota"),
+        ("cooldown", "cooldown"),
+        ("dependency", "idle"),
+        ("queue_full", "idle"),
+        ("live_pgid", "blocked"),
+    ],
+)
+def test_planner_branch_obeys_all_dispatch_gates_without_claiming(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    gate: str,
+    expected_status: str,
+) -> None:
+    repo = _repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    if gate == "dependency":
+        store.enqueue(
+            "blocked-child",
+            "portfolio-stress-robustness",
+            "prompt",
+            depends_on="missing",
+        )
+    elif gate == "queue_full":
+        for index in range(8):
+            task_id = f"blocked-{index}"
+            store.enqueue(task_id, "portfolio-stress-robustness", "prompt")
+            task = store.task(task_id)
+            assert task is not None
+            store.claim(
+                task,
+                f"attempt-{index}",
+                tmp_path / f"out-{index}",
+                tmp_path / f"err-{index}",
+            )
+            store.finish(f"attempt-{index}", task_id, "blocked")
+    elif gate == "live_pgid":
+        store.enqueue("planner", "portfolio-stress-robustness", "prompt")
+        task = store.task("planner")
+        assert task is not None
+        store.claim(task, "live-attempt", tmp_path / "out", tmp_path / "err")
+        store.set_process_group("live-attempt", 7777)
+        monkeypatch.setattr(
+            "jusik.development_runner._process_group_alive", lambda _: True
+        )
+    if gate == "paused":
+        store.pause()
+    elif gate == "quota":
+        store.record_launch(datetime.now(UTC).isoformat())
+    elif gate == "cooldown":
+        store.set_meta("last_launch_at", datetime.now(UTC).isoformat())
+
+    def no_launch(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("planner gate launched a child")
+
+    monkeypatch.setattr("jusik.development_runner.subprocess.Popen", no_launch)
+    monkeypatch.setattr(
+        "jusik.development_runner._git_common", lambda path: path / ".git"
+    )
+    monkeypatch.setattr(
+        "jusik.development_runner._git",
+        lambda *_args, **_kwargs: type("Result", (), {"stdout": "a" * 40})(),
+    )
+    monkeypatch.setattr(
+        "jusik.development_runner._git_ready", lambda _repo: (True, "")
+    )
+
+    def no_claim(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("planner gate claimed a task")
+
+    monkeypatch.setattr(RunnerStore, "claim", no_claim)
+    config = RunnerConfig(
+        repo=repo,
+        codex="must-not-run",
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        planning_enabled=True,
+        daily_launches=1 if gate == "quota" else 24,
+        cooldown_seconds=3600 if gate == "cooldown" else 0,
+    )
+    result = run_once(config)
+    assert result.status == expected_status
+    if gate != "live_pgid":
+        assert not any(task.area == PLANNING_AREA for task in store.tasks())
+    assert all(
+        task.attempt_count == (1 if gate in {"queue_full", "live_pgid"} else 0)
+        for task in store.tasks()
+    )
+
+
+@pytest.mark.parametrize("stale_kind", ["snapshot", "fingerprint"])
+def test_stale_planning_cannot_enqueue_and_new_research_remains_next(
+    tmp_path: Path, stale_kind: str
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db", tmp_path / "history")
+    store.enqueue("planner", PLANNING_AREA, "internal")
+    task = store.task("planner")
+    assert task is not None
+    store.claim(task, "attempt", tmp_path / "out", tmp_path / "err")
+    expected: list[tuple[str, str, str | None]] = []
+    if stale_kind == "snapshot":
+        store.enqueue("new-research", "portfolio-stress-robustness", "prompt")
+    current = "changed" if stale_kind == "fingerprint" else None
+    assert not store.finish_planning(
+        "attempt",
+        "planner",
+        "proposed",
+        {"status": "proposed"},
+        "f" * 64,
+        expected,
+        current_fingerprint=current,
+        proposal=("must-not-enqueue", "portfolio-stress-robustness", "prompt"),
+    )
+    assert store.task("must-not-enqueue") is None
+    assert store.task("planner").status == "failed"  # type: ignore[union-attr]
+    assert store.outbox_pending()[-1][3] == "planning_stale"
+    if stale_kind == "fingerprint":
+        store.enqueue("new-research", "portfolio-stress-robustness", "prompt")
+    assert _next_task(store).id == "new-research"  # type: ignore[union-attr]
+
+
+@pytest.mark.parametrize("action", ["stop", "pause"])
+def test_planner_child_interrupt_during_communicate_has_no_proposal(
+    tmp_path: Path, action: str
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "sleep-planner.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n", encoding="utf-8"
+    )
+    fake.chmod(0o700)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        planning_enabled=True,
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+    store = RunnerStore(state / "runner.db", history)
+    stop = threading.Event()
+    results: list[RunResult] = []
+    worker = threading.Thread(
+        target=lambda: results.append(run_once(config, stop.is_set))
+    )
+    worker.start()
+    for _ in range(100):
+        active = store.active_attempt()
+        if active is not None and active.process_group_id is not None:
+            break
+        time.sleep(0.02)
+    if action == "stop":
+        stop.set()
+    else:
+        pause_runner(config)
+    worker.join(timeout=10)
+    assert not worker.is_alive()
+    assert results[0].status in {"interrupted", "paused"}
+    planner = next(task for task in store.tasks() if task.area == PLANNING_AREA)
+    assert planner.status == "interrupted"
+    assert not any(item[3] == "planning_proposed" for item in store.outbox_pending())
+
+
+def test_planner_child_timeout_has_no_proposal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "sleep-planner.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n", encoding="utf-8"
+    )
+    fake.chmod(0o700)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        planning_enabled=True,
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+    monkeypatch.setattr(
+        "jusik.development_runner._git_common", lambda path: path / ".git"
+    )
+    monkeypatch.setattr(
+        "jusik.development_runner._git",
+        lambda *_args, **_kwargs: type("Result", (), {"stdout": "a" * 40})(),
+    )
+    monkeypatch.setattr("jusik.development_runner._git_ready", lambda _repo: (True, ""))
+
+    class TimeoutProcess:
+        pid = 100_001
+        returncode = None
+
+        def poll(self) -> None:
+            return None
+
+        def communicate(self, _prompt: bytes, timeout: int) -> None:
+            raise subprocess.TimeoutExpired("fake", timeout)
+
+        def wait(self, timeout: int) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "jusik.development_runner.subprocess.Popen",
+        lambda *args, **kwargs: TimeoutProcess(),
+    )
+    monkeypatch.setattr("jusik.development_runner.os.getpgid", lambda _pid: 100_001)
+    monkeypatch.setattr(
+        "jusik.development_runner._terminate_group", lambda *args, **kwargs: None
+    )
+    ticks = iter([0.0, 1_000_000.0])
+    monkeypatch.setattr(
+        "jusik.development_runner.time.monotonic",
+        lambda: next(ticks, 1_000_000.0),
+    )
+    result = run_once(config)
+    store = RunnerStore(state / "runner.db", history)
+    assert result.status == "failed" and result.reason == "timeout"
+    planner = next(task for task in store.tasks() if task.area == PLANNING_AREA)
+    assert planner.status == "failed"
+    assert not any(item[3] == "planning_proposed" for item in store.outbox_pending())
 
 
 def test_pause_and_stop_callback_interrupt_owned_child(tmp_path: Path) -> None:
