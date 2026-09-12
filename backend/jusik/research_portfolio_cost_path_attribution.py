@@ -382,19 +382,23 @@ def _decomposition(
         "variant_minus_control_cost_delta_krw": format(v - c, "f"),
         "variant_minus_control_delta_net_pnl": format(
             Decimal(variant["aggregate_delta_net_pnl"])
-            - Decimal(control["aggregate_delta_net_pnl"]), "f"
+            - Decimal(control["aggregate_delta_net_pnl"]),
+            "f",
         ),
         "variant_minus_control_delta_transaction_fx": format(
             Decimal(variant["aggregate_delta_transaction_fx"])
-            - Decimal(control["aggregate_delta_transaction_fx"]), "f"
+            - Decimal(control["aggregate_delta_transaction_fx"]),
+            "f",
         ),
         "variant_minus_control_delta_pre_cost": format(
             Decimal(variant["aggregate_delta_pre_cost"])
-            - Decimal(control["aggregate_delta_pre_cost"]), "f"
+            - Decimal(control["aggregate_delta_pre_cost"]),
+            "f",
         ),
         "aggregate_reconciliation_residual": format(
             Decimal(variant["aggregate_reconciliation_residual"])
-            - Decimal(control["aggregate_reconciliation_residual"]), "f"
+            - Decimal(control["aggregate_reconciliation_residual"]),
+            "f",
         ),
         "control_cost_path": first_trade_path_mismatch(
             sims[(period, "control", 1)], sims[(period, "control", high)]
@@ -423,26 +427,41 @@ def _decomposition(
 
 def enrich_report(report: dict[str, Any]) -> dict[str, Any]:
     """Complete a saved report from its 32 comparison rows; performs no analysis."""
-    paths = report.get("cost_comparisons")
-    if not isinstance(paths, list) or len(paths) != 32:
-        raise ValueError("saved report must contain exactly 32 comparisons")
-    index = {(r["period"], r["arm"], r["to_cost"]): r for r in paths}
-    decomposition = []
-    for period in PERIODS:
-        for high in (2, 3):
-            control = index[(period, "control", high)]
-            variant = index[(period, "variant", high)]
-            row = {"period": period, "high_cost": high}
-            for name in ("aggregate_delta_net_pnl", "aggregate_delta_transaction_fx", "aggregate_delta_pre_cost"):
-                row[f"variant_minus_control_{name}"] = format(Decimal(variant[name]) - Decimal(control[name]), "f")
-            row["aggregate_reconciliation_residual"] = format(Decimal(variant["aggregate_reconciliation_residual"]) - Decimal(control["aggregate_reconciliation_residual"]), "f")
-            row["variant_turnover_delta_pp"] = variant["turnover_delta_pp"]
-            row["control_turnover_delta_pp"] = control["turnover_delta_pp"]
-            row["variant_mdd_delta_pp"] = variant["max_drawdown_delta_pp"]
-            row["control_mdd_delta_pp"] = control["max_drawdown_delta_pp"]
-            row["variant_cost_path"] = variant["first_trade_path_mismatch"]
-            row["control_cost_path"] = control["first_trade_path_mismatch"]
-            decomposition.append(row)
+    with localcontext() as context:
+        context.prec = 50
+        paths = report.get("cost_comparisons")
+        if not isinstance(paths, list) or len(paths) != 32:
+            raise ValueError("saved report must contain exactly 32 comparisons")
+        keys = [(r["period"], r["arm"], r["to_cost"]) for r in paths]
+        if len(set(keys)) != len(keys):
+            raise ValueError("saved report contains duplicate comparisons")
+        index = dict(zip(keys, paths, strict=True))
+        decomposition = []
+        for period in PERIODS:
+            for high in (2, 3):
+                control = index[(period, "control", high)]
+                variant = index[(period, "variant", high)]
+                row = {"period": period, "high_cost": high}
+                for name in (
+                    "aggregate_delta_net_pnl",
+                    "aggregate_delta_transaction_fx",
+                    "aggregate_delta_pre_cost",
+                ):
+                    row[f"variant_minus_control_{name}"] = format(
+                        Decimal(variant[name]) - Decimal(control[name]), "f"
+                    )
+                row["aggregate_reconciliation_residual"] = format(
+                    Decimal(variant["aggregate_reconciliation_residual"])
+                    - Decimal(control["aggregate_reconciliation_residual"]),
+                    "f",
+                )
+                row["variant_turnover_delta_pp"] = variant["turnover_delta_pp"]
+                row["control_turnover_delta_pp"] = control["turnover_delta_pp"]
+                row["variant_mdd_delta_pp"] = variant["max_drawdown_delta_pp"]
+                row["control_mdd_delta_pp"] = control["max_drawdown_delta_pp"]
+                row["variant_cost_path"] = variant["first_trade_path_mismatch"]
+                row["control_cost_path"] = control["first_trade_path_mismatch"]
+                decomposition.append(row)
     report["variant_control_decomposition"] = decomposition
     report["unsupported"] = ["partial fills", "cancels", "rejects"]
     return report
@@ -451,18 +470,39 @@ def enrich_report(report: dict[str, Any]) -> dict[str, Any]:
 def render_markdown(report: dict[str, Any]) -> str:
     """Render complete saved comparison tables without reading simulations."""
     lines = [
-        "# Portfolio held-band cost-path attribution v1", "",
-        "고정 입력의 비용 경로 회계 attribution입니다.", "",
-        "## 비용 비교 32개", "",
+        "# Portfolio held-band cost-path attribution v1",
+        "",
+        "고정 입력의 비용 경로 회계 attribution입니다.",
+        "",
+        "## 비용 비교 32개",
+        "",
         "| period | arm | from→to | Δnet | Δtransaction+FX | Δpre-cost | residual | turnover Δpp | MDD Δpp | path |",
         "|---|---|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for row in report["cost_comparisons"]:
-        lines.append(f"| {row['period']} | {row['arm']} | {row['from_cost']}→{row['to_cost']} | {row['aggregate_delta_net_pnl']} | {row['aggregate_delta_transaction_fx']} | {row['aggregate_delta_pre_cost']} | {row['aggregate_reconciliation_residual']} | {row['turnover_delta_pp']} | {row['max_drawdown_delta_pp']} | {row['first_trade_path_mismatch']} |")
-    lines.extend(["", "## variant−control 분해 16개", "", "| period | high | Δnet | Δtransaction+FX | Δpre-cost | residual | turnover control/variant | MDD control/variant |", "|---|---:|---:|---:|---:|---:|---|---|"])
+        lines.append(
+            f"| {row['period']} | {row['arm']} | {row['from_cost']}→{row['to_cost']} | {row['aggregate_delta_net_pnl']} | {row['aggregate_delta_transaction_fx']} | {row['aggregate_delta_pre_cost']} | {row['aggregate_reconciliation_residual']} | {row['turnover_delta_pp']} | {row['max_drawdown_delta_pp']} | {row['first_trade_path_mismatch']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## variant−control 분해 16개",
+            "",
+            "| period | high | Δnet | Δtransaction+FX | Δpre-cost | residual | turnover control/variant | MDD control/variant |",
+            "|---|---:|---:|---:|---:|---:|---|---|",
+        ]
+    )
     for row in report["variant_control_decomposition"]:
-        lines.append(f"| {row['period']} | {row['high_cost']} | {row['variant_minus_control_aggregate_delta_net_pnl']} | {row['variant_minus_control_aggregate_delta_transaction_fx']} | {row['variant_minus_control_aggregate_delta_pre_cost']} | {row['aggregate_reconciliation_residual']} | {row['control_turnover_delta_pp']}/{row['variant_turnover_delta_pp']} | {row['control_mdd_delta_pp']}/{row['variant_mdd_delta_pp']} |")
-    lines.extend(["", "지원하지 않음: partial fills, cancels, rejects.", "causal effect 또는 pure-price effect를 주장하지 않습니다."])
+        lines.append(
+            f"| {row['period']} | {row['high_cost']} | {row['variant_minus_control_aggregate_delta_net_pnl']} | {row['variant_minus_control_aggregate_delta_transaction_fx']} | {row['variant_minus_control_aggregate_delta_pre_cost']} | {row['aggregate_reconciliation_residual']} | {row['control_turnover_delta_pp']}/{row['variant_turnover_delta_pp']} | {row['control_mdd_delta_pp']}/{row['variant_mdd_delta_pp']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "지원하지 않음: partial fills, cancels, rejects.",
+            "causal effect 또는 pure-price effect를 주장하지 않습니다.",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -477,7 +517,9 @@ def analyze(input_dir: Path, output_dir: Path) -> dict[str, Any]:
             for a in ARMS
             for low, high in ((1, 2), (1, 3))
         ]
-        decomposition = [_decomposition(p, c, sims, attrs) for p in PERIODS for c in (2, 3)]
+        decomposition = [
+            _decomposition(p, c, sims, attrs) for p in PERIODS for c in (2, 3)
+        ]
         report = {
             "run_id": "portfolio-held-band-cost-path-attribution-v1",
             "simulation_count": 48,
@@ -495,47 +537,8 @@ def analyze(input_dir: Path, output_dir: Path) -> dict[str, Any]:
             + "\n",
             encoding="utf-8",
         )
-        negative = sum(
-            1
-            for item in paths
-            for row in item["symbols"]
-            if Decimal(row["delta_net_pnl"]) < 0
-        )
-    (output_dir / "report.md").write_text(
-        "\n".join(
-            (
-                "# Portfolio held-band cost-path attribution v1",
-                "",
-                "고정된 48개 시뮬레이션을 재실행하지 않고 비용 경로를 사후 회계로 분해한 결과입니다.",
-                "",
-                f"- 비용 비교: {len(paths)}개 (cost2−cost1, cost3−cost1)",
-                f"- arm 분해: {len(decomposition)}개 (각 기간 cost2/cost3의 variant−control)",
-                f"- 음수 symbol cost-path delta: {negative}개",
-                "- 모든 simulation은 `attribute_simulation`의 NAV 및 symbol accounting residual 검증을 통과했습니다.",
-                "- 해석 범위: 비용 경로 회계 attribution이며 causal effect 또는 pure-price effect를 주장하지 않습니다.",
-                "",
-                "## 비용 비교 32개",
-                "",
-                "| period | arm | from | to | aggregate Δnet PnL |",
-                "|---|---|---:|---:|---:|",
-                *[
-                    f"| {r['period']} | {r['arm']} | {r['from_cost']} | {r['to_cost']} | {r['aggregate_delta_net_pnl']} |"
-                    for r in paths
-                ],
-                "",
-                "## variant−control 분해 16개",
-                "",
-                "| period | high cost | Δ variant−control |",
-                "|---|---:|---:|",
-                *[
-                    f"| {r['period']} | {r['high_cost']} | {r['variant_minus_control_cost_delta_krw']} |"
-                    for r in decomposition
-                ],
-            )
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    enriched = enrich_report(report)
+    (output_dir / "report.md").write_text(render_markdown(enriched), encoding="utf-8")
     return report
 
 
