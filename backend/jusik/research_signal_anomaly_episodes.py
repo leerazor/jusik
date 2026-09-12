@@ -62,7 +62,7 @@ def _verify_manifest(archive: Path) -> dict[str, str]:
     manifest_path = next(
         (archive / name for name in MANIFEST_NAMES if (archive / name).is_file()), None
     )
-    if manifest_path is None:
+    if manifest_path is None or manifest_path.is_symlink():
         raise EpisodesError("manifest_missing")
     try:
         body = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -71,6 +71,8 @@ def _verify_manifest(archive: Path) -> dict[str, str]:
     entries = body.get("files", []) if isinstance(body, dict) else body
     if not isinstance(entries, list):
         raise EpisodesError("manifest_entries_required")
+    if not entries:
+        raise EpisodesError("manifest_empty")
     result: dict[str, str] = {}
     for entry in entries:
         if (
@@ -80,6 +82,8 @@ def _verify_manifest(archive: Path) -> dict[str, str]:
         ):
             raise EpisodesError("manifest_entry_invalid")
         path = Path(entry["path"])
+        if not path.is_absolute():
+            path = archive / path
         try:
             relative = path.resolve().relative_to(archive).as_posix()
         except ValueError as exc:
@@ -87,6 +91,8 @@ def _verify_manifest(archive: Path) -> dict[str, str]:
         if path.is_symlink() or not path.is_file() or _sha256(path) != entry["sha256"]:
             raise EpisodesError(f"manifest_hash_mismatch:{relative}")
         result[relative] = entry["sha256"]
+    if len(result) != len(entries):
+        raise EpisodesError("manifest_duplicate_path")
     result[manifest_path.name] = _sha256(manifest_path)
     return result
 
@@ -112,6 +118,16 @@ def _guard_archive(
         pass
     else:
         raise EpisodesError("output_overlaps_archive")
+    if output.exists() and output.is_dir():
+        input_inodes = {
+            (path.stat().st_dev, path.stat().st_ino) for path in _input_paths(archive)
+        }
+        for candidate in output.rglob("*"):
+            if (
+                candidate.is_file()
+                and (candidate.stat().st_dev, candidate.stat().st_ino) in input_inodes
+            ):
+                raise EpisodesError("output_hardlink_rejected")
     anomaly_path, replay_path = _input_paths(archive)
     for path, relative in (
         (anomaly_path, ANOMALIES_RELATIVE),
@@ -165,8 +181,7 @@ def aggregate_rows(
 
     ``selected_rows`` may contain ``latency_microseconds``; anomaly rows are then
     independently selected using strict ``<-2s`` and ``>15s`` comparisons. If
-    ``anomaly_rows`` is supplied, its IDs are retained (including duplicates),
-    while symbol membership is always deduplicated.
+    Row IDs retain multiplicity while symbol membership is deduplicated.
     """
     minutes: dict[str, dict[str, Any]] = defaultdict(
         lambda: {"observed": set(), "anomalous": set(), "ids": []}
@@ -211,7 +226,6 @@ def aggregate_rows(
             "missing_symbols": sorted(active.get(minute, set()) - set(observed)),
             "anomaly_ids": sorted(group["ids"]),
             "observed_symbol_denominator": len(observed),
-            "observed_symbol_count": len(observed),
             "active_symbol_denominator": len(active.get(minute, set())),
         }
     coincident = {
@@ -345,7 +359,7 @@ def analyze_archive(
         return (
             str(row["observation_id"]),
             str(row["symbol"]),
-            _minute(str(row["market_at"])),
+            str(row["market_at"]),
             int(str(row["latency_microseconds"])),
         )
 
