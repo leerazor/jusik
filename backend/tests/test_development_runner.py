@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 import threading
 import time
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from jusik.development_runner import (
     RunnerConfig,
+    RunResult,
+    _git_common,
     _next_task,
     _safe_history_flush,
     init_config,
@@ -104,7 +109,7 @@ def test_validate_completion_checks_commit_and_evidence(tmp_path: Path) -> None:
     store.enqueue("task-a", "entry-amount-distribution", "prompt")
     task = store.task("task-a")
     assert task is not None
-    payload = {
+    payload: dict[str, Any] = {
         "task_id": task.id,
         "attempt_id": "attempt-a",
         "status": "completed",
@@ -151,6 +156,160 @@ def test_validate_completion_allows_explicit_blocked_result(tmp_path: Path) -> N
         config,
     )
     assert result.status == "blocked"
+
+
+def test_git_common_resolves_linked_worktree_to_main_git_directory(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    linked = tmp_path / "linked-worktree"
+    _git(repo, "worktree", "add", "--detach", str(linked), "HEAD")
+    assert _git_common(linked) == (repo / ".git").resolve()
+
+
+def test_invalid_repo_does_not_create_child_or_change_task(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "stored prompt")
+    fake = tmp_path / "must-not-run"
+    config = RunnerConfig(
+        repo=tmp_path / "not-a-repository",
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+    )
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    assert result.reason == "invalid repository"
+    task = RunnerStore(state / "runner.db", history).task("task-a")
+    assert task is not None and task.status == "queued" and task.attempt_count == 0
+    assert not fake.exists()
+    assert (
+        RunnerStore(state / "runner.db", history).launch_count(
+            datetime.now(UTC).strftime("%Y-%m-%d")
+        )
+        == 0
+    )
+
+
+def test_run_once_uses_named_permission_profile_for_stored_task(
+    tmp_path: Path,
+) -> None:
+    repo_parent = tmp_path / 'repo parent "quoted"'
+    repo_parent.mkdir()
+    repo = _repo(repo_parent)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    artifact = tmp_path / 'artifact root "quoted"'
+    artifact.mkdir()
+    capture = tmp_path / "codex-args.json"
+    captured_prompt = tmp_path / "codex-prompt.txt"
+    fake = tmp_path / "fake-codex.py"
+    fake.write_text(
+        f"""#!/usr/bin/env python3
+import json, pathlib, sys
+pathlib.Path({str(capture)!r}).write_text(json.dumps(sys.argv[1:]), encoding='utf-8')
+pathlib.Path({str(captured_prompt)!r}).write_text(sys.stdin.read(), encoding='utf-8')
+output = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])
+output.write_text(json.dumps({{
+    'task_id': 'task-a',
+    'attempt_id': output.parent.name,
+    'status': 'blocked',
+    'integrated_commit': None,
+    'evidence': [],
+    'tests_passed': False,
+    'review_passed': False,
+    'handoff_path': None,
+    'blocked_reason': 'test block',
+    'followup': None,
+}}), encoding='utf-8')
+""",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=artifact,
+        cooldown_seconds=0,
+    )
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "legacy stored prompt")
+
+    assert run_once(config).status == "blocked"
+    args = json.loads(capture.read_text(encoding="utf-8"))
+    assert "--ignore-user-config" in args
+    assert "-s" not in args
+    assert "--add-dir" not in args
+    assert not any("sandbox_workspace_write" in value for value in args)
+    default_value = args[args.index("-c") + 1]
+    profile_value = args[args.index("-c", args.index("-c") + 1) + 1]
+    settings = tomllib.loads(f"{default_value}\n{profile_value}\n")
+    assert settings["default_permissions"] == "jusik-development"
+    profile = settings["permissions"]["jusik-development"]
+    assert profile["extends"] == ":workspace"
+    assert profile["network"] == {"enabled": True}
+    assert profile["filesystem"] == {str((repo / ".git").resolve()): "write"}
+    roots = profile["workspace_roots"]
+    assert roots[str(repo.parent.resolve())] is True
+    assert roots[str(state.resolve())] is True
+    assert roots[str(history.resolve())] is True
+    assert roots[str(history.parent.resolve())] is True
+    assert roots[str(artifact.resolve())] is True
+    assert "Before removing any merged worktree" in captured_prompt.read_text(
+        encoding="utf-8"
+    )
+
+
+def test_durable_evidence_remains_valid_after_linked_worktree_cleanup(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    linked = tmp_path / "merged-worktree"
+    _git(repo, "worktree", "add", "--detach", str(linked), "HEAD")
+    durable = tmp_path / "durable-artifacts"
+    durable.mkdir()
+    evidence = durable / "evidence.json"
+    handoff = durable / "HANDOFF.md"
+    evidence.write_text('{"survives": true}\n', encoding="utf-8")
+    handoff.write_text("handoff\n", encoding="utf-8")
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=durable,
+    )
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    task = store.task("task-a")
+    assert task is not None
+    payload = {
+        "task_id": task.id,
+        "attempt_id": "attempt-a",
+        "status": "completed",
+        "integrated_commit": _git(repo, "rev-parse", "HEAD"),
+        "evidence": [
+            {
+                "path": str(evidence),
+                "sha256": hashlib.sha256(evidence.read_bytes()).hexdigest(),
+            }
+        ],
+        "tests_passed": True,
+        "review_passed": True,
+        "handoff_path": str(handoff),
+        "followup": None,
+    }
+
+    _git(repo, "worktree", "remove", str(linked))
+    assert validate_completion(payload, task, "attempt-a", config).status == "completed"
 
 
 def test_run_once_fake_codex_success_preserves_private_result(tmp_path: Path) -> None:
@@ -419,7 +578,7 @@ def test_pause_and_stop_callback_interrupt_owned_child(tmp_path: Path) -> None:
         cooldown_seconds=0,
     )
     stop = threading.Event()
-    result_box: list[object] = []
+    result_box: list[RunResult] = []
 
     def worker() -> None:
         result_box.append(run_once(config, stop.is_set))
@@ -434,12 +593,12 @@ def test_pause_and_stop_callback_interrupt_owned_child(tmp_path: Path) -> None:
     stop.set()
     worker_thread.join(timeout=10)
     assert not worker_thread.is_alive()
-    assert result_box[0].status == "interrupted"  # type: ignore[union-attr]
+    assert result_box[0].status == "interrupted"
     assert store.task("task-a").status == "interrupted"  # type: ignore[union-attr]
 
     assert store.retry("task-a")
     store.resume()
-    paused_box: list[object] = []
+    paused_box: list[RunResult] = []
 
     def paused_worker() -> None:
         paused_box.append(run_once(config))
@@ -454,5 +613,5 @@ def test_pause_and_stop_callback_interrupt_owned_child(tmp_path: Path) -> None:
     pause_runner(config)
     paused_thread.join(timeout=10)
     assert not paused_thread.is_alive()
-    assert paused_box[0].status == "paused"  # type: ignore[union-attr]
+    assert paused_box[0].status == "paused"
     assert store.task("task-a").status == "interrupted"  # type: ignore[union-attr]
