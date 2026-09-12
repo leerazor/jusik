@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import csv
 import hashlib
 import json
@@ -132,11 +131,7 @@ def _exposure(
     if not points or any(point.equity_krw <= 0 for _, point in points):
         return None, "no valid UTC-day equity points or zero equity", {}
     sorted_equity = [point for _, point in points]
-    if hasattr(sim, "model_copy"):
-        sorted_sim = sim.model_copy(update={"equity": sorted_equity})
-    else:
-        sorted_sim = copy.copy(sim)
-        sorted_sim.equity = sorted_equity
+    sorted_sim = sim.model_copy(update={"equity": sorted_equity})
     daily = invested_percent_by_utc_day(sorted_sim)
     if daily is None:
         return None, "no valid UTC-day equity points or zero equity", {}
