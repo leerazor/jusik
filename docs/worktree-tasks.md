@@ -407,7 +407,7 @@
 
 ## small-entry-draft-provenance-d946
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 고정 bundle provenance 검증기, 합성 경계와 보관 입력 검증, 독립 검토, main 통합 검사, 연구 이력 게시와 영구 handoff.
 - 담당 Luna: provenance_luna (gpt-5.6-luna), 단일 구현 소유자.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-small-entry-draft-provenance-d946
@@ -419,3 +419,13 @@
 - 포트·테스트 DB·출력 경로: 서버/DB 없음. 작업별 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/small-entry-draft-provenance-audit-v1-d946e107ca2a46e0a88ea65391331b60
 - 검증 방법: 신규+draft+분포 pytest, Ruff check/format, strict mypy, 보관 네 파일 전후 SHA 및 반복 출력 일치, 독립 review, main 재검사, 웹/API 다운로드 SHA 확인.
 - 제외: 미래 자료·임계값·정책·PAPER/운영 DB·collector/order/GPU·runner/quota·remote push 변경 및 과거 blocked 큐 재시도 없음.
+
+- 결과 커밋 SHA: f512484d6cf2f06b65d0cf25e7b36de78e83c2e8 (선행 1d5c2dc)
+- 검토 결과: 독립 review 통과, 중요 지적 없음. 별도 pytest 41개와 네 파일 변조/symlink probe 통과.
+- 병합 직전 main SHA: 35af566e70927fe1f907611b77d888efd674dc88
+- 통합 커밋 SHA: a2da7de8848c57a0408e7e9f1515a8078cb4baa0
+- 통합 검증: 관련 pytest 47개, Ruff check/format, strict mypy 82개 소스, diff 통과. 원본 네 파일 SHA·반복/relocation 출력 일치. 기존 backend/frontend/deploy 118개 파일 보존. UI 미변경으로 build 생략.
+- 게시: /research/history 보고서·공개 manifest·검사 3개 artifact, API/웹 제목 및 다운로드 6건 SHA 검증 완료. 기존 history seed 보존.
+- 정리: 증거·환경·SHA·handoff 54개 파일을 영구 audit에 보관/대조한 뒤 이번 워크트리만 제거. 이전 4840 워크트리와 브랜치는 기존 상태·소유권 보존을 위해 유지.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/small-entry-draft-provenance-audit-v1-d946e107ca2a46e0a88ea65391331b60/handoff-final.md. 기존 root HANDOFF 내용 보존 후 이번 기록 추가.
+- 통합 검증 실패: 없음. 남은 작업 없음.
