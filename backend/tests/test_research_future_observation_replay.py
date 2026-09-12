@@ -193,6 +193,27 @@ def test_duplicate_and_conflict_are_both_facts_when_all_receipts_are_known() -> 
     assert item.evidence_counts["available_receipts"] == 3
 
 
+def test_future_bad_clock_is_deferred_without_group_clock_error() -> None:
+    result = replay(
+        {
+            **BASE,
+            "observations": [
+                observation(),
+                observation(
+                    received_at="2030-01-03T00:00:00Z",
+                    event_at="not-a-time",
+                    read_finished_at="not-a-time",
+                ),
+            ],
+        }
+    )
+    item = result.observations[0]
+    assert "clock_invalid" not in item.classifications
+    assert item.receipts[1].clock_invalid is True
+    assert item.evidence_counts["clock_invalid_receipts"] == 1
+    assert item.evidence_counts["deferred_receipts"] == 1
+
+
 def test_result_flags_are_always_synthetic_and_not_accepted() -> None:
     result = replay({**BASE})
     assert result.synthetic is True

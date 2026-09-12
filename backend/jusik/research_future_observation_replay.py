@@ -270,7 +270,7 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                     evidence_flags=sorted(item.evidence_flags),
                 )
             )
-        if invalid or clock_invalid_receipts:
+        if invalid:
             classes.append("clock_invalid")
             reasons.append("invalid_or_reversed_clock")
         if len(available_hashes) > 1:
