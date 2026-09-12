@@ -12,7 +12,7 @@
 
 수신 구간은 UTC 기준 `[window_start_at, window_end_at)`이다. 각 receipt의 `available_at_check`는 parsed `received_at <= checked_at`일 때만 true이며, 미래는 false, 수신 시각 오류는 null이다. 이는 표본 승인이나 provenance 검증이 아니다. `event_at`이 구간 시작보다 이른데 수신은 구간 안이면 `late_arrival`이라는 사실만 표시한다. 지연 허용 시간이나 성과 정책은 추론하지 않는다. event 시각은 수신 가능 시각을 소급하지 않는다. 같은 source와 ID의 같은 raw hash는 논리 관측 한 건과 모든 receipt를 보존하며 `duplicate`를 표시한다. 다른 hash는 모든 raw와 hash를 보존하고 `conflict`를 표시한다. clock 오류나 conflict가 다른 후보와 겹치면 판단 순서를 만들지 않고 `unresolved`를 추가하며 후보 분류와 이유를 모두 남긴다. 원문 hash는 원문 UTF-8 bytes의 SHA-256이다.
 
-`clock_invalid_receipts`는 event/read 시각 오류 또는 available receipt의 수신 시각 역행을 세며, `unknown_receipts`는 수신 시각 자체를 해석할 수 없는 receipt를 센다. 미래 receipt의 잘못된 event/read 시각은 receipt에 보존하지만 현재 available 집계를 오염시키지 않는다.
+`raw_versions`와 `receipts`는 전체 합성 fixture 기준이다. conflict/duplicate/provenance 그룹 분류는 checked 시각까지 available인 receipt만 사용하며, 미래 raw version은 보존하되 현재 conflict로 세지 않는다. `clock_invalid_receipts`는 각 receipt의 clock_invalid flag 전체(미래 포함)를 세고, 그룹 `clock_invalid` 분류는 available 또는 unknown 오류만 반영한다. `unknown_receipts`는 수신 시각 자체를 해석할 수 없는 receipt를 센다. 미래 receipt의 잘못된 event/read 시각은 receipt에 보존하지만 현재 available 집계를 오염시키지 않는다. `in_window`와 counts는 유효한 prospective 표본 수나 승인된 관측 수가 아니다.
 
 ## copyable synthetic fixture
 

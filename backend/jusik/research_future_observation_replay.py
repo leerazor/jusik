@@ -249,12 +249,13 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
             except (TypeError, ValueError, OverflowError):
                 receipt_clock_invalid = True
                 if available is True or not received_parsed:
-                    clock_invalid_receipts += 1
                     invalid = True
                 if not received_parsed:
                     unknown_receipts += 1
                     available = None
                     received_text = str(item.received_at)
+            if receipt_clock_invalid:
+                clock_invalid_receipts += 1
             receipts.append(
                 ReceiptResult(
                     receipt_index=index,
@@ -290,7 +291,7 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
         )
         for flag in ("unavailable", "unverified_provenance"):
             if flag in flags:
-                classes.append(flag)  # type: ignore[arg-type]
+                classes.append(flag)
                 reasons.append(flag)
         try:
             first_received = _utc(first.received_at, "received_at")

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -200,8 +202,46 @@ def test_result_flags_are_always_synthetic_and_not_accepted() -> None:
     assert result.checked_at == datetime(2030, 1, 2, tzinfo=UTC)
 
 
+@pytest.mark.parametrize(
+    ("checked_at", "state"),
+    [("2030-01-01T00:00:00Z", "not_due"), ("2030-01-02T00:00:00Z", "missing")],
+)
+def test_boundary_before_and_at_due(checked_at: str, state: str) -> None:
+    result = replay(
+        {
+            **BASE,
+            "checked_at": checked_at,
+            "required_boundaries": [
+                {"boundary": "end", "due_at": BASE["window_end_at"]}
+            ],
+        }
+    )
+    assert result.boundary_states["end"] == state
+    before = replay(
+        {
+            **BASE,
+            "checked_at": "2029-12-31T23:00:00Z",
+            "required_boundaries": [
+                {"boundary": "start", "due_at": BASE["window_start_at"]}
+            ],
+        }
+    )
+    assert before.boundary_states["start"] == "not_due"
+
+
+def test_missing_synthetic_and_utc_overflow_rejected() -> None:
+    with pytest.raises(ValidationError):
+        SyntheticFixture.model_validate(
+            {k: v for k, v in BASE.items() if k != "synthetic"}
+        )
+    result = replay(
+        {**BASE, "observations": [observation(received_at="9999-12-31T23:00:00-23:00")]}
+    )
+    assert result.observations[0].classifications == ["clock_invalid"]
+
+
 @pytest.mark.parametrize("value", [None, False, "true", 1])
-def test_cli_rejects_non_literal_synthetic(tmp_path, value: object) -> None:
+def test_cli_rejects_non_literal_synthetic(tmp_path: Path, value: object) -> None:
     fixture = tmp_path / "fixture.json"
     fixture.write_text(json.dumps({**BASE, "synthetic": value}), encoding="utf-8")
     proc = subprocess.run(
@@ -214,7 +254,7 @@ def test_cli_rejects_non_literal_synthetic(tmp_path, value: object) -> None:
             "--output",
             str(tmp_path / "out.json"),
         ],
-        env={"PYTHONPATH": "backend"},
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])},
         capture_output=True,
         text=True,
     )
@@ -222,7 +262,7 @@ def test_cli_rejects_non_literal_synthetic(tmp_path, value: object) -> None:
 
 
 def test_cli_is_deterministic_and_refuses_malformed_oversize_and_alias(
-    tmp_path,
+    tmp_path: Path,
 ) -> None:
     fixture = tmp_path / "fixture.json"
     fixture.write_text(json.dumps(BASE), encoding="utf-8")
@@ -236,10 +276,14 @@ def test_cli_is_deterministic_and_refuses_malformed_oversize_and_alias(
         "--output",
         str(output),
     ]
-    first = subprocess.run(command, env={"PYTHONPATH": "backend"}, capture_output=True)
+    env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])}
+    first = subprocess.run(command, env=env, capture_output=True)
     assert first.returncode == 0
     payload = output.read_bytes()
-    second = subprocess.run(command, env={"PYTHONPATH": "backend"}, capture_output=True)
+    distinct = tmp_path / "distinct.json"
+    assert subprocess.run([*command[:-1], str(distinct)], env=env).returncode == 0
+    assert distinct.read_bytes() == payload
+    second = subprocess.run(command, env=env, capture_output=True)
     assert second.returncode != 0 and output.read_bytes() == payload
     malformed = tmp_path / "malformed.json"
     malformed.write_text("{", encoding="utf-8")
@@ -252,17 +296,14 @@ def test_cli_is_deterministic_and_refuses_malformed_oversize_and_alias(
         "--output",
         str(tmp_path / "bad.json"),
     ]
-    assert (
-        subprocess.run(malformed_command, env={"PYTHONPATH": "backend"}).returncode != 0
-    )
+    assert subprocess.run(malformed_command, env=env).returncode != 0
     alias = tmp_path / "alias.json"
     alias.hardlink_to(fixture)
-    assert (
-        subprocess.run(
-            [*command[:5], str(fixture), "--output", str(alias)],
-            env={"PYTHONPATH": "backend"},
-        ).returncode
-        != 0
+    alias_proc = subprocess.run(
+        [*command[:-1], str(alias)], env=env, capture_output=True, text=True
+    )
+    assert alias_proc.returncode != 0 and (
+        "alias" in alias_proc.stderr or "differ" in alias_proc.stderr
     )
     large = tmp_path / "large.json"
     large.write_bytes(b"{" + b"x" * (4 * 1024 * 1024) + b"}")
@@ -275,4 +316,4 @@ def test_cli_is_deterministic_and_refuses_malformed_oversize_and_alias(
         "--output",
         str(tmp_path / "large-out.json"),
     ]
-    assert subprocess.run(large_command, env={"PYTHONPATH": "backend"}).returncode != 0
+    assert subprocess.run(large_command, env=env).returncode != 0
