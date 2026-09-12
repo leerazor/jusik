@@ -17,7 +17,7 @@ cd backend
   --artifact-dir ~/.local/share/jusik/portfolio-audit
 ```
 
-설정 파일에는 저장소, Codex 실행 파일, 상태·history·artifact 경로, 시도 제한(기본 90분), UTC 일일 실행 상한(기본 8회), 실행 간 대기(기본 60초)를 명시합니다. history는 연구 화면의 기존 `~/.local/share/jusik/research-history`와 journal DB를 사용해야 기록이 웹에 나타납니다. `artifact_dir`는 `~/.local/share/jusik/portfolio-audit`를 사용해 분석 산출물을 검증하고 Codex sandbox에 명시적으로 제공합니다. 큐의 초기 작업은 entry amount distribution, 작은 진입 제약의 선행 조건, 미래 관찰 프로토콜, PAPER 신호 근거, portfolio stress robustness 순서이며 최대 8개의 미완료 작업만 유지합니다.
+설정 파일에는 저장소, Codex 실행 파일, 상태·history·artifact 경로, 시도 제한(기본 90분), UTC 일일 실행 상한(기본 8회), 실행 간 대기(기본 60초)를 명시합니다. history는 연구 화면의 기존 `~/.local/share/jusik/research-history`와 journal DB를 사용해야 기록이 웹에 나타납니다. `artifact_dir`는 `~/.local/share/jusik/portfolio-audit`를 사용해 분석 산출물을 검증하고 Codex named permission profile의 허용 루트로 제공합니다. 큐의 초기 작업은 entry amount distribution, 작은 진입 제약의 선행 조건, 미래 관찰 프로토콜, PAPER 신호 근거, portfolio stress robustness 순서이며 최대 8개의 미완료 작업만 유지합니다.
 
 systemd 파일은 설치 위치에 맞게 검토한 뒤 사용자 단위로 등록합니다. 이 저장소에서는 설치 명령을 자동 실행하지 않습니다.
 
@@ -59,3 +59,11 @@ cd backend
 ```
 
 실행 전 local `main` branch와 tracked clean 상태가 필요합니다. untracked `HANDOFF.md`만 허용합니다. 저장소 공통 Git 디렉터리의 고정 lock이 다른 실행을 막아 SQLite와 무관하게 저장소 작업을 직렬화합니다. Codex invocation에는 연구 자료와 의존성 설치를 위한 workspace network 설정을 명시하지만 prompt는 brokerage 주문을 금지합니다. 각 cycle은 한 task만 처리하고, timeout·pause·SIGTERM은 소유한 process group을 정리한 뒤 시도 상태를 남깁니다. 실행 중인 이전 process group을 확인할 수 있으면 새 작업을 시작하지 않고 blocked 상태로 보존합니다.
+
+## Codex 권한 프로필과 산출물 보존
+
+실행기는 사용자 전역 설정을 수정하지 않고, 매 실행 시 `jusik-development` named permission profile을 CLI override로 전달합니다. 실행할 작업이 있고 dirty·quota·cooldown 검사를 통과하면, 자식 dispatch와 task claim 전에 정확히 설정된 `artifact_dir`를 생성·검사합니다. 준비에 실패하면 task나 일일 launch quota를 소비하지 않고 차단합니다. 프로필은 기본 `workspace` 권한을 상속하고(`extends=":workspace"`), 저장소의 실제 공통 Git 디렉터리에만 `write`를 부여하며, 정규화된 저장소·상태·history·artifact 경로를 `workspace_roots`로 명시하고 network를 활성화합니다. 기존 `repo.parent`와 `history_dir.parent` 허용도 유지하지만, 이를 최소 권한 범위라고 주장하지 않습니다. `artifact_dir`의 상위 경로를 추가 허용하지 않습니다. `danger-full-access`, bypass, ignore-rules, 기존 `-s`/`--add-dir` 조합과 전역 설정 변경은 사용하지 않습니다.
+
+자식 실행에는 `--ignore-user-config`를 사용합니다. 이 옵션은 개인 사용자의 Codex 설정을 상속하지 않지만 저장된 인증과 관리형 규칙은 계속 적용합니다. 따라서 개인 설정에 의존하지 않고, 관리 대상 정책과 현재 실행에 필요한 named profile만으로 권한을 재현할 수 있습니다. 권한 프로필은 이 실행의 CLI override일 뿐이며 전역 설정 파일이나 다른 작업의 권한을 변경하지 않습니다.
+
+각 runtime prompt는 통합 검사가 끝난 뒤 병합 worktree를 제거하기 전에 필요한 evidence, SHA-256 hash, handoff를 허용된 durable root에 보관하도록 요구합니다. completion JSON은 worktree 정리 뒤에도 남아 있는 파일만 참조해야 합니다. worktree 생성·통합·검증·정리의 전체 절차는 [워크트리 운영 절차](worktree-workflow.md#정리)를 따릅니다.

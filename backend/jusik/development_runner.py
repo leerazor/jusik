@@ -43,6 +43,12 @@ COMMON_PROMPT = (
     "when applicable. Preserve unrelated work and never use real orders, remote "
     "push, PAPER engine or PAPER database mutation, or GPU changes."
 )
+RUNTIME_PROMPT_SUFFIX = (
+    "Before removing any merged worktree after integration checks, archive all "
+    "needed evidence, its SHA-256 hashes, and the handoff in durable files under "
+    "the allowed roots. The completion JSON must reference only files that survive "
+    "worktree cleanup."
+)
 BACKLOG = (
     (
         "entry-amount-distribution",
@@ -187,6 +193,17 @@ def _secure_dir(path: Path) -> None:
     path.chmod(0o700)
 
 
+def _prepare_artifact_dir(path: Path) -> Path:
+    try:
+        resolved = path.expanduser().resolve()
+    except (OSError, RuntimeError) as exc:
+        raise OSError("artifact directory is not usable") from exc
+    resolved.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not resolved.is_dir() or not os.access(resolved, os.W_OK):
+        raise OSError("artifact directory is not writable")
+    return resolved
+
+
 def _write_private(path: Path, content: bytes) -> None:
     _secure_dir(path.parent)
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
@@ -270,7 +287,63 @@ def _git_ready(repo: Path) -> tuple[bool, str]:
 def _git_common(repo: Path) -> Path:
     common = _git(repo, "rev-parse", "--git-common-dir").stdout.strip()
     path = Path(common)
-    return path if path.is_absolute() else (repo / path).resolve()
+    return (path if path.is_absolute() else (repo.resolve() / path)).resolve()
+
+
+def _codex_workspace_roots(config: RunnerConfig) -> list[Path]:
+    candidates = (
+        config.repo.parent,
+        config.state_dir,
+        config.history_dir,
+        config.history_dir.parent,
+        config.artifact_dir,
+    )
+    roots: list[Path] = []
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
+        if resolved.is_dir() and os.access(resolved, os.W_OK) and resolved not in roots:
+            roots.append(resolved)
+    return roots
+
+
+def _codex_command(
+    config: RunnerConfig,
+    common: Path,
+    schema_path: Path,
+    output_path: Path,
+) -> list[str]:
+    filesystem = f'{json.dumps(str(common))}="write"'
+    workspace_roots = ",".join(
+        f"{json.dumps(str(root))}=true" for root in _codex_workspace_roots(config)
+    )
+    profile = (
+        "permissions.jusik-development={"
+        'extends=":workspace",'
+        f"filesystem={{{filesystem}}},"
+        f"workspace_roots={{{workspace_roots}}},"
+        "network={enabled=true}"
+        "}"
+    )
+    return [
+        config.codex,
+        "-a",
+        "never",
+        "exec",
+        "--ignore-user-config",
+        "-m",
+        "gpt-6-astra",
+        "-c",
+        'default_permissions="jusik-development"',
+        "-c",
+        profile,
+        "--json",
+        "--output-schema",
+        str(schema_path),
+        "-o",
+        str(output_path),
+        "-C",
+        str(config.repo),
+    ]
 
 
 def _allowed_path(path: Path, roots: list[Path]) -> bool:
@@ -452,7 +525,10 @@ def resume_runner(config: RunnerConfig) -> None:
 def run_once(
     config: RunnerConfig, stop_requested: Callable[[], bool] | None = None
 ) -> RunResult:
-    common = _git_common(config.repo)
+    try:
+        common = _git_common(config.repo)
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return RunResult("blocked", reason="invalid repository")
     lock_path = common / "development-runner.lock"
     with lock_path.open("a+") as lock:
         lock_path.chmod(0o600)
@@ -490,6 +566,12 @@ def run_once(
         task = _next_task(store)
         if task is None:
             return RunResult("idle")
+        try:
+            _prepare_artifact_dir(config.artifact_dir)
+        except OSError:
+            return RunResult(
+                "blocked", task.id, reason="artifact directory unavailable"
+            )
         attempt_id = uuid.uuid4().hex
         attempt_dir = config.state_dir / "attempts" / attempt_id
         _secure_dir(attempt_dir)
@@ -504,7 +586,7 @@ def run_once(
             "the CLI. Use the exact task and attempt ids, include SHA-256 evidence "
             "paths under the allowed roots, "
             "and report tests_passed, review_passed, integrated_commit, and "
-            "handoff_path."
+            f"handoff_path.\n\n{RUNTIME_PROMPT_SUFFIX}"
         )
         _write_private(attempt_dir / "prompt.txt", prompt.encode())
         _write_private(stdout_path, b"")
@@ -514,35 +596,7 @@ def run_once(
         _write_private(
             schema_path, (json.dumps(COMPLETION_SCHEMA, sort_keys=True) + "\n").encode()
         )
-        command = [
-            config.codex,
-            "-a",
-            "never",
-            "exec",
-            "-m",
-            "gpt-6-astra",
-            "-s",
-            "workspace-write",
-            "--add-dir",
-            str(config.repo.parent),
-            "--add-dir",
-            str(config.state_dir),
-            "--add-dir",
-            str(config.history_dir),
-            "--add-dir",
-            str(config.history_dir.parent),
-            "--add-dir",
-            str(config.artifact_dir),
-            "-c",
-            "sandbox_workspace_write.network_access=true",
-            "--json",
-            "--output-schema",
-            str(schema_path),
-            "-o",
-            str(output_path),
-            "-C",
-            str(config.repo),
-        ]
+        command = _codex_command(config, common, schema_path, output_path)
         with (
             stderr_path.open("wb") as stderr,
             stdout_path.open("ab") as stdout,
