@@ -631,7 +631,7 @@ class OptimizerStore:
                 ),
             )
 
-    def daemon_heartbeat(self, running: bool) -> None:
+    def daemon_heartbeat(self, running: bool, *, mode: str = "optimizer") -> None:
         now = utc_now().isoformat()
         with self._connect() as connection:
             connection.execute(
@@ -642,6 +642,15 @@ class OptimizerStore:
                     value=excluded.value, updated_at=excluded.updated_at
                 """,
                 ("running" if running else "stopped", now),
+            )
+            connection.execute(
+                """
+                INSERT INTO optimizer_control (key, value, updated_at)
+                VALUES ('daemon_mode', ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value=excluded.value, updated_at=excluded.updated_at
+                """,
+                (mode, now),
             )
 
     def request_stop(self) -> None:
@@ -730,6 +739,9 @@ class OptimizerStore:
             daemon = connection.execute(
                 "SELECT value, updated_at FROM optimizer_control WHERE key='daemon'"
             ).fetchone()
+            daemon_mode = connection.execute(
+                "SELECT value FROM optimizer_control WHERE key='daemon_mode'"
+            ).fetchone()
         daemon_status = "stopped"
         if daemon is not None and daemon["value"] == "running":
             heartbeat = datetime.fromisoformat(daemon["updated_at"])
@@ -811,9 +823,16 @@ class OptimizerStore:
                 "candidate_count": candidate_count,
                 "folds": folds,
                 "daemon_status": daemon_status,
+                "daemon_mode": daemon_mode["value"] if daemon_mode else "optimizer",
             }
         if row is None:
-            return {"status": "idle", "candidate_count": 0}
+            return {
+                "status": "idle",
+                "candidate_count": 0,
+                "daemon_status": daemon_status,
+                "daemon_mode": daemon_mode["value"] if daemon_mode else "optimizer",
+                "run_counts": run_counts,
+            }
         result = dict(row)
         if result["status"] == "running" and result["heartbeat_at"]:
             heartbeat = datetime.fromisoformat(result["heartbeat_at"])
@@ -838,6 +857,7 @@ class OptimizerStore:
                 (result["id"],),
             ).fetchone()[0]
         result["daemon_status"] = daemon_status
+        result["daemon_mode"] = daemon_mode["value"] if daemon_mode else "optimizer"
         result["run_counts"] = run_counts
         if completed is not None:
             baseline = json.loads(completed["baseline_final_json"])["metrics"]
