@@ -486,3 +486,18 @@
 - 정리: 환경·결과·검사·hash·handoff 영구 보관 및 검증 후 git worktree remove로 이번 병합 워크트리만 제거. force 미사용. 작업 브랜치, 기존 HANDOFF와 이전4840 워크트리 보존.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-exposure-cost-tradeoff-v1-734e493df492407891611c190b42a54b/handoff-final.md
 - 남은 작업: 없음. followup=null; 대기 중 portfolio-next-development-selection-v1에서 두 분석을 통합 검토합니다.
+
+## portfolio-next-development-selection-bbbd
+
+- 상태: 진행
+- 목표와 완료 조건: 완료 증거를 검증한 뒤 corrected-entry 2%p/4%p 보유 밴드 격리 실험 하나를 실행 가능한 후속 과제로 명세하고 한국어 이력에 게시합니다.
+- 담당 Luna: `/root/code_selection`
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-next-selection-bbbd`
+- 작업 브랜치: `docs/portfolio-next-selection-bbbd`
+- 기준 커밋 SHA: `c79a4eeab4babf8974c61dc670ca0eeb0536ed18` (등록부 커밋 전 main)
+- 통합 대상 브랜치: 로컬 `main`
+- 입력과 선행 작업: explore와 순차 plan 완료. 두 선행 completion의 모든 evidence SHA 및 main 조상 관계를 감독이 검증했습니다.
+- 수정 허용 범위: `docs/research/portfolio-next-development-selection-v1.md`만 Luna가 수정합니다. 등록부와 영구 증거 및 게시 기록은 감독이 관리합니다.
+- 포트·테스트 DB·출력 경로: 서버와 DB 없음. 독립 워크트리; 영구 audit `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-next-development-selection-v1-bbbd21c0082348b09c073c45d73f3e17`.
+- 검증 명령과 결과: 기준 관련 pytest 44 passed. 문서 수치·중복 작업·고정 입력 검토 후 관련 pytest/Ruff/strict mypy를 통합 재검증합니다.
+- 종료 조건: 독립 review, main 병합/검사, 웹 게시, 영구 SHA/environment/handoff 저장 후 병합 워크트리를 정리합니다. 코드·PAPER·운영 설정·runner·GPU·기존 연구 자료는 수정하지 않습니다.
