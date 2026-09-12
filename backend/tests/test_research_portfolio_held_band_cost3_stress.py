@@ -77,6 +77,33 @@ def _simulation() -> PortfolioSimulation:
     )
 
 
+def _runner_simulation() -> PortfolioSimulation:
+    simulation = _simulation()
+    return simulation.model_copy(
+        update={
+            "candidate": PortfolioCandidate(
+                id="portfolio_inverse_volatility_fx_vix_v1",
+                method="inverse_volatility",
+                gate="fx_vix",
+            ),
+            "metrics": simulation.metrics.model_copy(
+                update={
+                    "initial_equity_krw": Decimal("100000000"),
+                    "final_equity_krw": Decimal("100000000"),
+                }
+            ),
+            "equity": [
+                simulation.equity[0].model_copy(
+                    update={
+                        "equity_krw": Decimal("100000000"),
+                        "cash_krw": Decimal("100000000"),
+                    }
+                )
+            ],
+        }
+    )
+
+
 def test_cost3_rates_and_boundaries() -> None:
     base = PortfolioConfig()
     result = _config(base, "0.04", COST3)
@@ -162,7 +189,7 @@ def test_synthetic_run_orders_32_full_before_16_cost3(
         config = _args[4]
         assert isinstance(config, PortfolioConfig)
         calls.append(config.fee_rate)
-        return _simulation()
+        return _runner_simulation()
 
     def copy_engine(_engine: Path, output: Path) -> tuple[Path, Path]:
         original, variant = output / "original.py", output / "variant.py"
@@ -229,7 +256,7 @@ def test_replay_failure_stops_before_cost3_and_preserves_failure(
     def simulate(*_args: object) -> PortfolioSimulation:
         nonlocal calls
         calls += 1
-        return _simulation()
+        return _runner_simulation()
 
     original = tmp_path / "original.py"
     variant = tmp_path / "variant.py"
@@ -338,6 +365,73 @@ def test_incomplete_simulation_stops_before_the_next_call(
             allow_historical_execution=True,
         )
     assert calls == 1
+
+
+def test_cost3_metadata_mismatch_stops_before_the_next_call(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    base, prereg, results = _fake_contract()
+    source = _source_for_test()
+    calls = 0
+
+    def metadata_call(*_args: object) -> PortfolioSimulation:
+        nonlocal calls
+        calls += 1
+        simulation = _runner_simulation()
+        if calls == 33:
+            return simulation.model_copy(
+                update={
+                    "candidate": PortfolioCandidate(
+                        id="wrong", method="equal", gate="none"
+                    )
+                }
+            )
+        return simulation
+
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._prior_inputs",
+        lambda _path: (source, base, prereg, results),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._verify_runtime_hashes",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._copy_engine",
+        lambda _engine, output: (output / "original.py", output / "variant.py"),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._load_copy",
+        lambda *_args: SimpleNamespace(simulate=lambda *_args: _runner_simulation()),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._run_call",
+        metadata_call,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress.sha256",
+        lambda path: (
+            "7d9ccd0d8fef90b11779d4e8c98041eadf8aeac94eb3d289318145504483b442"
+            if path.name == "variant.py"
+            else "digest"
+        ),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._verify_accounting",
+        lambda *_args: {"residual": Decimal(0)},
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_held_band_cost3_stress._verify_exact_replay",
+        lambda *_args: None,
+    )
+    with pytest.raises(RuntimeError, match="candidate mismatch"):
+        run_experiment(
+            tmp_path / "prior",
+            tmp_path / "engine.py",
+            tmp_path / "metadata-output",
+            allow_historical_execution=True,
+        )
+    assert calls == 33
 
 
 def test_without_explicit_approval_never_calls_simulate(

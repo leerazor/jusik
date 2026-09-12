@@ -698,6 +698,29 @@ def _run_call(
     )
 
 
+def _verify_simulation_contract(
+    sim: PortfolioSimulation,
+    period: dict[str, Any],
+    candidate: PortfolioCandidate,
+    config: PortfolioConfig,
+) -> None:
+    if not sim.complete or sim.incomplete_reasons:
+        raise RuntimeError(
+            f"incomplete simulation: {period['name']}"
+        )
+    if (
+        sim.period_start != date.fromisoformat(period["start"])
+        or sim.period_end != date.fromisoformat(period["end"])
+    ):
+        raise RuntimeError(f"simulation period mismatch: {period['name']}")
+    if sim.candidate != candidate:
+        raise RuntimeError(f"simulation candidate mismatch: {period['name']}")
+    if sim.policy != "low_turnover_combined":
+        raise RuntimeError(f"simulation policy mismatch: {period['name']}")
+    if sim.metrics.initial_equity_krw != config.initial_cash_krw:
+        raise RuntimeError(f"simulation initial equity mismatch: {period['name']}")
+
+
 def _run_experiment_inner(
     prior_audit: Path,
     engine_source: Path,
@@ -814,10 +837,7 @@ def _run_experiment_inner(
                     )
                     config = _config(base, band, cost)
                     sim = _run_call(variant.simulate, source, candidate, period, config)
-                    if not sim.complete or sim.incomplete_reasons:
-                        raise RuntimeError(
-                            f"incomplete simulation: {period['name']} {arm} cost {cost}"
-                        )
+                    _verify_simulation_contract(sim, period, candidate, config)
                     if clock() >= deadline:
                         raise TimeoutError(
                             "execution deadline exceeded after simulation"
