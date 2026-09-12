@@ -22,6 +22,7 @@ MAX_SCENARIOS = 4096
 MAX_OBSERVATIONS = 1172
 GPU_MEMORY_CAP_BYTES = 2 * 1024**3
 METRIC_TOLERANCE = Decimal("0.00000001")
+AUTO_CUDA_MIN_SCENARIOS = 4096
 
 
 def _optional_torch() -> Any | None:
@@ -29,6 +30,21 @@ def _optional_torch() -> Any | None:
         return importlib.import_module("torch")
     except ImportError:
         return None
+
+
+def _select_device(
+    requested: Literal["auto", "cpu", "cuda"], scenarios: int, torch: Any | None
+) -> str:
+    if requested == "cuda":
+        return "cuda"
+    if (
+        requested == "auto"
+        and scenarios >= AUTO_CUDA_MIN_SCENARIOS
+        and torch is not None
+        and torch.cuda.is_available()
+    ):
+        return "cuda"
+    return "cpu"
 
 
 @dataclass(frozen=True)
@@ -386,17 +402,7 @@ def run(
         raise RuntimeError("torch is required for explicit CUDA")
     if device == "cuda" and (torch is None or not torch.cuda.is_available()):
         raise RuntimeError("CUDA device is unavailable")
-    selected_device = (
-        "cuda"
-        if device == "cuda"
-        or (
-            device == "auto"
-            and request.scenarios >= 512
-            and torch is not None
-            and torch.cuda.is_available()
-        )
-        else "cpu"
-    )
+    selected_device = _select_device(device, request.scenarios, torch)
     started = time.perf_counter()
     torch_rows = _torch_run(paths, indices, selected_device) if torch else None
     benchmark = (

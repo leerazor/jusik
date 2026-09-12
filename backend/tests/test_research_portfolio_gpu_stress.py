@@ -215,6 +215,20 @@ def test_auto_cpu_fallback_and_explicit_cuda_failure(
         stress.run(request, tmp_path / "cuda", "cuda")
 
 
+def test_auto_cuda_selection_boundary() -> None:
+    class Cuda:
+        @staticmethod
+        def is_available() -> bool:
+            return True
+
+    class Torch:
+        cuda = Cuda()
+
+    assert stress._select_device("auto", 4095, Torch()) == "cpu"
+    assert stress._select_device("auto", 4096, Torch()) == "cuda"
+    assert stress._select_device("cpu", 4096, Torch()) == "cpu"
+
+
 def test_tensor_parity_mismatch_fails_before_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
