@@ -362,3 +362,19 @@
 - 웹 게시: /research/history sanitized 한국어 보고서와 검사 근거, API/web/download 4개 SHA 검증 및 기존 공개 항목 보존
 - 보존: 원본 archive와 기존 handoff 213개 hash, 등록부 외 기존 tracked 196개 파일 불변. 운영 PAPER/DB/orders/GPU/runner/quota·remote 변경 없음
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-coincident-anomaly-episodes-v1-21ce4592e34a4ee78332f2dbff95f994/handoff.md
+
+## small-entry-draft-provenance-4840
+
+- 상태: 준비
+- 목표와 완료 조건: 오프라인 bundle의 실제 SHA·canonical SHA·별도 identity·역사 재사용 계약 검증, 결정적인 공개 manifest/보고서, 독립 검토·main 검사·연구 이력 게시.
+- 담당 Luna: gpt-5.6-luna 단일 구현 작업자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-small-entry-draft-provenance-4840
+- 작업 브랜치: feat/small-entry-draft-provenance-4840
+- 기준 커밋 SHA: 7c7bee5591affc5a5d2d9ead53a6f5e8e6a14c48; 작업 등록부 준비 커밋을 실제 작업 기준으로 사용한다.
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: 지정된 small-entry-preregistration-draft-v1 archive의 네 파일 읽기 전용; explore/plan 완료.
+- 수정 허용 범위: backend/jusik/research_small_entry_draft_provenance.py, 대응 tests, docs/research/small-entry-draft-provenance-audit-v1.md
+- 포트·테스트 DB·출력 경로: 서버·DB 없음. 작업 내부 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/small-entry-draft-provenance-audit-v1-484028675d0647a0a0b47f86c46a5ca5
+- 검증 명령과 결과: baseline draft pytest 19개 및 mypy jusik 79개 통과. 신규 경계·회귀·Ruff·mypy와 archive replay를 추가 실행한다.
+- 검토 결과와 남은 문제: 구현 후 독립 검토 예정.
+- 보존 및 제외: 기존 HANDOFF.md 보존. PAPER/DB/orders/collector/GPU/runner/quota/remote 및 과거 blocked 작업 변경 없음.
