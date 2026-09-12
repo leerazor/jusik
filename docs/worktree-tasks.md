@@ -234,7 +234,7 @@
 
 ## paper-signal-timestamp-forensics-a77e
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: 동결 snapshot의 6,164개 정규장 표본과 미래 시각 이상 249건을 재현하는 오프라인 CLI, 전체 anomaly CSV, 그룹별 요약, 경계 테스트와 한국어 문서를 구현합니다. 독립 검토, local main 통합 검사, 웹 보고서와 영구 근거 보존 후 종료합니다.
 - 담당 Luna: timestamp_luna (gpt-5.6-luna), 신규 모듈·테스트·문서 단일 구현 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-signal-timestamp-a77e
@@ -247,4 +247,14 @@
 - 영구 산출물: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-timestamp-forensics-v1-a77ec18fbf634b3694afa8da08ef11c6
 - 검증 명령과 결과: 새 pytest 및 research_validation 회귀, Ruff check/format, strict mypy, 두 번 frozen replay의 바이트 일치와 입력 SHA 보존, 독립 review, main 통합 후 동일 검사 예정
 - 중단 조건: 입력 hash 불일치 또는 구현 범위 밖 변경 필요. 미래 데이터는 본 오프라인 도구 완료의 조건이 아닙니다. PAPER·collector·order·parser·clockmonitor·GPU·runner·quota·remote를 변경하지 않습니다.
-- 결과 커밋 SHA / 검토 / 통합 / handoff: 진행 후 기록합니다. 기존 미추적 HANDOFF.md는 보존합니다.
+- 결과 커밋 SHA: 92527281cdadd5101478987d233db5b5931ec909, ab56a15d80bdc02772a13460c2d1c0588ac99e26
+- 병합 직전 main SHA: a6610f047b0c460a61cef0cd7cee9794dd4013f6
+- 통합 커밋 SHA: 3f1a0f59edc9643210647e14fc6090918a1bfded
+- 검토 결과: Terra 독립 검토 통과. 정확한 -2s-1µs fixture와 URI 인코딩 지적을 회귀 테스트와 함께 수정했습니다.
+- 통합 검증 결과: pytest 20개(기존 Starlette/AnyIO 경고 2개), Ruff check/format, 프로젝트 설정 strict mypy 2파일, git diff 검사 통과. 두 main 재생 3출력 바이트 일치, 249개 ID/시각/정확한 지연 및 전 종목 latency/coverage와 독립 집계 일치. frontend build 비적용.
+- 결과: 6,164개 정규장 저장 분 표본, future 249건, stale 0건, median -130ms/p95 668ms/max 4939ms. 원 snapshot 및 기존 소스·HANDOFF 해시를 유지했습니다. 원인은 확정하지 않았습니다.
+- 웹: /research/history에 한국어 보고서·checks 게시 완료. API/웹 4개 첨부 다운로드 SHA와 페이지 제목 확인. 기존 seed의 54개 이력·89개 첨부를 보존했습니다.
+- 정리: evidence·SHA-256·환경·handoff 등 105개 파일을 영구 audit에 보존·검증한 뒤 생성물을 정리하고 git worktree remove로 병합 worktree 제거 완료. 브랜치 보존.
+- 통합 검증 실패 원인과 복구 결과: 통합 검사 실패 없음. 사전 감독 mypy의 잘못된 cwd를 backend로 바꾸어 프로젝트 Pydantic plugin 및 strict 설정 적용 후 통과했습니다.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-timestamp-forensics-v1-a77ec18fbf634b3694afa8da08ef11c6/handoff.md. 기존 루트 미추적 HANDOFF.md는 그대로 보존했습니다.
+- 후속 후보: 독립 근거의 68개 다중 종목 이상 분을 이용한 오프라인 동시 발생/연속 episode 분석 1개. 범위·입력·테스트·종료 조건은 영구 followup.json에 기록했습니다.
