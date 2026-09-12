@@ -477,6 +477,8 @@ cd backend
 
 ## 실시간 신호 증거와 포트폴리오 robustness
 
+미래에 수신될 관측의 등록 게이트와 원시 보존·결손 처리는 [미래 관측 프로토콜 설계 초안](research-future-observation-protocol.md)에서 별도 초안으로 정의한다. 이 초안은 기존 고정 PAPER 창에 관측을 배정하거나 평가 통과를 선언하지 않는다.
+
 고정 미래 PAPER 평가는 현재 활성 session과 source run
 `fa0907ecfe86b19836881e5a78a874925fc611978ffe31064eacc82a0a46f687`를
 2026-09-14 00:00 UTC 전에 다음 명령으로 한 번 등록합니다. 시작·종료 시각과 등록
