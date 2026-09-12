@@ -264,7 +264,7 @@
 
 - 상태: 준비
 - 목표와 완료 조건: 신규 소액 진입 사전등록 초안 명세·검증기·테스트를 만들고 독립 검토, local main 통합 검사, 한국어 웹 게시와 영구 근거 보존을 완료합니다. 금융 승인이나 정책 실행은 포함하지 않습니다.
-- 담당 Luna: small_entry_luna (gpt-5.6-luna), 신규 세 파일 단일 구현 소유자
+- 담당 Luna: draft_luna (gpt-5.6-luna), 신규 세 파일 단일 구현 소유자. 초기 작업자는 파일 수정 전에 중단했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-small-entry-draft-a55b
 - 작업 브랜치: feat/small-entry-draft-a55b
 - 기준 커밋 SHA: 8882bd8287759edc047adc296da129cded8950dc (등록 전 main; 생성 기준은 준비 커밋)
