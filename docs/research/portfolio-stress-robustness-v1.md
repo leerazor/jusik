@@ -5,8 +5,8 @@
 기준 커밋 `29c5327768e298a284171cce8ec933e1a274ed29`, 작업 기준 `a7e18e7`에서 기존 오프라인 검증 경로를 사용했다. 입력 source run은 `c94690f0ee13f01b1810ac0368e84fdcaeb1c1bbe7f396985d04dd3634b5ead0`이다. 선택은 각 OOS 구간보다 먼저 수행하고, 각 fold를 현금 1억원으로 독립 초기화한다. 7 folds, fold당 최대 21개 후보·조건, 논리 평가 최대 147회를 적용했다. 비용 민감도는 2배이며 `signal_window` 15/25, `volatility_window` 45/75를 한 번에 하나씩 바꿨다.
 
 ```bash
-cd /home/kwl/projects/jusik-portfolio-stress-e16e/backend
-/home/kwl/projects/jusik/backend/.venv/bin/python -m jusik.research_portfolio_robustness \
+cd /home/kwl/projects/jusik/backend
+.venv/bin/python -m jusik.research_portfolio_robustness \
   --source-report-dir /home/kwl/.local/share/jusik/research-universe-reports \
   --report-dir /home/kwl/.local/share/jusik/portfolio-audit/portfolio-stress-robustness-v1-e16e783562a544cf8fdef38180db34b0/replay
 ```
@@ -49,7 +49,7 @@ cd /home/kwl/projects/jusik-portfolio-stress-e16e/backend
 
 고정된 과거 자료를 반복 사용한 검토이며 새로운 holdout이 아니다. 생존편향, 배당, 상장 시점과 원천 자료의 한계를 해소하지 않는다. 수익성, 실거래 적합성 또는 자동 승격을 승인하지 않는다. PAPER 엔진·DB, 주문, GPU, 원격 push와 엔진 코드는 변경하지 않았다.
 
-미래 평가 구간 2026-09-14~2026-11-09는 현재 자료가 없어 검증이 차단된다. 이 문서는 해당 구간의 성과를 주장하지 않으며, 향후 관측이 끝난 뒤 동일한 사양·해시·분리 규칙으로 별도 평가해야 한다. 기준 시점 보존 자료의 readiness 상태는 현재 수집기 상태나 미래 성과의 증거가 아니다.
+미래 평가 구간 2026-09-14~2026-11-09는 사전등록된 `research_prospective_registration` 계약에 속한다. 계약 identity는 source run `fa0907ecfe86b19836881e5a78a874925fc611978ffe31064eacc82a0a46f687` 및 등록된 session·policy·code/calendar hash로 고정한다. 이 historical robustness CLI와 고정 source를 미래 입력으로 재사용하지 않는다. 계약 기간이 끝난 뒤에는 `[start, end)` 수신 구간의 fill provenance와 실제 시작·종료 raw boundary artifact를 확인하고, 경계 NAV가 승인되고 `evaluation_inputs_complete=true`일 때만 계약 정의에 따라 별도 PAPER 평가를 산출한다. 현재는 경계 NAV/evidence와 완료된 prospective 표본이 없어 검증이 차단된다. 기준 시점 보존 자료의 readiness 상태는 현재 수집기 상태나 미래 성과의 증거가 아니다.
 
 ## 검사와 보존
 
