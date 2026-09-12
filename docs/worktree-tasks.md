@@ -230,3 +230,21 @@
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-stress-robustness-v1-e16e783562a544cf8fdef38180db34b0/handoff.md
 - 웹: runner completion/outbox 상태 기록 대상. 직접 게시·PAPER DB 변경 없음. 기존 미추적 HANDOFF.md 보존
+
+
+## paper-signal-timestamp-forensics-a77e
+
+- 상태: 준비
+- 목표와 완료 조건: 동결 snapshot의 6,164개 정규장 표본과 미래 시각 이상 249건을 재현하는 오프라인 CLI, 전체 anomaly CSV, 그룹별 요약, 경계 테스트와 한국어 문서를 구현합니다. 독립 검토, local main 통합 검사, 웹 보고서와 영구 근거 보존 후 종료합니다.
+- 담당 Luna: timestamp_luna (gpt-5.6-luna), 신규 모듈·테스트·문서 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-signal-timestamp-a77e
+- 작업 브랜치: feat/signal-timestamp-a77e
+- 기준 커밋 SHA: fa127374e6e3ee351fedb514ffb0db1769615437 (등록 전 main; 실제 worktree 기준은 이 등록의 준비 커밋)
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: explore 독립 재계산 완료, plan 순차 검토. paper-signal-evidence-v1-722bb6f1d10a42318b502092d64dac39의 snapshot/provenance/validation만 읽기 전용 입력으로 사용합니다.
+- 수정 허용 범위: backend/jusik/research_signal_timestamp_forensics.py, backend/tests/test_research_signal_timestamp_forensics.py, docs/research/paper-signal-timestamp-forensics-v1.md (Luna); 등록부·audit·웹 seed·handoff (Astra)
+- 포트·테스트 DB·출력 경로: 신규 서버 없음. worktree 내부 .venv와 .artifacts, pytest tmp 경로를 격리합니다. 운영 DB에 연결하지 않습니다.
+- 영구 산출물: /home/kwl/.local/share/jusik/portfolio-audit/paper-signal-timestamp-forensics-v1-a77ec18fbf634b3694afa8da08ef11c6
+- 검증 명령과 결과: 새 pytest 및 research_validation 회귀, Ruff check/format, strict mypy, 두 번 frozen replay의 바이트 일치와 입력 SHA 보존, 독립 review, main 통합 후 동일 검사 예정
+- 중단 조건: 입력 hash 불일치 또는 구현 범위 밖 변경 필요. 미래 데이터는 본 오프라인 도구 완료의 조건이 아닙니다. PAPER·collector·order·parser·clockmonitor·GPU·runner·quota·remote를 변경하지 않습니다.
+- 결과 커밋 SHA / 검토 / 통합 / handoff: 진행 후 기록합니다. 기존 미추적 HANDOFF.md는 보존합니다.
