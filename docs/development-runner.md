@@ -62,7 +62,7 @@ cd backend
 
 ## Codex 권한 프로필과 산출물 보존
 
-실행기는 사용자 전역 설정을 수정하지 않고, 매 실행 시 `jusik-development` named permission profile을 CLI override로 전달합니다. 프로필은 기본 `workspace` 권한을 상속하고(`extends=":workspace"`), 저장소의 실제 공통 Git 디렉터리에만 `write`를 부여하며, 존재하는 저장소·상태·history·artifact 루트를 `workspace_roots`로 명시하고 network를 활성화합니다. 이 범위가 공유 `.git` metadata와 연구 파일에 필요한 최소 쓰기 범위입니다. `danger-full-access`, bypass, ignore-rules, 기존 `-s`/`--add-dir` 조합과 전역 설정 변경은 사용하지 않습니다.
+실행기는 사용자 전역 설정을 수정하지 않고, 매 실행 시 `jusik-development` named permission profile을 CLI override로 전달합니다. 실행할 작업이 있고 dirty·quota·cooldown 검사를 통과하면, 자식 dispatch와 task claim 전에 정확히 설정된 `artifact_dir`를 생성·검사합니다. 준비에 실패하면 task나 일일 launch quota를 소비하지 않고 차단합니다. 프로필은 기본 `workspace` 권한을 상속하고(`extends=":workspace"`), 저장소의 실제 공통 Git 디렉터리에만 `write`를 부여하며, 정규화된 저장소·상태·history·artifact 경로를 `workspace_roots`로 명시하고 network를 활성화합니다. 기존 `repo.parent`와 `history_dir.parent` 허용도 유지하지만, 이를 최소 권한 범위라고 주장하지 않습니다. `artifact_dir`의 상위 경로를 추가 허용하지 않습니다. `danger-full-access`, bypass, ignore-rules, 기존 `-s`/`--add-dir` 조합과 전역 설정 변경은 사용하지 않습니다.
 
 자식 실행에는 `--ignore-user-config`를 사용합니다. 이 옵션은 개인 사용자의 Codex 설정을 상속하지 않지만 저장된 인증과 관리형 규칙은 계속 적용합니다. 따라서 개인 설정에 의존하지 않고, 관리 대상 정책과 현재 실행에 필요한 named profile만으로 권한을 재현할 수 있습니다. 권한 프로필은 이 실행의 CLI override일 뿐이며 전역 설정 파일이나 다른 작업의 권한을 변경하지 않습니다.
 

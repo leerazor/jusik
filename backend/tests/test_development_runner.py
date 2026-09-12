@@ -268,6 +268,94 @@ output.write_text(json.dumps({{
     )
 
 
+def test_run_once_prepares_absent_custom_artifact_before_child_dispatch(
+    tmp_path: Path,
+) -> None:
+    repo_area = tmp_path / "repo-area"
+    repo_area.mkdir()
+    repo = _repo(repo_area)
+    state = repo_area / "state"
+    history = repo_area / "history"
+    artifact = tmp_path / "artifact-area" / "nested" / "custom"
+    capture = tmp_path / "codex-args.json"
+    seen = tmp_path / "artifact-seen.json"
+    fake = tmp_path / "fake-codex.py"
+    fake.write_text(
+        f"""#!/usr/bin/env python3
+import json, pathlib, sys
+artifact = pathlib.Path({str(artifact)!r})
+pathlib.Path({str(capture)!r}).write_text(json.dumps(sys.argv[1:]), encoding='utf-8')
+pathlib.Path({str(seen)!r}).write_text(
+    json.dumps({{'exists': artifact.is_dir()}}), encoding='utf-8'
+)
+output = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])
+output.write_text(json.dumps({{
+    'task_id': 'task-a',
+    'attempt_id': output.parent.name,
+    'status': 'blocked',
+    'integrated_commit': None,
+    'evidence': [],
+    'tests_passed': False,
+    'review_passed': False,
+    'handoff_path': None,
+    'blocked_reason': 'test block',
+    'followup': None,
+}}), encoding='utf-8')
+""",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=artifact,
+        cooldown_seconds=0,
+    )
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+
+    assert not artifact.exists()
+    assert run_once(config).status == "blocked"
+    assert json.loads(seen.read_text(encoding="utf-8")) == {"exists": True}
+    args = json.loads(capture.read_text(encoding="utf-8"))
+    profile_value = args[args.index("-c", args.index("-c") + 1) + 1]
+    profile = tomllib.loads(profile_value)["permissions"]["jusik-development"]
+    roots = profile["workspace_roots"]
+    assert roots[str(artifact.resolve())] is True
+    assert str(artifact.parent.resolve()) not in roots
+
+
+def test_unusable_artifact_blocks_before_claim_and_quota(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    artifact = tmp_path / "artifact-file"
+    artifact.write_text("not a directory\n", encoding="utf-8")
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=artifact,
+        cooldown_seconds=0,
+    )
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    assert result.reason == "artifact directory unavailable"
+    task = store.task("task-a")
+    assert task is not None and task.status == "queued" and task.attempt_count == 0
+    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 0
+
+
 def test_durable_evidence_remains_valid_after_linked_worktree_cleanup(
     tmp_path: Path,
 ) -> None:
@@ -354,6 +442,7 @@ output.write_text(json.dumps(payload), encoding='utf-8')
         tmp_path / "state",
         tmp_path / "history",
         tmp_path / "history.db",
+        tmp_path / "artifact",
     )
     config = config.model_copy(update={"codex": str(fake), "cooldown_seconds": 0})
     result = run_once(config)
@@ -398,6 +487,7 @@ def test_timeout_marks_attempt_failed_without_retrying_implicitly(
         state_dir=state,
         history_dir=history,
         history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
         timeout_seconds=60,
         cooldown_seconds=0,
     )
@@ -455,6 +545,7 @@ def test_live_previous_group_fails_closed_before_recovery(
         state_dir=state,
         history_dir=history,
         history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
         cooldown_seconds=0,
     )
     monkeypatch.setattr(
@@ -575,6 +666,7 @@ def test_pause_and_stop_callback_interrupt_owned_child(tmp_path: Path) -> None:
         state_dir=state,
         history_dir=history,
         history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
         cooldown_seconds=0,
     )
     stop = threading.Event()

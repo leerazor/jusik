@@ -193,6 +193,17 @@ def _secure_dir(path: Path) -> None:
     path.chmod(0o700)
 
 
+def _prepare_artifact_dir(path: Path) -> Path:
+    try:
+        resolved = path.expanduser().resolve()
+    except (OSError, RuntimeError) as exc:
+        raise OSError("artifact directory is not usable") from exc
+    _secure_dir(resolved)
+    if not resolved.is_dir() or not os.access(resolved, os.W_OK):
+        raise OSError("artifact directory is not writable")
+    return resolved
+
+
 def _write_private(path: Path, content: bytes) -> None:
     _secure_dir(path.parent)
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
@@ -555,6 +566,12 @@ def run_once(
         task = _next_task(store)
         if task is None:
             return RunResult("idle")
+        try:
+            _prepare_artifact_dir(config.artifact_dir)
+        except OSError:
+            return RunResult(
+                "blocked", task.id, reason="artifact directory unavailable"
+            )
         attempt_id = uuid.uuid4().hex
         attempt_dir = config.state_dir / "attempts" / attempt_id
         _secure_dir(attempt_dir)
