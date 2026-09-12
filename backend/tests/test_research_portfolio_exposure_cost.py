@@ -198,13 +198,70 @@ def test_exposure_uses_sorted_utc_last_observation_and_boundary() -> None:
         {"2024-01-01": Decimal("25")},
     )
     boundary = [
-        points[0].model_copy(update={"at": datetime(2024, 1, 2, 8, tzinfo=UTC)}),
+        points[0].model_copy(
+            update={"at": datetime.fromisoformat("2024-01-02T00:00:00+09:00")}
+        ),
         points[1].model_copy(update={"at": datetime(2024, 1, 1, 15, tzinfo=UTC)}),
+        points[0].model_copy(update={"at": datetime(2024, 1, 2, 9, tzinfo=UTC)}),
     ]
     assert module._exposure(_simulation(points=boundary))[2] == {
         "2024-01-01": Decimal("20"),
         "2024-01-02": Decimal("25"),
     }
+
+
+def test_zero_equity_returns_none_with_explicit_reason() -> None:
+    point = PortfolioEquityPoint(
+        at=datetime(2024, 1, 1, tzinfo=UTC),
+        equity_krw=Decimal("0"),
+        cash_krw=Decimal("0"),
+        drawdown_pct=Decimal("0"),
+    )
+    assert module._exposure(_simulation(points=[point])) == (
+        None,
+        "no valid UTC-day equity points or zero equity",
+        {},
+    )
+
+
+def test_no_trades_analyze_produces_zero_costs_and_pnl(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    simulations, rows = _synthetic(
+        trade_count=0, net_pnl="0", transaction_cost="0", fee="0", turnover_pct="0"
+    )
+    for row in rows:
+        for prefix in ("control_", "variant_"):
+            row[f"{prefix}slippage"] = Decimal("0")
+            row[f"{prefix}fx_cost"] = Decimal("0")
+    for key, simulation in simulations.items():
+        metrics = simulation.metrics.model_copy(update={"fx_cost_krw": Decimal("0")})
+        equity = [
+            point.model_copy(update={"cash_krw": point.equity_krw})
+            for point in simulation.equity
+        ]
+        simulations[key] = simulation.model_copy(
+            update={"metrics": metrics, "equity": equity}
+        )
+    _patch_analyze(monkeypatch, simulations, rows)
+    result = module.analyze(tmp_path)
+    assert len(result["actual"]) == 32
+    assert all(
+        row[field] == 0
+        for row in result["actual"]
+        for field in (
+            "trade_count",
+            "turnover_krw",
+            "turnover_percent",
+            "fee_krw",
+            "slippage_krw",
+            "transaction_cost_krw",
+            "fx_cost_krw",
+            "net_pnl_krw",
+        )
+    )
+    assert all(row["invested_percent"] == 0 for row in result["daily"])
+    assert all(row["diagnostic_net_pnl_krw"] == 0 for row in result["arithmetic"])
 
 
 def test_empty_equity_and_write_outputs_are_safe(
