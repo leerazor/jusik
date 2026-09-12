@@ -27,7 +27,7 @@ python -m jusik.research_portfolio_gpu_stress \
   --request request.json --output-dir /tmp/gpu-stress-run --device auto
 ```
 
-`auto`의 현재 `scenarios >= 512` CUDA 선택은 측정된 speedup이 아닌 규모 휴리스틱이다. 512 scenario smoke 측정에서는 CPU가 더 빠를 수 있다. `cuda`는 torch/CUDA가 없거나 메모리·parity 검증에 실패하면 CPU로 바꾸지 않고 명시적으로 실패한다. CUDA와 torch CPU 경로는 float64 batched `cumprod`/`cummax`를 사용하고 initial capital을 peak에 포함한다. CPU Decimal 계산이 authoritative output과 20% 경계 분류를 판정하며 torch 결과는 허용 오차 parity를 검증한다. 생성된 indices는 모든 case와 backend에서 공유한다.
+`auto`는 현재 4,096 scenarios 이상에서만 CUDA를 선택하는 규모 휴리스틱이다. 512 scenario에서는 CPU가 더 빠르고 4,096 scenario에서도 end-to-end 이득은 제한적일 수 있다. 이는 측정된 일반적 speedup 보장이 아니다. `cuda`는 torch/CUDA가 없거나 메모리·parity 검증에 실패하면 CPU로 바꾸지 않고 명시적으로 실패한다. CUDA와 torch CPU 경로는 float64 batched `cumprod`/`cummax`를 사용하고 initial capital을 peak에 포함한다. CPU Decimal 계산이 authoritative output과 20% 경계 분류를 판정하며 torch 결과는 허용 오차 parity를 검증한다. 생성된 indices는 모든 case와 backend에서 공유한다.
 
 출력은 `request.json`, `preregistration.json`, `indices.json`/`indices.sha256`, `results.json`, `summary.json`, `report.md`, `hash-manifest.json`, `environment.json`이다. 새롭고 비어 있는 일반 디렉터리만 허용하며 기존 결과·symlink·부분 실행을 덮어쓰지 않는다.
 
