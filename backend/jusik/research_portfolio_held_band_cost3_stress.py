@@ -55,9 +55,7 @@ RATE_3X = Decimal("0.003")
 TOLERANCE_KRW = Decimal("0.000001")
 _ACTIVE_DEADLINE: tuple[Any, tuple[float, float]] | None = None
 VARIANT_SHA256 = "7d9ccd0d8fef90b11779d4e8c98041eadf8aeac94eb3d289318145504483b442"
-HELD_HELPER_SHA256 = (
-    "bd33825fd08d55278ea7ed994d73672404a3d30530213f7e6efd2577b9abf29b"
-)
+HELD_HELPER_SHA256 = "bd33825fd08d55278ea7ed994d73672404a3d30530213f7e6efd2577b9abf29b"
 PRIOR_RESULTS_SHA256 = (
     "6c20c79552964182d52e5a9ce8571747ddf97a21a9c7b5c46b2dc827e167479b"
 )
@@ -651,6 +649,7 @@ def _cost3_summary(pairs: list[dict[str, Any]]) -> dict[str, Any]:
         if pair["cost_multiplier"] == COST3 and pair["period"] != "continuous"
     ]
     returns = [Decimal(pair["deltas"]["total_return_pct"]) for pair in fold_pairs]
+
     def median(values: list[Decimal]) -> Decimal:
         ordered_values = sorted(values)
         middle = len(ordered_values) // 2
@@ -705,13 +704,10 @@ def _verify_simulation_contract(
     config: PortfolioConfig,
 ) -> None:
     if not sim.complete or sim.incomplete_reasons:
-        raise RuntimeError(
-            f"incomplete simulation: {period['name']}"
-        )
-    if (
-        sim.period_start != date.fromisoformat(period["start"])
-        or sim.period_end != date.fromisoformat(period["end"])
-    ):
+        raise RuntimeError(f"incomplete simulation: {period['name']}")
+    if sim.period_start != date.fromisoformat(
+        period["start"]
+    ) or sim.period_end != date.fromisoformat(period["end"]):
         raise RuntimeError(f"simulation period mismatch: {period['name']}")
     if sim.candidate != candidate:
         raise RuntimeError(f"simulation candidate mismatch: {period['name']}")
@@ -878,9 +874,7 @@ def _run_experiment_inner(
                         },
                     )
         _verify_runtime_hashes(engine_source)
-        _verify_prior_inputs_unchanged(
-            prior_audit, source, base, prereg, prior_results
-        )
+        _verify_prior_inputs_unchanged(prior_audit, source, base, prereg, prior_results)
     if len(rows) != EVALUATION_CAP:
         raise RuntimeError("runner did not produce exactly 48 evaluations")
     for row in rows:
@@ -1015,9 +1009,7 @@ def run_experiment(
     """Run the bounded experiment and preserve a failure record on every abort."""
     # Refuse an existing run before entering the failure writer.  This keeps a
     # successful ledger/results pair immutable when a caller accidentally reruns.
-    if output_dir.exists() and (
-        not output_dir.is_dir() or any(output_dir.iterdir())
-    ):
+    if output_dir.exists() and (not output_dir.is_dir() or any(output_dir.iterdir())):
         raise ValueError("output must be new or empty; retry/resume is refused")
     try:
         return _run_experiment_inner(

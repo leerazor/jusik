@@ -514,9 +514,7 @@ def test_runtime_accounting_gate_rejects_cash_mutation_even_if_held_checker_pass
     bad = simulation.model_copy(
         update={
             "equity": [
-                simulation.equity[0].model_copy(
-                    update={"cash_krw": Decimal("1000001")}
-                )
+                simulation.equity[0].model_copy(update={"cash_krw": Decimal("1000001")})
             ]
         }
     )
