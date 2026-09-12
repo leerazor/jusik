@@ -645,23 +645,32 @@ def run_experiment(
             )
         if final_hash_error is not None:
             if (output_dir / "results.json").exists():
-                (output_dir / "results.json").unlink()
-            if not (output_dir / "failure.json").exists():
-                _write_exclusive(
-                    output_dir / "failure.json",
-                    {
-                        "run_id": RUN_ID,
-                        "error": final_hash_error,
-                        "ledger": ledger,
-                    },
+                (output_dir / "results.json").replace(
+                    output_dir / "rejected-results.json"
                 )
-            raise RuntimeError(final_hash_error)
+            if (output_dir / "results.csv").exists():
+                (output_dir / "results.csv").replace(
+                    output_dir / "rejected-results.csv"
+                )
+            failure_path = output_dir / "failure.json"
+            failure = {
+                "run_id": RUN_ID,
+                "final_hash_error": final_hash_error,
+                "ledger": ledger,
+            }
+            if failure_path.exists():
+                prior_failure = _load_json(failure_path)
+                failure["original_error"] = prior_failure
+                failure_path.unlink()
+            _write_exclusive(failure_path, failure)
         manifest = {
             str(path.relative_to(output_dir)): sha256(path)
             for path in output_dir.rglob("*")
             if path.is_file() and path.name != "hash-manifest.json"
         }
         _write_exclusive(output_dir / "hash-manifest.json", manifest)
+        if final_hash_error is not None:
+            raise RuntimeError(final_hash_error)
 
 
 def main(argv: list[str] | None = None) -> int:
