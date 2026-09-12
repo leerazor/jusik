@@ -49,7 +49,7 @@ cd /home/kwl/projects/jusik/backend
 
 고정된 과거 자료를 반복 사용한 검토이며 새로운 holdout이 아니다. 생존편향, 배당, 상장 시점과 원천 자료의 한계를 해소하지 않는다. 수익성, 실거래 적합성 또는 자동 승격을 승인하지 않는다. PAPER 엔진·DB, 주문, GPU, 원격 push와 엔진 코드는 변경하지 않았다.
 
-미래 평가 구간 2026-09-14~2026-11-09는 사전등록된 `research_prospective_registration` 계약에 속한다. 계약 identity는 source run `fa0907ecfe86b19836881e5a78a874925fc611978ffe31064eacc82a0a46f687` 및 등록된 session·policy·code/calendar hash로 고정한다. 이 historical robustness CLI와 고정 source를 미래 입력으로 재사용하지 않는다. 계약 기간이 끝난 뒤에는 `[start, end)` 수신 구간의 fill provenance와 실제 시작·종료 raw boundary artifact를 확인하고, 경계 NAV가 승인되고 `evaluation_inputs_complete=true`일 때만 계약 정의에 따라 별도 PAPER 평가를 산출한다. 현재는 경계 NAV/evidence와 완료된 prospective 표본이 없어 검증이 차단된다. 기준 시점 보존 자료의 readiness 상태는 현재 수집기 상태나 미래 성과의 증거가 아니다.
+미래 평가 구간 2026-09-14~2026-11-09는 사전등록된 `research_prospective_registration` 계약에 속한다. 계약 identity는 source run `fa0907ecfe86b19836881e5a78a874925fc611978ffe31064eacc82a0a46f687` 및 등록된 session·policy·code/calendar hash로 고정한다. 이 historical robustness CLI와 고정 source를 미래 입력으로 재사용하지 않는다. 계약 기간이 끝난 뒤에는 `[start, end)` 수신 구간의 fill provenance와 실제 시작·종료 raw boundary artifact를 확인하고, 경계 NAV가 승인되고 `evaluation_inputs_complete=true`일 때만 계약 정의에 따라 별도 PAPER 평가를 산출한다. 검토 기준일 2026-09-12에는 평가 구간이 아직 시작되지 않아 완료된 prospective 표본을 확보할 수 없으므로 검증은 blocked다. 기준 시점 보존 자료의 readiness 상태는 현재 수집기 상태나 미래 성과의 증거가 아니다.
 
 ## 검사와 보존
 
