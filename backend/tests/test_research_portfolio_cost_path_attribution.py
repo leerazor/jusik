@@ -1,14 +1,23 @@
+import hashlib
 import json
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
+import jusik.research_portfolio_cost_path_attribution as attribution
 from jusik.research_portfolio_cost_path_attribution import (
     enrich_report,
     first_trade_path_mismatch,
     load_frozen,
+)
+from jusik.research_portfolio_models import (
+    PortfolioCandidate,
+    PortfolioEquityPoint,
+    PortfolioMetrics,
+    PortfolioSimulation,
 )
 
 
@@ -168,4 +177,136 @@ def test_synthetic_loader_rejects_extra_file(tmp_path: Path) -> None:
     with pytest.raises(
         (FileNotFoundError, ValueError), match="hash|filesystem|evaluation|results"
     ):
+        load_frozen(root)
+
+
+def _synthetic_input(tmp_path: Path) -> Path:
+    root = tmp_path / "frozen"
+    sim_dir = root / "simulations"
+    sim_dir.mkdir(parents=True)
+    periods = [f"fold_{i}" for i in range(1, 8)] + ["continuous"]
+    candidate = PortfolioCandidate(id="fixture", method="equal", gate="none")
+    metrics = PortfolioMetrics(
+        initial_equity_krw=Decimal("100000000"),
+        final_equity_krw=Decimal("100000000"),
+        total_return_pct=Decimal("0"),
+        max_drawdown_pct=Decimal("0"),
+        trade_count=0,
+        transaction_cost_krw=Decimal("0"),
+        fx_cost_krw=Decimal("0"),
+        turnover_pct=Decimal("0"),
+    )
+    simulation = PortfolioSimulation(
+        candidate=candidate,
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 1, 31),
+        metrics=metrics,
+        complete=True,
+        incomplete_reasons=[],
+        drawdown_latched=False,
+        drawdown_latched_at=None,
+        equity=[
+            PortfolioEquityPoint(
+                at=datetime(2024, 1, 1, tzinfo=UTC),
+                equity_krw=Decimal("100000000"),
+                cash_krw=Decimal("100000000"),
+                drawdown_pct=Decimal("0"),
+            )
+        ],
+        trades=[],
+        weekly_targets=[],
+        positions=[],
+        contributions_krw={},
+        split_cash_in_lieu_krw={},
+        overlap_diagnostics={},
+    )
+    payload = simulation.model_dump(mode="json")
+    evaluations, hashes = [], {}
+    for period in periods:
+        for arm in ("control", "variant"):
+            for cost in (1, 2, 3):
+                name = f"{period}-{arm}_c{cost}.json"
+                path = sim_dir / name
+                path.write_text(json.dumps(payload, sort_keys=True))
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                hashes[f"simulations/{name}"] = digest
+                evaluations.append(
+                    {
+                        "artifact": name,
+                        "period": period,
+                        "arm": arm,
+                        "cost_multiplier": cost,
+                        "complete": True,
+                        "initial_equity_krw": "100000000",
+                        "final_equity_krw": "100000000",
+                        "total_return_pct": "0",
+                        "max_drawdown_pct": "0",
+                        "trade_count": 0,
+                        "transaction_cost_krw": "0",
+                        "fx_cost_krw": "0",
+                        "turnover_pct": "0",
+                        "sha256": digest,
+                    }
+                )
+    periods_meta = [
+        {"name": p, "start": "2024-01-01", "end": "2024-01-31"} for p in periods
+    ]
+    prereg = {
+        "evaluation_count": 48,
+        "periods": periods_meta,
+        "base_config": {
+            "initial_cash_krw": "100000000",
+            "symbol_cap": "0.20",
+            "gross_cap": "0.60",
+            "leveraged_etf_cap": "0.20",
+            "drawdown_limit": "0.10",
+        },
+        "validated_configs": {
+            f"{band}-c{cost}": {} for band in ("0.02", "0.04") for cost in (1, 2, 3)
+        },
+    }
+    (root / "results.json").write_text(
+        json.dumps({"evaluation_count": 48, "evaluations": evaluations}, sort_keys=True)
+    )
+    (root / "preregistration.json").write_text(json.dumps(prereg, sort_keys=True))
+    (root / "hash-manifest.json").write_text(json.dumps(hashes, sort_keys=True))
+    attribution.RESULTS_SHA256 = hashlib.sha256(
+        (root / "results.json").read_bytes()
+    ).hexdigest()
+    attribution.PREREGISTRATION_SHA256 = hashlib.sha256(
+        (root / "preregistration.json").read_bytes()
+    ).hexdigest()
+    attribution.MANIFEST_SHA256 = hashlib.sha256(
+        (root / "hash-manifest.json").read_bytes()
+    ).hexdigest()
+    return root
+
+
+def test_synthetic_loader_accepts_exact_48(tmp_path: Path) -> None:
+    assert len(load_frozen(_synthetic_input(tmp_path))) == 48
+
+
+@pytest.mark.parametrize("mutation", ["missing", "duplicate", "bytes", "config"])
+def test_synthetic_loader_rejects_mutations(tmp_path: Path, mutation: str) -> None:
+    root = _synthetic_input(tmp_path)
+    if mutation == "missing":
+        next((root / "simulations").glob("*.json")).unlink()
+    elif mutation == "duplicate":
+        results = json.loads((root / "results.json").read_text())
+        results["evaluations"].append(results["evaluations"][0])
+        (root / "results.json").write_text(json.dumps(results, sort_keys=True))
+        attribution.RESULTS_SHA256 = hashlib.sha256(
+            (root / "results.json").read_bytes()
+        ).hexdigest()
+    elif mutation == "bytes":
+        path = next((root / "simulations").glob("*.json"))
+        path.write_text(path.read_text() + " ")
+    else:
+        prereg = json.loads((root / "preregistration.json").read_text())
+        prereg["base_config"]["drawdown_limit"] = "0.20"
+        (root / "preregistration.json").write_text(json.dumps(prereg, sort_keys=True))
+        attribution.PREREGISTRATION_SHA256 = hashlib.sha256(
+            (root / "preregistration.json").read_bytes()
+        ).hexdigest()
+    with pytest.raises((ValueError, FileNotFoundError)):
         load_frozen(root)
