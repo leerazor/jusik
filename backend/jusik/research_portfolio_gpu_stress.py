@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import platform
@@ -21,6 +22,13 @@ MAX_SCENARIOS = 4096
 MAX_OBSERVATIONS = 1172
 GPU_MEMORY_CAP_BYTES = 2 * 1024**3
 METRIC_TOLERANCE = Decimal("0.00000001")
+
+
+def _optional_torch() -> Any | None:
+    try:
+        return importlib.import_module("torch")
+    except ImportError:
+        return None
 
 
 @dataclass(frozen=True)
@@ -248,7 +256,9 @@ def calculate_metrics(
 def _torch_metrics(
     paths: list[list[Decimal]], indices: list[list[int]], device: str
 ) -> list[list[dict[str, Any]]]:
-    import torch  # type: ignore[import-not-found]
+    torch = _optional_torch()
+    if torch is None:
+        raise RuntimeError("torch is required for tensor stress execution")
 
     index_tensor = torch.tensor(indices, dtype=torch.long, device=device)
     output: list[list[dict[str, Any]]] = []
@@ -283,7 +293,9 @@ def _torch_metrics(
 def _torch_run(
     paths: list[list[Decimal]], indices: list[list[int]], device: str
 ) -> list[list[dict[str, Any]]]:
-    import torch
+    torch = _optional_torch()
+    if torch is None:
+        raise RuntimeError("torch is required for tensor stress execution")
 
     chunk = max(
         1,
@@ -305,7 +317,9 @@ def _torch_run(
 def _benchmark(
     paths: list[list[Decimal]], indices: list[list[int]], device: str
 ) -> dict[str, Any]:
-    import torch
+    torch = _optional_torch()
+    if torch is None:
+        raise RuntimeError("torch is required for benchmark")
 
     if device == "cuda":
         torch.cuda.reset_peak_memory_stats()
@@ -367,12 +381,9 @@ def run(
     index_hash = hashlib.sha256(
         json.dumps(index_payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
-    try:
-        import torch
-    except ImportError as exc:
-        if device == "cuda":
-            raise RuntimeError("torch is required for explicit CUDA") from exc
-        torch = None
+    torch = _optional_torch()
+    if device == "cuda" and torch is None:
+        raise RuntimeError("torch is required for explicit CUDA")
     if device == "cuda" and (torch is None or not torch.cuda.is_available()):
         raise RuntimeError("CUDA device is unavailable")
     selected_device = (
