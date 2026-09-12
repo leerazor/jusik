@@ -320,3 +320,18 @@
 - 통합 검증 실패 원인과 복구 결과: 코드 통합 검사 실패 없음. 감독 보존 검사에서 Git 경로 인용으로 비ASCII2파일이 새 파일로 오인되어 -z 경로 읽기와 기준 blob 비교로 검사 도구를 수정하고 통과했습니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-protocol-replay-v1-0bb3f02db53540c9b6da3e631c76aa9b/handoff.md
 - 후속 후보: 합성 revision-link 구조 감사1개. 프로토콜의 이전 revision·effective 시각 연결 규칙과 현재 replay의 충돌 보존 범위를 근거로 합니다. 범위·입력·테스트·종료 조건은 영구 followup.json에 기록했습니다.
+
+## runner-daily-limit
+
+- 상태: 진행
+- 목표와 완료 조건: 기존 실행 이력을 보존하며 일일 설정 상한을 24회까지 지원하고 설치 설정을 24회로 조정해 대기 연구를 재개합니다.
+- 담당 Luna: 별도 Codex CLI gpt-5.6-luna
+- 워크트리 절대 경로: /home/kwl/projects/jusik-runner-daily-limit
+- 작업 브랜치: fix/runner-daily-limit
+- 기준 커밋 SHA: 이 등록 항목을 포함한 준비 커밋(부모 b8d6d22)
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: UTC 실행 8회/설정8로 quota 대기 확인; 후속3개 queued, timer 정상
+- 수정 허용 범위: development_runner.py, 해당 tests, docs/development-runner.md
+- 포트·테스트 DB·출력 경로: 전용 venv/임시DB, 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260912T061307Z-runner-daily-limit
+- 검증 명령과 결과: focused pytest/Ruff/strictmypy 및 독립review 예정
+- 보존·종료: store/실행이력/90분제한/cooldown/PAPER/GPU 유지, main 검증 후 archive·worktree 정리·handoff·웹 게시
