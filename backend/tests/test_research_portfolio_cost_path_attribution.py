@@ -31,9 +31,9 @@ def restore_pinned_hash_constants(
         "PREREGISTRATION_SHA256": attribution.PREREGISTRATION_SHA256,
         "MANIFEST_SHA256": attribution.MANIFEST_SHA256,
     }
-    yield
     for name, value in originals.items():
         monkeypatch.setattr(attribution, name, value)
+    yield
 
 
 def test_first_trade_path_mismatch_is_utc_sorted_and_excludes_price() -> None:
