@@ -913,11 +913,16 @@ def _run_experiment_inner(
     )
     rows: list[dict[str, Any]] = []
     simulations: dict[tuple[str, str, int], PortfolioSimulation] = {}
+    plan = _evaluation_plan(periods)
+    plan_index = 0
     for arm, weeks in (("control", 4), ("variant", 8)):
         for period in periods:
             for cost in FULL_COSTS:
                     if len(ledger) >= EVALUATION_CAP:
                         raise RuntimeError("evaluation cap exceeded")
+                    if plan[plan_index] != (arm, cost, period["name"]):
+                        raise RuntimeError("evaluation order diverged from frozen plan")
+                    plan_index += 1
                     if clock() >= deadline:
                         raise TimeoutError(
                             "execution deadline exceeded before simulation"

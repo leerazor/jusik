@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -7,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jusik.research_portfolio_engine import simulate
+from jusik.research_portfolio_held_band_experiment import _copy_engine, _load_copy
 from jusik.research_portfolio_models import PortfolioCandidate, PortfolioConfig
 from jusik.research_portfolio_rebalance_cadence_cost_stress import (
     EVALUATION_CAP,
@@ -53,13 +54,16 @@ def test_runner_plan_is_24_control_then_24_variant() -> None:
 
 @pytest.mark.parametrize("weeks", [4, 8])
 def test_copied_engine_keeps_risk_weekly_and_changes_only_reentry_cadence(
-    weeks: int,
+    weeks: int, tmp_path: Path,
 ) -> None:
     from tests.test_research_portfolio import _episode_source
 
     source = _episode_source()
     config = _cadence_config(PortfolioConfig(), weeks, 1)
-    result = simulate(
+    engine = Path(__file__).parents[1] / "jusik" / "research_portfolio_engine.py"
+    _original, variant_path = _copy_engine(engine, tmp_path)
+    variant = _load_copy(variant_path, "cadence_test_variant")
+    result = variant.simulate(
         source,
         PortfolioCandidate(id="equal", method="equal", gate="none"),
         source.instruments[0].requested_start,
@@ -85,7 +89,11 @@ def test_control_json_mismatch_stops(tmp_path: Path) -> None:
     expected = tmp_path / "expected.json"
     expected.write_text('{"value": 1}\n', encoding="utf-8")
     with pytest.raises(ValueError):
-        _verify_exact_replay({"value": 2}, expected, "0" * 64)
+        _verify_exact_replay(
+            {"value": 2},
+            expected,
+            hashlib.sha256(expected.read_bytes()).hexdigest(),
+        )
 
 
 @pytest.mark.parametrize("weeks", [0, 3, 9])
