@@ -404,3 +404,18 @@
 - 정리: 근거·환경·hash·handoff 65파일을 먼저 영구 보관·검증한 뒤 작업 생성물과 병합 worktree 제거. 브랜치 보존. 기존 HANDOFF와 다른 워크트리 보존.
 - 통합 검증 실패 원인과 복구 결과: 통합 실패 없음. 작업 환경 초기 Python 경로 문제는 격리된 Python3.13 venv 재생성으로 해결.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-revision-link-audit-v1-97739cd36077413eab39ecf6961f673c/handoff.md
+
+## small-entry-draft-provenance-d946
+
+- 상태: 진행
+- 목표와 완료 조건: 고정 bundle provenance 검증기, 합성 경계와 보관 입력 검증, 독립 검토, main 통합 검사, 연구 이력 게시와 영구 handoff.
+- 담당 Luna: provenance_luna (gpt-5.6-luna), 단일 구현 소유자.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-small-entry-draft-provenance-d946
+- 작업 브랜치: feat/small-entry-draft-provenance-d946
+- 기준 커밋 SHA: 2ee7b0a; 등록 커밋을 실제 생성 기준으로 사용합니다.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: explore/plan 완료. 지정 archive 네 파일 읽기 전용. 이전 미통합 커밋 d499309, ee4a0f8의 세 파일만 재사용하며 이전 워크트리는 보존합니다.
+- 수정 허용 범위: backend/jusik/research_small_entry_draft_provenance.py, 대응 tests, docs/research/small-entry-draft-provenance-audit-v1.md
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 작업별 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/small-entry-draft-provenance-audit-v1-d946e107ca2a46e0a88ea65391331b60
+- 검증 방법: 신규+draft+분포 pytest, Ruff check/format, strict mypy, 보관 네 파일 전후 SHA 및 반복 출력 일치, 독립 review, main 재검사, 웹/API 다운로드 SHA 확인.
+- 제외: 미래 자료·임계값·정책·PAPER/운영 DB·collector/order/GPU·runner/quota·remote push 변경 및 과거 blocked 큐 재시도 없음.
