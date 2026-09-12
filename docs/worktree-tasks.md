@@ -292,7 +292,7 @@
 
 ## future-observation-replay-0bb3
 
-- 상태: 준비
+- 상태: 검증
 - 목표와 완료 조건: 합성 fixture 전용 순수 관측 분류기와 오프라인 CLI를 구현하고 독립 기대값·pytest·검토·main 통합·웹 보고 및 영구 증거 보존을 완료합니다.
 - 담당 Luna: replay_luna (gpt-5.6-luna), 신규 세 파일 단일 구현 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-future-observation-replay-0bb3
@@ -305,3 +305,6 @@
 - 영구 산출물: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-protocol-replay-v1-0bb3f02db53540c9b6da3e631c76aa9b
 - 검증 방법: UTC 반열린 구간, 최초 receipt 불변, 중복·충돌·late, not_due/missing, clock/truncation, 미정 우선순위 보존, 고정 synthetic 불변성. pytest·Ruff·strict mypy·독립 review와 main 재검사.
 - 중단 조건: 결정론적 합성 replay 도구까지. 미래 데이터 부재는 blocker가 아닙니다. PAPER 코드/config/contracts/DB·collector·order·GPU·runner/quota·remote 변경 금지.
+
+- 구현 커밋: af61404, 23a425b, 8ad7113, 0bcf2cc, 420d04a, 2f5fecc. 독립 검토에서 미래 receipt 소급·시계 오류 건수·CLI alias 회귀를 발견해 동일 Luna가 수정했습니다.
+- 감독 독립 검증: 10 receipt/8 identity fixture, 수신 전후 conflict/provenance/clock 3개 비교 통과. 최종 독립 검토와 main 통합 검사 후 완료 처리합니다.
