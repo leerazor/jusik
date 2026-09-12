@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -94,11 +95,23 @@ def test_explicit_session_key_splits_adjacent_minutes() -> None:
 
 
 def test_synchronous_and_asynchronous_seconds_exact_minute() -> None:
-    rows = [_row("a", "AAA", "00:00", 0), _row("b", "BBB", "00:00", -2_000_000)]
+    rows = [
+        {
+            **_row("a", "AAA", "00:00", -3_000_000),
+            "market_at": "2026-09-11T00:00:00.100000Z",
+        },
+        {
+            **_row("b", "BBB", "00:00", -3_000_000),
+            "market_at": "2026-09-11T00:00:59.999999Z",
+        },
+    ]
     result = aggregate_rows(rows)
-    assert result["minutes"]["2026-09-11T00:00:00Z"]["anomalous_symbols"] == []
-    rows[1]["latency_microseconds"] = -2_000_001
-    assert aggregate_rows(rows)["minutes"]["2026-09-11T00:00:00Z"][
+    assert result["minutes"]["2026-09-11T00:00:00Z"]["anomalous_symbols"] == [
+        "AAA",
+        "BBB",
+    ]
+    rows[1]["market_at"] = "2026-09-11T00:01:00Z"
+    assert aggregate_rows(rows)["minutes"]["2026-09-11T00:01:00Z"][
         "anomalous_symbols"
     ] == ["BBB"]
 
@@ -165,6 +178,7 @@ def test_same_id_duplicate_retention() -> None:
     minute = result["minutes"]["2026-09-11T00:00:00Z"]
     assert minute["anomaly_ids"] == ["b", "same", "same"]
     assert minute["anomalous_symbols"] == ["AAA", "BBB"]
+    assert result["pairwise_counts"] == [{"symbols": ["AAA", "BBB"], "count": 1}]
 
 
 def test_frozen_archive_replay(tmp_path: Path) -> None:
@@ -187,7 +201,17 @@ def test_frozen_archive_replay(tmp_path: Path) -> None:
     with (timestamp / "analysis/anomalies.csv").open(
         newline="", encoding="utf-8"
     ) as stream:
-        assert sum(1 for _ in csv.DictReader(stream)) == 249
+        csv_ids = Counter(row["observation_id"] for row in csv.DictReader(stream))
+    output_ids = Counter(
+        i for item in first["minutes"].values() for i in item["anomaly_ids"]
+    )
+    assert csv_ids == output_ids
+    independent = json.loads(
+        (timestamp / "independent-replay.json").read_text(encoding="utf-8")
+    )
+    assert (
+        first["coincident_minutes"] == independent["coincident_anomaly_market_minutes"]
+    )
     assert (tmp_path / "one/summary.json").read_bytes() == (
         tmp_path / "two/summary.json"
     ).read_bytes()
