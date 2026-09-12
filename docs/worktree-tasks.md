@@ -292,7 +292,7 @@
 
 ## future-observation-replay-0bb3
 
-- 상태: 검증
+- 상태: 완료
 - 목표와 완료 조건: 합성 fixture 전용 순수 관측 분류기와 오프라인 CLI를 구현하고 독립 기대값·pytest·검토·main 통합·웹 보고 및 영구 증거 보존을 완료합니다.
 - 담당 Luna: replay_luna (gpt-5.6-luna), 신규 세 파일 단일 구현 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-future-observation-replay-0bb3
@@ -308,3 +308,15 @@
 
 - 구현 커밋: af61404, 23a425b, 8ad7113, 0bcf2cc, 420d04a, 2f5fecc. 독립 검토에서 미래 receipt 소급·시계 오류 건수·CLI alias 회귀를 발견해 동일 Luna가 수정했습니다.
 - 감독 독립 검증: 10 receipt/8 identity fixture, 수신 전후 conflict/provenance/clock 3개 비교 통과. 최종 독립 검토와 main 통합 검사 후 완료 처리합니다.
+
+- 최종 구현 커밋: 2f5fecc (수정 이력 포함). 독립 최종 검토 PASS, 중요 미해결 지적 없음.
+- 병합 직전 main SHA: 6f320bd5e40bef99bb7da03e8996e590239744d6
+- 통합 커밋 SHA: d83d47f2d289368f1719aff9ed516143cb35b091
+- 통합 검증 결과: pytest 49개(신규20, readiness/receipt29), Ruff check/format, 신규 두 파일 strict mypy, diff 통과. 기존 deprecation 경고2개. frontend build 비적용, 전체 backend 타입 검사 미실행.
+- 독립 결과: 10 receipt/8 identity 기대값, 두 CLI 출력 바이트, 미래 conflict/provenance/clock의 수신 전후3쌍 비교 통과. 모든 결과 synthetic, registered/accepted_nav/evaluation_inputs_complete=false.
+- 웹: /research/history 한국어 보고서·checks 게시 완료. API·웹 제목과4개 첨부 다운로드 SHA, 기존 공개 seed 보존 확인.
+- 보존: 기존 tracked 파일은 등록부 외 모두 동일하며 기존 미추적 HANDOFF.md 보존. 비ASCII 경로2개는 원래 기준 커밋 bytes와 추가 비교. 운영 DB·PAPER·collector·order·GPU·runner/quota·remote 변경 없음.
+- 정리: 증거·SHA·환경·handoff82파일을 영구 audit에 보관·검증한 뒤 생성물을 제거하고 git worktree remove로 병합 worktree 정리 완료. 브랜치 보존.
+- 통합 검증 실패 원인과 복구 결과: 코드 통합 검사 실패 없음. 감독 보존 검사에서 Git 경로 인용으로 비ASCII2파일이 새 파일로 오인되어 -z 경로 읽기와 기준 blob 비교로 검사 도구를 수정하고 통과했습니다.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/future-observation-protocol-replay-v1-0bb3f02db53540c9b6da3e631c76aa9b/handoff.md
+- 후속 후보: 합성 revision-link 구조 감사1개. 프로토콜의 이전 revision·effective 시각 연결 규칙과 현재 replay의 충돌 보존 범위를 근거로 합니다. 범위·입력·테스트·종료 조건은 영구 followup.json에 기록했습니다.
