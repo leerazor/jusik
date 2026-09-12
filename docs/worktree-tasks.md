@@ -117,10 +117,10 @@
 
 - 상태: 진행
 - 목표와 완료 조건: 자동 실행기의 Git 메타데이터 쓰기를 명시적으로 허용하고 실제 Codex의 워크트리 생성·커밋·main 병합·정리 및 보호 경로 차단을 검증한 뒤 기존 작업을 재개합니다.
-- 담당 Luna: `/root/work_attribution`
+- 담당 Luna: 별도 Codex CLI `gpt-5.6-luna` (내장 agent의 세션 한도로 대체)
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-runner-git-access`
 - 작업 브랜치: `fix/runner-git-access`
-- 기준 커밋 SHA: 이 등록 항목을 포함한 준비 커밋(부모 `256421a`)
+- 기준 커밋 SHA: `8268a2d`
 - 통합 대상 브랜치: 로컬 `main`
 - 입력과 선행 작업: 조사·계획 완료. 실제 Codex named permissions profile 쓰기 시험 통과
 - 수정 허용 범위: development_runner.py, 관련 테스트, docs/development-runner.md
