@@ -493,6 +493,10 @@ def _planning_task(
         "return/risk/turnover experiments under the current mandate: 100m KRW, "
         "max loss 20%, leveraged allocation 20%, low turnover with realtime signal "
         "detection, live trading deferred. Keep PAPER10% unchanged. "
+        "For GPU stress research, consult docs/research-gpu-role.md and "
+        "docs/research-portfolio-gpu-stress.md and use only the on-demand "
+        "research_portfolio_gpu_stress CLI when measured beneficial, with fixed "
+        "inputs, seed, bounds, and CPU parity; never promote approximate results. "
         "Return planning JSON.",
     )
     task = store.task(task_id)
@@ -535,7 +539,9 @@ def _run_planning(
         "Refer to evidence instead of repeating long context. Do not modify repo, "
         "database, config, remote, orders, or create subagents. Use private bounded "
         "wait_reason with missing input and resume condition when waiting. Cite "
-        "existing permitted evidence only; never cite this attempt's files."
+        "existing permitted evidence only; never cite this attempt's files. GPU stress "
+        "must remain on-demand, fixed-input/seed/bounds with CPU parity and no "
+        "promotion of approximate results."
     )
     _write_private(attempt_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
