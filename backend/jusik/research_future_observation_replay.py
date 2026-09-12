@@ -22,7 +22,10 @@ def _utc(value: str | datetime, field: str) -> datetime:
         raise ValueError(f"{field} timestamp is invalid") from exc
     if parsed.tzinfo is None:
         raise ValueError(f"{field} timestamp must be timezone-aware")
-    return parsed.astimezone(UTC)
+    try:
+        return parsed.astimezone(UTC)
+    except (OverflowError, ValueError) as exc:
+        raise ValueError(f"{field} timestamp is invalid") from exc
 
 
 class Observation(BaseModel):
@@ -58,7 +61,6 @@ class BoundaryRequirement(BaseModel):
 
     boundary: Literal["start", "end"]
     due_at: str | datetime
-    evidence_id: str = Field(min_length=1)
 
 
 class Truncation(BaseModel):
@@ -97,6 +99,26 @@ class SyntheticFixture(BaseModel):
             raise ValueError("fixture must set synthetic to literal true")
         return value
 
+    @model_validator(mode="after")
+    def validate_shape(self) -> SyntheticFixture:
+        if self.truncation is not None and self.truncation.inspected_count != len(
+            self.observations
+        ):
+            raise ValueError(
+                "truncation.inspected_count must equal observations length"
+            )
+        seen: set[str] = set()
+        expected = {"start": self.window_start_at, "end": self.window_end_at}
+        for requirement in self.required_boundaries:
+            if requirement.boundary in seen:
+                raise ValueError("duplicate boundary requirement")
+            seen.add(requirement.boundary)
+            if _utc(requirement.due_at, "boundary due_at") != _utc(
+                expected[requirement.boundary], "window boundary"
+            ):
+                raise ValueError("boundary due_at must match its window boundary")
+        return self
+
 
 Classification = Literal[
     "in_window",
@@ -118,8 +140,12 @@ class ReceiptResult(BaseModel):
 
     receipt_index: int = Field(ge=0)
     received_at: str | None
+    event_at: str
+    read_started_at: str
+    read_finished_at: str
     raw: str
     raw_sha256: str
+    evidence_flags: list[str]
 
 
 class ObservationResult(BaseModel):
@@ -177,10 +203,14 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
     results: list[ObservationResult] = []
     for (source_id, observation_id), entries in groups.items():
         hashes = list(dict.fromkeys(digest for _, _, digest in entries))
+        available_hashes: set[str] = set()
+        available_receipts = 0
         receipts: list[ReceiptResult] = []
         reasons: list[str] = []
         classes: list[Classification] = []
         invalid = False
+        future_receipt = False
+        previous_received: datetime | None = None
         for index, item, digest in entries:
             try:
                 received = _utc(item.received_at, "received_at")
@@ -190,6 +220,14 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                 if read_finished < read_started:
                     raise ValueError("clock_invalid")
                 received_text = received.isoformat()
+                future_receipt = future_receipt or received > checked
+                if received <= checked:
+                    available_hashes.add(digest)
+                    available_receipts += 1
+                if previous_received is not None and received < previous_received:
+                    invalid = True
+                    reasons.append("receipt_clock_reversed")
+                previous_received = received
             except (TypeError, ValueError, OverflowError):
                 invalid = True
                 received_text = str(item.received_at)
@@ -197,21 +235,30 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                 ReceiptResult(
                     receipt_index=index,
                     received_at=received_text,
+                    event_at=str(item.event_at),
+                    read_started_at=str(item.read_started_at),
+                    read_finished_at=str(item.read_finished_at),
                     raw=item.raw,
                     raw_sha256=digest,
+                    evidence_flags=sorted(item.evidence_flags),
                 )
             )
         if invalid:
             classes.append("clock_invalid")
             reasons.append("invalid_or_reversed_clock")
-        if len(hashes) > 1:
+        if len(available_hashes) > 1 or (invalid and len(hashes) > 1):
             classes.append("conflict")
             reasons.append("same_source_and_id_have_different_raw_hashes")
-        elif len(entries) > 1:
+        if available_receipts > 1 and len(available_hashes) < available_receipts:
             classes.append("duplicate")
             reasons.append("repeated_identical_raw_receipt")
+        if future_receipt:
+            classes.append("not_due")
+            reasons.append("receipt_is_after_checked_at")
         first = entries[0][1]
-        flags = first.evidence_flags
+        flags = frozenset(
+            flag for _, item, _ in entries for flag in item.evidence_flags
+        )
         for flag in ("unavailable", "unverified_provenance"):
             if flag in flags:
                 classes.append(flag)  # type: ignore[arg-type]
@@ -220,18 +267,23 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
             first_received = _utc(first.received_at, "received_at")
             if not invalid:
                 if first_received > checked:
-                    classes.append("not_due")
-                    reasons.append("receipt_is_after_checked_at")
+                    pass
                 elif start <= first_received < end:
                     classes.append("in_window")
                 else:
                     classes.append("out_of_window")
+                    reasons.append("receipt_outside_window")
                 if _utc(first.event_at, "event_at") < start and first_received >= start:
                     classes.append("late_arrival")
                     reasons.append("event_precedes_window_but_receipt_is_in_window")
         except (TypeError, ValueError, OverflowError):
             pass
-        if len(classes) > 1 and (invalid or len(hashes) > 1):
+        if len(classes) > 1 and (
+            invalid
+            or len(available_hashes) > 1
+            or "unavailable" in classes
+            or "unverified_provenance" in classes
+        ):
             classes.insert(0, "unresolved")
             reasons.append("independent_error_candidates_have_no_precedence")
         if not classes:
@@ -295,9 +347,19 @@ def main() -> None:
     output = args.output / "replay.json" if args.output.is_dir() else args.output
     if args.fixture.resolve() == output.resolve():
         raise SystemExit("--output must differ from --fixture")
-    if args.fixture.stat().st_size > 4 * 1024 * 1024:
-        raise SystemExit("fixture exceeds 4 MiB limit")
-    result = replay(json.loads(args.fixture.read_text(encoding="utf-8")))
+    try:
+        if output.exists() and args.fixture.stat().st_ino == output.stat().st_ino:
+            raise SystemExit("--output aliases --fixture")
+    except OSError as exc:
+        raise SystemExit(f"cannot inspect fixture/output: {exc}") from exc
+    try:
+        with args.fixture.open("rb") as handle:
+            data = handle.read(4 * 1024 * 1024 + 1)
+        if len(data) > 4 * 1024 * 1024:
+            raise ValueError("fixture exceeds 4 MiB limit")
+        result = replay(json.loads(data.decode("utf-8")))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise SystemExit(f"invalid fixture: {exc}") from exc
     payload = (
         json.dumps(
             result.model_dump(mode="json"), ensure_ascii=False, sort_keys=True, indent=2

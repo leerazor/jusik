@@ -82,17 +82,15 @@ def test_boundary_and_truncation() -> None:
     fixture = {
         **BASE,
         "checked_at": "2030-01-01T12:00:00Z",
-        "required_boundaries": [
-            {"boundary": "end", "due_at": "2030-01-02T00:00:00Z", "evidence_id": "e"}
-        ],
-        "truncation": {"total_count": 5, "inspected_count": 2},
+        "required_boundaries": [{"boundary": "end", "due_at": "2030-01-02T00:00:00Z"}],
+        "truncation": {"total_count": 5, "inspected_count": 0},
     }
     result = replay(fixture)
     assert result.boundary_states == {"end": "not_due"}
     assert result.truncation == {
         "total_count": 5,
-        "inspected_count": 2,
-        "uninspected_count": 3,
+        "inspected_count": 0,
+        "uninspected_count": 5,
         "truncated": True,
     }
 
@@ -104,6 +102,74 @@ def test_invalid_synthetic_and_naive_timestamps_rejected_or_classified() -> None
         {**BASE, "observations": [observation(received_at="2030-01-01T01:00:00")]}
     )
     assert result.observations[0].classifications == ["clock_invalid"]
+
+
+def test_truncation_must_match_inspected_records_and_boundary_contract() -> None:
+    with pytest.raises(ValidationError):
+        SyntheticFixture.model_validate(
+            {
+                **BASE,
+                "observations": [observation()],
+                "truncation": {"total_count": 2, "inspected_count": 0},
+            }
+        )
+    with pytest.raises(ValidationError):
+        SyntheticFixture.model_validate(
+            {
+                **BASE,
+                "required_boundaries": [
+                    {"boundary": "end", "due_at": "2030-01-01T00:00:00Z"}
+                ],
+            }
+        )
+
+
+def test_receipt_metadata_and_backwards_clock_are_preserved() -> None:
+    result = replay(
+        {
+            **BASE,
+            "observations": [
+                observation(evidence_flags=["unavailable"]),
+                observation(
+                    received_at="2030-01-01T00:30:00Z",
+                    evidence_flags=["unverified_provenance"],
+                ),
+            ],
+        }
+    )
+    item = result.observations[0]
+    assert "unresolved" in item.classifications
+    assert "unavailable" in item.classifications
+    assert item.receipts[1].evidence_flags == ["unverified_provenance"]
+    assert item.receipts[1].event_at == "2030-01-01T01:00:00Z"
+    reversed_result = replay(
+        {
+            **BASE,
+            "observations": [
+                observation(received_at="2030-01-01T02:00:00Z"),
+                observation(received_at="2030-01-01T01:00:00Z"),
+            ],
+        }
+    )
+    assert "clock_invalid" in reversed_result.observations[0].classifications
+
+
+def test_conflict_also_keeps_duplicate_fact_and_future_receipt_is_not_due() -> None:
+    result = replay(
+        {
+            **BASE,
+            "observations": [
+                observation(raw="a"),
+                observation(raw="a", received_at="2030-01-01T01:30:00Z"),
+                observation(raw="b", received_at="2030-01-03T00:00:00Z"),
+            ],
+        }
+    )
+    item = result.observations[0]
+    assert "conflict" not in item.classifications
+    assert "duplicate" in item.classifications
+    assert "not_due" in item.classifications
+    assert len(item.receipts) == 3
 
 
 def test_result_flags_are_always_synthetic_and_not_accepted() -> None:

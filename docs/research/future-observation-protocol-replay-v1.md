@@ -6,7 +6,7 @@
 
 `SyntheticFixture` JSON은 `synthetic: true`를 반드시 포함한다. `false`, 누락, 문자열 `"true"`는 거부한다. `window_start_at`, `window_end_at`, `checked_at`과 각 관측의 `source_id`, `observation_id`, UTF-8 문자열 `raw`, `received_at`, `event_at`, `read_started_at`, `read_finished_at`이 필요하다. 모든 시각은 timezone-aware여야 한다. 관측 배열의 순서가 receipt 순서이며 도구가 정렬하지 않는다.
 
-선택적으로 `evidence_flags`에 `unavailable` 또는 `unverified_provenance`를 기록하고, `required_boundaries`에 `boundary`, `due_at`, `evidence_id`를 기록한다. `checked_at < due_at`은 `not_due`, 그 이후 증거가 없는 상태는 `missing`이다. 이 replay의 boundary requirement는 증거가 없음을 명시하는 입력이며, DB readiness나 receipt journal을 재사용하거나 조회하지 않는다. `truncation`은 `total_count`와 `inspected_count`를 받아 미검사 수를 계산한다.
+선택적으로 `evidence_flags`에 `unavailable` 또는 `unverified_provenance`를 기록하고, `required_boundaries`에 `boundary`, `due_at`를 기록한다. boundary requirement 자체가 해당 증거가 없음을 선언하는 합성 입력이다. `checked_at < due_at`은 `not_due`, 그 이후는 `missing`이다. start/end 요구사항은 각각 한 번만 둘 수 있고 due 시각은 window 경계와 같아야 한다. DB readiness나 receipt journal을 재사용하거나 조회하지 않는다. `truncation`의 `inspected_count`는 실제 observations 길이와 같아야 하며 미검사 수를 계산한다.
 
 ## 분류와 보존
 
@@ -29,7 +29,7 @@
     {"source_id":"demo","observation_id":"dup","raw":"same","received_at":"2030-01-01T01:00:00Z","event_at":"2030-01-01T00:00:00Z","read_started_at":"2030-01-01T00:59:59Z","read_finished_at":"2030-01-01T01:00:01Z"},
     {"source_id":"demo","observation_id":"late","raw":"late","received_at":"2030-01-01T02:00:00Z","event_at":"2029-12-31T23:00:00Z","read_started_at":"2030-01-01T01:59:59Z","read_finished_at":"2030-01-01T02:00:01Z"}
   ],
-  "required_boundaries": [{"boundary":"end","due_at":"2030-01-02T00:00:00Z","evidence_id":"end-evidence"}],
+  "required_boundaries": [{"boundary":"end","due_at":"2030-01-02T00:00:00Z"}],
   "truncation": {"total_count":5,"inspected_count":5}
 }
 ```
