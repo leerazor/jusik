@@ -652,3 +652,37 @@
 - 통합·정리: 구현 미병합, 통합 검사·웹 연구 보고서 게시 미실시. 차단 worktree와 branch를 보존합니다. main의 변경은 작업 등록부뿐이며 기존 HANDOFF.md와 이전 worktree를 보존합니다.
 - 재개 조건: source_paths 출력 계약과 실제 metadata를 사용하는 회귀 fixture, strict mypy 오류를 수정·검증한 뒤 새 명시적 시도로 수행해야 합니다. 이번 attempt에서 재실행하지 않습니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e0176881b1d34518805032c279324417/handoff-final.md.
+
+
+## gpu-collector-mode
+
+- 상태: 진행
+- 목표와 완료 조건: 사용자가 승인한 GPU 역할 전환. 수집·기존 결과를 유지하면서 GPU를 요청 기반 포트폴리오 스트레스 실험에 사용합니다.
+- 담당 Luna: gpt-5.6-luna, 작업별 단일 구현 소유자. 독립 조사·순차 계획 완료.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-gpu-collector-mode
+- 작업 브랜치: feat/gpu-collector-mode
+- 기준 커밋 SHA: 7544e986101d1bcdad166576254cb3836bae8266; 이 등록 커밋을 실제 생성 기준으로 사용합니다.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 기존 universe daemon 및 보존된 paired continuous NAV 경로. 자동 개발 pause/service inactive 확인.
+- 수정 허용 범위: research_universe.py, research_optimizer_store.py, development_runner.py, related tests, docs/research-gpu-role.md, deploy/systemd/jusik-research-optimizer.service. 등록부·handoff·설치 서비스·공개 산출물은 감독 소유.
+- 포트·테스트 DB·출력 경로: worktree별 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260912T212923Z-gpu-role-transition.
+- 검증: focused pytest/Ruff check·format/strict mypy, 독립 review, main 통합 검사. GPU 실제512/4096 시나리오·CPU parity 및 collection-only 활성화는 감독 수행.
+- 보존: PAPER/live 엔진·DB·동결 계약10% 유지. 기존 GPU 서비스의 CPU 수집 모드 전환은 사용자 명시 승인 범위이며 감독이 원본 unit 보관 후 적용합니다.
+- 종료 조건: main 병합·검증, 실제 역할 전환·웹 게시·SHA/handoff 보관, 병합 worktree 정리, 자동 개발 재개.
+
+
+## gpu-portfolio-stress
+
+- 상태: 진행
+- 목표와 완료 조건: 사용자가 승인한 GPU 역할 전환. 수집·기존 결과를 유지하면서 GPU를 요청 기반 포트폴리오 스트레스 실험에 사용합니다.
+- 담당 Luna: gpt-5.6-luna, 작업별 단일 구현 소유자. 독립 조사·순차 계획 완료.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-gpu-portfolio-stress
+- 작업 브랜치: feat/gpu-portfolio-stress
+- 기준 커밋 SHA: 7544e986101d1bcdad166576254cb3836bae8266; 이 등록 커밋을 실제 생성 기준으로 사용합니다.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 기존 universe daemon 및 보존된 paired continuous NAV 경로. 자동 개발 pause/service inactive 확인.
+- 수정 허용 범위: new research_portfolio_gpu_stress.py, related test, docs/research-portfolio-gpu-stress.md. 등록부·handoff·설치 서비스·공개 산출물은 감독 소유.
+- 포트·테스트 DB·출력 경로: worktree별 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260912T212923Z-gpu-role-transition.
+- 검증: focused pytest/Ruff check·format/strict mypy, 독립 review, main 통합 검사. GPU 실제512/4096 시나리오·CPU parity 및 collection-only 활성화는 감독 수행.
+- 보존: PAPER/live 엔진·DB·동결 계약10% 유지. 기존 GPU 서비스의 CPU 수집 모드 전환은 사용자 명시 승인 범위이며 감독이 원본 unit 보관 후 적용합니다.
+- 종료 조건: main 병합·검증, 실제 역할 전환·웹 게시·SHA/handoff 보관, 병합 worktree 정리, 자동 개발 재개.
