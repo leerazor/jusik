@@ -429,3 +429,19 @@
 - 정리: 증거·환경·SHA·handoff 54개 파일을 영구 audit에 보관/대조한 뒤 이번 워크트리만 제거. 이전 4840 워크트리와 브랜치는 기존 상태·소유권 보존을 위해 유지.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/small-entry-draft-provenance-audit-v1-d946e107ca2a46e0a88ea65391331b60/handoff-final.md. 기존 root HANDOFF 내용 보존 후 이번 기록 추가.
 - 통합 검증 실패: 없음. 남은 작업 없음.
+
+## portfolio-symbol-removal-15a6
+
+- 상태: 준비
+- 목표와 완료 조건: 고정 32개 simulation의 모든 종목 기여분 차감 산술 민감도, 부호 반전 식별, 독립 검토, main 통합 검사, 한국어 연구 이력 게시와 영구 증거 보존.
+- 담당 Luna: gpt-5.6-luna 단일 구현 소유자.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-symbol-removal-15a6
+- 작업 브랜치: feat/portfolio-symbol-removal-15a6
+- 기준 커밋 SHA: da76dd015cf583f73ee3acb4dd525748934dc74a. 등록 커밋을 실제 생성 기준으로 사용합니다.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 지정 unheld-entry-real32 및 verified-analysis/attribution.json 읽기 전용; explore 후 bounded plan.
+- 수정 허용 범위: backend/jusik/research_portfolio_concentration.py, 대응 tests, docs/research/portfolio-symbol-removal-attribution-v1.md
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 작업별 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-removal-attribution-v1-15a65c0ea4694f0da1b0c8affd420f65
+- 검증 방법: 합성 경계 및 기존 attribution pytest, Ruff check/format, strict mypy, 고정 입력 반복 출력·SHA 대사, 독립 review, main 재검사, 웹/API 다운로드 SHA.
+- 제외: 재배분·재시뮬레이션·미래 자료·정책 활성화·PAPER/운영 DB·collector/order/GPU·runner·remote push 변경 없음. PAPER 10% 유지.
+- 종료 조건: auditable 결과와 구현 workflow 완료. followup=null, 대기 중 portfolio-next-development-selection-v1이 두 분석을 통합합니다.
