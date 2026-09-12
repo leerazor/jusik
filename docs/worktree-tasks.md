@@ -595,3 +595,21 @@
 - 보존·정리: 입력·소스·실제48개 결과·검사·review·publication·handoff 포함 영구575개 파일을 정리 전후 SHA 대조했습니다. 이번 워크트리·전용 브랜치를 force 없이 제거했고 기존 HANDOFF.md와 이전 두 워크트리를 보존했습니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-cost3-stress-v1-f9aecd54dffc4931a6100ac2de8c8cd3/handoff-final.md.
 - 남은 작업: 요청 범위 없음. 후향/PIT 미인증, 조기 폐장·partial/cancel/reject 미지원은 유지합니다. 추가 배수/밴드 탐색, 승자 선정, 정책 승격, 손실 보장은 없습니다.
+
+
+## portfolio-held-band-cost-path-0f90
+
+- 상태: 준비
+- 목표와 완료 조건: 저장48개 hash 및 회계 검증 후32개 비용 비교와16개 밴드 분해 차이, 음수 결과와 결정적 출력 증거를 보존합니다. 역사 실행·외부 수집·튜닝은0회, 분석은2회 이하 및15분 한도입니다.
+- 담당 Luna: gpt-5.6-luna 단일 구현 소유자. 감독 explore 후 순차 plan, 별도 review를 수행합니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-cost-path-0f90
+- 작업 브랜치: feat/portfolio-held-band-cost-path-0f90
+- 기준 커밋 SHA: 9bd0c3e96495ad5cacfa5585d3de413f428a2b66 (등록부 커밋 뒤 실제 생성 SHA 기록)
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: portfolio-held-band-cost3-stress-v1-f9aecd54dffc4931a6100ac2de8c8cd3/experiment의 results, preregistration, manifest와 simulations48개. 상위3개 hash 검증 일치.
+- 수정 허용 범위: 신규 research_portfolio_cost_path_attribution 모듈, 대응 테스트, 한국어 연구 문서. 기존 attribution 회계를 재사용합니다.
+- 포트·테스트 DB·출력 경로: 포트/DB 미사용. worktree 독립 venv. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-cost-path-attribution-v1-0f907dc6cd5b40cf9604af0bccbb2acd.
+- 검증 명령과 결과: 신규 pytest/Ruff/strict mypy 및 회계 residual≤1e-6, 48완전성,32비교, 결정적2회 출력 대조 예정.
+- 종료 조건: 검토·main 통합 검사·handoff 및 필요한 웹 게시 후 영구 evidence/hash 확인, worktree 정리.
+- 보존 조건: 자본1억원, 사용자 손실20%, leverage cap20%, frozen drawdown.10 및 PAPER10% 불변. 실주문/remote push/PAPER engine·DB/GPU 변경 금지.
+- 실행기 확인: 현재 task/attempt 하나만 running이며 CLI output은 해당 attempt/completion.json입니다. runner를 중지하지 않습니다. 기존 HANDOFF.md 및 두 worktree를 보존합니다.
