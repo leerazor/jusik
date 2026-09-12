@@ -20,6 +20,7 @@ INITIAL_CAPITAL = Decimal("100000000")
 MAX_SCENARIOS = 4096
 MAX_OBSERVATIONS = 1172
 GPU_MEMORY_CAP_BYTES = 2 * 1024**3
+METRIC_TOLERANCE = Decimal("0.00000001")
 
 
 @dataclass(frozen=True)
@@ -153,6 +154,28 @@ def _load_path(
         previous = point.at
     if not 2 <= len(nav) <= MAX_OBSERVATIONS or nav[0] != initial:
         raise ValueError(f"NAV observations or initial value invalid: {case.path}")
+    calculated_final = nav[-1]
+    calculated_return = (calculated_final / initial - 1) * 100
+    peak = initial
+    calculated_mdd = Decimal(0)
+    for value in nav:
+        peak = max(peak, value)
+        calculated_mdd = max(calculated_mdd, (peak - value) / peak * 100)
+    supplied_metrics = {
+        "final_equity_krw": simulation.metrics.final_equity_krw,
+        "total_return_pct": simulation.metrics.total_return_pct,
+        "max_drawdown_pct": simulation.metrics.max_drawdown_pct,
+    }
+    supplied = {
+        "final_equity_krw": calculated_final,
+        "total_return_pct": calculated_return,
+        "max_drawdown_pct": calculated_mdd,
+    }
+    for key, value in supplied.items():
+        if abs(value - _decimal(supplied_metrics[key], key)) > METRIC_TOLERANCE:
+            raise ValueError(
+                f"source metric reconciliation failed ({key}): {case.path}"
+            )
     return (
         times,
         nav,
@@ -218,6 +241,98 @@ def calculate_metrics(
     }
 
 
+def _torch_metrics(
+    paths: list[list[Decimal]], indices: list[list[int]], device: str
+) -> list[list[dict[str, Any]]]:
+    import torch  # type: ignore[import-not-found]
+
+    index_tensor = torch.tensor(indices, dtype=torch.long, device=device)
+    output: list[list[dict[str, Any]]] = []
+    for path in paths:
+        nav = torch.tensor(
+            [float(value) for value in path], dtype=torch.float64, device=device
+        )
+        ratios = nav[1:] / nav[:-1]
+        values = torch.cumprod(ratios[index_tensor], dim=1)
+        values = values * float(INITIAL_CAPITAL)
+        start = torch.full(
+            (len(indices), 1),
+            float(INITIAL_CAPITAL),
+            device=device,
+            dtype=torch.float64,
+        )
+        peaks = torch.cummax(torch.cat((start, values), dim=1), dim=1).values[:, 1:]
+        drawdowns = (peaks - values) / peaks
+        terminal = values[:, -1] / float(INITIAL_CAPITAL) - 1
+        compact = torch.stack(
+            (terminal * 100, drawdowns.max(dim=1).values * 100), dim=1
+        )
+        output.append(
+            [
+                {"terminal_return_pct": row[0], "max_drawdown_pct": row[1]}
+                for row in compact.detach().cpu().tolist()
+            ]
+        )
+    return output
+
+
+def _torch_run(
+    paths: list[list[Decimal]], indices: list[list[int]], device: str
+) -> list[list[dict[str, Any]]]:
+    import torch
+
+    chunk = max(
+        1,
+        min(
+            len(indices),
+            GPU_MEMORY_CAP_BYTES // (max(1, len(paths)) * 64 * max(1, len(indices[0]))),
+        ),
+    )
+    rows: list[list[dict[str, Any]]] = [[] for _ in paths]
+    for start in range(0, len(indices), chunk):
+        partial = _torch_metrics(paths, indices[start : start + chunk], device)
+        for path_index, values in enumerate(partial):
+            rows[path_index].extend(values)
+    if device == "cuda":
+        torch.cuda.synchronize()
+    return rows
+
+
+def _benchmark(
+    paths: list[list[Decimal]], indices: list[list[int]], device: str
+) -> dict[str, Any]:
+    import torch
+
+    if device == "cuda":
+        torch.cuda.synchronize()
+    _torch_run(paths, indices[: min(8, len(indices))], device)
+    if device == "cuda":
+        torch.cuda.synchronize()
+    started = time.perf_counter()
+    _torch_run(paths, indices, device)
+    if device == "cuda":
+        torch.cuda.synchronize()
+    device_elapsed = time.perf_counter() - started
+    original_threads = torch.get_num_threads()
+    measurements: dict[str, float] = {}
+    try:
+        for threads in (2, 8):
+            torch.set_num_threads(threads)
+            started = time.perf_counter()
+            _torch_run(paths, indices, "cpu")
+            measurements[str(threads)] = time.perf_counter() - started
+    finally:
+        torch.set_num_threads(original_threads)
+    return {
+        "warmed": True,
+        "synchronized": device == "cuda",
+        "includes_host_device_transfers": True,
+        "gpu_transfer_included_seconds": device_elapsed if device == "cuda" else None,
+        "cpu_seconds_by_threads": measurements,
+        "cpu_threads_restored": torch.get_num_threads() == original_threads,
+    }
+
+
 def run(
     request_path: Path,
     output_dir: Path,
@@ -227,7 +342,7 @@ def run(
         raise ValueError("output directory must be new and not a symlink")
     request, raw = load_request(request_path)
     times, paths, source_metrics = validate_inputs(request)
-    if request.scenarios * request.horizon * len(paths) * 64 > GPU_MEMORY_CAP_BYTES:
+    if request.scenarios * request.horizon * len(paths) * 8 > GPU_MEMORY_CAP_BYTES:
         raise ValueError("requested GPU memory exceeds 2 GiB cap")
     indices = generate_indices(
         request.seed,
@@ -245,20 +360,51 @@ def run(
     index_hash = hashlib.sha256(
         json.dumps(index_payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
-    if device == "cuda":
-        try:
-            import torch  # type: ignore[import-not-found]
-
-            if not torch.cuda.is_available():
-                raise RuntimeError("CUDA device is unavailable")
-        except ImportError as exc:
+    try:
+        import torch
+    except ImportError as exc:
+        if device == "cuda":
             raise RuntimeError("torch is required for explicit CUDA") from exc
-        raise RuntimeError("CUDA implementation requires the optional torch runtime")
+        torch = None
+    if device == "cuda" and (torch is None or not torch.cuda.is_available()):
+        raise RuntimeError("CUDA device is unavailable")
+    selected_device = (
+        "cuda"
+        if device == "cuda"
+        or (
+            device == "auto"
+            and request.scenarios >= 512
+            and torch is not None
+            and torch.cuda.is_available()
+        )
+        else "cpu"
+    )
     started = time.perf_counter()
-    rows = [
-        [calculate_metrics(path, row, request.initial_capital) for path in paths]
-        for row in indices
-    ]
+    torch_rows = _torch_run(paths, indices, selected_device) if torch else None
+    benchmark = (
+        _benchmark(paths, indices, selected_device)
+        if torch
+        else {
+            "warmed": False,
+            "synchronized": False,
+            "includes_host_device_transfers": False,
+            "cpu_is_acceptable": True,
+        }
+    )
+    rows: list[list[dict[str, Any]]] = []
+    for scenario, index_row in enumerate(indices):
+        scenario_rows: list[dict[str, Any]] = []
+        for path_index, path in enumerate(paths):
+            metric = calculate_metrics(path, index_row, request.initial_capital)
+            if torch_rows is not None:
+                for key in ("terminal_return_pct", "max_drawdown_pct"):
+                    if abs(
+                        Decimal(str(torch_rows[path_index][scenario][key]))
+                        - metric[key]
+                    ) > Decimal("0.000001"):
+                        raise ValueError(f"torch parity mismatch: {key}")
+            scenario_rows.append(metric)
+        rows.append(scenario_rows)
     elapsed = time.perf_counter() - started
     output_dir.mkdir(parents=False)
     _write(output_dir / "request.json", raw)
@@ -311,16 +457,15 @@ def run(
         {
             "python": sys.version,
             "platform": platform.platform(),
-            "device": "cpu",
+            "device": selected_device,
             "elapsed_seconds": elapsed,
-            "peak_gpu_memory_bytes": 0,
+            "peak_gpu_memory_bytes": (
+                int(torch.cuda.max_memory_allocated())
+                if selected_device == "cuda" and torch is not None
+                else 0
+            ),
             "gpu_memory_cap_bytes": GPU_MEMORY_CAP_BYTES,
-            "benchmark": {
-                "warmed": False,
-                "synchronized": False,
-                "includes_host_device_transfers": False,
-                "cpu_is_acceptable": True,
-            },
+            "benchmark": benchmark,
         },
     )
     _write(
@@ -344,7 +489,7 @@ def run(
         },
     )
     return {
-        "device": "cpu",
+        "device": selected_device,
         "scenario_count": request.scenarios,
         "indices_sha256": index_hash,
     }
