@@ -21,7 +21,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from jusik.research_entry_attribution import attribute_simulation
+from jusik.research_entry_attribution import FEE_RATE, attribute_simulation
 from jusik.research_experiment_guard import (
     verify_control_output,
     verify_hashes,
@@ -75,6 +75,23 @@ CORRECTED_PREREGISTRATION_SHA256 = (
 CORRECTED_RESULTS_SHA256 = (
     "5c2de5987dd099de64736e1d5ebe9a14e25a43f089bc4a1dc60d924a645e7cc4"
 )
+IMPORTED_HASHES = {
+    "research_entry_attribution.py": (
+        "3013c6ba8ddbd0ec001462272ee9808ee105afcc939fd25360233c69df594f56"
+    ),
+    "research_unheld_entry_experiment.py": (
+        "a31a455ae79dddce3b19248bc85a4068be49d0d7d0f06bea50422818b866f6d8"
+    ),
+    "research_experiment_guard.py": (
+        "5e9a9cb9b25ccbf73bec9b7a6cb10914e8f5ef1ba378a2a687e7a21bc5a2bd0e"
+    ),
+    "research_external_models.py": (
+        "fa83ef9b7c294e5b9a687969ae0cf0c9fe20d9b690cc90ab7ee3175be4918e0a"
+    ),
+    "research_universe_models.py": (
+        "f5627aac31e19e34a91800a90400e4bc8a130ee93b89f5404240b20eb9cf87c4"
+    ),
+}
 
 
 def sha256(path: Path) -> str:
@@ -101,6 +118,17 @@ def _empty_output(path: Path) -> None:
             "output directory must be new or empty; overwrite/resume is refused"
         )
     path.mkdir(parents=True, exist_ok=True)
+
+
+def _checkpoint(path: Path, value: object) -> None:
+    """Persist an execution ledger checkpoint before starting a simulation."""
+    temporary = path.with_suffix(".tmp")
+    with temporary.open("w", encoding="utf-8") as handle:
+        json.dump(value, handle, ensure_ascii=False, indent=2, default=str)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, path)
 
 
 def _load_json(path: Path) -> Any:
@@ -230,6 +258,44 @@ def _delta(left: object, right: object) -> Decimal:
         return Decimal(str(left)) - Decimal(str(right))
 
 
+def _verify_accounting(
+    sim: PortfolioSimulation,
+    cost: int,
+    config: PortfolioConfig,
+    source: PortfolioInput,
+) -> None:
+    for value in (
+        sim.metrics.initial_equity_krw,
+        sim.metrics.final_equity_krw,
+        sim.metrics.turnover_pct,
+        *(trade.notional_krw for trade in sim.trades),
+    ):
+        if not value.is_finite():
+            raise ValueError("non-finite financial value")
+    if sim.metrics.trade_count != len(sim.trades):
+        raise ValueError("trade_count does not equal serialized trades")
+    notional = sum((trade.notional_krw for trade in sim.trades), Decimal(0))
+    expected_turnover = notional / config.initial_cash_krw * 100
+    if sim.metrics.turnover_pct != expected_turnover:
+        raise ValueError("turnover does not reconcile to trade notionals")
+    fee_rate = FEE_RATE * cost
+    spread = config.fx_spread_rate
+    currencies = {
+        item.instruments[0].symbol: item.instruments[0].instrument.currency
+        for item in source.instruments
+    }
+    for trade in sim.trades:
+        if currencies[trade.symbol] == "KRW":
+            if trade.fx_cost_krw != Decimal("0"):
+                raise ValueError("KRW trade has nonzero FX cost")
+            continue
+        base = trade.notional_krw * (Decimal("1") + fee_rate)
+        gross = trade.notional_krw * (Decimal("1") - fee_rate)
+        expected = (base if trade.side == "buy" else gross) * spread
+        if abs(trade.fx_cost_krw - expected) > Decimal("0.000001"):
+            raise ValueError("FX cost does not reconcile independently")
+
+
 def run_experiment(
     prior_audit: Path, engine_source: Path, output_dir: Path
 ) -> dict[str, Any]:
@@ -257,6 +323,12 @@ def run_experiment(
                 for name, digest in CORE_HASHES.items()
             }
         )
+        verify_hashes(
+            {
+                engine_source.parent / name: digest
+                for name, digest in IMPORTED_HASHES.items()
+            }
+        )
         source = PortfolioInput.model_validate(manifest["frozen_input"])
         base = PortfolioConfig.model_validate(manifest["config"])
         control = _load_json(prior_audit / "preregistration.json")
@@ -266,6 +338,14 @@ def run_experiment(
             for row in control_result["evaluations"]
             if row["arm"] == "variant"
         }
+        if len(expected_controls) != 16:
+            raise ValueError("corrected results must pin exactly 16 control artifacts")
+        verify_hashes(
+            {
+                source_dir / f"{period}-variant_c{cost}.json": digest
+                for (period, cost), digest in expected_controls.items()
+            }
+        )
         periods = control.get("periods") or _periods(source_result, robustness)
         if len(periods) != 8 or len({item["name"] for item in periods}) != 8:
             raise ValueError("invalid frozen periods")
@@ -274,6 +354,11 @@ def run_experiment(
             method="inverse_volatility",
             gate="fx_vix",
         )
+        frozen_configs = {
+            f"{band}-c{cost}": _config(base, band, cost).model_dump(mode="json")
+            for band in ("0.02", "0.04")
+            for cost in (1, 2)
+        }
         original_path, variant_path = _copy_engine(engine_source, output_dir)
         original_hash, variant_hash = sha256(original_path), sha256(variant_path)
         if variant_hash != VARIANT_SHA256:
@@ -297,6 +382,12 @@ def run_experiment(
                 "retrospective_reused_history": True,
                 "point_in_time_verified": False,
                 "automatic_trading_eligible": False,
+                "base_config": base.model_dump(mode="json"),
+                "validated_configs": frozen_configs,
+                "source_hashes": SOURCE_HASHES,
+                "core_hashes": CORE_HASHES,
+                "imported_helper_hashes": IMPORTED_HASHES,
+                "control_hashes": expected_controls,
             },
         )
         rows: list[dict[str, object]] = []
@@ -314,6 +405,9 @@ def run_experiment(
                             "status": "started",
                         }
                     )
+                    _checkpoint(
+                        output_dir / "ledger.json", {"run_id": RUN_ID, "ledger": ledger}
+                    )
                     sim = variant.simulate(
                         source,
                         candidate,
@@ -329,6 +423,7 @@ def run_experiment(
                     )
                     payload = sim.model_dump(mode="json")
                     _write_exclusive(artifact, payload)
+                    _verify_accounting(sim, cost, _config(base, band, cost), source)
                     ledger[-1].update(
                         {
                             "status": "saved",
@@ -336,6 +431,9 @@ def run_experiment(
                             "sha256": sha256(artifact),
                             "complete": sim.complete,
                         }
+                    )
+                    _checkpoint(
+                        output_dir / "ledger.json", {"run_id": RUN_ID, "ledger": ledger}
                     )
                     if not sim.complete:
                         raise RuntimeError(
@@ -346,6 +444,17 @@ def run_experiment(
                         expected_sha = expected_controls[(period["name"], cost)]
                         verify_control_output(payload, expected, expected_sha)
                     rows.append(_row(period, arm, cost, sim, variant, source, artifact))
+            if arm == "control":
+                verify_hashes(
+                    {
+                        engine_source.parent / name: digest
+                        for name, digest in CORE_HASHES.items()
+                    }
+                    | {
+                        engine_source.parent / name: digest
+                        for name, digest in IMPORTED_HASHES.items()
+                    }
+                )
         for period in periods:
             for cost in (1, 2):
                 c = next(
@@ -423,6 +532,12 @@ def run_experiment(
             _write_exclusive(
                 output_dir / "ledger.json", {"run_id": RUN_ID, "ledger": ledger}
             )
+        manifest = {
+            str(path.relative_to(output_dir)): sha256(path)
+            for path in output_dir.rglob("*")
+            if path.is_file() and path.name != "hash-manifest.json"
+        }
+        _write_exclusive(output_dir / "hash-manifest.json", manifest)
 
 
 def main(argv: list[str] | None = None) -> int:

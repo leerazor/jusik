@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -16,6 +17,7 @@ from jusik.research_portfolio_held_band_experiment import (
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
+    PortfolioInput,
     PortfolioTrade,
 )
 
@@ -55,23 +57,100 @@ def test_config_rejects_invalid_zero_negative_and_nonfinite_values() -> None:
 
 
 def test_held_boundary_guard_is_present_in_the_copied_engine(tmp_path: Path) -> None:
-    """The copied engine contains the strict held-position '< band' guard."""
+    """The copied engine's actual simulate path honors each held boundary."""
+    from tests.test_research_portfolio import _source
+
     engine = Path(__file__).parents[1] / "jusik" / "research_portfolio_engine.py"
-    original, variant = _copy_engine(engine, tmp_path)
-    original_text = original.read_text()
-    variant_text = variant.read_text()
-    original_guard = (
-        "target_weight > 0\n"
-        "                                and abs(actual - target_weight)"
+    _original, variant_path = _copy_engine(engine, tmp_path)
+    variant = _load_copy(variant_path, "held_boundary_actual_variant")
+    base = _source()
+    snapshot = base.instruments[0].model_copy(
+        update={
+            "instruments": [
+                base.instruments[0]
+                .instruments[0]
+                .model_copy(
+                    update={
+                        "bars": [
+                            bar.model_copy(
+                                update={
+                                    "open": Decimal("100"),
+                                    "high": Decimal("100"),
+                                    "low": Decimal("100"),
+                                    "close": Decimal("100"),
+                                    "adjusted_open": Decimal("100"),
+                                    "adjusted_high": Decimal("100"),
+                                    "adjusted_low": Decimal("100"),
+                                    "adjusted_close": Decimal("100"),
+                                }
+                            )
+                            for bar in base.instruments[0].instruments[0].bars
+                        ]
+                    }
+                )
+            ]
+        }
     )
-    variant_guard = (
-        "target_weight > 0\n"
-        "                                and positions[symbol] > 0\n"
-        "                                and abs(actual - target_weight)"
+    source = base.model_copy(
+        update={"instruments": [snapshot], "stock_snapshot_ids": {"KRTEST": "snapshot"}}
     )
-    assert original_guard in original_text
-    assert variant_guard in variant_text
-    assert variant_text.count("positions[symbol] > 0") == 1
+    candidate = PortfolioCandidate(id="equal", method="equal", gate="none")
+
+    for band, delta, expected_second_trade in (
+        (Decimal("0.02"), Decimal("0.0199"), False),
+        (Decimal("0.02"), Decimal("0.0200"), True),
+        (Decimal("0.02"), Decimal("0.0201"), True),
+        (Decimal("0.04"), Decimal("0.0399"), False),
+        (Decimal("0.04"), Decimal("0.0400"), True),
+        (Decimal("0.04"), Decimal("0.0401"), True),
+    ):
+        calls = 0
+
+        def target_weights(
+            *_args: Any,
+        ) -> tuple[dict[str, Decimal], dict[str, Decimal], None]:
+            nonlocal calls
+            calls += 1
+            return (
+                {"KRTEST": Decimal("0.20")}
+                if calls == 1
+                else {"KRTEST": Decimal("0.20") + delta},
+                {},
+                None,
+            )
+
+        variant.target_weights = target_weights  # type: ignore[attr-defined]
+        variant.volatility_scale = lambda *_args: (Decimal("1"), Decimal("0"))  # type: ignore[attr-defined]
+        config = PortfolioConfig(
+            initial_cash_krw=Decimal("1000000"),
+            fee_rate=Decimal("0"),
+            slippage_rate=Decimal("0"),
+            fx_spread_rate=Decimal("0"),
+            low_turnover_band=band,
+            symbol_cap=Decimal("0.60"),
+            gross_cap=Decimal("0.60"),
+            leveraged_etf_cap=Decimal("0.20"),
+        )
+        result = variant.simulate(
+            source,
+            candidate,
+            source.instruments[0].requested_start,
+            source.instruments[0].requested_end,
+            config,
+            "low_turnover_combined",
+        )
+        kr_trades = [trade for trade in result.trades if trade.symbol == "KRTEST"]
+        assert all(
+            trade.executed_at >= trade.decided_at
+            and trade.executed_at.tzinfo is not None
+            and trade.executed_at.weekday() < 5
+            for trade in kr_trades
+        )
+        assert len(kr_trades) == (2 if expected_second_trade else 1)
+        if expected_second_trade:
+            assert kr_trades[1].quantity == int(
+                (Decimal("1000000") * delta / Decimal("100")).to_integral_value()
+            )
 
 
 def test_unheld_and_risk_cap_paths_remain_in_copied_engine(tmp_path: Path) -> None:
@@ -144,3 +223,20 @@ def test_research_receipts_do_not_fabricate_partial_cancel_or_reject() -> None:
                 "status": "partial",
             }
         )
+
+
+def test_invalid_duplicate_missing_nonfinite_and_temporal_inputs_are_rejected() -> None:
+    from tests.test_research_portfolio import _source
+
+    payload = _source().model_dump(mode="json")
+    payload["stock_snapshot_ids"].pop("KRTEST")
+    with pytest.raises(ValueError, match="snapshot id"):
+        PortfolioInput.model_validate(payload)
+
+    duplicate = _source().model_dump(mode="json")
+    duplicate["instruments"][1]["instruments"][0]["symbol"] = "KRTEST"
+    with pytest.raises(ValueError):
+        PortfolioInput.model_validate(duplicate)
+
+    with pytest.raises(ValueError):
+        PortfolioConfig.model_validate({"fee_rate": "Infinity"})
