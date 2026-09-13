@@ -79,7 +79,7 @@ function GoalSection({ progress }: { progress: ResearchProgress | null }) {
 function ConditionsSection() {
   const leverageLimit = fractionToPercent(mandateSummary.leverage);
   const drawdownLimit = fractionToPercent(mandateSummary.drawdown);
-  const conditions: Array<[string, string]> = [["초기 자본", formatCapital(mandateSummary.capitalKrw)], ["중간 인출", "없음"], ["위험 목표", `초기 자본 포함 최고점 대비 낙폭 ${drawdownLimit}%`], ["레버리지 배분", `${leverageLimit}% 범위`], ["거래 선호", "잦은 거래 지양 · 빈도·회전율·비용·순수익 함께 평가"], ["과거 자료", `${mandateSummary.lookbackYears}년 확인 기간 요구 · 실제 비교 기간은 연구별로 표시`], ["종목 범위", "기존 종목·현금·광범위 지수 ETF·단기채 ETF 확장"], ["짧은 이력 ETF", "주 연구를 막으면 제외 가능"], ["신호와 주문", "실시간 신호 탐지 · 주문 빈도와 다른 개념"], ["투자기간", "미정"], ["운영 정책", "실거래 유보 · 기존 PAPER 10% 계약 고정"]];
+  const conditions: Array<[string, string]> = [["초기 자본", formatCapital(mandateSummary.capitalKrw)], ["중간 인출", "없음"], ["위험 목표", `초기 자본 포함 최고점 대비 낙폭 ${drawdownLimit}%`], ["레버리지 배분", `${leverageLimit}% 범위`], ["거래 선호", mandateSummary.comparisonPreference], ["과거 자료", `${mandateSummary.lookbackYears}년 확인 기간 요구 · 실제 비교 기간은 연구별로 표시`], ["종목 범위", "기존 종목·현금·광범위 지수 ETF·단기채 ETF 확장"], ["짧은 이력 ETF", "주 연구를 막으면 제외 가능"], ["신호와 주문", "실시간 신호 탐지 · 주문 빈도와 다른 개념"], ["투자기간", mandateSummary.investmentHorizonLabel], ["운영 정책", "실거래 유보 · 기존 PAPER 10% 계약 고정"]];
   return <section className={styles.section} aria-labelledby="conditions-title"><div className={styles.sectionHead}><div><span className={styles.sectionNo}>02 / 범위</span><h2 id="conditions-title">목표를 적용하는 운용 조건</h2><p>설정값과 자료가 실제로 다룬 범위를 섞지 않습니다.</p></div></div><dl className={styles.conditions}>{conditions.map(([term, description]) => <div className={styles.condition} key={term}><dt>{term}</dt><dd>{description}</dd></div>)}</dl></section>;
 }
 

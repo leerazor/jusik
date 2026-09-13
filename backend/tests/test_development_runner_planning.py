@@ -51,7 +51,7 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     raw_content = path.read_text(encoding="utf-8")
     mandate = json.loads(raw_content)
     assert mandate == {
-        "recorded_at": "2026-09-13T01:17:23.002763+00:00",
+        "recorded_at": "2026-09-13T12:49:02.035998+00:00",
         "capital_krw": 100000000,
         "maximum_drawdown_fraction": "0.20",
         "drawdown_reference": (
@@ -65,12 +65,13 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
             "short-duration bond ETFs",
         ],
         "interim_withdrawals": "none",
-        "investment_horizon": None,
+        "investment_horizon": "open_ended",
         "historical_lookback_years": 3,
         "leveraged_allocation_fraction": "0.20",
         "turnover_preference": (
-            "Infrequent trading; jointly optimize trade frequency, trading costs, "
-            "and net portfolio returns."
+            "Infrequent trading; compare net returns, drawdown, trade counts, and "
+            "transaction/FX costs side by side before deciding priority. No implicit "
+            "weights or adoption decision."
         ),
         "signal_detection": "real-time",
         "live_trading": "deferred",
@@ -81,6 +82,10 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
             "중간 인출 없음",
             "현금 비중을 낮춰서 진행. 신규 ETF는 방해된다면 제외. 거래가 너무 잦지 "
             "않도록 거래 횟수도 최적화.",
+            "투자기간은 정하지 않고 계속 운용하는 open-ended 방식으로 본다.",
+            "우선순위는 정하지 않는다. 실제 순수익·낙폭·거래 횟수·거래/FX 비용을 "
+            "나란히 "
+            "확인한 뒤 결정한다.",
         ],
         "cash_preference": (
             "Reduce unnecessary idle cash and compare higher investment exposure "
@@ -364,7 +369,7 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
     prompt_text = captured_prompt.read_text(encoding="utf-8")
     assert "docs/research-mandate.json" in prompt_text
     assert '"historical_lookback_years": 3' in prompt_text
-    assert '"investment_horizon": null' in prompt_text
+    assert '"investment_horizon": "open_ended"' in prompt_text
     assert "supersedes all older mandate text" in prompt_text
     assert "100m KRW" not in prompt_text
     assert development_runner.run_once(config).status == "idle"

@@ -82,6 +82,20 @@ const knownStudies: readonly KnownStudy[] = [
     sourceReference: "663ea3345b609d76f08676c56783512c943e37437a92cf06e9ac3a390d8253b8.md:1-16",
     conclusion: "거래 부담의 상충은 관측했지만 채택 근거를 만들지 못했습니다.",
   },
+  {
+    id: "cadence-decision-20260913",
+    sourceSha256: "1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825",
+    resultSha256: "019a2dc72dc720db5b0bbd818569e737569779abfe6db824229dc12757f805a7",
+    reportArtifactSha256: "a2cbd8ad38472f3f5e32c2a300bd4a3c7edd9d7d45d9db050d3aff9bd548a535",
+    question: "고정된 32개 결과를 다시 읽어 4주·8주 운용 중 무엇을 우선 검토할지 판단할 수 있는가?",
+    relatedGoals: ["잦은 거래 지양", "실제 순수익·낙폭·거래 횟수·거래/FX 비용을 함께 비교", "사용자가 결과를 보고 우선순위 결정"],
+    baselineRules: ["연 변동성 목표 15%", "4주마다 재조정", "비용 1x·3x"],
+    candidateRules: ["연 변동성 목표 15%", "8주마다 재조정", "비용 1x·3x"],
+    fixedConditions: ["기존 32개 평가와 동일한 종목·기간·자료", "초기 자본 1억원·중간 인출 없음", "전체 관측 NAV running peak MDD", "거래 fill과 UTC 거래일을 분리"],
+    limitations: ["새 시뮬레이션이 아닌 고정 historical JSON의 재분석입니다.", "Continuous는 2024-04-24~2026-09-08로 요청 3년보다 짧고 PIT 완전성을 인증하지 않았습니다.", "가격만 사용해 배당·세금을 제외했습니다."],
+    sourceReference: "a2cbd8ad38472f3f5e32c2a300bd4a3c7edd9d7d45d9db050d3aff9bd548a535.md",
+    conclusion: "4주와 8주의 순수익·낙폭·거래 부담이 엇갈려 우선순위나 정책 채택을 기록하지 않았습니다.",
+  },
 ];
 
 export const mandateSummary = {
@@ -98,6 +112,10 @@ export const mandateSummary = {
   universeExpansion: mandate.research_universe_expansion,
   interimWithdrawals: mandate.interim_withdrawals,
   shortHistoryPolicy: mandate.short_history_etf_policy,
+  investmentHorizonLabel: mandate.investment_horizon === "open_ended" ? "정해진 종료 없음 · 계속 운용" : "미정",
+  comparisonPreference: mandate.turnover_preference.includes("side by side")
+    ? "잦은 거래를 피하면서 순수익·낙폭·거래 횟수·거래/FX 비용을 나란히 비교한 뒤 우선순위를 결정"
+    : mandate.turnover_preference,
 } as const;
 
 export function getStudyNarrative(study: Study): StudyNarrative | null {
