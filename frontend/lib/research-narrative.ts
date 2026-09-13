@@ -12,6 +12,12 @@ export type StudyNarrative = {
   conclusion: string;
 };
 
+export type CandidateRule = {
+  id: "A" | "B";
+  label: string;
+  mapping: string;
+};
+
 type KnownStudy = StudyNarrative & {
   id: string;
   sourceSha256: string;
@@ -29,8 +35,8 @@ const knownStudies: readonly KnownStudy[] = [
     relatedGoals: ["불필요한 현금 대기 축소", "최고점 대비 낙폭 20% 안에서 관리", "거래 빈도·비용과 순수익을 함께 평가"],
     baselineRules: ["투자 상한 60%", "연 변동성 목표 10%", "4주마다 재조정", "보유 비중 밴드 2%p", "에피소드 손실 제한 10%"],
     candidateRules: ["투자 상한 95%", "연 변동성 목표 30%", "8주마다 재조정", "후보 A/B의 보유 비중 밴드 2%p 또는 4%p", "에피소드 손실 제한 10%"],
-    fixedConditions: ["종목별 상한 20%·레버리지 상품 합산 상한 20%", "초기 자본 1억원·중간 인출 없음", "동일한 종목·가격 자료·비용 배수", "전역 목표는 초기 자본 포함 peak-NAV 낙폭 20%"],
-    limitations: ["여러 규칙을 함께 바꾼 변경 묶음의 결과라 개별 규칙의 인과를 분리할 수 없습니다.", "과거 가격 자료를 재사용했고 point-in-time 검증이 아닙니다.", "배당·세금은 포함하지 않았으며 독립 기간의 재현 검증이 필요합니다."],
+    fixedConditions: ["종목별 상한 20%·레버리지 상품 합산 상한 20%", "초기 자본 1억원·중간 인출 없음", "동일한 종목·가격 자료·비용 배수", "전역 목표는 초기 자본 포함 최고점 대비 평가액 낙폭 20%"],
+    limitations: ["여러 규칙을 함께 바꾼 변경 묶음의 결과라 개별 규칙의 인과를 분리할 수 없습니다.", "과거 가격 자료를 재사용했고 시점 검증이 아닙니다.", "배당·세금은 포함하지 않았으며 독립 기간의 재현 검증이 필요합니다."],
     sourceReference: "aceef65a6cf64ac8afddfcc0226827ce3146100651706f2e3cab010008dc70fd.md:39-51",
     conclusion: "이번 과거 평가에서 두 후보가 위험 기준을 통과했지만, 후보 채택 결정은 기록되어 있지 않습니다.",
   },
@@ -58,9 +64,9 @@ const knownStudies: readonly KnownStudy[] = [
     baselineRules: ["연 변동성 목표 10%"],
     candidateRules: ["연 변동성 목표 15%"],
     fixedConditions: ["투자 상한 60%·진입 규칙·보유 밴드 4%p·4주 재조정", "종목별 상한 20%·레버리지 상품 합산 상한 20%", "에피소드 손실 제한 10%", "초기 자본 1억원·중간 인출 없음"],
-    limitations: ["현금·순수익 개선과 observer 낙폭·회전율·비용 증가가 함께 관측되었습니다.", "과거 자료 비교이며 배당·세금과 미래 성과를 포함하지 않습니다.", "추가 후보 탐색이나 정책 승격은 하지 않았습니다."],
+    limitations: ["현금·순수익 개선과 전체 관측 시점의 낙폭·회전율·비용 증가가 함께 관측되었습니다.", "과거 자료 비교이며 배당·세금과 미래 성과를 포함하지 않습니다.", "추가 후보 탐색이나 정책 승격은 하지 않았습니다."],
     sourceReference: "400bfe573024b6c81fe9893a94954ee79fb8eb6e8541973b115d797c32839099.md:1-10",
-    conclusion: "현금과 순수익의 개선에 위험·비용 증가가 동반된 trade-off 결과입니다.",
+    conclusion: "현금과 순수익의 개선에 위험·비용 증가가 함께 나타난 상충 결과입니다.",
   },
   {
     id: "volatility15-cadence-5270",
@@ -72,9 +78,9 @@ const knownStudies: readonly KnownStudy[] = [
     baselineRules: ["연 변동성 목표 15%", "4주마다 재조정"],
     candidateRules: ["연 변동성 목표 15%", "8주마다 재조정"],
     fixedConditions: ["투자 상한 60%·진입 규칙·보유 밴드 4%p", "종목별 상한 20%·레버리지 상품 합산 상한 20%", "동일한 기존 종목·편입 기준·기간", "초기 자본 1억원·중간 인출 없음"],
-    limitations: ["8주 주기는 거래수와 비용을 줄였지만 현금 비율·순수익·observer 낙폭이 악화되었습니다.", "현금 금액과 현금 비율은 NAV 분모가 달라 같은 방향으로 해석할 수 없습니다.", "과거 자료이고 3년보다 짧은 구간과 point-in-time 미검증의 한계가 있습니다."],
+    limitations: ["8주 주기는 거래수와 비용을 줄였지만 현금 비율·순수익·전체 관측 시점의 낙폭이 악화되었습니다.", "현금 금액과 현금 비율은 평가액 분모가 달라 같은 방향으로 해석할 수 없습니다.", "과거 자료이고 3년보다 짧은 구간과 시점 검증 전 자료라는 한계가 있습니다."],
     sourceReference: "663ea3345b609d76f08676c56783512c943e37437a92cf06e9ac3a390d8253b8.md:1-16",
-    conclusion: "거래 부담 trade-off는 관측했지만 채택 근거를 만들지 못했습니다.",
+    conclusion: "거래 부담의 상충은 관측했지만 채택 근거를 만들지 못했습니다.",
   },
 ];
 
@@ -102,4 +108,11 @@ export function getStudyNarrative(study: Study): StudyNarrative | null {
 
 export function compareNarrativeIdentity(study: Study): boolean {
   return getStudyNarrative(study) !== null;
+}
+
+export function candidateRuleForComparison(study: Study, comparisonId: string): CandidateRule | null {
+  if (study.id !== "core10-low-cash" || !getStudyNarrative(study)) return null;
+  const id = comparisonId.endsWith("-c2") ? "B" : comparisonId.endsWith("-c1") ? "A" : null;
+  if (!id) return null;
+  return { id, label: `후보 ${id} · ${id === "A" ? "밴드 2%p" : "밴드 4%p"}`, mapping: "후보 A = 밴드 2%p · 후보 B = 밴드 4%p" };
 }

@@ -13,12 +13,16 @@
 .sectionHead p { margin: 0; color: var(--muted); }
 .sectionNo { color: var(--green); font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 800; }
 .goalList { border-top: 1px solid var(--ink); }
-.goalRow { display: grid; grid-template-columns: 170px minmax(180px, 1fr) minmax(240px, 1.4fr) 160px; gap: 22px; padding: 24px 0; border-bottom: 1px solid var(--line); }
+.goalContext { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px; margin: 18px 0 0; padding: 13px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.6; }
+.goalContext strong { color: var(--ink); }
+.goalRow { display: grid; grid-template-columns: 170px minmax(180px, 1fr) minmax(240px, 1.4fr) 160px; gap: 22px; min-width: 0; padding: 24px 0; border-bottom: 1px solid var(--line); }
 .goalRow h3 { margin: 0; font-size: 16px; }
 .goalRow p, .goalRow small { margin: 0; color: var(--muted); line-height: 1.7; }
-.goalRow small { display: block; font-size: 12px; }
+.goalRow small { display: block; font-size: 12px; overflow-wrap: anywhere; }
 .goalStatus { align-self: start; color: var(--green); font-size: 12px; font-weight: 800; }
 .goalStatus::before { content: ""; display: inline-block; width: 7px; height: 7px; margin: 0 7px 1px 0; border-radius: 50%; background: #dfaa4b; }
+.goalLink { align-self: start; color: var(--green); font-size: 12px; font-weight: 800; text-decoration: none; }
+.goalLink:hover { text-decoration: underline; }
 .conditions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 26px; border-top: 1px solid var(--ink); }
 .condition { padding: 17px 0; border-bottom: 1px solid var(--line); }
 .condition dt { margin-bottom: 6px; color: var(--muted); font-size: 12px; }
@@ -34,7 +38,9 @@
 .studyBlock h4 { margin: 0 0 9px; font-size: 12px; color: var(--green); }
 .studyBlock ul { margin: 0; padding-left: 17px; color: var(--muted); line-height: 1.7; font-size: 13px; }
 .studyResult { margin: 22px 0 0; padding-top: 18px; border-top: 1px solid var(--line); line-height: 1.7; }
-.studyFoot { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; margin-top: 18px; font-size: 12px; }
+.studyChange, .studyLimit { margin: 13px 0 0; color: var(--muted); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.studyLimit { padding-top: 13px; border-top: 1px solid var(--line); }
+.studyFoot { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; margin-top: 18px; font-size: 12px; overflow-wrap: anywhere; }
 .studyFoot a, .textLink { color: var(--green); font-weight: 800; text-decoration: none; }
 .studyFoot a:hover, .textLink:hover { text-decoration: underline; }
 .missing { padding: 17px; border: 1px dashed #c98955; background: #fff8ed; color: #75431c; line-height: 1.7; }

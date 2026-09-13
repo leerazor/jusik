@@ -1,5 +1,6 @@
 .progressMain {
   max-width: 1240px;
+  min-width: 0;
 }
 
 .runtimeSummary {
@@ -573,18 +574,20 @@
 }
 
 .studyGrid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .studyCard {
   display: flex;
   flex-direction: column;
   padding: 20px;
+  min-width: 0;
 }
 
 .studyCardHeading {
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
   padding-bottom: 15px;
   border-bottom: 1px solid var(--line);
 }
@@ -809,7 +812,11 @@
 
 .comparisonDetails summary:focus-visible { outline: 3px solid #dfaa4b; outline-offset: 2px; }
 .comparisonDetails summary strong { color: var(--ink); }
+.comparisonRule { margin: 0; padding: 11px 15px 0; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .tableWrap { overflow-x: auto; padding: 0 15px; }
+.comparisonDetails,
+.comparisonDetails details,
+.comparisonDetails .tableWrap { min-width: 0; max-width: 100%; }
 .tableWrap table { width: 100%; min-width: 560px; margin: 0; border-collapse: collapse; font-size: 12px; }
 .tableWrap caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .tableWrap th, .tableWrap td { padding: 9px 8px; border-top: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -829,7 +836,6 @@
 }
 
 @media (max-width: 900px) {
-  .studyGrid,
   .queueGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
