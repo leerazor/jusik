@@ -32,21 +32,31 @@ function feedState(state: string, phase: string, overdue: boolean): string {
 export default async function ForwardResearchPage() {
   let status = null;
   let ledger = null;
+  let statusError = false;
+  let ledgerError = false;
   try {
-    [status, ledger] = await Promise.all([getForwardStatus(), getForwardLedger()]);
+    const results = await Promise.allSettled([getForwardStatus(), getForwardLedger()]);
+    if (results[0].status === "fulfilled") status = results[0].value;
+    else statusError = true;
+    if (results[1].status === "fulfilled") ledger = results[1].value;
+    else ledgerError = true;
   } catch {
-    status = null;
+    statusError = true;
+    ledgerError = true;
   }
   return (
     <main>
       <section className="intro research-intro">
-        <div><p className="eyebrow">FORWARD PAPER OBSERVATION</p><h1>새 시세부터 쌓는 가상 관찰</h1><p className="muted">이 화면은 새로 제안된 후보의 독립 검증 화면이 아닙니다. 기존에 고정된 PAPER 10% 방어 정책을 1억원 현금 원장에서 관찰하는 별도 기록이며, 연구 목표인 20% 하락 한도와도 구분됩니다. 실제 주문은 만들지 않습니다.</p></div>
+        <div><p className="eyebrow">FORWARD PAPER OBSERVATION</p><h1>가상 관찰</h1><p className="muted">새 시세부터 쌓는 고정 PAPER 10% 방어 정책의 운용 기록입니다. 연구 목표인 20%와 비교 후보의 검증 결과는 별도이며, 실제 주문은 만들지 않습니다.</p></div>
         <span className="badge">브로커 주문 꺼짐</span>
       </section>
-      {!status || !ledger ? (
-        <section className="notice" role="alert"><h2>전진 관찰 상태를 읽을 수 없습니다</h2><p>연구 백엔드 연결과 저장소 상태를 확인하세요.</p></section>
+      {statusError || ledgerError ? (
+        <section className="notice" role="alert"><h2>{statusError && ledgerError ? "가상 관찰 API에 연결할 수 없습니다" : "가상 관찰 자료 일부를 읽을 수 없습니다"}</h2><p>{statusError ? "정책 상태 응답을 확인할 수 없습니다." : "정책 상태는 확인되었습니다."} {ledgerError ? "원장 응답을 확인할 수 없습니다." : "원장 기록은 확인되었습니다."}</p></section>
+      ) : !status || !ledger ? (
+        <section className="notice" role="status"><h2>가상 관찰이 아직 시작되지 않았습니다</h2><p>첫 상태와 원장 기록을 기다리는 중입니다. 이를 오류나 정상 성과로 해석하지 않습니다.</p></section>
       ) : (
         <>
+          <section className="panel forward-intro-panel"><div className="section-title simple"><h2>관찰 대상과 현재 기록</h2><span className="status">PAPER 10% 고정</span></div><p>이 정책은 연구 목표 20%와 별도이고, 비교 후보를 자동 채택하지 않습니다. 다음 정기 시각은 운용 정책의 예정 시각이며 연구 평가 완료 시각이 아닙니다.</p><dl className="metric-list"><div><dt>정책 hash</dt><dd title={status.session.policy_hash}>{status.session.policy_hash.slice(0, 16)}…</dd></div><div><dt>활성화 시각</dt><dd>{kst(status.session.activated_at)}</dd></div><div><dt>다음 정기 시각</dt><dd>{kst(status.session.next_due_at)}</dd></div><div><dt>평가 종료 조건</dt><dd>자료에 없음</dd></div><div><dt>기록 수</dt><dd>체결 {ledger.fills.length}건 · 시세 {status.feed.items.length}종목 · 기업행동 {status.corporate_actions.length}건</dd></div><div><dt>비교 후보</dt><dd>연구 결과에서 별도 확인</dd></div></dl></section>
           <section className="portfolio-metrics">
             <article className="metric-card"><span>PAPER 현금</span><strong>{researchAmount(ledger.cash_krw, 0)}원</strong><small>초기 100,000,000원 · 과거 seed 없음</small></article>
             <article className="metric-card"><span>현재 상태</span><strong>{stateLabel[status.session.state]}</strong><small>다음 정기 시각 {kst(status.session.next_due_at)}</small></article>

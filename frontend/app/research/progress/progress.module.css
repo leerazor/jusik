@@ -735,6 +735,94 @@
   line-height: 1.8;
 }
 
+.operationsDetails {
+  margin-top: 42px;
+  border-top: 1px solid var(--ink);
+}
+.operationsDetails > summary {
+  padding: 19px 0;
+  color: var(--green);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.operationsDetails > summary:focus-visible { outline: 3px solid #dfaa4b; outline-offset: 3px; }
+
+.studyQuestion {
+  margin: 12px 0 16px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.narrativeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.narrativeGrid strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--green);
+  font-size: 11px;
+}
+
+.narrativeGrid p,
+.decisionNote,
+.studyMetaLine,
+.comparisonBasis {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.decisionNote { padding-top: 15px; }
+.studyMetaLine { margin-top: 15px; }
+
+.comparisonDetails {
+  display: grid;
+  gap: 8px;
+  margin-top: 17px;
+}
+
+.comparisonDetails details {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fbfcfb;
+}
+
+.comparisonDetails summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px;
+  cursor: pointer;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.comparisonDetails summary:focus-visible { outline: 3px solid #dfaa4b; outline-offset: 2px; }
+.comparisonDetails summary strong { color: var(--ink); }
+.tableWrap { overflow-x: auto; padding: 0 15px; }
+.tableWrap table { width: 100%; min-width: 560px; margin: 0; border-collapse: collapse; font-size: 12px; }
+.tableWrap caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.tableWrap th, .tableWrap td { padding: 9px 8px; border-top: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tableWrap th:first-child, .tableWrap td:first-child { text-align: left; }
+.tableWrap thead th { color: var(--muted); font-size: 11px; }
+.comparisonBasis { padding: 10px 15px 14px; }
+
+@media (max-width: 650px) {
+  .narrativeGrid { grid-template-columns: 1fr; }
+  .comparisonDetails summary { display: block; }
+  .comparisonDetails summary strong { display: block; margin-top: 4px; }
+}
+
 .footer a {
   color: var(--green);
   font-weight: 700;

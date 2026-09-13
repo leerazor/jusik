@@ -597,6 +597,15 @@ tr:last-child td {
 .research-intro {
   gap: 24px;
 }
+.forward-intro-panel {
+  margin-bottom: 24px;
+  padding: 24px;
+  border-color: #cbded6;
+  background: #f8faf9;
+}
+.forward-intro-panel > p { max-width: 760px; margin: 0 0 18px; color: var(--muted); }
+.forward-intro-panel .metric-list { margin: 0; }
+.forward-intro-panel .metric-list dd { overflow-wrap: anywhere; }
 .home-research-cta {
   display: flex;
   align-items: center;
