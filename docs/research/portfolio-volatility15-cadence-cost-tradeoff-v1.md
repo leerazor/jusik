@@ -6,13 +6,14 @@
 
 실험 ID는 `portfolio-volatility15-cadence-cost-tradeoff-v1`, attempt는
 `527025c895ad4d54a9559469434162a8`입니다. 2026-09-13에 CPU exact 32개를
-18.251010초에 실행했습니다. 대조군 16개는 선행 volatility-target 연구의
-`variant_c1/c3` JSON과 정확히 일치한 뒤 실행했으며, 이어 8주 변형군 16개를
+18.251010초에 실행했습니다. 대조군 16개를 재실행해 선행 volatility-target
+연구의 `variant_c1/c3` 전체 JSON과 일치함을 확인한 뒤 8주 변형군 16개를
 실행했습니다. 재시도·추가 후보·GPU 사용은 모두 0회입니다.
 
 변동성 목표 0.15, gross cap 0.60, corrected-entry, held band 0.04,
 symbol/leveraged ETF cap 0.20, drawdown trigger 0.10, 초기자본 1억원,
-인출 없음, 기존 universe·eligibility·기간을 고정했습니다. 4주와 8주는 각
+인출 없음, 기존 universe·eligibility·기간을 고정했습니다. 초기자본을 포함한
+NAV running-peak MDD 목표는 20%이며 PAPER10% 계약은 변경하지 않았습니다. 4주와 8주는 각
 평가기간의 첫 월요일을 anchor로 하고 anchor-relative week modulo로 판정합니다.
 비용 배수는 1x와 3x입니다.
 
@@ -84,8 +85,11 @@ point, 거래수는 회, 비용은 KRW입니다.
 
 ## 자료 기간과 한계
 
-Continuous 요청 기간은 2024-04-24~2026-09-08입니다. 각 상품의 실제 고정
-자료 범위는 다음과 같으며, 상장 전 자료를 합성하지 않았습니다.
+요청 lookback은 3년이지만 Continuous 평가 기간은 2024-04-24~2026-09-08로
+3년보다 짧습니다. 일부 원시 자료는 3년을 넘지만 각 상품의 실제 고정 자료
+범위가 서로 다르고, 0173Y0(111일)·0190C0(83일)처럼 짧은 ETF 이력이 있어
+전체 결과를 3년 관측으로 일반화할 수 없습니다. 아래 범위의 상장 전 자료는
+합성하지 않았습니다.
 
 |종목|첫 일봉|마지막 일봉|일봉 수|
 |---|---|---|---:|
