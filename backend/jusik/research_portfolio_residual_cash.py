@@ -1,9 +1,9 @@
 # ruff: noqa: E501
 """Read-only attribution of residual cash in the frozen portfolio run.
 
-This module deliberately consumes saved simulation/observation JSON only.  It
-does not import or execute the strategy engine, so running the diagnostic
-cannot create a new historical simulation.
+The diagnostic consumes saved simulation/observation JSON and invokes only
+causal helper functions from a hash-verified private engine copy. It never
+calls the full simulation entry point.
 """
 
 from __future__ import annotations

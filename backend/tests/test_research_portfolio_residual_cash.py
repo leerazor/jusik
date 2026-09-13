@@ -164,9 +164,16 @@ def test_covariance_adapter_rejects_stale_and_duplicate_close_grid() -> None:
     data["B"] = SimpleNamespace(
         instrument=instrument,
         snapshot=SimpleNamespace(
-            instruments=[SimpleNamespace(
-                bars=bars + [SimpleNamespace(date=date(2024, 1, 15), adjusted_close=Decimal(100))]
-            )]
+            instruments=[
+                SimpleNamespace(
+                    bars=bars
+                    + [
+                        SimpleNamespace(
+                            date=date(2024, 1, 15), adjusted_close=Decimal(100)
+                        )
+                    ]
+                )
+            ]
         ),
     )
     config = PortfolioConfig(volatility_window=2, external_max_age_days=7)
