@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## agent-tooling — 2026-09-13
+
+- 상태: 준비
+- 목표와 완료 조건: Serena MCP, Playwright CLI와 Context7 도구를 검증하고, Codex 역할 지정과 압축 보고 및 감독 스킬을 적용합니다. 관련 검사와 독립 검토 후 로컬 main에 통합합니다.
+- 담당 Luna: 배정 예정(프로젝트 구현 1명), 사용자 환경 도구 설치 `/root/install_tools`.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-agent-tooling`
+- 작업 브랜치: `feat/agent-tooling`
+- 기준 커밋 SHA: 등록 커밋 이후 기록합니다. 등록 전 main은 `7ed18c1af7919925d06176adad9e330eb66d8ebf`입니다.
+- 통합 대상 브랜치: `main`
+- 입력과 선행 작업: 사용자 승인된 추천 도구와 사용량 감사. 자동 runner와 timer는 기존 중지 상태를 유지합니다.
+- 수정 허용 범위: `.codex`, 관련 agent 도구 검증 코드와 테스트, 감독 운영 문서와 AGENTS 안내. 제품·전략·주문·운영 데이터는 범위 밖입니다.
+- 포트·테스트 DB·출력 경로: 전용 임시 fixture와 `~/.local/share/jusik/tooling-audit/20260913-agent-tooling/`. 도구 설치 smoke는 별도 `20260913-tools/`입니다.
+- 검증 명령과 결과: 구현 후 기록합니다.
+- 결과 커밋 SHA와 검토 결과: 대기.
+- 병합 직전 main SHA와 통합 검증: 대기.
+- 통합 커밋 SHA와 정리 여부: 대기.
+- handoff 저장 경로와 갱신 여부: 기존 인계를 보존하고 완료 시 갱신합니다.
+
 기준 저장소에서 Astra만 갱신합니다. 작업 배정 시 [운영 절차의 기록 양식](worktree-workflow.md#작업-지시와-기록)을 사용하고, 상태가 바뀔 때 실제 Git 상태와 검증 결과를 반영합니다.
 
 ## 활성 작업
