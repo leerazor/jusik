@@ -848,3 +848,10 @@
 - 검증: 입력·코드 SHA, 과거 가용 가격·FX, 미래 변조, 1KRW 회계 변조, 실제 종목·레버리지 비중, 원본/observer parity, 비용 1/2배, dev/final 분리와 finalist 사전 동결. pytest/Ruff/strict mypy 및 통합 후 재검사.
 - 결과·검토·통합 SHA: 진행 후 기록한다.
 - 보존: 위 audit에 증거·SHA·HANDOFF.md 보존 후 이번 병합 워크트리만 정상 제거한다. 기존 미병합 4개와 root HANDOFF.md는 유지한다.
+
+- 상태: 통합 대기 (독립 검토 승인)
+- 실제 기준 커밋: c9a00a4cb066865e95309de5610532dffb5ec94c. 단일 Luna 구현 워크트리에서 신규 모듈·테스트·문서 3개 파일만 변경했다.
+- 결과 커밋: ce0fdbff9914df09d4b7697fcf25f07822f2b7c0. 독립 결과 검토는 audit/review/final-review.json에 저장했다.
+- 유효 비교: 개발 8회와 초기 무효 8회, 총 16회. 최종 후보 없음, final/continuous 0회. H1은 현금 감소·순수익 증가·동일 거래일이나 dev1 실제 종목 비중 28.98%/28.40%로 탈락했다.
+- 실행 보존: Decimal 끝자리 차이로 중단한 기준 원장 3개를 재검증해 재사용했다. target_weight와 band_skip.value에만 1e-38 허용, 실제 6개 차이 모두 1e-41. 기준 거래·현금·평가액·성과 지표는 보관본과 정확히 일치한다.
+- 검증: 작업자 pytest11개·Ruff·strict mypy, 감사 fixture29개와 raw8개·112pins·원자료 회계·전체 관측 위험 독립 검토 통과. local main 검사는 병합 후 기록한다.
