@@ -753,3 +753,15 @@
 - 보존·정리: audit에 원문·날짜·환경·패치·검사·검토·handoff와276개 파일의 SHA를 먼저 보존한 후 이번 worktree와 전용 브랜치를 정상 제거했습니다. 기존 미병합3개와 root HANDOFF는 보존했습니다. force/push/PAPER/GPU/실주문/생산 데이터 변경 없음.
 - handoff: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-expanded-universe-mandate-v1-1975c426b9e1436c979e5c4091bfa595/HANDOFF.md`.
 - 통합 검증 실패 없음. 초기 가상환경 준비 오류는 격리 Python3.13.15 환경으로 해결했고, 게시 복구 근거는 audit에 보존했습니다.
+
+## runner-unlimited
+
+- 상태: 진행
+- 목표: 사용자 요청으로 일일 launch 제한을 명시적 null로 해제하고 기존 유한 설정·timeout·cooldown·lock·실패 격리를 보존합니다.
+- 담당 Luna: native collector_transition, 단일 소유자.
+- 워크트리: /home/kwl/projects/jusik-runner-unlimited
+- 브랜치: feat/runner-unlimited
+- 기준: d1d16dfff1e20ade26453fc949b285d53e961ae2; 이 등록 커밋에서 생성합니다. 통합 local main.
+- 범위: backend/jusik/development_runner.py, 관련 tests, docs/development-runner.md. 설치 설정·웹 보고·인계·등록부는 감독 소유.
+- 격리·근거: 자체 venv/tmp; /home/kwl/.local/share/jusik/portfolio-audit/20260913T004630Z-runner-unlimited.
+- 검증·완료: quota초과에서도 unlimited dispatch, 유한quota/중복/cooldown/timeout보존, pytest/Ruff/strictmypy·독립검토·main통합·실제25번째이상launch·웹·인계·worktree정리.
