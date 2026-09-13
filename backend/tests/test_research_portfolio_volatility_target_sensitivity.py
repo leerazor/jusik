@@ -33,6 +33,9 @@ from jusik.research_portfolio_volatility_target_sensitivity import (
     global_drawdown,
     sha256,
 )
+from jusik.research_portfolio_engine import simulate
+from jusik.research_external_features import decision_cutoff
+from test_research_portfolio import _staggered_cap_source
 
 
 def _sim() -> PortfolioSimulation:
@@ -614,6 +617,18 @@ def test_runtime_hashes_contains_both_pinned_helpers(tmp_path: Path) -> None:
     assert checks[Path(cost3.__file__)] == COST3_HELPER_SHA256
 
 
+def test_saved_runtime_hash_mapping_rejects_post_call_mutation(tmp_path: Path) -> None:
+    target = tmp_path / "protected.json"
+    target.write_text("before", encoding="utf-8")
+    checks = {target: sha256(target)}
+    from jusik.research_experiment_guard import verify_hashes
+
+    verify_hashes(checks)
+    target.write_text("after", encoding="utf-8")
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        verify_hashes(checks)
+
+
 def test_zero_nav_observation_is_valid_and_drawdown_is_initial_inclusive() -> None:
     zero = EquityObservation(
         datetime(2024, 1, 2, tzinfo=UTC), Decimal("0"), Decimal("0"), {}
@@ -621,3 +636,41 @@ def test_zero_nav_observation_is_valid_and_drawdown_is_initial_inclusive() -> No
     simulation = _sim().model_copy(update={"equity": []})
     assert _verify_observations(simulation, [zero], PortfolioConfig()) is None
     assert global_drawdown([zero]) == Decimal("100")
+
+
+def test_holiday_gap_uses_next_remaining_open_and_utc_cutoff() -> None:
+    source = _staggered_cap_source()
+    snapshot = next(
+        item for item in source.instruments if item.instruments[0].symbol == "KRTEST"
+    )
+    removed_date = snapshot.instruments[0].bars[72].date
+    bars = [bar for bar in snapshot.instruments[0].bars if bar.date != removed_date]
+    changed = snapshot.model_copy(
+        update={
+            "instruments": [snapshot.instruments[0].model_copy(update={"bars": bars})]
+        }
+    )
+    source = source.model_copy(
+        update={
+            "instruments": [
+                changed if item.instruments[0].symbol == "KRTEST" else item
+                for item in source.instruments
+            ]
+        }
+    )
+    result = simulate(
+        source,
+        PortfolioCandidate(id="equal", method="equal", gate="none"),
+        snapshot.requested_start,
+        snapshot.requested_end,
+        PortfolioConfig(),
+    )
+    assert result.complete
+    assert all(
+        trade.executed_at.date() != removed_date
+        for trade in result.trades
+        if trade.symbol == "KRTEST"
+    )
+    assert decision_cutoff(date(2026, 3, 9), "Asia/Seoul") == datetime(
+        2026, 3, 9, 6, 30, tzinfo=UTC
+    )
