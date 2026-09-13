@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Bounded, preregistered volatility-15% cadence/cost trade-off runner.
 
 This runner is deliberately closed: the volatility target and all risk limits
@@ -312,7 +311,10 @@ def _execute(
                 for p in periods
                 for c in FULL_COSTS
             ],
-            "anchor": "first Monday on or after each evaluation period start; weeks are anchor-relative modulo cadence",
+            "anchor": (
+                "first Monday on or after each evaluation period start; "
+                "weeks are anchor-relative modulo cadence"
+            ),
             "source_paths": prereg["source_paths"],
             "source_hashes": prereg["source_hashes"],
             "core_hashes": prereg.get("core_hashes", {}),
@@ -553,8 +555,10 @@ def _execute(
                 "retries": 0,
             },
             "limitations": [
-                "historical PIT and dividend receipt timing are not independently verified",
-                "receipt, early-close, partial, cancel, and reject handling are unsupported",
+                "historical PIT and dividend receipt timing are not "
+                "independently verified",
+                "receipt, early-close, partial, cancel, and reject handling "
+                "are unsupported",
                 "folds remain separate; continuous is reported separately",
             ],
         }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -454,13 +454,24 @@ def test_risk_liquidation_runs_even_with_eight_week_cadence(
         1,
     )
     assert (risk_exit.at.date() - first_monday).days // 7 % 8 != 0
-    assert all(
-        trade.executed_at.date() > risk_exit.at.date()
-        and trade.executed_at.weekday() < 5
-        and trade.quantity > 0
+    liquidation = next(
+        event
+        for event in simulation.policy_events
+        if event.kind == "liquidation_complete" and event.at >= risk_exit.at
+    )
+    sells = [
+        trade
         for trade in simulation.trades
         if trade.side == "sell" and trade.decided_at == risk_exit.at
+    ]
+    assert sells
+    assert all(
+        trade.executed_at.date() > risk_exit.at.date()
+        and trade.executed_at == liquidation.at
+        and trade.quantity > 0
+        for trade in sells
     )
+    assert liquidation.detail == "all positions closed"
 
 
 def test_eight_week_holiday_gap_uses_next_remaining_open(
@@ -520,3 +531,68 @@ def test_eight_week_holiday_gap_uses_next_remaining_open(
     assert kr_trades
     assert kr_trades[0].decided_at.date() == removed
     assert kr_trades[0].executed_at.date() == date(2024, 1, 9)
+
+
+def test_eight_week_feature_cutoff_is_invariant_to_future_bar_and_feature(
+    tmp_path: Path,
+) -> None:
+    from jusik.research_external_models import ExternalObservation
+    from jusik.research_portfolio_engine import _instrument_data
+    from tests.test_research_portfolio import _source
+
+    engine_path = Path(__file__).parents[1] / "jusik" / "research_portfolio_engine.py"
+    _original, variant_path = runner._copy_engine(engine_path, tmp_path)
+    engine = runner._load_copy(variant_path, "cadence_cutoff_engine")
+    source = _source()
+    at = datetime(2024, 2, 5, tzinfo=UTC)
+    candidate = PortfolioCandidate(id="equal", method="equal", gate="none")
+    config = PortfolioConfig(volatility_target=Decimal("0.15"), low_turnover_weeks=8)
+    base_target = engine.target_weights(source, candidate, at, config)
+    base_scale = engine.volatility_scale(
+        source, _instrument_data(source), base_target[0], at, config
+    )
+    future_day = date(2027, 1, 4)
+    kr = source.instruments[0]
+    instrument = kr.instruments[0]
+    last = instrument.bars[-1]
+    future_bar = last.model_copy(
+        update={
+            "date": future_day,
+            "open": last.open + 1,
+            "high": last.high + 1,
+            "low": last.low + 1,
+            "close": last.close + 1,
+            "adjusted_open": last.adjusted_open + 1,
+            "adjusted_high": last.adjusted_high + 1,
+            "adjusted_low": last.adjusted_low + 1,
+            "adjusted_close": last.adjusted_close + 1,
+        }
+    )
+    changed = kr.model_copy(
+        update={
+            "instruments": [
+                instrument.model_copy(update={"bars": [*instrument.bars, future_bar]})
+            ]
+        }
+    )
+    future_feature = ExternalObservation(
+        series="usdkrw",
+        observed_on=at.date(),
+        value=Decimal("9999"),
+        available_at=at + timedelta(days=1),
+        revision="future",
+    )
+    with_future = source.model_copy(
+        update={
+            "instruments": [changed, *source.instruments[1:]],
+            "external": source.external.model_copy(
+                update={"observations": [*source.external.observations, future_feature]}
+            ),
+        }
+    )
+    future_target = engine.target_weights(with_future, candidate, at, config)
+    future_scale = engine.volatility_scale(
+        with_future, _instrument_data(with_future), future_target[0], at, config
+    )
+    assert future_target == base_target
+    assert future_scale == base_scale
