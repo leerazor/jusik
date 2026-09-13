@@ -784,3 +784,19 @@
 - 검증 명령과 결과: 문서 diff·입력 SHA·독립 review·게시 검증 예정. 금융 acceptance tests는 입력 부재로 blocked.
 - 결과 커밋 SHA·통합 검증·정리: 대기
 - handoff 저장 경로: 위 audit/HANDOFF.md
+
+## portfolio-low-cash
+
+- 상태: 진행
+- 목표와 완료 조건: 3년 핵심 종목 자료에서 현금 비중과 거래 빈도를 함께 줄이는 32개 설정을 사전 등록하고 실제 비교, 위험 검증, 웹 보고를 완료한다.
+- 담당 Luna: portfolio_low_cash 단일 구현자. 조사와 계획 완료.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-low-cash
+- 작업 브랜치: feat/portfolio-low-cash
+- 기준 커밋 SHA: 7611b60 이후 이 등록 및 mandate 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 현재 research-mandate, core 10종목 고정 입력. 신규 ETF 수집은 선행 조건에서 제외한다.
+- 수정 허용 범위: 신규 low_cash_experiment 모듈, 대응 테스트, 연구 문서. 기존 engine/PAPER 설정 변경 없음.
+- 포트·테스트 DB·출력 경로: 워크트리 자체 가상환경과 임시 테스트 경로. 실제 연구는 별도 audit/experiment.
+- 검증 명령과 결과: pytest, Ruff, mypy, 독립 검토 및 통합 검증 예정.
+- 결과 커밋 SHA·통합 검증·정리: 대기
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/20260913T011304Z-low-cash-low-turnover/HANDOFF.md
