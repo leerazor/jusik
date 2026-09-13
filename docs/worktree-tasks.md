@@ -730,7 +730,7 @@
 
 ## portfolio-expanded-universe-1975
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 확정 mandate 추적·planner 읽기 회귀검사, IVV/SGOV+현금 준비도 및 사전등록, independent review·main 통합 검사·웹 게시·증거 보존 후 정리.
 - 담당 Luna: 단일 gpt-5.6-luna code 작업자.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-expanded-universe-1975
@@ -743,3 +743,13 @@
 - 검증 명령과 결과: focused pytest/Ruff/strict mypy 및 독립 review 예정. historical simulation0회, GPU0회, 주문0회.
 - 검토 결과와 남은 문제: 진행 중. 기존 HANDOFF와 미병합3개 보존.
 - handoff 저장 경로: 위 audit/HANDOFF.md.
+
+- 실제 생성 기준: `8f1a4ec2b96c1a482889d7fb7d88106f084b365f`.
+- 담당 및 결과: 단일 Luna code, 최종 `fc2f2034428f834cdff8c25e7c22725fe35fecab`; 독립 review 최종 승인, material finding 없음. 손상 mandate와 실제 proposal enqueue 차단 회귀를 보강한 뒤 통합했습니다.
+- 병합 직전 main SHA: `8f1a4ec2b96c1a482889d7fb7d88106f084b365f`.
+- 통합 커밋: `d112be8de6f6eb507689936223d6435335dc54ce`. main pytest60개, Ruff check/format, 변경 Python3파일 strict mypy(--follow-imports=silent), diff 통과. frontend 변경 없음.
+- 산출물: exact mandate JSON/한국어 요약과 IVV·SGOV+현금 준비도·기존16종목 baseline 대비 A/B 사전등록. 투자기간 미정, 3년은 history만 유지합니다. 가격/action/FX/total-return adapter/실시간 데이터 gate는 미통과이며 simulation0회입니다.
+- 게시: 한국어 보고서 API/웹 다운로드200·SHA bea534ed60019d57ba1d680b47161ee6ba2db5e6fc7d92ef8b71fe6d14a1836f 일치. 기존 이력71개·artifact117개와 DB 보존. mounted history root rename EBUSY를 파일 단위 원자적 게시로 복구했습니다.
+- 보존·정리: audit에 원문·날짜·환경·패치·검사·검토·handoff와276개 파일의 SHA를 먼저 보존한 후 이번 worktree와 전용 브랜치를 정상 제거했습니다. 기존 미병합3개와 root HANDOFF는 보존했습니다. force/push/PAPER/GPU/실주문/생산 데이터 변경 없음.
+- handoff: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-expanded-universe-mandate-v1-1975c426b9e1436c979e5c4091bfa595/HANDOFF.md`.
+- 통합 검증 실패 없음. 초기 가상환경 준비 오류는 격리 Python3.13.15 환경으로 해결했고, 게시 복구 근거는 audit에 보존했습니다.
