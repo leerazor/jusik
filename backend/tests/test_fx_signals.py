@@ -1,9 +1,11 @@
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from decimal import Decimal
 
 import httpx
+import pytest
 
+from jusik import fx
 from jusik.fx import FxService, krw
 from jusik.models import (
     AccountResult,
@@ -45,7 +47,21 @@ def account(holdings: list[Holding]) -> AccountResult:
     )
 
 
-def test_fx_uses_direct_decimal_rate_and_rounds_won_half_up() -> None:
+def freeze_fx_clock(monkeypatch: pytest.MonkeyPatch, now: datetime) -> None:
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> datetime:
+            assert tz is UTC
+            return now
+
+    monkeypatch.setattr(fx, "datetime", FrozenDateTime)
+
+
+def test_fx_uses_direct_decimal_rate_and_rounds_won_half_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    freeze_fx_clock(monkeypatch, datetime(2026, 9, 7, tzinfo=UTC))
+
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/v2/rate/USD/KRW"
         return httpx.Response(
@@ -70,9 +86,15 @@ def test_fx_uses_direct_decimal_rate_and_rounds_won_half_up() -> None:
 
     asyncio.run(run())
     assert krw(Decimal("0.5"), Decimal("1")) == Decimal("1")
+    assert krw(Decimal("-0.5"), Decimal("1")) == Decimal("-1")
+    assert krw(Decimal("0"), Decimal("1351.445")) == Decimal("0")
 
 
-def test_missing_zero_negative_or_future_rate_never_creates_partial_total() -> None:
+def test_missing_zero_negative_or_future_rate_never_creates_partial_total(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    freeze_fx_clock(monkeypatch, datetime(2026, 9, 7, tzinfo=UTC))
+
     responses = iter(
         [
             httpx.Response(503),
@@ -106,19 +128,35 @@ def test_missing_zero_negative_or_future_rate_never_creates_partial_total() -> N
     asyncio.run(run())
 
 
-def test_weekend_tolerance_keeps_recent_rate_but_rejects_six_day_old_rate() -> None:
-    dates = iter(
-        [
-            (datetime.now(UTC) - timedelta(days=3)).date().isoformat(),
-            (datetime.now(UTC) - timedelta(days=6)).date().isoformat(),
-        ]
-    )
+@pytest.mark.parametrize(
+    ("now", "rate_date", "expected_stale", "expected_completeness"),
+    [
+        (datetime(2026, 9, 13, 0, 0, 0, tzinfo=UTC), "2026-09-10", False, "complete"),
+        (datetime(2026, 9, 13, 0, 0, 0, tzinfo=UTC), "2026-09-08", False, "complete"),
+        (datetime(2026, 9, 13, 0, 0, 0, tzinfo=UTC), "2026-09-07", True, "unavailable"),
+        (
+            datetime(2026, 9, 13, 23, 59, 59, tzinfo=UTC),
+            "2026-09-08",
+            False,
+            "complete",
+        ),
+        (datetime(2026, 9, 14, 0, 0, 0, tzinfo=UTC), "2026-09-09", False, "complete"),
+        (datetime(2026, 9, 14, 0, 0, 0, tzinfo=UTC), "2026-09-08", True, "unavailable"),
+    ],
+)
+def test_weekend_tolerance_keeps_day_five_and_rejects_day_six_rate(
+    monkeypatch: pytest.MonkeyPatch,
+    now: datetime,
+    rate_date: str,
+    expected_stale: bool,
+    expected_completeness: str,
+) -> None:
+    freeze_fx_clock(monkeypatch, now)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        observed = next(dates)
         return httpx.Response(
             200,
-            text=(f'{{"date":"{observed}","base":"USD","quote":"KRW","rate":1300}}'),
+            text=(f'{{"date":"{rate_date}","base":"USD","quote":"KRW","rate":1300}}'),
         )
 
     async def run() -> None:
@@ -127,17 +165,18 @@ def test_weekend_tolerance_keeps_recent_rate_but_rejects_six_day_old_rate() -> N
             transport=httpx.MockTransport(handler),
         ) as client:
             service = FxService(client, cache_seconds=0)
-            _, _, recent_total, recent = await service.convert_accounts(
-                [account([holding()])]
-            )
-            _, rates, old_total, old = await service.convert_accounts(
-                [account([holding()])]
-            )
-        assert recent == "complete"
-        assert recent_total is not None
-        assert rates[1].stale is True
-        assert old == "unavailable"
-        assert old_total is None
+            (
+                converted_accounts,
+                rates,
+                recent_total,
+                recent,
+            ) = await service.convert_accounts([account([holding()])])
+        assert (recent_total is not None) == (expected_completeness == "complete")
+        assert rates[1].stale is expected_stale
+        assert recent == expected_completeness
+        if expected_completeness == "unavailable":
+            assert recent_total is None
+            assert converted_accounts[0].markets[0].holdings[0].value_krw is None
 
     asyncio.run(run())
 

@@ -47,14 +47,11 @@ def test_planning_area_is_private_and_fingerprint_excludes_planner_state(
 def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     import json
 
-    mandate = json.loads(
-        Path(__file__)
-        .parents[2]
-        .joinpath("docs/research-mandate.json")
-        .read_text(encoding="utf-8")
-    )
+    path = Path(__file__).parents[2].joinpath("docs/research-mandate.json")
+    raw_content = path.read_text(encoding="utf-8")
+    mandate = json.loads(raw_content)
     assert mandate == {
-        "recorded_at": "2026-09-12T21:07:50.560440+00:00",
+        "recorded_at": "2026-09-13T01:17:23.002763+00:00",
         "capital_krw": 100000000,
         "maximum_drawdown_fraction": "0.20",
         "drawdown_reference": (
@@ -71,7 +68,10 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
         "investment_horizon": None,
         "historical_lookback_years": 3,
         "leveraged_allocation_fraction": "0.20",
-        "turnover_preference": "low",
+        "turnover_preference": (
+            "Infrequent trading; jointly optimize trade frequency, trading costs, "
+            "and net portfolio returns."
+        ),
         "signal_detection": "real-time",
         "live_trading": "deferred",
         "frozen_paper_contract": "unchanged;10% drawdown",
@@ -79,8 +79,19 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
             "기존 종목에 현금·광범위 지수·단기채 ETF 등을 추가해 비교",
             "운용 중 평가액 최고점 대비 20% 하락",
             "중간 인출 없음",
+            "현금 비중을 낮춰서 진행. 신규 ETF는 방해된다면 제외. 거래가 너무 잦지 "
+            "않도록 거래 횟수도 최적화.",
         ],
+        "cash_preference": (
+            "Reduce unnecessary idle cash and compare higher investment exposure "
+            "within the drawdown and leverage constraints."
+        ),
+        "short_history_etf_policy": (
+            "Exclude newly listed ETFs from primary research when insufficient "
+            "history blocks a meaningful comparison."
+        ),
     }
+    assert _tracked_research_mandate(path.parents[1]) == raw_content
 
 
 @pytest.mark.parametrize(
