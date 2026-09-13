@@ -756,7 +756,7 @@
 
 ## runner-unlimited
 
-- 상태: 진행
+- 상태: 완료
 - 목표: 사용자 요청으로 일일 launch 제한을 명시적 null로 해제하고 기존 유한 설정·timeout·cooldown·lock·실패 격리를 보존합니다.
 - 담당 Luna: native collector_transition, 단일 소유자.
 - 워크트리: /home/kwl/projects/jusik-runner-unlimited
@@ -764,4 +764,7 @@
 - 기준: d1d16dfff1e20ade26453fc949b285d53e961ae2; 이 등록 커밋에서 생성합니다. 통합 local main.
 - 범위: backend/jusik/development_runner.py, 관련 tests, docs/development-runner.md. 설치 설정·웹 보고·인계·등록부는 감독 소유.
 - 격리·근거: 자체 venv/tmp; /home/kwl/.local/share/jusik/portfolio-audit/20260913T004630Z-runner-unlimited.
-- 검증·완료: quota초과에서도 unlimited dispatch, 유한quota/중복/cooldown/timeout보존, pytest/Ruff/strictmypy·독립검토·main통합·실제25번째이상launch·웹·인계·worktree정리.
+- 검증·완료: quota초과에서도 unlimited dispatch, 유한quota/중복/cooldown/timeout보존, pytest/Ruff/strictmypy·독립검토·main통합·25건 초과 회귀 테스트와 실제 다음 dispatch 확인·웹·인계·worktree정리.
+
+- 결과: worker380fb56·docs847d006, 구현통합 `617274dd2eb10402e5f9386c70bf37fffe4fdf14`. runner45tests/Ruffcheck·format/strictmypy 통과. 독립검토 P1/P2 없음. 설치daily_launches=null, 다른설정·launchhistory보존.
+- 보존·정리: `/home/kwl/.local/share/jusik/portfolio-audit/20260913T004630Z-runner-unlimited`에 archive/checks/설치·연구근거·웹보고서·HANDOFF 저장. 이번worktree/branch정리, 기존미병합3개보존. 실제자동개발기동은 activation.json 확인.
