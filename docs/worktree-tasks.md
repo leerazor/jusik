@@ -726,3 +726,20 @@
 - 보존·정리: 영구 audit에359개 파일과 SHA/handoff를 먼저 검증한 후 이번 worktree를 정상 제거했다. 작업 브랜치 및 기존 미병합3개 보존.
 - 게시: 기존 연구 이력70개·artifact116개 보존, 보고서 API/웹 다운로드200·SHA 일치. DB 변경 없음. 정확한 통합 SHA는 audit/publication.json에 보존.
 - handoff: 위 audit/HANDOFF.md. 기존 루트 handoff 내용 보존. 통합 검증 실패 없음.
+
+
+## portfolio-expanded-universe-1975
+
+- 상태: 진행
+- 목표와 완료 조건: 확정 mandate 추적·planner 읽기 회귀검사, IVV/SGOV+현금 준비도 및 사전등록, independent review·main 통합 검사·웹 게시·증거 보존 후 정리.
+- 담당 Luna: 단일 gpt-5.6-luna code 작업자.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-expanded-universe-1975
+- 작업 브랜치: feat/portfolio-expanded-universe-1975
+- 기준 커밋 SHA: f87607a337c04c3d8498bed1a465b87d4a5fc78f 이후 이 등록 커밋.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 사용자 decision SHA30d2108bc082b7d2d9d079fa09548c15f416167174850303c0d852ada269f73c; explore/plan 완료, Astra bounded plan 승인. 현재 runner claim 안에서 실행 중.
+- 수정 허용 범위: tracked mandate와 한국어 readiness/prereg 문서, development_runner.py의 최소 planning prompt 변경, 관련 테스트. 등록부·audit·publication·handoff는 Astra 소유.
+- 포트·테스트 DB·출력 경로: worktree 전용 venv/tmp; 서버 없음, 운영/PAPER DB 접근·변경 없음. audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-expanded-universe-mandate-v1-1975c426b9e1436c979e5c4091bfa595.
+- 검증 명령과 결과: focused pytest/Ruff/strict mypy 및 독립 review 예정. historical simulation0회, GPU0회, 주문0회.
+- 검토 결과와 남은 문제: 진행 중. 기존 HANDOFF와 미병합3개 보존.
+- handoff 저장 경로: 위 audit/HANDOFF.md.
