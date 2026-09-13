@@ -857,4 +857,9 @@
 - 검증: 작업자 pytest11개·Ruff·strict mypy, 감사 fixture29개와 raw8개·112pins·원자료 회계·전체 관측 위험 독립 검토 통과. local main 검사는 병합 후 기록한다.
 
 - 병합 직전 main: 3e88c352ab55d4ce5be1278ac1520b6b6b284515. 첫 통합: 67a8a81499a6c1f44cd4c501edf54fd4f463d445.
-- 첫 통합 검사: pytest92개와 Ruff 통과. strict mypy에서 새 테스트 함수 tmp_path 인자의 타입 주석 누락 1건이 발생해 정리를 보류하고 동일 Luna에 수정 요청했다. 실패 로그는 audit/integration/mypy-initial-failure.log로 보존한다.
+- 첫 통합 검사: pytest92개와 Ruff 통과. strict mypy에서 새 테스트의 _market_time helper 타입 주석 누락 1건이 발생해 정리를 보류하고 동일 Luna에 수정 요청했다. 실패 로그는 audit/integration/mypy-initial-failure.log로 보존한다.
+
+- 통합 검증 복구: 동일 Luna의 타입 주석 수정 8ce05b5를 독립 검토 후 병합했다. 최종 코드 통합 99a7e8506cd6f379014ce2037f2753fdc4dfca23. 영향 테스트11개 재검사·명시적 strict mypy·Ruff·diff 검사 통과. 기존 통합 pytest92개 결과와 함께 보존한다.
+- 웹 게시: 기존 이력76개·artifact122개 보존. 보고서 SHA9be03de33391eb2bb1546f26784c46c875785c4b115e0d313fe014090d78f529. API·웹·두 다운로드200과 본문 SHA 일치. DB 변경 없음.
+- 보호 검증: 기존 코드·설정303파일과 입력audit333파일 모두 SHA 일치. 실험코드92모듈과 테스트·문서·환경·실패 및 원장 기록을 영구audit로 복사했다.
+- 상태: 통합 검증·게시 완료, 영구handoff 및 SHA 확인 후 이번 worktree 정리 대기.
