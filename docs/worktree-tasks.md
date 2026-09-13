@@ -919,7 +919,7 @@
 
 ## portfolio-volatility-5171
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: volatility .10/.15, 고정 gross .60 CPU exact32회/900초; control16 JSON 일치 후 variant16, 독립 검토 및 local main 통합 검증.
 - 담당 Luna: code 작업자 한 명.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-volatility-5171
@@ -929,6 +929,13 @@
 - 입력과 선행 작업: gross-cap 2643020d experiment 및 최신 mandate. 86개 SHA 검증 통과.
 - 수정 허용 범위: 새 volatility 연구 runner/test/보고서만.
 - 포트·테스트 DB·출력 경로: 서버/DB 없음. worktree 전용 venv/tmp; audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-volatility-target-cash-sensitivity-v1-51714e900b9b4cd3b94a4cf0f1aae2f4.
-- 검증 명령과 결과: 구현 후 기록.
-- 결과 커밋/검토/병합/통합/정리/handoff: 진행 후 기록.
+- 검증 명령과 결과: main pytest103개(기존 dependency 경고2개), Ruff check/format, strict mypy2파일, diff 통과. worker 전체112 및 최종 대상103개 통과.
+- 결과 커밋: c6244b284d0278c5f548964a7fa708cf03cf48c2. 독립 실행 전 및 결과 review 통과.
+- 병합 직전 main: 9498876485b01bd12d5a296e76c6a255cb7323e4. 통합 커밋: f38918d3db96b7a749be03ee5ac50d73dc85b9b0. 통합 실패 없음.
+- 결과: control16 전체 JSON 일치 후 variant16, CPU exact32회/19.086222초/재시도0/GPU0. Continuous 현금7.641445/7.744083pp 감소, 순수익11.423940/9.100226pp 증가, MDD3.925490/4.147701pp·비용841623/2483668 KRW 증가. 거래수5/4회 감소, turnover 증가. 추가 탐색·승격 없음.
+- 독립 검증: raw32 회계 최대잔차3.21875e-31 KRW, manifest72 SHA·observer MDD·paired delta 통과. 최대 MDD10.414050%, symbol 초과463 valuation, 최대MSFT3.131096pp; gross/leverage 초과0. Historical PIT/짧은 ETF 이력/배당·receipt·early-close 한계 유지.
+- 검토·환경 보완: helper 중복 제거, gross metadata 및 pre/post SHA 기준·deadline 실패기록 보호 복원, 실제 mutation/휴장 영향 거래 회귀 추가. 초기 Python3.12/기준 venv 사용 로그는 보존했고 전용3.13에서 최종 검사. Worker의 초기 branch commit 재작성은 검토 기록에 남겼으며 이후 append-only 수정. Root main 이력 재작성 없음.
+- 게시: API/웹/다운로드200, 보고서 SHA 일치. 기존 이력79개/artifact125개 보존. DB·서비스·remote 변경 없음.
+- 보존·정리: 소스/로그/결과/handoff134파일 SHA 검증 후 이번 worktree·브랜치 정상 제거. 기존 backend93개/root HANDOFF/다른4개 worktree 보존.
+- handoff: audit/handoff-before-cleanup.md 및 handoff-final.md. archive-before-cleanup.json 및 cleanup.json으로 보존·정리 확인.
 - 실행기: 현재 task/attempt dispatch 내 작업이며 dispatcher 상태 변경 없음. 기존 HANDOFF 및 다른 worktree 보존.
