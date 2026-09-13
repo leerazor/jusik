@@ -957,7 +957,7 @@
 
 ## progress-api
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 자동 개발 상태·종료 조건·같은 조건의 성과 비교·남은 작업을 한눈에 확인하는 읽기 전용 웹 화면을 구현하고 실제 웹에서 검증합니다.
 - 담당 Luna: 작업별 CLI Luna 한 명. 조사와 계획을 완료했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-progress-api
@@ -967,13 +967,15 @@
 - 입력과 선행 작업: 공통 API 계약 /tmp/jusik-progress-contract.md. 공개 비교 catalog는 감독이 실제 근거를 검증해 준비합니다.
 - 수정 허용 범위: backend/jusik/research_progress.py, research_app.py 연결, 대응 테스트, docs/research-progress.md. 실행기·거래·원장 변경 없음.
 - 포트·테스트 DB·출력 경로: 작업별 가상환경·의존성·임시 데이터·빌드. 실제 배포와 공개 catalog는 감독 소유.
-- 검증 명령과 결과: 관련 pytest/Ruff/mypy, frontend lint/typecheck/build, 독립 검토, 통합 후 웹 검증 예정.
-- 결과 커밋 SHA·통합 검증·정리: 대기
+- 검증 명령과 결과: main 관련 pytest 27개, Ruff check/format 및 strict mypy, frontend lint/typecheck/build 통과. 독립 검토 P1/P2 없음. 실제 데스크톱·모바일 표시, 10초 갱신, 보고서 3개 다운로드·SHA 일치 확인. 기존 환율/mandate 테스트 실패 2건은 별도 큐로 등록했습니다.
+- 결과 커밋: a395ee3, a3b144b. 통합 커밋: f04d671. 검증·환경·diff·화면 자료를 audit에 보존한 후 이번 워크트리와 브랜치를 정상 제거했습니다. 기존 미완료 워크트리 5개는 보존합니다.
+- 게시: /research/progress 및 /api/research/progress 실제 HTTP 200. 공개 catalog 3개 연구·8개 비교와 개발 이력 게시 완료. PAPER·실제 거래·remote 변경 없음.
+- 통합 검증 실패: 최초 브라우저 실행은 libasound 부재로 실패하여 별도 임시 라이브러리를 사용했습니다. 표시값 절삭을 반영한 검증 후 통과했습니다.
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913T053914Z-progress-dashboard/HANDOFF.md
 
 ## progress-ui
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 자동 개발 상태·종료 조건·같은 조건의 성과 비교·남은 작업을 한눈에 확인하는 읽기 전용 웹 화면을 구현하고 실제 웹에서 검증합니다.
 - 담당 Luna: 작업별 CLI Luna 한 명. 조사와 계획을 완료했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-progress-ui
@@ -983,6 +985,8 @@
 - 입력과 선행 작업: 공통 API 계약 /tmp/jusik-progress-contract.md. 공개 비교 catalog는 감독이 실제 근거를 검증해 준비합니다.
 - 수정 허용 범위: frontend/lib/research-progress.ts, app/research/progress/, CSS, research/history 진입 링크. 실행기·거래·원장 변경 없음.
 - 포트·테스트 DB·출력 경로: 작업별 가상환경·의존성·임시 데이터·빌드. 실제 배포와 공개 catalog는 감독 소유.
-- 검증 명령과 결과: 관련 pytest/Ruff/mypy, frontend lint/typecheck/build, 독립 검토, 통합 후 웹 검증 예정.
-- 결과 커밋 SHA·통합 검증·정리: 대기
+- 검증 명령과 결과: main 관련 pytest 27개, Ruff check/format 및 strict mypy, frontend lint/typecheck/build 통과. 독립 검토 P1/P2 없음. 실제 데스크톱·모바일 표시, 10초 갱신, 보고서 3개 다운로드·SHA 일치 확인. 기존 환율/mandate 테스트 실패 2건은 별도 큐로 등록했습니다.
+- 결과 커밋: 431ac8b, ef7e9b4, fb3989c. 통합 커밋: 7e8e498. 검증·환경·diff·화면 자료를 audit에 보존한 후 이번 워크트리와 브랜치를 정상 제거했습니다. 기존 미완료 워크트리 5개는 보존합니다.
+- 게시: /research/progress 및 /api/research/progress 실제 HTTP 200. 공개 catalog 3개 연구·8개 비교와 개발 이력 게시 완료. PAPER·실제 거래·remote 변경 없음.
+- 통합 검증 실패: 최초 브라우저 실행은 libasound 부재로 실패하여 별도 임시 라이브러리를 사용했습니다. 표시값 절삭을 반영한 검증 후 통과했습니다.
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913T053914Z-progress-dashboard/HANDOFF.md
