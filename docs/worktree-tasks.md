@@ -954,3 +954,35 @@
 - 격리: 전용 worktree venv/tmp, 서버/DB 없음. durable audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-volatility15-cadence-cost-tradeoff-v1-4c25334c49c2491b8e74d9e16d63dda2.
 - 실행기: 해당 task/attempt dispatch 내 작업. dispatcher 상태 변경 없음. 기존 HANDOFF와 다른4개 worktree 보존.
 - 검증과 결과: 실행 전.
+
+## progress-api
+
+- 상태: 진행
+- 목표와 완료 조건: 자동 개발 상태·종료 조건·같은 조건의 성과 비교·남은 작업을 한눈에 확인하는 읽기 전용 웹 화면을 구현하고 실제 웹에서 검증합니다.
+- 담당 Luna: 작업별 CLI Luna 한 명. 조사와 계획을 완료했습니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-progress-api
+- 작업 브랜치: feat/progress-api
+- 기준 커밋 SHA: e878263 이후 이 등록 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 공통 API 계약 /tmp/jusik-progress-contract.md. 공개 비교 catalog는 감독이 실제 근거를 검증해 준비합니다.
+- 수정 허용 범위: backend/jusik/research_progress.py, research_app.py 연결, 대응 테스트, docs/research-progress.md. 실행기·거래·원장 변경 없음.
+- 포트·테스트 DB·출력 경로: 작업별 가상환경·의존성·임시 데이터·빌드. 실제 배포와 공개 catalog는 감독 소유.
+- 검증 명령과 결과: 관련 pytest/Ruff/mypy, frontend lint/typecheck/build, 독립 검토, 통합 후 웹 검증 예정.
+- 결과 커밋 SHA·통합 검증·정리: 대기
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913T053914Z-progress-dashboard/HANDOFF.md
+
+## progress-ui
+
+- 상태: 진행
+- 목표와 완료 조건: 자동 개발 상태·종료 조건·같은 조건의 성과 비교·남은 작업을 한눈에 확인하는 읽기 전용 웹 화면을 구현하고 실제 웹에서 검증합니다.
+- 담당 Luna: 작업별 CLI Luna 한 명. 조사와 계획을 완료했습니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-progress-ui
+- 작업 브랜치: feat/progress-ui
+- 기준 커밋 SHA: e878263 이후 이 등록 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 공통 API 계약 /tmp/jusik-progress-contract.md. 공개 비교 catalog는 감독이 실제 근거를 검증해 준비합니다.
+- 수정 허용 범위: frontend/lib/research-progress.ts, app/research/progress/, CSS, research/history 진입 링크. 실행기·거래·원장 변경 없음.
+- 포트·테스트 DB·출력 경로: 작업별 가상환경·의존성·임시 데이터·빌드. 실제 배포와 공개 catalog는 감독 소유.
+- 검증 명령과 결과: 관련 pytest/Ruff/mypy, frontend lint/typecheck/build, 독립 검토, 통합 후 웹 검증 예정.
+- 결과 커밋 SHA·통합 검증·정리: 대기
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913T053914Z-progress-dashboard/HANDOFF.md
