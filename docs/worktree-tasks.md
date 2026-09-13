@@ -870,7 +870,7 @@
 
 ## portfolio-expanded-collection-2ea6
 
-- 상태: 준비
+- 상태: 완료 (수집·검토·통합 완료, 데이터 gate 8개 미통과로 실제 비교는 차단)
 - 목표와 완료 조건: 기존 A/B 사전등록을 유지하고 공식 자료 수집·검증을 한 차례 수행하여 gate별 결손을 보고합니다. 독립 검토, 필요한 main 통합, 영구 evidence/handoff 보존과 정리를 완료합니다.
 - 담당 Luna: 단일 gpt-5.6-luna code 작업자.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-expanded-collection-2ea6
@@ -883,3 +883,13 @@
 - 검증: 고정 입력 해시, 가격·배당·분할·FX·세금·캘린더·venue·coverage gate, 관련 pytest/Ruff/strict typing, 독립 검토.
 - 제한: 수집 한 차례, simulation/sweep/GPU/주문/remote push 없음. 원천 또는 entitlement 결손 시 비교를 차단합니다. 기존 HANDOFF와 다른 worktree를 보존합니다.
 - 결과 커밋/통합/정리/handoff: 진행 후 기록합니다.
+
+- 담당 결과: Luna `cfc751dc5e3f9484ae9c5b019e78d4d4c435cc78`, Astra 독립 review 승인 후 통합했습니다.
+- 병합 직전 main: `2c059be53d92a0b51d177a5606a4602e24d75185`; 통합: `c7dcd0d888243287cec6bd1c904923ff86aa8b37`.
+- 검증 결과: main pytest42개·offline 실패 회귀5개·Ruff·strict mypy3개 스크립트·diff 통과. 기존 dependency 경고2개.
+- 수집 결과: 공식 HTTP10회, IVV 배당12건·SGOV36건 검증. 가격 추출0건, FX 빈 응답, calendar302. baseline 기업행동/IPO·split completeness·세금·venue 미확인으로 모든 데이터 gate 차단, 비교/simulation0회.
+- 검토 수정: 배열 길이·실제 오류 기반 pass 판정, raw hash 실패 종료, 가격 결손 범위·mandate 구분을 수정했습니다. 최초 수집기 source hash 누락은 null로 공개했습니다.
+- 게시: 연구 이력 파일 게시, API/웹200·SHA 일치. 기존 항목77개·artifact123개 보존. DB·서비스 변경 없음.
+- 보존·정리: audit에 handoff 포함303개 파일의 SHA를 검증한 뒤 이번 worktree와 전용 브랜치를 정상 제거했습니다. 기존 worktree와 root HANDOFF 보존.
+- handoff: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-expanded-universe-collection-gates-v1-2ea67734308a40eda685c1b0839576c6/HANDOFF.md`.
+- 통합 검증 실패 없음. completion은 자료 결손으로 blocked, comparison followup은 null입니다.
