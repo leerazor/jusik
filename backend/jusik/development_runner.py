@@ -45,6 +45,24 @@ ALLOWED_AREAS = {
     "paper-signal-evidence",
     "portfolio-stress-robustness",
 }
+RESEARCH_MANDATE_REQUIRED_FIELDS = frozenset(
+    {
+        "recorded_at",
+        "capital_krw",
+        "maximum_drawdown_fraction",
+        "drawdown_reference",
+        "research_universe_expansion",
+        "interim_withdrawals",
+        "investment_horizon",
+        "historical_lookback_years",
+        "leveraged_allocation_fraction",
+        "turnover_preference",
+        "signal_detection",
+        "live_trading",
+        "frozen_paper_contract",
+        "user_answers",
+    }
+)
 COMMON_PROMPT = (
     "Follow the repository workflow: explore relevant code and AGENTS.md, write a "
     "bounded plan, assign at most four Luna worktrees, review the implementation, "
@@ -477,8 +495,17 @@ def _tracked_research_mandate(repo: Path) -> str | None:
     if not path.is_file() or path.is_symlink():
         return None
     try:
-        return path.read_text(encoding="utf-8")
+        content = path.read_text(encoding="utf-8")
+        mandate = json.loads(content)
+        if (
+            not isinstance(mandate, dict)
+            or not RESEARCH_MANDATE_REQUIRED_FIELDS.issubset(mandate)
+        ):
+            return None
+        return content
     except (OSError, UnicodeError):
+        return None
+    except json.JSONDecodeError:
         return None
 
 
@@ -533,7 +560,8 @@ def _run_planning(
     main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
     mandate = _tracked_research_mandate(config.repo)
     mandate_context = (
-        "Current tracked mandate (docs/research-mandate.json):\n"
+        "Current tracked mandate (docs/research-mandate.json) supersedes all older "
+        "mandate text in this queued task and prompt:\n"
         f"{mandate}"
         if mandate is not None
         else "MANDATE STATUS: docs/research-mandate.json is missing or unreadable. "

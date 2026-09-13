@@ -7,7 +7,11 @@ from typing import Any, cast
 
 import pytest
 
-from jusik.development_runner import RunnerConfig, _codex_command
+from jusik.development_runner import (
+    RunnerConfig,
+    _codex_command,
+    _tracked_research_mandate,
+)
 from jusik.development_runner_planning import (
     PLANNING_AREA,
     fingerprint,
@@ -76,6 +80,23 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
             "중간 인출 없음",
         ],
     }
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["not json\n", '{"investment_horizon": null}\n'],
+    ids=["malformed", "missing-required-fields"],
+)
+def test_invalid_tracked_research_mandate_fails_closed(
+    tmp_path: Path, content: str
+) -> None:
+    path = tmp_path / "docs" / "research-mandate.json"
+    path.parent.mkdir()
+    path.write_text(content, encoding="utf-8")
+    assert _tracked_research_mandate(tmp_path) is None
+    path.unlink()
+    path.symlink_to(tmp_path / "other.json")
+    assert _tracked_research_mandate(tmp_path) is None
 
 
 def test_planning_result_requires_bounded_prompt_and_existing_hashed_evidence(
@@ -258,7 +279,9 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
     mandate_path = repo / "docs" / "research-mandate.json"
     mandate_path.parent.mkdir()
     mandate_path.write_text(
-        '{"historical_lookback_years": 3, "investment_horizon": null}\n',
+        Path(__file__).parents[2].joinpath("docs/research-mandate.json").read_text(
+            encoding="utf-8"
+        ),
         encoding="utf-8",
     )
     store = RunnerStore(tmp_path / "state" / "runner.db", tmp_path / "history")
@@ -327,7 +350,9 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
     assert development_runner.run_once(config).status == "completed"
     prompt_text = captured_prompt.read_text(encoding="utf-8")
     assert "docs/research-mandate.json" in prompt_text
-    assert '{"historical_lookback_years": 3, "investment_horizon": null}' in prompt_text
+    assert '"historical_lookback_years": 3' in prompt_text
+    assert '"investment_horizon": null' in prompt_text
+    assert "supersedes all older mandate text" in prompt_text
     assert "100m KRW" not in prompt_text
     assert development_runner.run_once(config).status == "idle"
     assert len([t for t in store.tasks() if t.area == PLANNING_AREA]) == 1

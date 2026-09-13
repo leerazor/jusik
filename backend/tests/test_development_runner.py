@@ -42,7 +42,11 @@ def _repo(tmp_path: Path) -> Path:
     _git(repo, "config", "user.email", "test@example.invalid")
     _git(repo, "config", "user.name", "Runner Test")
     (repo / "README.md").write_text("test\n", encoding="utf-8")
+    mandate = Path(__file__).parents[2] / "docs" / "research-mandate.json"
+    (repo / "docs").mkdir()
+    (repo / "docs" / "research-mandate.json").write_bytes(mandate.read_bytes())
     _git(repo, "add", "README.md")
+    _git(repo, "add", "docs/research-mandate.json")
     _git(repo, "commit", "-m", "initial")
     return repo
 
