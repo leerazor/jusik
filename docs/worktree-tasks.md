@@ -2,7 +2,7 @@
 
 ## agent-tooling — 2026-09-13
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: Serena MCP, Playwright CLI와 Context7 도구를 검증하고, Codex 역할 지정과 압축 보고 및 감독 스킬을 적용합니다. 관련 검사와 독립 검토 후 로컬 main에 통합합니다.
 - 담당 Luna: 프로젝트 구현 `/root/project_tooling`, 개인 스킬 `/root/skill_tooling`, 사용자 환경 도구 설치 `/root/install_tools`. 파일 소유 범위를 분리했습니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-agent-tooling`
@@ -12,11 +12,11 @@
 - 입력과 선행 작업: 사용자 승인된 추천 도구와 사용량 감사. 자동 runner와 timer는 기존 중지 상태를 유지합니다.
 - 수정 허용 범위: 프로젝트 `.codex/agents`, 감독 운영 문서와 AGENTS 안내. 검증 helper와 테스트는 개인 `jusik-supervisor` 스킬에 둡니다. 제품·전략·주문·운영 데이터와 runner 실행 코드는 범위 밖입니다.
 - 포트·테스트 DB·출력 경로: 전용 임시 fixture와 `~/.local/share/jusik/tooling-audit/20260913-agent-tooling/`. 도구 설치 smoke는 별도 `20260913-tools/`입니다.
-- 검증 명령과 결과: 구현 후 기록합니다.
-- 결과 커밋 SHA와 검토 결과: 대기.
-- 병합 직전 main SHA와 통합 검증: 대기.
-- 통합 커밋 SHA와 정리 여부: 대기.
-- handoff 저장 경로와 갱신 여부: 기존 인계를 보존하고 완료 시 갱신합니다.
+- 검증 명령과 결과: 통합 pytest 14개, 탐색 스킬 Node 테스트 4개, Ruff, strict mypy, 스킬 validator 3개, TOML 역할 매핑과 역할별 preflight 4개를 통과했습니다. 실제 Luna/Terra child audit와 Serena·Playwright·Context7 실행 검증도 통과했습니다. `~/.local/share/jusik/tooling-audit/20260913-agent-tooling/integration-checks.json`과 `../20260913-tools/VERIFICATION.md`에 근거를 보존했습니다.
+- 결과 커밋 SHA와 검토 결과: `77aae489da4d895e048592603aeef3a5de0ccbcf`까지 프로젝트 문서를 반영했습니다. 독립 review에서 로그 검증의 정상 세션 거부·근거 없는 turn 허용을 수정한 뒤 최종 PASS를 받았습니다. helper는 사전/사후 검사이며 spawn을 가로채는 장치는 아닙니다.
+- 병합 직전 main SHA와 통합 검증: `c6397cad504b40a79b1cbc2ac07460b761fae7e1`. 위 통합 검사 모두 통과했습니다. 제품·프런트엔드 변경이 없어 제품 빌드는 적용 대상이 아닙니다.
+- 통합 커밋 SHA와 정리 여부: `13dce8ef52adbc5f9b1e1f3ff3f5d8ac13c375fb`. 필요한 스킬 사본·SHA·검증 로그·인계를 보존한 뒤 이번 워크트리와 병합한 로컬 작업 브랜치를 제거했습니다. 기존 연구 워크트리 6개는 보존했습니다.
+- handoff 저장 경로와 갱신 여부: `~/.local/share/jusik/tooling-audit/20260913-agent-tooling/HANDOFF.md`에 저장하고 루트 인계에 링크를 추가합니다. 자동 연구는 paused, service와 timer는 inactive로 유지합니다. 사용자 요청에 따라 모든 저장을 마친 뒤 Windows 종료 명령을 수행합니다.
 
 기준 저장소에서 Astra만 갱신합니다. 작업 배정 시 [운영 절차의 기록 양식](worktree-workflow.md#작업-지시와-기록)을 사용하고, 상태가 바뀔 때 실제 Git 상태와 검증 결과를 반영합니다.
 
