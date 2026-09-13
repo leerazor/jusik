@@ -97,8 +97,9 @@ def test_prior_variant_mapping_is_explicit_and_exact() -> None:
     assert mapped == "fold_3-variant_c3.json"
 
 
+@pytest.mark.parametrize("start", [date(2024, 1, 3), date(2024, 1, 8)])
 def test_synthetic_engine_uses_monday_anchor_for_four_and_eight_weeks(
-    tmp_path: Path,
+    start: date, tmp_path: Path
 ) -> None:
     from tests.test_research_portfolio import _source
 
@@ -109,9 +110,11 @@ def test_synthetic_engine_uses_monday_anchor_for_four_and_eight_weeks(
     candidate = PortfolioCandidate(id="equal", method="equal", gate="none")
     engine.target_weights = lambda *_args: ({"KRTEST": Decimal("0.20")}, {}, None)
     engine.volatility_scale = lambda *_args: (Decimal("1"), Decimal("0"))
-    start = date(2024, 1, 8)
     end = date(2024, 3, 29)
-    for cadence, expected_rebalances in ((4, 3), (8, 2)):
+    for cadence, expected_dates in (
+        (4, {date(2024, 1, 8), date(2024, 2, 5), date(2024, 3, 4)}),
+        (8, {date(2024, 1, 8), date(2024, 3, 4)}),
+    ):
         config = PortfolioConfig(
             initial_cash_krw=Decimal("1000000"),
             low_turnover_weeks=cadence,
@@ -129,9 +132,10 @@ def test_synthetic_engine_uses_monday_anchor_for_four_and_eight_weeks(
         skips = [
             event for event in result.policy_events if event.kind == "frequency_skip"
         ]
-        assert len(result.weekly_targets) // 2 == expected_rebalances
+        target_dates = {event.decided_at.date() for event in result.weekly_targets}
+        assert target_dates == expected_dates
         assert all(event.decided_at.weekday() == 0 for event in result.weekly_targets)
-        assert len(skips) == (12 - expected_rebalances)
+        assert len(skips) == (12 - len(expected_dates))
 
 
 def _mock_contract(
@@ -237,6 +241,14 @@ def test_mock_execution_calls_32_controls_then_variants_and_replays_prior(
     )
     assert result["evaluation_count"] == 32
     assert len(calls) == 32 and all(item[3] for item in calls)
+    preregistration = json.loads(
+        (tmp_path / "out" / "preregistration.json").read_text()
+    )
+    assert preregistration["periods"] == periods
+    assert (
+        preregistration["validated_configs"]["c8-cost3"]["volatility_target"] == "0.15"
+    )
+    assert (tmp_path / "out" / "runtime-hashes.json").exists()
     assert [item[1] for item in calls[:16]] == [4] * 16
     assert [item[1] for item in calls[16:]] == [8] * 16
     assert replay == [
@@ -433,4 +445,78 @@ def test_risk_liquidation_runs_even_with_eight_week_cadence(
         config,
         "low_turnover_combined",
     )
-    assert any(event.kind == "risk_exit" for event in simulation.policy_events)
+    risk_exit = next(
+        event for event in simulation.policy_events if event.kind == "risk_exit"
+    )
+    first_monday = simulation.period_start.fromisocalendar(
+        simulation.period_start.isocalendar().year,
+        simulation.period_start.isocalendar().week,
+        1,
+    )
+    assert (risk_exit.at.date() - first_monday).days // 7 % 8 != 0
+    assert all(
+        trade.executed_at.date() > risk_exit.at.date()
+        and trade.executed_at.weekday() < 5
+        and trade.quantity > 0
+        for trade in simulation.trades
+        if trade.side == "sell" and trade.decided_at == risk_exit.at
+    )
+
+
+def test_eight_week_holiday_gap_uses_next_remaining_open(
+    tmp_path: Path,
+) -> None:
+    from tests.test_research_portfolio import _source
+
+    engine_path = Path(__file__).parents[1] / "jusik" / "research_portfolio_engine.py"
+    _original, variant_path = runner._copy_engine(engine_path, tmp_path)
+    engine = runner._load_copy(variant_path, "cadence_holiday_engine")
+    source = _source()
+    engine.target_weights = lambda *_args: ({"KRTEST": Decimal("0.20")}, {}, None)
+    engine.volatility_scale = lambda *_args: (Decimal("1"), Decimal("0"))
+    kr = next(
+        item for item in source.instruments if item.instruments[0].symbol == "KRTEST"
+    )
+    removed = date(2024, 1, 8)
+    changed = kr.model_copy(
+        update={
+            "instruments": [
+                kr.instruments[0].model_copy(
+                    update={
+                        "bars": [
+                            bar for bar in kr.instruments[0].bars if bar.date != removed
+                        ]
+                    }
+                )
+            ]
+        }
+    )
+    source = source.model_copy(
+        update={
+            "instruments": [
+                changed if item is kr else item for item in source.instruments
+            ]
+        }
+    )
+    result = engine.simulate(
+        source,
+        PortfolioCandidate(id="equal", method="equal", gate="none"),
+        removed,
+        date(2024, 1, 12),
+        PortfolioConfig(
+            initial_cash_krw=Decimal("1000000"),
+            low_turnover_weeks=8,
+            low_turnover_band=Decimal("0"),
+            gross_cap=Decimal("1"),
+            symbol_cap=Decimal("1"),
+            leveraged_etf_cap=Decimal("1"),
+            fee_rate=Decimal("0"),
+            slippage_rate=Decimal("0"),
+            fx_spread_rate=Decimal("0"),
+        ),
+        "low_turnover_combined",
+    )
+    kr_trades = [trade for trade in result.trades if trade.symbol == "KRTEST"]
+    assert kr_trades
+    assert kr_trades[0].decided_at.date() == removed
+    assert kr_trades[0].executed_at.date() == date(2024, 1, 9)

@@ -21,6 +21,7 @@ from typing import Any, cast
 
 import jusik.research_portfolio_gross_cap_sensitivity as gross
 import jusik.research_portfolio_held_band_cost3_stress as cost3
+import jusik.research_portfolio_held_band_experiment as held_band
 from jusik.research_experiment_guard import verify_hashes
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
@@ -226,6 +227,10 @@ def _runtime_hashes(
         if not candidate.is_file():
             raise ValueError(f"pinned helper is missing: {name}")
         checks[candidate] = digest
+    held_helper = Path(str(held_band.__file__))
+    if not held_helper.is_file():
+        raise ValueError("pinned held-band helper is missing")
+    checks[held_helper] = cost3.HELD_HELPER_SHA256
     return checks
 
 
@@ -334,6 +339,18 @@ def _execute(
         )
         runtime_hashes[output_dir / "preregistration.json"] = sha256(
             output_dir / "preregistration.json"
+        )
+        _write_exclusive(
+            output_dir / "runtime-hashes.json",
+            {
+                str(path): digest
+                for path, digest in sorted(
+                    runtime_hashes.items(), key=lambda item: str(item[0])
+                )
+            },
+        )
+        runtime_hashes[output_dir / "runtime-hashes.json"] = sha256(
+            output_dir / "runtime-hashes.json"
         )
         verify_hashes(runtime_hashes)
         rows: list[dict[str, Any]] = []
