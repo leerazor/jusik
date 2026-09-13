@@ -20,7 +20,7 @@ export async function createResearchRun(formData: FormData): Promise<void> {
       events = parsed;
     }
   } catch {
-    redirect("/research?error=event-json");
+    redirect("/research/lab?error=event-json");
   }
   const optional = value(formData, "symbols")
     .split(",")
@@ -48,7 +48,7 @@ export async function createResearchRun(formData: FormData): Promise<void> {
     if (!response.ok) throw new Error();
     id = researchRunSchema.parse(await response.json()).id;
   } catch {
-    redirect("/research?error=create-failed");
+    redirect("/research/lab?error=create-failed");
   }
   redirect(`/research/${id}`);
 }
@@ -78,7 +78,7 @@ async function updateOperations(path: string, method: "POST" | "PUT", body?: unk
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) throw new Error("operation failed");
-  revalidatePath("/research");
+  revalidatePath("/research/lab");
 }
 
 export async function updateUniverse(formData: FormData): Promise<void> {

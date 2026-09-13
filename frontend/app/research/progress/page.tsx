@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { Refresh } from "@/app/refresh";
-import { OperationsRefresh } from "@/app/research/operations-refresh";
+import { OperationsRefresh } from "@/app/research/lab/operations-refresh";
 import {
   getResearchProgress,
   type Comparison,
@@ -205,6 +205,7 @@ function ComparisonPanel({ study, comparison }: { study: Study; comparison: Comp
         ))}
       </div>
       <MetricBars comparison={comparison} />
+      <p className={styles.metricExplainer}>수익률은 이 비교 기간 전체의 누적 변화이며 연환산이 아닙니다. 최대 낙폭은 평가액 고점 뒤 가장 크게 줄어든 폭입니다. 현금 비중은 기간 중 현금의 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"}이고, 거래일은 실제 주문 횟수가 아니라 거래가 발생한 날짜 수입니다. 비용과 회전율이 함께 늘면 수익률만으로 개선이라 할 수 없습니다.</p>
       <div className={adverse.length > 0 ? styles.changeWarning : styles.changeNote} role={adverse.length > 0 ? "status" : undefined}>
         <strong>{adverse.length > 0 ? "주의할 변화" : "해석할 때 함께 볼 점"}</strong>
         <span>{adverse.length > 0 ? `${adverse.join(" · ")} — 모든 지표가 개선된 것은 아닙니다.` : "수익률·현금·낙폭뿐 아니라 비용과 회전율도 함께 봐야 합니다."}</span>
@@ -325,7 +326,7 @@ export default async function ResearchProgressPage() {
       <OperationsRefresh />
       <header className={styles.pageHeader}>
         <Link href="/research" className="brand"><span className="mark">J</span> jusik <span className="brand-sub">연구 진행</span></Link>
-        <nav className={styles.topNav} aria-label="연구 메뉴"><Link href="/research">연구 홈</Link><Link href="/research/history">연구 이력</Link><Refresh /></nav>
+        <nav className={styles.topNav} aria-label="연구 메뉴"><Link href="/research">연구 개요</Link><Link href="/research/forward">가상 관찰</Link><Link href="/research/history">개발 기록</Link><Link href="/research/lab">연구 도구</Link><Refresh /></nav>
       </header>
       <section className={styles.hero}>
         <div><p className={styles.kicker}>RESEARCH PROGRESS</p><h1>연구 진행 현황</h1><p className={styles.heroCopy}>자동 실행기와 검증된 연구 결과를 한눈에 확인합니다. 완료율이나 미래 성과를 추정하지 않습니다.</p></div>
