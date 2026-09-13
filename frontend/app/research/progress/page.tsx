@@ -47,9 +47,12 @@ function expandDecimal(value: string): ExpandedDecimal | null {
   const match = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(value);
   if (!match) return null;
   const [, sign, whole, fraction = "", exponentText = "0"] = match;
+  const rawDigits = `${whole}${fraction}`;
+  if (!/[1-9]/.test(rawDigits)) {
+    return { negative: false, digits: "0", decimalPosition: 1 };
+  }
   const exponent = Number(exponentText);
   if (!Number.isSafeInteger(exponent)) return null;
-  const rawDigits = `${whole}${fraction}`;
   const digits = rawDigits.replace(/^0+(?=\d)/, "");
   const leadingZeros = rawDigits.length - rawDigits.replace(/^0+/, "").length;
   return {
@@ -63,6 +66,8 @@ function compareDecimal(left: string, right: string): number | null {
   const a = expandDecimal(left);
   const b = expandDecimal(right);
   if (!a || !b) return null;
+  if (a.digits === "0") return b.digits === "0" ? 0 : b.negative ? 1 : -1;
+  if (b.digits === "0") return a.negative ? -1 : 1;
   if (a.negative !== b.negative) return a.negative ? -1 : 1;
   const sign = a.negative ? -1 : 1;
   if (a.decimalPosition !== b.decimalPosition) {
@@ -241,7 +246,7 @@ function RunnerOverview({ progress }: { progress: ResearchProgress }) {
       </div>
       </details>
       <div className={styles.policyAndCounts}>
-        <article className={styles.policyCard}><div className={styles.cardHeading}><h3>실행 조건</h3><span>운영 기준</span></div>{runner.policy ? <dl className={styles.policyGrid}><div><dt>작업별 시간 제한</dt><dd>{formatDuration(runner.policy.task_timeout_seconds)} <small>전체 연구 제한 아님</small></dd></div><div><dt>전체 종료 시각</dt><dd>없음</dd></div><div><dt>대기 간격</dt><dd>{formatDuration(runner.policy.cooldown_seconds)}</dd></div><div><dt>오늘 실행</dt><dd>{formatCount(runner.policy.launches_today)}{runner.policy.daily_launch_limit === null ? " · 상한 확인 불가" : ` / ${formatCount(runner.policy.daily_launch_limit)}`}</dd></div><div><dt>계획 기능</dt><dd>{runner.policy.planning_enabled ? "사용" : "사용 안 함"}</dd></div></dl> : <p className={styles.emptyInline}>실행 조건을 확인할 수 없습니다.</p>}</article>
+        <article className={styles.policyCard}><div className={styles.cardHeading}><h3>실행 조건</h3><span>운영 기준</span></div>{runner.policy ? <dl className={styles.policyGrid}><div><dt>작업별 시간 제한</dt><dd>{formatDuration(runner.policy.task_timeout_seconds)} <small>전체 연구 제한 아님</small></dd></div><div><dt>전체 종료 시각</dt><dd>없음</dd></div><div><dt>대기 간격</dt><dd>{formatDuration(runner.policy.cooldown_seconds)}</dd></div><div><dt>오늘 실행</dt><dd>{formatCount(runner.policy.launches_today)}{runner.policy.daily_launch_limit === null ? " · 일일 상한 없음" : ` / ${formatCount(runner.policy.daily_launch_limit)}`}</dd></div><div><dt>계획 기능</dt><dd>{runner.policy.planning_enabled ? "사용" : "사용 안 함"}</dd></div></dl> : <p className={styles.emptyInline}>실행 조건을 확인할 수 없습니다.</p>}</article>
         <article className={styles.countCard}><div className={styles.cardHeading}><h3>등록된 자동 개발 작업</h3><span>전체 프로젝트 완료율이 아님</span></div>{runner.counts ? <div className={styles.countGrid}>{(["queued", "running", "completed", "blocked", "failed", "interrupted", "other"] as const).map((key) => <div key={key}><span>{key === "queued" ? "대기" : key === "running" ? "실행 중" : key === "completed" ? "완료" : key === "blocked" ? "차단" : key === "failed" ? "실패" : key === "interrupted" ? "중단" : "기타"}</span><strong>{formatCount(runner.counts![key])}</strong></div>)}</div> : <p className={styles.emptyInline}>작업 수를 확인할 수 없습니다.</p>}</article>
       </div>
     </section>
