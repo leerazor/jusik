@@ -1053,17 +1053,20 @@
 
 ## investor-web
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: 일반 투자자가 목표·현재 단계·성과 의미·한계·다음 판단을 이해하는 통일된 웹 여정을 구현합니다. 실제 브라우저와 독립 과제 검토 후 local main 통합·배포·handoff까지 완료합니다.
 - 담당 Luna: frontend 구현 담당자 한 명. Astra는 설계 기준·통합·검증·배포 담당입니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-investor-web
 - 작업 브랜치: feat/investor-web
-- 기준 커밋 SHA: 6d0be1d 이후 이 등록 커밋
+- 기준 커밋 SHA: f981fa9
 - 통합 대상 브랜치: local main
-- 입력과 선행 작업: docs/investor-web-design.md, 기존 research progress API 및 연구 화면. explore 완료, plan 검토 중.
+- 입력과 선행 작업: docs/investor-web-design.md, 기존 research progress API 및 연구 화면. explore와 plan 검토를 완료했습니다.
 - 수정 허용 범위: frontend의 연구 홈·공통 탐색·성과/관찰/이력 설명·기존 연구 도구 이동·계좌 화면의 연구 안내. 전략·백엔드·주문·인증·공개 성과 수치 변경 없음.
 - 포트·테스트 DB·출력 경로: 전용 node_modules 및 build, 임시 fixture 8311/프런트 3311. 운영 서버 변경은 Astra만 수행합니다.
-- 검증 명령과 결과: lint/typecheck/build, 독립 초심자 과제 검토, 실제 desktop/mobile·키보드·빈자료·링크·기존 기능 경로 검증 예정.
-- 결과 커밋 SHA·검토·통합·정리: 대기.
+- 검증 명령과 결과: main lint/typecheck/build, Decimal 비교 회귀 9건, 실제 8개 화면 HTTP 200·현재 메뉴 1개·desktop/mobile 가로 넘침 없음·키보드 본문 이동 통과. 실제 Next/브라우저에서 자료·운영 상태 6개 검증, 폼 8개·입력 필드 20개·서버 액션 보존 대조 통과. 독립 화면 과제 7개 확인; 실제 일반인 참가 시험은 수행하지 않았습니다.
+- 결과 커밋: e7420ff, 24faf18, 976e58d, dfd09f6. 통합 커밋: 52cfb86 및 1f4f4be. 독립 검토 P1/P2 해소 후 통합, 실제 웹 배포 완료.
+- 검토 및 복구: 초기 모바일 넘침, 후보 단독 수치, 공통 탐색 누락, 잘못된 상태 단정, 현재 메뉴 중복, 상세 링크 누락을 같은 Luna가 수정했습니다. 최초 실패와 최종 통과 근거를 audit에 보존했습니다.
+- 정리: diff·환경·검증 스크립트·화면·인계 자료를 audit에 보존한 후 이번 워크트리와 브랜치를 정상 제거했습니다. 기존 6개 미완료 워크트리는 보존했습니다.
+- 게시: /research를 시작점으로 웹 반영 및 개발 이력 게시 완료. 공개 성과 catalog SHA 불변, 계좌 조회·인증·거래 로직 변경 없음. 원격 push 없음.
 - 운영: 사용자 요청으로 runner paused, service/timer inactive. 완료 후에도 자동 재개 금지. 기존 중단 작업과 6개 워크트리 보존.
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913T072036Z-investor-web-remake/HANDOFF.md
