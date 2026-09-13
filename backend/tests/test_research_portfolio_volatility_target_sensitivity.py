@@ -168,12 +168,11 @@ def test_observer_rejects_invalid_values_or_timestamp(
         _verify_observations(_sim(), [observation], PortfolioConfig())
 
 
-def test_observer_requires_every_serialized_equity_point_and_allows_same_timestamp() -> (
-    None
-):
+def test_observer_requires_serialized_points_and_allows_same_timestamp() -> None:
     at = datetime(2024, 1, 2, tzinfo=UTC)
-    first = EquityObservation(at, Decimal("100000000"), Decimal("100000000"), {})
-    second = EquityObservation(at, Decimal("100000000"), Decimal("100000000"), {})
+    values = {"NVDA": Decimal("20000000")}
+    first = EquityObservation(at, Decimal("100000000"), Decimal("80000000"), values)
+    second = EquityObservation(at, Decimal("100000000"), Decimal("80000000"), values)
     assert _verify_observations(_sim(), [first, second], PortfolioConfig()) is None
     missing = _sim().model_copy(
         update={

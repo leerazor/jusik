@@ -49,6 +49,8 @@ PRIOR_PREREG_SHA256 = "ef2f1187d0c0c1a25e10aad1ec8073bbaa4e28259611e99d87f97c961
 PRIOR_MANIFEST_SHA256 = (
     "4d28c36d6ea779cd289eaab09372784ba7568d03d28d2694fc8bd5d10df3ba67"
 )
+GROSS_HELPER_SHA256 = "f0e699822151b7f54121849ab05c8e37b1c1fff101e1a82ad7ff9bacf3c11cea"
+COST3_HELPER_SHA256 = "99786a1dc9da2d4136664f3ce75f9e1a7f3fed1f148f3c1cb4d6515b251675bf"
 FULL_COSTS = (1, 3)
 ARMS = (("control", Decimal("0.10")), ("variant", Decimal("0.15")))
 PERIOD_NAMES = gross.PERIOD_NAMES
@@ -252,6 +254,10 @@ def _execute(
                     "scaling": "positive-demand target/opening sizing calls",
                 },
                 "runner_sha256": sha256(Path(__file__)),
+                "reused_helper_hashes": {
+                    "research_portfolio_gross_cap_sensitivity.py": GROSS_HELPER_SHA256,
+                    "research_portfolio_held_band_cost3_stress.py": COST3_HELPER_SHA256,
+                },
                 "historical_calls": 0,
                 "mandate": _strict_json(mandate_path),
                 "mandate_sha256": MANDATE_SHA256,
