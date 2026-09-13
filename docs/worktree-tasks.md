@@ -830,3 +830,4 @@
 - 웹: 기존 이력75개·artifact121개 보존. 보고서 SHA `2ce89353738be9f0a8983f7daf70f6feb4cb451276421acf151bfa7f404edebc`; API·웹·두 다운로드200 및 SHA 일치. DB 쓰기 없음.
 - 증거·handoff: 위 영구 audit에 원본 복사본, 검증 로그, 생성 소스·diff, 입력 해시, 리뷰, 한국어 보고서·게시 확인, HANDOFF.md를 보존한다. 보존 후 이번 병합 워크트리와 브랜치만 정리한다. 기존 미병합4개와 root HANDOFF.md는 유지한다.
 - 변경하지 않은 범위: 과거 blocked 이력·큐 재시도, frozen 엔진·PAPER10%·DB·브로커 실행·서비스·GPU·원격 push.
+- 정리 완료: 영구 audit의51개 파일 SHA와 handoff를 검증한 후 이번 worktree·전용 branch를 정상 제거했다. 강제 삭제 없음. 기존4개 worktree와 root HANDOFF.md는 유지했다. 실제 정리 상태는 audit/cleanup.json에 기록한다.
