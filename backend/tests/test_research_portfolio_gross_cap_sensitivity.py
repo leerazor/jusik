@@ -1,4 +1,4 @@
-# mypy: ignore-errors
+import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from types import ModuleType, SimpleNamespace
@@ -135,6 +135,20 @@ def _mock_contract(monkeypatch, tmp_path):
         "base_config": PortfolioConfig().model_dump(mode="json"),
     }
     monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity._json",
+        lambda path: (
+            {
+                "evaluations": [
+                    {"artifact": f"{p['name']}-variant_c{c}.json", "sha256": "b" * 64}
+                    for p in periods
+                    for c in (1, 3)
+                ]
+            }
+            if path.name == "results.json"
+            else {"periods": periods}
+        ),
+    )
+    monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._load_contract",
         lambda _path: (prereg, SimpleNamespace(instruments=[]), PortfolioConfig()),
     )
@@ -230,7 +244,11 @@ def test_mock_orchestration_prereg_then_controls_then_variants(
     )
     results = {
         "evaluations": [
-            {"artifact": f"{p['name']}-variant_c{c}.json", "sha256": "b" * 64}
+            {
+                "artifact": f"{p['name']}-variant_c{c}.json",
+                "sha256": "b" * 64,
+                "cost_multiplier": c,
+            }
             for p in periods
             for c in (1, 3)
         ]
@@ -243,6 +261,7 @@ def test_mock_orchestration_prereg_then_controls_then_variants(
     result = _execute(tmp_path, tmp_path / "engine.py", output, lambda: 0.0)
     assert result["evaluation_count"] == 32
     assert len(calls) == 32 and all(item[3] for item in calls)
+    assert len(result["evaluations"]) == 32
     assert calls[:16] and all(cap == Decimal("0.60") for _, cap, _, _ in calls[:16])
     assert all(cap == Decimal("0.80") for _, cap, _, _ in calls[16:])
     assert replay_paths == [
@@ -256,7 +275,10 @@ def test_mock_replay_or_accounting_failure_stops_before_variant(
     periods = _mock_contract(monkeypatch, tmp_path)
     simulation = _sim()
     observation = EquityObservation(
-        datetime(2024, 1, 2, tzinfo=UTC), Decimal("100000000"), Decimal("100000000"), {}
+        datetime(2024, 1, 2, tzinfo=UTC),
+        Decimal("100000000"),
+        Decimal("80000000"),
+        {"NVDA": Decimal("20000000")},
     )
     calls = []
     monkeypatch.setattr(
@@ -285,13 +307,18 @@ def test_mock_replay_or_accounting_failure_stops_before_variant(
             else {"periods": periods}
         ),
     )
+    replay_calls = []
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._verify_exact_replay",
-        lambda *_args: (_ for _ in ()).throw(ValueError("mismatch")),
+        lambda *_args: (
+            replay_calls.append(1),
+            (_ for _ in ()).throw(ValueError("mismatch")),
+        )[1],
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="mismatch"):
         _execute(tmp_path, tmp_path / "engine.py", tmp_path / "out", lambda: 0.0)
     assert len(calls) == 1
+    assert replay_calls == [1]
 
 
 def test_nonempty_output_refuses_retry_without_calls(tmp_path) -> None:
@@ -302,3 +329,79 @@ def test_nonempty_output_refuses_retry_without_calls(tmp_path) -> None:
         from jusik.research_portfolio_gross_cap_sensitivity import run_experiment
 
         run_experiment(tmp_path, tmp_path / "engine.py", output)
+
+
+def test_deadline_stops_before_first_simulation_and_records_all_missing(
+    monkeypatch, tmp_path
+) -> None:
+    _mock_contract(monkeypatch, tmp_path)
+    calls = []
+    monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity._run_simulation",
+        lambda *_args: calls.append(1),
+    )
+    with pytest.raises(TimeoutError):
+        _execute(
+            tmp_path,
+            tmp_path / "engine.py",
+            tmp_path / "out",
+            iter((0.0, 1000.0)).__next__,
+        )
+    assert calls == []
+    failure = json.loads((tmp_path / "out" / "failure.json").read_text())
+    assert len(failure["missing"]) == 32
+
+
+def test_accounting_failure_stops_after_first_simulation(monkeypatch, tmp_path) -> None:
+    periods = _mock_contract(monkeypatch, tmp_path)
+    simulation = _sim()
+    observation = EquityObservation(
+        datetime(2024, 1, 2, tzinfo=UTC),
+        Decimal("100000000"),
+        Decimal("80000000"),
+        {"NVDA": Decimal("20000000")},
+    )
+    calls = []
+    monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity._run_simulation",
+        lambda *_args: calls.append(1) or (simulation, [observation]),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity._verify_simulation_contract",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity._verify_accounting",
+        lambda *_args: (_ for _ in ()).throw(ValueError("accounting mismatch")),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity._json",
+        lambda path: (
+            {
+                "evaluations": [
+                    {"artifact": f"{p['name']}-variant_c{c}.json", "sha256": "b" * 64}
+                    for p in periods
+                    for c in (1, 3)
+                ]
+            }
+            if path.name == "results.json"
+            else {"periods": periods}
+        ),
+    )
+    with pytest.raises(ValueError, match="accounting"):
+        _execute(tmp_path, tmp_path / "engine.py", tmp_path / "out", lambda: 0.0)
+    assert len(calls) == 1
+
+
+def test_input_load_failure_preserves_failure_json_before_calls(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity._load_contract",
+        lambda _path: (_ for _ in ()).throw(ValueError("malformed prereg")),
+    )
+    with pytest.raises(ValueError, match="malformed prereg"):
+        _execute(tmp_path, tmp_path / "engine.py", tmp_path / "out", lambda: 0.0)
+    failure = tmp_path / "out" / "failure.json"
+    assert failure.exists()
+    assert "malformed prereg" in failure.read_text()
