@@ -1091,3 +1091,20 @@
 - 통합 커밋 SHA와 정리 여부: fbf97e01429e07e2d2ab5b77911864cd6c3f74ba. 웹 반영 및 통합 검증 후 audit 파일 123개 SHA를 확인하고 이번 워크트리와 병합 브랜치를 정상 제거했습니다. 기존 미완료 워크트리 6개 보존. 자동 실행기 paused, service/timer inactive 유지.
 - 통합 검증 실패 원인과 복구 결과: main 통합 검사 실패 없음. 초기 개발본의 모바일·비교 상세 넘침과 정보 표시 오류는 독립 리뷰 후 수정했습니다. 브라우저 실행에 필요한 기존 공유 라이브러리를 LD_LIBRARY_PATH로 지정했으며 새 시스템 패키지는 설치하지 않았습니다.
 - handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260913-research-ui-redesign/HANDOFF.md. 루트 HANDOFF.md에 최신 안내를 추가하며 기존 내용과 미추적 요구사항 원본을 보존합니다.
+
+
+## open-ended-decision-study
+
+- 상태: 준비
+- 목표와 완료 조건: 종료 시점 없는 계속 운용과 실제 비교 후 사용자 선택이라는 최신 의사를 기록하고, 고정된 4주 대 8주 연구 32개 결과를 재분석해 선택 근거를 제공합니다. PAPER 준비와 미완료 7건을 읽기 전용 점검하고 연구 한 건 후 중지합니다.
+- 담당 Luna: 전용 Luna 구현 소유자 1명. explore 완료, plan 후 구현합니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-open-ended-decision-study
+- 작업 브랜치: feat/open-ended-decision-study
+- 기준 커밋 SHA: ed2ae9afff0e60dd59bef8d33d715e087997fb39 이후 이 등록 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 사용자 1-D 및 2-C 선택. 고정 volatility15-cadence 5270 결과와 manifest. 실제 경계 capture monitor running, 두 경계 scheduled 및 코드 hash 일치. runner paused와 service/timer inactive.
+- 수정 허용 범위: 최신 mandate JSON·한국어 안내·해당 테스트, 웹의 현재 조건 표시, 단일 재분석 보고서 및 전용 audit. 전략·PAPER·운영 DB·runner 큐 변경 없음. 감독만 등록부와 공개 catalog를 관리합니다.
+- 포트·테스트 DB·출력 경로: 전용 Python 3.13 venv와 node_modules/build. 필요시 웹 3331. 운영 DB 읽기 전용, 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260913-open-ended-decision-study.
+- 검증 명령과 결과: 관련 pytest·Ruff·strict mypy, frontend lint·typecheck·build, Decimal 재분석과 독립 검증, 원본 SHA·기존 catalog 보존.
+- 종료 조건: 32개 저장 셀과 16개 쌍만 분석·재검산하며 historical simulation·새 후보·GPU 실행 0회. local main 통합 검사, 한국어 보고서·같은 조건 catalog 게시, handoff·이번 worktree 정리 후 중지합니다.
+- 남은 문제: 일부 원자료의 짧은 이력·PIT·배당·세금 한계를 유지합니다. 실거래나 기존 PAPER 정책에 후보를 채택하지 않습니다.
