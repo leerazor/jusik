@@ -35,10 +35,10 @@ agent는 결과를 다음 다섯 항목으로 짧게 반환합니다. 각 항목
 | 도구 | 확인 결과 | 사용 경로·명령 |
 | --- | --- | --- |
 | Serena MCP | `Serena 1.7.0` | `/home/kwl/.local/bin/serena`; Codex MCP command는 `/home/kwl/.local/bin/serena start-mcp-server --context codex --project-from-cwd --enable-web-dashboard=false --open-web-dashboard=false` |
-| Playwright CLI + skill | `@playwright/cli 0.1.19` | `playwright-cli --version`; skill은 `/home/kwl/.codex/skills/playwright-cli/SKILL.md` |
+| Playwright CLI + skill | `@playwright/cli 0.1.19` | skill은 `/home/kwl/.codex/skills/playwright-cli/SKILL.md`; WSL 정상 실행은 `/home/kwl/.config/jusik/agent-tools/playwright-cli open <URL>` |
 | Context7 CLI + skill | `ctx7 0.5.11` | `ctx7 --version`; skill은 `/home/kwl/.codex/skills/context7-cli/SKILL.md`; 문서 조회는 먼저 `ctx7 library <name> <query>` 후 `ctx7 docs <libraryId> <query>` |
 
-위 버전·경로는 2026-09-13 WSL 환경에서 실행 파일과 skill 파일을 확인한 결과입니다. 다른 환경에서는 `command -v`와 각 `--version`을 다시 실행하고, 확인하지 못한 설치를 완료로 보고하지 않습니다.
+위 버전·경로와 설치·smoke 결과는 [도구 검증 기록](/home/kwl/.local/share/jusik/tooling-audit/20260913-tools/VERIFICATION.md)에서 확인합니다. WSL 기본 Chrome은 `libasound.so.2`가 없어 직접 실행이 실패할 수 있으므로 wrapper가 범위 지정한 browser library와 Chromium 설정을 자식 프로세스에만 적용합니다. 시스템 환경은 변경하지 않습니다. 다른 환경에서는 `command -v`와 각 `--version`을 다시 실행하고, 확인하지 못한 설치를 완료로 보고하지 않습니다. 설치된 공식 skill은 다음 turn 또는 새 Codex 세션에서 로드 여부를 확인한 뒤 사용합니다.
 
 runner가 자식 Codex를 `--ignore-user-config`로 실행할 때 현재 사용자의 config에 등록한 도구가 자동 상속된다는 보장은 없습니다. 따라서 dispatch 전에 해당 실행에서 필요한 MCP·CLI·skill이 실제로 사용 가능한지 확인하고, 불가능하면 도구 의존 작업을 실행하지 않거나 차단 사유를 남깁니다. 이 확인은 사용자 전역 설정을 수정하지 않습니다.
 
@@ -46,13 +46,13 @@ runner가 자식 Codex를 `--ignore-user-config`로 실행할 때 현재 사용�
 
 ## supervisor 검사와 작업 경계
 
-개인 supervisor skill의 기준 경로는 `/home/kwl/.codex/skills/jusik-supervisor`이고, routing helper 계약은 그 경로의 `scripts/check_routing.py`가 정의합니다. helper가 없거나 CLI 인자를 확인할 수 없으면 실행하지 말고 skill 담당자(`/root/skill_tooling`)에게 계약을 요청합니다. runner root의 Astra는 설계상 supervisor 역할이므로 그 역할 매핑을 유지합니다.
+개인 supervisor skill의 기준 경로는 `/home/kwl/.codex/skills/jusik-supervisor`이고, routing helper는 그 경로의 `scripts/check_routing.py`에 있습니다. helper pre/post 검사는 모델·role·fork만 확인합니다. helper가 없거나 CLI 계약을 확인할 수 없으면 설치된 `SKILL.md`와 `--help`를 먼저 확인하고, 그래도 불명확하면 실행을 보류합니다. cwd·worktree와 필요한 도구의 실제 사용 가능성은 helper 범위가 아니며 supervisor가 수동 검증합니다. runner root의 Astra는 설계상 supervisor 역할이므로 그 역할 매핑을 유지합니다.
 
 helper는 prompt와 secret을 출력하지 않고, 호출 전 verifier 결과와 호출 후 audit 결과만 남깁니다. verifier는 실제 spawn hook 자체를 차단하지 않습니다. 즉 helper를 우회한 spawn을 기술적으로 막는 경계가 아니므로 supervisor가 절차를 지켜야 합니다.
 
 ## 사용 흐름
 
-1. `spawn_agent` 직전에 helper preflight를 실행해 role, `task_name`, 요청 model, `fork_turns`, cwd/worktree와 필요한 도구를 확인합니다.
+1. `spawn_agent` 직전에 helper preflight로 role, 요청 model, `fork_turns`를 확인합니다. supervisor는 별도로 `task_name`, cwd/worktree와 필요한 도구의 실제 사용 가능성을 수동 확인합니다.
 2. preflight 반환 결과와 실제 tool 계약을 대조한 뒤에만 spawn을 호출합니다. 계약이 불명확하거나 모델을 지정할 수 없으면 fallback과 제한을 보고하고 작업을 보류합니다.
 3. child가 반환한 압축 보고의 `paths/evidence`, `commit`, `validation`을 실제 파일·Git 상태·명령 결과와 대조합니다.
 4. 종료 후 child audit에서 model 불일치, role·작업 이름 불일치, 증거 누락 또는 검증 실패가 발견되면 완료 처리를 보류하고 재검토·재실행 조건을 남깁니다.
