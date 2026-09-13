@@ -17,7 +17,7 @@ cd backend
   --artifact-dir ~/.local/share/jusik/portfolio-audit
 ```
 
-설정 파일에는 저장소, Codex 실행 파일, 상태·history·artifact 경로, 시도 제한(기본 90분), UTC 일일 실행 상한(기본 8회, 허용 범위 1~24회), 실행 간 대기(기본 60초)를 명시합니다. 일일 상한은 금액·토큰 예산이 아니라 자식 Codex dispatch 횟수 제한입니다. 90분 시도 제한과 실행 간 60초 cooldown은 그대로 유지합니다. 현재 설치 설정은 하루 24회입니다. history는 연구 화면의 기존 `~/.local/share/jusik/research-history`와 journal DB를 사용해야 기록이 웹에 나타납니다. `artifact_dir`는 `~/.local/share/jusik/portfolio-audit`를 사용해 분석 산출물을 검증하고 Codex named permission profile의 허용 루트로 제공합니다. 큐의 초기 작업은 entry amount distribution, 작은 진입 제약의 선행 조건, 미래 관찰 프로토콜, PAPER 신호 근거, portfolio stress robustness 순서이며 최대 8개의 미완료 작업만 유지합니다.
+설정 파일에는 저장소, Codex 실행 파일, 상태·history·artifact 경로, 시도 제한(기본 90분), UTC 일일 실행 상한(기본 8회, 허용 범위 1~24회), 실행 간 대기(기본 60초)를 명시합니다. 필드를 생략하면 기본값 8회이며, `daily_launches: null`은 사용자가 승인한 무제한 모드입니다. 무제한 모드에서도 기존 launch history, timeout, pause, lock 동작은 유지됩니다. 일일 상한은 금액·토큰 예산이 아니라 자식 Codex dispatch 횟수 제한입니다. 90분 시도 제한과 실행 간 60초 cooldown은 그대로 유지합니다. 현재 설치 설정은 `null` 무제한으로 운영합니다. history는 연구 화면의 기존 `~/.local/share/jusik/research-history`와 journal DB를 사용해야 기록이 웹에 나타납니다. `artifact_dir`는 `~/.local/share/jusik/portfolio-audit`를 사용해 분석 산출물을 검증하고 Codex named permission profile의 허용 루트로 제공합니다. 큐의 초기 작업은 entry amount distribution, 작은 진입 제약의 선행 조건, 미래 관찰 프로토콜, PAPER 신호 근거, portfolio stress robustness 순서이며 최대 8개의 미완료 작업만 유지합니다.
 
 systemd 파일은 설치 위치에 맞게 검토한 뒤 사용자 단위로 등록합니다. 이 저장소에서는 설치 명령을 자동 실행하지 않습니다.
 

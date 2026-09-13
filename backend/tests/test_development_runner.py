@@ -504,6 +504,31 @@ def test_config_accepts_supported_launch_settings(
     assert config.daily_launches == daily_launches
 
 
+def test_config_accepts_unlimited_launches(tmp_path: Path) -> None:
+    config = RunnerConfig(
+        repo=tmp_path,
+        artifact_dir=tmp_path / "artifact",
+        daily_launches=None,
+    )
+    assert config.daily_launches is None
+
+
+def test_config_round_trips_null_launch_limit(tmp_path: Path) -> None:
+    from jusik.development_runner import load_config, save_config
+
+    path = tmp_path / "runner.json"
+    original = RunnerConfig(
+        repo=tmp_path,
+        artifact_dir=tmp_path / "artifact",
+        daily_launches=None,
+    )
+    save_config(original, path)
+    restored = load_config(path)
+    assert restored.daily_launches is None
+    assert restored.repo == original.repo
+    assert restored.timeout_seconds == original.timeout_seconds
+
+
 @pytest.mark.parametrize("daily_launches", [0, 25])
 def test_config_rejects_unbounded_launch_settings(
     tmp_path: Path, daily_launches: int
@@ -762,6 +787,46 @@ output.write_text(json.dumps({
     assert store.launch_count(today.strftime("%Y-%m-%d")) == 9
     assert store.task("task-a").attempt_count == 1  # type: ignore[union-attr]
     assert store.launch_count("2099-01-01") == 0
+
+
+def test_unlimited_launches_dispatch_after_25_prior_records(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "fake-codex.py"
+    fake.write_text(
+        """#!/usr/bin/env python3
+import json, pathlib, sys
+output = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])
+output.write_text(json.dumps({'task_id':'task-a','attempt_id':output.parent.name,
+'status':'blocked','integrated_commit':None,'evidence':[],
+'tests_passed':False,'review_passed':False,'handoff_path':None,
+'blocked_reason':'test','followup':None}), encoding='utf-8')
+""",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    state, history = tmp_path / "state", tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    for index in range(25):
+        store.record_launch((today + timedelta(seconds=index)).isoformat())
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        daily_launches=None,
+        cooldown_seconds=0,
+    )
+    assert run_once(config).status == "blocked"
+    assert (
+        RunnerStore(state / "runner.db", history).launch_count(
+            today.strftime("%Y-%m-%d")
+        )
+        == 26
+    )
 
 
 def test_daily_launch_limit_blocks_at_limit_24_without_dispatch(
