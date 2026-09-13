@@ -831,3 +831,20 @@
 - 증거·handoff: 위 영구 audit에 원본 복사본, 검증 로그, 생성 소스·diff, 입력 해시, 리뷰, 한국어 보고서·게시 확인, HANDOFF.md를 보존한다. 보존 후 이번 병합 워크트리와 브랜치만 정리한다. 기존 미병합4개와 root HANDOFF.md는 유지한다.
 - 변경하지 않은 범위: 과거 blocked 이력·큐 재시도, frozen 엔진·PAPER10%·DB·브로커 실행·서비스·GPU·원격 push.
 - 정리 완료: 영구 audit의51개 파일 SHA와 handoff를 검증한 후 이번 worktree·전용 branch를 정상 제거했다. 강제 삭제 없음. 기존4개 worktree와 root HANDOFF.md는 유지했다. 실제 정리 상태는 audit/cleanup.json에 기록한다.
+
+
+## portfolio-residual-cash-abec
+
+- 상태: 준비
+- 목표와 완료 조건: 잔여 현금의 겹치는 원인을 진단하고 단일 제한 가설을 사전등록하여 최대 24회 정확 비교 또는 재현 가능한 부정 결과, 독립 검토, local main 검사, 한국어 웹 보고와 인계를 완료한다.
+- 담당 Luna: code 단일 구현자. explore와 plan은 읽기 전용으로 완료했다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-residual-cash-abec
+- 작업 브랜치: feat/portfolio-residual-cash-abec
+- 기준 커밋 SHA: 등록 커밋 직후 SHA를 실제 생성 기준으로 기록한다.
+- 통합 대상 브랜치: local main
+- 입력: 검증된 low-cash audit의 source, request, 원본 엔진과 개발 구간 raw artifacts. results SHA 71c1e5efac632d6f934d5b411d5f217131d0eb635aae121e90aee0373963e445.
+- 수정 허용 범위: 신규 residual_cash 모듈, 대응 테스트와 한국어 연구 문서만. 기존 engine/PAPER/DB/서비스/GPU/원격 변경 금지.
+- 격리: 워크트리 자체 .venv; 출력은 /home/kwl/.local/share/jusik/portfolio-audit/portfolio-residual-cash-risk-proxy-v1-abecaf881ae842378d77d5a6838040ed. 포트/DB 없음.
+- 검증: 입력·코드 SHA, 과거 가용 가격·FX, 미래 변조, 1KRW 회계 변조, 실제 종목·레버리지 비중, 원본/observer parity, 비용 1/2배, dev/final 분리와 finalist 사전 동결. pytest/Ruff/strict mypy 및 통합 후 재검사.
+- 결과·검토·통합 SHA: 진행 후 기록한다.
+- 보존: 위 audit에 증거·SHA·HANDOFF.md 보존 후 이번 병합 워크트리만 정상 제거한다. 기존 미병합 4개와 root HANDOFF.md는 유지한다.
