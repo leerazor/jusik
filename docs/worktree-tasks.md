@@ -787,16 +787,19 @@
 
 ## portfolio-low-cash
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 3년 핵심 종목 자료에서 현금 비중과 거래 빈도를 함께 줄이는 32개 설정을 사전 등록하고 실제 비교, 위험 검증, 웹 보고를 완료한다.
-- 담당 Luna: portfolio_low_cash 단일 구현자. 조사와 계획 완료.
+- 담당 Luna: CLI gpt-5.6-luna 단일 구현자. 내장 작업자 스레드 한도로 전용 CLI 세션을 사용했으며 조사·계획·독립 검토를 수행했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-low-cash
 - 작업 브랜치: feat/portfolio-low-cash
-- 기준 커밋 SHA: 7611b60 이후 이 등록 및 mandate 커밋
+- 기준 커밋 SHA: deab5b2 (등록과 최신 mandate 포함)
 - 통합 대상 브랜치: local main
 - 입력과 선행 작업: 현재 research-mandate, core 10종목 고정 입력. 신규 ETF 수집은 선행 조건에서 제외한다.
 - 수정 허용 범위: 신규 low_cash_experiment 모듈, 대응 테스트, 연구 문서. 기존 engine/PAPER 설정 변경 없음.
 - 포트·테스트 DB·출력 경로: 워크트리 자체 가상환경과 임시 테스트 경로. 실제 연구는 별도 audit/experiment.
-- 검증 명령과 결과: pytest, Ruff, mypy, 독립 검토 및 통합 검증 예정.
-- 결과 커밋 SHA·통합 검증·정리: 대기
+- 검증 명령과 결과: 관련 통합 pytest 51개, Ruff check/format, 범위를 지정한 strict mypy 통과. 독립 검토의 중요한 지적을 같은 Luna가 수정했습니다. 실제 142회 비교 및 원본 140쌍 독립 산술 검증을 완료했습니다.
+- 결과 커밋 SHA·통합 검증·정리: 구현 b7bbb48, 수정 6f22d31·be9227f. 병합 직전 main 5da867e, 통합 60e443c2eba6da6e616b6f0ce4ecfa95b0afcf97. 증거와 환경을 audit에 보존하고 해당 워크트리·브랜치를 정리했습니다. 기존 미병합 워크트리 4개는 보존합니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/20260913T011304Z-low-cash-low-turnover/HANDOFF.md
+- 결과: 비용 1배의 연속 3년 비교에서 후보 A 수익률 118.94%, 현금 중앙 비중 41.66%, 거래일 33일, 최대 낙폭 14.96%입니다. 기준은 각각 43.18%, 79.80%, 71일, 6.53%입니다. 거래 빈도는 줄었지만 거래금액 회전율과 비용은 증가했습니다. 두 후보 모두 이번 평가의 전역 낙폭·실제 레버리지 기준을 통과했으며 PAPER 반영은 하지 않았습니다.
+- 웹 산출물: `/research/history/download/aceef65a6cf64ac8afddfcc0226827ce3146100651706f2e3cab010008dc70fd`. 기존 게시 이력을 보존하고 API·웹·두 다운로드의 SHA를 확인했습니다.
+- 운영 상태: 자동 실행 재개 증거는 audit의 `activation.json`으로 확인합니다. 남은 현금 원인과 위험 추정 개선 작업을 큐에 추가하고 선택적 신규 ETF 수집은 해당 핵심 작업 뒤에 배치했습니다. 과거 중단된 allocation 시도와 미병합 문서는 변경하지 않았습니다.
