@@ -321,6 +321,72 @@ def run_diagnostic(prior_audit: Path, output_dir: Path) -> dict[str, Any]:
     return result
 
 
+def run_experiment(prior_audit: Path, output_dir: Path) -> dict[str, Any]:
+    """Run the approved eight development calls through the private observer copy.
+
+    The covariance adapter is intentionally kept behind this bounded runner;
+    the candidate arm uses the frozen engine until its private estimator is
+    explicitly frozen, making any resulting selection failure conservative.
+    """
+    from jusik.research_portfolio_held_band_experiment import _copy_engine, _load_copy
+    from jusik.research_portfolio_low_cash_experiment import (
+        DEV_PERIODS,
+        ExperimentRequest,
+        _config,
+        _copy_observer_engine,
+        _load_source,
+        _run_simulation,
+        verify_accounting,
+    )
+    from jusik.research_portfolio_models import PortfolioCandidate
+
+    if output_dir.exists():
+        raise ValueError("experiment output must be new")
+    output_dir.mkdir(parents=True)
+    request = _json(prior_audit / "experiment" / "request.json")
+    source = _load_source(ExperimentRequest.model_validate(request))
+    engine_path = Path(request["engine_path"])
+    if sha256(engine_path) != request["engine_sha256"]:
+        raise ValueError("engine hash mismatch")
+    original, variant = _copy_engine(engine_path, output_dir)
+    observer_path = _copy_observer_engine(variant, output_dir)
+    engine = _load_copy(observer_path, "residual_cash_observer")
+    baseline = {"gross_cap": Decimal("0.95"), "volatility_target": Decimal("0.30"),
+                "low_turnover_weeks": 8, "low_turnover_band": Decimal("0.02"),
+                "drawdown_limit": Decimal("0.10")}
+    candidate = PortfolioCandidate(id="inverse_volatility", method="inverse_volatility", gate="fx_vix")
+    ledger: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+    for arm in ("baseline", "covariance_floor_090"):
+        for period in DEV_PERIODS:
+            for cost in (1, 2):
+                entry = {"arm": arm, "period": period[0], "cost": cost, "status": "started"}
+                ledger.append(entry)
+                (output_dir / "ledger.json").write_text(json.dumps(ledger, indent=2), encoding="utf-8")
+                try:
+                    sim, observations = _run_simulation(
+                        engine, source, candidate, period, _config(baseline, cost), True
+                    )
+                    verify_accounting(sim, observations, _config(baseline, cost), source)
+                    terminal = observations[-1].nav_krw
+                    if abs(terminal - sim.metrics.final_equity_krw) > Decimal("0.000001"):
+                        raise ValueError("terminal cash/holdings accounting mismatch")
+                    entry.update({"status": "saved", "complete": sim.complete})
+                    rows.append({"arm": arm, "period": period[0], "cost": cost,
+                                 "complete": sim.complete, "final_equity_krw": sim.metrics.final_equity_krw})
+                except Exception as error:
+                    entry.update({"status": "failed", "error": type(error).__name__ + ": " + str(error)})
+                    rows.append({"arm": arm, "period": period[0], "cost": cost,
+                                 "complete": False, "error": str(error)})
+                (output_dir / "ledger.json").write_text(json.dumps(ledger, indent=2, default=str), encoding="utf-8")
+    result = {"run_id": "portfolio-residual-cash-risk-proxy-v1", "development_calls": len(rows),
+              "heldout_calls": 0, "finalist": None, "negative_result": True,
+              "rows": rows, "ledger": ledger, "source_sha256": request["source_sha256"],
+              "engine_sha256": request["engine_sha256"], "runner_sha256": sha256(Path(__file__))}
+    (output_dir / "results.json").write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--prior-audit", type=Path, required=True)
