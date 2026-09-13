@@ -1,0 +1,17 @@
+# 보유 밴드 underwater 기간 분석 v1
+
+이 문서는 고정된 48개 보유 밴드 경로에서 초기 자본을 포함한 running peak 기준 MDD와 고점 회복까지의 underwater 기간을 기술 통계로 산출하는 분석을 설명한다.
+
+각 경로는 UTC 시각이 엄격히 증가하고 중복되지 않으며 비어 있지 않아야 한다. 불규칙한 간격은 그대로 경과 초로 계산하고, 동일 기간의 control/variant 및 cost 1/2/3 여섯 경로는 관측 시각이 같아야 한다. 이 검사는 시장 휴일이나 원천 calendar의 완전성을 추론하지 않는다.
+
+underwater episode는 처음 고점 아래로 내려간 관측에서 시작하고 같은 고점 이상이 된 관측에서 끝난다. 마지막 관측까지 회복하지 않으면 우측 검열로 표시하며 `terminal_unrecovered`를 별도로 기록한다. 최장 기간 동률은 시작 시각이 이른 구간을 선택한다.
+
+실행 예:
+
+```bash
+python -m jusik.research_portfolio_underwater_duration \
+  --input-dir /path/to/portfolio-held-band-cost3-stress-v1/experiment \
+  --output-dir /path/to/underwater-duration-output
+```
+
+분석은 `research_portfolio_cost_path_attribution.load_frozen`의 고정 SHA, 48개 파일, Decimal 회계 잔차 0.000001 KRW 검증을 재사용한다. 저장된 MDD와 재계산 MDD도 같은 허용치로 대조한다. historical simulation, 외부 수집, DB/config/PAPER/GPU 및 주문 호출은 없다. 결과는 fold와 continuous를 분리해 보고하며 MDD 개선과 기간 증가를 인과 효과나 정책 승격으로 해석하지 않는다.
