@@ -855,3 +855,6 @@
 - 유효 비교: 개발 8회와 초기 무효 8회, 총 16회. 최종 후보 없음, final/continuous 0회. H1은 현금 감소·순수익 증가·동일 거래일이나 dev1 실제 종목 비중 28.98%/28.40%로 탈락했다.
 - 실행 보존: Decimal 끝자리 차이로 중단한 기준 원장 3개를 재검증해 재사용했다. target_weight와 band_skip.value에만 1e-38 허용, 실제 6개 차이 모두 1e-41. 기준 거래·현금·평가액·성과 지표는 보관본과 정확히 일치한다.
 - 검증: 작업자 pytest11개·Ruff·strict mypy, 감사 fixture29개와 raw8개·112pins·원자료 회계·전체 관측 위험 독립 검토 통과. local main 검사는 병합 후 기록한다.
+
+- 병합 직전 main: 3e88c352ab55d4ce5be1278ac1520b6b6b284515. 첫 통합: 67a8a81499a6c1f44cd4c501edf54fd4f463d445.
+- 첫 통합 검사: pytest92개와 Ruff 통과. strict mypy에서 새 테스트 함수 tmp_path 인자의 타입 주석 누락 1건이 발생해 정리를 보류하고 동일 Luna에 수정 요청했다. 실패 로그는 audit/integration/mypy-initial-failure.log로 보존한다.
