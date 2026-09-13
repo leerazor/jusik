@@ -768,3 +768,19 @@
 
 - 결과: worker380fb56·docs847d006, 구현통합 `617274dd2eb10402e5f9386c70bf37fffe4fdf14`. runner45tests/Ruffcheck·format/strictmypy 통과. 독립검토 P1/P2 없음. 설치daily_launches=null, 다른설정·launchhistory보존.
 - 보존·정리: `/home/kwl/.local/share/jusik/portfolio-audit/20260913T004630Z-runner-unlimited`에 archive/checks/설치·연구근거·웹보고서·HANDOFF 저장. 이번worktree/branch정리, 기존미병합3개보존. 실제자동개발기동은 activation.json 확인.
+
+## portfolio-gpu-allocation-screen-42b4
+
+- 상태: 진행 (배분 연구는 입력 gate 차단)
+- 목표와 완료 조건: 고정 입력의 누락 근거를 한국어 보고서로 작성하고 검토·main 통합·웹 게시·handoff로 보존한다. 성능 결과를 만들지 않는다.
+- 담당 Luna: code 단일 문서 구현자, explore/plan 완료.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-gpu-allocation-screen-42b4
+- 작업 브랜치: docs/portfolio-gpu-allocation-screen-42b4
+- 기준 커밋 SHA: 9945be5d3c8c60c618857b34adb931f0b7e38e1e 이후 이 등록 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: expanded mandate 완료; readiness false. audit/input-manifest.json에 보고서·소스 SHA 고정. 현재 runner attempt 내부 작업.
+- 수정 허용 범위: docs/research-portfolio-gpu-allocation-screen.md만. 등록부·audit·게시·handoff는 Astra 소유.
+- 포트·테스트 DB·출력 경로: 서버/DB/venv 불필요. audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-gpu-allocation-screen-v1-42b4b5646fe3467394bd0b37d46eac99
+- 검증 명령과 결과: 문서 diff·입력 SHA·독립 review·게시 검증 예정. 금융 acceptance tests는 입력 부재로 blocked.
+- 결과 커밋 SHA·통합 검증·정리: 대기
+- handoff 저장 경로: 위 audit/HANDOFF.md
