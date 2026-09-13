@@ -39,6 +39,8 @@ _run_call = _cost3._run_call
 _verify_accounting = _cost3._verify_accounting
 _verify_exact_replay = _cost3._verify_exact_replay
 _verify_runtime_hashes = _cost3._verify_runtime_hashes
+VARIANT_SHA256 = _cost3.VARIANT_SHA256
+MANDATE_SHA256 = "197f8e09c874d481cbd8e301640467bf535ced387375d3354c18ebad6f1098ea"
 
 RUN_ID = "portfolio-gross-cap-cash-sensitivity-v1"
 FULL_COSTS = (1, 3)
@@ -209,7 +211,7 @@ def _copy_observer_engine(variant_path: Path, output: Path) -> Path:
     body = body.replace(
         target_scale,
         target_scale
-        + b'            if _SCALING_OBSERVER is not None:\n                _SCALING_OBSERVER(at, "target_gross", target_gross_scale, target_total)\n',
+        + b'            if _SCALING_OBSERVER is not None:\n                _SCALING_OBSERVER(at, "opening_target_gross", target_gross_scale, target_total)\n',
         1,
     )
     gross_scale = b"            gross_scale = min(ONE, gross_room / need_total) if need_total else ZERO\n"
@@ -577,9 +579,14 @@ def _execute(
             original
         ):
             raise ValueError("engine copy hashes are invalid")
+        if sha256(variant_path) != VARIANT_SHA256:
+            raise ValueError("variant engine hash is not pinned")
         _verify_runtime_hashes(engine_source)
         observer_path = _copy_observer_engine(variant_path, output_dir)
         engine = _load_copy(observer_path, "gross_cap_observer_engine")
+        mandate_path = Path(__file__).parents[2] / "docs/research-mandate.json"
+        if sha256(mandate_path) != MANDATE_SHA256:
+            raise ValueError("mandate hash is not pinned")
         candidate = PortfolioCandidate(
             id="portfolio_inverse_volatility_fx_vix_v1",
             method="inverse_volatility",
@@ -623,17 +630,40 @@ def _execute(
                 },
                 "runner_sha256": sha256(Path(__file__)),
                 "historical_calls": 0,
-                "mandate_path": str(
-                    Path(__file__).parents[2] / "docs/research-mandate.json"
-                ),
-                "mandate_sha256": sha256(
-                    Path(__file__).parents[2] / "docs/research-mandate.json"
-                ),
+                "mandate": _strict_json(mandate_path),
+                "mandate_sha256": MANDATE_SHA256,
+                "prior_variant_expected_sha256": {
+                    item["artifact"]: item["sha256"]
+                    for item in _json(prior_audit / "results.json")["evaluations"]
+                    if "-variant_" in item.get("artifact", "")
+                    and item.get("cost_multiplier") in FULL_COSTS
+                },
+                "mandate_path": str(mandate_path),
                 "engine_source_sha256": sha256(engine_source),
                 "original_engine_sha256": sha256(original),
                 "variant_engine_sha256": sha256(variant_path),
                 "observer_engine_sha256": sha256(observer_path),
             },
+        )
+        runtime_hashes = {
+            prior_audit / name: sha256(prior_audit / name)
+            for name in ("preregistration.json", "results.json", "hash-manifest.json")
+        }
+        runtime_hashes.update(
+            {
+                Path(prereg["source_paths"][name]): digest
+                for name, digest in prereg["source_hashes"].items()
+            }
+        )
+        runtime_hashes.update(
+            {
+                engine_source: sha256(engine_source),
+                original: sha256(original),
+                variant_path: sha256(variant_path),
+                observer_path: sha256(observer_path),
+                Path(__file__): sha256(Path(__file__)),
+                mandate_path: MANDATE_SHA256,
+            }
         )
         rows: list[dict[str, Any]] = []
         simulations: dict[tuple[str, str, int], PortfolioSimulation] = {}
@@ -758,6 +788,9 @@ def _execute(
                         },
                     }
                 )
+        verify_hashes(runtime_hashes)
+        _verify_runtime_hashes(engine_source)
+        load_frozen(prior_audit)
         result = {
             "run_id": RUN_ID,
             "evaluation_count": len(rows),
@@ -793,10 +826,10 @@ def _execute(
                 item.get("artifact") for item in ledger if item.get("status") == "saved"
             ]
             expected = [
-                f"{p['name']}-{a}_c{c}.json"
-                for a, _ in ARMS
-                for p in _periods(_json(prior_audit / "preregistration.json"))
-                for c in FULL_COSTS
+                f"{period}-{arm}_c{cost}.json"
+                for arm, _gross in ARMS
+                for period in PERIOD_NAMES
+                for cost in FULL_COSTS
             ]
             _write_exclusive(
                 output_dir / "failure.json",

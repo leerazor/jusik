@@ -149,6 +149,16 @@ def _mock_contract(monkeypatch, tmp_path):
         lambda _path: None,
     )
     monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity.verify_hashes",
+        lambda _checks: None,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity.VARIANT_SHA256", "b" * 64
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_gross_cap_sensitivity.MANDATE_SHA256", "a" * 64
+    )
+    monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._copy_engine",
         lambda _path, out: (out / "original.py", out / "variant.py"),
     )
