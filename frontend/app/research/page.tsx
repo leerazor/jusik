@@ -58,7 +58,7 @@ export default async function ResearchHubPage({ searchParams }: PageProps) {
           <h1>1억원을 어떻게 운용할지, 근거부터 확인합니다</h1>
           <p className="hub-lede">1억원을 여러 종목에 나누고, 불필요한 현금과 잦은 거래를 줄이는 방법을 검증합니다. 이 화면은 결론을 정해두지 않고 지금 확인된 것과 아직 모르는 것을 함께 보여줍니다.</p>
         </div>
-        <div className="hub-status"><span className="status">연구 단계</span><strong>실거래 전 연구·검증 단계</strong><small>{statusText(progress)} · {progress ? `기준 시각 ${new Date(progress.observed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}` : "진행 API 응답 없음"}</small><span className="status status-secondary">{runnerText(progress)}</span></div>
+        <div className="hub-status"><span className="status">연구 단계</span><strong>실거래 전 연구·검증 단계</strong><small>{statusText(progress)} · {progress ? `화면 확인 시각 ${new Date(progress.observed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}` : "진행 API 응답 없음"}</small><span className="status status-secondary">{runnerText(progress)}</span></div>
       </section>
 
       <section className="story-grid" aria-label="투자 연구 판단 순서">
