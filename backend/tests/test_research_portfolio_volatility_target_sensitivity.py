@@ -6,9 +6,9 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
+
 import jusik.research_portfolio_gross_cap_sensitivity as gross
 import jusik.research_portfolio_held_band_cost3_stress as cost3
-
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
@@ -18,19 +18,20 @@ from jusik.research_portfolio_models import (
 )
 from jusik.research_portfolio_volatility_target_sensitivity import (
     ARMS,
+    COST3_HELPER_SHA256,
     EVALUATION_CAP,
+    GROSS_HELPER_SHA256,
     EquityObservation,
     _config,
     _daily_metrics,
     _execute,
     _load_contract,
     _runtime_hashes,
-    COST3_HELPER_SHA256,
-    GROSS_HELPER_SHA256,
     _strict_json,
     _verify_observations,
     cap_observations,
     global_drawdown,
+    sha256,
 )
 
 
@@ -587,13 +588,27 @@ def test_load_contract_rejects_missing_manifest_artifact(
 
 
 def test_runtime_hashes_contains_both_pinned_helpers(tmp_path: Path) -> None:
-    files = [tmp_path / name for name in ("engine.py", "original.py", "variant.py", "observer.py", "mandate.json", "results.json")]
+    files = [
+        tmp_path / name
+        for name in (
+            "engine.py",
+            "original.py",
+            "variant.py",
+            "observer.py",
+            "mandate.json",
+            "results.json",
+        )
+    ]
     for path in files:
         path.write_text("{}", encoding="utf-8")
     checks = _runtime_hashes(
         tmp_path,
         {"source_paths": {}, "source_hashes": {}},
-        files[0], files[1], files[2], files[3], files[4],
+        files[0],
+        files[1],
+        files[2],
+        files[3],
+        files[4],
     )
     assert checks[Path(gross.__file__)] == GROSS_HELPER_SHA256
     assert checks[Path(cost3.__file__)] == COST3_HELPER_SHA256
