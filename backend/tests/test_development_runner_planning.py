@@ -7,7 +7,11 @@ from typing import Any, cast
 
 import pytest
 
-from jusik.development_runner import RunnerConfig, _codex_command
+from jusik.development_runner import (
+    RunnerConfig,
+    _codex_command,
+    _tracked_research_mandate,
+)
 from jusik.development_runner_planning import (
     PLANNING_AREA,
     fingerprint,
@@ -38,6 +42,62 @@ def test_planning_area_is_private_and_fingerprint_excludes_planner_state(
     assert fingerprint(research, "a" * 40, "2026-09-12") == fingerprint(
         research, "a" * 40, "2026-09-12"
     )
+
+
+def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
+    import json
+
+    mandate = json.loads(
+        Path(__file__)
+        .parents[2]
+        .joinpath("docs/research-mandate.json")
+        .read_text(encoding="utf-8")
+    )
+    assert mandate == {
+        "recorded_at": "2026-09-12T21:07:50.560440+00:00",
+        "capital_krw": 100000000,
+        "maximum_drawdown_fraction": "0.20",
+        "drawdown_reference": (
+            "running peak of total portfolio marked-to-market NAV, including initial "
+            "capital"
+        ),
+        "research_universe_expansion": [
+            "existing instruments",
+            "cash",
+            "broad-market index ETFs",
+            "short-duration bond ETFs",
+        ],
+        "interim_withdrawals": "none",
+        "investment_horizon": None,
+        "historical_lookback_years": 3,
+        "leveraged_allocation_fraction": "0.20",
+        "turnover_preference": "low",
+        "signal_detection": "real-time",
+        "live_trading": "deferred",
+        "frozen_paper_contract": "unchanged;10% drawdown",
+        "user_answers": [
+            "기존 종목에 현금·광범위 지수·단기채 ETF 등을 추가해 비교",
+            "운용 중 평가액 최고점 대비 20% 하락",
+            "중간 인출 없음",
+        ],
+    }
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["not json\n", '{"investment_horizon": null}\n'],
+    ids=["malformed", "missing-required-fields"],
+)
+def test_invalid_tracked_research_mandate_fails_closed(
+    tmp_path: Path, content: str
+) -> None:
+    path = tmp_path / "docs" / "research-mandate.json"
+    path.parent.mkdir()
+    path.write_text(content, encoding="utf-8")
+    assert _tracked_research_mandate(tmp_path) is None
+    path.unlink()
+    path.symlink_to(tmp_path / "other.json")
+    assert _tracked_research_mandate(tmp_path) is None
 
 
 def test_planning_result_requires_bounded_prompt_and_existing_hashed_evidence(
@@ -217,13 +277,24 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
 
     repo = tmp_path / "repo"
     repo.mkdir()
+    mandate_path = repo / "docs" / "research-mandate.json"
+    mandate_path.parent.mkdir()
+    mandate_path.write_text(
+        Path(__file__)
+        .parents[2]
+        .joinpath("docs/research-mandate.json")
+        .read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     store = RunnerStore(tmp_path / "state" / "runner.db", tmp_path / "history")
     store.enqueue("research", "portfolio-stress-robustness", "prompt")
     fake = tmp_path / "wait.py"
+    captured_prompt = tmp_path / "captured-prompt.txt"
     fake.write_text(
         "#!/usr/bin/env python3\n"
         "import json, pathlib, sys\n"
         "prompt = sys.stdin.read()\n"
+        f"pathlib.Path({str(captured_prompt)!r}).write_text(prompt, encoding='utf-8')\n"
         "fields = dict(line.split(': ', 1) for line in prompt.splitlines()\n"
         "               if ': ' in line)\n"
         "pathlib.Path(sys.argv[sys.argv.index('-o') + 1]).write_text(json.dumps({\n"
@@ -279,6 +350,12 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
     store.finish("attempt-1", "research", "failed")
 
     assert development_runner.run_once(config).status == "completed"
+    prompt_text = captured_prompt.read_text(encoding="utf-8")
+    assert "docs/research-mandate.json" in prompt_text
+    assert '"historical_lookback_years": 3' in prompt_text
+    assert '"investment_horizon": null' in prompt_text
+    assert "supersedes all older mandate text" in prompt_text
+    assert "100m KRW" not in prompt_text
     assert development_runner.run_once(config).status == "idle"
     assert len([t for t in store.tasks() if t.area == PLANNING_AREA]) == 1
 

@@ -45,6 +45,24 @@ ALLOWED_AREAS = {
     "paper-signal-evidence",
     "portfolio-stress-robustness",
 }
+RESEARCH_MANDATE_REQUIRED_FIELDS = frozenset(
+    {
+        "recorded_at",
+        "capital_krw",
+        "maximum_drawdown_fraction",
+        "drawdown_reference",
+        "research_universe_expansion",
+        "interim_withdrawals",
+        "investment_horizon",
+        "historical_lookback_years",
+        "leveraged_allocation_fraction",
+        "turnover_preference",
+        "signal_detection",
+        "live_trading",
+        "frozen_paper_contract",
+        "user_answers",
+    }
+)
 COMMON_PROMPT = (
     "Follow the repository workflow: explore relevant code and AGENTS.md, write a "
     "bounded plan, assign at most four Luna worktrees, review the implementation, "
@@ -471,6 +489,25 @@ def _research_snapshot(store: RunnerStore) -> list[tuple[str, str, str | None]]:
     )
 
 
+def _tracked_research_mandate(repo: Path) -> str | None:
+    """Read the current tracked mandate for planner context."""
+    path = repo / "docs" / "research-mandate.json"
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        content = path.read_text(encoding="utf-8")
+        mandate = json.loads(content)
+        if not isinstance(
+            mandate, dict
+        ) or not RESEARCH_MANDATE_REQUIRED_FIELDS.issubset(mandate):
+            return None
+        return content
+    except (OSError, UnicodeError):
+        return None
+    except json.JSONDecodeError:
+        return None
+
+
 def _planning_task(
     store: RunnerStore, repo: Path
 ) -> tuple[RunnerTask, str, list[tuple[str, str, str | None]]] | None:
@@ -489,10 +526,11 @@ def _planning_task(
     store.enqueue(
         task_id,
         PLANNING_AREA,
-        "Plan exactly one useful bounded portfolio research job. Prefer cost-adjusted "
-        "return/risk/turnover experiments under the current mandate: 100m KRW, "
-        "max loss 20%, leveraged allocation 20%, low turnover with realtime signal "
-        "detection, live trading deferred. Keep PAPER10% unchanged. "
+        "Plan exactly one useful bounded portfolio research job. Read the current "
+        "tracked mandate at docs/research-mandate.json before making any proposal; "
+        "that document is authoritative and replaces any mandate details in this "
+        "task prompt. If it is missing or unreadable, return waiting with a clear "
+        "resume condition. Keep PAPER10% unchanged. "
         "For GPU stress research, consult docs/research-gpu-role.md and "
         "docs/research-portfolio-gpu-stress.md and use only the on-demand "
         "research_portfolio_gpu_stress CLI when measured beneficial, with fixed "
@@ -519,6 +557,16 @@ def _run_planning(
     stderr_path = attempt_dir / "stderr.log"
     stdout_path = attempt_dir / "stdout.jsonl"
     main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
+    mandate = _tracked_research_mandate(config.repo)
+    mandate_context = (
+        "Current tracked mandate (docs/research-mandate.json) supersedes all older "
+        "mandate text in this queued task and prompt:\n"
+        f"{mandate}"
+        if mandate is not None
+        else "MANDATE STATUS: docs/research-mandate.json is missing or unreadable. "
+        "Return status waiting and state that planning resumes after the tracked "
+        "mandate is restored. Do not infer or propose research from an older prompt."
+    )
     evidence_roots = (
         config.repo,
         config.repo.parent,
@@ -530,6 +578,7 @@ def _run_planning(
         f"Task id: {task.id}\nAttempt id: {attempt_id}\nFingerprint: {digest}\n\n"
         f"{task.prompt}\nResearch snapshot: {json.dumps(snapshot, sort_keys=True)}\n"
         f"Current main HEAD: {main_head}\nAllowed areas: {sorted(ALLOWED_AREAS)}\n"
+        f"{mandate_context}\n"
         f"Permitted evidence roots: "
         f"{[str(path.resolve()) for path in evidence_roots]}\n"
         "Return planning JSON only. The proposal prompt MUST contain six concise "
@@ -644,6 +693,17 @@ def _run_planning(
             ALLOWED_AREAS,
             {item.id for item in store.tasks()},
         )
+        if mandate is None and result.proposal is not None:
+            result = result.model_copy(
+                update={
+                    "status": "waiting",
+                    "proposal": None,
+                    "wait_reason": (
+                        "Tracked docs/research-mandate.json is missing or unreadable; "
+                        "planning resumes after it is restored."
+                    ),
+                }
+            )
         ready, reason = _git_ready(config.repo)
         if not ready:
             raise ValueError(reason)

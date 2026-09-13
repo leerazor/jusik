@@ -42,7 +42,11 @@ def _repo(tmp_path: Path) -> Path:
     _git(repo, "config", "user.email", "test@example.invalid")
     _git(repo, "config", "user.name", "Runner Test")
     (repo / "README.md").write_text("test\n", encoding="utf-8")
+    mandate = Path(__file__).parents[2] / "docs" / "research-mandate.json"
+    (repo / "docs").mkdir()
+    (repo / "docs" / "research-mandate.json").write_bytes(mandate.read_bytes())
     _git(repo, "add", "README.md")
+    _git(repo, "add", "docs/research-mandate.json")
     _git(repo, "commit", "-m", "initial")
     return repo
 
@@ -796,10 +800,20 @@ def test_daily_launch_limit_blocks_at_limit_24_without_dispatch(
     assert not fake.exists()
 
 
+@pytest.mark.parametrize("mandate_state", ["valid", "missing", "malformed"])
 def test_empty_queue_planner_proposes_then_dispatches_research_child(
-    tmp_path: Path,
+    tmp_path: Path, mandate_state: str
 ) -> None:
     repo = _repo(tmp_path)
+    mandate_path = repo / "docs" / "research-mandate.json"
+    if mandate_state == "missing":
+        mandate_path.unlink()
+        _git(repo, "add", "-u", "docs/research-mandate.json")
+        _git(repo, "commit", "-m", "remove mandate for planner gate")
+    elif mandate_state == "malformed":
+        mandate_path.write_text("not json\n", encoding="utf-8")
+        _git(repo, "add", "docs/research-mandate.json")
+        _git(repo, "commit", "-m", "corrupt mandate for planner gate")
     fake = tmp_path / "fake-codex.py"
     evidence = repo / "README.md"
     evidence_hash = hashlib.sha256(evidence.read_bytes()).hexdigest()
@@ -855,19 +869,27 @@ def test_empty_queue_planner_proposes_then_dispatches_research_child(
     assert planned.status == "completed"
     store = RunnerStore(state / "runner.db", history)
     research = store.task("planned-research-v1")
-    assert research is not None and research.status == "queued"
-    assert "Follow the repository workflow" in research.prompt
-    assert "never use real orders" in research.prompt
-    assert "PAPER engine" in research.prompt
-    assert "GPU changes" in research.prompt
-    assert "research_portfolio_gpu_stress" in research.prompt
-    assert "CPU parity" in research.prompt
+    if mandate_state == "valid":
+        assert research is not None and research.status == "queued"
+        assert "Follow the repository workflow" in research.prompt
+        assert "never use real orders" in research.prompt
+        assert "PAPER engine" in research.prompt
+        assert "GPU changes" in research.prompt
+        assert "research_portfolio_gpu_stress" in research.prompt
+        assert "CPU parity" in research.prompt
 
-    dispatched = run_once(config)
-    assert dispatched.status == "blocked"
-    assert research.id == dispatched.task_id
-    assert store.task(research.id).status == "blocked"  # type: ignore[union-attr]
-    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 2
+        dispatched = run_once(config)
+        assert dispatched.status == "blocked"
+        assert research.id == dispatched.task_id
+        assert store.task(research.id).status == "blocked"  # type: ignore[union-attr]
+        assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 2
+    else:
+        assert research is None
+        planner = next(task for task in store.tasks() if task.area == PLANNING_AREA)
+        assert planner.status == "completed"
+        assert not any(
+            item[3] == "planning_proposed" for item in store.outbox_pending()
+        )
 
 
 @pytest.mark.parametrize(
