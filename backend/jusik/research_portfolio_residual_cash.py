@@ -183,6 +183,13 @@ def covariance_floor_volatility_scale(
     )
 
 
+def install_covariance_floor_adapter(engine: Any) -> None:
+    """Install H1 on a private engine module with its six-argument hook."""
+    engine.volatility_scale = lambda source, data, weights, at, config, fx_cache=None: (
+        covariance_floor_volatility_scale(engine, source, data, weights, at, config)
+    )
+
+
 def _decimal(value: Any, label: str) -> Decimal:
     result = Decimal(str(value))
     if not result.is_finite():
@@ -464,13 +471,7 @@ def run_experiment(
     candidate_engine = _load_copy(
         candidate_observer_path, "residual_cash_candidate_observer"
     )
-    candidate_engine.volatility_scale = (
-        lambda source, data, weights, at, config, fx_cache=None: (
-            covariance_floor_volatility_scale(
-                candidate_engine, source, data, weights, at, config
-            )
-        )
-    )
+    install_covariance_floor_adapter(candidate_engine)
     (output_dir / "preregistration.json").write_text(
         json.dumps(
             {

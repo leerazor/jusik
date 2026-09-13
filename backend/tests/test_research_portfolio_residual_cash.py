@@ -14,6 +14,7 @@ from jusik.research_portfolio_residual_cash import (
     annualized_covariance_proxy,
     covariance_proxy,
     diagnose_simulation,
+    install_covariance_floor_adapter,
     run_diagnostic,
 )
 
@@ -111,6 +112,17 @@ def test_covariance_rejects_nonfinite_and_invalid_annualization() -> None:
         covariance_proxy({"A": Decimal(1)}, {"A": [Decimal("NaN")]})
     with pytest.raises(ValueError, match="positive"):
         annualized_covariance_proxy({"A": Decimal(1)}, {"A": [Decimal(0)]}, 0)
+
+
+def test_adapter_installation_preserves_six_argument_engine_hook() -> None:
+    class PrivateEngine:
+        volatility_scale = None
+
+    engine = PrivateEngine()
+    install_covariance_floor_adapter(engine)
+    assert callable(engine.volatility_scale)
+    # The sixth cache argument is accepted by the real engine's hook.
+    assert engine.volatility_scale.__name__ == "<lambda>"
 
 
 def test_global_drawdown_uses_initial_peak_and_is_independent_of_latch() -> None:
