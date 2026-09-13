@@ -97,6 +97,12 @@ from jusik.research_portfolio_robustness import (
     PortfolioRobustnessRepository,
     PortfolioRobustnessResult,
 )
+from jusik.research_progress import (
+    DEFAULT_RUNNER_CONFIG,
+    ResearchProgressResponse,
+    UnitStatus,
+    build_research_progress,
+)
 from jusik.research_prospective_readiness import (
     ProspectiveReadiness,
     prospective_readiness,
@@ -145,6 +151,10 @@ def create_research_app(
     clock_health_probe: Callable[[], Awaitable[ForwardClockHealth]] | None = None,
     boundary_capture_dir: Path = DEFAULT_BOUNDARY_CAPTURE_DIR,
     run_boundary_capture_background: bool = False,
+    runner_config_path: Path = DEFAULT_RUNNER_CONFIG,
+    runner_db_path: Path | None = None,
+    progress_history_dir: Path | None = None,
+    runner_service_probe: Callable[[str], UnitStatus] | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -319,6 +329,17 @@ def create_research_app(
 
     def forward_components() -> tuple[ForwardCoordinator, ForwardStore]:
         return research_app.state.forward, research_app.state.forward_store
+
+    @research_app.get("/api/research/progress", response_model=ResearchProgressResponse)
+    async def research_progress(response: Response) -> ResearchProgressResponse:
+        response.headers["Cache-Control"] = "no-store"
+        return await asyncio.to_thread(
+            build_research_progress,
+            config_path=runner_config_path,
+            history_dir=progress_history_dir or history_dir or DEFAULT_HISTORY_DIR,
+            runner_db_path=runner_db_path,
+            service_probe=runner_service_probe,
+        )
 
     @research_app.get(
         "/api/research/actions/status", response_model=ActionCollectionStatus
