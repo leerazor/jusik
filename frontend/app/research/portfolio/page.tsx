@@ -260,7 +260,9 @@ export default async function PortfolioResearchPage() {
   return (
     <main>
       <section className="intro research-intro"><div><p className="eyebrow">PORTFOLIO RESEARCH</p><h1>여러 종목을 함께 배분한 결과</h1><p className="muted">이 화면은 16개 종목을 원화 1억원 단일 현금 계좌에서 비교한 후향 연구입니다. 과거 비교일 뿐 미래 수익이나 실거래 적합성을 증명하지 않습니다.</p></div></section>
+      <div className="result-local-actions"><div className="detail-links"><Link className="secondary-button" href="/research/portfolio/dividends">확인된 배당 기여 보기</Link><Link className="secondary-button" href="/research/lab">상세 분석·자료 점검</Link></div></div>
       {content}
     </main>
   );
 }
+import Link from "next/link";

@@ -104,6 +104,11 @@ export default async function ResearchPage({ searchParams }: PageProps) {
         </div>
       </section>
 
+      <section className="lab-detail-links" aria-labelledby="lab-detail-title">
+        <div><p className="eyebrow">OPTIONAL DETAIL</p><h2 id="lab-detail-title">상세 분석·자료 점검</h2><p className="muted">기본 학습 경로와 별개로 원본 보고서, 포트폴리오 배분, 배당·기업행동 자료를 확인할 때 여는 화면입니다.</p></div>
+        <div className="detail-links"><Link href="/research/portfolio">포트폴리오 비교</Link><Link href="/research/portfolio/dividends">배당 기여 자료</Link><Link href="/research/actions">기업행동 원문 자료</Link><Link href="/research/validation">검증 경계 자료</Link></div>
+      </section>
+
       <nav className="research-step-nav" aria-label="전략 연구 단계">
         <a href="#backtest">1. 과거 검증</a>
         <a href="#results">2. 결과 확인</a>

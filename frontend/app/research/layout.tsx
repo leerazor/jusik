@@ -1,5 +1,8 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ResearchNavigation } from "./research-navigation";
+
+export const metadata: Metadata = { title: "Jusik · 투자 연구", description: "투자 목표와 연구 근거를 확인하는 화면" };
 
 export default function ResearchLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
