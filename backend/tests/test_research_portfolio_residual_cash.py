@@ -147,7 +147,9 @@ def test_covariance_adapter_rejects_stale_and_duplicate_close_grid() -> None:
 
     class Engine:
         @staticmethod
-        def _market_time(value, _timezone, opening=False):
+        def _market_time(
+            value: date, _timezone: str, opening: bool = False
+        ) -> datetime:
             return datetime.combine(value, datetime.min.time(), UTC)
 
     bars = [
