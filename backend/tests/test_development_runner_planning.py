@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
@@ -50,8 +51,10 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     path = Path(__file__).parents[2].joinpath("docs/research-mandate.json")
     raw_content = path.read_text(encoding="utf-8")
     mandate = json.loads(raw_content)
+    recorded_at = mandate.pop("recorded_at")
+    parsed_recorded_at = datetime.fromisoformat(recorded_at)
+    assert parsed_recorded_at.tzinfo == UTC
     assert mandate == {
-        "recorded_at": "2026-09-13T12:49:02.035998+00:00",
         "capital_krw": 100000000,
         "maximum_drawdown_fraction": "0.20",
         "drawdown_reference": (

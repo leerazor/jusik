@@ -93,7 +93,7 @@ const knownStudies: readonly KnownStudy[] = [
     candidateRules: ["연 변동성 목표 15%", "8주마다 재조정", "비용 1x·3x"],
     fixedConditions: ["기존 32개 평가와 동일한 종목·기간·자료", "초기 자본 1억원·중간 인출 없음", "전체 관측 NAV running peak MDD", "거래 fill과 UTC 거래일을 분리"],
     limitations: ["새 시뮬레이션이 아닌 고정 historical JSON의 재분석입니다.", "Continuous는 2024-04-24~2026-09-08로 요청 3년보다 짧고 PIT 완전성을 인증하지 않았습니다.", "가격만 사용해 배당·세금을 제외했습니다."],
-    sourceReference: "a2cbd8ad38472f3f5e32c2a300bd4a3c7edd9d7d45d9db050d3aff9bd548a535.md",
+    sourceReference: "a2cbd8ad38472f3f5e32c2a300bd4a3c7edd9d7d45d9db050d3aff9bd548a535.md:1",
     conclusion: "4주와 8주의 순수익·낙폭·거래 부담이 엇갈려 우선순위나 정책 채택을 기록하지 않았습니다.",
   },
 ];
