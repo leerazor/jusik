@@ -942,7 +942,7 @@
 
 ## portfolio-volatility15-cadence-4c25
 
-- 상태: 준비
+- 상태: 차단 — 이전 시도 중단. 후속 5270 시도에서 완료했으며 기존 worktree는 보존합니다.
 - 목표와 완료 조건: target .15 고정 4/8주 CPU exact32회/900초 비교, control16 전체 JSON replay 후 variant16, 독립 회계 및 검토, local main 통합 검사와 handoff.
 - 담당 Luna: code 작업자 한 명.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-volatility15-cadence-4c25
@@ -957,20 +957,21 @@
 
 ## portfolio-volatility15-cadence-5270
 
-- 상태: 준비
-- 목표와 완료 조건: .15 고정 4/8주 CPU exact 최대 32회/900초, 대조군 16개 전체 JSON 일치 후 변형군 16개, 독립 회계·검토 및 local main 통합 검사.
-- 담당 Luna: 전용 code 작업자 한 명. Astra가 단 한 번의 historical 실행과 통합을 담당합니다.
-- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-volatility15-cadence-5270
-- 작업 브랜치: feat/portfolio-volatility15-cadence-5270
-- 기준 커밋 SHA: eec160fd114b4cbef9483a28cb53a5e7dd710c2f 이후 이 등록 커밋
-- 통합 대상 브랜치: local main
-- 입력과 선행 작업: 선행 volatility-target variant_c1/c3 16개. 이전 preflight 80개 SHA 현재 일치. 이전 시도 4c25는 계획만 있으며 깨끗한 worktree를 보존합니다.
-- 수정 허용 범위: 새 연구 runner/test/report. PAPER/제품/DB/설정/주문/remote/GPU 변경 금지.
-- 포트·테스트 DB·출력 경로: 서버/DB 없음. 전용 worktree venv/tmp. durable audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-volatility15-cadence-cost-tradeoff-v1-527025c895ad4d54a9559469434162a8.
-- 검증 명령과 결과: 입력 SHA 80개 통과. historical 0회. pytest/Ruff/strict mypy 및 독립 원시 회계 예정.
-- 검토 결과와 남은 문제: explore 완료, plan 검토 중. 이 attempt dispatch 안에서 진행하며 실행기와 서비스 상태를 변경하지 않습니다. 기존 HANDOFF와 다른 worktree 보존.
-- 통합 커밋 SHA와 정리 여부: 통합 전.
-- handoff 저장 경로: 이번 durable audit에 저장 예정.
+- 상태: 완료
+- 목표와 완료 조건: .15 고정 4/8주 CPU exact 32회/900초 비교, 대조군 16개 전체 JSON 일치 후 변형군 16개, 독립 회계·검토 및 local main 통합 검사 완료.
+- 담당 Luna: code 한 명. Astra가 단 한 번의 historical 실행과 통합을 담당했습니다.
+- 워크트리와 브랜치: /home/kwl/projects/jusik-portfolio-volatility15-cadence-5270, feat/portfolio-volatility15-cadence-5270. 통합 검증·영구 보존 후 정상 제거했습니다.
+- 기준 커밋 SHA와 통합 대상: cdaa6f72f8ef6396246c3c616948dfd3d26eaf09, local main.
+- 입력과 선행 작업: 선행 volatility-target variant_c1/c3 16개. 입력 SHA 80개 일치. 이전 시도 4c25의 중단 worktree 및 기존 다른 4개 worktree와 root HANDOFF를 보존했습니다.
+- 수정 범위: 새 연구 runner/test/report 3개. PAPER/제품/DB/설정/주문/remote/GPU 변경 없음. 서버/DB 미사용, 전용 venv/tmp 사용.
+- 결과: CPU exact32회/18.251010초/재시도0/GPU0. Control16 byte 및 전체 JSON 일치 후 variant16. Continuous 비용1/3배에서 현금+0.607432/+0.608667pp, 순수익-5.551477/-1.999894pp, MDD+5.315978/+5.088576pp, 거래수-134/-140, 총비용-1102154/-3081364 KRW. Fold14개와 continuous2개 분리, 재튜닝·승격 없음.
+- 독립 검증: raw32 최대 회계잔차1.734375E-31 KRW. manifest72 SHA, runtime95 SHA, observer 현금/MDD/cap 재계산 통과. Symbol 초과351개는4주에만 관측,8주0; gross/leveraged0.
+- 검증 명령과 결과: Astra 실행 전 및 통합 후 pytest99개, Ruff check/format, strict mypy 통과. 프런트엔드 코드 변경 없음. 최초 Astra 검사도구의 tmp 상위 폴더 누락은 수정 후 통과했고 실패 로그 보존.
+- 검토: 독립 코드·수치·보고서 검토 통과. 초기 helper SHA 오타·preregistration·실패 중단/경계 테스트 누락은 실행 전에 같은 Luna가 수정했습니다. Historical 실패·재시도 없음.
+- 작업자 최종 커밋: b165bbb2292c32f8c66fcae9c310cf1dfb634111. 병합 직전 main: cdaa6f72f8ef6396246c3c616948dfd3d26eaf09. 통합 커밋: 114232eadcc4cac4e66cf14c267f518acdcf4c2a.
+- 게시: 기존 file history와 progress catalog에 보고서 및16개 비교를 추가했습니다. 기존 항목과 대표 비교 보존, API/웹/다운로드200 및 보고서 SHA 일치. DB·서비스 변경 없음.
+- 영구 보존: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-volatility15-cadence-cost-tradeoff-v1-527025c895ad4d54a9559469434162a8. 삭제 전147개 증거/SHA/handoff 검증, 삭제 후 전부 재검증 및 runtime95개 대체 영구 경로 검증.
+- handoff: audit/handoff-before-cleanup.md와 audit/handoff-final.md. 실행기 dispatch 안에서 완료하며 dispatcher 상태는 변경하지 않았습니다.
 
 ## progress-api
 
