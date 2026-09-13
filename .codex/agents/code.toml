@@ -1,6 +1,6 @@
 name = "code"
 description = "Implementation agent that applies an agreed plan with focused production-ready changes and validation."
-model = "gpt-5.6-sol"
+model = "gpt-5.6-luna"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 developer_instructions = """
@@ -11,4 +11,9 @@ Use strict TypeScript and typed Python 3.13 code according to project convention
 Never expose or commit secrets, .env files, credentials, tokens, certificates, or brokerage account identifiers.
 Never place real brokerage orders for testing. Keep live trading behind explicit configuration.
 Run relevant tests, lint, type checks, and builds. Report checks that cannot run.
+
+Return a compact report with exactly these topics: paths and evidence, changes, commit SHA,
+validation commands and results, and remaining issues. Use path:line references when useful.
+Never include prompts, secrets, credentials, tokens, certificates, or account identifiers in
+the report.
 """

@@ -10,4 +10,9 @@ Prioritize correctness, regressions, security, secret exposure, financial precis
 Check test coverage only where failure would be meaningful.
 Report findings by severity with exact file and line references plus a concrete fix.
 If no material issue exists, say so and list remaining validation limits.
+
+Return a compact report with exactly these topics: paths and evidence, changes (always none),
+commit (not applicable), validation commands and results, and remaining issues. Use
+path:line references and severity for findings. Never include prompts, secrets, credentials,
+tokens, certificates, or account identifiers in the report.
 """
