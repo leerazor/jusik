@@ -1074,7 +1074,7 @@
 
 ## research-ui-redesign
 
-- 상태: 검증
+- 상태: 완료
 - 목표와 완료 조건: research-ui-redesign.md의 사용자 요구를 바탕으로 전체 목표·운용 조건, 연구 질문·변경점·결론·결정, 별도 PAPER 관찰을 이해할 수 있게 화면을 재설계합니다. 기존 기능과 URL을 보존하고 독립 검토, 브라우저 검증, local main 통합 검사와 handoff까지 완료합니다.
 - 담당 Luna: /root/luna_ui (gpt-5.6-luna), 구현 소유자 한 명. explore와 plan 완료.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-research-ui-redesign
@@ -1084,10 +1084,10 @@
 - 입력과 선행 작업: docs/research-ui-redesign.md(사용자 미추적 원본 보존), 최신 mandate, 기존 화면/API/공개 연구 원문. 자동 실행기는 paused, service/timer inactive이며 중지를 유지합니다.
 - 수정 허용 범위: frontend 연구 화면·표시용 데이터·CSS·관련 검사. 전략·주문·PAPER 정책·공개 성과 수치 변경 없음.
 - 포트·테스트 DB·출력 경로: 전용 node_modules/build, frontend 3321 및 fixture 8321, 운영 DB 미사용. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260913-research-ui-redesign.
-- 검증 명령과 결과: 실제 Next 브라우저 44개 상태·화면 폭 검사, 비율 변환 12건·원본 식별 20건 통과. frontend lint/typecheck/build와 main 통합 검사를 마무리합니다.
-- 결과 커밋 SHA: 미정
+- 검증 명령과 결과: worker와 main의 lint/typecheck/build 통과. main 실제 Next 브라우저 44개 상태·화면 폭 검사, 비율 변환 12건·원본 식별 20건 통과. 배포된 8개 화면 HTTP 200, desktop/mobile 가로 넘침 없음, 공통 탐색·현재 메뉴·키보드 이동·JavaScript 오류 없음 확인. 기존 연구 도구 파일 9개와 공개 성과 catalog SHA 보존.
+- 결과 커밋 SHA: 6aeff89, e891675. 초기 중간 커밋 cc3efff는 작업자가 정리했으며 최종 두 커밋을 통합했습니다. 감독 요청 후 후속 수정은 별도 커밋으로 보존했습니다.
 - 검토 결과와 남은 문제: 독립 review의 관찰 검증 기간 누락, 낙폭 측정 기준 혼합, 고정 연구 수, 전체 기간 계산 오류와 브라우저 가로 넘침을 수정했습니다. 최종 독립 review 중요 지적 없음. 실제 일반인 참가 사용자 시험은 수행하지 않았습니다.
-- 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미정
-- 통합 검증 실패 원인과 복구 결과: 해당 없음
-- handoff 저장 경로와 갱신 여부: 위 audit/HANDOFF.md 예정
+- 병합 직전 main SHA: 2ee48a8be641f92eacb68b664a547ae447de1402.
+- 통합 커밋 SHA와 정리 여부: fbf97e01429e07e2d2ab5b77911864cd6c3f74ba. 웹 반영 및 통합 검증 후 audit 파일 123개 SHA를 확인하고 이번 워크트리와 병합 브랜치를 정상 제거했습니다. 기존 미완료 워크트리 6개 보존. 자동 실행기 paused, service/timer inactive 유지.
+- 통합 검증 실패 원인과 복구 결과: main 통합 검사 실패 없음. 초기 개발본의 모바일·비교 상세 넘침과 정보 표시 오류는 독립 리뷰 후 수정했습니다. 브라우저 실행에 필요한 기존 공유 라이브러리를 LD_LIBRARY_PATH로 지정했으며 새 시스템 패키지는 설치하지 않았습니다.
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260913-research-ui-redesign/HANDOFF.md. 루트 HANDOFF.md에 최신 안내를 추가하며 기존 내용과 미추적 요구사항 원본을 보존합니다.
