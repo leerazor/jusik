@@ -703,7 +703,7 @@
 
 ## portfolio-held-band-underwater-38fd
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: 고정 48개 경로 및 paired 24개 underwater 분석, 검토·main 통합 검사·영구 증거와 handoff 보존.
 - 담당 Luna: 단일 gpt-5.6-luna 구현 작업자.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-underwater-38fd
@@ -716,3 +716,13 @@
 - 검증 명령과 결과: pytest/Ruff/strict mypy 및 독립 검토 예정. 실제 분석 48개·paired24개 1회, 단일 CPU 600초 상한, historical simulation 0회.
 - 검토 결과와 남은 문제: 진행 전. 기존 HANDOFF와 미병합3개 보존.
 - handoff 저장 경로: 위 영구 audit/HANDOFF.md.
+
+- 실제 생성 기준 SHA: `7c96a2a6f9780a4c058e6d5c22a708a314e455ee`.
+- 담당 및 결과 커밋: Luna code, `9a471209c21ea49dc4fd180333c29bf3cfe60f74`. 독립 explore/review 최종 승인, material finding 없음.
+- 병합 직전 main SHA: `7c96a2a6f9780a4c058e6d5c22a708a314e455ee`.
+- 통합 커밋: `2f491ea8f8df1d255638e63ddfcb4b31201095e0`. main pytest47개, Ruff check/format, strict mypy, diff 통과. frontend 변경 없음.
+- 실제 분석: 단일 CPU0.3656초, historical simulation0회, 48경로·24paired 한 번. 승인7d04a1e 결과를 보존하고 최종 paired terminal flag는 기존48행에서 복사했다. 추가 경로 분석 없음.
+- 결과: fold4 비용1/2/3 모두 MDD 감소와 기간24시간/10.5시간/10.5시간 증가. continuous는3cost 모두 MDD·최장기간 감소, 종료는6경로 모두 미회복. 정책 승격 없음.
+- 보존·정리: 영구 audit에359개 파일과 SHA/handoff를 먼저 검증한 후 이번 worktree를 정상 제거했다. 작업 브랜치 및 기존 미병합3개 보존.
+- 게시: 기존 연구 이력70개·artifact116개 보존, 보고서 API/웹 다운로드200·SHA 일치. DB 변경 없음. 정확한 통합 SHA는 audit/publication.json에 보존.
+- handoff: 위 audit/HANDOFF.md. 기존 루트 handoff 내용 보존. 통합 검증 실패 없음.
