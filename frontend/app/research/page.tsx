@@ -105,6 +105,7 @@ export default async function ResearchPage({ searchParams }: PageProps) {
         <div className="action-row">
           <Link className="primary-link" href="/research/portfolio">통합 포트폴리오 결과</Link>
           <Link className="secondary-button" href="/research/forward">전진 PAPER 관찰</Link>
+          <Link className="secondary-button" href="/research/progress">연구 진행 현황</Link>
           <Link className="secondary-button" href="/research/history">연구 개발 이력</Link>
           <a className="secondary-button" href="/research-guide.html">사용 안내 보기</a>
           <Link className="secondary-button" href="/">계좌 현황</Link>

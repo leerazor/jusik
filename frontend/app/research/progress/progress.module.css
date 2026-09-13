@@ -1,0 +1,803 @@
+.progressMain {
+  max-width: 1240px;
+}
+
+.pageHeader {
+  height: 76px;
+  gap: 20px;
+}
+
+.topNav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topNav a {
+  color: var(--green);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.topNav button {
+  min-height: 40px;
+  padding: 9px 13px;
+  font-size: 12px;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 48px 0 30px;
+}
+
+.hero h1 {
+  margin-bottom: 12px;
+}
+
+.heroCopy,
+.muted {
+  color: var(--muted);
+}
+
+.heroCopy {
+  max-width: 650px;
+  margin: 0;
+  line-height: 1.7;
+}
+
+.kicker {
+  margin: 0 0 9px;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+}
+
+.refreshState {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.refreshState small {
+  display: block;
+  margin-left: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.autoDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dfaa4b;
+  box-shadow: 0 0 0 4px #fff2d6;
+}
+
+.overviewSection,
+.featuredSection,
+.studiesSection,
+.queueSection {
+  margin-bottom: 42px;
+}
+
+.sectionHeading,
+.cardHeading,
+.statusCardHeading,
+.studyCardHeading,
+.chartHeading,
+.taskItemTop,
+.queueGroupHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sectionHeading {
+  margin-bottom: 16px;
+}
+
+.sectionHeading h2,
+.featuredPanel h2 {
+  margin: 0 0 5px;
+  font-size: 23px;
+  letter-spacing: -0.7px;
+}
+
+.sectionHeading p {
+  margin: 0;
+}
+
+.observed,
+.truncated {
+  padding-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.statusGrid,
+.policyAndCounts,
+.strategyCards,
+.studyGrid,
+.queueGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.statusGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.statusCard,
+.policyCard,
+.countCard,
+.strategyCard,
+.studyCard,
+.queueGroup,
+.featuredPanel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+}
+
+.statusCard {
+  padding: 20px 22px;
+}
+
+.statusCardHeading {
+  align-items: center;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--line);
+}
+
+.statusCard h3,
+.policyCard h3,
+.countCard h3,
+.queueGroup h3,
+.studyCard h3,
+.strategyCard h3 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+}
+
+.statusPill,
+.taskStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 25px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.stateGood {
+  color: #126452;
+}
+
+.stateBad {
+  color: #a04829;
+}
+
+.stateUnknown {
+  color: #8a5a16;
+}
+
+.statusPill.stateGood,
+.taskStatus {
+  background: #e5eeea;
+}
+
+.statusPill.stateBad {
+  background: #f8e9e5;
+}
+
+.statusPill.stateUnknown {
+  background: #fff4df;
+}
+
+.compactDetails,
+.policyGrid,
+.studyDetails,
+.metricGrid {
+  display: grid;
+  margin: 0;
+}
+
+.compactDetails {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+  padding-top: 17px;
+}
+
+.compactDetails dt,
+.policyGrid dt,
+.studyDetails dt,
+.metricGrid dt {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.compactDetails dd,
+.policyGrid dd,
+.studyDetails dd,
+.metricGrid dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.compactDetails dd {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.policyAndCounts {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.95fr);
+  margin-top: 16px;
+}
+
+.policyCard,
+.countCard {
+  padding: 20px 22px;
+}
+
+.cardHeading {
+  align-items: baseline;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cardHeading span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.policyGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+  padding-top: 17px;
+}
+
+.policyGrid dd {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.policyGrid dd small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.countGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 17px;
+}
+
+.countGrid > div {
+  min-width: 0;
+  border-radius: 9px;
+  background: #f3f6f5;
+  padding: 11px;
+}
+
+.countGrid span,
+.countGrid strong {
+  display: block;
+}
+
+.countGrid span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.countGrid strong {
+  margin-top: 7px;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.featuredPanel {
+  padding: 25px;
+}
+
+.featuredPanel .sectionHeading {
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.featuredPanel .sectionHeading .muted {
+  margin: 0;
+  font-size: 12px;
+}
+
+.reportLink,
+.textLink {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.strategyCards {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.strategyCard {
+  padding: 19px;
+  background: #fbfcfb;
+}
+
+.strategyCard h3 {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.cardEyebrow {
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.metricGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 21px;
+}
+
+.metricGrid dd {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.chartBlock {
+  margin-top: 17px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+
+.chartHeading {
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.chartHeading h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.chartHeading .kicker {
+  margin-bottom: 5px;
+}
+
+.chartLegend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.chartLegend i {
+  display: inline-block;
+  width: 15px;
+  height: 4px;
+  border-radius: 4px;
+}
+
+.legendBaseline,
+.baselineFill {
+  background: var(--green);
+}
+
+.legendCandidate,
+.candidateFill {
+  background: #dfaa4b;
+}
+
+.chart {
+  display: grid;
+  gap: 12px;
+}
+
+.chartRow {
+  display: grid;
+  grid-template-columns: 115px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.chartLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.chartLabel span:last-child {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.barPair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.barTrack {
+  display: block;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #edf1ef;
+}
+
+.barFill {
+  display: block;
+  width: var(--bar-width);
+  height: 100%;
+  border-radius: inherit;
+}
+
+.pairedMetric {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+}
+
+.pairedMetric > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pairedMetric > div {
+  display: flex;
+  gap: 13px;
+  font-size: 11px;
+}
+
+.pairedMetric strong {
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.changeNote,
+.changeWarning {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+  border-radius: 10px;
+  padding: 13px 15px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.changeNote {
+  background: #f3f6f5;
+  color: var(--muted);
+}
+
+.changeWarning {
+  background: #fff4df;
+  color: #7d5518;
+}
+
+.changeNote strong,
+.changeWarning strong {
+  flex-shrink: 0;
+  color: var(--ink);
+}
+
+.studiesSection .sectionHeading {
+  align-items: flex-end;
+}
+
+.studyGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.studyCard {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.studyCardHeading {
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--line);
+}
+
+.studyCardHeading h3 {
+  margin-top: 6px;
+  line-height: 1.35;
+}
+
+.studyDetails {
+  grid-template-columns: 1fr 1fr;
+  gap: 13px 17px;
+  padding: 16px 0;
+}
+
+.studyDetails dd {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.studyComparisons {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+}
+
+.studyComparison {
+  display: grid;
+  gap: 4px;
+  border-bottom: 1px solid #edf1ef;
+  padding: 12px 0;
+  font-size: 11px;
+}
+
+.studyComparison:last-child {
+  border-bottom: 0;
+}
+
+.studyComparison span,
+.studyComparison small {
+  color: var(--muted);
+}
+
+.studyComparison strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.negativeValue {
+  color: #a04829;
+}
+
+.queueGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.queueGroup {
+  padding: 17px;
+}
+
+.queueGroupHeading {
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.queueGroupHeading span {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.taskList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.taskItem {
+  border-bottom: 1px solid #edf1ef;
+  padding: 13px 0;
+}
+
+.taskItem:last-child {
+  border-bottom: 0;
+}
+
+.taskItemTop {
+  align-items: flex-start;
+}
+
+.taskItem strong {
+  min-width: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.taskItem p,
+.taskItem small {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.taskItem small {
+  display: block;
+}
+
+.taskStatus {
+  flex-shrink: 0;
+  min-height: 22px;
+  padding: 4px 7px;
+}
+
+.unavailableBox,
+.emptyPanel {
+  border: 1px dashed #cfdad6;
+  border-radius: 12px;
+  background: #fbfcfb;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.unavailableBox h2 {
+  margin: 0 0 7px;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.unavailableBox p {
+  margin: 0;
+}
+
+.emptyInline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.footer {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.footer a {
+  color: var(--green);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .studyGrid,
+  .queueGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .policyAndCounts {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .pageHeader {
+    height: auto;
+    min-height: 76px;
+    padding: 13px 0;
+  }
+
+  .topNav {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .topNav a {
+    display: none;
+  }
+
+  .topNav button {
+    min-height: 38px;
+  }
+
+  .hero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+    padding-top: 32px;
+  }
+
+  .refreshState {
+    flex-wrap: wrap;
+  }
+
+  .refreshState small {
+    width: 100%;
+    margin-left: 16px;
+  }
+
+  .sectionHeading,
+  .featuredPanel .sectionHeading,
+  .studiesSection .sectionHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .observed,
+  .truncated {
+    padding-top: 0;
+    white-space: normal;
+  }
+
+  .statusGrid,
+  .strategyCards,
+  .studyGrid,
+  .queueGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .countGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .featuredPanel {
+    padding: 18px;
+  }
+
+  .chartRow {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .pairedMetric {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .pairedMetric > div {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .progressMain {
+    padding-inline: 14px;
+  }
+
+  .compactDetails,
+  .policyGrid,
+  .studyDetails,
+  .metricGrid {
+    gap: 12px;
+  }
+
+  .countGrid > div {
+    padding: 9px;
+  }
+
+  .chartHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+  }
+}
