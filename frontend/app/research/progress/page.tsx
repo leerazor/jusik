@@ -115,7 +115,7 @@ function formatCount(value: number): string {
 }
 
 function formatDuration(seconds: number): string {
-  if (seconds >= 3600) return `${Math.round(seconds / 3600)}시간`;
+  if (seconds >= 3600 && seconds % 3600 === 0) return `${seconds / 3600}시간`;
   if (seconds >= 60) return `${Math.round(seconds / 60)}분`;
   return `${seconds}초`;
 }
@@ -214,9 +214,23 @@ function StatusCard({ title, availability, children }: { title: string; availabi
 
 function RunnerOverview({ progress }: { progress: ResearchProgress }) {
   const { runner } = progress;
+  const hasCurrent = runner.current !== null || (runner.counts?.running ?? 0) > 0 || runner.tasks.some((task) => task.status === "running");
+  const headline = runner.availability !== "available" ? "상태 확인 불가"
+    : runner.paused === true ? "일시정지"
+      : runner.paused === null || runner.service === "unknown" ? "상태 확인 불가"
+        : hasCurrent ? runner.service === "active" ? "자동 개발 진행 중" : "실행 확인 필요"
+          : runner.timer === "unknown" ? "상태 확인 불가"
+            : runner.timer === "active" ? "자동 실행 대기" : "실행 확인 필요";
   return (
     <section className={styles.overviewSection} aria-labelledby="overview-title">
-      <div className={styles.sectionHeading}><div><p className={styles.kicker}>현재 상태</p><h2 id="overview-title">연구와 실행기를 따로 확인하세요</h2></div><span className={styles.observed}>관측 {formatDateTime(progress.observed_at)}</span></div>
+      <div className={styles.runtimeSummary}>
+        <p className={styles.kicker}>자동 개발 현재 상태</p>
+        <h2 id="overview-title">{headline}</h2>
+        {runner.availability === "available" && runner.current && <p className={styles.currentTitle}>기록된 작업 · <strong>{runner.current.title}</strong></p>}
+        <p className={styles.muted}>{headline === "자동 개발 진행 중" ? "서비스 활성 상태와 실행 중 작업 기록이 확인되었습니다." : headline === "일시정지" ? "일시정지가 설정되어 있습니다. 아래에서 남은 작업을 확인하세요." : headline === "자동 실행 대기" ? "실행 중인 작업 기록이 없고 자동 실행 타이머가 활성 상태입니다." : "현재 실행 여부를 확정할 수 없습니다. 아래 진단 상태를 확인하세요."}</p>
+        <small>마지막 확인 {formatDateTime(progress.observed_at)} · 작업 기록만으로 실제 실행을 보장하지 않습니다.</small>
+      </div>
+      <details className={styles.diagnostics}><summary>실행기·연구 자료 진단 상태</summary>
       <div className={styles.statusGrid}>
         <StatusCard title="자동 연구 실행기" availability={runner.availability}>
           <dl className={styles.compactDetails}><div><dt>서비스</dt><dd className={stateClass(runner.service)}>{runner.service === "active" ? "활성" : runner.service === "inactive" ? "비활성" : "확인 불가"}</dd></div><div><dt>타이머</dt><dd className={stateClass(runner.timer)}>{runner.timer === "active" ? "활성" : runner.timer === "inactive" ? "비활성" : "확인 불가"}</dd></div><div><dt>일시정지</dt><dd>{runner.paused === null ? "확인 불가" : runner.paused ? "예" : "아니오"}</dd></div><div><dt>마지막 기록</dt><dd>{formatDateTime(runner.recorded_at)}</dd></div></dl>
@@ -225,6 +239,7 @@ function RunnerOverview({ progress }: { progress: ResearchProgress }) {
           <dl className={styles.compactDetails}><div><dt>공개 시각</dt><dd>{formatDateTime(progress.research.published_at)}</dd></div><div><dt>검증 연구</dt><dd>{progress.research.availability === "available" ? `${formatCount(progress.research.studies.length)}개` : "표시하지 않음"}</dd></div></dl>
         </StatusCard>
       </div>
+      </details>
       <div className={styles.policyAndCounts}>
         <article className={styles.policyCard}><div className={styles.cardHeading}><h3>실행 조건</h3><span>운영 기준</span></div>{runner.policy ? <dl className={styles.policyGrid}><div><dt>작업별 시간 제한</dt><dd>{formatDuration(runner.policy.task_timeout_seconds)} <small>전체 연구 제한 아님</small></dd></div><div><dt>전체 종료 시각</dt><dd>없음</dd></div><div><dt>대기 간격</dt><dd>{formatDuration(runner.policy.cooldown_seconds)}</dd></div><div><dt>오늘 실행</dt><dd>{formatCount(runner.policy.launches_today)}{runner.policy.daily_launch_limit === null ? " · 상한 확인 불가" : ` / ${formatCount(runner.policy.daily_launch_limit)}`}</dd></div><div><dt>계획 기능</dt><dd>{runner.policy.planning_enabled ? "사용" : "사용 안 함"}</dd></div></dl> : <p className={styles.emptyInline}>실행 조건을 확인할 수 없습니다.</p>}</article>
         <article className={styles.countCard}><div className={styles.cardHeading}><h3>등록된 자동 개발 작업</h3><span>전체 프로젝트 완료율이 아님</span></div>{runner.counts ? <div className={styles.countGrid}>{(["queued", "running", "completed", "blocked", "failed", "interrupted", "other"] as const).map((key) => <div key={key}><span>{key === "queued" ? "대기" : key === "running" ? "실행 중" : key === "completed" ? "완료" : key === "blocked" ? "차단" : key === "failed" ? "실패" : key === "interrupted" ? "중단" : "기타"}</span><strong>{formatCount(runner.counts![key])}</strong></div>)}</div> : <p className={styles.emptyInline}>작업 수를 확인할 수 없습니다.</p>}</article>
@@ -244,14 +259,14 @@ function taskGroup(task: RunnerTask, currentId: string | null): "current" | "wai
 
 function TaskItem({ task, tasks }: { task: RunnerTask; tasks: RunnerTask[] }) {
   const dependency = task.depends_on ? tasks.find((candidate) => candidate.task_id === task.depends_on) : null;
-  return <li className={styles.taskItem}><div className={styles.taskItemTop}><strong>{task.title}</strong><span className={styles.taskStatus}>{statusLabel(task.status)}</span></div><p>{task.area}</p>{task.depends_on && <small>선행: {dependency?.title ?? "선행 작업 정보 확인 필요"}</small>}<small>갱신 {formatDateTime(task.updated_at)}{task.next_allowed_at ? ` · 재개 가능 ${formatDateTime(task.next_allowed_at)}` : ""}</small></li>;
+  return <li className={styles.taskItem}><div className={styles.taskItemTop}><strong>{task.title}</strong><span className={styles.taskStatus}>{task.status === "running" ? "실행 중 기록" : statusLabel(task.status)}</span></div>{task.depends_on && <small>선행: {dependency?.title ?? "선행 작업 정보 확인 필요"}</small>}<small>갱신 {formatDateTime(task.updated_at)}{task.next_allowed_at ? ` · 재개 가능 ${formatDateTime(task.next_allowed_at)}` : ""}</small></li>;
 }
 
 function QueueSection({ progress }: { progress: ResearchProgress }) {
   const runner = progress.runner;
   const currentId = runner.current?.task_id ?? null;
   const groups: Array<{ key: ReturnType<typeof taskGroup>; label: string; tasks: RunnerTask[] }> = [
-    { key: "current", label: "현재 실행", tasks: [] },
+    { key: "current", label: "현재 작업 기록", tasks: [] },
     { key: "waiting", label: "대기 중", tasks: [] },
     { key: "blocked", label: "차단됨", tasks: [] },
     { key: "interrupted", label: "중단됨", tasks: [] },
@@ -259,18 +274,29 @@ function QueueSection({ progress }: { progress: ResearchProgress }) {
     { key: "other", label: "기타 상태", tasks: [] },
   ];
   for (const task of runner.tasks) groups.find((group) => group.key === taskGroup(task, currentId))?.tasks.push(task);
+  groups.find((group) => group.key === "completed")?.tasks.sort((left, right) => right.updated_at.localeCompare(left.updated_at));
   const currentMissing = runner.current && !groups[0].tasks.some((task) => task.task_id === runner.current?.task_id);
   return (
     <section className={styles.queueSection} aria-labelledby="queue-title">
       <div className={styles.sectionHeading}><div><p className={styles.kicker}>작업 흐름</p><h2 id="queue-title">자동 연구 작업 목록</h2><p className={styles.muted}>표시 순서: 현재 실행 · 대기 · 차단 · 중단 · 최근 완료</p></div>{runner.truncated && <span className={styles.truncated}>최근 작업 일부만 표시</span>}</div>
-      {runner.availability !== "available" ? <div className={styles.unavailableBox}>실행기 작업 목록을 표시할 수 없습니다. 사용 불가나 검증 실패를 대기 상태로 해석하지 않습니다.</div> : <div className={styles.queueGrid}>{groups.map((group) => <article className={styles.queueGroup} key={group.key}><div className={styles.queueGroupHeading}><h3>{group.label}</h3><span>{formatCount(group.tasks.length)}</span></div>{group.key === "current" && currentMissing && runner.current && <ul className={styles.taskList}><li className={styles.taskItem}><div className={styles.taskItemTop}><strong>{runner.current.title}</strong><span className={styles.taskStatus}>실행 중</span></div><p>{runner.current.area}</p><small>시작 {formatDateTime(runner.current.started_at)}</small></li></ul>}{group.tasks.length > 0 && <ul className={styles.taskList}>{group.tasks.map((task) => <TaskItem key={task.task_id} task={task} tasks={runner.tasks} />)}</ul>}{group.tasks.length === 0 && !(group.key === "current" && currentMissing) && <p className={styles.emptyInline}>해당 작업 없음</p>}</article>)}</div>}
+      {runner.availability !== "available" ? <div className={styles.unavailableBox}>실행기 작업 목록을 표시할 수 없습니다. 사용 불가나 검증 실패를 대기 상태로 해석하지 않습니다.</div> : <div className={styles.queueGrid}>{groups.map((group) => {
+        const visibleTasks = group.key === "completed" ? group.tasks.slice(0, 6) : group.tasks;
+        const remainingTasks = group.key === "completed" ? group.tasks.slice(6) : [];
+        return <article className={styles.queueGroup} key={group.key}>
+          <div className={styles.queueGroupHeading}><h3>{group.label}</h3><span>{formatCount(group.tasks.length + (group.key === "current" && currentMissing ? 1 : 0))}</span></div>
+          {group.key === "current" && currentMissing && runner.current && <ul className={styles.taskList}><li className={styles.taskItem}><div className={styles.taskItemTop}><strong>{runner.current.title}</strong><span className={styles.taskStatus}>실행 중 기록</span></div><small>시작 {formatDateTime(runner.current.started_at)}</small></li></ul>}
+          {visibleTasks.length > 0 && <ul className={styles.taskList}>{visibleTasks.map((task) => <TaskItem key={task.task_id} task={task} tasks={runner.tasks} />)}</ul>}
+          {remainingTasks.length > 0 && <details className={styles.completedDetails}><summary>완료 작업 {formatCount(remainingTasks.length)}개 더 보기</summary><ul className={styles.taskList}>{remainingTasks.map((task) => <TaskItem key={task.task_id} task={task} tasks={runner.tasks} />)}</ul></details>}
+          {group.tasks.length === 0 && !(group.key === "current" && currentMissing) && <p className={styles.emptyInline}>해당 작업 없음</p>}
+        </article>;
+      })}</div>}
     </section>
   );
 }
 
 function StudiesSection({ progress }: { progress: ResearchProgress }) {
   const studies = [...progress.research.studies].sort((left, right) => right.published_at.localeCompare(left.published_at));
-  return <section className={styles.studiesSection} aria-labelledby="studies-title"><div className={styles.sectionHeading}><div><p className={styles.kicker}>최근 공개 연구</p><h2 id="studies-title">연구별 결과를 따로 보기</h2><p className={styles.muted}>서로 다른 기간·유니버스·현금 통계를 한 줄의 순위로 합치지 않습니다.</p></div><Link className={styles.textLink} href="/research/history">전체 연구 이력 보기</Link></div>{progress.research.availability !== "available" ? <div className={styles.unavailableBox}>검증된 연구 카탈로그를 표시할 수 없습니다.</div> : studies.length === 0 ? <div className={styles.emptyPanel}>공개된 연구가 아직 없습니다.</div> : <div className={styles.studyGrid}>{studies.map((study) => <article className={styles.studyCard} key={study.id}><div className={styles.studyCardHeading}><div><span className={styles.cardEyebrow}>연구 결과</span><h3>{study.title}</h3></div><Link className={styles.reportLink} href={`/research/history/download/${study.report_artifact_sha256}`}>보고서</Link></div><dl className={styles.studyDetails}><div><dt>공개</dt><dd>{formatDateTime(study.published_at)}</dd></div><div><dt>기간</dt><dd>{study.comparisons[0] ? `${study.comparisons[0].period_start}–${study.comparisons[0].period_end}` : "조건 확인 필요"}</dd></div><div><dt>유니버스</dt><dd>{study.universe_symbols.join(" · ")}</dd></div><div><dt>데이터</dt><dd>과거 가격만 · 배당·세금 제외</dd></div></dl><div className={styles.studyComparisons}>{study.comparisons.length === 0 ? <p className={styles.emptyInline}>비교 조건 없음</p> : study.comparisons.map((comparison) => <div className={styles.studyComparison} key={comparison.id}><span>비용 {comparison.cost_multiplier}배 · 현금 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"}</span><strong className={numericValue(comparison.candidate.net_return_pct) !== null && (numericValue(comparison.candidate.net_return_pct) ?? 0) < 0 ? styles.negativeValue : undefined}>후보 수익률 {formatPercent(comparison.candidate.net_return_pct)}</strong><small>후보 비용 {formatKrw(comparison.candidate.total_cost_krw)} · 회전율 {formatPercent(comparison.candidate.annual_turnover_pct)}</small></div>)}</div></article>)}</div>}</section>;
+  return <section className={styles.studiesSection} aria-labelledby="studies-title"><div className={styles.sectionHeading}><div><p className={styles.kicker}>최근 공개 연구</p><h2 id="studies-title">연구별 결과를 따로 보기</h2><p className={styles.muted}>서로 다른 기간·유니버스·현금 통계를 한 줄의 순위로 합치지 않습니다.</p></div><Link className={styles.textLink} href="/research/history">전체 연구 이력 보기</Link></div>{progress.research.availability !== "available" ? <div className={styles.unavailableBox}>검증된 연구 카탈로그를 표시할 수 없습니다.</div> : studies.length === 0 ? <div className={styles.emptyPanel}>공개된 연구가 아직 없습니다.</div> : <div className={styles.studyGrid}>{studies.map((study) => <article className={styles.studyCard} key={study.id}><div className={styles.studyCardHeading}><div><span className={styles.cardEyebrow}>연구 결과</span><h3>{study.title}</h3></div><Link className={styles.reportLink} href={`/research/history/download/${study.report_artifact_sha256}`}>보고서</Link></div><dl className={styles.studyDetails}><div><dt>공개</dt><dd>{formatDateTime(study.published_at)}</dd></div><div><dt>기간</dt><dd>아래 비교별 기간 참조</dd></div><div><dt>유니버스</dt><dd>{study.universe_symbols.length}종목 · {study.universe_symbols.join(" · ")}</dd></div><div><dt>데이터</dt><dd>과거 가격만 · 배당·세금 제외</dd></div></dl><div className={styles.studyComparisons}>{study.comparisons.length === 0 ? <p className={styles.emptyInline}>비교 조건 없음</p> : study.comparisons.map((comparison) => <div className={styles.studyComparison} key={comparison.id}><span>{comparison.period_start}–{comparison.period_end} · 비용 {comparison.cost_multiplier}배 · 현금 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"}</span><strong className={numericValue(comparison.candidate.net_return_pct) !== null && (numericValue(comparison.candidate.net_return_pct) ?? 0) < 0 ? styles.negativeValue : undefined}>후보 수익률 {formatPercent(comparison.candidate.net_return_pct)}</strong><small>후보 비용 {formatKrw(comparison.candidate.total_cost_krw)} · 회전율 {formatPercent(comparison.candidate.annual_turnover_pct)}</small></div>)}</div></article>)}</div>}</section>;
 }
 
 function FeaturedSection({ progress }: { progress: ResearchProgress }) {
@@ -298,7 +324,7 @@ export default async function ResearchProgressPage() {
       </header>
       <section className={styles.hero}>
         <div><p className={styles.kicker}>RESEARCH PROGRESS</p><h1>연구 진행 현황</h1><p className={styles.heroCopy}>자동 실행기와 검증된 연구 결과를 한눈에 확인합니다. 완료율이나 미래 성과를 추정하지 않습니다.</p></div>
-        <div className={styles.refreshState}><span className={styles.autoDot} aria-hidden="true" />자동 새로고침 · 10초{progress && <small>마지막 갱신 {formatDateTime(progress.observed_at)}</small>}</div>
+        <div className={styles.refreshState}><span className={styles.autoDot} aria-hidden="true" />자동 새로고침 · 10초{progress && <small>마지막 확인 {formatDateTime(progress.observed_at)}</small>}</div>
       </section>
       {!progress ? <section className={styles.unavailableBox} role="alert"><h2>진행 현황을 불러올 수 없습니다</h2><p>연구 진행 API가 아직 연결되지 않았거나 응답을 검증하지 못했습니다. 자동 실행 중이나 정상 대기로 해석하지 않습니다.</p></section> : <><RunnerOverview progress={progress} /><FeaturedSection progress={progress} /><StudiesSection progress={progress} /><QueueSection progress={progress} /><footer className={styles.footer}>모든 연구는 과거 가격 데이터만 사용하며 배당과 세금을 포함하지 않습니다. 회고용으로 재사용된 데이터이고 point-in-time 검증이 아니므로 미래 성과를 입증하지 않습니다. · <Link href="/research/history">연구 이력과 보고서</Link></footer></>}
     </main>
