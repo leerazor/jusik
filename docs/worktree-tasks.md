@@ -1050,3 +1050,20 @@
 - 포트·테스트 DB·출력 경로: 포트와 DB 미사용. 워크트리 자체 Python 3.13 venv. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-breach-episodes-v1-0e018f57a6b14e3587dc5dfca65985d8.
 - 검증 명령과 결과: 관련 pytest, Ruff check/format, strict mypy. 32셀 CPU 분석 1회와 결정성 재검산 1회 합계 900초 이내. Historical simulation·수집·GPU·후보 탐색 0회.
 - 검토 결과와 남은 문제: 원본 배열 순서를 보존하며 동일 UTC 시각과 동일 값의 정상 반복도 유지합니다. 거래와 관측의 동일시각 선후 및 관측 사이 회복은 추정하지 않습니다. 기존 PAPER10%, 사용자 MDD20%·레버리지20%, 1억원·인출 없음과 짧은 이력/PIT 한계를 보존합니다.
+
+## investor-web
+
+- 상태: 준비
+- 목표와 완료 조건: 일반 투자자가 목표·현재 단계·성과 의미·한계·다음 판단을 이해하는 통일된 웹 여정을 구현합니다. 실제 브라우저와 독립 과제 검토 후 local main 통합·배포·handoff까지 완료합니다.
+- 담당 Luna: frontend 구현 담당자 한 명. Astra는 설계 기준·통합·검증·배포 담당입니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-investor-web
+- 작업 브랜치: feat/investor-web
+- 기준 커밋 SHA: 6d0be1d 이후 이 등록 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: docs/investor-web-design.md, 기존 research progress API 및 연구 화면. explore 완료, plan 검토 중.
+- 수정 허용 범위: frontend의 연구 홈·공통 탐색·성과/관찰/이력 설명·기존 연구 도구 이동·계좌 화면의 연구 안내. 전략·백엔드·주문·인증·공개 성과 수치 변경 없음.
+- 포트·테스트 DB·출력 경로: 전용 node_modules 및 build, 임시 fixture 8311/프런트 3311. 운영 서버 변경은 Astra만 수행합니다.
+- 검증 명령과 결과: lint/typecheck/build, 독립 초심자 과제 검토, 실제 desktop/mobile·키보드·빈자료·링크·기존 기능 경로 검증 예정.
+- 결과 커밋 SHA·검토·통합·정리: 대기.
+- 운영: 사용자 요청으로 runner paused, service/timer inactive. 완료 후에도 자동 재개 금지. 기존 중단 작업과 6개 워크트리 보존.
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913T072036Z-investor-web-remake/HANDOFF.md
