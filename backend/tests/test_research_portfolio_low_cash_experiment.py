@@ -114,9 +114,9 @@ def test_observer_copy_preserves_full_simulation_and_records_actual_values(
         symbol_cap=Decimal("0.60"),
         gross_cap=Decimal("0.60"),
         leveraged_etf_cap=Decimal("0.20"),
-        fee_rate=Decimal(0),
-        slippage_rate=Decimal(0),
-        fx_spread_rate=Decimal(0),
+        fee_rate=Decimal("0.001"),
+        slippage_rate=Decimal("0.001"),
+        fx_spread_rate=Decimal("0.001"),
     )
     off, off_observations = _run_simulation(
         corrected, source, candidate, period, config, False
@@ -125,6 +125,12 @@ def test_observer_copy_preserves_full_simulation_and_records_actual_values(
         observed, source, candidate, period, config, True
     )
     verify_observer_parity(off, on)
+    verify_accounting(on, on_observations, config, source)
+    assert on.trades
+    equity_body = (
+        observer_path.read_text().split("    def equity(")[1].split("    grouped:")[0]
+    )
+    assert equity_body.count("fx_for(symbol, at)") == 1
     assert not off_observations
     assert on_observations
     assert any(
@@ -269,6 +275,254 @@ def test_actual_metrics_records_leverage_violations_and_cash_quantiles() -> None
         ),
     ]
     metrics = actual_metrics(simulation, observations)
-    assert metrics["daily_cash_median_krw"] == Decimal("85")
+    assert metrics["daily_cash_median_krw"] == INITIAL_CAPITAL
+    assert metrics["daily_cash_median_pct"] == Decimal("100")
     assert metrics["max_actual_leverage_pct"] == Decimal("20")
     assert metrics["leverage_violations"] == []
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "final_equity_krw",
+        "total_return_pct",
+        "transaction_cost_krw",
+        "fx_cost_krw",
+        "turnover_pct",
+        "max_drawdown_pct",
+    ],
+)
+def test_metric_tampering_is_rejected(field: str) -> None:
+    from tests.test_research_portfolio import _source
+
+    sim = _simulation()
+    delta = Decimal("0.000001") if field == "total_return_pct" else Decimal(1)
+    sim = sim.model_copy(
+        update={
+            "metrics": sim.metrics.model_copy(
+                update={field: getattr(sim.metrics, field) + delta}
+            )
+        }
+    )
+    observation = EquityObservation(
+        sim.equity[0].at, INITIAL_CAPITAL, INITIAL_CAPITAL, {}
+    )
+    with pytest.raises(ValueError):
+        verify_accounting(sim, [observation], PortfolioConfig(), _source())
+
+
+def test_cash_percentage_selection_overrides_absolute_cash() -> None:
+    from jusik.research_portfolio_low_cash_experiment import _eligible
+
+    rows: list[dict[str, object]] = []
+    baseline: dict[tuple[str, int], dict[str, object]] = {}
+    for period in ("dev1", "dev2"):
+        for cost in (1, 2):
+            baseline[(period, cost)] = {
+                "daily_cash_median_pct": Decimal(80),
+                "daily_cash_median_krw": Decimal(80),
+                "trade_days": 2,
+            }
+            rows.append(
+                {
+                    "candidate_id": "candidate",
+                    "period": period,
+                    "cost_multiplier": cost,
+                    "complete": True,
+                    "accounting_valid": True,
+                    "global_drawdown_pct": Decimal(0),
+                    "max_actual_leverage_pct": Decimal(0),
+                    "daily_cash_median_pct": Decimal(50),
+                    "daily_cash_median_krw": Decimal(100),
+                    "trade_days": 2,
+                }
+            )
+    assert _eligible("candidate", rows, baseline)
+    rows[0]["daily_cash_median_pct"] = Decimal(80)
+    assert not _eligible("candidate", rows, baseline)
+
+
+def test_calendar_annualization_and_empty_months() -> None:
+    from jusik.research_portfolio_models import PortfolioTrade
+
+    sim = _simulation().model_copy(update={"period_end": date(2024, 2, 29)})
+    sim = sim.model_copy(
+        update={
+            "trades": [
+                PortfolioTrade(
+                    decided_at=sim.equity[0].at,
+                    executed_at=sim.equity[0].at,
+                    symbol="KRTEST",
+                    side="buy",
+                    quantity=1,
+                    local_price=Decimal(100),
+                    fx_rate=Decimal(1),
+                    notional_krw=Decimal(100),
+                    transaction_cost_krw=Decimal(0),
+                    fx_cost_krw=Decimal(0),
+                )
+            ]
+        }
+    )
+    result = actual_metrics(sim, [])
+    expected = Decimal(100) / INITIAL_CAPITAL * Decimal("365.25") / 60 * 100
+    assert result["annual_notional_turnover_pct"] == expected
+    assert result["trade_days_by_month"] == {"2024-01": 1, "2024-02": 0}
+
+
+@pytest.mark.parametrize("terminal_failure", ["risk", "accounting", "incomplete"])
+def test_orchestration_actual_short_engine_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, terminal_failure: str
+) -> None:
+    import jusik.research_portfolio_low_cash_experiment as experiment
+    from tests.test_research_portfolio import _source
+
+    source = _source()
+    source_path = tmp_path / "input.json"
+    source_path.write_text(source.model_dump_json())
+    engine_path = Path(__file__).parents[1] / "jusik" / "research_portfolio_engine.py"
+    request = ExperimentRequest(
+        source_path=str(source_path),
+        source_sha256=experiment.sha256(source_path),
+        engine_path=str(engine_path),
+        engine_sha256=experiment.sha256(engine_path),
+    )
+    request_path = tmp_path / "request.json"
+    request_path.write_text(request.model_dump_json())
+    periods = tuple((name, "2024-01-01", "2024-01-03") for name in ("dev1", "dev2"))
+    monkeypatch.setattr(experiment, "DEV_PERIODS", periods)
+    monkeypatch.setattr(
+        experiment,
+        "HELDOUT_PERIODS",
+        tuple((name, "2024-01-01", "2024-01-03") for name in ("final", "continuous")),
+    )
+    profiles = grid()[:3]
+    monkeypatch.setattr(experiment, "grid", lambda: profiles)
+    original_row = experiment._candidate_row
+    calls: list[str] = []
+    original_run = experiment._run_simulation
+    output = tmp_path / "output"
+
+    def run_checked(
+        *args: object,
+    ) -> tuple[PortfolioSimulation, list[EquityObservation]]:
+        # Assert freezes exist before the first execution in each phase.
+        assert (output / "preregistration.json").exists()
+        period = args[3]
+        assert isinstance(period, tuple)
+        if period[0] in {"final", "continuous"}:
+            assert (output / "finalist-freeze.json").exists()
+        calls.append(str(period[0]))
+        sim, observations = original_run(*args)  # type: ignore[arg-type]
+        if period[0] == "final" and sim.candidate.id != profiles[0]["id"]:
+            if terminal_failure == "accounting":
+                sim = sim.model_copy(
+                    update={
+                        "metrics": sim.metrics.model_copy(
+                            update={
+                                "final_equity_krw": sim.metrics.final_equity_krw + 1
+                            }
+                        )
+                    }
+                )
+            elif terminal_failure == "incomplete":
+                sim = sim.model_copy(
+                    update={
+                        "complete": False,
+                        "incomplete_reasons": ["fixture missing FX"],
+                    }
+                )
+        return sim, observations
+
+    def controlled_row(*args: object) -> dict[str, object]:
+        row = original_row(*args)  # type: ignore[arg-type]
+        # Inject only selection/risk metrics; simulation and accounting remain real.
+        row["daily_cash_median_pct"] = Decimal(
+            90 if row["candidate_id"] == profiles[0]["id"] else 80
+        )
+        if (
+            terminal_failure == "risk"
+            and row["period"] == "continuous"
+            and row["candidate_id"] != profiles[0]["id"]
+        ):
+            row["global_drawdown_pct"] = Decimal(20)
+        if (
+            terminal_failure == "risk"
+            and row["period"] == "final"
+            and row["candidate_id"] == profiles[2]["id"]
+        ):
+            row["max_actual_leverage_pct"] = Decimal("20.00000002")
+        return row
+
+    monkeypatch.setattr(experiment, "_run_simulation", run_checked)
+    monkeypatch.setattr(experiment, "_candidate_row", controlled_row)
+    result = experiment.run(request_path, output)
+    assert len(calls) == 12 + 12 + 2
+    assert calls[:12] == ["dev1", "dev1", "dev2", "dev2"] * 3
+    assert result["finalist_ids"] == sorted(
+        [str(profiles[1]["id"]), str(profiles[2]["id"])]
+    )
+    assert result["validated_finalist_ids"] == []
+    assert result["negative_result"] is True
+    report = (output / "report.md").read_text()
+    assert report.startswith("# 저현금")
+    assert "continuous" in report and "dev2" in report
+    if terminal_failure == "risk":
+        assert "global DD >=20%" in report
+        assert "actual leverage >20%" in report
+    else:
+        assert "incomplete/accounting invalid" in report
+    with pytest.raises(ValueError, match="must be new"):
+        experiment.run(request_path, output)
+
+
+def test_same_timestamp_states_and_sub_krw_rounding() -> None:
+    from tests.test_research_portfolio import _source
+
+    sim = _simulation()
+    at = sim.equity[0].at
+    before = EquityObservation(at, INITIAL_CAPITAL, INITIAL_CAPITAL, {})
+    after = EquityObservation(
+        at,
+        INITIAL_CAPITAL,
+        INITIAL_CAPITAL - 1,
+        {"KRTEST": Decimal("1.000000000000000000000000000001")},
+    )
+    verify_accounting(sim, [before, after], PortfolioConfig(), _source())
+    bad_point = sim.equity[0].model_copy(update={"cash_krw": INITIAL_CAPITAL - 2})
+    with pytest.raises(ValueError, match="serialized equity"):
+        verify_accounting(
+            sim.model_copy(update={"equity": [bad_point]}),
+            [before, after],
+            PortfolioConfig(),
+            _source(),
+        )
+
+
+def test_cash_sampling_uses_utc_last_serialized_point() -> None:
+    from datetime import timedelta, timezone
+
+    points = [
+        PortfolioEquityPoint(
+            at=datetime(2024, 1, 3, 1, tzinfo=timezone(timedelta(hours=9))),
+            equity_krw=Decimal(200),
+            cash_krw=Decimal(120),
+            drawdown_pct=Decimal(0),
+        ),
+        PortfolioEquityPoint(
+            at=datetime(2024, 1, 2, 23, tzinfo=UTC),
+            equity_krw=Decimal(400),
+            cash_krw=Decimal(160),
+            drawdown_pct=Decimal(0),
+        ),
+    ]
+    result = actual_metrics(
+        _simulation(equity=points),
+        [
+            EquityObservation(
+                datetime(2024, 1, 3, tzinfo=UTC), Decimal(100), Decimal(100), {}
+            )
+        ],
+    )
+    assert result["daily_cash_median_pct"] == Decimal(40)
+    assert result["daily_cash_median_krw"] == Decimal(160)

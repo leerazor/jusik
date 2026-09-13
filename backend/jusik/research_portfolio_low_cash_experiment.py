@@ -17,7 +17,7 @@ from collections import defaultdict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from pathlib import Path
 from types import ModuleType
 from typing import Final, cast
@@ -283,19 +283,25 @@ def _copy_observer_engine(variant_path: Path, output: Path) -> Path:
         raise ValueError("engine observer anchors are not unique")
     injected = marker + b"_EQUITY_OBSERVER = None\n"
     body = body.replace(marker, injected, 1)
+    start = b"        total = cash\n"
+    value = b"            total += Decimal(quantity) * price * fx\n"
+    if body.count(start) != 1 or body.count(value) != 1:
+        raise ValueError("equity valuation anchors are not unique")
+    body = body.replace(start, start + b"        position_values = {}\n", 1)
+    body = body.replace(
+        value,
+        b"            position_value = Decimal(quantity) * price * fx\n"
+        b"            total += position_value\n"
+        b"            position_values[symbol] = position_value\n",
+        1,
+    )
     callback = (
         b"        if _EQUITY_OBSERVER is not None:\n"
         b"            _EQUITY_OBSERVER(\n"
         b"                at,\n"
         b"                total,\n"
         b"                cash,\n"
-        b"                {\n"
-        b"                    symbol: Decimal(quantity) * (open_prices or {}).get(\n"
-        b"                        symbol, latest_local.get(symbol)\n"
-        b"                    ) * fx_for(symbol, at)\n"
-        b"                    for symbol, quantity in positions.items()\n"
-        b"                    if quantity > 0\n"
-        b"                },\n"
+        b"                dict(position_values),\n"
         b"            )\n"
         b"        return total\n"
     )
@@ -387,18 +393,21 @@ def _verify_observations(
             for value in observation.position_values_krw.values()
         ):
             raise ValueError("observer position values must be finite and non-negative")
-        if observation.nav_krw != observation.cash_krw + position_total:
+        if abs(observation.nav_krw - observation.cash_krw - position_total) > Decimal(
+            "0.000001"
+        ):
             raise ValueError("observer NAV does not reconcile to cash and positions")
         previous = observation.at
     if simulation.metrics.initial_equity_krw != config.initial_cash_krw:
         raise ValueError("simulation initial capital mismatch")
-    observed_by_time = {point.at: point for point in observations}
+    observed_by_time: dict[datetime, list[EquityObservation]] = defaultdict(list)
+    for observation in observations:
+        observed_by_time[observation.at].append(observation)
     for point in simulation.equity:
-        observed = observed_by_time.get(point.at)
-        if (
-            observed is None
-            or observed.nav_krw != point.equity_krw
-            or observed.cash_krw != point.cash_krw
+        if not any(
+            abs(observed.nav_krw - point.equity_krw) <= Decimal("0.000001")
+            and abs(observed.cash_krw - point.cash_krw) <= Decimal("0.000001")
+            for observed in observed_by_time[point.at]
         ):
             raise ValueError("observer does not match serialized equity points")
 
@@ -433,11 +442,16 @@ def _quantile(values: Sequence[Decimal], fraction: Decimal) -> Decimal:
 def actual_metrics(
     simulation: PortfolioSimulation, observations: Sequence[EquityObservation]
 ) -> dict[str, object]:
-    daily: dict[date, EquityObservation] = {}
-    for observation in observations:
-        daily[observation.at.date()] = observation
+    daily = {}
+    for point in sorted(simulation.equity, key=lambda point: point.at):
+        daily[point.at.astimezone(UTC).date()] = point
     daily_values = list(daily.values())
     cash_values = [observation.cash_krw for observation in daily_values]
+    cash_percent = [
+        point.cash_krw / point.equity_krw * 100
+        for point in daily_values
+        if point.equity_krw
+    ]
     leverage_values = [
         observation.leverage_value_krw / observation.nav_krw * 100
         for observation in observations
@@ -456,10 +470,19 @@ def actual_metrics(
         > LEVERAGED_CAP * 100 + LEVERAGE_TOLERANCE_PP
     ]
     by_month: dict[str, set[date]] = defaultdict(set)
+    cursor = simulation.period_start.replace(day=1)
+    while cursor <= simulation.period_end:
+        by_month[cursor.strftime("%Y-%m")] = set()
+        cursor = (
+            date(cursor.year + 1, 1, 1)
+            if cursor.month == 12
+            else date(cursor.year, cursor.month + 1, 1)
+        )
     for trade in simulation.trades:
-        by_month[trade.executed_at.strftime("%Y-%m")].add(trade.executed_at.date())
+        at = trade.executed_at.astimezone(UTC)
+        by_month[at.strftime("%Y-%m")].add(at.date())
     amounts = [trade.notional_krw for trade in simulation.trades]
-    daily_nav = [observation.nav_krw for observation in daily_values]
+    daily_nav = [observation.equity_krw for observation in daily_values]
     mean_nav = (
         sum(daily_nav, Decimal(0)) / Decimal(len(daily_nav))
         if daily_nav
@@ -469,7 +492,7 @@ def actual_metrics(
         sum(amounts, Decimal(0))
         / mean_nav
         * Decimal("365.25")
-        / Decimal(len(daily_nav))
+        / Decimal((simulation.period_end - simulation.period_start).days + 1)
         * 100
         if mean_nav and daily_nav
         else Decimal(0)
@@ -482,12 +505,16 @@ def actual_metrics(
     return {
         "daily_cash_median_krw": _quantile(cash_values, Decimal("0.5")),
         "daily_cash_p90_krw": _quantile(cash_values, Decimal("0.9")),
+        "daily_cash_median_pct": _quantile(cash_percent, Decimal("0.5")),
+        "daily_cash_p90_pct": _quantile(cash_percent, Decimal("0.9")),
         "global_drawdown_pct": global_drawdown(
             observations, simulation.metrics.initial_equity_krw
         ),
         "max_actual_leverage_pct": max(leverage_values, default=Decimal(0)),
         "leverage_violations": violations,
-        "trade_days": len({trade.executed_at.date() for trade in simulation.trades}),
+        "trade_days": len(
+            {trade.executed_at.astimezone(UTC).date() for trade in simulation.trades}
+        ),
         "trade_days_by_month": {
             month: len(days) for month, days in sorted(by_month.items())
         },
@@ -520,10 +547,37 @@ def verify_accounting(
 ) -> None:
     """Apply the existing Decimal trade reconciliation plus observer checks."""
 
-    _held_verify_accounting(
-        simulation, 1 if config.fee_rate == BASE_RATE else 2, config, source
-    )
-    _verify_observations(simulation, observations, config)
+    with localcontext() as context:
+        context.prec = 40
+        _held_verify_accounting(
+            simulation, 1 if config.fee_rate == BASE_RATE else 2, config, source
+        )
+        _verify_observations(simulation, observations, config)
+        metrics = simulation.metrics
+        close_peak = config.initial_cash_krw
+        close_dd = Decimal(0)
+        for point in simulation.equity:
+            close_peak = max(close_peak, point.equity_krw)
+            close_dd = max(close_dd, (close_peak - point.equity_krw) / close_peak * 100)
+        expected = {
+            "max_drawdown_pct": close_dd,
+            "final_equity_krw": observations[-1].nav_krw,
+            "total_return_pct": (observations[-1].nav_krw / config.initial_cash_krw - 1)
+            * 100,
+            "transaction_cost_krw": sum(
+                (trade.transaction_cost_krw for trade in simulation.trades), Decimal(0)
+            ),
+            "fx_cost_krw": sum(
+                (trade.fx_cost_krw for trade in simulation.trades), Decimal(0)
+            ),
+        }
+        for name, value in expected.items():
+            actual = getattr(metrics, name)
+            tolerance = (
+                Decimal("1e-12") if name == "total_return_pct" else Decimal("1e-6")
+            )
+            if not actual.is_finite() or abs(actual - value) > tolerance:
+                raise ValueError(f"metric reconciliation failed: {name}")
 
 
 def _observation_payload(observation: EquityObservation) -> dict[str, object]:
@@ -563,7 +617,7 @@ def _candidate_row(
         "complete": simulation.complete,
         "accounting_valid": accounting_valid,
         "net_return_pct": simulation.metrics.total_return_pct,
-        "engine_episode_drawdown_pct": simulation.metrics.max_drawdown_pct,
+        "engine_close_global_drawdown_pct": simulation.metrics.max_drawdown_pct,
         "trade_count": simulation.metrics.trade_count,
         **metrics,
     }
@@ -599,8 +653,8 @@ def _eligible(
             return False
         key = (cast(str, row["period"]), cast(int, row["cost_multiplier"]))
         base = baseline[key]
-        if cast(Decimal, row["daily_cash_median_krw"]) >= cast(
-            Decimal, base["daily_cash_median_krw"]
+        if cast(Decimal, row["daily_cash_median_pct"]) >= cast(
+            Decimal, base["daily_cash_median_pct"]
         ):
             return False
         if cast(int, row["trade_days"]) > cast(int, base["trade_days"]):
@@ -626,10 +680,11 @@ def _freeze_grid() -> dict[str, object]:
         "eligibility": {
             "global_drawdown_pct": "<20 including initial capital",
             "actual_leverage_pct": "<=20 + 0.00000001 pp",
-            "daily_cash_median": "strictly lower than baseline per dev/cost",
+            "daily_cash_median_pct": "strictly lower than baseline per dev/cost",
             "trade_days": "<= baseline per dev/cost",
         },
         "retrospective_reused_data": True,
+        "point_in_time_verified": False,
         "dividends_and_taxes_included": False,
         "global_drawdown_is_not_engine_episode_drawdown": True,
     }
@@ -684,7 +739,7 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
                         }
                     )
                     simulation, observations = _run_simulation(
-                        corrected,
+                        observed_engine,
                         source,
                         candidate,
                         period,
@@ -776,14 +831,13 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
                         _config(profile, cost),
                         True,
                     )
-                    verify_accounting(
-                        simulation, observations, _config(profile, cost), source
-                    )
-                    if not simulation.complete or simulation.incomplete_reasons:
-                        raise RuntimeError(
-                            "incomplete heldout simulation: "
-                            f"{candidate_id} {period[0]} c{cost}"
+                    accounting_error: str | None = None
+                    try:
+                        verify_accounting(
+                            simulation, observations, _config(profile, cost), source
                         )
+                    except ValueError as error:
+                        accounting_error = str(error)
                     artifact_name = f"{candidate_id}-{period[0]}-c{cost}"
                     _write_exclusive(
                         output_dir / "simulations" / f"{artifact_name}.json",
@@ -796,11 +850,20 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
                             for observation in observations
                         ],
                     )
-                    heldout_rows.append(
-                        _candidate_row(
-                            profile, period, cost, simulation, observations, True
-                        )
+                    row = _candidate_row(
+                        profile,
+                        period,
+                        cost,
+                        simulation,
+                        observations,
+                        accounting_error is None,
                     )
+                    row["complete"] = (
+                        simulation.complete and not simulation.incomplete_reasons
+                    )
+                    row["accounting_error"] = accounting_error
+                    row["incomplete_reasons"] = simulation.incomplete_reasons
+                    heldout_rows.append(row)
 
         parity_period = DEV_PERIODS[0]
         baseline_profile = profiles[baseline_id]
@@ -842,6 +905,35 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
             }
         )
         all_rows = [*rows, *heldout_rows]
+        rejection_reasons = {
+            candidate_id: [
+                f"{row['period']} c{row['cost_multiplier']}: {reason}"
+                for row in heldout_rows
+                if row["candidate_id"] == candidate_id
+                for reason, rejected in (
+                    (
+                        "global DD >=20%",
+                        cast(Decimal, row["global_drawdown_pct"]) >= 20,
+                    ),
+                    (
+                        "actual leverage >20%",
+                        cast(Decimal, row["max_actual_leverage_pct"])
+                        > 20 + LEVERAGE_TOLERANCE_PP,
+                    ),
+                    (
+                        "incomplete/accounting invalid",
+                        not row["complete"] or not row["accounting_valid"],
+                    ),
+                )
+                if rejected
+            ]
+            for candidate_id in final_ids
+        }
+        validated_ids = [
+            candidate_id
+            for candidate_id in finalist_ids
+            if not rejection_reasons[candidate_id]
+        ]
         result: dict[str, object] = {
             "run_id": RUN_ID,
             "development": rows,
@@ -850,7 +942,12 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
             "baseline_id": baseline_id,
             "eligible_ids": eligible_ids,
             "finalist_ids": finalist_ids,
-            "negative_result": not bool(finalist_ids),
+            "validated_finalist_ids": validated_ids,
+            "rejection_reasons": rejection_reasons,
+            "negative_result": not bool(validated_ids),
+            "point_in_time_verified": False,
+            "retrospective_reused_data": True,
+            "dividends_and_taxes_included": False,
             "no_heldout_retuning": True,
             "development_simulation_count": len(rows),
             "heldout_simulation_count": len(heldout_rows),
@@ -869,6 +966,8 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
             "net_return_pct",
             "daily_cash_median_krw",
             "daily_cash_p90_krw",
+            "daily_cash_median_pct",
+            "daily_cash_p90_pct",
             "global_drawdown_pct",
             "max_actual_leverage_pct",
             "trade_days",
@@ -887,21 +986,60 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
                     {field: _as_float_free(row.get(field)) for field in fields}
                 )
         report = [
-            "# Low-cash low-turnover portfolio experiment",
+            "# 저현금·저회전 포트폴리오 실험",
             "",
-            "This is retrospective reused data; dividends and taxes are excluded. "
-            "Global DD uses every observer NAV and includes initial capital; it "
-            "is not engine episode DD.",
+            "재구성한 과거 자료를 재사용했으며 배당·세금을 제외했습니다. "
+            "시점 정확성은 미검증입니다. 전체 관측 global DD는 초기자본을 포함하며 "
+            "엔진 종가 global DD 및 위험 청산용 episode DD와 구분합니다.",
             "",
-            f"Development simulations: {len(rows)}/{GRID_RUN_COUNT}",
-            f"Heldout simulations: {len(heldout_rows)}/{len(final_ids) * 4}",
-            "Finalists frozen before heldout: "
+            f"개발 실행: {len(rows)}/{GRID_RUN_COUNT}",
+            f"최종·연속 실행: {len(heldout_rows)}/{len(final_ids) * 4}",
+            "개발 단계 동결 후보: "
             f"{', '.join(finalist_ids) if finalist_ids else 'none (negative result)'}",
             "",
-            "No automatic promotion, PAPER activation, or future-performance "
-            "guarantee is implied.",
+            f"최종 위험 검증 통과: {', '.join(validated_ids) or '없음 (음성 결과)'}",
+            "최종 탈락 뒤 재선정하지 않습니다. "
+            "미래 성과 보장·자동 승격·PAPER 활성화를 뜻하지 않습니다.",
+            "",
+            "| 후보 | 기간 | 비용 | 현금 중앙값 % | 현금 p90 % | 현금 중앙값 KRW | "
+            "전체 DD % | 실제 레버리지 % | 거래일 | 연환산 회전율 % | 순수익 % |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
-        _write_exclusive(output_dir / "report.md", "\n".join(report) + "\n")
+        for row in all_rows:
+            report.append(
+                "| "
+                + " | ".join(
+                    str(row[key])
+                    for key in (
+                        "candidate_id",
+                        "period",
+                        "cost_multiplier",
+                        "daily_cash_median_pct",
+                        "daily_cash_p90_pct",
+                        "daily_cash_median_krw",
+                        "global_drawdown_pct",
+                        "max_actual_leverage_pct",
+                        "trade_days",
+                        "annual_notional_turnover_pct",
+                        "net_return_pct",
+                    )
+                )
+                + " |"
+            )
+        report.extend(
+            [
+                "",
+                "탈락 근거:",
+                "",
+                *[
+                    f"- {key}: {', '.join(value) or '위험 기준 통과'}"
+                    for key, value in rejection_reasons.items()
+                ],
+            ]
+        )
+        _write_bytes_exclusive(
+            output_dir / "report.md", ("\n".join(report) + "\n").encode("utf-8")
+        )
         verify_hashes(
             {
                 Path(request.source_path): request.source_sha256,
