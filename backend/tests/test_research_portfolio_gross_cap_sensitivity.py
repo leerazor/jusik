@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -13,6 +13,7 @@ from jusik.research_portfolio_gross_cap_sensitivity import (
     global_drawdown,
 )
 from jusik.research_portfolio_models import (
+    PortfolioCandidate,
     PortfolioConfig,
     PortfolioEquityPoint,
     PortfolioSimulation,
@@ -21,9 +22,9 @@ from jusik.research_portfolio_models import (
 
 def _sim() -> PortfolioSimulation:
     return PortfolioSimulation.model_construct(
-        candidate=None,
-        period_start=None,
-        period_end=None,
+        candidate=PortfolioCandidate(id="equal", method="equal", gate="none"),
+        period_start=date(2024, 1, 1),
+        period_end=date(2024, 1, 2),
         metrics=type("M", (), {"initial_equity_krw": Decimal("100000000")})(),
         complete=True,
         incomplete_reasons=[],
@@ -35,6 +36,14 @@ def _sim() -> PortfolioSimulation:
                 drawdown_pct=Decimal("0"),
             )
         ],
+        drawdown_latched=False,
+        drawdown_latched_at=None,
+        trades=[],
+        weekly_targets=[],
+        positions=[],
+        contributions_krw={},
+        split_cash_in_lieu_krw={},
+        overlap_diagnostics={},
     )
 
 
