@@ -819,3 +819,14 @@
 - 검증: 원래 KeyError와 현금 +1 KRW 허점 재현, 실제 자료 정상 통과 및 변조 거부, pytest/Ruff/strict mypy, 독립 review와 main 재검사.
 - 종료 조건: 두 기술 gate의 재개 가능 범위와 남은 기존 테스트 의존성을 명시한다. 과거 blocked 시도를 재시도하거나 완료로 바꾸지 않는다.
 - handoff 저장 경로: 위 audit/HANDOFF.md. 증거·SHA·handoff 보존 후에만 이번 워크트리를 정리한다.
+
+- 상태: 완료 (요청한 기술결함 2건 수정; calendar 전체 연구는 추가 입력 의존성으로 보류)
+- 실제 기준 커밋: `8a4e9aec075cd0e6b6f5804a0b611697127e2de5`. 단일 구현 워커에 `gpt-5.6-luna`를 지정했습니다.
+- 결과 커밋: 코드 `871f85c961111c902904570f32420e1a4c1855a3`, 재개 조건 문서 `513122a18197738636489498487e38991815e1bb`. 독립 review 승인, 차단 지적 없음.
+- 병합 직전 main: `8a4e9aec075cd0e6b6f5804a0b611697127e2de5`. 통합 커밋: `7bc7c5cb0d7eb17fda61d2fb8d95a90caa96190b`.
+- 통합 검증: pytest63개, Ruff check/format, 신규 어댑터·테스트 strict mypy 통과. 생성한 복구 소스2개 strict mypy도 통과. 원본742파일 해시 보존 확인. frontend 변경 없어 build 대상 아님. dependency deprecation warning2건.
+- 재현: cadence 원래 KeyError와 수정 metadata 확인. calendar 원래 정상·+1KRW 변조 잔차0, 수정 정상 잔차0 및 변조 거부. 새 simulation0회, 저장 simulation1개를 정상/변조·원본/수정 검증에 사용. 초기 AST·fixture preflight 실패는 ledger 실행 전이며 감사 자료에 보존.
+- 재개 경계: cadence 경로 차단은 해소됐으나 기존 테스트 mypy4건은 별도 조건. calendar는 현금 검증 수정에도 기존 normalizer의 bars/adjustment_factors 불일치로 전체 재개 보류. 원본 generator와 normalizer의 결과가 저장 fixture와 완전히 같음을 확인해 현금 결함만 재현했으며 역직렬화 계약을 완화하지 않음.
+- 웹: 기존 이력75개·artifact121개 보존. 보고서 SHA `2ce89353738be9f0a8983f7daf70f6feb4cb451276421acf151bfa7f404edebc`; API·웹·두 다운로드200 및 SHA 일치. DB 쓰기 없음.
+- 증거·handoff: 위 영구 audit에 원본 복사본, 검증 로그, 생성 소스·diff, 입력 해시, 리뷰, 한국어 보고서·게시 확인, HANDOFF.md를 보존한다. 보존 후 이번 병합 워크트리와 브랜치만 정리한다. 기존 미병합4개와 root HANDOFF.md는 유지한다.
+- 변경하지 않은 범위: 과거 blocked 이력·큐 재시도, frozen 엔진·PAPER10%·DB·브로커 실행·서비스·GPU·원격 push.
