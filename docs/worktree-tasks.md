@@ -1008,3 +1008,19 @@
 - 게시: /research/progress 및 /api/research/progress 실제 HTTP 200. 공개 catalog 3개 연구·8개 비교와 개발 이력 게시 완료. PAPER·실제 거래·remote 변경 없음.
 - 통합 검증 실패: 최초 브라우저 실행은 libasound 부재로 실패하여 별도 임시 라이브러리를 사용했습니다. 표시값 절삭을 반영한 검증 후 통과했습니다.
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913T053914Z-progress-dashboard/HANDOFF.md
+
+
+## baseline-fx-mandate-test-repair-56e8
+
+- 상태: 준비
+- 목표와 완료 조건: 기존 mandate 기대값과 FX 날짜 fixture 실패 2개를 테스트 범위에서 수정합니다. 독립 검토, local main pytest·Ruff·mypy, 한국어 개발 이력과 handoff, 근거 보존 후 정리까지 수행합니다.
+- 담당 Luna: 전용 Luna 구현 작업자 1명(배정 예정). 읽기 전용 explore와 plan을 순서대로 완료했습니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-baseline-fx-mandate-56e8
+- 작업 브랜치: fix/baseline-fx-mandate-56e8
+- 기준 커밋 SHA: a5d2ad0bb8cf855487ba4b887546fdef6bfb7b80 이후 이 등록 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: task baseline-fx-mandate-test-repair-v1, attempt 56e8f44c391947c7bc03f7a891c67f0a. 현재 main에서 지정 테스트 2개 실패를 재현했습니다. 이번 attempt만 running이며 실행기 상태는 변경하지 않습니다.
+- 수정 허용 범위: backend/tests/test_development_runner_planning.py, backend/tests/test_fx_signals.py. 운영 코드와 research-mandate.json 변경은 필요하지 않습니다.
+- 포트·테스트 DB·출력 경로: 서버와 운영 DB 미사용. 워크트리 자체 .venv와 pytest 임시 데이터 사용. 영구 audit: /home/kwl/.local/share/jusik/portfolio-audit/baseline-fx-mandate-test-repair-v1-56e8f44c391947c7bc03f7a891c67f0a.
+- 검증 명령과 결과: 수정 전 지정 pytest 2개 실패. 수정 후 FX·runner·planning·FX provenance pytest, Ruff check/format, strict mypy를 실행합니다. ML·전략 실험·GPU·PAPER·실거래·서비스·원격 변경 없음.
+- 검토 결과와 남은 문제: FX 5일 초과 자료 차단은 정상입니다. 테스트 UTC 시계 고정과 Decimal 양·음수·0 반올림, UTC 자정의 5일/6일 경계, mandate 현재 의미와 추가 필드 보존을 검증합니다.
