@@ -955,6 +955,23 @@
 - 실행기: 해당 task/attempt dispatch 내 작업. dispatcher 상태 변경 없음. 기존 HANDOFF와 다른4개 worktree 보존.
 - 검증과 결과: 실행 전.
 
+## portfolio-volatility15-cadence-5270
+
+- 상태: 준비
+- 목표와 완료 조건: .15 고정 4/8주 CPU exact 최대 32회/900초, 대조군 16개 전체 JSON 일치 후 변형군 16개, 독립 회계·검토 및 local main 통합 검사.
+- 담당 Luna: 전용 code 작업자 한 명. Astra가 단 한 번의 historical 실행과 통합을 담당합니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-volatility15-cadence-5270
+- 작업 브랜치: feat/portfolio-volatility15-cadence-5270
+- 기준 커밋 SHA: eec160fd114b4cbef9483a28cb53a5e7dd710c2f 이후 이 등록 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 선행 volatility-target variant_c1/c3 16개. 이전 preflight 80개 SHA 현재 일치. 이전 시도 4c25는 계획만 있으며 깨끗한 worktree를 보존합니다.
+- 수정 허용 범위: 새 연구 runner/test/report. PAPER/제품/DB/설정/주문/remote/GPU 변경 금지.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 전용 worktree venv/tmp. durable audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-volatility15-cadence-cost-tradeoff-v1-527025c895ad4d54a9559469434162a8.
+- 검증 명령과 결과: 입력 SHA 80개 통과. historical 0회. pytest/Ruff/strict mypy 및 독립 원시 회계 예정.
+- 검토 결과와 남은 문제: explore 완료, plan 검토 중. 이 attempt dispatch 안에서 진행하며 실행기와 서비스 상태를 변경하지 않습니다. 기존 HANDOFF와 다른 worktree 보존.
+- 통합 커밋 SHA와 정리 여부: 통합 전.
+- handoff 저장 경로: 이번 durable audit에 저장 예정.
+
 ## progress-api
 
 - 상태: 완료
