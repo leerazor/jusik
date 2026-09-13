@@ -916,3 +916,19 @@
 - 통합 검증 실패 원인과 복구 결과: 통합 검사는 모두 통과. 초기 worker 잘못된 명령 경로 로그는 실패로 보존하고 올바른 경로에서 최종 검사했습니다. 게시 seed의 Pydantic timestamp 정규화는 원본 값으로 복구 후 기존 항목 보존을 검증했습니다.
 - 게시: API/웹/다운로드200과 보고서SHA 일치. 기존 이력78개·artifact124개 원본 보존, DB 변경 없음.
 - handoff 저장 경로와 갱신 여부: audit/handoff-before-cleanup.md 및 handoff-final.md, 영구 보존 완료.
+
+## portfolio-volatility-5171
+
+- 상태: 준비
+- 목표와 완료 조건: volatility .10/.15, 고정 gross .60 CPU exact32회/900초; control16 JSON 일치 후 variant16, 독립 검토 및 local main 통합 검증.
+- 담당 Luna: code 작업자 한 명.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-volatility-5171
+- 작업 브랜치: feat/portfolio-volatility-5171
+- 기준 커밋 SHA: ae87254ea79c6944da2a422be2b5020eae3aa48e (등록 커밋에서 worktree 생성)
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: gross-cap 2643020d experiment 및 최신 mandate. 86개 SHA 검증 통과.
+- 수정 허용 범위: 새 volatility 연구 runner/test/보고서만.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. worktree 전용 venv/tmp; audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-volatility-target-cash-sensitivity-v1-51714e900b9b4cd3b94a4cf0f1aae2f4.
+- 검증 명령과 결과: 구현 후 기록.
+- 결과 커밋/검토/병합/통합/정리/handoff: 진행 후 기록.
+- 실행기: 현재 task/attempt dispatch 내 작업이며 dispatcher 상태 변경 없음. 기존 HANDOFF 및 다른 worktree 보존.
