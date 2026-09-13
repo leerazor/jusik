@@ -893,3 +893,23 @@
 - 보존·정리: audit에 handoff 포함303개 파일의 SHA를 검증한 뒤 이번 worktree와 전용 브랜치를 정상 제거했습니다. 기존 worktree와 root HANDOFF 보존.
 - handoff: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-expanded-universe-collection-gates-v1-2ea67734308a40eda685c1b0839576c6/HANDOFF.md`.
 - 통합 검증 실패 없음. completion은 자료 결손으로 blocked, comparison followup은 null입니다.
+
+## portfolio-gross-cap-2643
+
+- 상태: 준비
+- 목표와 완료 조건: gross .60/.80 고정 민감도, 대조군16 exact replay 후 신규16, CPU32회/900초, 실패 시 즉시 중단.
+- 담당 Luna: code 작업자 1명 예정.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-gross-cap-2643
+- 작업 브랜치: feat/portfolio-gross-cap-2643
+- 기준 커밋 SHA: 준비 등록 커밋으로 고정합니다.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: cost3 f9aecd54 experiment, 최신 mandate; 69개 SHA 일치. audit의 plan.md와 source-coverage.json 참조.
+- 수정 허용 범위: 신규 gross-cap 연구 runner, 해당 테스트, docs/research/portfolio-gross-cap-cash-sensitivity-v1.md. 등록부는 Astra만 수정합니다.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 독립 worktree venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-gross-cap-cash-sensitivity-v1-2643020d4e374d5699187071f552d34d.
+- 실행기 확인: 이 task/attempt가 running이며 dispatcher 상태를 변경하지 않습니다. 기존 HANDOFF.md와 다른 worktree 보존.
+- 검증 명령과 결과: 구현 후 pytest/Ruff/strict mypy, 독립 review 및 main 통합 검사 예정.
+- 결과 커밋 SHA: 미정
+- 검토 결과와 남은 문제: 미실행
+- 병합 직전 main SHA: 미정
+- 통합 커밋 SHA와 정리 여부: 미통합
+- handoff 저장 경로와 갱신 여부: audit/handoff-final.md 예정
