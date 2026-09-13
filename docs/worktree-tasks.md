@@ -1012,15 +1012,25 @@
 
 ## baseline-fx-mandate-test-repair-56e8
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: 기존 mandate 기대값과 FX 날짜 fixture 실패 2개를 테스트 범위에서 수정합니다. 독립 검토, local main pytest·Ruff·mypy, 한국어 개발 이력과 handoff, 근거 보존 후 정리까지 수행합니다.
-- 담당 Luna: 전용 Luna 구현 작업자 1명(배정 예정). 읽기 전용 explore와 plan을 순서대로 완료했습니다.
+- 담당 Luna: 전용 Luna 구현 작업자 1명(/root/luna_fix). 읽기 전용 explore와 plan을 순서대로 완료했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-baseline-fx-mandate-56e8
 - 작업 브랜치: fix/baseline-fx-mandate-56e8
-- 기준 커밋 SHA: a5d2ad0bb8cf855487ba4b887546fdef6bfb7b80 이후 이 등록 커밋
+- 기준 커밋 SHA: a42ab7db0a04110ae9a68dc049c03fe1252098f3
 - 통합 대상 브랜치: local main
 - 입력과 선행 작업: task baseline-fx-mandate-test-repair-v1, attempt 56e8f44c391947c7bc03f7a891c67f0a. 현재 main에서 지정 테스트 2개 실패를 재현했습니다. 이번 attempt만 running이며 실행기 상태는 변경하지 않습니다.
 - 수정 허용 범위: backend/tests/test_development_runner_planning.py, backend/tests/test_fx_signals.py. 운영 코드와 research-mandate.json 변경은 필요하지 않습니다.
 - 포트·테스트 DB·출력 경로: 서버와 운영 DB 미사용. 워크트리 자체 .venv와 pytest 임시 데이터 사용. 영구 audit: /home/kwl/.local/share/jusik/portfolio-audit/baseline-fx-mandate-test-repair-v1-56e8f44c391947c7bc03f7a891c67f0a.
 - 검증 명령과 결과: 수정 전 지정 pytest 2개 실패. 수정 후 FX·runner·planning·FX provenance pytest, Ruff check/format, strict mypy를 실행합니다. ML·전략 실험·GPU·PAPER·실거래·서비스·원격 변경 없음.
 - 검토 결과와 남은 문제: FX 5일 초과 자료 차단은 정상입니다. 테스트 UTC 시계 고정과 Decimal 양·음수·0 반올림, UTC 자정의 5일/6일 경계, mandate 현재 의미와 추가 필드 보존을 검증합니다.
+
+- 결과 커밋 SHA: 634a238157b643fe0a38fa25a308e45533bc3009 및 검토 수정 4ad94d56fbbfd188a7101bd944d94c55b4f8bb42.
+- 검토 결과: 독립 pytest 32개, 변경 테스트 strict mypy 및 Ruff 통과. 테스트 datetime override 반환형 오류 1건은 Self 반환으로 수정했습니다.
+- 통합 검증: main 관련 pytest 95개, 백엔드 전체 Ruff check/format(160개), strict mypy jusik(96개) 및 변경 테스트(2개) 모두 통과했습니다.
+- 환경 제한: 최초 시스템 Python 3.12 ensurepip 실패 후 전용 Python 3.13 환경을 생성했습니다. 기본 lock의 선택 torch 누락으로 전용 환경 전체 mypy만 실패했으나 관련 pytest 95개와 변경 테스트 mypy는 통과했고 기존 main 환경 전체 mypy도 통과했습니다. ML 설치나 전략 실험은 하지 않았습니다.
+- 병합 직전 main SHA: a42ab7db0a04110ae9a68dc049c03fe1252098f3.
+- 통합 커밋 SHA와 정리 여부: 84225358236dc30573a684ad30bb3dbf609322f9. 삭제 전에 영구 audit의 근거 42개·SHA·handoff를 검증하고 이번 워크트리와 병합 브랜치를 정상 제거했습니다. 삭제 후 42개 해시를 재검증했습니다. 기존 워크트리 5개는 보존했습니다.
+- 게시: 한국어 개발 이력을 기존 file history에 추가했습니다. API·웹·보고서 다운로드 HTTP 200과 보고서 SHA를 검증했습니다. 기존 항목과 성과 catalog를 유지했으며 새 성과 수치는 없습니다.
+- 통합 검증 실패 원인과 복구 결과: 통합 검증 실패 없음. 구현 단계 타입 오류 및 선택 의존성 제한은 위에 기록했습니다.
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/baseline-fx-mandate-test-repair-v1-56e8f44c391947c7bc03f7a891c67f0a/HANDOFF.md. 삭제 전 handoff-before-cleanup.md도 별도로 보존합니다.
