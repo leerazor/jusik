@@ -27,7 +27,8 @@ TOLERANCE = Decimal("0.00000001")
 
 def _observation_payload(observation: Any) -> dict[str, Any]:
     return {
-        "at": observation.at.isoformat(), "nav_krw": observation.nav_krw,
+        "at": observation.at.isoformat(),
+        "nav_krw": observation.nav_krw,
         "cash_krw": observation.cash_krw,
         "position_values_krw": observation.position_values_krw,
     }
@@ -103,24 +104,37 @@ def annualized_covariance_proxy(
 
 
 def covariance_floor_volatility_scale(
-    engine: Any, source: Any, data: Any, weights: dict[str, Decimal],
-    at: datetime, config: Any,
+    engine: Any,
+    source: Any,
+    data: Any,
+    weights: dict[str, Decimal],
+    at: datetime,
+    config: Any,
 ) -> tuple[Decimal | None, Decimal | None]:
     """Private H1 scale: max(0.9*S, P) on the original causal KRW matrix."""
     if not weights:
         return Decimal(1), Decimal(0)
-    global_days = sorted({
-        engine._market_time(bar.date, item.instrument.timezone, opening=False).date()
-        for item in data.values() for bar in item.snapshot.instruments[0].bars
-        if engine._market_time(bar.date, item.instrument.timezone, opening=False) < at
-    })[-(config.volatility_window + 1):]
+    global_days = sorted(
+        {
+            engine._market_time(
+                bar.date, item.instrument.timezone, opening=False
+            ).date()
+            for item in data.values()
+            for bar in item.snapshot.instruments[0].bars
+            if engine._market_time(bar.date, item.instrument.timezone, opening=False)
+            < at
+        }
+    )[-(config.volatility_window + 1) :]
     if len(global_days) < config.volatility_window + 1:
         return None, None
     matrix: dict[str, list[Decimal]] = {}
     for symbol, weight in weights.items():
         item = data[symbol]
         closes = item.snapshot.instruments[0].bars
-        known = [engine._market_time(bar.date, item.instrument.timezone, opening=False) for bar in closes]
+        known = [
+            engine._market_time(bar.date, item.instrument.timezone, opening=False)
+            for bar in closes
+        ]
         values: list[Decimal] = []
         for day in global_days:
             cutoff = min(datetime.combine(day, datetime.max.time(), UTC), at)
@@ -136,19 +150,37 @@ def covariance_floor_volatility_scale(
             if not value.is_finite() or value <= 0:
                 return None, None
             values.append(value)
-        matrix[symbol] = [current / previous - 1 for previous, current in zip(values[:-1], values[1:], strict=True)]
+        matrix[symbol] = [
+            current / previous - 1
+            for previous, current in zip(values[:-1], values[1:], strict=True)
+        ]
     annual = Decimal(config.volatility_annualization_sessions).sqrt()
-    sigmas = {symbol: Decimal(str(statistics.pstdev([float(x) for x in series]))) * annual
-              for symbol, series in matrix.items()}
-    original_s = sum((weights[symbol] * sigmas[symbol] for symbol in weights), Decimal(0))
-    portfolio_returns = [sum((weights[symbol] * matrix[symbol][i] for symbol in weights), Decimal(0))
-                         for i in range(config.volatility_window)]
-    p = (sum((x - sum(portfolio_returns, Decimal(0)) / Decimal(len(portfolio_returns))) ** 2
-             for x in portfolio_returns) / Decimal(len(portfolio_returns))).sqrt() * annual
+    sigmas = {
+        symbol: Decimal(str(statistics.pstdev(series))) * annual
+        for symbol, series in matrix.items()
+    }
+    original_s = sum(
+        (weights[symbol] * sigmas[symbol] for symbol in weights), Decimal(0)
+    )
+    portfolio_returns = [
+        sum((weights[symbol] * matrix[symbol][i] for symbol in weights), Decimal(0))
+        for i in range(config.volatility_window)
+    ]
+    p = (
+        sum(
+            (x - sum(portfolio_returns, Decimal(0)) / Decimal(len(portfolio_returns)))
+            ** 2
+            for x in portfolio_returns
+        )
+        / Decimal(len(portfolio_returns))
+    ).sqrt() * annual
     proxy = max(Decimal("0.9") * original_s, p)
     if not proxy.is_finite():
         return None, None
-    return (min(Decimal(1), config.volatility_target / proxy) if proxy else Decimal(1), proxy)
+    return (
+        min(Decimal(1), config.volatility_target / proxy) if proxy else Decimal(1),
+        proxy,
+    )
 
 
 def _decimal(value: Any, label: str) -> Decimal:
@@ -413,73 +445,159 @@ def run_experiment(prior_audit: Path, output_dir: Path) -> dict[str, Any]:
     candidate_observer_path = output_dir / "candidate_observer_engine.py"
     candidate_observer_path.write_bytes(observer_path.read_bytes())
     baseline_engine = _load_copy(observer_path, "residual_cash_baseline_observer")
-    candidate_engine = _load_copy(candidate_observer_path, "residual_cash_candidate_observer")
-    candidate_engine.volatility_scale = lambda source, data, weights, at, config: covariance_floor_volatility_scale(
-        candidate_engine, source, data, weights, at, config
+    candidate_engine = _load_copy(
+        candidate_observer_path, "residual_cash_candidate_observer"
     )
-    (output_dir / "preregistration.json").write_text(json.dumps({
-        "supervisor_preregistration_sha256": sha256(prior_audit / "supervisor-preregistration.json"),
-        "source_sha256": request["source_sha256"], "engine_sha256": request["engine_sha256"],
-        "runner_sha256": sha256(Path(__file__)), "candidate_adapter": "max(0.9*S,P)",
-        "development_calls": 8, "heldout_calls": 0,
-    }, indent=2), encoding="utf-8")
-    baseline = {"gross_cap": Decimal("0.95"), "volatility_target": Decimal("0.30"),
-                "low_turnover_weeks": 8, "low_turnover_band": Decimal("0.02"),
-                "drawdown_limit": Decimal("0.10")}
-    candidate = PortfolioCandidate(id="inverse_volatility", method="inverse_volatility", gate="fx_vix")
+    candidate_engine.volatility_scale = (
+        lambda source, data, weights, at, config, fx_cache=None: (
+            covariance_floor_volatility_scale(
+                candidate_engine, source, data, weights, at, config
+            )
+        )
+    )
+    (output_dir / "preregistration.json").write_text(
+        json.dumps(
+            {
+                "supervisor_preregistration_sha256": sha256(
+                    prior_audit / "supervisor-preregistration.json"
+                ),
+                "source_sha256": request["source_sha256"],
+                "engine_sha256": request["engine_sha256"],
+                "runner_sha256": sha256(Path(__file__)),
+                "candidate_adapter": "max(0.9*S,P)",
+                "development_calls": 8,
+                "heldout_calls": 0,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    baseline = {
+        "gross_cap": Decimal("0.95"),
+        "volatility_target": Decimal("0.30"),
+        "low_turnover_weeks": 8,
+        "low_turnover_band": Decimal("0.02"),
+        "drawdown_limit": Decimal("0.10"),
+    }
+    candidate = PortfolioCandidate(
+        id="inverse_volatility", method="inverse_volatility", gate="fx_vix"
+    )
     ledger: list[dict[str, Any]] = []
     rows: list[dict[str, Any]] = []
     for arm in ("baseline", "covariance_floor_090"):
         for period in DEV_PERIODS:
             for cost in (1, 2):
-                entry = {"arm": arm, "period": period[0], "cost": cost, "status": "started"}
+                entry = {
+                    "arm": arm,
+                    "period": period[0],
+                    "cost": cost,
+                    "status": "started",
+                }
                 ledger.append(entry)
-                (output_dir / "ledger.json").write_text(json.dumps(ledger, indent=2), encoding="utf-8")
+                (output_dir / "ledger.json").write_text(
+                    json.dumps(ledger, indent=2), encoding="utf-8"
+                )
                 try:
                     engine = baseline_engine if arm == "baseline" else candidate_engine
                     sim, observations = _run_simulation(
                         engine, source, candidate, period, _config(baseline, cost), True
                     )
-                    verify_accounting(sim, observations, _config(baseline, cost), source)
+                    verify_accounting(
+                        sim, observations, _config(baseline, cost), source
+                    )
                     terminal = observations[-1].nav_krw
-                    if abs(terminal - sim.metrics.final_equity_krw) > Decimal("0.000001"):
+                    if abs(terminal - sim.metrics.final_equity_krw) > Decimal(
+                        "0.000001"
+                    ):
                         raise ValueError("terminal cash/holdings accounting mismatch")
                     entry.update({"status": "saved", "complete": sim.complete})
                     artifact = output_dir / f"{arm}-{period[0]}-c{cost}.json"
-                    artifact.write_text(json.dumps({"simulation": sim.model_dump(mode="json"),
-                                                     "observations": [_observation_payload(item) for item in observations]},
-                                                    indent=2, default=str), encoding="utf-8")
+                    artifact.write_text(
+                        json.dumps(
+                            {
+                                "simulation": sim.model_dump(mode="json"),
+                                "observations": [
+                                    _observation_payload(item) for item in observations
+                                ],
+                            },
+                            indent=2,
+                            default=str,
+                        ),
+                        encoding="utf-8",
+                    )
                     metrics = actual_metrics(sim, observations)
                     symbol_pct = max(
-                        (value / item.nav_krw * 100 for item in observations for value in item.position_values_krw.values() if item.nav_krw),
+                        (
+                            value / item.nav_krw * 100
+                            for item in observations
+                            for value in item.position_values_krw.values()
+                            if item.nav_krw
+                        ),
                         default=Decimal(0),
                     )
-                    rows.append({"arm": arm, "period": period[0], "cost": cost,
-                                 "complete": sim.complete, "final_equity_krw": sim.metrics.final_equity_krw,
-                                 "max_actual_symbol_pct": symbol_pct,
-                                 **metrics})
+                    rows.append(
+                        {
+                            "arm": arm,
+                            "period": period[0],
+                            "cost": cost,
+                            "complete": sim.complete,
+                            "final_equity_krw": sim.metrics.final_equity_krw,
+                            "max_actual_symbol_pct": symbol_pct,
+                            **metrics,
+                        }
+                    )
                 except Exception as error:
-                    entry.update({"status": "failed", "error": type(error).__name__ + ": " + str(error)})
-                    rows.append({"arm": arm, "period": period[0], "cost": cost,
-                                 "complete": False, "error": str(error)})
-                (output_dir / "ledger.json").write_text(json.dumps(ledger, indent=2, default=str), encoding="utf-8")
-    baseline_rows = {(r["period"], r["cost"]): r for r in rows if r["arm"] == "baseline"}
-    candidate_rows = {(r["period"], r["cost"]): r for r in rows if r["arm"] == "covariance_floor_090"}
+                    entry.update(
+                        {
+                            "status": "failed",
+                            "error": type(error).__name__ + ": " + str(error),
+                        }
+                    )
+                    rows.append(
+                        {
+                            "arm": arm,
+                            "period": period[0],
+                            "cost": cost,
+                            "complete": False,
+                            "error": str(error),
+                        }
+                    )
+                (output_dir / "ledger.json").write_text(
+                    json.dumps(ledger, indent=2, default=str), encoding="utf-8"
+                )
+    baseline_rows = {
+        (r["period"], r["cost"]): r for r in rows if r["arm"] == "baseline"
+    }
+    candidate_rows = {
+        (r["period"], r["cost"]): r for r in rows if r["arm"] == "covariance_floor_090"
+    }
     eligible = len(candidate_rows) == 4 and all(
-        r.get("complete") and r.get("global_drawdown_pct", Decimal(100)) < Decimal(20)
+        r.get("complete")
+        and r.get("global_drawdown_pct", Decimal(100)) < Decimal(20)
         and r.get("max_actual_leverage_pct", Decimal(100)) <= Decimal("20.00000001")
         and r.get("max_actual_symbol_pct", Decimal(100)) <= Decimal("20.00000001")
-        and r.get("daily_cash_median_pct", Decimal(100)) < baseline_rows[key].get("daily_cash_median_pct", Decimal(0))
+        and r.get("daily_cash_median_pct", Decimal(100))
+        < baseline_rows[key].get("daily_cash_median_pct", Decimal(0))
         and r.get("trade_days", 10**9) <= baseline_rows[key].get("trade_days", -1)
-        and r.get("net_price_return_pct", Decimal("-Infinity")) >= baseline_rows[key].get("net_price_return_pct", Decimal("Infinity"))
+        and r.get("net_price_return_pct", Decimal("-Infinity"))
+        >= baseline_rows[key].get("net_price_return_pct", Decimal("Infinity"))
         for key, r in candidate_rows.items()
     )
-    result = {"run_id": "portfolio-residual-cash-risk-proxy-v1", "development_calls": len(rows),
-              "heldout_calls": 0, "finalist": "covariance_floor_090" if eligible else None,
-              "negative_result": not eligible,
-              "rows": rows, "ledger": ledger, "source_sha256": request["source_sha256"],
-              "engine_sha256": request["engine_sha256"], "runner_sha256": sha256(Path(__file__))}
-    (output_dir / "results.json").write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+    result = {
+        "run_id": "portfolio-residual-cash-risk-proxy-v1",
+        "development_calls": len(rows),
+        "heldout_calls": 0,
+        "finalist": "covariance_floor_090" if eligible else None,
+        "negative_result": not eligible,
+        "rows": rows,
+        "ledger": ledger,
+        "source_sha256": request["source_sha256"],
+        "engine_sha256": request["engine_sha256"],
+        "runner_sha256": sha256(Path(__file__)),
+    }
+    (output_dir / "results.json").write_text(
+        json.dumps(result, indent=2, default=str), encoding="utf-8"
+    )
     return result
 
 
