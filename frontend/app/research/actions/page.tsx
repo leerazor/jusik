@@ -54,12 +54,8 @@ export default async function ResearchActionsPage({
 
   return (
     <main>
-      <header className="research-result-header">
-        <Link href="/research/forward" className="brand"><span className="mark">J</span> jusik <span className="brand-sub">기업행동 관측</span></Link>
-        <div className="action-row"><Link className="secondary-button" href="/research/forward">전진 PAPER</Link></div>
-      </header>
       <section className="intro research-intro">
-        <div><p className="eyebrow">UNVERIFIED SOURCE OBSERVATION</p><h1>기업행동 원문 관측</h1><p className="muted">Yahoo Chart의 최근 3년 분할·배당 메타데이터를 16종목별로 보존합니다. 이 자료는 미검증 관측이며 PAPER 원장에 자동 반영되지 않습니다.</p></div>
+        <div><p className="eyebrow">UNVERIFIED SOURCE OBSERVATION</p><h1>기업행동 원문 자료</h1><p className="muted">이 화면은 분할·배당 원문을 모아 검토하는 읽기 전용 자료실입니다. 미검증 관측이며 PAPER(앱 안에서만 기록하는 가상 운용) 원장이나 실거래 판단에 자동 반영되지 않습니다.</p></div>
         <span className="badge">읽기 전용 수집</span>
       </section>
       {!status ? (

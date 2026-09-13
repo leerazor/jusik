@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { Refresh } from "@/app/refresh";
 import { OperationsRefresh } from "@/app/research/lab/operations-refresh";
 import {
+  compareDecimal,
   getResearchProgress,
   type Comparison,
   type ResearchProgress,
@@ -60,24 +60,6 @@ function expandDecimal(value: string): ExpandedDecimal | null {
     digits,
     decimalPosition: whole.length + exponent - leadingZeros,
   };
-}
-
-function compareDecimal(left: string, right: string): number | null {
-  const a = expandDecimal(left);
-  const b = expandDecimal(right);
-  if (!a || !b) return null;
-  if (a.digits === "0") return b.digits === "0" ? 0 : b.negative ? 1 : -1;
-  if (b.digits === "0") return a.negative ? -1 : 1;
-  if (a.negative !== b.negative) return a.negative ? -1 : 1;
-  const sign = a.negative ? -1 : 1;
-  if (a.decimalPosition !== b.decimalPosition) {
-    return sign * (a.decimalPosition > b.decimalPosition ? 1 : -1);
-  }
-  const length = Math.max(a.digits.length, b.digits.length);
-  const aDigits = a.digits.padEnd(length, "0");
-  const bDigits = b.digits.padEnd(length, "0");
-  if (aDigits === bDigits) return 0;
-  return sign * (aDigits > bDigits ? 1 : -1);
 }
 
 function groupInteger(value: string): string {
@@ -313,6 +295,10 @@ function FeaturedSection({ progress }: { progress: ResearchProgress }) {
   return <section className={styles.featuredSection}><ComparisonPanel study={result.study} comparison={result.comparison} /></section>;
 }
 
+function ProgressPurpose() {
+  return <section className={styles.purposeSection} aria-labelledby="progress-purpose-title"><p className={styles.kicker}>HOW TO READ THIS PAGE</p><h2 id="progress-purpose-title">먼저 비교 결과를 읽고, 그다음 연구 상태를 확인하세요</h2><p>성과 자료는 같은 종목·기간·비용 조건의 기준선과 후보를 나란히 보여줍니다. 수익률은 기간 전체 누적값이며 연환산이 아니고, 과거 비교는 새 시세를 보는 가상 관찰이나 실거래 적합성을 증명하지 않습니다.</p><p>아래 자동 개발·대기열은 개발 작업의 기록과 상태 진단입니다. 연구 카탈로그가 있다고 해서 전략이 채택되었거나 준비되었다는 뜻은 아닙니다.</p></section>;
+}
+
 export default async function ResearchProgressPage() {
   let progress: ResearchProgress | null = null;
   try {
@@ -324,15 +310,11 @@ export default async function ResearchProgressPage() {
   return (
     <main className={styles.progressMain}>
       <OperationsRefresh />
-      <header className={styles.pageHeader}>
-        <Link href="/research" className="brand"><span className="mark">J</span> jusik <span className="brand-sub">연구 진행</span></Link>
-        <nav className={styles.topNav} aria-label="연구 메뉴"><Link href="/research">연구 개요</Link><Link href="/research/forward">가상 관찰</Link><Link href="/research/history">개발 기록</Link><Link href="/research/lab">연구 도구</Link><Refresh /></nav>
-      </header>
       <section className={styles.hero}>
         <div><p className={styles.kicker}>RESEARCH PROGRESS</p><h1>연구 진행 현황</h1><p className={styles.heroCopy}>자동 실행기와 검증된 연구 결과를 한눈에 확인합니다. 완료율이나 미래 성과를 추정하지 않습니다.</p></div>
         <div className={styles.refreshState}><span className={styles.autoDot} aria-hidden="true" />자동 새로고침 · 10초{progress && <small>마지막 확인 {formatDateTime(progress.observed_at)}</small>}</div>
       </section>
-      {!progress ? <section className={styles.unavailableBox} role="alert"><h2>진행 현황을 불러올 수 없습니다</h2><p>연구 진행 API가 아직 연결되지 않았거나 응답을 검증하지 못했습니다. 자동 실행 중이나 정상 대기로 해석하지 않습니다.</p></section> : <><RunnerOverview progress={progress} /><FeaturedSection progress={progress} /><StudiesSection progress={progress} /><QueueSection progress={progress} /><footer className={styles.footer}>모든 연구는 과거 가격 데이터만 사용하며 배당과 세금을 포함하지 않습니다. 회고용으로 재사용된 데이터이고 point-in-time 검증이 아니므로 미래 성과를 입증하지 않습니다. · <Link href="/research/history">연구 이력과 보고서</Link></footer></>}
+      {!progress ? <section className={styles.unavailableBox} role="alert"><h2>진행 현황을 불러올 수 없습니다</h2><p>연구 진행 API가 아직 연결되지 않았거나 응답을 검증하지 못했습니다. 자동 실행 중이나 정상 대기로 해석하지 않습니다.</p></section> : <><ProgressPurpose /><FeaturedSection progress={progress} /><StudiesSection progress={progress} /><RunnerOverview progress={progress} /><QueueSection progress={progress} /><footer className={styles.footer}>모든 연구는 과거 가격 데이터만 사용하며 배당과 세금을 포함하지 않습니다. 회고용으로 재사용된 데이터이고 point-in-time 검증이 아니므로 미래 성과를 입증하지 않습니다. · <Link href="/research/history">연구 이력과 보고서</Link></footer></>}
     </main>
   );
 }

@@ -85,21 +85,13 @@ export default async function ResearchPage({ searchParams }: PageProps) {
 
   return (
     <main>
-      <header>
-        <Link href="/" className="brand">
-          <span className="mark">J</span> jusik
-          <span className="brand-sub">전략 연구</span>
-        </Link>
-        <span className="badge">과거 시세 · 앱 모의</span>
-      </header>
-
       <section className="intro research-intro">
         <div>
-          <p className="eyebrow">PAPER RESEARCH</p>
+          <p className="eyebrow">상세 연구 도구</p>
           <h1>과거 검증부터 앱 모의 운용까지</h1>
           <p className="muted">
             백테스트는 과거 데이터로 전략을 한 번 검증하는 일입니다. 전략 연구는 같은
-            엔진의 결과를 저장·비교하고 반복 검증한 뒤 앱 모의 운용까지 이어갑니다.
+            엔진의 결과를 저장·비교하고 반복 검증합니다. 아래 앱 모의 운용은 실제 주문이 아닌 PAPER(앱 안에서만 기록하는 가상 운용)입니다.
           </p>
         </div>
         <div className="action-row">

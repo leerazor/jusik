@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getLatestDividendOverlay, researchAmount, type DividendOverlay } from "@/lib/research";
 
 export const dynamic = "force-dynamic";
@@ -61,8 +60,7 @@ export default async function DividendOverlayPage() {
   try { result = await getLatestDividendOverlay(); } catch { /* rendered below */ }
   return (
     <main>
-      <header className="research-result-header"><Link href="/research" className="brand"><span className="mark">J</span> jusik <span className="brand-sub">검증된 배당 기여분</span></Link><div className="action-row"><Link className="secondary-button" href="/research/portfolio">포트폴리오</Link><Link className="secondary-button" href="/research/actions">기업행동</Link><span className="badge">세전 후향 연구 · 실제 주문 없음</span></div></header>
-      <section className="intro research-intro"><div><p className="eyebrow">DIVIDEND OVERLAY</p><h1>공식 근거가 맞은 배당만 더해 보기</h1><p className="muted">고정된 포트폴리오 거래와 평가액에 검증된 배당 기여분만 별도 표시합니다.</p></div></section>
+      <section className="intro research-intro"><div><p className="eyebrow">DIVIDEND OVERLAY</p><h1>확인된 배당 기여만 따로 보기</h1><p className="muted">이 화면은 후향 포트폴리오 결과에 공식 근거가 맞은 배당 기여를 별도로 더해 봅니다. 일부 자료이며 전체 총수익률이나 미래 성과를 증명하지 않습니다.</p></div></section>
       {result ? resultContent(result) : <section className="panel pending-panel"><h2>배당 overlay 결과가 없습니다</h2><p className="muted">독립 검증과 산출물 생성이 끝난 뒤 표시됩니다.</p></section>}
     </main>
   );
