@@ -23,9 +23,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import jusik.research_portfolio_held_band_cost3_stress as _cost3
 from jusik.research_experiment_guard import verify_hashes
 from jusik.research_portfolio_cost_path_attribution import load_frozen
-import jusik.research_portfolio_held_band_cost3_stress as _cost3
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
@@ -77,6 +77,25 @@ def sha256(path: Path) -> str:
 
 def _json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _strict_json(path: Path) -> Any:
+    def reject(value: str) -> Any:
+        raise ValueError(f"non-finite JSON constant: {value}")
+
+    def unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key: {key}")
+            result[key] = value
+        return result
+
+    return json.loads(
+        path.read_text(encoding="utf-8"),
+        parse_constant=reject,
+        object_pairs_hook=unique,
+    )
 
 
 def _write_exclusive(path: Path, value: object) -> None:
@@ -295,6 +314,27 @@ def _verify_observations(
             raise ValueError("observer does not match serialized equity")
 
 
+def _verify_simulation_contract(
+    simulation: PortfolioSimulation,
+    period: dict[str, Any],
+    candidate: PortfolioCandidate,
+    config: PortfolioConfig,
+) -> None:
+    if not simulation.complete or simulation.incomplete_reasons:
+        raise ValueError(f"incomplete simulation: {period['name']}")
+    if simulation.period_start != date.fromisoformat(
+        period["start"]
+    ) or simulation.period_end != date.fromisoformat(period["end"]):
+        raise ValueError(f"period mismatch: {period['name']}")
+    if (
+        simulation.candidate != candidate
+        or simulation.policy != "low_turnover_combined"
+    ):
+        raise ValueError(f"candidate/policy mismatch: {period['name']}")
+    if simulation.metrics.initial_equity_krw != config.initial_cash_krw:
+        raise ValueError(f"initial capital mismatch: {period['name']}")
+
+
 def global_drawdown(
     observations: Sequence[EquityObservation], initial: Decimal = INITIAL_CAPITAL
 ) -> Decimal:
@@ -396,16 +436,20 @@ def _daily_metrics(
         if daily
         else Decimal(0)
     )
+    cash_pct = [x.cash_krw / x.nav_krw * 100 for x in daily if x.nav_krw]
+    gross_pct = [x.gross_krw / x.nav_krw * 100 for x in daily if x.nav_krw]
+    notional = sum((t.notional_krw for t in simulation.trades), Decimal(0))
     return {
         "daily_final_valuation_count": len(daily),
         "daily_mean_cash_krw": str(cash),
-        "daily_mean_cash_pct": str(cash / nav * 100 if nav else Decimal(0)),
+        "daily_mean_cash_pct": str(
+            sum(cash_pct, Decimal(0)) / Decimal(len(cash_pct))
+            if cash_pct
+            else Decimal(0)
+        ),
         "daily_mean_gross_pct": str(
-            sum((x.gross_krw for x in daily), Decimal(0))
-            / Decimal(len(daily))
-            / nav
-            * 100
-            if daily and nav
+            sum(gross_pct, Decimal(0)) / Decimal(len(gross_pct))
+            if gross_pct
             else Decimal(0)
         ),
         "max_gross_pct": str(
@@ -429,10 +473,11 @@ def _daily_metrics(
                 Decimal(0),
             )
         ),
-        "recomputed_turnover_pct": str(
-            sum((t.notional_krw for t in simulation.trades), Decimal(0)) / nav * 100
-            if nav
-            else Decimal(0)
+        "recomputed_turnover_pct_initial": str(
+            notional / simulation.metrics.initial_equity_krw * 100
+        ),
+        "recomputed_turnover_pct_mean_nav": str(
+            notional / nav * 100 if nav else Decimal(0)
         ),
     }
 
@@ -441,19 +486,37 @@ def _load_contract(
     prior_audit: Path,
 ) -> tuple[dict[str, Any], PortfolioInput, PortfolioConfig]:
     prereg_path = prior_audit / "preregistration.json"
-    prereg = _json(prereg_path)
+    prereg = _strict_json(prereg_path)
     paths = prereg.get("source_paths")
     hashes = prereg.get("source_hashes")
     if not isinstance(paths, dict) or not isinstance(hashes, dict):
         raise ValueError("frozen source_paths/source_hashes are required")
     verify_hashes({Path(paths[name]): digest for name, digest in hashes.items()})
     manifest_path = Path(paths["source-manifest.json"])
-    manifest = _json(manifest_path)
+    manifest = _strict_json(manifest_path)
     return (
         prereg,
         PortfolioInput.model_validate(manifest["frozen_input"]),
         PortfolioConfig.model_validate(prereg["base_config"]),
     )
+
+
+def _coverage(source: PortfolioInput) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for snapshot in source.instruments:
+        instrument = snapshot.instruments[0].instrument
+        bars = snapshot.instruments[0].bars
+        rows.append(
+            {
+                "symbol": instrument.symbol,
+                "name": instrument.name,
+                "listed_on": instrument.listed_on,
+                "first_bar": min((b.date for b in bars), default=None),
+                "last_bar": max((b.date for b in bars), default=None),
+                "bar_count": len(bars),
+            }
+        )
+    return rows
 
 
 def preflight(prior_audit: Path) -> dict[str, Any]:
@@ -524,11 +587,7 @@ def _execute(
         )
         (output_dir / "simulations").mkdir()
         (output_dir / "observations").mkdir()
-        coverage_path = Path(prereg["source_paths"]["source-manifest.json"])
-        coverage = _json(coverage_path).get(
-            "coverage", _json(coverage_path).get("instrument_coverage", [])
-        )
-        _write_exclusive(output_dir / "source-coverage.json", coverage)
+        _write_exclusive(output_dir / "source-coverage.json", _coverage(source))
         _write_exclusive(
             output_dir / "preregistration.json",
             {
@@ -543,6 +602,20 @@ def _execute(
                 "core_hashes": prereg.get("core_hashes", {}),
                 "imported_helper_hashes": prereg.get("imported_helper_hashes", {}),
                 "base_config": base.model_dump(mode="json"),
+                "validated_configs": {
+                    f"{gross}-c{cost}": _config(base, gross, cost).model_dump(
+                        mode="json"
+                    )
+                    for _arm, gross in ARMS
+                    for cost in FULL_COSTS
+                },
+                "deadline_seconds": DEADLINE_SECONDS,
+                "execution_order": [
+                    f"{period['name']}-{arm}_c{cost}.json"
+                    for arm, _gross in ARMS
+                    for period in periods
+                    for cost in FULL_COSTS
+                ],
                 "metric_definitions": {
                     "mdd": "initial-capital-inclusive observer NAV running peak",
                     "daily": "last UTC valuation per day arithmetic mean",
@@ -550,6 +623,16 @@ def _execute(
                 },
                 "runner_sha256": sha256(Path(__file__)),
                 "historical_calls": 0,
+                "mandate_path": str(
+                    Path(__file__).parents[2] / "docs/research-mandate.json"
+                ),
+                "mandate_sha256": sha256(
+                    Path(__file__).parents[2] / "docs/research-mandate.json"
+                ),
+                "engine_source_sha256": sha256(engine_source),
+                "original_engine_sha256": sha256(original),
+                "variant_engine_sha256": sha256(variant_path),
+                "observer_engine_sha256": sha256(observer_path),
             },
         )
         rows: list[dict[str, Any]] = []
@@ -584,6 +667,7 @@ def _execute(
                     simulation, observations = _run_simulation(
                         engine, source, candidate, period, config
                     )
+                    _verify_simulation_contract(simulation, period, candidate, config)
                     if not simulation.complete or simulation.incomplete_reasons:
                         raise RuntimeError(f"incomplete simulation: {name}")
                     _verify_observations(simulation, observations, config)
