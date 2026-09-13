@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import jusik.research_portfolio_gross_cap_sensitivity as gross
+import jusik.research_portfolio_held_band_cost3_stress as cost3
 from jusik.research_experiment_guard import verify_hashes
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
@@ -165,6 +166,35 @@ def preflight(prior_audit: Path) -> dict[str, Any]:
     }
 
 
+def _runtime_hashes(
+    prior_audit: Path,
+    prereg: dict[str, Any],
+    engine_source: Path,
+    original: Path,
+    variant: Path,
+    observer: Path,
+    mandate: Path,
+) -> dict[Path, str]:
+    """Build the immutable hash set checked around every historical call."""
+    checks: dict[Path, str] = {
+        prior_audit / "preregistration.json": PRIOR_PREREG_SHA256,
+        prior_audit / "hash-manifest.json": PRIOR_MANIFEST_SHA256,
+        engine_source: sha256(engine_source),
+        original: sha256(original),
+        variant: VARIANT_SHA256,
+        observer: sha256(observer),
+        Path(__file__): sha256(Path(__file__)),
+        mandate: MANDATE_SHA256,
+        Path(gross.__file__): GROSS_HELPER_SHA256,
+        Path(cost3.__file__): COST3_HELPER_SHA256,
+    }
+    results = prior_audit / "results.json"
+    checks[results] = sha256(results)
+    for name, digest in prereg["source_hashes"].items():
+        checks[Path(prereg["source_paths"][name])] = digest
+    return checks
+
+
 def run_experiment(
     prior_audit: Path,
     engine_source: Path,
@@ -234,6 +264,8 @@ def _execute(
                 "core_hashes": prereg.get("core_hashes", {}),
                 "imported_helper_hashes": prereg.get("imported_helper_hashes", {}),
                 "base_config": base.model_dump(mode="json"),
+                "candidate": candidate.model_dump(mode="json"),
+                "policy": "low_turnover_combined",
                 "validated_configs": {
                     f"{target}-c{cost}": _config(base, target, cost).model_dump(
                         mode="json"
@@ -273,6 +305,16 @@ def _execute(
                 "observer_engine_sha256": sha256(observer),
             },
         )
+        runtime_hashes = _runtime_hashes(
+            prior_audit,
+            prereg,
+            engine_source,
+            original,
+            variant,
+            observer,
+            mandate_path,
+        )
+        verify_hashes(runtime_hashes)
         rows, simulations = [], {}
         for arm, target in ARMS:
             for period in periods:
@@ -366,6 +408,17 @@ def _execute(
                             "ledger": ledger,
                         },
                     )
+        verify_hashes(
+            _runtime_hashes(
+                prior_audit,
+                prereg,
+                engine_source,
+                original,
+                variant,
+                observer,
+                mandate_path,
+            )
+        )
         pairs = [
             {
                 "period": p["name"],
@@ -420,6 +473,9 @@ def _execute(
         )
         return result
     except BaseException as error:
+        if previous is not None:
+            _disarm_deadline(previous)
+            previous = None
         if output_dir.is_dir() and not (output_dir / "failure.json").exists():
             expected = {
                 f"{p}-{a}_c{c}.json"
