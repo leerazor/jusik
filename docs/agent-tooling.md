@@ -50,9 +50,11 @@ runner가 자식 Codex를 `--ignore-user-config`로 실행할 때 현재 사용�
 
 helper는 prompt와 secret을 출력하지 않고, 호출 전 verifier 결과와 호출 후 audit 결과만 남깁니다. verifier는 실제 spawn hook 자체를 차단하지 않습니다. 즉 helper를 우회한 spawn을 기술적으로 막는 경계가 아니므로 supervisor가 절차를 지켜야 합니다.
 
+모델·문맥 상속의 불확실성과 불필요한 반복 입력을 줄이기 위해 이 프로젝트 사전검사는 독립 문맥인 `fork_turns='none'`만 지원합니다. role을 지정한 spawn에도 이 값을 명시하며, `all`·생략·부분 fork는 helper 검증 실패로 처리합니다. 이는 이 프로젝트 preflight 정책이며 모든 host가 named role의 모델 상속을 보장한다는 뜻이 아닙니다.
+
 ## 사용 흐름
 
-1. `spawn_agent` 직전에 helper preflight로 role, 요청 model, `fork_turns`를 확인합니다. supervisor는 별도로 `task_name`, cwd/worktree와 필요한 도구의 실제 사용 가능성을 수동 확인합니다.
+1. `spawn_agent` 직전에 helper preflight로 role, 요청 model, `fork_turns='none'`을 확인합니다. role을 지정한 spawn에도 이 값을 명시하며, `all`·생략·부분 fork는 검증 실패로 처리합니다. supervisor는 별도로 `task_name`, cwd/worktree와 필요한 도구의 실제 사용 가능성을 수동 확인합니다.
 2. preflight 반환 결과와 실제 tool 계약을 대조한 뒤에만 spawn을 호출합니다. 계약이 불명확하거나 모델을 지정할 수 없으면 fallback과 제한을 보고하고 작업을 보류합니다.
 3. child가 반환한 압축 보고의 `paths/evidence`, `commit`, `validation`을 실제 파일·Git 상태·명령 결과와 대조합니다.
 4. 종료 후 child audit에서 model 불일치, role·작업 이름 불일치, 증거 누락 또는 검증 실패가 발견되면 완료 처리를 보류하고 재검토·재실행 조건을 남깁니다.
