@@ -1,9 +1,14 @@
 # ruff: noqa: E501
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
+from jusik.research_portfolio_low_cash_experiment import (
+    EquityObservation,
+    global_drawdown,
+)
 from jusik.research_portfolio_residual_cash import (
     _json,
     annualized_covariance_proxy,
@@ -83,3 +88,63 @@ def test_strict_json_rejects_duplicate_and_nonfinite(tmp_path: Path) -> None:
 def test_diagnostic_rejects_missing_saved_inputs(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="simulation artifacts"):
         run_diagnostic(tmp_path / "missing", tmp_path / "out")
+
+
+def test_covariance_proxy_is_decimal_reference_and_future_poison_changes_result() -> (
+    None
+):
+    weights = {"A": Decimal("0.7"), "B": Decimal("0.3")}
+    causal = {
+        "A": [Decimal(".01"), Decimal("-.02")],
+        "B": [Decimal(".02"), Decimal("-.01")],
+    }
+    poisoned = {
+        "A": causal["A"] + [Decimal("100")],
+        "B": causal["B"] + [Decimal("0")],
+    }
+    assert covariance_proxy(weights, causal) < Decimal(".1")
+    assert covariance_proxy(weights, poisoned) != covariance_proxy(weights, causal)
+
+
+def test_covariance_rejects_nonfinite_and_invalid_annualization() -> None:
+    with pytest.raises(ValueError, match="non-finite"):
+        covariance_proxy({"A": Decimal(1)}, {"A": [Decimal("NaN")]})
+    with pytest.raises(ValueError, match="positive"):
+        annualized_covariance_proxy({"A": Decimal(1)}, {"A": [Decimal(0)]}, 0)
+
+
+def test_global_drawdown_uses_initial_peak_and_is_independent_of_latch() -> None:
+    points = [
+        EquityObservation(
+            datetime(2024, 1, 1, tzinfo=UTC), Decimal("110"), Decimal("110"), {}
+        ),
+        EquityObservation(
+            datetime(2024, 1, 2, tzinfo=UTC), Decimal("80"), Decimal("80"), {}
+        ),
+    ]
+    assert global_drawdown(points, Decimal("100")) == Decimal(
+        "27.27272727272727272727272727"
+    )
+
+
+def test_target_diagnostic_records_band_as_non_additive_stage() -> None:
+    result = diagnose_simulation(
+        {
+            "weekly_targets": [
+                {
+                    "decided_at": "2024-01-01T00:00:00Z",
+                    "symbol": "A",
+                    "target_weight": "0.2",
+                }
+            ],
+            "policy_events": [
+                {
+                    "at": "2024-01-01T00:00:00Z",
+                    "kind": "band_skip",
+                    "detail": "held band",
+                }
+            ],
+        }
+    )
+    assert result["stages_are_overlapping_and_not_additive_cash_shares"]
+    assert result["event_counts"]["band_skip"] == 1
