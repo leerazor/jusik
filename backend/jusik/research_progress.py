@@ -194,32 +194,6 @@ class Study(BaseModel):
             raise ValueError("artifact digest must be a lowercase SHA-256")
         return value
 
-    @model_validator(mode="after")
-    def validate_comparison_definitions(self) -> Study:
-        first = self.comparisons[0]
-        definition = (
-            first.period_start,
-            first.period_end,
-            first.cost_multiplier,
-            first.drawdown_basis,
-            first.cash_basis,
-            first.cash_statistic,
-        )
-        if any(
-            (
-                item.period_start,
-                item.period_end,
-                item.cost_multiplier,
-                item.drawdown_basis,
-                item.cash_basis,
-                item.cash_statistic,
-            )
-            != definition
-            for item in self.comparisons[1:]
-        ):
-            raise ValueError("comparisons in a study must share definitions")
-        return self
-
 
 class ResearchCatalog(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -247,6 +221,11 @@ class ResearchCatalog(BaseModel):
 
     @model_validator(mode="after")
     def validate_catalog_references(self) -> ResearchCatalog:
+        cohorts: dict[str, tuple[str, frozenset[str]]] = {}
+        for study in self.studies:
+            inputs = (study.source_sha256, frozenset(study.universe_symbols))
+            if cohorts.setdefault(study.cohort_id, inputs) != inputs:
+                raise ValueError("cohort inputs must agree")
         study_ids = [item.id for item in self.studies]
         comparison_ids = [
             comparison.id for study in self.studies for comparison in study.comparisons
@@ -383,9 +362,11 @@ def _status_value(value: object) -> str:
     return value if value in allowed else "other"
 
 
-def _title_for(area: object, labels: dict[str, str]) -> tuple[str, str]:
+def _title_for(
+    task_id: object, area: object, labels: dict[str, str]
+) -> tuple[str, str]:
     safe_area = _safe_db_value(area)
-    title = labels.get(safe_area)
+    title = labels.get(_safe_identifier_value(task_id))
     if title is not None:
         return safe_area, title
     fallback = {
@@ -537,7 +518,7 @@ def _read_runner(
         }
         raw_tasks = connection.execute(
             "SELECT id,area,status,next_allowed_at,updated_at,depends_on "
-            "FROM tasks WHERE area != ?",
+            "FROM tasks WHERE area != ? OR area IS NULL",
             ("__planning__",),
         ).fetchall()
         active_rows = connection.execute(
@@ -552,8 +533,50 @@ def _read_runner(
             "SELECT COUNT(*) AS count FROM launch_log WHERE launched_at LIKE ?",
             (launch_prefix,),
         ).fetchone()
+        stored_times: list[datetime] = []
+        for row in connection.execute("SELECT updated_at FROM tasks"):
+            value = _parse_utc(row["updated_at"])
+            if value is None:
+                raise ValueError("invalid stored task timestamp")
+            stored_times.append(value)
+        for row in connection.execute("SELECT started_at,ended_at FROM attempts"):
+            for name in ("started_at", "ended_at"):
+                if name == "ended_at" and row[name] is None:
+                    continue
+                value = _parse_utc(row[name])
+                if value is None:
+                    raise ValueError("invalid stored attempt timestamp")
+                stored_times.append(value)
+        for row in raw_tasks:
+            for name in ("id", "area"):
+                if not isinstance(row[name], str):
+                    raise ValueError("invalid task identifier")
+                _safe_id(row[name])
+            if not isinstance(row["status"], str) or not row["status"]:
+                raise ValueError("invalid task status")
+            if row["depends_on"] is not None:
+                _safe_id(row["depends_on"])
+            if (
+                row["next_allowed_at"] is not None
+                and _parse_utc(row["next_allowed_at"]) is None
+            ):
+                raise ValueError("invalid next allowed timestamp")
+        running_ids = {row["id"] for row in raw_tasks if row["status"] == "running"}
+        active_ids = [row["id"] for row in active_rows]
+        if running_ids != set(active_ids) or len(active_ids) != len(set(active_ids)):
+            raise ValueError("inconsistent running attempt")
+        if (
+            connection.execute(
+                "SELECT 1 FROM attempts a LEFT JOIN tasks t ON t.id=a.task_id "
+                "WHERE a.status='running' AND "
+                "(t.id IS NULL OR (t.area!='__planning__' AND t.status!='running')) "
+                "LIMIT 1"
+            ).fetchone()
+            is not None
+        ):
+            raise ValueError("orphaned running attempt")
         connection.commit()
-    except (OSError, sqlite3.Error, ValueError) as exc:
+    except (OSError, sqlite3.Error, ValueError, TypeError) as exc:
         if connection is not None:
             try:
                 connection.rollback()
@@ -561,7 +584,9 @@ def _read_runner(
                 pass
             connection.close()
         return RunnerProgress(
-            availability="invalid" if isinstance(exc, ValueError) else "unavailable",
+            availability=(
+                "invalid" if isinstance(exc, (ValueError, TypeError)) else "unavailable"
+            ),
             recorded_at=None,
             paused=None,
             service=service,
@@ -576,11 +601,10 @@ def _read_runner(
         if connection is not None:
             connection.close()
 
-    def task_projection(row: sqlite3.Row) -> RunnerTaskPublic | None:
+    def task_projection(row: sqlite3.Row) -> RunnerTaskPublic:
         updated = _parse_utc(row["updated_at"])
-        if updated is None:
-            return None
-        area, title = _title_for(row["area"], labels)
+        assert updated is not None  # Validated inside the read transaction.
+        area, title = _title_for(row["id"], row["area"], labels)
         dependency = row["depends_on"]
         return RunnerTaskPublic(
             task_id=_safe_identifier_value(row["id"]),
@@ -596,7 +620,7 @@ def _read_runner(
             ),
         )
 
-    projected = [item for row in raw_tasks if (item := task_projection(row))]
+    projected = [task_projection(row) for row in raw_tasks]
     priority = {
         "running": 0,
         "queued": 1,
@@ -641,7 +665,7 @@ def _read_runner(
         started = _parse_utc(row["started_at"])
         updated = _parse_utc(row["updated_at"])
         if started is not None and updated is not None:
-            area, title = _title_for(row["area"], labels)
+            area, title = _title_for(row["id"], row["area"], labels)
             current = RunnerCurrent(
                 task_id=_safe_identifier_value(row["id"]),
                 area=area,
@@ -675,7 +699,7 @@ def _read_runner(
         paused = meta["paused"] == "1"
     return RunnerProgress(
         availability="available",
-        recorded_at=now,
+        recorded_at=max(stored_times, default=None),
         paused=paused,
         service=service,
         timer=timer,

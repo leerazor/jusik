@@ -18,7 +18,10 @@ catalog의 금액·수익률·현금·낙폭·레버리지·회전율·비용 �
 
 이 화면의 연구 결과는 배당·세금 제외 historical price-only 결과이며 미래 성과를 보장하지 않는다. `cash_statistic`은 `mean`과 `median`을 구분해 표시해야 하며, 서로 다른 cohort를 하나의 timeline으로 합치지 않는다.
 
+하나의 study에는 기간과 비용 배수가 다른 비교를 담을 수 있다. 같은 비교 안의 baseline과 candidate가 공통 기간·비용 정의를 사용한다. 같은 cohort의 study들은 원본 해시와 종목 집합이 같아야 한다.
+
+`task_labels`의 키는 task ID이며, 없으면 연구 영역별 한국어 제목을 사용한다. 잘못된 필수 DB 값은 행을 제외하지 않고 runner 전체를 `invalid`로 표시한다. `recorded_at`은 저장된 task 갱신 및 attempt 시작·종료 시각의 최댓값이며, 기록이 없으면 null이다. 요청 시각은 별도의 `observed_at`이다.
+
 ## 테스트 주입
 
 `create_research_app`은 `runner_config_path`, `runner_db_path`, `progress_history_dir`, `runner_service_probe`를 받는다. probe는 systemd unit 이름을 받아 `active`, `inactive`, `unknown` 중 하나를 반환한다. 테스트는 임시 catalog와 SQLite DB를 사용하고 실제 사용자 설정·상태 파일을 변경하지 않아야 한다.
-
