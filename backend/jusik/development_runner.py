@@ -127,7 +127,7 @@ class RunnerConfig(BaseModel):
     history_db: Path = DEFAULT_HISTORY_DB
     artifact_dir: Path = DEFAULT_ARTIFACTS
     timeout_seconds: int = Field(default=5400, ge=60, le=5400)
-    daily_launches: int = Field(default=8, ge=1, le=24)
+    daily_launches: int | None = Field(default=8, ge=1, le=24)
     cooldown_seconds: int = Field(default=60, ge=0, le=86400)
     planning_enabled: bool = False
 
@@ -891,7 +891,10 @@ def run_once(
         if not ready:
             return RunResult("blocked", reason=reason)
         now = datetime.now(UTC)
-        if store.launch_count(now.strftime("%Y-%m-%d")) >= config.daily_launches:
+        if (
+            config.daily_launches is not None
+            and store.launch_count(now.strftime("%Y-%m-%d")) >= config.daily_launches
+        ):
             _record_control_event(store, config, "quota")
             return RunResult("quota")
         latest = store.get_meta("last_launch_at")
