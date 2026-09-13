@@ -1070,3 +1070,24 @@
 - 게시: /research를 시작점으로 웹 반영 및 개발 이력 게시 완료. 공개 성과 catalog SHA 불변, 계좌 조회·인증·거래 로직 변경 없음. 원격 push 없음.
 - 운영: 사용자 요청으로 runner paused, service/timer inactive. 완료 후에도 자동 재개 금지. 기존 중단 작업과 6개 워크트리 보존.
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913T072036Z-investor-web-remake/HANDOFF.md
+
+
+## research-ui-redesign
+
+- 상태: 준비
+- 목표와 완료 조건: research-ui-redesign.md의 사용자 요구를 바탕으로 전체 목표·운용 조건, 연구 질문·변경점·결론·결정, 별도 PAPER 관찰을 이해할 수 있게 화면을 재설계합니다. 기존 기능과 URL을 보존하고 독립 검토, 브라우저 검증, local main 통합 검사와 handoff까지 완료합니다.
+- 담당 Luna: explore·plan 이후 Luna 구현 담당자 한 명을 배정합니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-research-ui-redesign
+- 작업 브랜치: feat/research-ui-redesign
+- 기준 커밋 SHA: 10a8c01019f1194e8b3bdb4755b9ee30fab16b7e 이후 등록 커밋
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: docs/research-ui-redesign.md(사용자 미추적 원본 보존), 최신 mandate, 기존 화면/API/공개 연구 원문. 자동 실행기는 paused, service/timer inactive이며 중지를 유지합니다.
+- 수정 허용 범위: frontend 연구 화면·표시용 데이터·CSS·관련 검사. 전략·주문·PAPER 정책·공개 성과 수치 변경 없음.
+- 포트·테스트 DB·출력 경로: 전용 node_modules/build, frontend 3321 및 fixture 8321, 운영 DB 미사용. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260913-research-ui-redesign.
+- 검증 명령과 결과: lint, typecheck, build, 관련 회귀 검사와 실제 브라우저 desktop/mobile 및 자료 부족 상태 검증 예정.
+- 결과 커밋 SHA: 미정
+- 검토 결과와 남은 문제: 조사 중. 원문에서 확인되지 않은 결정·인과·규칙을 만들지 않습니다.
+- 병합 직전 main SHA: 미정
+- 통합 커밋 SHA와 정리 여부: 미정
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- handoff 저장 경로와 갱신 여부: 위 audit/HANDOFF.md 예정
