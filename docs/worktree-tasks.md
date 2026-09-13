@@ -866,3 +866,20 @@
 
 - 상태: 완료. 영구 증거420개와 정리 전 handoff SHA를 검증한 후 이번 worktree·브랜치를 강제 옵션 없이 제거했다. 정리 후 같은420파일이 모두 생존하고 해시가 일치함을 다시 확인했다. 기존 미병합4개와 root HANDOFF.md는 유지했다.
 - 최종 handoff: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-residual-cash-risk-proxy-v1-abecaf881ae842378d77d5a6838040ed/HANDOFF.md. 정리 증거는 같은 경로의 cleanup.json, 완료 근거는 archive-sha256.json과 completion.json이다.
+
+
+## portfolio-expanded-collection-2ea6
+
+- 상태: 준비
+- 목표와 완료 조건: 기존 A/B 사전등록을 유지하고 공식 자료 수집·검증을 한 차례 수행하여 gate별 결손을 보고합니다. 독립 검토, 필요한 main 통합, 영구 evidence/handoff 보존과 정리를 완료합니다.
+- 담당 Luna: 단일 gpt-5.6-luna code 작업자.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-expanded-collection-2ea6
+- 작업 브랜치: docs/portfolio-expanded-collection-2ea6
+- 기준 커밋 SHA: 02d802e76a9f265e3a38b27de1ddedcb47b4be4c 이후 이 등록 커밋.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: completion ac14fb4d2df2c1f9614136c14a3f2704ff3e634fdc9021e20327e814a70f07a2 및 모든 evidence/source 해시 검증 완료. explore 완료, bounded plan 후 배정.
+- 수정 허용 범위: 수집 연구 스크립트와 관련 검사, 한국어 준비도 보고서만 허용합니다. 기존 전략/registry/mandate/PAPER 수정은 금지합니다.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 전용 venv/tmp 및 /home/kwl/.local/share/jusik/portfolio-audit/portfolio-expanded-universe-collection-gates-v1-2ea67734308a40eda685c1b0839576c6.
+- 검증: 고정 입력 해시, 가격·배당·분할·FX·세금·캘린더·venue·coverage gate, 관련 pytest/Ruff/strict typing, 독립 검토.
+- 제한: 수집 한 차례, simulation/sweep/GPU/주문/remote push 없음. 원천 또는 entitlement 결손 시 비교를 차단합니다. 기존 HANDOFF와 다른 worktree를 보존합니다.
+- 결과 커밋/통합/정리/handoff: 진행 후 기록합니다.
