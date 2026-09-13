@@ -863,3 +863,6 @@
 - 웹 게시: 기존 이력76개·artifact122개 보존. 보고서 SHA9be03de33391eb2bb1546f26784c46c875785c4b115e0d313fe014090d78f529. API·웹·두 다운로드200과 본문 SHA 일치. DB 변경 없음.
 - 보호 검증: 기존 코드·설정303파일과 입력audit333파일 모두 SHA 일치. 실험코드92모듈과 테스트·문서·환경·실패 및 원장 기록을 영구audit로 복사했다.
 - 상태: 통합 검증·게시 완료, 영구handoff 및 SHA 확인 후 이번 worktree 정리 대기.
+
+- 상태: 완료. 영구 증거420개와 정리 전 handoff SHA를 검증한 후 이번 worktree·브랜치를 강제 옵션 없이 제거했다. 정리 후 같은420파일이 모두 생존하고 해시가 일치함을 다시 확인했다. 기존 미병합4개와 root HANDOFF.md는 유지했다.
+- 최종 handoff: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-residual-cash-risk-proxy-v1-abecaf881ae842378d77d5a6838040ed/HANDOFF.md. 정리 증거는 같은 경로의 cleanup.json, 완료 근거는 archive-sha256.json과 completion.json이다.
