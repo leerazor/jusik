@@ -370,7 +370,10 @@ def test_calendar_annualization_and_empty_months() -> None:
     assert result["trade_days_by_month"] == {"2024-01": 1, "2024-02": 0}
 
 
-@pytest.mark.parametrize("terminal_failure", ["risk", "accounting", "incomplete"])
+@pytest.mark.parametrize(
+    "terminal_failure",
+    ["risk", "accounting", "incomplete", "parity", "parity_accounting"],
+)
 def test_orchestration_actual_short_engine_runs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, terminal_failure: str
 ) -> None:
@@ -408,12 +411,29 @@ def test_orchestration_actual_short_engine_runs(
     ) -> tuple[PortfolioSimulation, list[EquityObservation]]:
         # Assert freezes exist before the first execution in each phase.
         assert (output / "preregistration.json").exists()
+        if len(calls) < 2:
+            assert args[5] is (len(calls) == 1)
+            assert not (output / "observer-parity.json").exists()
+            assert not (output / "simulations").exists()
+        else:
+            assert (output / "observer-parity.json").exists()
         period = args[3]
         assert isinstance(period, tuple)
         if period[0] in {"final", "continuous"}:
             assert (output / "finalist-freeze.json").exists()
         calls.append(str(period[0]))
         sim, observations = original_run(*args)  # type: ignore[arg-type]
+        if terminal_failure == "parity" and len(calls) == 2:
+            sim = sim.model_copy(
+                update={"overlap_diagnostics": {"tampered": Decimal(1)}}
+            )
+        elif terminal_failure == "parity_accounting" and len(calls) == 2:
+            observations[-1] = EquityObservation(
+                observations[-1].at,
+                observations[-1].nav_krw + 1,
+                observations[-1].cash_krw,
+                observations[-1].position_values_krw,
+            )
         if period[0] == "final" and sim.candidate.id != profiles[0]["id"]:
             if terminal_failure == "accounting":
                 sim = sim.model_copy(
@@ -456,9 +476,25 @@ def test_orchestration_actual_short_engine_runs(
 
     monkeypatch.setattr(experiment, "_run_simulation", run_checked)
     monkeypatch.setattr(experiment, "_candidate_row", controlled_row)
+    if terminal_failure in {"parity", "parity_accounting"}:
+        with pytest.raises(ValueError, match="observer changed|NAV does not reconcile"):
+            experiment.run(request_path, output)
+        assert calls == ["dev1", "dev1"]
+        assert not (output / "simulations").exists()
+        assert not (output / "finalist-freeze.json").exists()
+        assert not (output / "observer-parity.json").exists()
+        assert not (output / "results.json").exists()
+        failure = json.loads((output / "failure.json").read_text())
+        assert failure["ledger"] == []
+        return
     result = experiment.run(request_path, output)
     assert len(calls) == 12 + 12 + 2
-    assert calls[:12] == ["dev1", "dev1", "dev2", "dev2"] * 3
+    assert (
+        calls
+        == ["dev1", "dev1"]
+        + ["dev1", "dev1", "dev2", "dev2"] * 3
+        + ["final", "final", "continuous", "continuous"] * 3
+    )
     assert result["finalist_ids"] == sorted(
         [str(profiles[1]["id"]), str(profiles[2]["id"])]
     )

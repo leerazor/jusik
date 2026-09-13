@@ -722,6 +722,40 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
         candidate_template = PortfolioCandidate(
             id="placeholder", method="inverse_volatility", gate="fx_vix"
         )
+        baseline_profile = grid()[0]
+        baseline_id = cast(str, baseline_profile["id"])
+        parity_period = DEV_PERIODS[0]
+        baseline_candidate = candidate_template.model_copy(update={"id": baseline_id})
+        off, _off_observations = _run_simulation(
+            corrected,
+            source,
+            baseline_candidate,
+            parity_period,
+            _config(baseline_profile, 1),
+            False,
+        )
+        on, on_observations = _run_simulation(
+            observed_engine,
+            source,
+            baseline_candidate,
+            parity_period,
+            _config(baseline_profile, 1),
+            True,
+        )
+        verify_observer_parity(off, on)
+        verify_accounting(on, on_observations, _config(baseline_profile, 1), source)
+        parity = {
+            "period": parity_period[0],
+            "cost_multiplier": 1,
+            "equal": True,
+            "off_sha256": hashlib.sha256(
+                json.dumps(off.model_dump(mode="json"), sort_keys=True).encode()
+            ).hexdigest(),
+            "on_sha256": hashlib.sha256(
+                json.dumps(on.model_dump(mode="json"), sort_keys=True).encode()
+            ).hexdigest(),
+        }
+        _write_exclusive(output_dir / "observer-parity.json", parity)
         rows: list[dict[str, object]] = []
         for profile in grid():
             candidate = candidate_template.model_copy(
@@ -772,7 +806,6 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
                     rows.append(row)
                     ledger[-1].update({"status": "saved", "artifact": artifact_name})
 
-        baseline_id = cast(str, grid()[0]["id"])
         baseline = {
             (cast(str, row["period"]), cast(int, row["cost_multiplier"])): row
             for row in rows
@@ -865,39 +898,6 @@ def run(request_path: Path, output_dir: Path) -> dict[str, object]:
                     row["incomplete_reasons"] = simulation.incomplete_reasons
                     heldout_rows.append(row)
 
-        parity_period = DEV_PERIODS[0]
-        baseline_profile = profiles[baseline_id]
-        baseline_candidate = candidate_template.model_copy(update={"id": baseline_id})
-        off, _off_observations = _run_simulation(
-            corrected,
-            source,
-            baseline_candidate,
-            parity_period,
-            _config(baseline_profile, 1),
-            False,
-        )
-        on, on_observations = _run_simulation(
-            observed_engine,
-            source,
-            baseline_candidate,
-            parity_period,
-            _config(baseline_profile, 1),
-            True,
-        )
-        verify_observer_parity(off, on)
-        verify_accounting(on, on_observations, _config(baseline_profile, 1), source)
-        parity = {
-            "period": parity_period[0],
-            "cost_multiplier": 1,
-            "equal": True,
-            "off_sha256": hashlib.sha256(
-                json.dumps(off.model_dump(mode="json"), sort_keys=True).encode()
-            ).hexdigest(),
-            "on_sha256": hashlib.sha256(
-                json.dumps(on.model_dump(mode="json"), sort_keys=True).encode()
-            ).hexdigest(),
-        }
-        _write_exclusive(output_dir / "observer-parity.json", parity)
         verify_hashes(
             {
                 Path(request.source_path): request.source_sha256,

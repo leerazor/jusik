@@ -30,7 +30,8 @@ python -m jusik.research_portfolio_low_cash_experiment \
 복사한다. observer는 복사된 engine의 `equity()` 안에서 계산된 동일 NAV·현금·종목
 평가액만 기록하며 가격·FX 함수를 재호출하지 않는다.
 observer off/on 전체 `PortfolioSimulation`은 exact equality여야
-하며, parity 두 회를 별도로 보존한다.
+하며, parity 두 회를 별도로 보존한다. 이 두 실행의 전체 결과 비교와 회계 검증은
+개발 grid 실행 전에 완료해야 한다. 실패하면 개발 실행과 finalist 동결 없이 중단한다.
 
 ## 고정 설계
 
@@ -89,7 +90,7 @@ PAPER 활성화, 자동 승격 또는 실거래 적합성을 의미하지 않는
 상태가 있는지 확인한다. 한국어 `report.md`는 UTF-8 Markdown으로 저장하며
 32개 설정의 모든 개발 셀과 최종·연속 셀을 비교 표에 포함한다.
 
-2026-09-13 독립 리뷰 수정 검증: 짧은 기존 fixture로 개발→동결→최종·연속→parity
+2026-09-13 독립 리뷰 수정 검증: 짧은 기존 fixture로 parity→개발→동결→최종·연속
 실행 순서, 최종 탈락 뒤 재선정 금지, 현금 비율 선정, metric 변조 거부 및 달력
 연환산을 검증했다. 감독의 고정 요청 파일과 원천 10종목 및 engine hash는
 읽기 전용으로 검증했다. 실제 고정 grid 실행은 감독이 별도로 수행한다.
