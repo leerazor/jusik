@@ -235,6 +235,7 @@ def analyze(input_dir: Path, output_dir: Path) -> dict[str, Any]:
                             "fx_cost_krw": control["fx_cost_krw"],
                             "turnover_pct": control["turnover_pct"],
                             "longest_episode": control["longest_episode"],
+                            "terminal_unrecovered": control["terminal_unrecovered"],
                         },
                         "variant": {
                             "net_pnl_krw": variant["net_pnl_krw"],
@@ -243,6 +244,7 @@ def analyze(input_dir: Path, output_dir: Path) -> dict[str, Any]:
                             "fx_cost_krw": variant["fx_cost_krw"],
                             "turnover_pct": variant["turnover_pct"],
                             "longest_episode": variant["longest_episode"],
+                            "terminal_unrecovered": variant["terminal_unrecovered"],
                         },
                         "variant_minus_control_net_pnl_krw": format(
                             Decimal(variant["net_pnl_krw"])

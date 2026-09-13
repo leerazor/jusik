@@ -34,6 +34,7 @@ def points(values: list[str], *, step: int = 1) -> list[dict[str, object]]:
         (["100", "90", "90"], "1", True),
         (["100", "90", "110"], "1", False),
         (["100", "90", "110", "100"], "1", True),
+        (["100", "90", "80", "70"], "2", True),
     ],
 )
 def test_episode_fixtures(
@@ -61,12 +62,22 @@ def test_irregular_microseconds_and_initial_capital_peak_mdd() -> None:
         [
             {"at": start, "equity_krw": "80"},
             {"at": start + timedelta(seconds=1, microseconds=2), "equity_krw": "90"},
+            {
+                "at": start + timedelta(seconds=7, microseconds=250000),
+                "equity_krw": "100",
+            },
         ],
         Decimal("100"),
     )
     assert result["mdd"] == "0.2"
     assert result["drawdowns"][0]["drawdown"] == "0.2"
-    assert result["longest_episode"]["duration_seconds"] == "1.000002"
+    assert result["longest_episode"]["duration_seconds"] == "7.25"
+
+
+def test_recovery_at_new_high_closes_longest_episode() -> None:
+    result = measure_underwater(points(["100", "90", "110", "100"]), Decimal("100"))
+    assert result["longest_episode"]["right_censored"] is False
+    assert result["terminal_unrecovered"] is True
 
 
 @pytest.mark.parametrize(
@@ -85,9 +96,13 @@ def test_rejects_invalid_path(bad: list[object]) -> None:
         [
             {"at": datetime(2024, 1, 1, tzinfo=UTC), "equity_krw": "100"},
             {
-                "at": datetime(2024, 1, 1, tzinfo=timezone(timedelta(hours=9))),
+                "at": datetime(2024, 1, 1, 9, tzinfo=timezone(timedelta(hours=9))),
                 "equity_krw": "99",
             },
+        ],
+        [
+            {"at": datetime(2024, 1, 1, tzinfo=UTC), "equity_krw": "100"},
+            {"at": datetime(2024, 1, 1, tzinfo=UTC), "equity_krw": "99"},
         ],
         [{"at": datetime(2024, 1, 1, tzinfo=UTC)}],
         [{"at": datetime(2024, 1, 1, tzinfo=UTC), "equity_krw": "Infinity"}],
@@ -216,3 +231,11 @@ def test_synthetic_full48_analyze_has_24_pairs_and_separate_groups(
     assert len(report["variant_control_groups"]["folds"]) == 21
     assert len(report["variant_control_groups"]["continuous"]) == 3
     assert report["group_summaries"]["folds"]["joint_mdd_improved_duration_longer"] == 0
+    pair = report["variant_control"][0]
+    assert pair["variant_minus_control_net_pnl_krw"] == "1000000"
+    assert pair["variant_minus_control_transaction_cost_krw"] == "1"
+    assert pair["variant_minus_control_fx_cost_krw"] == "2"
+    assert pair["variant_minus_control_turnover_pct"] == "2"
+    assert pair["variant_minus_control_duration_seconds"] == "0"
+    assert pair["control"]["longest_episode"]["right_censored"] is False
+    assert pair["variant"]["terminal_unrecovered"] is False
