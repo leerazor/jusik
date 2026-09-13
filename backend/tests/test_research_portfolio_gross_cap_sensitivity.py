@@ -1,8 +1,9 @@
-# mypy: ignore-errors
 import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -113,7 +114,7 @@ def test_daily_metrics_uses_arithmetic_ratio_mean_and_initial_turnover() -> None
     assert Decimal(metrics["recomputed_turnover_pct_initial"]) == Decimal("0")
 
 
-def test_strict_json_rejects_duplicate_and_nonfinite(tmp_path) -> None:
+def test_strict_json_rejects_duplicate_and_nonfinite(tmp_path: Path) -> None:
     duplicate = tmp_path / "duplicate.json"
     duplicate.write_text('{"a": 1, "a": 2}', encoding="utf-8")
     with pytest.raises(ValueError):
@@ -124,7 +125,9 @@ def test_strict_json_rejects_duplicate_and_nonfinite(tmp_path) -> None:
         _strict_json(nonfinite)
 
 
-def _mock_contract(monkeypatch, tmp_path):
+def _mock_contract(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> list[dict[str, str]]:
     periods = [
         {"name": name, "start": "2024-01-01", "end": "2024-01-02"}
         for name in [f"fold_{i}" for i in range(1, 8)] + ["continuous"]
@@ -178,7 +181,7 @@ def _mock_contract(monkeypatch, tmp_path):
         lambda _path, out: (out / "original.py", out / "variant.py"),
     )
 
-    def fake_sha(path):
+    def fake_sha(path: Path) -> str:
         return "b" * 64 if path.name == "variant.py" else "a" * 64
 
     monkeypatch.setattr(
@@ -196,10 +199,10 @@ def _mock_contract(monkeypatch, tmp_path):
 
 
 def test_mock_orchestration_prereg_then_controls_then_variants(
-    monkeypatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     periods = _mock_contract(monkeypatch, tmp_path)
-    calls = []
+    calls: list[tuple[str, Decimal, Decimal, bool]] = []
     simulation = _sim().model_copy(
         update={
             "equity": [
@@ -216,7 +219,13 @@ def test_mock_orchestration_prereg_then_controls_then_variants(
         datetime(2024, 1, 2, tzinfo=UTC), Decimal("100000000"), Decimal("100000000"), {}
     )
 
-    def fake_run(_engine, _source, _candidate, period, config):
+    def fake_run(
+        _engine: ModuleType,
+        _source: Any,
+        _candidate: PortfolioCandidate,
+        period: dict[str, str],
+        config: PortfolioConfig,
+    ) -> tuple[PortfolioSimulation, list[EquityObservation]]:
         calls.append(
             (
                 period["name"],
@@ -238,7 +247,7 @@ def test_mock_orchestration_prereg_then_controls_then_variants(
         "jusik.research_portfolio_gross_cap_sensitivity._verify_accounting",
         lambda *_args: {"residual": Decimal("0")},
     )
-    replay_paths = []
+    replay_paths: list[str] = []
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._verify_exact_replay",
         lambda _payload, path, _digest: replay_paths.append(path.name),
@@ -271,7 +280,7 @@ def test_mock_orchestration_prereg_then_controls_then_variants(
 
 
 def test_mock_replay_or_accounting_failure_stops_before_variant(
-    monkeypatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     periods = _mock_contract(monkeypatch, tmp_path)
     simulation = _sim()
@@ -281,10 +290,15 @@ def test_mock_replay_or_accounting_failure_stops_before_variant(
         Decimal("80000000"),
         {"NVDA": Decimal("20000000")},
     )
-    calls = []
+    calls: list[int] = []
+
+    def fake_run(*_args: Any) -> tuple[PortfolioSimulation, list[EquityObservation]]:
+        calls.append(1)
+        return simulation, [observation]
+
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._run_simulation",
-        lambda *_args: calls.append(1) or (simulation, [observation]),
+        fake_run,
     )
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._verify_simulation_contract",
@@ -309,12 +323,14 @@ def test_mock_replay_or_accounting_failure_stops_before_variant(
         ),
     )
     replay_calls = []
+
+    def fail_replay(*_args: Any) -> None:
+        replay_calls.append(1)
+        raise ValueError("mismatch")
+
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._verify_exact_replay",
-        lambda *_args: (
-            replay_calls.append(1),
-            (_ for _ in ()).throw(ValueError("mismatch")),
-        )[1],
+        fail_replay,
     )
     with pytest.raises(ValueError, match="mismatch"):
         _execute(tmp_path, tmp_path / "engine.py", tmp_path / "out", lambda: 0.0)
@@ -322,7 +338,7 @@ def test_mock_replay_or_accounting_failure_stops_before_variant(
     assert replay_calls == [1]
 
 
-def test_nonempty_output_refuses_retry_without_calls(tmp_path) -> None:
+def test_nonempty_output_refuses_retry_without_calls(tmp_path: Path) -> None:
     output = tmp_path / "output"
     output.mkdir()
     (output / "failure.json").write_text("{}", encoding="utf-8")
@@ -333,10 +349,10 @@ def test_nonempty_output_refuses_retry_without_calls(tmp_path) -> None:
 
 
 def test_deadline_stops_before_first_simulation_and_records_all_missing(
-    monkeypatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     _mock_contract(monkeypatch, tmp_path)
-    calls = []
+    calls: list[int] = []
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._run_simulation",
         lambda *_args: calls.append(1),
@@ -353,7 +369,9 @@ def test_deadline_stops_before_first_simulation_and_records_all_missing(
     assert len(failure["missing"]) == 32
 
 
-def test_accounting_failure_stops_after_first_simulation(monkeypatch, tmp_path) -> None:
+def test_accounting_failure_stops_after_first_simulation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     periods = _mock_contract(monkeypatch, tmp_path)
     simulation = _sim()
     observation = EquityObservation(
@@ -362,10 +380,15 @@ def test_accounting_failure_stops_after_first_simulation(monkeypatch, tmp_path) 
         Decimal("80000000"),
         {"NVDA": Decimal("20000000")},
     )
-    calls = []
+    calls: list[int] = []
+
+    def fake_run(*_args: Any) -> tuple[PortfolioSimulation, list[EquityObservation]]:
+        calls.append(1)
+        return simulation, [observation]
+
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._run_simulation",
-        lambda *_args: calls.append(1) or (simulation, [observation]),
+        fake_run,
     )
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._verify_simulation_contract",
@@ -395,7 +418,7 @@ def test_accounting_failure_stops_after_first_simulation(monkeypatch, tmp_path) 
 
 
 def test_input_load_failure_preserves_failure_json_before_calls(
-    monkeypatch, tmp_path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(
         "jusik.research_portfolio_gross_cap_sensitivity._load_contract",
