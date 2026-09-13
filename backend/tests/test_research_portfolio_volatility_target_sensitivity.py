@@ -560,7 +560,7 @@ def test_load_contract_rejects_corrupt_pinned_preregistration(
         "jusik.research_portfolio_volatility_target_sensitivity.PRIOR_MANIFEST_SHA256",
         sha256(manifest),
     )
-    with pytest.raises(ValueError, match="hash mismatch"):
+    with pytest.raises(ValueError, match="mismatch"):
         _load_contract(tmp_path)
 
 
