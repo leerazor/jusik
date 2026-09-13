@@ -46,3 +46,26 @@ validate_terminal_accounting(
 이 구현은 과거 차단 attempt의 이력을 고치거나 연구 결과를 완료 처리하지
 않는다. 새 연구를 재개할 때도 원본 manifest·SHA와 별도 승인된 실행 조건을
 먼저 확인해야 한다.
+
+## 복구 상태와 재개 조건
+
+cadence blocker는 `source_paths` resolver가 입력 검증과 metadata 출력을 모두
+사용하도록 materialize되어 재개 가능한 상태다. 과거 cadence 구현 테스트에
+남아 있던 strict mypy 오류 4건은 별도 보존 이력으로 남아 있으며, 이 복구가
+그 테스트나 과거 task를 완료 처리했다고 해석하지 않는다.
+
+calendar blocker의 +1 KRW terminal cash 변조는 새 validator가 거부한다. 다만
+보존 synthetic calendar fixture를 `PortfolioInput`으로 다시 읽을 때
+normalizer가 `bars`를 필터링하면서 `adjustment_factors`를 함께 동기화하지
+않는 별도 문제가 확인되었다. 따라서 calendar 연구의 전체 재개는 이
+normalizer/factor 동기화 수정을 별도 offline 작업으로 검토한 뒤에만 가능하다.
+검증된 probe 기록은
+`/home/kwl/.local/share/jusik/portfolio-audit/portfolio-blocked-research-repair-v1-122f67291266410d8706be0ade14e940/archive-probe-result.json`
+에 보존한다.
+
+materializer CLI는 backend 디렉터리에서 다음처럼 실행할 수 있다.
+
+```bash
+python -m jusik.research_portfolio_offline_repair \
+  /path/to/originals /path/to/repaired
+```
