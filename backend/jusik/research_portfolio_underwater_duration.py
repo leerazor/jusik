@@ -7,7 +7,7 @@ import argparse
 import json
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
-from decimal import Decimal, localcontext
+from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +24,10 @@ MDD_TOLERANCE = Decimal("0.000000000000000001")
 
 
 def _decimal(value: Any) -> Decimal:
-    result = Decimal(str(value))
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("equity values must be finite decimals") from exc
     if not result.is_finite():
         raise ValueError("equity values must be finite")
     return result
@@ -284,11 +287,34 @@ def analyze(input_dir: Path, output_dir: Path) -> dict[str, Any]:
             "simulation_count": 48,
             "paths": paths,
             "variant_control": variants,
-            "groups": {"folds": {"period_count": 7}, "continuous": {"period_count": 1}},
+            "variant_control_groups": {
+                "folds": [row for row in variants if _is_fold(row)],
+                "continuous": [
+                    row for row in variants if row["period"] == "continuous"
+                ],
+            },
+            "groups": {
+                "folds": {
+                    "period_count": 7,
+                    "path_count": 42,
+                    "variant_control_count": 21,
+                },
+                "continuous": {
+                    "period_count": 1,
+                    "path_count": 6,
+                    "variant_control_count": 3,
+                },
+            },
+            "group_summaries": {
+                "folds": _summarize_group([row for row in variants if _is_fold(row)]),
+                "continuous": _summarize_group(
+                    [row for row in variants if row["period"] == "continuous"]
+                ),
+            },
             "claims": [
                 "descriptive MDD and underwater duration only; no policy promotion",
-                "initial capital 100000000 KRW; symbol cap 20%; leveraged ETF cap 20%; drawdown limit 10%",
-                "PAPER/live execution is deferred; no real-time risk control or loss guarantee",
+                "initial capital 100000000 KRW; user loss limit 20%; leveraged ETF cap 20%; frozen drawdown limit 10%; PAPER limit 10%",
+                "live execution is deferred; no real-time risk control or loss guarantee",
                 "no recovery is inferred between observations",
             ],
         }
@@ -320,33 +346,61 @@ def _render_markdown(report: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "## variant-control 24개",
+            "## variant-control folds 21개",
             "",
             "| period | cost | Δnet PnL | ΔMDD | Δduration seconds | Δtransaction KRW | ΔFX KRW | Δturnover pp |",
             "|---|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
-    for row in report["variant_control"]:
+    for row in report["variant_control_groups"]["folds"]:
         lines.append(
             f"| {row['period']} | {row['cost_multiplier']} | {row['variant_minus_control_net_pnl_krw']} | {row['variant_minus_control_mdd']} | {row['variant_minus_control_duration_seconds']} | {row['variant_minus_control_transaction_cost_krw']} | {row['variant_minus_control_fx_cost_krw']} | {row['variant_minus_control_turnover_pct']} |"
         )
-    mdd_improved = sum(
-        Decimal(row["variant_minus_control_mdd"]) < 0
-        for row in report["variant_control"]
-    )
-    duration_longer = sum(
-        Decimal(row["variant_minus_control_duration_seconds"]) > 0
-        for row in report["variant_control"]
-    )
     lines.extend(
         [
             "",
-            f"MDD 개선 사례: {mdd_improved}/24; underwater 기간 증가 사례: {duration_longer}/24.",
+            "## variant-control continuous 3개",
+            "",
+            "| period | cost | Δnet PnL | ΔMDD | Δduration seconds | Δtransaction KRW | ΔFX KRW | Δturnover pp |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for row in report["variant_control_groups"]["continuous"]:
+        lines.append(
+            f"| {row['period']} | {row['cost_multiplier']} | {row['variant_minus_control_net_pnl_krw']} | {row['variant_minus_control_mdd']} | {row['variant_minus_control_duration_seconds']} | {row['variant_minus_control_transaction_cost_krw']} | {row['variant_minus_control_fx_cost_krw']} | {row['variant_minus_control_turnover_pct']} |"
+        )
+    lines.extend(
+        [
+            "",
+            f"동시 MDD 개선·underwater 기간 증가 사례: folds {report['group_summaries']['folds']['joint_mdd_improved_duration_longer']}/21, continuous {report['group_summaries']['continuous']['joint_mdd_improved_duration_longer']}/3.",
             "MDD 개선과 underwater 기간 증가는 기술 통계로만 보고하며 정책 승격을 하지 않습니다.",
             "",
         ]
     )
     return "\n".join(lines)
+
+
+def _summarize_group(rows: Sequence[dict[str, Any]]) -> dict[str, int]:
+    mdd = sum(Decimal(row["variant_minus_control_mdd"]) < 0 for row in rows)
+    duration = sum(
+        Decimal(row["variant_minus_control_duration_seconds"]) > 0 for row in rows
+    )
+    joint = sum(
+        Decimal(row["variant_minus_control_mdd"]) < 0
+        and Decimal(row["variant_minus_control_duration_seconds"]) > 0
+        for row in rows
+    )
+    return {
+        "comparison_count": len(rows),
+        "mdd_improved": mdd,
+        "duration_longer": duration,
+        "joint_mdd_improved_duration_longer": joint,
+    }
+
+
+def _is_fold(row: Mapping[str, Any]) -> bool:
+    period = row.get("period")
+    return isinstance(period, str) and period.startswith("fold_")
 
 
 def main(argv: list[str] | None = None) -> int:
