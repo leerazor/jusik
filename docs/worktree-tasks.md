@@ -2,15 +2,15 @@
 
 ## agent-tooling — 2026-09-13
 
-- 상태: 준비
+- 상태: 진행
 - 목표와 완료 조건: Serena MCP, Playwright CLI와 Context7 도구를 검증하고, Codex 역할 지정과 압축 보고 및 감독 스킬을 적용합니다. 관련 검사와 독립 검토 후 로컬 main에 통합합니다.
-- 담당 Luna: 배정 예정(프로젝트 구현 1명), 사용자 환경 도구 설치 `/root/install_tools`.
+- 담당 Luna: 프로젝트 구현 `/root/project_tooling`, 개인 스킬 `/root/skill_tooling`, 사용자 환경 도구 설치 `/root/install_tools`. 파일 소유 범위를 분리했습니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-agent-tooling`
 - 작업 브랜치: `feat/agent-tooling`
-- 기준 커밋 SHA: 등록 커밋 이후 기록합니다. 등록 전 main은 `7ed18c1af7919925d06176adad9e330eb66d8ebf`입니다.
+- 기준 커밋 SHA: `a20e766f7e708574b82a14e55c382382eddfc3d8`.
 - 통합 대상 브랜치: `main`
 - 입력과 선행 작업: 사용자 승인된 추천 도구와 사용량 감사. 자동 runner와 timer는 기존 중지 상태를 유지합니다.
-- 수정 허용 범위: `.codex`, 관련 agent 도구 검증 코드와 테스트, 감독 운영 문서와 AGENTS 안내. 제품·전략·주문·운영 데이터는 범위 밖입니다.
+- 수정 허용 범위: 프로젝트 `.codex/agents`, 감독 운영 문서와 AGENTS 안내. 검증 helper와 테스트는 개인 `jusik-supervisor` 스킬에 둡니다. 제품·전략·주문·운영 데이터와 runner 실행 코드는 범위 밖입니다.
 - 포트·테스트 DB·출력 경로: 전용 임시 fixture와 `~/.local/share/jusik/tooling-audit/20260913-agent-tooling/`. 도구 설치 smoke는 별도 `20260913-tools/`입니다.
 - 검증 명령과 결과: 구현 후 기록합니다.
 - 결과 커밋 SHA와 검토 결과: 대기.
@@ -1113,9 +1113,9 @@
 
 ## open-ended-decision-study
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: 종료 시점 없는 계속 운용과 실제 비교 후 사용자 선택이라는 최신 의사를 기록하고, 고정된 4주 대 8주 연구 32개 결과를 재분석해 선택 근거를 제공합니다. PAPER 준비와 미완료 7건을 읽기 전용 점검하고 연구 한 건 후 중지합니다.
-- 담당 Luna: 전용 Luna 구현 소유자 1명. explore 완료, plan 후 구현합니다.
+- 담당 Luna: /root/luna_decision (gpt-5.6-luna), 구현 소유자 1명. explore·plan·구현·독립 review 완료.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-open-ended-decision-study
 - 작업 브랜치: feat/open-ended-decision-study
 - 기준 커밋 SHA: ed2ae9afff0e60dd59bef8d33d715e087997fb39 이후 이 등록 커밋
@@ -1126,3 +1126,10 @@
 - 검증 명령과 결과: 관련 pytest·Ruff·strict mypy, frontend lint·typecheck·build, Decimal 재분석과 독립 검증, 원본 SHA·기존 catalog 보존.
 - 종료 조건: 32개 저장 셀과 16개 쌍만 분석·재검산하며 historical simulation·새 후보·GPU 실행 0회. local main 통합 검사, 한국어 보고서·같은 조건 catalog 게시, handoff·이번 worktree 정리 후 중지합니다.
 - 남은 문제: 일부 원자료의 짧은 이력·PIT·배당·세금 한계를 유지합니다. 실거래나 기존 PAPER 정책에 후보를 채택하지 않습니다.
+- 결과 커밋 SHA: a44d402b8c7570c8e48601b86f3f6bbb4c7c42b9, 360cec03be18eb7d3d2ad68bbbf667e18587d094.
+- 병합 직전 main SHA: 532450a. 통합 커밋 SHA: 7ed18c1af7919925d06176adad9e330eb66d8ebf.
+- 검증 결과: worker와 main pytest 52개, 관련 Ruff·strict mypy 및 frontend lint·typecheck·build 통과. 원본 SHA 72개·raw 32셀·paired 16쌍·catalog 32개 수치 행 독립 검산 통과. 실제 브라우저 2개 화면×2개 너비, 다운로드 2개 SHA·API·PAPER raw collector 실행과 예약 확인.
+- 검토와 복구: 공개 중단 후 재실행 불가와 오래된 보고서 sourceReference를 수정했습니다. 임시 공개 디렉터리에서 실패 주입·복구·완료 후 동일 재실행을 확인했고 독립 재검토 추가 P1/P2 없음. 초기 브라우저 검사 selector의 study 접두사를 실제 DOM에 맞춰 고친 뒤 4개 화면 검사가 통과했습니다.
+- 게시: cadence-decision-20260913 신규 study·16개 비교와 한국어 보고서 공개. 기존 study 4개 및 featured 비교 보존. runner 전체 snapshot·기존 7건 상태 불변, paused와 service/timer inactive 유지. 웹은 실행 중입니다.
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913-open-ended-decision-study/HANDOFF.md. 기존 6개 미완료 워크트리 및 이번 작업 중 별도 등록된 jusik-agent-tooling 워크트리는 이번 정리 대상에서 제외합니다.
+- 정리: 검증·구현 diff·환경 정보·보고서 등 audit 41개 파일의 SHA를 확인한 뒤 이번 워크트리와 병합 브랜치를 정상 제거했습니다. 다른 작업의 등록 내용과 워크트리는 보존했습니다.
