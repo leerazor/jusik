@@ -6,9 +6,12 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
+from test_research_portfolio import _staggered_cap_source
 
 import jusik.research_portfolio_gross_cap_sensitivity as gross
 import jusik.research_portfolio_held_band_cost3_stress as cost3
+from jusik.research_external_features import decision_cutoff
+from jusik.research_portfolio_engine import simulate
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
@@ -33,9 +36,6 @@ from jusik.research_portfolio_volatility_target_sensitivity import (
     global_drawdown,
     sha256,
 )
-from jusik.research_portfolio_engine import simulate
-from jusik.research_external_features import decision_cutoff
-from test_research_portfolio import _staggered_cap_source
 
 
 def _sim() -> PortfolioSimulation:
