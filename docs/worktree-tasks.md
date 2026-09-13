@@ -896,20 +896,23 @@
 
 ## portfolio-gross-cap-2643
 
-- 상태: 준비
-- 목표와 완료 조건: gross .60/.80 고정 민감도, 대조군16 exact replay 후 신규16, CPU32회/900초, 실패 시 즉시 중단.
-- 담당 Luna: code 작업자 1명 예정.
-- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-gross-cap-2643
-- 작업 브랜치: feat/portfolio-gross-cap-2643
-- 기준 커밋 SHA: 준비 등록 커밋으로 고정합니다.
+- 상태: 완료
+- 목표와 완료 조건: gross .60/.80 고정 민감도, 대조군16 exact replay 후 신규16. CPU32회/19.058726초, 재시도0, GPU0으로 완료했습니다.
+- 담당 Luna: code 작업자1명, 조사·계획·독립 검토는 별도 읽기 전용 작업자.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-gross-cap-2643 (증거·SHA·handoff 보존 후 제거)
+- 작업 브랜치: feat/portfolio-gross-cap-2643 (병합 확인 후 제거)
+- 기준 커밋 SHA: c77a186 (작업 등록 포함)
 - 통합 대상 브랜치: local main
-- 입력과 선행 작업: cost3 f9aecd54 experiment, 최신 mandate; 69개 SHA 일치. audit의 plan.md와 source-coverage.json 참조.
-- 수정 허용 범위: 신규 gross-cap 연구 runner, 해당 테스트, docs/research/portfolio-gross-cap-cash-sensitivity-v1.md. 등록부는 Astra만 수정합니다.
+- 입력과 선행 작업: cost3 f9aecd54 experiment, 최신 mandate; 원천·engine/helper/manifest/mandate69개 SHA 일치. 기존16종목 실제 coverage 및 eligibility 고정.
+- 수정 허용 범위: 신규 gross-cap 연구 runner, 해당 테스트, docs/research/portfolio-gross-cap-cash-sensitivity-v1.md. 기존 backend source93개 불변.
 - 포트·테스트 DB·출력 경로: 서버/DB 없음. 독립 worktree venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-gross-cap-cash-sensitivity-v1-2643020d4e374d5699187071f552d34d.
-- 실행기 확인: 이 task/attempt가 running이며 dispatcher 상태를 변경하지 않습니다. 기존 HANDOFF.md와 다른 worktree 보존.
-- 검증 명령과 결과: 구현 후 pytest/Ruff/strict mypy, 독립 review 및 main 통합 검사 예정.
-- 결과 커밋 SHA: 미정
-- 검토 결과와 남은 문제: 미실행
-- 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미통합
-- handoff 저장 경로와 갱신 여부: audit/handoff-final.md 예정
+- 실행기 확인: task/attempt portfolio-gross-cap-cash-sensitivity-v1 / 2643020d4e374d5699187071f552d34d. dispatcher 상태 변경 없음. 기존 HANDOFF.md와 다른4개 worktree 보존.
+- 검증 명령과 결과: worker 최종60pytest/Ruffcheck·format/strictmypy2파일 통과(전체 타입 무시 제거). main 통합86pytest/Ruffcheck·format/strictmypy2파일 통과. 독립 raw32·대조군 JSON16·manifest72 SHA 통과. raw 금액 최대잔차3.21875e-31 KRW.
+- 결과 커밋 SHA: e2eb919d57adbf8b6c6a08333145c5b46c01ad43
+- 검토 결과와 남은 문제: 최종 독립 review 통과. Historical PIT·배당·receipt·early-close 한계 유지, 추가 연구와 정책 승격 없음.
+- 결과: continuous 평균 현금은 비용1x/3x에서 +0.044545/+0.010027 pp, 순수익 -0.314952/-0.100381 pp. MDD·비용은 소폭 감소, 거래수 동일. 현금 대기 감소를 확인하지 못한 결과로 종료했습니다. Fold와 continuous 분리. NVDA symbol cap 초과223 valuation 관측, gross/leveraged 초과0.
+- 병합 직전 main SHA: c77a186
+- 통합 커밋 SHA와 정리 여부: 6f9778508154488e5b46682ecde88f7f2ecc5787, main 검증과 archive-before-cleanup.json·handoff 보존 후 worktree/branch 제거.
+- 통합 검증 실패 원인과 복구 결과: 통합 검사는 모두 통과. 초기 worker 잘못된 명령 경로 로그는 실패로 보존하고 올바른 경로에서 최종 검사했습니다. 게시 seed의 Pydantic timestamp 정규화는 원본 값으로 복구 후 기존 항목 보존을 검증했습니다.
+- 게시: API/웹/다운로드200과 보고서SHA 일치. 기존 이력78개·artifact124개 원본 보존, DB 변경 없음.
+- handoff 저장 경로와 갱신 여부: audit/handoff-before-cleanup.md 및 handoff-final.md, 영구 보존 완료.
