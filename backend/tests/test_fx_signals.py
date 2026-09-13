@@ -1,6 +1,7 @@
 import asyncio
 from datetime import UTC, datetime, timedelta, tzinfo
 from decimal import Decimal
+from typing import Self
 
 import httpx
 import pytest
@@ -50,9 +51,19 @@ def account(holdings: list[Holding]) -> AccountResult:
 def freeze_fx_clock(monkeypatch: pytest.MonkeyPatch, now: datetime) -> None:
     class FrozenDateTime(datetime):
         @classmethod
-        def now(cls, tz: tzinfo | None = None) -> datetime:
+        def now(cls, tz: tzinfo | None = None) -> Self:
             assert tz is UTC
-            return now
+            return cls(
+                now.year,
+                now.month,
+                now.day,
+                now.hour,
+                now.minute,
+                now.second,
+                now.microsecond,
+                tzinfo=now.tzinfo,
+                fold=now.fold,
+            )
 
     monkeypatch.setattr(fx, "datetime", FrozenDateTime)
 
