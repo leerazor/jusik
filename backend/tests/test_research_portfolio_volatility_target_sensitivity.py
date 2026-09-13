@@ -709,7 +709,17 @@ def test_holiday_gap_uses_next_remaining_open_and_utc_cutoff() -> None:
     snapshot = next(
         item for item in source.instruments if item.instruments[0].symbol == "KRTEST"
     )
-    removed_date = snapshot.instruments[0].bars[72].date
+    baseline = simulate(
+        source,
+        PortfolioCandidate(id="equal", method="equal", gate="none"),
+        snapshot.requested_start,
+        snapshot.requested_end,
+        PortfolioConfig(),
+    )
+    baseline_trade = next(
+        trade for trade in baseline.trades if trade.symbol == "KRTEST"
+    )
+    removed_date = baseline_trade.executed_at.date()
     bars = [bar for bar in snapshot.instruments[0].bars if bar.date != removed_date]
     changed = snapshot.model_copy(
         update={
@@ -739,6 +749,10 @@ def test_holiday_gap_uses_next_remaining_open_and_utc_cutoff() -> None:
         expected = min(day for day in remaining_dates if day > trade.decided_at.date())
         assert trade.executed_at.date() == expected
     assert all(trade.executed_at.date() != removed_date for trade in kr_trades)
+    assert any(
+        trade.decided_at.date() < removed_date < trade.executed_at.date()
+        for trade in kr_trades
+    )
     assert decision_cutoff(date(2026, 3, 9), "Asia/Seoul") == datetime(
         2026, 3, 9, 6, 30, tzinfo=UTC
     )
