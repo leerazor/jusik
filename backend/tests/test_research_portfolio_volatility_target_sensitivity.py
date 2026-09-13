@@ -330,7 +330,10 @@ def test_mock_orchestration_prereg_then_controls_then_variants(
         }
     )
     observation = EquityObservation(
-        datetime(2024, 1, 2, tzinfo=UTC), Decimal("100000000"), Decimal("100000000"), {}
+        datetime(2024, 1, 2, tzinfo=UTC),
+        Decimal("100000000"),
+        Decimal("100000000"),
+        {},
     )
 
     def fake_run(
@@ -629,6 +632,69 @@ def test_saved_runtime_hash_mapping_rejects_post_call_mutation(tmp_path: Path) -
         verify_hashes(checks)
 
 
+def test_execute_rejects_post_call_mutation_using_saved_hashes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _mock_contract(monkeypatch, tmp_path)
+    protected = tmp_path / "protected-input.json"
+    protected.write_text("before", encoding="utf-8")
+    from jusik.research_experiment_guard import verify_hashes as real_verify_hashes
+
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity.verify_hashes",
+        real_verify_hashes,
+    )
+    map_calls = 0
+
+    def saved_mapping(*_args: Any) -> dict[Path, str]:
+        nonlocal map_calls
+        map_calls += 1
+        return {protected: sha256(protected)}
+
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity._runtime_hashes",
+        saved_mapping,
+    )
+    simulation = _sim()
+    observation = EquityObservation(
+        datetime(2024, 1, 2, tzinfo=UTC),
+        Decimal("100000000"),
+        Decimal("80000000"),
+        {"NVDA": Decimal("20000000")},
+    )
+    calls = 0
+
+    def fake_run(*_args: Any) -> tuple[PortfolioSimulation, list[EquityObservation]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            protected.write_text("after", encoding="utf-8")
+        return simulation, [observation]
+
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity._run_simulation",
+        fake_run,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity._verify_simulation_contract",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity._verify_accounting",
+        lambda *_args: {"residual": Decimal("0")},
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity._verify_exact_replay",
+        lambda *_args: None,
+    )
+    output = tmp_path / "output"
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        _execute(tmp_path, tmp_path / "engine.py", output, lambda: 0.0)
+    assert calls == 32
+    assert map_calls == 1
+    assert not (output / "results.json").exists()
+
+
 def test_zero_nav_observation_is_valid_and_drawdown_is_initial_inclusive() -> None:
     zero = EquityObservation(
         datetime(2024, 1, 2, tzinfo=UTC), Decimal("0"), Decimal("0"), {}
@@ -666,11 +732,13 @@ def test_holiday_gap_uses_next_remaining_open_and_utc_cutoff() -> None:
         PortfolioConfig(),
     )
     assert result.complete
-    assert all(
-        trade.executed_at.date() != removed_date
-        for trade in result.trades
-        if trade.symbol == "KRTEST"
-    )
+    kr_trades = [trade for trade in result.trades if trade.symbol == "KRTEST"]
+    assert kr_trades
+    remaining_dates = sorted(bar.date for bar in bars)
+    for trade in kr_trades:
+        expected = min(day for day in remaining_dates if day > trade.decided_at.date())
+        assert trade.executed_at.date() == expected
+    assert all(trade.executed_at.date() != removed_date for trade in kr_trades)
     assert decision_cutoff(date(2026, 3, 9), "Asia/Seoul") == datetime(
         2026, 3, 9, 6, 30, tzinfo=UTC
     )
