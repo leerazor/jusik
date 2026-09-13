@@ -1074,19 +1074,19 @@
 
 ## research-ui-redesign
 
-- 상태: 준비
+- 상태: 검증
 - 목표와 완료 조건: research-ui-redesign.md의 사용자 요구를 바탕으로 전체 목표·운용 조건, 연구 질문·변경점·결론·결정, 별도 PAPER 관찰을 이해할 수 있게 화면을 재설계합니다. 기존 기능과 URL을 보존하고 독립 검토, 브라우저 검증, local main 통합 검사와 handoff까지 완료합니다.
-- 담당 Luna: explore·plan 이후 Luna 구현 담당자 한 명을 배정합니다.
+- 담당 Luna: /root/luna_ui (gpt-5.6-luna), 구현 소유자 한 명. explore와 plan 완료.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-research-ui-redesign
 - 작업 브랜치: feat/research-ui-redesign
-- 기준 커밋 SHA: 10a8c01019f1194e8b3bdb4755b9ee30fab16b7e 이후 등록 커밋
+- 기준 커밋 SHA: afc2eb4
 - 통합 대상 브랜치: local main
 - 입력과 선행 작업: docs/research-ui-redesign.md(사용자 미추적 원본 보존), 최신 mandate, 기존 화면/API/공개 연구 원문. 자동 실행기는 paused, service/timer inactive이며 중지를 유지합니다.
 - 수정 허용 범위: frontend 연구 화면·표시용 데이터·CSS·관련 검사. 전략·주문·PAPER 정책·공개 성과 수치 변경 없음.
 - 포트·테스트 DB·출력 경로: 전용 node_modules/build, frontend 3321 및 fixture 8321, 운영 DB 미사용. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260913-research-ui-redesign.
-- 검증 명령과 결과: lint, typecheck, build, 관련 회귀 검사와 실제 브라우저 desktop/mobile 및 자료 부족 상태 검증 예정.
+- 검증 명령과 결과: 실제 Next 브라우저 44개 상태·화면 폭 검사, 비율 변환 12건·원본 식별 20건 통과. frontend lint/typecheck/build와 main 통합 검사를 마무리합니다.
 - 결과 커밋 SHA: 미정
-- 검토 결과와 남은 문제: 조사 중. 원문에서 확인되지 않은 결정·인과·규칙을 만들지 않습니다.
+- 검토 결과와 남은 문제: 독립 review의 관찰 검증 기간 누락, 낙폭 측정 기준 혼합, 고정 연구 수, 전체 기간 계산 오류와 브라우저 가로 넘침을 수정했습니다. 최종 독립 review 중요 지적 없음. 실제 일반인 참가 사용자 시험은 수행하지 않았습니다.
 - 병합 직전 main SHA: 미정
 - 통합 커밋 SHA와 정리 여부: 미정
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
