@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getForwardLedger, getForwardStatus, researchAmount } from "@/lib/research";
 
 export const dynamic = "force-dynamic";
@@ -40,12 +39,8 @@ export default async function ForwardResearchPage() {
   }
   return (
     <main>
-      <header className="research-result-header">
-        <Link href="/research" className="brand"><span className="mark">J</span> jusik <span className="brand-sub">전진 PAPER</span></Link>
-        <div className="action-row"><Link className="secondary-button" href="/research/validation">검증 증거</Link><Link className="secondary-button" href="/research/actions">기업행동 관측</Link><Link className="secondary-button" href="/research/history">개발 이력</Link><Link className="secondary-button" href="/research/portfolio">과거 비교</Link></div>
-      </header>
       <section className="intro research-intro">
-        <div><p className="eyebrow">FORWARD PAPER OBSERVATION</p><h1>새 시세부터 쌓는 전진 관찰</h1><p className="muted">활성화 이전 손익과 보유는 가져오지 않았습니다. 사전 고정한 저회전 결합 정책을 1억원 현금 원장에서 관찰하며 실제 주문은 만들지 않습니다.</p></div>
+        <div><p className="eyebrow">FORWARD PAPER OBSERVATION</p><h1>새 시세부터 쌓는 가상 관찰</h1><p className="muted">이 화면은 새로 제안된 후보의 독립 검증 화면이 아닙니다. 기존에 고정된 PAPER 10% 방어 정책을 1억원 현금 원장에서 관찰하는 별도 기록이며, 연구 목표인 20% 하락 한도와도 구분됩니다. 실제 주문은 만들지 않습니다.</p></div>
         <span className="badge">브로커 주문 꺼짐</span>
       </section>
       {!status || !ledger ? (

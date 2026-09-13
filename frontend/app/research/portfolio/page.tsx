@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   getLatestPortfolioRun,
   getPortfolioStatus,
@@ -260,9 +259,10 @@ export default async function PortfolioResearchPage() {
   }
   return (
     <main>
-      <header className="research-result-header"><Link href="/research" className="brand"><span className="mark">J</span> jusik <span className="brand-sub">통합 포트폴리오 연구</span></Link><div className="action-row"><Link className="secondary-button" href="/research/validation">검증 증거</Link><Link className="secondary-button" href="/research/portfolio/dividends">검증된 배당 기여</Link><Link className="secondary-button" href="/research/forward">전진 관찰</Link><Link className="secondary-button" href="/research/history">개발 이력</Link><Link className="secondary-button" href="/research">연구 홈</Link><span className="badge">연구 전용 · 실제 주문 없음</span></div></header>
-      <section className="intro research-intro"><div><p className="eyebrow">PORTFOLIO RESEARCH</p><h1>한 계좌로 함께 배분했을 때</h1><p className="muted">16개 종목을 원화 1억원 단일 현금 계좌에서 주간 단위로 재배분한 결과입니다.</p></div></section>
+      <section className="intro research-intro"><div><p className="eyebrow">PORTFOLIO RESEARCH</p><h1>여러 종목을 함께 배분한 결과</h1><p className="muted">이 화면은 16개 종목을 원화 1억원 단일 현금 계좌에서 비교한 후향 연구입니다. 과거 비교일 뿐 미래 수익이나 실거래 적합성을 증명하지 않습니다.</p></div></section>
+      <div className="result-local-actions"><div className="detail-links"><Link className="secondary-button" href="/research/portfolio/dividends">확인된 배당 기여 보기</Link><Link className="secondary-button" href="/research/lab">상세 분석·자료 점검</Link></div></div>
       {content}
     </main>
   );
 }
+import Link from "next/link";

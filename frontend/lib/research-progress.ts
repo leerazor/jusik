@@ -129,6 +129,36 @@ export type Metrics = z.infer<typeof metricsSchema>;
 export type Comparison = z.infer<typeof comparisonSchema>;
 export type Study = z.infer<typeof studySchema>;
 
+type ExpandedResearchDecimal = { negative: boolean; digits: string; decimalPosition: number };
+function expandResearchDecimal(value: string): ExpandedResearchDecimal | null {
+  const match = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(value);
+  if (!match) return null;
+  const [, sign, whole, fraction = "", exponentText = "0"] = match;
+  const rawDigits = `${whole}${fraction}`;
+  if (!/[1-9]/.test(rawDigits)) return { negative: false, digits: "0", decimalPosition: 1 };
+  const exponent = Number(exponentText);
+  if (!Number.isSafeInteger(exponent)) return null;
+  const digits = rawDigits.replace(/^0+(?=\d)/, "");
+  const leadingZeros = rawDigits.length - rawDigits.replace(/^0+/, "").length;
+  return { negative: sign === "-" && /[1-9]/.test(digits), digits, decimalPosition: whole.length + exponent - leadingZeros };
+}
+
+export function compareDecimal(left: string, right: string): number | null {
+  const a = expandResearchDecimal(left);
+  const b = expandResearchDecimal(right);
+  if (!a || !b) return null;
+  if (a.digits === "0") return b.digits === "0" ? 0 : b.negative ? 1 : -1;
+  if (b.digits === "0") return a.negative ? -1 : 1;
+  if (a.negative !== b.negative) return a.negative ? -1 : 1;
+  const sign = a.negative ? -1 : 1;
+  if (a.decimalPosition !== b.decimalPosition) return sign * (a.decimalPosition > b.decimalPosition ? 1 : -1);
+  const length = Math.max(a.digits.length, b.digits.length);
+  const aDigits = a.digits.padEnd(length, "0");
+  const bDigits = b.digits.padEnd(length, "0");
+  if (aDigits === bDigits) return 0;
+  return sign * (aDigits > bDigits ? 1 : -1);
+}
+
 export async function getResearchProgress(): Promise<ResearchProgress> {
   const response = await fetch(`${researchBackendUrl()}/api/research/progress`, {
     cache: "no-store",

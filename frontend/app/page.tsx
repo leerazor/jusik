@@ -82,7 +82,7 @@ export default async function Home() {
           <span className="brand-sub">나의 투자 현황</span>
         </Link>
         <div className="header-actions">
-          <Link href="/research" className="header-link">전략 연구</Link>
+          <Link href="/research" className="header-link">투자 연구 이해하기</Link>
           <span className="badge">실계좌 · 조회 전용</span>
         </div>
       </header>
@@ -103,7 +103,7 @@ export default async function Home() {
           <p>보유 종목과 관계없이 백테스트하고, 결과를 저장해 반복 비교할 수 있습니다.</p>
         </div>
         <div className="action-row">
-          <Link href="/research" className="primary-link">전략 연구 시작</Link>
+          <Link href="/research" className="primary-link">투자 연구 이해하기</Link>
           <a href="/research-guide.html" className="secondary-button">사용 안내 보기</a>
         </div>
       </section>
