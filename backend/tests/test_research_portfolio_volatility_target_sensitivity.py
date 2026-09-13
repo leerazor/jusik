@@ -6,6 +6,8 @@ from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
+import jusik.research_portfolio_gross_cap_sensitivity as gross
+import jusik.research_portfolio_held_band_cost3_stress as cost3
 
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
@@ -21,6 +23,10 @@ from jusik.research_portfolio_volatility_target_sensitivity import (
     _config,
     _daily_metrics,
     _execute,
+    _load_contract,
+    _runtime_hashes,
+    COST3_HELPER_SHA256,
+    GROSS_HELPER_SHA256,
     _strict_json,
     _verify_observations,
     cap_observations,
@@ -536,3 +542,67 @@ def test_input_load_failure_preserves_failure_json_before_calls(
     failure = tmp_path / "out" / "failure.json"
     assert failure.exists()
     assert "malformed prereg" in failure.read_text()
+
+
+def test_load_contract_rejects_corrupt_pinned_preregistration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prereg = tmp_path / "preregistration.json"
+    manifest = tmp_path / "hash-manifest.json"
+    prereg.write_text("{}", encoding="utf-8")
+    manifest.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity.PRIOR_PREREG_SHA256",
+        "f" * 64,
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity.PRIOR_MANIFEST_SHA256",
+        sha256(manifest),
+    )
+    with pytest.raises(ValueError, match="hash mismatch"):
+        _load_contract(tmp_path)
+
+
+def test_load_contract_rejects_missing_manifest_artifact(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prereg = tmp_path / "preregistration.json"
+    manifest = tmp_path / "hash-manifest.json"
+    prereg.write_text("{}", encoding="utf-8")
+    manifest.write_text('{"missing.json":"' + "a" * 64 + '"}', encoding="utf-8")
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity.PRIOR_PREREG_SHA256",
+        sha256(prereg),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity.PRIOR_MANIFEST_SHA256",
+        sha256(manifest),
+    )
+    monkeypatch.setattr(
+        "jusik.research_portfolio_volatility_target_sensitivity.verify_hashes",
+        lambda _checks: None,
+    )
+    with pytest.raises(ValueError, match="manifest path is invalid"):
+        _load_contract(tmp_path)
+
+
+def test_runtime_hashes_contains_both_pinned_helpers(tmp_path: Path) -> None:
+    files = [tmp_path / name for name in ("engine.py", "original.py", "variant.py", "observer.py", "mandate.json", "results.json")]
+    for path in files:
+        path.write_text("{}", encoding="utf-8")
+    checks = _runtime_hashes(
+        tmp_path,
+        {"source_paths": {}, "source_hashes": {}},
+        files[0], files[1], files[2], files[3], files[4],
+    )
+    assert checks[Path(gross.__file__)] == GROSS_HELPER_SHA256
+    assert checks[Path(cost3.__file__)] == COST3_HELPER_SHA256
+
+
+def test_zero_nav_observation_is_valid_and_drawdown_is_initial_inclusive() -> None:
+    zero = EquityObservation(
+        datetime(2024, 1, 2, tzinfo=UTC), Decimal("0"), Decimal("0"), {}
+    )
+    simulation = _sim().model_copy(update={"equity": []})
+    assert _verify_observations(simulation, [zero], PortfolioConfig()) is None
+    assert global_drawdown([zero]) == Decimal("100")

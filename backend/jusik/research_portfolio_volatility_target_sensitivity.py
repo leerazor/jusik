@@ -408,17 +408,8 @@ def _execute(
                             "ledger": ledger,
                         },
                     )
-        verify_hashes(
-            _runtime_hashes(
-                prior_audit,
-                prereg,
-                engine_source,
-                original,
-                variant,
-                observer,
-                mandate_path,
-            )
-        )
+        verify_hashes(runtime_hashes)
+        _verify_runtime_hashes(engine_source)
         pairs = [
             {
                 "period": p["name"],
