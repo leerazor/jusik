@@ -135,11 +135,17 @@ def covariance_floor_volatility_scale(
             engine._market_time(bar.date, item.instrument.timezone, opening=False)
             for bar in closes
         ]
+        if len(known) != len(set(known)) or known != sorted(known):
+            raise ValueError(f"duplicate or unsorted close timestamps: {symbol}")
         values: list[Decimal] = []
         for day in global_days:
             cutoff = min(datetime.combine(day, datetime.max.time(), UTC), at)
             index = bisect.bisect_right(known, cutoff) - 1
             if index < 0:
+                return None, None
+            if (
+                cutoff - known[index]
+            ).total_seconds() > config.external_max_age_days * 86400:
                 return None, None
             value = closes[index].adjusted_close
             if item.instrument.currency == "USD":

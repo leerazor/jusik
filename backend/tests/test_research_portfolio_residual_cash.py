@@ -2,6 +2,7 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -133,8 +134,65 @@ def test_covariance_adapter_real_engine_hook_accepts_cache_argument() -> None:
     data = engine._instrument_data(source)
     weights = {symbol: Decimal("0.5") for symbol in list(data)[:2]}
     at = datetime(2024, 2, 1, tzinfo=UTC)
-    scale, proxy = covariance_floor_volatility_scale(engine, source, data, weights, at, config)
+    scale, proxy = covariance_floor_volatility_scale(
+        engine, source, data, weights, at, config
+    )
     assert scale is not None and proxy is not None
+
+
+def test_covariance_adapter_rejects_stale_and_duplicate_close_grid() -> None:
+    from datetime import date
+
+    from jusik.research_portfolio_models import PortfolioConfig
+
+    class Engine:
+        @staticmethod
+        def _market_time(value, _timezone, opening=False):
+            return datetime.combine(value, datetime.min.time(), UTC)
+
+    bars = [
+        SimpleNamespace(date=date(2024, 1, day), adjusted_close=Decimal(100))
+        for day in (1, 2, 3)
+    ]
+    instrument = SimpleNamespace(timezone="UTC", currency="KRW")
+    data = {
+        "A": SimpleNamespace(
+            instrument=instrument,
+            snapshot=SimpleNamespace(instruments=[SimpleNamespace(bars=bars)]),
+        )
+    }
+    data["B"] = SimpleNamespace(
+        instrument=instrument,
+        snapshot=SimpleNamespace(
+            instruments=[SimpleNamespace(
+                bars=bars + [SimpleNamespace(date=date(2024, 1, 15), adjusted_close=Decimal(100))]
+            )]
+        ),
+    )
+    config = PortfolioConfig(volatility_window=2, external_max_age_days=7)
+    source = SimpleNamespace()
+    result = covariance_floor_volatility_scale(
+        Engine(),
+        source,
+        data,
+        {"A": Decimal("0.5"), "B": Decimal("0.5")},
+        datetime(2024, 1, 20, tzinfo=UTC),
+        config,
+    )
+    assert result == (None, None)
+    duplicate = bars + [
+        SimpleNamespace(date=date(2024, 1, 3), adjusted_close=Decimal(100))
+    ]
+    data["A"].snapshot.instruments[0].bars = duplicate
+    with pytest.raises(ValueError, match="duplicate"):
+        covariance_floor_volatility_scale(
+            Engine(),
+            source,
+            data,
+            {"A": Decimal(1)},
+            datetime(2024, 1, 4, tzinfo=UTC),
+            config,
+        )
 
 
 def test_global_drawdown_uses_initial_peak_and_is_independent_of_latch() -> None:
