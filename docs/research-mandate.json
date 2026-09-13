@@ -1,0 +1,25 @@
+{
+  "recorded_at": "2026-09-12T21:07:50.560440+00:00",
+  "capital_krw": 100000000,
+  "maximum_drawdown_fraction": "0.20",
+  "drawdown_reference": "running peak of total portfolio marked-to-market NAV, including initial capital",
+  "research_universe_expansion": [
+    "existing instruments",
+    "cash",
+    "broad-market index ETFs",
+    "short-duration bond ETFs"
+  ],
+  "interim_withdrawals": "none",
+  "investment_horizon": null,
+  "historical_lookback_years": 3,
+  "leveraged_allocation_fraction": "0.20",
+  "turnover_preference": "low",
+  "signal_detection": "real-time",
+  "live_trading": "deferred",
+  "frozen_paper_contract": "unchanged;10% drawdown",
+  "user_answers": [
+    "기존 종목에 현금·광범위 지수·단기채 ETF 등을 추가해 비교",
+    "운용 중 평가액 최고점 대비 20% 하락",
+    "중간 인출 없음"
+  ]
+}
