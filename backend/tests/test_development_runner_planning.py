@@ -48,9 +48,10 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     import json
 
     mandate = json.loads(
-        Path(__file__).parents[2].joinpath("docs/research-mandate.json").read_text(
-            encoding="utf-8"
-        )
+        Path(__file__)
+        .parents[2]
+        .joinpath("docs/research-mandate.json")
+        .read_text(encoding="utf-8")
     )
     assert mandate == {
         "recorded_at": "2026-09-12T21:07:50.560440+00:00",
@@ -279,9 +280,10 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
     mandate_path = repo / "docs" / "research-mandate.json"
     mandate_path.parent.mkdir()
     mandate_path.write_text(
-        Path(__file__).parents[2].joinpath("docs/research-mandate.json").read_text(
-            encoding="utf-8"
-        ),
+        Path(__file__)
+        .parents[2]
+        .joinpath("docs/research-mandate.json")
+        .read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     store = RunnerStore(tmp_path / "state" / "runner.db", tmp_path / "history")

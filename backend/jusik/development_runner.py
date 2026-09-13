@@ -497,10 +497,9 @@ def _tracked_research_mandate(repo: Path) -> str | None:
     try:
         content = path.read_text(encoding="utf-8")
         mandate = json.loads(content)
-        if (
-            not isinstance(mandate, dict)
-            or not RESEARCH_MANDATE_REQUIRED_FIELDS.issubset(mandate)
-        ):
+        if not isinstance(
+            mandate, dict
+        ) or not RESEARCH_MANDATE_REQUIRED_FIELDS.issubset(mandate):
             return None
         return content
     except (OSError, UnicodeError):

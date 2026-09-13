@@ -890,6 +890,8 @@ def test_empty_queue_planner_proposes_then_dispatches_research_child(
         assert not any(
             item[3] == "planning_proposed" for item in store.outbox_pending()
         )
+
+
 @pytest.mark.parametrize(
     ("gate", "expected_status"),
     [
