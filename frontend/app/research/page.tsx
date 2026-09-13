@@ -1,83 +1,117 @@
 import Link from "next/link";
-import { compareDecimal, getResearchProgress, type Comparison, type ResearchProgress } from "@/lib/research-progress";
-import { researchAmount } from "@/lib/research";
 import { OperationsRefresh } from "./lab/operations-refresh";
+import { compareDecimal, getResearchProgress, type Comparison, type ResearchProgress, type Study } from "@/lib/research-progress";
+import {
+  getForwardLedger,
+  getForwardStatus,
+  getProspectiveRegistrationStatus,
+  researchAmount,
+  type ForwardLedger,
+  type ForwardStatus,
+  type ProspectiveRegistrationStatus,
+} from "@/lib/research";
+import { candidateRuleForComparison, getStudyNarrative, mandateSummary, type StudyNarrative } from "@/lib/research-narrative";
+import { fractionToPercent } from "@/lib/research-decimal";
+import styles from "./research.module.css";
 
 export const dynamic = "force-dynamic";
 type PageProps = { searchParams: Promise<{ error?: string }> };
 
+function dateTime(value: string | null): string {
+  if (!value) return "확인할 수 없음";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "확인할 수 없음" : `${date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST`;
+}
 function percent(value: string): string { return `${researchAmount(value, 2)}%`; }
-function statusText(progress: ResearchProgress | null): string {
-  if (!progress) return "확인할 수 없음";
-  if (progress.research.availability === "invalid") return "검증되지 않음";
-  if (progress.research.availability === "unavailable") return "사용할 수 없음";
-  return progress.research.studies.length > 0 ? "과거 비교 자료 있음" : "아직 공개 자료 없음";
+function krw(value: string): string { return `${researchAmount(value, 0)}원`; }
+function formatCapital(value: number): string { return `${(value / 10000).toLocaleString("ko-KR")}만원`; }
+function comparisons(studies: Study[]): Comparison[] { return studies.flatMap((study) => study.comparisons); }
+function periodScope(study: Study): string {
+  if (study.comparisons.length === 0) return "기간 자료 없음";
+  const starts = study.comparisons.map((comparison) => comparison.period_start).sort();
+  const ends = study.comparisons.map((comparison) => comparison.period_end).sort();
+  return `${starts[0]}–${ends[ends.length - 1]}`;
 }
-function runnerText(progress: ResearchProgress | null): string {
-  if (!progress) return "자동 개발 상태 확인 불가";
-  const runner = progress.runner;
-  if (runner.availability !== "available") return "자동 개발 상태 확인 불가";
-  if (runner.paused) return "자동 개발 일시정지";
-  if (runner.paused === null || runner.service === "unknown") return "자동 개발 상태 확인 불가";
-  if (runner.current || (runner.counts?.running ?? 0) > 0) return "자동 개발 작업 기록 있음";
-  if (runner.timer === "active") return "자동 개발 실행 대기";
-  if (runner.timer === "inactive") return "자동 개발 비활성";
-  return "자동 개발 상태 확인 불가";
+function availabilityNotice(progress: ResearchProgress | null): React.ReactNode {
+  if (!progress) return <div className={styles.alert} role="alert"><h2>연구 진행 API에 연결할 수 없습니다</h2><p>네트워크 응답 또는 자료 검증이 실패했습니다. 정상 대기나 성과 없음으로 해석하지 않습니다.</p></div>;
+  if (progress.research.availability === "invalid") return <div className={styles.alert} role="alert"><h2>연구 자료를 검증할 수 없습니다</h2><p>응답은 받았지만 연구 카탈로그의 형식이나 식별 정보가 유효하지 않습니다.</p></div>;
+  if (progress.research.availability === "unavailable") return <div className={styles.alert} role="alert"><h2>연구 자료를 사용할 수 없습니다</h2><p>연구 카탈로그가 제공되지 않았습니다. 자료 없음과 연결 실패를 구분해 표시합니다.</p></div>;
+  if (progress.research.studies.length === 0) return <div className={styles.alert} role="status"><h2>공개된 연구가 아직 없습니다</h2><p>카탈로그는 정상 응답했지만 공개된 연구와 비교가 없습니다.</p></div>;
+  return null;
 }
-function featured(progress: ResearchProgress): { comparison: Comparison; title: string } | null {
-  const id = progress.research.featured_comparison_id;
-  if (!id) return null;
+
+function percentChange(left: string, right: string, label: string): string {
+  const result = compareDecimal(left, right);
+  if (result === null || result === 0) return `${label} 변화 판단 자료 부족`;
+  return result < 0 ? `${label} 감소` : `${label} 증가`;
+}
+function featuredComparison(progress: ResearchProgress | null): { study: Study; comparison: Comparison } | null {
+  const id = progress?.research.featured_comparison_id;
+  if (!id || progress?.research.availability !== "available") return null;
   for (const study of progress.research.studies) {
     const comparison = study.comparisons.find((item) => item.id === id);
-    if (comparison) return { comparison, title: study.title };
+    if (comparison) return { study, comparison };
   }
   return null;
 }
-function comparisonNote(comparison: Comparison): string {
-  const returnChange = compareDecimal(comparison.candidate.net_return_pct, comparison.baseline.net_return_pct);
-  const drawdownChange = compareDecimal(comparison.candidate.max_drawdown_pct, comparison.baseline.max_drawdown_pct);
-  const costChange = compareDecimal(comparison.candidate.total_cost_krw, comparison.baseline.total_cost_krw);
-  const returnText = returnChange === null ? "수익률 변화 확인 불가" : returnChange === 0 ? "수익률 차이 없음" : returnChange > 0 ? "수익률 증가" : "수익률 감소";
-  const drawdownText = drawdownChange === null ? "낙폭 변화 확인 불가" : drawdownChange === 0 ? "낙폭 차이 없음" : drawdownChange > 0 ? "낙폭 확대" : "낙폭 축소";
-  const costText = costChange === null ? "비용 변화 확인 불가" : costChange === 0 ? "비용 차이 없음" : costChange > 0 ? "비용 증가" : "비용 감소";
-  return `기준선과 비교하면 ${returnText} · ${drawdownText} · ${costText}입니다. 어느 한 지표의 변화만으로 개선이나 채택을 뜻하지 않습니다.`;
+const registrationStateLabel: Record<string, string> = { not_registered: "미등록", planned: "검증 예정", observing: "검증 중", window_elapsed: "검증 창 종료", identity_mismatch: "식별 정보 불일치", invalid_contract: "계약 검증 실패" };
+function GoalSection({ progress }: { progress: ResearchProgress | null }) {
+  const featured = featuredComparison(progress);
+  const studies = progress?.research.availability === "available" ? progress.research.studies : [];
+  const limit = fractionToPercent(mandateSummary.drawdown);
+  const leverageLimit = fractionToPercent(mandateSummary.leverage);
+  const comparison = featured?.comparison;
+  const scope = comparison ? `${featured.study.title} · ${comparison.period_start}–${comparison.period_end} · 비용 ${comparison.cost_multiplier}배 · 현금 ${comparison.cash_statistic === "mean" ? "평균" : "중앙값"} · ${comparison.drawdown_basis === "close_nav" ? "종가 평가액" : "전체 관측 평가액"}` : "지정 대표 비교 없음";
+  const riskResult = !comparison || comparison.drawdown_basis === "close_nav" ? "판단 자료 부족" : (() => { const result = compareDecimal(comparison.candidate.max_drawdown_pct, limit); return result !== null && result <= 0 ? "이 과거 비교에서 기준 충족" : "이 과거 비교에서 기준 미충족"; })();
+  const leverageResult = !comparison ? "판단 자료 부족" : (() => { const result = compareDecimal(comparison.candidate.max_leverage_pct, leverageLimit); return result !== null && result <= 0 ? "이 과거 비교에서 기준 충족" : "이 과거 비교에서 기준 미충족"; })();
+  const cashResult = comparison ? percentChange(comparison.candidate.cash_pct, comparison.baseline.cash_pct, "현금") : "판단 자료 부족";
+  const tradeResult = comparison ? `${percentChange(String(comparison.candidate.trade_days), String(comparison.baseline.trade_days), "거래일")} · ${percentChange(comparison.candidate.annual_turnover_pct, comparison.baseline.annual_turnover_pct, "회전율")} · ${percentChange(comparison.candidate.total_cost_krw, comparison.baseline.total_cost_krw, "비용")}` : "판단 자료 부족";
+  const rows = [
+    { title: "위험 목표", body: `최대 낙폭 ${limit}% 이하를 목표로 합니다.`, evidence: comparison ? `기준 ${percent(comparison.baseline.max_drawdown_pct)} → 후보 ${percent(comparison.candidate.max_drawdown_pct)}` : scope, status: riskResult },
+    { title: "레버리지 배분", body: `레버리지 상품 배분 ${leverageLimit}% 범위에서 연구합니다.`, evidence: comparison ? `기준 ${percent(comparison.baseline.max_leverage_pct)} → 후보 ${percent(comparison.candidate.max_leverage_pct)}` : scope, status: leverageResult },
+    { title: "현금·투자 비중", body: "불필요한 현금 대기를 줄이고 투자 비중을 높이는 변화를 봅니다.", evidence: comparison ? `기준 ${percent(comparison.baseline.cash_pct)} → 후보 ${percent(comparison.candidate.cash_pct)}` : scope, status: cashResult },
+    { title: "거래 부담", body: "거래 빈도·회전율·비용·순수익을 함께 평가합니다.", evidence: comparison ? `거래일 ${comparison.baseline.trade_days} → ${comparison.candidate.trade_days} · 회전율 ${percent(comparison.baseline.annual_turnover_pct)} → ${percent(comparison.candidate.annual_turnover_pct)} · 비용 ${krw(comparison.baseline.total_cost_krw)} → ${krw(comparison.candidate.total_cost_krw)}` : scope, status: tradeResult },
+  ];
+  const total = comparisons(studies).length;
+  return <section className={styles.section} aria-labelledby="goals-title"><div className={styles.sectionHead}><div><span className={styles.sectionNo}>01 / 기준</span><h2 id="goals-title">목표와 현재 확인 결과</h2><p>{total}개 비교 중 지정 대표 비교 1개에 한정한 요약입니다. 전체 범위는 아래 연구와 성과 비교에서 확인합니다.</p></div></div>{comparison && <div className={styles.goalContext}><strong>{comparison.baseline.label} / {comparison.candidate.label}</strong><span>{scope}</span></div>}<div className={styles.goalList}>{rows.map((row) => <article className={styles.goalRow} key={row.title}><h3>{row.title}</h3><div><p>{row.body}</p><small>{row.evidence}</small></div><strong className={styles.goalStatus}>{row.status}</strong><Link className={styles.goalLink} href={featured ? `/research/progress#study-${featured.study.id}` : "/research/progress#studies-title"}>비교 표 보기 ↗</Link></article>)}</div></section>;
+}
+
+function ConditionsSection() {
+  const leverageLimit = fractionToPercent(mandateSummary.leverage);
+  const drawdownLimit = fractionToPercent(mandateSummary.drawdown);
+  const conditions: Array<[string, string]> = [["초기 자본", formatCapital(mandateSummary.capitalKrw)], ["중간 인출", "없음"], ["위험 목표", `초기 자본 포함 최고점 대비 낙폭 ${drawdownLimit}%`], ["레버리지 배분", `${leverageLimit}% 범위`], ["거래 선호", "잦은 거래 지양 · 빈도·회전율·비용·순수익 함께 평가"], ["과거 자료", `${mandateSummary.lookbackYears}년 확인 기간 요구 · 실제 비교 기간은 연구별로 표시`], ["종목 범위", "기존 종목·현금·광범위 지수 ETF·단기채 ETF 확장"], ["짧은 이력 ETF", "주 연구를 막으면 제외 가능"], ["신호와 주문", "실시간 신호 탐지 · 주문 빈도와 다른 개념"], ["투자기간", "미정"], ["운영 정책", "실거래 유보 · 기존 PAPER 10% 계약 고정"]];
+  return <section className={styles.section} aria-labelledby="conditions-title"><div className={styles.sectionHead}><div><span className={styles.sectionNo}>02 / 범위</span><h2 id="conditions-title">목표를 적용하는 운용 조건</h2><p>설정값과 자료가 실제로 다룬 범위를 섞지 않습니다.</p></div></div><dl className={styles.conditions}>{conditions.map(([term, description]) => <div className={styles.condition} key={term}><dt>{term}</dt><dd>{description}</dd></div>)}</dl></section>;
+}
+
+function studyResult(study: Study): string {
+  const comparison = study.comparisons.find((item) => item.id.includes("continuous")) ?? study.comparisons[0];
+  if (!comparison) return "비교 수치 없음";
+  const candidateRule = candidateRuleForComparison(study, comparison.id);
+  return `${comparison.baseline.label} → ${comparison.candidate.label}${candidateRule ? ` (${candidateRule.label})` : ""} · ${comparison.period_start}–${comparison.period_end} · 비용 ${comparison.cost_multiplier}배 · 현금 ${comparison.cash_statistic === "mean" ? "평균" : "중앙값"} · 순수익률 ${percent(comparison.baseline.net_return_pct)} → ${percent(comparison.candidate.net_return_pct)} · 현금 ${percent(comparison.baseline.cash_pct)} → ${percent(comparison.candidate.cash_pct)} · 낙폭 ${percent(comparison.baseline.max_drawdown_pct)} → ${percent(comparison.candidate.max_drawdown_pct)}`;
+}
+function StudyCard({ study }: { study: Study }) {
+  const narrative: StudyNarrative | null = getStudyNarrative(study);
+  return <article className={styles.study} id={`study-${study.id}`}><div className={styles.studyHead}><div><span className={styles.sectionNo}>연구 질문</span><h3>{study.title}</h3></div><span className={styles.studyMeta}>공개 {dateTime(study.published_at)}</span></div>{narrative ? <><p className={styles.studyQuestion}>{narrative.question}</p><p className={styles.studyChange}><strong>변경 묶음:</strong> {narrative.baselineRules.join(" · ")} → {narrative.candidateRules.join(" · ")}</p><p className={styles.studyResult}><strong>비교 결과:</strong> {studyResult(study)}</p><p className={styles.studyResult}><strong>해석과 결정:</strong> {narrative.conclusion} 결정 기록 없음.</p><p className={styles.studyLimit}>{narrative.limitations.join(" ")}</p></> : <div className={styles.missing}><strong>연구 설명을 확인할 수 없습니다.</strong> 등록된 식별 정보와 일치하지 않습니다. API가 제공한 제목·수치·보고서 링크는 그대로 표시합니다.</div>}<div className={styles.studyFoot}><span>{study.comparisons.length}개 비교 · {study.universe_symbols.length}종목 · {periodScope(study)} · 배당·세금 제외</span><Link href={`/research/progress#study-${study.id}`}>성과 비교 전체 보기 ↗</Link><Link href={`/research/history/download/${study.report_artifact_sha256}`}>원본 보고서 ↗</Link></div></article>;
+}
+function StudiesSection({ progress }: { progress: ResearchProgress | null }) {
+  const studies = progress?.research.availability === "available" ? [...progress.research.studies].sort((left, right) => right.published_at.localeCompare(left.published_at)) : [];
+  const comparisonTotal = studies.reduce((total, study) => total + study.comparisons.length, 0);
+  return <section className={styles.section} aria-labelledby="studies-title"><div className={styles.sectionHead}><div><span className={styles.sectionNo}>03 / 근거</span><h2 id="studies-title">목표를 위해 확인한 연구</h2><p>개요는 질문과 결과를 압축하고, 기존 방식·시험 방식·고정 조건과 {comparisonTotal}개 비교 표는 성과 비교에서 자세히 확인합니다.</p></div><Link className={styles.textLink} href="/research/progress">성과 비교 전체 보기 ↗</Link></div>{studies.length > 0 && <div className={styles.studyList}>{studies.map((study) => <StudyCard key={study.id} study={study} />)}</div>}</section>;
+}
+
+async function ObservationSection() {
+  const [statusResult, ledgerResult, registrationResult] = await Promise.allSettled([getForwardStatus(), getForwardLedger(), getProspectiveRegistrationStatus()]);
+  const status: ForwardStatus | null = statusResult.status === "fulfilled" ? statusResult.value : null;
+  const ledger: ForwardLedger | null = ledgerResult.status === "fulfilled" ? ledgerResult.value : null;
+  const registration: ProspectiveRegistrationStatus | null = registrationResult.status === "fulfilled" ? registrationResult.value : null;
+  const registered = registration?.registration;
+  const identityMatches = Boolean(status && registered && registered.session_id === status.session.id && registered.policy_hash === status.session.policy_hash && registered.source_run_id === status.session.source_run_id && registration?.status !== "identity_mismatch" && registration?.status !== "invalid_contract");
+  return <section className={styles.section} aria-labelledby="observation-title"><div className={styles.sectionHead}><div><span className={styles.sectionNo}>04 / 별도 운용</span><h2 id="observation-title">고정 PAPER 관찰</h2><p>비교 후보의 채택 판단과 분리된 관찰 화면입니다.</p></div></div>{!status && !ledger ? <div className={styles.alert} role="alert"><h3>관찰 자료에 연결할 수 없습니다</h3><p>관찰 API 응답을 확인할 수 없습니다.</p></div> : !status || !ledger ? <div className={styles.alert} role="alert"><h3>관찰 자료 일부를 확인할 수 없습니다</h3><p>정책 상태와 원장 중 하나의 응답만 확인되었습니다. 가상 관찰 화면에서 세부 상태를 확인하세요.</p></div> : <div className={styles.forward}><div><h3>PAPER 10% 방어 정책</h3><p>연구 목표 20%와 다른 고정 조건입니다. 새 시세부터 쌓는 기록이며, 연구 후보의 검증 완료나 실거래 준비를 의미하지 않습니다.</p><div className={styles.actionRow}><Link className={styles.primary} href="/research/forward">관찰 상세 보기 ↗</Link></div></div><dl><div><dt>정책 hash</dt><dd title={status.session.policy_hash}>{status.session.policy_hash.slice(0, 12)}…</dd></div><div><dt>활성화 시각</dt><dd>{dateTime(status.session.activated_at)}</dd></div><div><dt>다음 정기 시각</dt><dd>{dateTime(status.session.next_due_at)}</dd></div><div><dt>기록 수</dt><dd>체결 {ledger.fills.length}건 · 시세 {status.feed.items.length}종목</dd></div><div><dt>검증 창</dt><dd>{registrationResult.status !== "fulfilled" ? "확인할 수 없음" : !identityMatches || !registered ? "식별 불일치 또는 미등록" : `${dateTime(registered.evaluation_start_at)} ~ ${dateTime(registered.evaluation_end_at)}`}</dd></div><div><dt>검증 상태</dt><dd>{registration?.status ? registrationStateLabel[registration.status] ?? "확인할 수 없음" : "확인할 수 없음"}</dd></div></dl></div>}</section>;
 }
 
 export default async function ResearchHubPage({ searchParams }: PageProps) {
   const query = await searchParams;
   let progress: ResearchProgress | null = null;
   try { progress = await getResearchProgress(); } catch { progress = null; }
-  const representative = progress ? featured(progress) : null;
-
-  return (
-    <main className="research-hub">
-      <OperationsRefresh />
-      <section className="hub-hero">
-        <div>
-          <p className="eyebrow">INVESTOR RESEARCH</p>
-          <h1>1억원을 어떻게 운용할지, 근거부터 확인합니다</h1>
-          <p className="hub-lede">1억원을 여러 종목에 나누고, 불필요한 현금과 잦은 거래를 줄이는 방법을 검증합니다. 이 화면은 결론을 정해두지 않고 지금 확인된 것과 아직 모르는 것을 함께 보여줍니다.</p>
-        </div>
-        <div className="hub-status"><span className="status">연구 단계</span><strong>실거래 전 연구·검증 단계</strong><small>{statusText(progress)} · {progress ? `화면 확인 시각 ${new Date(progress.observed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}` : "진행 API 응답 없음"}</small><span className="status status-secondary">{runnerText(progress)}</span></div>
-      </section>
-
-      <section className="story-grid" aria-label="투자 연구 판단 순서">
-        <article className="story-card story-card-active"><span className="story-number">01</span><h2>목표</h2><p>최고 평가액 대비 하락을 20% 안에서 관리하는 것이 목표입니다. 실제 손실이 이 범위 안에 머문다는 보장은 없습니다.</p><strong>거래는 신중하게, 자금은 필요한 만큼 투자</strong></article>
-        <article className="story-card"><span className="story-number">02</span><h2>확인한 증거</h2><p>과거 자료 비교와 새로운 시세를 보는 가상 관찰은 서로 다른 증거입니다. 후보가 곧 채택안은 아닙니다.</p><Link href="/research/progress">같은 조건 비교 보기 →</Link></article>
-        <article className="story-card"><span className="story-number">03</span><h2>다음 판단</h2><p>위험·비용을 감안한 개선이 독립 검증에서도 유지되는지 확인해야 합니다. 아니면 후보를 보류합니다.</p><Link href="/research/forward">새 후보 검증이 아닌 고정 PAPER 10% 관찰 보기 →</Link></article>
-      </section>
-      {query.error && <section className="notice" role="alert"><h2>연구 도구 요청 결과</h2><p>{query.error === "event-json" ? "시장 이벤트 JSON 배열 형식을 확인하세요." : "연구 도구 요청을 처리하지 못했습니다. 상세 실행 화면에서 상태와 입력을 확인하세요."} <Link href="/research/lab">연구 도구로 이동</Link></p></section>}
-
-      <section className="hub-section" aria-labelledby="evidence-title">
-        <div className="section-heading-row"><div><p className="eyebrow">EVIDENCE, NOT PROMISE</p><h2 id="evidence-title">현재 자료가 말해주는 범위</h2></div><Link className="text-link" href="/research/progress">전체 진행 현황</Link></div>
-        {representative ? <div className="evidence-card"><div><span className="status">대표 비교 · 채택안·최고 성과 아님</span><h3>{representative.title}</h3><p className="muted">{representative.comparison.period_start}–{representative.comparison.period_end} · {representative.comparison.cash_statistic === "mean" ? "현금 평균" : "현금 중앙값"} · 비용 {representative.comparison.cost_multiplier}배</p><p className="evidence-note">아래는 같은 조건에서 기준선과 후보를 나란히 본 값입니다. {comparisonNote(representative.comparison)}</p></div><div className="evidence-columns"><div><h4>기준선 · {representative.comparison.baseline.label}</h4><div className="evidence-metrics"><div><small>누적 수익률</small><strong>{percent(representative.comparison.baseline.net_return_pct)}</strong></div><div><small>최대 하락</small><strong>{percent(representative.comparison.baseline.max_drawdown_pct)}</strong></div><div><small>현금 비중</small><strong>{percent(representative.comparison.baseline.cash_pct)}</strong></div><div><small>거래한 날</small><strong>{representative.comparison.baseline.trade_days.toLocaleString("ko-KR")}일</strong></div><div><small>총 비용</small><strong>{researchAmount(representative.comparison.baseline.total_cost_krw, 0)}원</strong></div></div></div><div><h4>후보 · {representative.comparison.candidate.label}</h4><div className="evidence-metrics"><div><small>누적 수익률</small><strong>{percent(representative.comparison.candidate.net_return_pct)}</strong></div><div><small>최대 하락</small><strong>{percent(representative.comparison.candidate.max_drawdown_pct)}</strong></div><div><small>현금 비중</small><strong>{percent(representative.comparison.candidate.cash_pct)}</strong></div><div><small>거래한 날</small><strong>{representative.comparison.candidate.trade_days.toLocaleString("ko-KR")}일</strong></div><div><small>총 비용</small><strong>{researchAmount(representative.comparison.candidate.total_cost_krw, 0)}원</strong></div></div></div></div></div> : <div className="notice" role="status"><h3>대표 비교를 표시할 수 없습니다</h3><p>자료 없음·사용 불가·검증 실패를 성과 0으로 바꾸지 않았습니다. 진행 화면에서 원인을 확인할 수 있습니다.</p></div>}
-        {representative && <div className="metric-glossary"><strong>지표 읽기</strong><span>누적 수익률: 표시 기간 전체의 비용 차감 가격 수익(배당·세금 제외)</span><span>최대 하락: 그 기간 최고 평가액 대비 낙폭</span><span>현금: 투자하지 않은 자금 비율</span><span>거래한 날: 한 번 이상 거래한 날(주문 건수 아님)</span></div>}
-        <div className="limits-grid"><div><h3>이 자료로 알 수 있는 것</h3><p>같은 종목·기간·비용 조건에서 기준 방식과 변경안을 비교한 결과입니다. 누적 수익률은 연환산 수익률이 아닙니다.</p></div><div><h3>아직 알 수 없는 것</h3><p>배당·세금 제외, 회고용 데이터 재사용, 시점 검증 전 자료입니다. 단순 투자안과의 독립 검증도 아직 필요합니다.</p></div></div>
-      </section>
-
-      <section className="hub-section next-decision" aria-labelledby="next-title"><div><p className="eyebrow">NEXT DECISION</p><h2 id="next-title">계속할 이유는 다음 검증에서 생깁니다</h2><p>좋은 과거 결과만으로 실거래 적합성이나 미래 수익을 증명할 수 없습니다. 비용과 위험을 함께 본 뒤, 독립된 단순 기준과 새로운 기간에서 같은 결론이 나오는지 확인하세요. 아래 가상 관찰은 그 검증이 아니라, 별도 고정 PAPER 10% 정책의 관찰 기록입니다.</p></div><div className="hub-actions"><Link className="primary-link" href="/research/progress">근거 읽기</Link><Link className="secondary-button" href="/research/forward">고정 PAPER 관찰 보기</Link><Link className="secondary-button" href="/research/lab">상세 도구 열기</Link></div></section>
-
-      <footer className="hub-footer"><span>연구는 실거래가 아니며 브로커 주문을 만들지 않습니다.</span><Link href="/research-guide.html">사용 안내</Link><Link href="/">실계좌 조회</Link></footer>
-    </main>
-  );
+  return <main className={styles.main}><OperationsRefresh /><section className={styles.hero}><div><p className={styles.kicker}>INVESTOR RESEARCH</p><h1>연구 개요</h1><p className={styles.lede}>목표 → 변경한 운용 방식 → 검증 결과 → 결정 상태의 순서로 읽습니다. 확인된 과거 비교와 아직 답하지 못한 질문을 분리해 보여줍니다.</p></div><div className={styles.heroMeta}><strong>자료 기준 시각</strong><small>공개 {dateTime(progress?.research.published_at ?? null)}</small><small>화면 확인 {dateTime(progress?.observed_at ?? null)}</small><small>두 시각은 데이터가 만들어진 때와 페이지가 확인한 때를 뜻합니다.</small></div></section>{query.error && <div className={styles.alert} role="alert"><h2>연구 도구 요청 결과</h2><p>{query.error === "event-json" ? "시장 이벤트 JSON 배열 형식을 확인하세요." : "연구 도구 요청을 처리하지 못했습니다."} <Link className={styles.textLink} href="/research/lab">연구 도구로 이동</Link></p></div>}{availabilityNotice(progress)}<GoalSection progress={progress} /><ConditionsSection /><StudiesSection progress={progress} /><ObservationSection /></main>;
 }
