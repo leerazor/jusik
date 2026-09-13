@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 import json
 from datetime import UTC, date, datetime
 from decimal import Decimal
