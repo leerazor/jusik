@@ -412,7 +412,12 @@ def run_diagnostic(prior_audit: Path, output_dir: Path) -> dict[str, Any]:
     return result
 
 
-def run_experiment(prior_audit: Path, output_dir: Path) -> dict[str, Any]:
+def run_experiment(
+    prior_audit: Path,
+    output_dir: Path,
+    preregistration_path: Path | None = None,
+    expected_preregistration_sha256: str | None = None,
+) -> dict[str, Any]:
     """Run the approved eight development calls through the private observer copy.
 
     The covariance adapter is intentionally kept behind this bounded runner;
@@ -436,6 +441,17 @@ def run_experiment(prior_audit: Path, output_dir: Path) -> dict[str, Any]:
         raise ValueError("experiment output must be new")
     output_dir.mkdir(parents=True)
     request = _json(prior_audit / "experiment" / "request.json")
+    preregistration_path = preregistration_path or (
+        prior_audit / "supervisor-preregistration.json"
+    )
+    if not preregistration_path.is_file():
+        raise ValueError("approved supervisor preregistration is required")
+    preregistration_sha256 = sha256(preregistration_path)
+    if (
+        expected_preregistration_sha256
+        and preregistration_sha256 != expected_preregistration_sha256
+    ):
+        raise ValueError("approved preregistration hash mismatch")
     source = _load_source(ExperimentRequest.model_validate(request))
     engine_path = Path(request["engine_path"])
     if sha256(engine_path) != request["engine_sha256"]:
@@ -458,9 +474,7 @@ def run_experiment(prior_audit: Path, output_dir: Path) -> dict[str, Any]:
     (output_dir / "preregistration.json").write_text(
         json.dumps(
             {
-                "supervisor_preregistration_sha256": sha256(
-                    prior_audit / "supervisor-preregistration.json"
-                ),
+                "supervisor_preregistration_sha256": preregistration_sha256,
                 "source_sha256": request["source_sha256"],
                 "engine_sha256": request["engine_sha256"],
                 "runner_sha256": sha256(Path(__file__)),
@@ -562,6 +576,9 @@ def run_experiment(prior_audit: Path, output_dir: Path) -> dict[str, Any]:
                             "error": str(error),
                         }
                     )
+                    raise RuntimeError(
+                        "integrity failure during bounded cell"
+                    ) from error
                 (output_dir / "ledger.json").write_text(
                     json.dumps(ledger, indent=2, default=str), encoding="utf-8"
                 )
