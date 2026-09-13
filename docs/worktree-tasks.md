@@ -700,3 +700,19 @@
 - 복구 기록: 첫 stress 통합에서 torch 설치 환경 타입 오류2개를 발견해635b5ec로 수정 후 재검증했습니다. 초기 CLI 초안은 CUDA·신규 테스트 미완성으로 채택하지 않았습니다.
 - 보존·정리: 원본 설정, source patch·환경·SHA manifest·실험·검토·통합 결과를 `/home/kwl/.local/share/jusik/portfolio-audit/20260912T212923Z-gpu-role-transition`에 보관하고 병합 worktree와 branch를 정리했습니다. 기존 미병합3개는 보존합니다.
 - handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260912T212923Z-gpu-role-transition/HANDOFF.md`. 자동 실행 재개 확인은 같은 경로 runner-activation.json을 확인합니다.
+
+## portfolio-held-band-underwater-38fd
+
+- 상태: 준비
+- 목표와 완료 조건: 고정 48개 경로 및 paired 24개 underwater 분석, 검토·main 통합 검사·영구 증거와 handoff 보존.
+- 담당 Luna: 단일 gpt-5.6-luna 구현 작업자.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-held-band-underwater-38fd
+- 작업 브랜치: feat/portfolio-held-band-underwater-38fd
+- 기준 커밋 SHA: 44bb62b0948545b459d9cd609d1fe5ef1de520d3 이후 이 등록 커밋.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: cost3 stress f9aecd54 experiment, 기존 cost path attribution loader.
+- 수정 허용 범위: 새 underwater 분석 모듈·대응 테스트·연구 문서. 등록부는 Astra 소유.
+- 포트·테스트 DB·출력 경로: 서버와 DB 없음. worktree 내부 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-held-band-underwater-duration-v1-38fd7b5ffb304507a1e222205e9d2cac.
+- 검증 명령과 결과: pytest/Ruff/strict mypy 및 독립 검토 예정. 실제 분석 48개·paired24개 1회, 단일 CPU 600초 상한, historical simulation 0회.
+- 검토 결과와 남은 문제: 진행 전. 기존 HANDOFF와 미병합3개 보존.
+- handoff 저장 경로: 위 영구 audit/HANDOFF.md.
