@@ -12,9 +12,9 @@ from jusik.research_portfolio_low_cash_experiment import (
 from jusik.research_portfolio_residual_cash import (
     _json,
     annualized_covariance_proxy,
+    covariance_floor_volatility_scale,
     covariance_proxy,
     diagnose_simulation,
-    install_covariance_floor_adapter,
     run_diagnostic,
 )
 
@@ -114,15 +114,27 @@ def test_covariance_rejects_nonfinite_and_invalid_annualization() -> None:
         annualized_covariance_proxy({"A": Decimal(1)}, {"A": [Decimal(0)]}, 0)
 
 
-def test_adapter_installation_preserves_six_argument_engine_hook() -> None:
-    class PrivateEngine:
-        volatility_scale = None
+def test_covariance_adapter_real_engine_hook_accepts_cache_argument() -> None:
+    import importlib.util
 
-    engine = PrivateEngine()
-    install_covariance_floor_adapter(engine)
-    assert callable(engine.volatility_scale)
-    # The sixth cache argument is accepted by the real engine's hook.
-    assert engine.volatility_scale.__name__ == "<lambda>"
+    from jusik.research_portfolio_models import PortfolioConfig
+    from tests.test_research_portfolio import _source
+
+    source = _source()
+    engine_path = Path(__file__).parents[1] / "jusik" / "research_portfolio_engine.py"
+    spec = importlib.util.spec_from_file_location("fixture_engine", engine_path)
+    assert spec and spec.loader
+    engine = importlib.util.module_from_spec(spec)
+    import sys
+
+    sys.modules[spec.name] = engine
+    spec.loader.exec_module(engine)
+    config = PortfolioConfig(volatility_window=2, volatility_annualization_sessions=252)
+    data = engine._instrument_data(source)
+    weights = {symbol: Decimal("0.5") for symbol in list(data)[:2]}
+    at = datetime(2024, 2, 1, tzinfo=UTC)
+    scale, proxy = covariance_floor_volatility_scale(engine, source, data, weights, at, config)
+    assert scale is not None and proxy is not None
 
 
 def test_global_drawdown_uses_initial_peak_and_is_independent_of_latch() -> None:
