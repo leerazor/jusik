@@ -939,3 +939,18 @@
 - 보존·정리: 소스/로그/결과/handoff134파일 SHA 검증 후 이번 worktree·브랜치 정상 제거. 기존 backend93개/root HANDOFF/다른4개 worktree 보존.
 - handoff: audit/handoff-before-cleanup.md 및 handoff-final.md. archive-before-cleanup.json 및 cleanup.json으로 보존·정리 확인.
 - 실행기: 현재 task/attempt dispatch 내 작업이며 dispatcher 상태 변경 없음. 기존 HANDOFF 및 다른 worktree 보존.
+
+## portfolio-volatility15-cadence-4c25
+
+- 상태: 준비
+- 목표와 완료 조건: target .15 고정 4/8주 CPU exact32회/900초 비교, control16 전체 JSON replay 후 variant16, 독립 회계 및 검토, local main 통합 검사와 handoff.
+- 담당 Luna: code 작업자 한 명.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-volatility15-cadence-4c25
+- 작업 브랜치: feat/portfolio-volatility15-cadence-4c25
+- 기준 커밋 SHA: f630332562a97b9dd916b03f9b4f65fcb401ed77 (등록 커밋에서 worktree 생성)
+- 통합 대상 브랜치: local main
+- 입력: volatility target 51714e90 experiment; evidence5/manifest72/source3 SHA 일치.
+- 수정 허용 범위: 새 연구 runner/test/report. PAPER/제품/DB/설정/주문/remote/GPU 변경 금지.
+- 격리: 전용 worktree venv/tmp, 서버/DB 없음. durable audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-volatility15-cadence-cost-tradeoff-v1-4c25334c49c2491b8e74d9e16d63dda2.
+- 실행기: 해당 task/attempt dispatch 내 작업. dispatcher 상태 변경 없음. 기존 HANDOFF와 다른4개 worktree 보존.
+- 검증과 결과: 실행 전.
