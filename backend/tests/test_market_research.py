@@ -523,6 +523,78 @@ def test_service_rejects_direct_staged_execution_override(tmp_path: Path) -> Non
         )
 
 
+def test_store_reads_historical_staged_custom_assumptions_but_final_rejects(
+    tmp_path: Path,
+) -> None:
+    import json
+    import sqlite3
+
+    path = tmp_path / "historical-staged.db"
+    store = MarketHistoryStore(path)
+    source = FixtureMarketHistorySource()
+    readiness = source.readiness("KR", datetime(2026, 9, 14, tzinfo=UTC))
+    request_payload = {
+        "market": "KR",
+        "start_date": "2025-09-14",
+        "end_date": "2026-09-14",
+        "stage": "pilot",
+        "pilot_run_id": None,
+        "initial_cash_krw": "100000000",
+        "fee_rate": "0.002",
+        "slippage_rate": "0.001",
+        "sell_tax_rate": "0.0018",
+    }
+    result_payload = {
+        "market": "KR",
+        "request": request_payload,
+        "readiness": readiness.model_dump(mode="json"),
+        "status": "ready",
+        "completeness": "complete",
+        "candidate_evidence": [],
+        "trades": [],
+        "equity": [],
+        "limitations": [],
+        "metrics": {},
+        "input_hash": "a" * 64,
+        "policy_hash": market_research_policy_hash(),
+        "stage": "pilot",
+        "pilot_run_id": None,
+        "data_contract_hash": "b" * 64,
+        "warmup_sessions": [],
+    }
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "INSERT INTO pit_runs (id,status,request_json,result_json,input_hash,error,"
+            "created_at,updated_at,stage,pilot_run_id,data_contract_hash) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                "historical-pilot",
+                "completed",
+                json.dumps(request_payload),
+                json.dumps(result_payload),
+                "a" * 64,
+                None,
+                "2026-09-14T00:00:00+00:00",
+                "2026-09-14T00:00:00+00:00",
+                "pilot",
+                None,
+                "b" * 64,
+            ),
+        )
+    loaded = store.get_run("historical-pilot")
+    assert loaded.request.fee_rate == Decimal("0.002")
+    assert store.list_runs()[0].id == "historical-pilot"
+    final = MarketResearchRequest(
+        market="KR",
+        start_date=date(2023, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="final",
+        pilot_run_id=loaded.id,
+    )
+    with pytest.raises(MarketResearchConflict):
+        asyncio.run(MarketResearchService(source, store).create_run(final))
+
+
 def test_final_requires_completed_matching_pilot_and_collects_own_period(
     tmp_path: Path,
 ) -> None:

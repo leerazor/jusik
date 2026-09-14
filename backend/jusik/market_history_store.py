@@ -3,16 +3,115 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
+from pydantic import ValidationError
+
 from jusik.market_history_models import (
+    STAGED_FEE_RATE,
+    STAGED_INITIAL_CASH_KRW,
+    STAGED_SELL_TAX_RATE,
+    STAGED_SLIPPAGE_RATE,
+    CandidateEvidence,
     MarketHistorySnapshot,
+    MarketReadiness,
     MarketResearchRequest,
     MarketResearchResult,
     MarketResearchRun,
+    ResearchEquityPoint,
+    ResearchTrade,
 )
+
+
+def _persisted_request(payload: object) -> MarketResearchRequest:
+    """Read old staged rows without making them eligible for promotion."""
+    try:
+        return MarketResearchRequest.model_validate(payload)
+    except ValidationError as original_error:
+        if not isinstance(payload, dict) or payload.get("stage") not in {
+            "pilot",
+            "final",
+        }:
+            raise
+        try:
+            values = dict(payload)
+            values["market"] = str(values["market"])
+            values["start_date"] = date.fromisoformat(str(values["start_date"]))
+            values["end_date"] = date.fromisoformat(str(values["end_date"]))
+            values["initial_cash_krw"] = Decimal(str(values["initial_cash_krw"]))
+            values["fee_rate"] = Decimal(str(values["fee_rate"]))
+            values["slippage_rate"] = Decimal(str(values["slippage_rate"]))
+            values["sell_tax_rate"] = Decimal(str(values["sell_tax_rate"]))
+            if values["market"] not in {"KR", "US"}:
+                raise ValueError("invalid persisted market")
+            if values["end_date"] < values["start_date"]:
+                raise ValueError("invalid persisted period")
+            if values["stage"] == "pilot" and values.get("pilot_run_id") is not None:
+                raise ValueError("invalid persisted pilot reference")
+            if values["stage"] == "final" and not values.get("pilot_run_id"):
+                raise ValueError("invalid persisted final reference")
+            if not (
+                values["initial_cash_krw"] > 0
+                and Decimal(0) <= values["fee_rate"] <= Decimal("0.1")
+                and Decimal(0) <= values["slippage_rate"] <= Decimal("0.1")
+                and Decimal(0) <= values["sell_tax_rate"] <= Decimal("0.1")
+            ):
+                raise ValueError("invalid persisted execution assumptions")
+            if all(
+                values[name] == expected
+                for name, expected in {
+                    "initial_cash_krw": STAGED_INITIAL_CASH_KRW,
+                    "fee_rate": STAGED_FEE_RATE,
+                    "slippage_rate": STAGED_SLIPPAGE_RATE,
+                    "sell_tax_rate": STAGED_SELL_TAX_RATE,
+                }.items()
+            ):
+                raise original_error
+            return MarketResearchRequest.model_construct(**values)
+        except (KeyError, TypeError, ValueError):
+            raise original_error
+
+
+def _persisted_result(payload: object) -> MarketResearchResult:
+    if not isinstance(payload, dict):
+        return MarketResearchResult.model_validate(payload)
+    try:
+        return MarketResearchResult.model_validate(payload)
+    except ValidationError:
+        values = dict(payload)
+        values["request"] = _persisted_request(values["request"])
+        values["readiness"] = MarketReadiness.model_validate(values["readiness"])
+        values["candidate_evidence"] = tuple(
+            CandidateEvidence.model_validate(item)
+            for item in values.get("candidate_evidence", ())
+        )
+        values["trades"] = tuple(
+            ResearchTrade.model_validate(item) for item in values.get("trades", ())
+        )
+        values["equity"] = tuple(
+            ResearchEquityPoint.model_validate(item)
+            for item in values.get("equity", ())
+        )
+        values["metrics"] = {
+            str(key): Decimal(str(value))
+            for key, value in values.get("metrics", {}).items()
+        }
+        return MarketResearchResult.model_construct(**values)
+
+
+def _uses_historical_assumptions(request: MarketResearchRequest) -> bool:
+    return request.stage in {"pilot", "final"} and any(
+        value != expected
+        for value, expected in (
+            (request.initial_cash_krw, STAGED_INITIAL_CASH_KRW),
+            (request.fee_rate, STAGED_FEE_RATE),
+            (request.slippage_rate, STAGED_SLIPPAGE_RATE),
+            (request.sell_tax_rate, STAGED_SELL_TAX_RATE),
+        )
+    )
 
 
 class MarketHistoryStore:
@@ -237,12 +336,28 @@ class MarketHistoryStore:
             ).fetchone()
         if row is None:
             raise KeyError(run_id)
-        request = MarketResearchRequest.model_validate(json.loads(row["request_json"]))
+        request_payload = json.loads(row["request_json"])
+        request = _persisted_request(request_payload)
         result = (
-            MarketResearchResult.model_validate(json.loads(row["result_json"]))
+            _persisted_result(json.loads(row["result_json"]))
             if row["result_json"]
             else None
         )
+        run_values = {
+            "id": row["id"],
+            "status": row["status"],
+            "request": request,
+            "result": result,
+            "input_hash": row["input_hash"],
+            "created_at": datetime.fromisoformat(row["created_at"]),
+            "updated_at": datetime.fromisoformat(row["updated_at"]),
+            "error": row["error"],
+            "stage": row["stage"] or "legacy",
+            "pilot_run_id": row["pilot_run_id"],
+            "data_contract_hash": row["data_contract_hash"],
+        }
+        if _uses_historical_assumptions(request):
+            return MarketResearchRun.model_construct(**run_values)
         return MarketResearchRun(
             id=row["id"],
             status=row["status"],
