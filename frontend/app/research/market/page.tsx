@@ -45,7 +45,7 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
         <div>
           <p className="eyebrow">POINT-IN-TIME MARKET RESEARCH</p>
           <h1>거래일 당시의 거래량 상위 종목 연구</h1>
-          <p className="muted">각 거래일에 당시 확인 가능한 주식 전체에서 거래량 상위 20개를 고르고, 종가 신호 다음 거래일 시가로 체결하는 연구 흐름입니다.</p>
+          <p className="muted">엄격한 PIT는 거래일 당시 확인 가능한 전체 주식에서, 무료 근사는 과거 날짜별 최대 100개 표본 안에서 거래량 상위 20개를 고릅니다. 종가 신호 다음 거래일 시가로 체결하며 근사 자료는 PIT 검증 결과가 아닙니다.</p>
         </div>
         <div className="action-row"><Link className="secondary-button" href="/research">연구 개요</Link><Link className="secondary-button" href="/">계좌 현황</Link></div>
       </section>

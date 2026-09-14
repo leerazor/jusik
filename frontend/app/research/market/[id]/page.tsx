@@ -16,9 +16,10 @@ export default async function MarketResearchDetail({ params }: { params: Promise
   let run: MarketResearchRun;
   try { run = await getMarketResearchRun(id); } catch { return <main><section className="notice" role="alert"><h2>시장 연구 결과를 불러오지 못했습니다</h2><p>연구 백엔드 연결을 확인한 뒤 다시 시도하세요.</p></section></main>; }
   const result = run.result;
+  const approximate = run.request.research_grade === "approximate";
   return <main>
     <div className="result-local-actions"><Link className="secondary-button" href="/research/market">시장 연구 목록</Link><span className="badge">실전 주문과 분리된 연구</span></div>
-    <section className="intro research-intro"><div><p className="eyebrow">{stageLabel(run.stage)} · RUN {run.id.slice(0, 8)}</p><h1>{run.request.market === "KR" ? "한국" : "미국"} 거래량 상위 PIT 연구</h1><p className="muted">{run.request.start_date}–{run.request.end_date} · 저장 시각 {run.created_at}</p></div></section>
+    <section className="intro research-intro"><div><p className="eyebrow">{stageLabel(run.stage)} · RUN {run.id.slice(0, 8)}</p><h1>{run.request.market === "KR" ? "한국" : "미국"} {approximate ? "거래량 상위 근사 표본 연구" : "거래량 상위 PIT 연구"}</h1><p className="muted">{run.request.start_date}–{run.request.end_date} · 저장 시각 {run.created_at}{approximate ? " · 과거 날짜별 최대 100개 표본 · PIT 검증 아님" : ""}</p></div></section>
     {!result ? <section className="panel"><h2>결과 대기 중</h2></section> : <>
       {result.status === "insufficient" && <section className="notice" role="alert"><h2>검증 불충분</h2><p>{result.limitations.join(" ")}</p></section>}
       {result.status === "approximate" && <section className="notice" role="status"><h2>무료 근사 자료 결과</h2><p>{result.limitations.join(" ")}</p></section>}

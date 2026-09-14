@@ -26,8 +26,16 @@ PERCENT = Decimal("100")
 TWENTY = 20
 TARGET_WEIGHT = Decimal("0.05")
 DRAWDOWN_LIMIT = Decimal("0.20")
+# Maintained alongside docs/market-research-mandate.sha256.  Keeping this
+# identifier in the policy hash makes mandate edits invalidate old pilots.
+RESEARCH_MANDATE_VERSION = "2026-09-13"
+RESEARCH_MANDATE_JSON_SHA256 = (
+    "5ed4b8d9351e941c3559aa51fb757099d03a3981cf2935c24438be9e0ddd7ccf"
+)
 MARKET_RESEARCH_POLICY: dict[str, object] = {
     "version": 2,
+    "mandate_version": RESEARCH_MANDATE_VERSION,
+    "mandate_json_sha256": RESEARCH_MANDATE_JSON_SHA256,
     "top_count": 20,
     "lookback_sessions": 20,
     "target_weight": "0.05",
@@ -210,9 +218,13 @@ def _valid_coverage(
                 continue
             bar = bars_by_key.get((membership.symbol, session.local_date))
             if approximate:
-                if bar is not None and bar.available_at > decision_cutoff:
+                if bar is None:
+                    continue
+                if bar.available_at < session.close_at:
+                    missing.append(f"bar-before-close:{membership.symbol}")
+                elif bar.available_at > decision_cutoff:
                     missing.append(f"bar-after-decision:{membership.symbol}")
-                elif bar is not None:
+                else:
                     usable_bars += 1
                 continue
             if bar is None:

@@ -345,8 +345,6 @@ class ApproximateMarketHistorySource:
             request.market, request.start_date, request.end_date
         )
         dataset = response.dataset
-        if dataset.source != self.provider.source_name:
-            dataset = dataset.model_copy(update={"source": self.provider.source_name})
         pool = deterministic_pool(
             dataset.universe, market=request.market, pool_end=request.end_date
         )

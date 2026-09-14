@@ -15,10 +15,16 @@ from jusik.market_history_approximate import (
     ApproximateUniverseRow,
     FixtureApproximateMarketHistorySource,
     JsonApproximateProvider,
+    KRXDateListProvider,
     deterministic_pool,
     run_approximate_market_research,
 )
 from jusik.market_history_models import MarketResearchRequest
+from jusik.market_research_strategy import (
+    RESEARCH_MANDATE_JSON_SHA256,
+    market_research_policy_for_grade,
+    market_research_policy_hash,
+)
 from jusik.research_market_calendar import default_market_calendar
 
 
@@ -107,6 +113,49 @@ def test_prepared_provider_rejects_untrusted_provenance_and_readiness_is_truthfu
     assert missing >= {"membership", "bars"}
 
 
+def test_declared_universe_source_is_preserved_in_snapshot(tmp_path: Path) -> None:
+    payload = {
+        "market": "KR",
+        "source": "krx",
+        "universe": [
+            {
+                "session": "2026-09-14",
+                "symbol": "S1",
+                "name": "Sample",
+                "exchange": "KSC",
+                "currency": "KRW",
+            }
+        ],
+        "bars": [
+            {
+                "session": "2026-09-14",
+                "symbol": "S1",
+                "exchange": "KSC",
+                "open": "100",
+                "high": "101",
+                "low": "99",
+                "close": "100",
+                "volume": "1000",
+                "currency": "KRW",
+            }
+        ],
+    }
+    path = tmp_path / "krx.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+        research_grade="approximate",
+    )
+    snapshot = asyncio.run(
+        ApproximateMarketHistorySource(KRXDateListProvider(path)).collect(request)
+    )
+    assert snapshot.memberships[0].source == "krx"
+    assert snapshot.source_artifacts[0].source == "krx"
+
+
 def test_fixture_approximate_result_is_never_strict_ready() -> None:
     request = MarketResearchRequest(
         market="KR",
@@ -153,6 +202,14 @@ def test_approximate_uses_shared_execution_costs_and_next_open_core() -> None:
     assert all(trade.fill_price > trade.market_open for trade in buys)
 
 
+def test_approximate_policy_tracks_the_maintained_mandate_checksum() -> None:
+    checksum_file = Path("docs/market-research-mandate.sha256").read_text()
+    assert f"docs/research-mandate.json {RESEARCH_MANDATE_JSON_SHA256}" in checksum_file
+    assert market_research_policy_hash() != market_research_policy_hash(
+        market_research_policy_for_grade("approximate")
+    )
+
+
 def test_approximate_future_availability_and_fx_are_insufficient() -> None:
     request = MarketResearchRequest(
         market="KR",
@@ -179,6 +236,20 @@ def test_approximate_future_availability_and_fx_are_insufficient() -> None:
     )
     assert result.status == "insufficient"
     assert result.trades == ()
+
+    preclose = snapshot.model_copy(
+        update={
+            "bars": tuple(
+                bar.model_copy(update={"available_at": bar.session_start_utc()})
+                for bar in snapshot.bars
+            )
+        }
+    )
+    preclose_result = run_approximate_market_research(
+        preclose, request, readiness, default_market_calendar()
+    )
+    assert preclose_result.status == "insufficient"
+    assert preclose_result.trades == ()
 
     us_request = request.model_copy(update={"market": "US"})
     us_snapshot = asyncio.run(source.collect(us_request))
