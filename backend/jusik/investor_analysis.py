@@ -26,6 +26,8 @@ QuoteStatus = Literal[
     "stale",
     "calendar_unavailable",
 ]
+AnalysisStatus = Literal["review", "unassessed", "exit_review"]
+ReviewDecision = Literal["hold_review", "exit_review", "deferred", "closed"]
 
 _MAX_QUOTE_FETCH_AGE = timedelta(minutes=15)
 _MAX_QUOTE_SESSION_LAG = timedelta(minutes=60)
@@ -165,7 +167,7 @@ def _value_status(
     assumptions: ValuationAssumptions | None,
     *,
     unavailable_reason: str | None = None,
-) -> tuple[str, list[str]]:
+) -> tuple[AnalysisStatus, list[str]]:
     if unavailable_reason:
         return "unassessed", [unavailable_reason]
     if (
@@ -227,7 +229,7 @@ def analyze(
     if quote.unavailable_reason:
         quote_reason = quote.unavailable_reason
     if instrument.instrument_type != "stock":
-        value_status = "unassessed"
+        value_status: AnalysisStatus = "unassessed"
         value_reasons = [
             "주식으로 확인되지 않은 종목은 기업 EPS 가치평가를 적용하지 않습니다."
         ]
@@ -236,7 +238,7 @@ def analyze(
             quote, fundamentals, assumptions, unavailable_reason=quote_reason
         )
     assumed_lower, assumed_upper, assumed_safety = _assumed_prices(assumptions)
-    trend_status = "unassessed"
+    trend_status: AnalysisStatus = "unassessed"
     trend_reasons: list[str] = []
     if trend.breakout_observed:
         trend_status = "review"
@@ -311,7 +313,7 @@ def review_thesis(
     )
     if thesis.health == "broken":
         reasons.append("사용자가 근거 훼손을 표시했습니다. 출구 검토가 필요합니다.")
-        decision = "exit_review"
+        decision: ReviewDecision = "exit_review"
     elif (
         thesis.risk_price is not None
         and not quote_unusable

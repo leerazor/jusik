@@ -15,6 +15,7 @@ from jusik.investor_analysis import analyze, evaluate_trend
 from jusik.investor_models import (
     AnalysisResult,
     Candidate,
+    Currency,
     DailyBar,
     DiscoveryResult,
     FundamentalFacts,
@@ -116,7 +117,9 @@ class KisInvestorProvider:
             or symbol
         )
         etyp = _text(output.get("etyp_nm") or output.get("etf_yn"))
-        instrument_type = "etf" if etyp and "ETF" in etyp.upper() else "unknown"
+        instrument_type: InstrumentType = (
+            "etf" if etyp and "ETF" in etyp.upper() else "unknown"
+        )
         return Instrument(
             market=market,
             exchange="KRX" if market == "KR" else exchange,
@@ -334,8 +337,9 @@ class KisInvestorProvider:
                     resolved_instrument = resolved_instrument.model_copy(
                         update={"instrument_type": provider_type}
                     )
+                analysis_now = datetime.now(UTC)
                 analysis = _detail_analysis(
-                    resolved_instrument, quote, fundamentals, trend, now
+                    resolved_instrument, quote, fundamentals, trend, analysis_now
                 )
                 return InstrumentDetail(
                     instrument=resolved_instrument,
@@ -497,7 +501,9 @@ class KisInvestorProvider:
                     provider_type = _text(meta.get("instrumentType")).upper()
                     if provider_type not in {"EQUITY", "ETF"}:
                         continue
-                    expected_currency = "KRW" if instrument.market == "KR" else "USD"
+                    expected_currency: Currency = (
+                        "KRW" if instrument.market == "KR" else "USD"
+                    )
                     if _text(meta.get("currency")).upper() != expected_currency:
                         continue
                     expected_timezone = (

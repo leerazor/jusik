@@ -607,6 +607,65 @@ def test_provider_uses_official_rank_code_and_keeps_financial_periods() -> None:
     assert facts.growth_period_end == date(2025, 12, 31)
 
 
+def test_provider_analyzes_quote_after_yahoo_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = KisInvestorProvider(None)  # type: ignore[arg-type]
+
+    async def request(
+        path: str, _tr_id: str, _params: dict[str, str]
+    ) -> dict[str, object]:
+        if path.endswith("inquire-price"):
+            return {
+                "output": {
+                    "stck_shrn_iscd": "005930",
+                    "stck_prpr": "100",
+                    "eps": "10",
+                    "per": "10",
+                    "pbr": "1",
+                }
+            }
+        return {"output": []}
+
+    async def yahoo_trend(
+        instrument: Instrument,
+    ) -> tuple[TrendFacts, str, QuoteFact]:
+        await asyncio.sleep(0.01)
+        fetched_at = datetime.now(UTC)
+        return (
+            TrendFacts(source="fixture"),
+            "stock",
+            QuoteFact(
+                price=Decimal("100"),
+                currency="KRW",
+                as_of=fetched_at,
+                fetched_at=fetched_at,
+                source="fixture",
+            ),
+        )
+
+    monkeypatch.setattr(provider, "_request", request)
+    monkeypatch.setattr(provider, "_yahoo_trend", yahoo_trend)
+    instrument = Instrument(
+        market="KR",
+        exchange="KRX",
+        symbol="005930",
+        currency="KRW",
+        name="삼성전자",
+        instrument_type="stock",
+    )
+    detail = asyncio.run(provider.detail(instrument))
+    assert detail.analysis.analyzed_at >= detail.analysis.quote.fetched_at
+    assert (
+        quote_status(
+            detail.analysis.instrument,
+            detail.analysis.quote,
+            detail.analysis.analyzed_at,
+        )
+        == "usable"
+    )
+
+
 def test_yahoo_mismatched_series_lengths_are_deferred(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
