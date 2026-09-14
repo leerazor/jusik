@@ -755,8 +755,9 @@ def test_discovery_unscanned_counts_all_valid_rows_beyond_inspection_cap() -> No
     assert result.truncated is True
 
 
-def test_cached_loader_cancellation_isolated_and_all_waiters_cancelled_is_drained(
-) -> None:
+def test_cached_loader_cancellation_isolated_and_all_waiters_cancelled_is_drained() -> (
+    None
+):
     async def run() -> None:
         provider = KisInvestorProvider(None)  # type: ignore[arg-type]
         key = ("cache", "cancel")
@@ -861,7 +862,9 @@ def test_korean_chart_type_fallback_tries_other_board_after_unsupported_type(
     monkeypatch.setattr(provider, "_relative_volume", lambda *_args: None)
     result = asyncio.run(
         provider._fetch_candidate_chart(
-            FakeClient(), instrument, datetime(2026, 9, 14, tzinfo=UTC)  # type: ignore[arg-type]
+            FakeClient(),
+            instrument,
+            datetime(2026, 9, 14, tzinfo=UTC),  # type: ignore[arg-type]
         )
     )
     assert calls == [".KS", ".KQ"]

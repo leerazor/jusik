@@ -401,8 +401,9 @@ def test_multiple_accounts_preserve_same_symbol_and_reuse_token() -> None:
     assert "global-secret" not in serialized
 
 
-def test_concurrent_authentication_shares_one_token_request_and_failed_retry_gate(
-) -> None:
+def test_concurrent_authentication_shares_one_token_request_and_failed_retry_gate() -> (
+    None
+):
     configured = settings()
     account = configured.registered_accounts[0]
 
@@ -423,7 +424,9 @@ def test_concurrent_authentication_shares_one_token_request_and_failed_retry_gat
     async def run() -> None:
         client = DelayedTokenClient(200)
         broker = KisClient(
-            configured, client, request_interval_seconds=0  # type: ignore[arg-type]
+            configured,
+            client,
+            request_interval_seconds=0,  # type: ignore[arg-type]
         )
         tokens = await asyncio.gather(
             broker._authenticate(account),
@@ -435,7 +438,9 @@ def test_concurrent_authentication_shares_one_token_request_and_failed_retry_gat
 
         failing_client = DelayedTokenClient(503)
         failing_broker = KisClient(
-            configured, failing_client, request_interval_seconds=0  # type: ignore[arg-type]
+            configured,
+            failing_client,
+            request_interval_seconds=0,  # type: ignore[arg-type]
         )
         with pytest.raises(BrokerError):
             await failing_broker._authenticate(account)
