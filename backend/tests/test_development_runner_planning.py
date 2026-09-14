@@ -98,6 +98,38 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
             "Exclude newly listed ETFs from primary research when insufficient "
             "history blocks a meaningful comparison."
         ),
+        "market_accounts_krw": {"KR": 100000000, "US": 100000000},
+        "historical_discovery_policy": {
+            "universe": "point-in-time eligible stocks only; ETFs excluded",
+            "rediscovery": (
+                "rebuild the eligible universe on every historical trading day"
+            ),
+            "future_candidate_backfill": "forbidden",
+            "ranking": (
+                "raw numeric close-session volume top 20 with deterministic "
+                "symbol tie-break"
+            ),
+            "entry": (
+                "close above prior completed 20-session high and volume above prior "
+                "completed 20-session average; fill next tradable open"
+            ),
+            "exit": (
+                "close below SMA20 for two consecutive sessions; fill next "
+                "tradable open"
+            ),
+            "position_target_fraction": "0.05",
+            "position_limit": 20,
+            "drawdown_latch_fraction": "0.20",
+            "drawdown_reference": (
+                "KRW running peak NAV; next-open liquidation and no re-entry "
+                "during the run"
+            ),
+            "us_fx": (
+                "one initial KRW/USD conversion with spread, then native USD cash and "
+                "trades with USD and KRW curves"
+            ),
+            "execution": "research and simulation only; no live or paper activation",
+        },
     }
     assert _tracked_research_mandate(path.parents[1]) == raw_content
 

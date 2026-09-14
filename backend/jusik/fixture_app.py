@@ -22,6 +22,10 @@ from jusik.investor_models import (
     TrendFacts,
 )
 from jusik.investor_store import InvestorStore
+from jusik.market_history_sources import FixtureMarketHistorySource
+from jusik.market_history_store import MarketHistoryStore
+from jusik.market_research_api import router as market_research_router
+from jusik.market_research_service import MarketResearchService
 from jusik.models import (
     AccountResult,
     AggregateSummary,
@@ -468,11 +472,22 @@ def fixture_investor_provider() -> InMemoryInvestorProvider:
 
 
 app.state.investor_provider = fixture_investor_provider()
+app.state.market_research_service = MarketResearchService(
+    FixtureMarketHistorySource(),
+    MarketHistoryStore(
+        Path(
+            os.environ.get(
+                "JUSIK_MARKET_RESEARCH_DB_PATH", "/tmp/jusik-market-research-fixture.db"
+            )
+        )
+    ),
+)
 fixture_db = Path(
     os.environ.get("JUSIK_INVESTOR_DB_PATH", "/tmp/jusik-investor-fixture.db")
 )
 app.state.investor_store = InvestorStore(fixture_db)
 app.include_router(investor_router)
+app.include_router(market_research_router)
 
 
 @app.get("/health")

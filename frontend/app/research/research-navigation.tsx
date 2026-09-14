@@ -8,6 +8,7 @@ const items = [
   { href: "/research", label: "연구 개요", matches: (path: string) => path === "/research" },
   { href: "/research/progress", label: "성과 비교", matches: (path: string) => path.startsWith("/research/progress") || path.startsWith("/research/validation") },
   { href: "/research/forward", label: "가상 관찰", matches: (path: string) => path.startsWith("/research/forward") },
+  { href: "/research/market", label: "시장 PIT 연구", matches: (path: string) => path.startsWith("/research/market") },
   { href: "/research/history", label: "근거 기록", matches: (path: string) => path.startsWith("/research/history") },
   { href: "/research/lab", label: "연구 도구", matches: (path: string) => path === "/research/lab" || path.startsWith("/research/portfolio") || path.startsWith("/research/actions") || (/^\/research\/[a-zA-Z0-9_-]+$/.test(path) && !["/research/progress", "/research/forward", "/research/history", "/research/validation"].includes(path)) },
 ];
