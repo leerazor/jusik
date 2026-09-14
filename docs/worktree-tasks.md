@@ -2,12 +2,12 @@
 
 ## staged-market-validation
 
-- 상태: 준비
+- 상태: 진행
 - 목표와 완료 조건: 시장 PIT 연구를 1년 파일럿과 정책 고정 3년 최종 검증으로 분리합니다. 파일럿은 자료·인과성 검증 전용이며 모델 선택이나 PAPER/실거래 활성화 근거가 될 수 없습니다. 최종 실행은 완료된 같은 시장 파일럿을 참조하고 동일 정책·자본·비용·원천 계약을 강제하며, 평가 시작 전 20개 완료 거래일의 준비 자료까지 검증합니다.
 - 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore 완료, plan 진행 중, 독립 review 예정.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-staged-market-validation
 - 작업 브랜치: feat/staged-market-validation
-- 기준 커밋 SHA: 등록부 커밋 후 기록
+- 기준 커밋 SHA: 9a22fd044433aac4a1fd2ce0e432fcf8138c69f3
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: point-in-time-discovery 완료 main 40a022f, 최신 research mandate, 사용자 승인 “1년 파일럿 후 동일 정책 3년 최종 검증”. 실제 provider 자료는 계속 부족하므로 production 실행은 fail-closed입니다.
 - 수정 허용 범위: market research request/run/result/store/service/strategy/API, 관련 fixture·테스트, `/research/market` 단계 UI와 타입, mandate·시장 연구 문서. 기존 PAPER·operations·broker/order 경로와 일반 연구 엔진은 변경하지 않습니다.
