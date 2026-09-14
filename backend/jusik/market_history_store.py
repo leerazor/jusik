@@ -6,9 +6,10 @@ import sqlite3
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import Annotated, Literal
 from uuid import uuid4
 
-from pydantic import ValidationError
+from pydantic import Field, TypeAdapter, ValidationError
 
 from jusik.market_history_models import (
     STAGED_FEE_RATE,
@@ -16,12 +17,14 @@ from jusik.market_history_models import (
     STAGED_SELL_TAX_RATE,
     STAGED_SLIPPAGE_RATE,
     CandidateEvidence,
+    Market,
     MarketHistorySnapshot,
     MarketReadiness,
     MarketResearchRequest,
     MarketResearchResult,
     MarketResearchRun,
     ResearchEquityPoint,
+    ResearchStage,
     ResearchTrade,
 )
 
@@ -82,23 +85,48 @@ def _persisted_result(payload: object) -> MarketResearchResult:
         return MarketResearchResult.model_validate(payload)
     except ValidationError:
         values = dict(payload)
+        values["market"] = TypeAdapter(Market).validate_python(values["market"])
         values["request"] = _persisted_request(values["request"])
         values["readiness"] = MarketReadiness.model_validate(values["readiness"])
-        values["candidate_evidence"] = tuple(
-            CandidateEvidence.model_validate(item)
-            for item in values.get("candidate_evidence", ())
+        values["status"] = TypeAdapter(
+            Literal["ready", "insufficient"]
+        ).validate_python(values["status"])
+        values["completeness"] = TypeAdapter(
+            Literal["complete", "incomplete"]
+        ).validate_python(values["completeness"])
+        values["candidate_evidence"] = TypeAdapter(
+            tuple[CandidateEvidence, ...]
+        ).validate_python(values.get("candidate_evidence", ()))
+        values["trades"] = TypeAdapter(tuple[ResearchTrade, ...]).validate_python(
+            values.get("trades", ())
         )
-        values["trades"] = tuple(
-            ResearchTrade.model_validate(item) for item in values.get("trades", ())
+        values["equity"] = TypeAdapter(tuple[ResearchEquityPoint, ...]).validate_python(
+            values.get("equity", ())
         )
-        values["equity"] = tuple(
-            ResearchEquityPoint.model_validate(item)
-            for item in values.get("equity", ())
+        values["limitations"] = TypeAdapter(tuple[str, ...]).validate_python(
+            values.get("limitations", ())
         )
-        values["metrics"] = {
-            str(key): Decimal(str(value))
-            for key, value in values.get("metrics", {}).items()
-        }
+        values["metrics"] = TypeAdapter(dict[str, Decimal]).validate_python(
+            values.get("metrics", {})
+        )
+        values["input_hash"] = TypeAdapter(str | None).validate_python(
+            values.get("input_hash")
+        )
+        values["policy_hash"] = TypeAdapter(str | None).validate_python(
+            values.get("policy_hash")
+        )
+        values["stage"] = TypeAdapter(ResearchStage).validate_python(
+            values.get("stage", "legacy")
+        )
+        values["pilot_run_id"] = TypeAdapter(str | None).validate_python(
+            values.get("pilot_run_id")
+        )
+        values["data_contract_hash"] = TypeAdapter(
+            Annotated[str | None, Field(pattern=r"^[0-9a-f]{64}$")]
+        ).validate_python(values.get("data_contract_hash"))
+        values["warmup_sessions"] = TypeAdapter(tuple[date, ...]).validate_python(
+            values.get("warmup_sessions", ())
+        )
         return MarketResearchResult.model_construct(**values)
 
 

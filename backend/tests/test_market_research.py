@@ -4,6 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
@@ -21,6 +22,7 @@ from jusik.market_history_sources import (
     UnavailableMarketHistorySource,
 )
 from jusik.market_history_store import MarketHistoryStore
+from jusik.market_research_api import router as market_research_router
 from jusik.market_research_service import (
     MarketResearchConflict,
     MarketResearchNotFound,
@@ -552,17 +554,53 @@ def test_store_reads_historical_staged_custom_assumptions_but_final_rejects(
         "readiness": readiness.model_dump(mode="json"),
         "status": "ready",
         "completeness": "complete",
-        "candidate_evidence": [],
-        "trades": [],
-        "equity": [],
-        "limitations": [],
-        "metrics": {},
+        "candidate_evidence": [
+            {
+                "session": "2026-09-11",
+                "symbol": "KR-A",
+                "rank": 1,
+                "volume": "10",
+                "eligible": True,
+                "membership_available_at": None,
+                "bar_available_at": None,
+            }
+        ],
+        "trades": [
+            {
+                "session": "2026-09-11",
+                "signal_session": "2026-09-10",
+                "fill_session": "2026-09-11",
+                "symbol": "KR-A",
+                "side": "buy",
+                "quantity": 1,
+                "currency": "KRW",
+                "market_open": "10",
+                "fill_price": "10",
+                "notional": "10",
+                "fee": "0",
+                "tax": "0",
+                "rationale": "historical compatibility",
+            }
+        ],
+        "equity": [
+            {
+                "session": "2026-09-11",
+                "cash_krw": "100",
+                "cash_native": "100",
+                "invested_krw": "0",
+                "nav_krw": "100",
+                "fx_krw_per_usd": "1",
+                "drawdown_pct": "0",
+            }
+        ],
+        "limitations": ["historical compatibility"],
+        "metrics": {"sample": "1.25"},
         "input_hash": "a" * 64,
         "policy_hash": market_research_policy_hash(),
         "stage": "pilot",
         "pilot_run_id": None,
         "data_contract_hash": "b" * 64,
-        "warmup_sessions": [],
+        "warmup_sessions": ["2026-09-10"],
     }
     with sqlite3.connect(path) as connection:
         connection.execute(
@@ -585,10 +623,26 @@ def test_store_reads_historical_staged_custom_assumptions_but_final_rejects(
         )
     loaded = store.get_run("historical-pilot")
     assert loaded.request.fee_rate == Decimal("0.002")
+    assert loaded.result is not None
+    assert isinstance(loaded.result.candidate_evidence, tuple)
+    assert isinstance(loaded.result.trades, tuple)
+    assert isinstance(loaded.result.equity, tuple)
+    assert isinstance(loaded.result.limitations, tuple)
+    assert isinstance(loaded.result.metrics["sample"], Decimal)
+    assert isinstance(loaded.result.warmup_sessions, tuple)
+    assert loaded.result.warmup_sessions == (date(2026, 9, 10),)
     assert store.list_runs()[0].id == "historical-pilot"
     annotated = MarketResearchService(source, store).annotate_run(loaded)
     assert annotated.final_promotable is False
     assert annotated.final_promotability_reason
+    api_app = FastAPI()
+    api_app.include_router(market_research_router)
+    api_app.state.market_research_service = MarketResearchService(source, store)
+    with TestClient(api_app) as client:
+        response = client.get("/api/research/market/runs/historical-pilot")
+    assert response.status_code == 200
+    assert response.json()["final_promotable"] is False
+    assert response.json()["result"]["warmup_sessions"] == ["2026-09-10"]
     final = MarketResearchRequest(
         market="KR",
         start_date=date(2023, 9, 14),
