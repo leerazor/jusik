@@ -497,7 +497,6 @@ class KisInvestorProvider:
                     provider_type = _text(meta.get("instrumentType")).upper()
                     if provider_type not in {"EQUITY", "ETF"}:
                         continue
-                    verified_type = "etf" if provider_type == "ETF" else "stock"
                     expected_currency = "KRW" if instrument.market == "KR" else "USD"
                     if _text(meta.get("currency")).upper() != expected_currency:
                         continue
@@ -527,6 +526,14 @@ class KisInvestorProvider:
                     )
                     if exchange_name not in allowed_exchange_names:
                         continue
+                    if (
+                        instrument.instrument_type == "stock"
+                        and provider_type != "EQUITY"
+                    ):
+                        continue
+                    if instrument.instrument_type == "etf" and provider_type != "ETF":
+                        continue
+                    verified_type = "etf" if provider_type == "ETF" else "stock"
                     market_price = _decimal(meta.get("regularMarketPrice"))
                     market_time = meta.get("regularMarketTime")
                     if (
@@ -543,13 +550,6 @@ class KisInvestorProvider:
                             source=f"Yahoo chart ({ticker}) 시장가",
                             source_url=f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
                         )
-                    if (
-                        instrument.instrument_type == "stock"
-                        and provider_type != "EQUITY"
-                    ):
-                        continue
-                    if instrument.instrument_type == "etf" and provider_type != "ETF":
-                        continue
                     timestamps = result.get("timestamp")
                     indicators = result.get("indicators")
                     quote = (

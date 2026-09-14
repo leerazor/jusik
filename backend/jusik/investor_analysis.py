@@ -27,6 +27,9 @@ QuoteStatus = Literal[
     "calendar_unavailable",
 ]
 
+_MAX_QUOTE_FETCH_AGE = timedelta(minutes=15)
+_MAX_QUOTE_SESSION_LAG = timedelta(minutes=60)
+
 
 def quote_status(
     instrument: Instrument, quote: QuoteFact, now: datetime
@@ -38,7 +41,7 @@ def quote_status(
         return "invalid_time"
     if quote.fetched_at > now:
         return "future"
-    if now - quote.fetched_at > timedelta(days=7):
+    if now - quote.fetched_at > _MAX_QUOTE_FETCH_AGE:
         return "stale"
     if quote.as_of is None:
         return "missing_time"
@@ -65,6 +68,7 @@ def quote_status(
         and latest_lookup.session.open_at
         <= quote.as_of
         <= latest_lookup.session.close_at
+        and latest_lookup.session.close_at - quote.as_of <= _MAX_QUOTE_SESSION_LAG
     ):
         return "usable"
     current_session = current_lookup.session
@@ -73,6 +77,7 @@ def quote_status(
         and current_session is not None
         and current_session.open_at <= now < current_session.close_at
         and current_session.open_at <= quote.as_of <= now
+        and now - quote.as_of <= _MAX_QUOTE_SESSION_LAG
     ):
         return "usable"
     return "stale"

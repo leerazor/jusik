@@ -461,6 +461,48 @@ def test_quote_status_uses_exchange_sessions_for_freshness() -> None:
     )
 
 
+def test_quote_status_limits_active_session_to_one_hour() -> None:
+    now = datetime(2026, 9, 14, 15, tzinfo=UTC)
+    instrument = Instrument(
+        market="US", exchange="NYS", symbol="ABC", currency="USD", name="ABC"
+    )
+    recent = QuoteFact(
+        price=Decimal("100"),
+        currency="USD",
+        as_of=datetime(2026, 9, 14, 14, 30, tzinfo=UTC),
+        fetched_at=now,
+        source="fixture",
+    )
+    delayed = recent.model_copy(
+        update={"as_of": datetime(2026, 9, 14, 13, 59, tzinfo=UTC)}
+    )
+    assert quote_status(instrument, recent, now) == "usable"
+    assert quote_status(instrument, delayed, now) == "stale"
+
+
+def test_quote_status_limits_completed_session_lag_and_fetch_age() -> None:
+    now = datetime(2026, 9, 14, 15, tzinfo=UTC)
+    instrument = Instrument(
+        market="US", exchange="NYS", symbol="ABC", currency="USD", name="ABC"
+    )
+    close_quote = QuoteFact(
+        price=Decimal("100"),
+        currency="USD",
+        as_of=datetime(2026, 9, 11, 20, tzinfo=UTC),
+        fetched_at=now,
+        source="fixture",
+    )
+    delayed = close_quote.model_copy(
+        update={"as_of": datetime(2026, 9, 11, 18, 59, tzinfo=UTC)}
+    )
+    old_fetch = close_quote.model_copy(
+        update={"fetched_at": now - timedelta(minutes=16)}
+    )
+    assert quote_status(instrument, close_quote, now) == "usable"
+    assert quote_status(instrument, delayed, now) == "stale"
+    assert quote_status(instrument, old_fetch, now) == "stale"
+
+
 def test_currency_mismatch_cannot_trigger_risk_exit() -> None:
     now = datetime(2026, 9, 14, 1, tzinfo=UTC)
     quote = QuoteFact(
@@ -637,3 +679,70 @@ def test_yahoo_mismatched_series_lengths_are_deferred(
     assert quote is not None
     assert quote.price == Decimal("100")
     assert quote.as_of is not None
+
+
+def test_yahoo_type_conflict_does_not_accept_verified_quote(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = datetime.now(UTC)
+    local_date = now.astimezone(ZoneInfo("America/New_York")).date()
+
+    class FakeClient:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def __aenter__(self) -> "FakeClient":
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+        async def get(self, *_args: object, **_kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(
+                status_code=200,
+                json=lambda: {
+                    "chart": {
+                        "result": [
+                            {
+                                "meta": {
+                                    "symbol": "NVDA",
+                                    "instrumentType": "ETF",
+                                    "currency": "USD",
+                                    "exchangeName": "NMS",
+                                    "exchangeTimezoneName": "America/New_York",
+                                    "regularMarketPrice": 100,
+                                    "regularMarketTime": 1789045200,
+                                },
+                                "timestamp": [],
+                                "indicators": {},
+                            }
+                        ]
+                    }
+                },
+            )
+
+    class FakeCalendar:
+        def latest_completed_session(
+            self, _exchange: str, _at: datetime
+        ) -> SimpleNamespace:
+            return SimpleNamespace(
+                local_date=local_date,
+                close_at=now - timedelta(hours=1),
+            )
+
+    monkeypatch.setattr(investor_data.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(
+        investor_data, "default_market_calendar", lambda: FakeCalendar()
+    )
+    provider = KisInvestorProvider(None)  # type: ignore[arg-type]
+    instrument = Instrument(
+        market="US",
+        exchange="NAS",
+        symbol="NVDA",
+        currency="USD",
+        name="NVIDIA",
+        instrument_type="stock",
+    )
+    _trend, provider_type, quote = asyncio.run(provider._yahoo_trend(instrument))
+    assert provider_type is None
+    assert quote is None
