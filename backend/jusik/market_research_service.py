@@ -28,7 +28,7 @@ class MarketResearchService:
         self.source = source
         self.store = store
         self.calendar = calendar or default_market_calendar()
-        self.implementation_hash = hashlib.sha256(
+        self.policy_hash = hashlib.sha256(
             b"market-research-pit-v1-next-open-volume-top20"
         ).hexdigest()
 
@@ -40,13 +40,20 @@ class MarketResearchService:
         try:
             readiness = self.source.readiness(request.market, datetime.now(UTC))
             snapshot = await self.source.collect(request)
+            for artifact in snapshot.source_artifacts:
+                if artifact.raw_content:
+                    self.store.save_artifact(
+                        artifact.raw_content,
+                        content_type=artifact.content_type,
+                        captured_at=artifact.captured_at,
+                    )
             snapshot_hash = self.store.save_snapshot(snapshot)
             result = run_market_research(
                 snapshot,
                 request,
                 readiness,
                 self.calendar,
-                implementation_hash=self.implementation_hash,
+                policy_hash=self.policy_hash,
             )
             self.store.update_run(
                 run.id,

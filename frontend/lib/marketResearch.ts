@@ -59,7 +59,7 @@ const resultSchema = z.object({
   limitations: z.array(z.string()),
   metrics: z.record(z.string(), z.string()),
   input_hash: z.string().nullable(),
-  implementation_hash: z.string().nullable(),
+  policy_hash: z.string().nullable(),
 });
 
 export const marketResearchRunSchema = z.object({

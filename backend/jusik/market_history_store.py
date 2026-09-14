@@ -162,7 +162,24 @@ class MarketHistoryStore:
         error: str | None = None,
     ) -> None:
         now = datetime.now(UTC).isoformat()
+        result_json = result.model_dump_json() if result else None
         with self._connect() as connection:
+            existing = connection.execute(
+                "SELECT status, result_json, input_hash, error "
+                "FROM pit_runs WHERE id = ?",
+                (run_id,),
+            ).fetchone()
+            if existing is None:
+                raise KeyError(run_id)
+            if existing["status"] in {"completed", "insufficient", "failed"}:
+                if (
+                    existing["status"] != status
+                    or existing["result_json"] != result_json
+                    or existing["input_hash"] != input_hash
+                    or existing["error"] != error
+                ):
+                    raise ValueError("terminal research runs are immutable")
+                return
             cursor = connection.execute(
                 """
                 UPDATE pit_runs
@@ -172,7 +189,7 @@ class MarketHistoryStore:
                 """,
                 (
                     status,
-                    result.model_dump_json() if result else None,
+                    result_json,
                     input_hash,
                     error,
                     now,

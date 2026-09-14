@@ -30,6 +30,9 @@ CapabilityName = Literal[
     "policy",
 ]
 
+KR_EXCHANGES = frozenset(("KRX", "KSC", "KOSPI", "KOSDAQ"))
+US_EXCHANGES = frozenset(("NAS", "NMS", "NGM", "NYS", "NYQ", "AMS", "PCX"))
+
 
 class HistoryModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -144,6 +147,7 @@ class RawArtifact(HistoryModel):
     captured_at: datetime
     source: SourceName
     source_url: HttpUrl | None = None
+    raw_content: bytes = Field(default=b"", exclude=True, repr=False)
 
     @classmethod
     def from_bytes(
@@ -167,6 +171,7 @@ class RawArtifact(HistoryModel):
                 if source_url is not None
                 else None
             ),
+            raw_content=content,
         )
 
 
@@ -198,6 +203,24 @@ class MarketHistorySnapshot(HistoryModel):
         action_keys = [(item.symbol, item.session, item.kind) for item in self.actions]
         if len(action_keys) != len(set(action_keys)):
             raise ValueError("duplicate corporate actions are not allowed")
+        expected_currency = "KRW" if self.market == "KR" else "USD"
+        allowed_exchanges = KR_EXCHANGES if self.market == "KR" else US_EXCHANGES
+        for item in self.memberships:
+            if item.market != self.market:
+                raise ValueError("snapshot child market does not match snapshot")
+            if item.currency != expected_currency:
+                raise ValueError("snapshot child currency does not match market")
+            if item.exchange not in allowed_exchanges:
+                raise ValueError("snapshot child exchange is not allowed for market")
+        for bar_item in self.bars:
+            if bar_item.market != self.market:
+                raise ValueError("snapshot child market does not match snapshot")
+            if bar_item.currency != expected_currency:
+                raise ValueError("snapshot child currency does not match market")
+            if bar_item.exchange not in allowed_exchanges:
+                raise ValueError("snapshot child exchange is not allowed for market")
+        if any(item.market != self.market for item in self.actions):
+            raise ValueError("snapshot action market does not match snapshot")
         if self.completeness == "complete" and self.missing_ranges:
             raise ValueError("complete snapshot cannot contain missing ranges")
         return self
@@ -223,6 +246,13 @@ class MarketReadiness(HistoryModel):
     capabilities: tuple[Capability, ...]
     ready: bool
     simulated: bool = False
+
+    @model_validator(mode="after")
+    def validate_ready_status(self) -> Self:
+        required_ready = all(item.status == "ready" for item in self.capabilities)
+        if self.ready != required_ready:
+            raise ValueError("readiness.ready must match capability statuses")
+        return self
 
 
 class MarketResearchRequest(HistoryModel):
@@ -291,7 +321,7 @@ class MarketResearchResult(HistoryModel):
     limitations: tuple[str, ...] = ()
     metrics: dict[str, Decimal] = Field(default_factory=dict)
     input_hash: str | None = None
-    implementation_hash: str | None = None
+    policy_hash: str | None = None
 
 
 class MarketResearchRun(HistoryModel):

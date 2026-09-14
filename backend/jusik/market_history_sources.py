@@ -17,6 +17,7 @@ from jusik.market_history_models import (
     MarketReadiness,
     MarketResearchRequest,
     PITMembership,
+    RawArtifact,
 )
 from jusik.market_research_config import MarketResearchSettings
 from jusik.research_market_calendar import default_market_calendar
@@ -173,7 +174,9 @@ class FixtureMarketHistorySource:
         return sessions
 
     async def collect(self, request: MarketResearchRequest) -> MarketHistorySnapshot:
-        captured = datetime.combine(request.end_date, datetime.min.time(), tzinfo=UTC)
+        captured = datetime.combine(
+            request.end_date + timedelta(days=1), datetime.min.time(), tzinfo=UTC
+        )
         sessions = self._sessions(request)
         symbols = (
             (
@@ -220,14 +223,19 @@ class FixtureMarketHistorySource:
             )
         bars: list[MarketBar] = []
         for symbol_index, (symbol, _) in enumerate((*symbols, ("ETF-1", "합성 ETF"))):
-            for index, session in enumerate(sessions):
+            for index, session_date in enumerate(sessions):
+                market_session = (
+                    default_market_calendar().lookup(exchange, session_date).session
+                )
+                if market_session is None:
+                    raise ValueError("fixture calendar session disappeared")
                 base = Decimal(100 + symbol_index * 10 + index // 20)
                 volume = Decimal(1000 + symbol_index * 100 + index)
                 if symbol_index == 0 and index % 23 == 0 and index >= 20:
                     volume = Decimal("5000")
                 bar_payload = {
                     "symbol": symbol,
-                    "session": session.isoformat(),
+                    "session": session_date.isoformat(),
                     "volume": str(volume),
                 }
                 bars.append(
@@ -235,7 +243,7 @@ class FixtureMarketHistorySource:
                         market=request.market,
                         exchange=exchange,
                         symbol=symbol,
-                        session=session,
+                        session=session_date,
                         open=base,
                         high=base + 2,
                         low=base - 2,
@@ -243,9 +251,7 @@ class FixtureMarketHistorySource:
                         volume=volume,
                         currency=cast(Currency, currency),
                         captured_at=captured,
-                        available_at=datetime.combine(
-                            session, datetime.min.time(), tzinfo=UTC
-                        ),
+                        available_at=market_session.close_at,
                         source="fixture",
                         source_hash=_hash(bar_payload),
                         normalization_version="pit-v1",
@@ -253,24 +259,52 @@ class FixtureMarketHistorySource:
                 )
         fx: list[FXObservation] = []
         if request.market == "US":
-            for session in sessions:
+            for session_date in sessions:
+                market_session = (
+                    default_market_calendar().lookup(exchange, session_date).session
+                )
+                if market_session is None:
+                    raise ValueError("fixture calendar session disappeared")
                 fx.append(
                     FXObservation(
-                        session=session,
+                        session=session_date,
                         pair="USDKRW",
                         krw_per_usd=Decimal("1350")
-                        + Decimal(sessions.index(session)) / 100,
+                        + Decimal(sessions.index(session_date)) / 100,
                         spread_rate=Decimal("0.001"),
                         available_at=datetime.combine(
-                            session, datetime.min.time(), tzinfo=UTC
+                            market_session.open_at.date(),
+                            market_session.open_at.timetz().replace(tzinfo=None),
+                            tzinfo=market_session.open_at.tzinfo,
                         ),
                         captured_at=captured,
                         source="fixture",
                         source_hash=_hash(
-                            {"session": session.isoformat(), "pair": "USDKRW"}
+                            {"session": session_date.isoformat(), "pair": "USDKRW"}
                         ),
                     )
                 )
+        raw_manifest = json.dumps(
+            {
+                "market": request.market,
+                "start_date": request.start_date.isoformat(),
+                "end_date": request.end_date.isoformat(),
+                "sessions": [session.isoformat() for session in sessions],
+                "symbols": [symbol for symbol, _ in (*symbols, ("ETF-1", "합성 ETF"))],
+            },
+            ensure_ascii=False,
+            sort_keys=True,
+        ).encode()
+        artifact = RawArtifact.from_bytes(
+            raw_manifest,
+            content_type="application/json",
+            captured_at=captured,
+            source="fixture",
+            source_url=(
+                "https://example.invalid/fixture/"
+                f"{request.market}/{request.start_date}_{request.end_date}.json"
+            ),
+        )
         return MarketHistorySnapshot(
             market=request.market,
             requested_start=request.start_date,
@@ -281,6 +315,7 @@ class FixtureMarketHistorySource:
             actions=(),
             actions_complete=True,
             fx=tuple(fx),
+            source_artifacts=(artifact,),
             completeness="complete" if sessions else "incomplete",
             missing_ranges=() if sessions else ("calendar", "bars", "membership"),
         )

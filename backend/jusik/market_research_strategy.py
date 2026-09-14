@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import ROUND_FLOOR, Decimal
 from typing import NamedTuple
 
@@ -68,6 +68,7 @@ def _rank_candidates(
     memberships: Iterable[PITMembership],
     bars_by_key: dict[tuple[str, date], MarketBar],
     session: MarketSession,
+    decision_cutoff: datetime,
 ) -> list[CandidateEvidence]:
     rows: list[tuple[PITMembership, MarketBar]] = []
     seen_symbols: set[str] = set()
@@ -75,7 +76,7 @@ def _rank_candidates(
         if membership.symbol in seen_symbols:
             continue
         bar = bars_by_key.get((membership.symbol, session.local_date))
-        if bar is not None and bar.available_at <= session.close_at:
+        if bar is not None and bar.available_at <= decision_cutoff:
             rows.append((membership, bar))
             seen_symbols.add(membership.symbol)
     rows.sort(key=lambda item: (-item[1].volume, item[0].symbol))
@@ -112,7 +113,6 @@ def _valid_coverage(
     if sessions is None or not sessions:
         missing.append("calendar")
         return False, sorted(set(missing))
-    expected = {session.local_date for session in sessions}
     memberships = [
         item
         for item in snapshot.memberships
@@ -120,30 +120,49 @@ def _valid_coverage(
     ]
     if not memberships:
         missing.append("membership")
-    for membership in memberships:
-        required_dates = {
-            session.local_date
-            for session in sessions
-            if membership.is_valid_on(session.local_date)
-            and membership.available_at <= session.close_at
-        }
-        dates = {
-            bar.session
-            for bar in snapshot.bars
-            if bar.symbol == membership.symbol and bar.session in required_dates
-        }
-        if dates != required_dates:
-            missing.append(f"bars:{membership.symbol}")
-        if any(
-            membership.is_valid_on(session.local_date)
-            and membership.available_at > session.close_at
-            for session in sessions
-        ):
-            missing.append(f"membership:{membership.symbol}")
+    bars_by_key = {(bar.symbol, bar.session): bar for bar in snapshot.bars}
+    for index, session in enumerate(sessions):
+        next_session = sessions[index + 1] if index + 1 < len(sessions) else None
+        decision_cutoff = next_session.open_at if next_session else session.close_at
+        for membership in memberships:
+            valid_now = membership.is_valid_on(session.local_date)
+            if not valid_now:
+                continue
+            if membership.available_at > session.close_at:
+                missing.append(f"membership:{membership.symbol}")
+                continue
+            bar = bars_by_key.get((membership.symbol, session.local_date))
+            if bar is None:
+                missing.append(f"bars:{membership.symbol}")
+            elif bar.available_at < session.close_at:
+                missing.append(f"bar-before-close:{membership.symbol}")
+            elif bar.available_at > decision_cutoff:
+                missing.append(f"bar-after-decision:{membership.symbol}")
+            if next_session is not None and not membership.is_valid_on(
+                next_session.local_date
+            ):
+                missing.append(f"executable-membership:{membership.symbol}")
+            elif (
+                next_session is not None
+                and (
+                    membership.symbol,
+                    next_session.local_date,
+                )
+                not in bars_by_key
+            ):
+                missing.append(f"fill-bar:{membership.symbol}")
     if request.market == "US":
-        fx_dates = {item.session for item in snapshot.fx if item.pair == "USDKRW"}
-        if not expected.issubset(fx_dates):
-            missing.append("fx")
+        fx_by_date = {
+            item.session: item for item in snapshot.fx if item.pair == "USDKRW"
+        }
+        for index, session in enumerate(sessions):
+            observation = fx_by_date.get(session.local_date)
+            if observation is None or observation.available_at > session.close_at:
+                missing.append(f"fx:{session.local_date}")
+            if index == 0 and (
+                observation is None or observation.available_at > session.open_at
+            ):
+                missing.append("initial-fx")
     return not missing, sorted(set(missing))
 
 
@@ -153,14 +172,40 @@ def run_market_research(
     readiness: MarketReadiness,
     calendar: MarketCalendar,
     *,
-    implementation_hash: str | None = None,
+    policy_hash: str | None = None,
 ) -> MarketResearchResult:
+    if snapshot.market != request.market or readiness.market != request.market:
+        return MarketResearchResult(
+            market=request.market,
+            request=request,
+            readiness=readiness,
+            status="insufficient",
+            completeness="incomplete",
+            limitations=("시장 식별자가 일치하지 않아 계산하지 않습니다.",),
+            metrics={},
+            input_hash=snapshot.input_hash,
+            policy_hash=policy_hash,
+        )
     sessions = _expected_sessions(calendar, request)
     complete, missing = _valid_coverage(snapshot, request, sessions)
+    unsupported_actions = sorted({item.kind for item in snapshot.actions})
+    if unsupported_actions:
+        complete = False
+        missing.extend(
+            f"unsupported corporate action:{kind}" for kind in unsupported_actions
+        )
     if not readiness.ready:
         complete = False
         missing.append("readiness")
     if not complete or sessions is None:
+        action_limitations = (
+            (
+                "지원하지 않는 기업행동이 있어 전체 연구를 보류합니다: "
+                + ", ".join(unsupported_actions),
+            )
+            if unsupported_actions
+            else ()
+        )
         return MarketResearchResult(
             market=request.market,
             request=request,
@@ -170,10 +215,11 @@ def run_market_research(
             limitations=(
                 "필수 PIT membership·일봉·기업행동·환율 자료가 모두 확인될 때까지 "
                 "계산하지 않습니다.",
+                *action_limitations,
                 "이 결과는 capability readiness만 보여 주며 수익률을 만들지 않습니다.",
             ),
             metrics={},
-            implementation_hash=implementation_hash,
+            policy_hash=policy_hash,
         ).model_copy(update={"input_hash": snapshot.input_hash})
 
     bars_by_key = {(bar.symbol, bar.session): bar for bar in snapshot.bars}
@@ -281,7 +327,14 @@ def run_market_research(
                 )
         pending_buys.clear()
 
-        candidates = _rank_candidates(snapshot.memberships, bars_by_key, session)
+        decision_cutoff = (
+            sessions[index + 1].open_at
+            if index + 1 < len(sessions)
+            else session.close_at
+        )
+        candidates = _rank_candidates(
+            snapshot.memberships, bars_by_key, session, decision_cutoff
+        )
         evidence.extend(candidates)
         for symbol in list(positions):
             bar = bars_by_key[(symbol, session.local_date)]
@@ -304,7 +357,7 @@ def run_market_research(
             current = bars_by_key[(candidate.symbol, session.local_date)]
             if (
                 len(prior) == TWENTY
-                and current.close >= max(item.close for item in prior)
+                and current.close > max(item.close for item in prior)
                 and current.volume
                 > sum((item.volume for item in prior), Decimal()) / TWENTY
                 and index + 1 < len(sessions)
@@ -367,5 +420,5 @@ def run_market_research(
         ),
         metrics=metrics,
         input_hash=snapshot.input_hash,
-        implementation_hash=implementation_hash,
+        policy_hash=policy_hash,
     )
