@@ -109,6 +109,7 @@ class Settings(BaseSettings):
     telegram_bot_token: SecretStr | None = None
     telegram_chat_id: SecretStr | None = None
     alert_db_path: Path = Path.home() / ".local/share/jusik/alerts.db"
+    investor_db_path: Path = Path.home() / ".local/share/jusik/investor.db"
     monitor_interval_seconds: int = Field(default=300, ge=60, le=3600)
 
     @field_validator("kis_app_key", "kis_app_secret")

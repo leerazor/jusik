@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { amount, marketNames, tone, type Holding } from "@/lib/portfolio";
 
 export type HoldingRow = {
@@ -151,7 +152,7 @@ export function HoldingsTable({ rows }: { rows: HoldingRow[] }) {
             <tr key={`${accountId}:${holding.market}:${holding.symbol}`}>
               <td className="account-cell">{accountLabel}</td>
               <td>
-                <strong>{holding.name}</strong>
+                <Link href={`/investor/${holding.market === "KRX" ? "KR" : "US"}/${encodeURIComponent(holding.symbol)}`}><strong>{holding.name}</strong></Link>
                 <small>
                   {holding.symbol} · {marketNames[holding.market] ?? holding.market} · {holding.currency}
                 </small>
@@ -178,7 +179,7 @@ export function HoldingsTable({ rows }: { rows: HoldingRow[] }) {
               <td><NullableNumber value={holding.fundamentals.pbr} /></td>
               <td><NullableNumber value={holding.fundamentals.eps} /></td>
               <td>
-                <span className={`advice advice-${holding.advice.signal}`}>{holding.advice.label}</span>
+                <span className={`advice advice-${holding.advice.signal}`}>{holding.advice.label} <small>기존 단순 지표</small></span>
                 <small>{holding.advice.reasons.join(" ")}</small>
                 {(holding.fundamentals.bps || holding.fundamentals.instrument_type) && (
                   <small>
