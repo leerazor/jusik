@@ -2,9 +2,9 @@
 
 ## approximate-market-data
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 논문급 전수 PIT 대신 개인 투자 판단용 무료 근사 자료로 한국·미국의 1년 파일럿과 3년 최종 연구를 실행할 수 있게 합니다. 현재 후보의 과거 고정은 금지하고, 과거 연간 종목 목록의 결정적 표본 안에서 거래일마다 거래량 상위 20개를 재발굴합니다. 근사 등급·coverage·누락·배당/상폐/환율 가정을 결과와 웹에 공개하며 strict·fixture·PAPER·실거래와 혼합하지 않습니다.
-- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore·plan 완료, 독립 review 예정.
+- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore·plan·구현·독립 review와 지적 수정 재검토를 완료했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-approximate-market-data
 - 작업 브랜치: feat/approximate-market-data
 - 기준 커밋 SHA: b5117e4899a2be37bda6033297034db691ff632d
@@ -13,13 +13,13 @@
 - 수정 허용 범위: approximate market history source·모델·저장소·전략 분기·service/API/CLI/config/cache, 관련 fixture·테스트, `/research/market` coverage UI·타입, `.env.dev.example`, mandate·시장 연구 문서. strict PIT, 기존 PAPER·operations·broker/order 경로는 보존합니다.
 - 포트·테스트 DB·출력 경로: 작업 서버 3364/8364, 워크트리 내부 Python/Node 환경, pytest 임시 DB·fixture·cache. 실제 무료 source smoke는 별도 임시 cache/artifact만 사용하고 운영 DB·실제 주문은 사용하지 않습니다.
 - 고정 계약: research grade는 strict와 approximate를 분리합니다. approximate 기본 표본은 과거 연간 목록에서 고정 seed로 시장별 최대 100개이며 매일 표본 내 거래량 순위를 재계산합니다. pilot/final은 같은 source·표본·정규화·누락 정책 계약만 연결합니다. 개별 비보유 종목 자료 누락은 제외 수와 coverage를 기록하고 허용하지만, 거래일 전체 모집단·초기 FX·숫자/통화 오류는 차단합니다.
-- 검증 명령과 결과: 예정 — historical universe/current candidate 분리, 결정적 표본, 누락·기업행사·FX·cache/quota/retry, strict/approximate/fixture 혼합 차단, staged 연결, Ruff/mypy, frontend lint/typecheck/build, 실제 작은 표본 smoke.
-- 결과 커밋 SHA: 예정
-- 검토 결과와 남은 문제: 무료 KRX/Alpha Vantage 키가 현재 설정되지 않았습니다. 구현 후 readiness와 백필 재개 절차로 표시합니다.
-- 병합 직전 main SHA: 예정
-- 통합 커밋 SHA와 정리 여부: 예정
-- 통합 검증 실패 원인과 복구 결과: 해당 없음
-- handoff 저장 경로와 갱신 여부: 예정
+- 검증 명령과 결과: 통합 main에서 관련 pytest 82개, Ruff, strict mypy 8개 모듈, frontend lint/typecheck/production build와 `git diff --check`가 통과했습니다. 독립 review는 일별 membership의 다음 시가 인과성, 수수료·슬리피지·세금·SMA 청산·20종목 한도·낙폭 latch, strict 분리, 파일 import의 provenance·기간 검증을 확인했고 최종 P1/P2 없음으로 판정했습니다. iPad 1024×1366 브라우저에서 네 등급·시장 준비 카드와 실행 폼을 확인했고 console error 0건이었습니다.
+- 결과 커밋 SHA: 8228f3c, dd1b1c5, 45eba8f, e09181c, 3044bbe, 1cdd7e2, 96835de, 3f4e822, 12185b7.
+- 검토 결과와 남은 문제: 실제 네트워크 수집기를 구현한 것이 아니라 검증된 prepared response file의 `import-file`과 운영 cache 소비 경로를 구현했습니다. 현재 준비 파일과 KRX·Alpha Vantage·Yahoo·FRED 자료가 없어 KR/US approximate readiness는 false이며 실제 1년·3년 수익률을 생성하지 않았습니다. 웹은 파일 부재와 invalid 파일을 구분하고, 근사 표본·coverage·누락·배당/상폐 한계를 표시합니다. PAPER·실주문은 변경하지 않았습니다.
+- 병합 직전 main SHA: 60117dcad87682c75c2eb3cc3f252f11ffbcc004
+- 통합 커밋 SHA와 정리 여부: 기능 통합 20117bf5b946139c86754ac360376993d7f5c3b1, 검증 수정 통합 7cba46b2b4032b1135264027a5c93aaa8af1f81b, readiness 통합 c9089b893a918d0968b1d52653096bacf9799588. 검증과 handoff 보존 후 이번 워크트리를 정상 제거합니다.
+- 통합 검증 실패 원인과 복구 결과: 기준 저장소 가상환경 경로 차이, cwd 상대 checksum 테스트, strict mypy의 불필요 ignore를 수정했습니다. 운영 API에서 발견한 cache·달력·KR/US FX 상태/문구 모순과 invalid 파일 오표시도 수정하고 재배포·재검증했습니다.
+- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260914-approximate-market-data/HANDOFF.md` 및 루트 `HANDOFF.md`를 갱신합니다.
 
 ## staged-market-validation
 
