@@ -2,7 +2,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 
-from jusik.investor_analysis import analyze
+from jusik.investor_analysis import analyze, review_thesis
 from jusik.investor_data import InvestorProvider
 from jusik.investor_models import (
     DiscoveryResult,
@@ -112,12 +112,39 @@ async def thesis_list(request: Request) -> list[Thesis]:
 
 @router.get("/theses/{thesis_id}", response_model=Thesis)
 async def thesis_detail(thesis_id: str, request: Request) -> Thesis:
-    _, store = _services(request)
+    provider, store = _services(request)
     try:
-        return store.get(thesis_id)
+        stored = store.get(thesis_id)
+        detail = await provider.detail(stored.instrument)
+        if not _identity_matches(detail.instrument, stored.instrument):
+            raise HTTPException(
+                status_code=409,
+                detail="최신 조회 결과의 종목 식별자가 저장 기록과 다릅니다.",
+            )
+        current_analysis = analyze(
+            detail.instrument,
+            detail.analysis.quote,
+            detail.analysis.fundamentals,
+            detail.analysis.trend,
+            assumptions=stored.valuation,
+            entry_kind=stored.entry_kind,
+            now=detail.analysis.analyzed_at,
+        )
+        return stored.model_copy(
+            update={
+                "current_analysis": current_analysis,
+                "review": review_thesis(stored, current_analysis),
+            }
+        )
     except ThesisNotFoundError:
         raise HTTPException(
             status_code=404, detail="저장된 thesis를 찾을 수 없습니다."
+        ) from None
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=502, detail="최신 투자 자료를 확인할 수 없습니다."
         ) from None
 
 

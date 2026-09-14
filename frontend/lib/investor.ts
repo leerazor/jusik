@@ -52,3 +52,10 @@ export async function getInvestorDetail(market: "KR" | "US", symbol: string, exc
 export async function getTheses(): Promise<Thesis[]> {
   try { const response = await fetch(`${backendUrl()}/api/investor/theses`, { cache: "no-store" }); return response.ok ? z.array(thesisSchema).parse(await response.json()) : []; } catch { return []; }
 }
+export async function getThesis(id: string): Promise<Thesis | null> {
+  if (!/^[a-f0-9]{32}$/.test(id)) return null;
+  try {
+    const response = await fetch(`${backendUrl()}/api/investor/theses/${id}`, { cache: "no-store" });
+    return response.ok ? thesisSchema.parse(await response.json()) : null;
+  } catch { return null; }
+}

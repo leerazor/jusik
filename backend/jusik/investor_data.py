@@ -325,7 +325,11 @@ class KisInvestorProvider:
                             else resolved_instrument.instrument_type,
                         }
                     )
-                trend, provider_type = await self._yahoo_trend(resolved_instrument)
+                trend, provider_type, yahoo_quote = await self._yahoo_trend(
+                    resolved_instrument
+                )
+                if yahoo_quote is not None:
+                    quote = yahoo_quote
                 if resolved_instrument.instrument_type == "unknown" and provider_type:
                     resolved_instrument = resolved_instrument.model_copy(
                         update={"instrument_type": provider_type}
@@ -437,7 +441,7 @@ class KisInvestorProvider:
 
     async def _yahoo_trend(
         self, instrument: Instrument
-    ) -> tuple[TrendFacts, InstrumentType | None]:
+    ) -> tuple[TrendFacts, InstrumentType | None, QuoteFact | None]:
         suffixes = (".KS", ".KQ") if instrument.market == "KR" else ("",)
         calendar = default_market_calendar()
         now = datetime.now(UTC)
@@ -451,8 +455,10 @@ class KisInvestorProvider:
                     ],
                 ),
                 None,
+                None,
             )
         verified_type: InstrumentType | None = None
+        verified_quote: QuoteFact | None = None
         try:
             async with httpx.AsyncClient(
                 timeout=10,
@@ -492,6 +498,51 @@ class KisInvestorProvider:
                     if provider_type not in {"EQUITY", "ETF"}:
                         continue
                     verified_type = "etf" if provider_type == "ETF" else "stock"
+                    expected_currency = "KRW" if instrument.market == "KR" else "USD"
+                    if _text(meta.get("currency")).upper() != expected_currency:
+                        continue
+                    expected_timezone = (
+                        "Asia/Seoul"
+                        if instrument.market == "KR"
+                        else "America/New_York"
+                    )
+                    if _text(meta.get("exchangeTimezoneName")) != expected_timezone:
+                        continue
+                    exchange_name = _text(meta.get("exchangeName")).upper()
+                    allowed_exchange_names = (
+                        {"KSC", "KOE", "KOSPI", "KOSDAQ", "KRX"}
+                        if instrument.market == "KR"
+                        else {
+                            instrument.exchange,
+                            "NMS",
+                            "NGM",
+                            "NYS",
+                            "NYQ",
+                            "NASDAQ",
+                            "NYSE",
+                            "ASE",
+                            "AMEX",
+                            "AMS",
+                        }
+                    )
+                    if exchange_name not in allowed_exchange_names:
+                        continue
+                    market_price = _decimal(meta.get("regularMarketPrice"))
+                    market_time = meta.get("regularMarketTime")
+                    if (
+                        market_price is not None
+                        and isinstance(market_time, (int, float))
+                        and not isinstance(market_time, bool)
+                        and math.isfinite(float(market_time))
+                    ):
+                        verified_quote = QuoteFact(
+                            price=market_price,
+                            currency=expected_currency,
+                            as_of=datetime.fromtimestamp(float(market_time), UTC),
+                            fetched_at=now,
+                            source=f"Yahoo chart ({ticker}) 시장가",
+                            source_url=f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
+                        )
                     if (
                         instrument.instrument_type == "stock"
                         and provider_type != "EQUITY"
@@ -599,7 +650,7 @@ class KisInvestorProvider:
                             "source_url": f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
                         }
                     )
-                    return trend, verified_type
+                    return trend, verified_type, verified_quote
             raise ValueError("validated chart bars unavailable")
         except (httpx.HTTPError, json.JSONDecodeError, TypeError, ValueError):
             return (
@@ -610,6 +661,7 @@ class KisInvestorProvider:
                     ],
                 ),
                 verified_type,
+                verified_quote,
             )
 
 

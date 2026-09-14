@@ -149,7 +149,11 @@ def analyze(
         quote_reason = "시세 통화가 종목 시장과 일치하지 않아 판단을 보류합니다."
     elif quote.fetched_at.tzinfo is None or quote.fetched_at > timestamp:
         quote_reason = "시세 확인 시각이 유효하지 않아 판단을 보류합니다."
-    elif quote.as_of is not None:
+    elif (timestamp - quote.fetched_at).days > 7:
+        quote_reason = "시세 확인 시각이 오래되어 판단을 보류합니다."
+    elif quote.as_of is None:
+        quote_reason = "시세 기준 시각이 제공되지 않아 가격 판단을 보류합니다."
+    else:
         if quote.as_of.tzinfo is None or quote.as_of > timestamp:
             quote_reason = "시세 기준 시각이 유효하지 않아 판단을 보류합니다."
         elif (timestamp - quote.as_of).days > 7:
@@ -236,8 +240,9 @@ def review_thesis(
     quote_unusable = (
         analysis.quote.price is None
         or analysis.quote.unavailable_reason is not None
+        or analysis.quote.as_of is None
         or any(
-            "오래되어" in reason or "유효하지 않아" in reason
+            "오래되어" in reason or "유효하지 않아" in reason or "기준 시각" in reason
             for reason in analysis.reasons
         )
     )

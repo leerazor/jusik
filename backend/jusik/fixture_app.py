@@ -296,6 +296,7 @@ def _investor_detail(
         if missing
         else Decimal("72000" if instrument.market == "KR" else "180.25"),
         currency=instrument.currency,
+        as_of=INVESTOR_NOW,
         fetched_at=INVESTOR_NOW,
         source="합성 fixture · 실제 시세 아님",
         unavailable_reason="합성 fixture에서 의도적으로 누락" if missing else None,

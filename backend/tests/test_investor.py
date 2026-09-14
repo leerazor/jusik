@@ -92,6 +92,18 @@ def test_value_requires_explicit_assumptions_and_etf_is_unassessed() -> None:
         analyze(
             _instrument(), quote, facts, trend, assumptions=assumptions
         ).value_entry_status
+        == "unassessed"
+    )
+    quote_with_time = quote.model_copy(update={"as_of": quote.fetched_at})
+    assert (
+        analyze(
+            _instrument(),
+            quote_with_time,
+            facts,
+            trend,
+            assumptions=assumptions,
+            now=datetime(2026, 1, 2, tzinfo=UTC),
+        ).value_entry_status
         == "review"
     )
     assert (
@@ -144,12 +156,14 @@ def test_thesis_review_keeps_value_drop_separate_from_trend_failure() -> None:
         currency="KRW",
         fetched_at="2026-01-01T00:00:00Z",
         source="fixture",
+        as_of="2026-01-01T00:00:00Z",
     )
     analysis = analyze(
         _instrument(),
         quote,
         FundamentalFacts(),
         TrendFacts(deterioration_observed=True),
+        now=datetime(2026, 1, 2, tzinfo=UTC),
     )
     thesis = ThesisWrite(
         instrument=_instrument(),
@@ -240,6 +254,35 @@ def test_fixture_investor_routes() -> None:
         assert updated.status_code == 200
         assert updated.json()["current_analysis"]["assumed_value_lower"] == "60000"
         assert updated.json()["current_analysis"]["assumed_safety_price"] == "48000.0"
+        thesis_id = saved.json()["id"]
+        revisions_before = len(fixture_app.state.investor_store.revisions(thesis_id))
+        fresh = client.get(f"/api/investor/theses/{thesis_id}")
+        assert fresh.status_code == 200
+        assert fresh.json()["current_analysis"]["assumed_value_lower"] == "60000"
+        detail_obj = fixture_app.state.investor_provider.details[("KR", "005930")]
+        changed_quote = detail_obj.analysis.quote.model_copy(
+            update={"price": Decimal("50000")}
+        )
+        changed_detail = detail_obj.model_copy(
+            update={
+                "analysis": analyze(
+                    detail_obj.instrument,
+                    changed_quote,
+                    detail_obj.analysis.fundamentals,
+                    detail_obj.analysis.trend,
+                    now=detail_obj.analysis.analyzed_at,
+                )
+            }
+        )
+        fixture_app.state.investor_provider.details[("KR", "005930")] = changed_detail
+        changed = client.get(f"/api/investor/theses/{thesis_id}")
+        assert changed.json()["current_analysis"]["quote"]["price"] == "50000"
+        assert changed.json()["current_analysis"]["value_entry_status"] == "unassessed"
+        assert (
+            len(fixture_app.state.investor_store.revisions(thesis_id))
+            == revisions_before
+        )
+        fixture_app.state.investor_provider.details[("KR", "005930")] = detail_obj
         identity_mismatch = dict(updated_payload)
         identity_mismatch["instrument"] = dict(payload["instrument"])
         identity_mismatch["instrument"]["symbol"] = "069500"
@@ -278,6 +321,7 @@ def test_review_closed_takes_priority_and_watch_is_not_sell_signal() -> None:
             currency="KRW",
             fetched_at=datetime.now(UTC),
             source="fixture",
+            as_of=datetime.now(UTC),
         ),
         FundamentalFacts(),
         TrendFacts(deterioration_observed=True),
@@ -441,7 +485,15 @@ def test_yahoo_mismatched_series_lengths_are_deferred(
                     "chart": {
                         "result": [
                             {
-                                "meta": {"symbol": "NVDA", "instrumentType": "EQUITY"},
+                                "meta": {
+                                    "symbol": "NVDA",
+                                    "instrumentType": "EQUITY",
+                                    "currency": "USD",
+                                    "exchangeName": "NMS",
+                                    "exchangeTimezoneName": "America/New_York",
+                                    "regularMarketPrice": 100,
+                                    "regularMarketTime": 1789045200,
+                                },
                                 "timestamp": [1, 2],
                                 "indicators": {
                                     "quote": [{"close": [1], "volume": [1, 2]}],
@@ -475,7 +527,10 @@ def test_yahoo_mismatched_series_lengths_are_deferred(
         name="NVIDIA",
         instrument_type="stock",
     )
-    trend, provider_type = asyncio.run(provider._yahoo_trend(instrument))
+    trend, provider_type, quote = asyncio.run(provider._yahoo_trend(instrument))
     assert trend.breakout_observed is None
     assert trend.unavailable_reasons
     assert provider_type == "stock"
+    assert quote is not None
+    assert quote.price == Decimal("100")
+    assert quote.as_of is not None
