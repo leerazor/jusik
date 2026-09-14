@@ -11,12 +11,14 @@ from jusik.investor_data import InMemoryInvestorProvider
 from jusik.investor_models import (
     Candidate,
     DailyBar,
+    DiscoveryCounts,
     DiscoveryResult,
     FundamentalFacts,
     Instrument,
     InstrumentDetail,
     Market,
     QuoteFact,
+    RelativeVolumeFacts,
     TrendFacts,
 )
 from jusik.investor_store import InvestorStore
@@ -403,38 +405,63 @@ def fixture_investor_provider() -> InMemoryInvestorProvider:
         _investor_detail(us_stock),
         _investor_detail(us_etf),
     ]
+
+    def candidate(
+        instrument: Instrument, rank: int, volume: str, ratio: str
+    ) -> Candidate:
+        return Candidate(
+            instrument=instrument,
+            rank=rank,
+            reason="합성 거래량 순위와 직전 20거래일 상대거래량 · 투자 판단 아님",
+            source="fixture",
+            observed_at=INVESTOR_NOW,
+            ranking_volume=Decimal(volume),
+            classification_source="합성 Yahoo 종목 유형",
+            classification_observed_at=INVESTOR_NOW,
+            relative_volume=RelativeVolumeFacts(
+                numerator=Decimal(volume),
+                average20=Decimal("100"),
+                ratio=Decimal(ratio),
+                sample_count=20,
+                sample_start=date(2026, 8, 7),
+                sample_end=date(2026, 9, 4),
+                source="합성 Yahoo 상대거래량",
+                as_of=INVESTOR_NOW,
+                fetched_at=INVESTOR_NOW,
+            ),
+        )
+
     candidates: dict[Market, DiscoveryResult] = {
         "KR": DiscoveryResult(
             market="KR",
-            candidates=[
-                Candidate(
-                    instrument=item,
-                    rank=index,
-                    reason="합성 거래량 후보 · 투자 판단 아님",
-                    source="fixture",
-                    observed_at=NOW,
-                )
-                for index, item in enumerate((kr_stock, kr_etf, kr_unknown), 1)
-            ],
-            coverage="합성 첫 페이지 3건",
+            candidates=[candidate(kr_stock, 1, "1200000", "12")],
+            etf_candidates=[candidate(kr_etf, 1, "800000", "8")],
+            coverage="합성 첫 페이지에서 주식·ETF를 분리한 3건",
             truncated=False,
             fetched_at=NOW,
+            counts=DiscoveryCounts(
+                source_rows=3,
+                valid_rows=3,
+                inspected=3,
+                stocks=1,
+                etfs=1,
+                unknown=1,
+            ),
         ),
         "US": DiscoveryResult(
             market="US",
-            candidates=[
-                Candidate(
-                    instrument=item,
-                    rank=index,
-                    reason="합성 거래량 후보 · 투자 판단 아님",
-                    source="fixture",
-                    observed_at=NOW,
-                )
-                for index, item in enumerate((us_stock, us_etf), 1)
-            ],
-            coverage="합성 첫 페이지 2건",
+            candidates=[candidate(us_stock, 1, "900000", "9")],
+            etf_candidates=[candidate(us_etf, 1, "700000", "7")],
+            coverage="합성 첫 페이지에서 주식·ETF를 분리한 2건",
             truncated=False,
             fetched_at=NOW,
+            counts=DiscoveryCounts(
+                source_rows=2,
+                valid_rows=2,
+                inspected=2,
+                stocks=1,
+                etfs=1,
+            ),
         ),
     }
     return InMemoryInvestorProvider(details, candidates)

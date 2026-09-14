@@ -4,19 +4,21 @@ import json
 import math
 import time
 from collections.abc import Callable, Coroutine, Mapping
-from datetime import UTC, date, datetime
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol, cast
 from zoneinfo import ZoneInfo
 
 import httpx
 
-from jusik.investor_analysis import analyze, evaluate_trend
+from jusik.investor_analysis import analyze, evaluate_trend, quote_status
 from jusik.investor_models import (
     AnalysisResult,
     Candidate,
     Currency,
     DailyBar,
+    DiscoveryCounts,
     DiscoveryResult,
     FundamentalFacts,
     Instrument,
@@ -24,14 +26,56 @@ from jusik.investor_models import (
     InstrumentType,
     Market,
     QuoteFact,
+    RelativeVolumeFacts,
     TrendFacts,
 )
 from jusik.kis import BrokerError, KisClient
-from jusik.research_market_calendar import default_market_calendar
+from jusik.research_market_calendar import (
+    MarketCalendar,
+    MarketSession,
+    default_market_calendar,
+)
 
 SOURCE_URL = "https://apiportal.koreainvestment.com/apiservice"
 MAX_CANDIDATES = 20
 US_EXCHANGES = ("NAS", "NYS", "AMS")
+MAX_DISCOVERY_ROWS = 80
+MAX_KR_DISCOVERY_ROWS = 60
+DISCOVERY_BATCH_SIZE = 4
+DISCOVERY_DEADLINE_SECONDS = 20
+DISCOVERY_REQUEST_TIMEOUT_SECONDS = 6
+DISCOVERY_SOURCE_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
+YAHOO_EXCHANGES: dict[str, set[str]] = {
+    "NAS": {"NMS", "NGM", "NCM", "NAS"},
+    "NYS": {"NYQ", "NYS", "NYSE"},
+    "AMS": {"ASE", "AMS", "AMEX", "PCX"},
+}
+
+
+@dataclass(frozen=True)
+class _RankedRow:
+    instrument: Instrument
+    volume: Decimal
+    observed_at: datetime
+    source: str
+
+
+@dataclass(frozen=True)
+class _CandidateChartResult:
+    instrument_type: InstrumentType | None
+    relative_volume: RelativeVolumeFacts | None
+    reason: str | None = None
+    failed: bool = False
+
+
+@dataclass
+class _DiscoveryProgress:
+    stock_candidates: list[Candidate] = field(default_factory=list)
+    etf_candidates: list[Candidate] = field(default_factory=list)
+    counts: DiscoveryCounts = field(default_factory=DiscoveryCounts)
+    source_rows: int = 0
+    valid_rows: int = 0
+    inspected: int = 0
 
 
 def _decimal(value: object) -> Decimal | None:
@@ -73,13 +117,19 @@ class KisInvestorProvider:
         self._cache: dict[tuple[str, str], tuple[object, float]] = {}
         self._inflight: dict[tuple[str, str], asyncio.Task[object]] = {}
         self._inflight_lock = asyncio.Lock()
+        self._candidate_semaphore = asyncio.Semaphore(4)
 
     async def _cached(
-        self, key: tuple[str, str], loader: Callable[[], Coroutine[Any, Any, object]]
+        self,
+        key: tuple[str, str],
+        loader: Callable[[], Coroutine[Any, Any, object]],
+        *,
+        cache_seconds: int | None = None,
     ) -> object:
         now = time.monotonic()
+        ttl = self.cache_seconds if cache_seconds is None else cache_seconds
         cached = self._cache.get(key)
-        if cached and now - cached[1] < self.cache_seconds:
+        if cached and now - cached[1] < ttl:
             return cached[0]
         async with self._inflight_lock:
             task = self._inflight.get(key)
@@ -130,97 +180,720 @@ class KisInvestorProvider:
         )
 
     async def discover(self, market: Market) -> DiscoveryResult:
-        now = datetime.now(UTC)
         key = ("discover", market)
 
         async def load() -> DiscoveryResult:
-            errors: list[str] = []
-            rows: list[Mapping[str, object]] = []
-            try:
-                if market == "KR":
-                    data = await self._request(
-                        "/uapi/domestic-stock/v1/quotations/volume-rank",
-                        "FHPST01710000",
-                        {
-                            "FID_COND_MRKT_DIV_CODE": "J",
-                            "FID_COND_SCR_DIV_CODE": "20171",
-                            "FID_INPUT_ISCD": "0000",
-                            "FID_DIV_CLS_CODE": "0",
-                            "FID_BLNG_CLS_CODE": "0",
-                            "FID_TRGT_CLS_CODE": "111111111",
-                            "FID_TRGT_EXLS_CLS_CODE": "0000000000",
-                            "FID_INPUT_PRICE_1": "",
-                            "FID_INPUT_PRICE_2": "",
-                            "FID_VOL_CNT": "",
-                            "FID_INPUT_DATE_1": "",
-                        },
-                    )
-                    output = data.get("output")
-                    rows = output if isinstance(output, list) else []
-                    exchange = "KRX"
-                else:
-                    for exchange in US_EXCHANGES:
-                        data = await self._request(
-                            "/uapi/overseas-stock/v1/ranking/trade-vol",
-                            "HHDFS76310010",
-                            {
-                                "EXCD": exchange,
-                                "NDAY": "0",
-                                "VOL_RANG": "0",
-                                "KEYB": "",
-                                "AUTH": "",
-                                "PRC1": "",
-                                "PRC2": "",
-                            },
-                        )
-                        output = data.get("output2")
-                        if isinstance(output, list):
-                            rows.extend(
-                                row for row in output if isinstance(row, Mapping)
-                            )
-                    exchange = "US"
-            except (BrokerError, httpx.HTTPError, ValueError):
-                errors.append("후보 순위 자료를 확인할 수 없습니다.")
-                exchange = "KRX" if market == "KR" else "US"
-            candidates: list[Candidate] = []
-            seen: set[str] = set()
-            for row in rows:
-                symbol = _text(
-                    row.get("mksc_shrn_iscd")
-                    or row.get("stck_shrn_iscd")
-                    or row.get("symb")
-                    or row.get("rsym")
-                )
-                if market == "US" and symbol.startswith("D") and len(symbol) > 5:
-                    symbol = symbol[5:]
-                if not symbol or symbol in seen or len(candidates) >= MAX_CANDIDATES:
-                    continue
-                seen.add(symbol)
-                item_exchange = _text(row.get("excd") or exchange)
-                candidates.append(
-                    Candidate(
-                        instrument=self._instrument(market, item_exchange, symbol, row),
-                        rank=len(candidates) + 1,
-                        reason=(
-                            "거래량 순위 후보입니다. 저평가나 품질을 증명하지 않습니다."
-                        ),
-                        source="KIS 거래량 순위",
-                        observed_at=now,
-                    )
-                )
-            return DiscoveryResult(
-                market=market,
-                candidates=candidates,
-                coverage="KIS 첫 순위 페이지의 후보만 확인했습니다.",
-                truncated=len(rows) > MAX_CANDIDATES,
-                partial=bool(errors),
-                errors=errors,
-                fetched_at=now,
-            )
+            return await self._discover(market)
 
         result = await self._cached(key, load)
         assert isinstance(result, DiscoveryResult)
         return result
+
+    async def _discover(self, market: Market) -> DiscoveryResult:
+        now = datetime.now(UTC)
+        errors: list[str] = []
+        progress = _DiscoveryProgress()
+        try:
+            async with asyncio.timeout(DISCOVERY_DEADLINE_SECONDS):
+                rows, source_rows, rank_errors = await self._rank_rows(market, now)
+                errors.extend(rank_errors)
+                progress.source_rows = source_rows
+                progress.valid_rows = len(rows)
+                return await self._classify_rows(
+                    market, rows, source_rows, errors, now, progress=progress
+                )
+        except TimeoutError:
+            errors.append("후보 분류 시간이 제한을 넘어 수집된 자료만 표시합니다.")
+            progress.counts = progress.counts.model_copy(
+                update={"failed": progress.counts.failed + 1}
+            )
+            return self._discovery_result(market, progress, errors, now, truncated=True)
+
+    async def _rank_rows(
+        self, market: Market, observed_at: datetime
+    ) -> tuple[list[_RankedRow], int, list[str]]:
+        raw_rows: list[tuple[str, Mapping[str, object], datetime]] = []
+        errors: list[str] = []
+
+        async def request_rows(
+            label: str,
+            path: str,
+            tr_id: str,
+            params: dict[str, str],
+            output_key: str,
+            exchange: str,
+            limit: int,
+        ) -> None:
+            try:
+                data = await asyncio.wait_for(
+                    self._request(path, tr_id, params),
+                    timeout=DISCOVERY_REQUEST_TIMEOUT_SECONDS,
+                )
+            except (BrokerError, httpx.HTTPError, TimeoutError, ValueError):
+                errors.append(f"{label} 거래량 순위를 확인하지 못했습니다.")
+                return
+            output = data.get(output_key)
+            if not isinstance(output, list):
+                return
+            source_observed_at = datetime.now(UTC)
+            for row in output[:limit]:
+                if isinstance(row, Mapping):
+                    raw_rows.append((exchange, row, source_observed_at))
+
+        if market == "KR":
+            base_params = {
+                "FID_COND_MRKT_DIV_CODE": "J",
+                "FID_COND_SCR_DIV_CODE": "20171",
+                "FID_INPUT_ISCD": "0000",
+                "FID_BLNG_CLS_CODE": "0",
+                "FID_TRGT_CLS_CODE": "111111111",
+                "FID_INPUT_PRICE_1": "",
+                "FID_INPUT_PRICE_2": "",
+                "FID_VOL_CNT": "",
+                "FID_INPUT_DATE_1": "",
+            }
+            await request_rows(
+                "한국 전체",
+                "/uapi/domestic-stock/v1/quotations/volume-rank",
+                "FHPST01710000",
+                {
+                    **base_params,
+                    "FID_DIV_CLS_CODE": "0",
+                    "FID_TRGT_EXLS_CLS_CODE": "0000000000",
+                },
+                "output",
+                "KRX",
+                30,
+            )
+            await request_rows(
+                "한국 주식",
+                "/uapi/domestic-stock/v1/quotations/volume-rank",
+                "FHPST01710000",
+                {
+                    **base_params,
+                    "FID_DIV_CLS_CODE": "1",
+                    "FID_TRGT_EXLS_CLS_CODE": "0000001100",
+                },
+                "output",
+                "KRX",
+                30,
+            )
+        else:
+            for exchange in US_EXCHANGES:
+                await request_rows(
+                    f"미국 {exchange}",
+                    "/uapi/overseas-stock/v1/ranking/trade-vol",
+                    "HHDFS76310010",
+                    {
+                        "EXCD": exchange,
+                        "NDAY": "0",
+                        "VOL_RANG": "0",
+                        "KEYB": "",
+                        "AUTH": "",
+                        "PRC1": "",
+                        "PRC2": "",
+                    },
+                    "output2",
+                    exchange,
+                    100,
+                )
+
+        ranked: dict[tuple[str, str, str], _RankedRow] = {}
+        for requested_exchange, row, row_observed_at in raw_rows:
+            parsed = self._parse_rank_row(
+                market, requested_exchange, row, row_observed_at
+            )
+            if parsed is None:
+                continue
+            key = (
+                parsed.instrument.market,
+                parsed.instrument.exchange,
+                parsed.instrument.symbol,
+            )
+            previous = ranked.get(key)
+            if previous is None or parsed.volume > previous.volume:
+                ranked[key] = parsed
+        rows = sorted(
+            ranked.values(),
+            key=lambda item: (
+                -item.volume,
+                item.instrument.exchange,
+                item.instrument.symbol,
+            ),
+        )
+        return rows, len(raw_rows), errors
+
+    @staticmethod
+    def _parse_rank_row(
+        market: Market,
+        requested_exchange: str,
+        row: Mapping[str, object],
+        observed_at: datetime,
+    ) -> _RankedRow | None:
+        row_exchange = _text(row.get("excd"))
+        if row_exchange and row_exchange.upper() != requested_exchange.upper():
+            return None
+        symbols: list[str] = []
+        if market == "KR":
+            for key in ("mksc_shrn_iscd", "stck_shrn_iscd"):
+                value = _text(row.get(key))
+                if value:
+                    symbols.append(value.upper())
+        else:
+            plain = _text(row.get("symb"))
+            if plain:
+                symbols.append(plain.upper())
+            qualified = _text(row.get("rsym"))
+            if qualified:
+                prefix = f"D{requested_exchange}".upper()
+                if not qualified.upper().startswith(prefix):
+                    return None
+                symbol = qualified[len(prefix) :].upper()
+                if symbol:
+                    symbols.append(symbol)
+        if not symbols or len(set(symbols)) != 1:
+            return None
+        symbol = symbols[0]
+        if not symbol.replace("-", "").replace(".", "").isalnum():
+            return None
+        volume = _decimal(row.get("acml_vol" if market == "KR" else "tvol"))
+        if volume is None or volume < 0 or volume != volume.to_integral_value():
+            return None
+        return _RankedRow(
+            instrument=Instrument(
+                market=market,
+                exchange="KRX" if market == "KR" else requested_exchange,
+                symbol=symbol,
+                currency="KRW" if market == "KR" else "USD",
+                name=_text(
+                    row.get("prdt_name")
+                    or row.get("hts_kor_isnm")
+                    or row.get("name")
+                    or symbol
+                ),
+            ),
+            volume=volume,
+            observed_at=observed_at,
+            source="KIS 거래량 순위",
+        )
+
+    async def _classify_rows(
+        self,
+        market: Market,
+        rows: list[_RankedRow],
+        source_rows: int,
+        errors: list[str],
+        observed_at: datetime,
+        *,
+        progress: _DiscoveryProgress | None = None,
+    ) -> DiscoveryResult:
+        progress = progress or _DiscoveryProgress()
+        progress.source_rows = source_rows
+        progress.valid_rows = len(rows)
+        progress.counts = progress.counts.model_copy(
+            update={"source_rows": source_rows, "valid_rows": len(rows)}
+        )
+        max_rows = MAX_KR_DISCOVERY_ROWS if market == "KR" else MAX_DISCOVERY_ROWS
+        async with httpx.AsyncClient(
+            timeout=5,
+            follow_redirects=False,
+            trust_env=False,
+            headers={"User-Agent": "jusik-investor/1.0"},
+        ) as client:
+            for start in range(0, min(len(rows), max_rows), DISCOVERY_BATCH_SIZE):
+                if (
+                    len(progress.stock_candidates) >= MAX_CANDIDATES
+                    and len(progress.etf_candidates) >= MAX_CANDIDATES
+                ):
+                    break
+                batch = rows[start : start + DISCOVERY_BATCH_SIZE]
+                tasks = [
+                    asyncio.create_task(
+                        self._candidate_chart(client, row.instrument, observed_at)
+                    )
+                    for row in batch
+                ]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                progress.inspected += len(batch)
+                for row, result in zip(batch, results, strict=True):
+                    if isinstance(result, BaseException):
+                        progress.counts.failed += 1
+                        if len(errors) < 10:
+                            errors.append(
+                                "일부 종목의 분류·상대거래량을 확인하지 못했습니다."
+                            )
+                        continue
+                    if result.instrument_type is None:
+                        if result.failed:
+                            progress.counts.failed += 1
+                        else:
+                            progress.counts.unknown += 1
+                        if result.reason and len(errors) < 10 and result.failed:
+                            errors.append(result.reason)
+                        continue
+                    instrument = row.instrument.model_copy(
+                        update={"instrument_type": result.instrument_type}
+                    )
+                    reason = (
+                        "KIS 누적 거래량 순위와 Yahoo 상대거래량을 함께 표시합니다."
+                    )
+                    if result.relative_volume is not None:
+                        if result.relative_volume.ratio is None:
+                            reason += (
+                                " 상대거래량을 확인할 수 없습니다: "
+                                f"{result.relative_volume.unavailable_reason}"
+                            )
+                        else:
+                            reason += (
+                                " 상대거래량은 직전 완료 20거래일 평균 대비입니다."
+                            )
+                    candidate = Candidate(
+                        instrument=instrument,
+                        rank=1,
+                        reason=reason,
+                        source=row.source,
+                        observed_at=row.observed_at,
+                        ranking_volume=row.volume,
+                        classification_source="Yahoo chart metadata",
+                        classification_observed_at=(
+                            result.relative_volume.fetched_at
+                            if result.relative_volume is not None
+                            else observed_at
+                        ),
+                        relative_volume=result.relative_volume,
+                    )
+                    if result.instrument_type == "stock":
+                        if len(progress.stock_candidates) < MAX_CANDIDATES:
+                            progress.stock_candidates.append(
+                                candidate.model_copy(
+                                    update={"rank": len(progress.stock_candidates) + 1}
+                                )
+                            )
+                    elif len(progress.etf_candidates) < MAX_CANDIDATES:
+                        progress.etf_candidates.append(
+                            candidate.model_copy(
+                                update={"rank": len(progress.etf_candidates) + 1}
+                            )
+                        )
+        progress.counts = progress.counts.model_copy(
+            update={
+                "inspected": progress.inspected,
+                "stocks": len(progress.stock_candidates),
+                "etfs": len(progress.etf_candidates),
+                "unscanned": max(0, min(len(rows), max_rows) - progress.inspected),
+            }
+        )
+        return self._discovery_result(market, progress, errors, observed_at)
+
+    @staticmethod
+    def _discovery_result(
+        market: Market,
+        progress: _DiscoveryProgress,
+        errors: list[str],
+        observed_at: datetime,
+        *,
+        truncated: bool = False,
+    ) -> DiscoveryResult:
+        max_rows = MAX_KR_DISCOVERY_ROWS if market == "KR" else MAX_DISCOVERY_ROWS
+        counts = progress.counts.model_copy(
+            update={
+                "source_rows": progress.source_rows,
+                "valid_rows": progress.valid_rows,
+                "inspected": progress.inspected,
+                "stocks": len(progress.stock_candidates),
+                "etfs": len(progress.etf_candidates),
+                "unscanned": max(
+                    0, min(progress.valid_rows, max_rows) - progress.inspected
+                ),
+            }
+        )
+        return DiscoveryResult(
+            market=market,
+            candidates=progress.stock_candidates,
+            etf_candidates=progress.etf_candidates,
+            coverage=(
+                "KIS 첫 페이지에서 확인한 거래량 후보를 수치로 정렬했습니다. "
+                "전체 시장 순위나 저평가를 보장하지 않습니다."
+            ),
+            truncated=truncated
+            or progress.source_rows > max_rows
+            or counts.unscanned > 0,
+            partial=bool(errors) or counts.failed > 0 or counts.unknown > 0,
+            errors=errors[:10],
+            fetched_at=observed_at,
+            counts=counts,
+        )
+
+    async def _candidate_chart(
+        self,
+        client: httpx.AsyncClient,
+        instrument: Instrument,
+        fetched_at: datetime,
+    ) -> _CandidateChartResult:
+        key = (
+            "candidate-chart",
+            f"{instrument.market}:{instrument.exchange}:{instrument.symbol}",
+        )
+
+        async def load() -> _CandidateChartResult:
+            async with self._candidate_semaphore:
+                return await self._fetch_candidate_chart(client, instrument, fetched_at)
+
+        result = await self._cached(key, load, cache_seconds=300)
+        assert isinstance(result, _CandidateChartResult)
+        return result
+
+    async def _fetch_candidate_chart(
+        self,
+        client: httpx.AsyncClient,
+        instrument: Instrument,
+        fetched_at: datetime,
+    ) -> _CandidateChartResult:
+        suffixes = (".KS", ".KQ") if instrument.market == "KR" else ("",)
+        for suffix in suffixes:
+            ticker = f"{instrument.symbol}{suffix}"
+            try:
+                response = await client.get(
+                    f"{DISCOVERY_SOURCE_URL}/{ticker}",
+                    params={
+                        "range": "3mo",
+                        "interval": "1d",
+                        "events": "div,splits",
+                        "includeAdjustedClose": "true",
+                    },
+                )
+                if response.status_code >= 400:
+                    continue
+                payload = response.json()
+                result = self._chart_result(payload)
+                if result is None:
+                    continue
+                meta = result.get("meta")
+                if not isinstance(meta, Mapping) or not self._valid_chart_identity(
+                    instrument, ticker, meta
+                ):
+                    continue
+                provider_type = _text(meta.get("instrumentType")).upper()
+                if provider_type not in {"EQUITY", "ETF"}:
+                    return _CandidateChartResult(
+                        instrument_type=None,
+                        relative_volume=None,
+                        reason="Yahoo 종목 유형을 확인하지 못해 후보에서 제외했습니다.",
+                    )
+                instrument_type: InstrumentType = (
+                    "etf" if provider_type == "ETF" else "stock"
+                )
+                chart_fetched_at = datetime.now(UTC)
+                relative = self._relative_volume(
+                    instrument, result, meta, chart_fetched_at, ticker
+                )
+                return _CandidateChartResult(
+                    instrument_type=instrument_type,
+                    relative_volume=relative,
+                )
+            except (httpx.HTTPError, json.JSONDecodeError, TypeError, ValueError):
+                continue
+        return _CandidateChartResult(
+            instrument_type=None,
+            relative_volume=None,
+            reason="Yahoo 종목 분류 자료를 확인하지 못해 후보에서 제외했습니다.",
+            failed=True,
+        )
+
+    @staticmethod
+    def _chart_result(payload: object) -> Mapping[str, object] | None:
+        if not isinstance(payload, Mapping):
+            return None
+        chart = payload.get("chart")
+        if not isinstance(chart, Mapping):
+            return None
+        results = chart.get("result")
+        result = results[0] if isinstance(results, list) and results else None
+        return result if isinstance(result, Mapping) else None
+
+    @staticmethod
+    def _valid_chart_identity(
+        instrument: Instrument, ticker: str, meta: Mapping[str, object]
+    ) -> bool:
+        if _text(meta.get("symbol")).upper() != ticker.upper():
+            return False
+        expected_currency = "KRW" if instrument.market == "KR" else "USD"
+        if _text(meta.get("currency")).upper() != expected_currency:
+            return False
+        expected_timezone = (
+            "Asia/Seoul" if instrument.market == "KR" else "America/New_York"
+        )
+        if _text(meta.get("exchangeTimezoneName")) != expected_timezone:
+            return False
+        venue = _text(meta.get("exchangeName")).upper()
+        if instrument.market == "KR":
+            return venue in {"KSC", "KOE", "KOSPI", "KOSDAQ", "KRX"}
+        return venue in YAHOO_EXCHANGES.get(instrument.exchange, set())
+
+    def _relative_volume(
+        self,
+        instrument: Instrument,
+        result: Mapping[str, object],
+        meta: Mapping[str, object],
+        fetched_at: datetime,
+        ticker: str,
+    ) -> RelativeVolumeFacts:
+        source_url = f"{DISCOVERY_SOURCE_URL}/{ticker}"
+        unavailable = self._unavailable_relative(
+            source_url, fetched_at, "상대거래량 자료를 확인할 수 없습니다."
+        )
+        market_volume = _decimal(meta.get("regularMarketVolume"))
+        market_time_value = meta.get("regularMarketTime")
+        if (
+            market_volume is None
+            or market_volume < 0
+            or market_volume != market_volume.to_integral_value()
+            or not isinstance(market_time_value, (int, float))
+            or isinstance(market_time_value, bool)
+            or not math.isfinite(float(market_time_value))
+        ):
+            return unavailable.model_copy(
+                update={
+                    "unavailable_reason": (
+                        "현재 거래량 또는 기준 시각이 유효하지 않습니다."
+                    )
+                }
+            )
+        market_time = datetime.fromtimestamp(float(market_time_value), UTC)
+        quote = QuoteFact(
+            price=None,
+            currency="KRW" if instrument.market == "KR" else "USD",
+            as_of=market_time,
+            fetched_at=fetched_at,
+            source=f"Yahoo chart ({ticker}) 거래량",
+            source_url=source_url,
+        )
+        status = self._volume_quote_status(instrument, quote, fetched_at)
+        if status != "usable":
+            return unavailable.model_copy(
+                update={
+                    "unavailable_reason": (
+                        "현재 거래량 기준 시각이 최신 거래 세션과 맞지 않습니다."
+                    )
+                }
+            )
+        calendar_obj = default_market_calendar()
+        latest = calendar_obj.latest_completed_session(instrument.exchange, fetched_at)
+        if latest is None:
+            return unavailable.model_copy(
+                update={"unavailable_reason": "거래소 달력 범위 밖입니다."}
+            )
+        timezone = ZoneInfo(
+            "Asia/Seoul" if instrument.market == "KR" else "America/New_York"
+        )
+        current_lookup = calendar_obj.lookup(
+            instrument.exchange, fetched_at.astimezone(timezone).date()
+        )
+        if (
+            current_lookup.session is not None
+            and current_lookup.session.open_at
+            <= fetched_at
+            < current_lookup.session.close_at
+            and market_time.astimezone(timezone).date()
+            == current_lookup.session.local_date
+        ):
+            numerator_session = current_lookup.session.local_date
+        else:
+            numerator_session = latest.local_date
+        prior_sessions = self._prior_sessions(
+            calendar_obj, instrument.exchange, numerator_session
+        )
+        if prior_sessions is None:
+            return unavailable.model_copy(
+                update={
+                    "unavailable_reason": (
+                        "직전 20거래일 달력 범위를 확인할 수 없습니다."
+                    )
+                }
+            )
+        volumes = self._chart_volumes(result, instrument, fetched_at)
+        if volumes is None:
+            return unavailable.model_copy(
+                update={"unavailable_reason": "일봉 거래량 배열이 유효하지 않습니다."}
+            )
+        split_reason = self._split_in_comparison_window(
+            result, instrument, prior_sessions
+        )
+        if split_reason:
+            return unavailable.model_copy(update={"unavailable_reason": split_reason})
+        prior_volumes: list[Decimal] = []
+        for session in prior_sessions:
+            volume = volumes.get(session.local_date)
+            if volume is None:
+                return unavailable.model_copy(
+                    update={
+                        "unavailable_reason": (
+                            "직전 20거래일 거래량이 모두 제공되지 않았습니다."
+                        )
+                    }
+                )
+            prior_volumes.append(volume)
+        average = sum(prior_volumes, Decimal(0)) / Decimal(20)
+        if average == 0:
+            return unavailable.model_copy(
+                update={"unavailable_reason": "직전 20거래일 평균 거래량이 0입니다."}
+            )
+        return RelativeVolumeFacts(
+            numerator=market_volume,
+            average20=average,
+            ratio=market_volume / average,
+            sample_count=20,
+            sample_start=prior_sessions[-1].local_date,
+            sample_end=prior_sessions[0].local_date,
+            source=f"Yahoo chart ({ticker}) 거래량",
+            source_url=source_url,
+            as_of=market_time,
+            fetched_at=fetched_at,
+        )
+
+    @staticmethod
+    def _unavailable_relative(
+        source_url: str, fetched_at: datetime, reason: str
+    ) -> RelativeVolumeFacts:
+        return RelativeVolumeFacts(
+            source="Yahoo chart 거래량",
+            source_url=source_url,
+            fetched_at=fetched_at,
+            unavailable_reason=reason,
+        )
+
+    @staticmethod
+    def _volume_quote_status(
+        instrument: Instrument, quote: QuoteFact, now: datetime
+    ) -> str:
+        status = quote_status(instrument, quote, now)
+        if status != "stale" or quote.as_of is None:
+            return status
+        calendar_obj = default_market_calendar()
+        latest = calendar_obj.latest_completed_session(instrument.exchange, now)
+        if latest is None:
+            return status
+        if (
+            latest.local_date
+            == quote.as_of.astimezone(
+                ZoneInfo(
+                    "Asia/Seoul" if instrument.market == "KR" else "America/New_York"
+                )
+            ).date()
+            and latest.close_at < quote.as_of <= latest.close_at + timedelta(seconds=60)
+            and now - quote.fetched_at <= timedelta(minutes=15)
+        ):
+            return "usable"
+        return status
+
+    @staticmethod
+    def _prior_sessions(
+        calendar_obj: MarketCalendar, exchange: str, anchor: date
+    ) -> list[MarketSession] | None:
+        coverage_start = calendar_obj.coverage_start
+        current = anchor - timedelta(days=1)
+        sessions: list[MarketSession] = []
+        while current >= coverage_start and len(sessions) < 20:
+            lookup = calendar_obj.lookup(exchange, current)
+            if lookup.state == "unavailable":
+                return None
+            if lookup.session is not None:
+                sessions.append(lookup.session)
+            current -= timedelta(days=1)
+        return sessions if len(sessions) == 20 else None
+
+    @staticmethod
+    def _chart_volumes(
+        result: Mapping[str, object], instrument: Instrument, now: datetime
+    ) -> dict[date, Decimal] | None:
+        timestamps: object = result.get("timestamp")
+        indicators = result.get("indicators")
+        quote_block = (
+            indicators.get("quote") if isinstance(indicators, Mapping) else None
+        )
+        raw = quote_block[0] if isinstance(quote_block, list) and quote_block else None
+        values = raw.get("volume") if isinstance(raw, Mapping) else None
+        if not isinstance(timestamps, list) or not isinstance(values, list):
+            return None
+        if len(timestamps) != len(values):
+            return None
+        timezone = ZoneInfo(
+            "Asia/Seoul" if instrument.market == "KR" else "America/New_York"
+        )
+        calendar_obj = default_market_calendar()
+        parsed: dict[date, Decimal] = {}
+        previous: date | None = None
+        for stamp, value in zip(timestamps, values, strict=True):
+            if (
+                isinstance(stamp, bool)
+                or not isinstance(stamp, (int, float))
+                or not math.isfinite(float(stamp))
+            ):
+                return None
+            volume = _decimal(value)
+            if (
+                volume is None
+                or volume < 0
+                or isinstance(value, bool)
+                or (
+                    previous is not None
+                    and previous
+                    >= datetime.fromtimestamp(float(stamp), UTC)
+                    .astimezone(timezone)
+                    .date()
+                )
+            ):
+                return None
+            session = (
+                datetime.fromtimestamp(float(stamp), UTC).astimezone(timezone).date()
+            )
+            lookup = calendar_obj.lookup(instrument.exchange, session)
+            if lookup.state == "unavailable" or lookup.session is None:
+                return None
+            if lookup.session.open_at > now:
+                return None
+            if session in parsed:
+                return None
+            parsed[session] = volume
+            previous = session
+        return parsed
+
+    @staticmethod
+    def _split_in_comparison_window(
+        result: Mapping[str, object],
+        instrument: Instrument,
+        sessions: list[MarketSession],
+    ) -> str | None:
+        events = result.get("events")
+        if events is None:
+            return None
+        if not isinstance(events, Mapping):
+            return "기업행사 자료 형식이 유효하지 않습니다."
+        splits = events.get("splits")
+        if splits is None:
+            return None
+        if not isinstance(splits, Mapping):
+            return "분할 자료 형식이 유효하지 않습니다."
+        timezone = ZoneInfo(
+            "Asia/Seoul" if instrument.market == "KR" else "America/New_York"
+        )
+        comparison_dates = {session.local_date for session in sessions}
+        for item in splits.values():
+            if not isinstance(item, Mapping):
+                return "분할 자료 형식이 유효하지 않습니다."
+            stamp = item.get("date") or item.get("timestamp")
+            if (
+                isinstance(stamp, bool)
+                or not isinstance(stamp, (int, float))
+                or not math.isfinite(float(stamp))
+            ):
+                return "분할 기준 시각이 유효하지 않습니다."
+            split_date = (
+                datetime.fromtimestamp(float(stamp), UTC).astimezone(timezone).date()
+            )
+            if split_date in comparison_dates:
+                return "직전 20거래일 비교 구간에 분할 자료가 있어 보류합니다."
+        return None
 
     async def detail(self, instrument: Instrument) -> InstrumentDetail:
         key = (
@@ -517,18 +1190,7 @@ class KisInvestorProvider:
                     allowed_exchange_names = (
                         {"KSC", "KOE", "KOSPI", "KOSDAQ", "KRX"}
                         if instrument.market == "KR"
-                        else {
-                            instrument.exchange,
-                            "NMS",
-                            "NGM",
-                            "NYS",
-                            "NYQ",
-                            "NASDAQ",
-                            "NYSE",
-                            "ASE",
-                            "AMEX",
-                            "AMS",
-                        }
+                        else YAHOO_EXCHANGES.get(instrument.exchange, set())
                     )
                     if exchange_name not in allowed_exchange_names:
                         continue

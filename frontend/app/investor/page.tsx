@@ -3,9 +3,26 @@ import { getInvestorCandidates, getTheses, type Discovery, type Thesis } from "@
 
 export const dynamic = "force-dynamic";
 
+function formattedShares(value: string | null): string {
+  if (!value) return "확인 불가";
+  const [integer, fraction] = value.split(".");
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return fraction ? `${grouped}.${fraction}` : grouped;
+}
+
+function formattedRatio(value: string | null): string {
+  if (!value) return "확인 불가";
+  const [integer, fraction = ""] = value.split(".");
+  return `${integer}.${(fraction + "00").slice(0, 2)}`;
+}
+
+function CandidateList({ candidates, title }: { candidates: Discovery["candidates"]; title: string }) {
+  return <><h3>{title}</h3>{candidates.length === 0 ? <p className="muted">조건에 맞는 후보가 없습니다.</p> : <ul className="candidate-list">{candidates.map((candidate) => <li key={`${candidate.instrument.market}-${candidate.instrument.exchange}-${candidate.instrument.symbol}`}><Link href={`/investor/${candidate.instrument.market}/${candidate.instrument.symbol}?exchange=${candidate.instrument.exchange}`}><strong>{candidate.instrument.name}</strong><span>{candidate.instrument.symbol} · {candidate.instrument.exchange} · {candidate.instrument.instrument_type === "etf" ? "ETF" : "주식"}</span></Link><small>KIS 순위 거래량 {formattedShares(candidate.ranking_volume)}주</small>{candidate.relative_volume?.ratio !== null && candidate.relative_volume ? <><small>Yahoo 누적량 {formattedShares(candidate.relative_volume.numerator)}주 ÷ 직전 20거래일 하루 평균 {formattedShares(candidate.relative_volume.average20)}주 = {formattedRatio(candidate.relative_volume.ratio)}배</small><details><summary>상대거래량 기준 보기</summary><small>비교 기간 {candidate.relative_volume.sample_start ?? "확인 불가"} ~ {candidate.relative_volume.sample_end ?? "확인 불가"} · 기준 시각 {candidate.relative_volume.as_of ? new Date(candidate.relative_volume.as_of).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : "확인 불가"} KST · 조회 {new Date(candidate.relative_volume.fetched_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST. KIS 순위 수량과 다른 자료이며 장중 동시간 평균이나 전망치가 아닙니다.</small></details></> : <small className="investor-error">상대거래량 확인 필요{candidate.relative_volume?.unavailable_reason ? ` · ${candidate.relative_volume.unavailable_reason}` : ""}</small>}</li>)}</ul>}</>;
+}
+
 function CandidateBlock({ result }: { result: Discovery | null }) {
   if (!result) return <section className="investor-panel" role="alert"><h2>후보 자료를 확인할 수 없습니다</h2><p>연결 실패와 후보 없음은 같은 의미가 아닙니다. 백엔드 상태를 확인하세요.</p></section>;
-  return <section className="investor-panel"><div className="investor-panel-heading"><h2>{result.market === "KR" ? "한국 시장" : "미국 시장"} 후보</h2><span>{result.candidates.length}건 · {result.truncated ? "첫 페이지 일부" : "첫 페이지"}</span></div><p className="muted">{result.coverage} 거래량 순위는 발견용 자료이며 저평가·품질의 증거가 아닙니다. 확인 시각 {new Date(result.fetched_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST.</p>{result.errors.map((error) => <p className="investor-error" role="alert" key={error}>{error}</p>)}<ul className="candidate-list">{result.candidates.map((candidate) => <li key={`${candidate.instrument.market}-${candidate.instrument.symbol}`}><Link href={`/investor/${candidate.instrument.market}/${candidate.instrument.symbol}?exchange=${candidate.instrument.exchange}`}><strong>{candidate.instrument.name}</strong><span>{candidate.instrument.symbol} · {candidate.instrument.exchange} · {candidate.instrument.instrument_type === "etf" ? "ETF" : candidate.instrument.instrument_type === "stock" ? "주식" : "타입 미확인"}</span></Link><small>{candidate.reason}</small></li>)}</ul></section>;
+  return <section className="investor-panel"><div className="investor-panel-heading"><h2>{result.market === "KR" ? "한국 시장" : "미국 시장"} 후보</h2><span>주식 {result.candidates.length}건 · ETF {result.etf_candidates.length}건</span></div><p className="muted">{result.coverage} 확인 시각 {new Date(result.fetched_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} KST.</p><p className="muted">전체 {result.counts.source_rows}건 중 {result.counts.inspected}건을 분류했습니다. 순위 거래량은 KIS 누적 수량, 상대거래량은 Yahoo의 직전 완료 20거래일 평균과 비교합니다.</p>{result.errors.map((error) => <p className="investor-error" role="alert" key={error}>{error}</p>)}<CandidateList candidates={result.candidates} title="주식 후보" /><CandidateList candidates={result.etf_candidates} title="ETF 후보" />{result.counts.unknown > 0 && <p className="muted">타입을 확인하지 못한 {result.counts.unknown}건은 후보 목록에서 제외했습니다.</p>}{result.counts.unscanned > 0 && <p className="muted">조회 한도로 {result.counts.unscanned}건은 분류하지 않았습니다.</p>}</section>;
 }
 
 function ThesisList({ theses }: { theses: Thesis[] }) {
