@@ -10,15 +10,14 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal, Protocol, TypedDict, cast
+from typing import Literal, Protocol, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from jusik.market_history_models import (
-    CandidateEvidence,
     CapabilityName,
     Currency,
     FXObservation,
@@ -29,10 +28,9 @@ from jusik.market_history_models import (
     MarketResearchRequest,
     MarketResearchResult,
     PITMembership,
-    ResearchEquityPoint,
-    ResearchTrade,
     SourceName,
 )
+from jusik.market_research_strategy import run_market_research
 from jusik.research_market_calendar import (
     MarketCalendar,
     MarketSession,
@@ -93,6 +91,8 @@ class ApproximateDataset(BaseModel):
     bars: tuple[ApproximateBarRow, ...]
     fx: tuple[ApproximateFXRow, ...] = ()
     source: SourceName = "approximate_file"
+    bar_source: Literal["yahoo"] = "yahoo"
+    fx_source: Literal["fred"] = "fred"
     simulated: bool = False
     normalization_version: str = Field(default="approx-v1", min_length=1, max_length=40)
 
@@ -141,6 +141,39 @@ class JsonApproximateProvider:
     def available(self) -> bool:
         return self.path.is_file()
 
+    def cached_dataset(self, market: Market) -> ApproximateDataset | None:
+        """Validate the cached envelope before exposing readiness as usable."""
+        if not self.available:
+            return None
+        try:
+            dataset = ApproximateDataset.model_validate(
+                json.loads(self.path.read_bytes())
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            return None
+        if dataset.market != market or not dataset.universe or not dataset.bars:
+            return None
+        if market == "US" and not dataset.fx:
+            return None
+        if not self._valid_provenance(dataset):
+            return None
+        if (
+            self.source_name != "approximate_file"
+            and dataset.source != self.source_name
+        ):
+            return None
+        return dataset
+
+    def _valid_provenance(self, dataset: ApproximateDataset) -> bool:
+        return (
+            dataset.source in {"approximate_file", "krx", "alpha_vantage"}
+            and dataset.simulated == self.simulated
+            and (
+                self.source_name == "approximate_file"
+                or dataset.source == self.source_name
+            )
+        )
+
     async def fetch(
         self, market: Market, start: date, end: date
     ) -> ApproximateProviderResponse:
@@ -163,6 +196,10 @@ class JsonApproximateProvider:
             raise ApproximateProviderError("universe response exceeds requested period")
         if any(row.session > end for row in dataset.bars):
             raise ApproximateProviderError("bar response exceeds requested period")
+        if any(row.session > end for row in dataset.fx):
+            raise ApproximateProviderError("FX response exceeds requested period")
+        if not self._valid_provenance(dataset):
+            raise ApproximateProviderError("prepared response provenance is invalid")
         return ApproximateProviderResponse(dataset=dataset, raw_content=raw)
 
 
@@ -255,9 +292,14 @@ class ApproximateMarketHistorySource:
         self.calendar = calendar or default_market_calendar()
 
     def readiness(self, market: Market, checked_at: datetime) -> MarketReadiness:
+        cached_dataset = (
+            self.provider.cached_dataset(market)
+            if isinstance(self.provider, JsonApproximateProvider)
+            else None
+        )
         detail = (
             "준비된 날짜별 표본 자료를 사용합니다. PIT 검증 자료가 아닙니다."
-            if self.provider.available
+            if cached_dataset is not None
             else (
                 "KRX/Alpha Vantage 키 또는 무료 근사 자료 캐시가 없어 "
                 "CLI 백필이 필요합니다."
@@ -280,7 +322,7 @@ class ApproximateMarketHistorySource:
                 name=cast(CapabilityName, name),
                 status="partial"
                 if name in {"entitlement", "actions", "policy"}
-                else ("ready" if self.provider.available else "missing"),
+                else ("ready" if cached_dataset is not None else "missing"),
                 detail=value,
             )
             for name, value in names
@@ -350,9 +392,7 @@ class ApproximateMarketHistorySource:
                     currency=bar_row.currency,
                     captured_at=captured,
                     available_at=bar_row.available_at or market_session.close_at,
-                    source="yahoo"
-                    if dataset.source == "alpha_vantage"
-                    else dataset.source,
+                    source=dataset.bar_source,
                     source_hash=_hash(bar_row.model_dump(mode="json")),
                     normalization_version=dataset.normalization_version,
                 )
@@ -363,9 +403,12 @@ class ApproximateMarketHistorySource:
                 pair="USDKRW",
                 krw_per_usd=fx_row.krw_per_usd,
                 spread_rate=fx_row.spread_rate,
-                available_at=fx_row.available_at or captured,
+                # Missing source timing is conservatively treated as available
+                # only after that session's close; it can never fund that day.
+                available_at=fx_row.available_at
+                or _session(self.calendar, "NMS", fx_row.session).close_at,
                 captured_at=captured,
-                source="fred",
+                source=dataset.fx_source,
                 source_hash=_hash(fx_row.model_dump(mode="json")),
             )
             for fx_row in dataset.fx
@@ -464,33 +507,6 @@ class FixtureApproximateMarketHistorySource:
         )
 
 
-def _days(
-    calendar: MarketCalendar, market: Market, start: date, end: date
-) -> list[date]:
-    exchange = "KSC" if market == "KR" else "NMS"
-    output: list[date] = []
-    cursor = start
-    while cursor <= end:
-        if calendar.lookup(exchange, cursor).session is not None:
-            output.append(cursor)
-        cursor += timedelta(days=1)
-    return output
-
-
-class _ApproximateResultBase(TypedDict):
-    market: Market
-    request: MarketResearchRequest
-    readiness: MarketReadiness
-    input_hash: str | None
-    policy_hash: str | None
-    stage: Literal["pilot", "final", "legacy"]
-    pilot_run_id: str | None
-    data_contract_hash: str | None
-    warmup_sessions: tuple[date, ...]
-    research_grade: Literal["approximate"]
-    pool_contract_hash: str | None
-
-
 def run_approximate_market_research(
     snapshot: MarketHistorySnapshot,
     request: MarketResearchRequest,
@@ -499,192 +515,12 @@ def run_approximate_market_research(
     *,
     policy_hash: str | None = None,
 ) -> MarketResearchResult:
-    """Run the bounded sample strategy without claiming strict PIT validity."""
-    base: _ApproximateResultBase = {
-        "market": request.market,
-        "request": request,
-        "readiness": readiness,
-        "input_hash": snapshot.input_hash,
-        "policy_hash": policy_hash,
-        "stage": request.stage,
-        "pilot_run_id": request.pilot_run_id,
-        "data_contract_hash": snapshot.data_contract_hash,
-        "warmup_sessions": (),
-        "research_grade": "approximate",
-        "pool_contract_hash": snapshot.pool_contract_hash,
-    }
-    if (
-        request.research_grade != "approximate"
-        or snapshot.research_grade != "approximate"
-        or readiness.research_grade != "approximate"
-    ):
-        return MarketResearchResult(
-            **base,
-            status="insufficient",
-            completeness="incomplete",
-            limitations=("근사 연구 자료 계약이 일치하지 않아 계산하지 않습니다.",),
-            metrics={},
-        )
-    sessions = _days(calendar, request.market, request.start_date, request.end_date)
-    bars = {(item.symbol, item.session): item for item in snapshot.bars}
-    fx = {item.session: item for item in snapshot.fx}
-    evidence: list[CandidateEvidence] = []
-    trades: list[ResearchTrade] = []
-    equity: list[ResearchEquityPoint] = []
-    limitations = [
-        "무료 근사 자료의 날짜별 표본이며 strict PIT 검증 결과가 아닙니다.",
-        "배당·상장폐지 자료가 제외되거나 불완전해 보유 청산을 추정하지 않습니다.",
-    ]
-    blockers: list[str] = []
-    positions: dict[str, int] = {}
-    first_fx = fx.get(sessions[0]) if sessions and request.market == "US" else None
-    if request.market == "US" and first_fx is None:
-        blockers.append("fx:initial funding")
-    if request.market == "KR":
-        cash = request.initial_cash_krw
-    elif first_fx is not None:
-        cash = request.initial_cash_krw / (
-            first_fx.krw_per_usd * (1 + first_fx.spread_rate)
-        )
-    else:
-        cash = Decimal(0)
-    marks: dict[str, Decimal] = {}
-    pending: list[tuple[str, date, int]] = []
-    missing_bars = 0
-    for index, session in enumerate(sessions):
-        current_fx = fx.get(session) if request.market == "US" else None
-        if request.market == "US" and current_fx is None:
-            blockers.append(f"fx:{session}")
-            continue
-        for symbol, signal_session, rank in pending:
-            fill = bars.get((symbol, session))
-            if fill is None:
-                limitations.append(
-                    f"다음 시가 자료 없음으로 진입을 건너뜀: {symbol} {session}"
-                )
-                continue
-            quantity = max(1, int((cash * APPROX_TARGET_WEIGHT) / fill.open))
-            notional = fill.open * quantity
-            if notional > cash:
-                continue
-            cash -= notional
-            positions[symbol] = quantity
-            marks[symbol] = fill.close
-            trades.append(
-                ResearchTrade(
-                    session=session,
-                    signal_session=signal_session,
-                    fill_session=session,
-                    symbol=symbol,
-                    side="buy",
-                    quantity=quantity,
-                    currency="KRW" if request.market == "KR" else "USD",
-                    market_open=fill.open,
-                    fill_price=fill.open,
-                    notional=notional,
-                    fee=Decimal(0),
-                    tax=Decimal(0),
-                    rationale="근사 표본의 거래량 상위 20·breakout 조건 다음 시가 진입",
-                )
-            )
-        pending.clear()
-        ranked = sorted(
-            (
-                row
-                for row in snapshot.memberships
-                if row.is_valid_on(session)
-                and row.instrument_type == "stock"
-                and (row.symbol, session) in bars
-            ),
-            key=lambda row: (-bars[(row.symbol, session)].volume, row.symbol),
-        )[:20]
-        if not ranked:
-            blockers.append(f"historical sample missing:{session}")
-            continue
-        for rank, membership in enumerate(ranked, start=1):
-            bar = bars[(membership.symbol, session)]
-            evidence.append(
-                CandidateEvidence(
-                    session=session,
-                    symbol=membership.symbol,
-                    rank=rank,
-                    volume=bar.volume,
-                    eligible=True,
-                    membership_available_at=membership.available_at,
-                    bar_available_at=bar.available_at,
-                )
-            )
-            prior = [
-                bars.get((membership.symbol, prior_session))
-                for prior_session in sessions[
-                    max(0, index - APPROX_LOOKBACK_SESSIONS) : index
-                ]
-            ]
-            if (
-                len(prior) == APPROX_LOOKBACK_SESSIONS
-                and all(item is not None for item in prior)
-                and index + 1 < len(sessions)
-                and bar.close > max(item.close for item in prior if item is not None)
-                and bar.volume
-                > sum((item.volume for item in prior if item is not None), Decimal())
-                / APPROX_LOOKBACK_SESSIONS
-                and membership.symbol not in positions
-            ):
-                pending.append((membership.symbol, session, rank))
-        for symbol in positions:
-            mark = bars.get((symbol, session))
-            if mark is None:
-                missing_bars += 1
-                limitations.append(
-                    f"보유 종목 일봉 누락, 마지막 가격으로만 표시: {symbol} {session}"
-                )
-            else:
-                marks[symbol] = mark.close
-        invested = sum(
-            (marks[symbol] * quantity for symbol, quantity in positions.items()),
-            Decimal(),
-        )
-        rate = current_fx.krw_per_usd if current_fx else Decimal(1)
-        nav_native = cash + invested
-        nav = nav_native * rate if request.market == "US" else nav_native
-        equity.append(
-            ResearchEquityPoint(
-                session=session,
-                cash_krw=cash * rate if request.market == "US" else cash,
-                cash_native=cash,
-                invested_krw=invested * rate if request.market == "US" else invested,
-                nav_krw=nav,
-                fx_krw_per_usd=rate,
-                drawdown_pct=Decimal(0),
-            )
-        )
-    if not sessions:
-        blockers.append("calendar coverage unavailable")
-    if blockers:
-        limitations.extend(sorted(set(blockers)))
-        return MarketResearchResult(
-            **base,
-            status="insufficient",
-            completeness="incomplete",
-            candidate_evidence=tuple(evidence),
-            trades=tuple(trades),
-            equity=tuple(equity),
-            limitations=tuple(limitations),
-            metrics={},
-        )
-    final_nav = equity[-1].nav_krw if equity else request.initial_cash_krw
-    return MarketResearchResult(
-        **base,
-        status="approximate",
-        completeness="approximate",
-        candidate_evidence=tuple(evidence),
-        trades=tuple(trades),
-        equity=tuple(equity),
-        limitations=tuple(limitations),
-        metrics={
-            "coverage_sessions": Decimal(len(equity)),
-            "sampled_candidate_count": Decimal(len({item.symbol for item in evidence})),
-            "missing_held_bars": Decimal(missing_bars),
-            "final_nav_krw": final_nav,
-        },
+    """Run the same trading core as strict research with approximate coverage."""
+    return run_market_research(
+        snapshot,
+        request,
+        readiness,
+        calendar,
+        policy_hash=policy_hash,
+        allow_approximate=True,
     )

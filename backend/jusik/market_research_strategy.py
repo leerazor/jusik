@@ -51,6 +51,16 @@ MARKET_RESEARCH_POLICY: dict[str, object] = {
         "final_requires_completed_pilot": True,
     },
 }
+APPROXIMATE_MARKET_RESEARCH_POLICY: dict[str, object] = {
+    "base_policy_version": MARKET_RESEARCH_POLICY["version"],
+    "grade": "approximate",
+    "sample_seed": 20260914,
+    "max_unique_symbols": 400,
+    "max_sample_symbols": 100,
+    "missing_data": "skip_nonheld_block_whole_session_mark_held_last_close",
+    "provenance": "prepared_historical_response_only",
+    "dividend_delisting": "excluded_or_unknown",
+}
 
 
 def market_research_policy_hash(
@@ -63,6 +73,12 @@ def market_research_policy_hash(
         separators=(",", ":"),
     ).encode()
     return hashlib.sha256(canonical).hexdigest()
+
+
+def market_research_policy_for_grade(grade: str) -> dict[str, object]:
+    if grade == "approximate":
+        return {**MARKET_RESEARCH_POLICY, **APPROXIMATE_MARKET_RESEARCH_POLICY}
+    return MARKET_RESEARCH_POLICY
 
 
 class _PendingBuy(NamedTuple):
@@ -163,11 +179,12 @@ def _valid_coverage(
     sessions: list[MarketSession] | None,
     *,
     evaluation_start_index: int = 0,
+    approximate: bool = False,
 ) -> tuple[bool, list[str]]:
     missing: list[str] = []
-    if snapshot.completeness != "complete":
+    if snapshot.completeness != "complete" and not approximate:
         missing.extend(snapshot.missing_ranges or ("snapshot",))
-    if not snapshot.actions_complete:
+    if not snapshot.actions_complete and not approximate:
         missing.append("actions")
     if sessions is None or not sessions:
         missing.append("calendar")
@@ -183,6 +200,7 @@ def _valid_coverage(
     for index, session in enumerate(sessions):
         next_session = sessions[index + 1] if index + 1 < len(sessions) else None
         decision_cutoff = next_session.open_at if next_session else session.close_at
+        usable_bars = 0
         for membership in memberships:
             valid_now = membership.is_valid_on(session.local_date)
             if not valid_now:
@@ -191,6 +209,12 @@ def _valid_coverage(
                 missing.append(f"membership:{membership.symbol}")
                 continue
             bar = bars_by_key.get((membership.symbol, session.local_date))
+            if approximate:
+                if bar is not None and bar.available_at > decision_cutoff:
+                    missing.append(f"bar-after-decision:{membership.symbol}")
+                elif bar is not None:
+                    usable_bars += 1
+                continue
             if bar is None:
                 missing.append(f"bars:{membership.symbol}")
             elif bar.available_at < session.close_at:
@@ -210,6 +234,8 @@ def _valid_coverage(
                 not in bars_by_key
             ):
                 missing.append(f"fill-bar:{membership.symbol}")
+        if approximate and usable_bars == 0:
+            missing.append(f"bars:{session.local_date}")
     if request.market == "US":
         fx_by_date = {
             item.session: item for item in snapshot.fx if item.pair == "USDKRW"
@@ -232,11 +258,13 @@ def run_market_research(
     calendar: MarketCalendar,
     *,
     policy_hash: str | None = None,
+    allow_approximate: bool = False,
 ) -> MarketResearchResult:
+    approximate = allow_approximate and request.research_grade == "approximate"
     if (
-        request.research_grade != "strict"
-        or snapshot.research_grade != "strict"
-        or readiness.research_grade != "strict"
+        (request.research_grade != "strict" and not approximate)
+        or snapshot.research_grade != request.research_grade
+        or readiness.research_grade != request.research_grade
     ):
         return MarketResearchResult(
             market=request.market,
@@ -253,6 +281,7 @@ def run_market_research(
             data_contract_hash=snapshot.data_contract_hash,
             warmup_sessions=(),
             research_grade=request.research_grade,
+            pool_contract_hash=snapshot.pool_contract_hash,
         )
     if snapshot.market != request.market or readiness.market != request.market:
         return MarketResearchResult(
@@ -269,6 +298,8 @@ def run_market_research(
             pilot_run_id=request.pilot_run_id,
             data_contract_hash=snapshot.data_contract_hash,
             warmup_sessions=(),
+            research_grade=request.research_grade,
+            pool_contract_hash=snapshot.pool_contract_hash,
         )
     sessions = _expected_sessions(calendar, request)
     expected_warmup = _expected_warmup_sessions(calendar, request)
@@ -286,7 +317,11 @@ def run_market_research(
     ]
     all_sessions = warmup_objects + (sessions or [])
     complete, missing = _valid_coverage(
-        snapshot, request, all_sessions, evaluation_start_index=len(warmup_objects)
+        snapshot,
+        request,
+        all_sessions,
+        evaluation_start_index=len(warmup_objects),
+        approximate=approximate,
     )
     missing.extend(warmup_missing)
     unsupported_actions = sorted({item.kind for item in snapshot.actions})
@@ -295,7 +330,7 @@ def run_market_research(
         missing.extend(
             f"unsupported corporate action:{kind}" for kind in unsupported_actions
         )
-    if not readiness.ready:
+    if not readiness.ready and not approximate:
         complete = False
         missing.append("readiness")
     if not complete or sessions is None:
@@ -325,6 +360,8 @@ def run_market_research(
             pilot_run_id=request.pilot_run_id,
             data_contract_hash=snapshot.data_contract_hash,
             warmup_sessions=tuple(warmup),
+            research_grade=request.research_grade,
+            pool_contract_hash=snapshot.pool_contract_hash,
         ).model_copy(update={"input_hash": snapshot.input_hash})
 
     bars_by_key = {(bar.symbol, bar.session): bar for bar in snapshot.bars}
@@ -348,7 +385,9 @@ def run_market_research(
         initial_fx = Decimal(1)
     pending_buys: list[_PendingBuy] = []
     pending_sells: dict[str, date] = {}
+    unsettled_sells: set[str] = set()
     below_sma: dict[str, int] = defaultdict(int)
+    last_close: dict[str, Decimal] = {}
     peak_nav = request.initial_cash_krw
     drawdown_latched = False
 
@@ -363,10 +402,16 @@ def run_market_research(
             fx = Decimal(1)
         # Fill all decisions made at the prior close at this session's open.
         for symbol, signal_session in sorted(pending_sells.items()):
-            quantity = positions.pop(symbol, 0)
+            quantity = positions.get(symbol, 0)
             if quantity <= 0:
                 continue
-            bar = bars_by_key[(symbol, session.local_date)]
+            bar = bars_by_key.get((symbol, session.local_date))
+            if bar is None:
+                if approximate:
+                    unsettled_sells.add(symbol)
+                    continue
+                raise ValueError(f"missing exit bar: {symbol} {session.local_date}")
+            positions.pop(symbol, None)
             fill_price = bar.open * (1 - request.slippage_rate)
             notional = fill_price * quantity
             fee = notional * request.fee_rate
@@ -399,9 +444,15 @@ def run_market_research(
             ):
                 if pending.symbol in positions or len(positions) >= 20:
                     continue
-                bar = bars_by_key[(pending.symbol, session.local_date)]
+                bar = bars_by_key.get((pending.symbol, session.local_date))
+                if bar is None:
+                    if approximate:
+                        continue
+                    raise ValueError(
+                        f"missing entry bar: {pending.symbol} {session.local_date}"
+                    )
                 nav_native = cash_native + sum(
-                    bars_by_key[(held, session.local_date)].close * quantity
+                    last_close.get(held, Decimal(0)) * quantity
                     for held, quantity in positions.items()
                 )
                 target = nav_native * TARGET_WEIGHT
@@ -448,15 +499,20 @@ def run_market_research(
         )
         evidence.extend(candidates)
         for symbol in list(positions):
-            bar = bars_by_key[(symbol, session.local_date)]
+            bar = bars_by_key.get((symbol, session.local_date))
+            if bar is None:
+                if approximate:
+                    continue
+                raise ValueError(f"missing signal bar: {symbol} {session.local_date}")
             sma_window = [
-                bars_by_key[(symbol, prior_session.local_date)]
+                bars_by_key.get((symbol, prior_session.local_date))
                 for prior_session in all_sessions[
                     max(0, index - TWENTY + 1) : index + 1
                 ]
             ]
-            if len(sma_window) == TWENTY:
-                sma = sum((item.close for item in sma_window), Decimal()) / TWENTY
+            sma_bars = [item for item in sma_window if item is not None]
+            if len(sma_bars) == TWENTY:
+                sma = sum((item.close for item in sma_bars), Decimal()) / TWENTY
                 below_sma[symbol] = below_sma[symbol] + 1 if bar.close < sma else 0
                 if below_sma[symbol] >= 2 and index + 1 < len(all_sessions):
                     pending_sells[symbol] = session.local_date
@@ -494,8 +550,12 @@ def run_market_research(
                     _PendingBuy(candidate.symbol, session.local_date, candidate.rank)
                 )
 
+        for symbol in positions:
+            mark = bars_by_key.get((symbol, session.local_date))
+            if mark is not None:
+                last_close[symbol] = mark.close
         invested_native = sum(
-            bars_by_key[(symbol, session.local_date)].close * quantity
+            last_close.get(symbol, Decimal(0)) * quantity
             for symbol, quantity in positions.items()
         )
         nav_krw = (cash_native + invested_native) * fx
@@ -529,8 +589,8 @@ def run_market_research(
         "drawdown_latched": Decimal(1 if drawdown_latched else 0),
         "initial_fx_krw_per_usd": initial_fx,
     }
-    unsettled_sells = tuple(sorted(pending_sells))
-    if unsettled_sells:
+    unsettled = tuple(sorted(set(pending_sells) | unsettled_sells))
+    if unsettled:
         return MarketResearchResult(
             market=request.market,
             request=request,
@@ -543,7 +603,7 @@ def run_market_research(
             limitations=(
                 "마지막 거래일 이후 다음 거래일 시가 청산이 체결되지 않아 "
                 "성과를 공개하지 않습니다.",
-                "미청산 잔여 보유: " + ", ".join(unsettled_sells),
+                "미청산 잔여 보유: " + ", ".join(unsettled),
             ),
             metrics={},
             input_hash=snapshot.input_hash,
@@ -552,20 +612,27 @@ def run_market_research(
             pilot_run_id=request.pilot_run_id,
             data_contract_hash=snapshot.data_contract_hash,
             warmup_sessions=tuple(warmup),
+            research_grade=request.research_grade,
+            pool_contract_hash=snapshot.pool_contract_hash,
         )
     return MarketResearchResult(
         market=request.market,
         request=request,
         readiness=readiness,
-        status="ready",
-        completeness="complete",
+        status="approximate" if approximate else "ready",
+        completeness="approximate" if approximate else "complete",
         candidate_evidence=tuple(evidence),
         trades=tuple(trades),
         equity=tuple(equity),
         limitations=(
-            "합성 자료는 인과 흐름 확인용이며 실제 수익률이나 주문 결과가 아닙니다."
-            if readiness.simulated
-            else "모의 연구 결과이며 실주문과 연결되지 않습니다.",
+            "무료 근사 자료는 날짜별 표본·누락·생존편향 한계가 있어 "
+            "실제 수익률이 아닙니다."
+            if approximate
+            else (
+                "합성 자료는 인과 흐름 확인용이며 실제 수익률이나 주문 결과가 아닙니다."
+                if readiness.simulated
+                else "모의 연구 결과이며 실주문과 연결되지 않습니다."
+            ),
             "낙폭 제한은 감지된 뒤 다음 거래일 시가에 청산하며 gap으로 20%를 "
             "초과할 수 있습니다.",
         ),
@@ -576,4 +643,6 @@ def run_market_research(
         pilot_run_id=request.pilot_run_id,
         data_contract_hash=snapshot.data_contract_hash,
         warmup_sessions=tuple(warmup),
+        research_grade=request.research_grade,
+        pool_contract_hash=snapshot.pool_contract_hash,
     )

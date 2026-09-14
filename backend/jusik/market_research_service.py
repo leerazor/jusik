@@ -26,6 +26,7 @@ from jusik.market_history_sources import MarketHistorySource, data_contract_hash
 from jusik.market_history_store import MarketHistoryStore
 from jusik.market_research_config import load_market_research_settings
 from jusik.market_research_strategy import (
+    market_research_policy_for_grade,
     market_research_policy_hash,
     run_market_research,
 )
@@ -62,6 +63,9 @@ class MarketResearchService:
         self.calendar = calendar or default_market_calendar()
         self.approximate_source = approximate_source
         self.policy_hash = market_research_policy_hash()
+
+    def _policy_hash_for_grade(self, grade: ResearchGrade) -> str:
+        return market_research_policy_hash(market_research_policy_for_grade(grade))
 
     def _source_for_grade(self, grade: ResearchGrade) -> MarketHistorySource:
         if grade == "approximate":
@@ -150,7 +154,9 @@ class MarketResearchService:
                 False,
                 "현재 실행 가정과 일치하지 않아 최종 단계에서 참조할 수 없습니다.",
             )
-        if pilot.result.policy_hash != self.policy_hash:
+        if pilot.result.policy_hash != self._policy_hash_for_grade(
+            pilot.request.research_grade
+        ):
             return False, "현재 연구 정책과 일치하지 않습니다."
         if (
             pilot.data_contract_hash is None
@@ -263,7 +269,7 @@ class MarketResearchService:
                     request,
                     readiness,
                     self.calendar,
-                    policy_hash=self.policy_hash,
+                    policy_hash=self._policy_hash_for_grade(request.research_grade),
                 )
             else:
                 result = run_market_research(
@@ -271,7 +277,7 @@ class MarketResearchService:
                     request,
                     readiness,
                     self.calendar,
-                    policy_hash=self.policy_hash,
+                    policy_hash=self._policy_hash_for_grade(request.research_grade),
                 )
             self.store.update_run(
                 run.id,

@@ -54,7 +54,7 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
       <section className="research-step" aria-labelledby="readiness-title">
         <div className="step-heading"><p className="eyebrow">STEP 1</p><h2 id="readiness-title">실행 준비 상태</h2><p>자격 증명만으로 완전한 과거 자료가 있다고 판단하지 않습니다. 합성 자료는 화면과 계산 흐름만 확인합니다.</p></div>
         <div className="account-grid">
-          {readiness.map((item) => <article className="account-card" key={item.market}><div className="account-heading"><strong>{item.market === "KR" ? "한국" : "미국"}</strong><span className={`status status-${item.ready ? "ok" : "error"}`}>{readinessLabel(item)}</span></div><ul>{item.capabilities.map((capability) => <li key={capability.name}>{capability.name}: {capability.detail}</li>)}</ul></article>)}
+          {readiness.map((item) => <article className="account-card" key={`${item.market}-${item.research_grade}`}><div className="account-heading"><strong>{item.market === "KR" ? "한국" : "미국"}</strong><span className={`status status-${item.ready ? "ok" : "error"}`}>{readinessLabel(item)}</span></div><ul>{item.capabilities.map((capability) => <li key={capability.name}>{capability.name}: {capability.detail}</li>)}</ul></article>)}
         </div>
       </section>
       <section className="research-step" aria-labelledby="run-title">

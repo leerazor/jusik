@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -10,8 +10,10 @@ from fastapi.testclient import TestClient
 
 from jusik.fixture_app import app as fixture_app
 from jusik.market_history_approximate import (
+    ApproximateMarketHistorySource,
     ApproximateProviderError,
     ApproximateUniverseRow,
+    FixtureApproximateMarketHistorySource,
     JsonApproximateProvider,
     deterministic_pool,
     run_approximate_market_research,
@@ -66,10 +68,46 @@ def test_json_provider_rejects_current_period_overflow_and_market_mismatch(
     with pytest.raises(ApproximateProviderError):
         asyncio.run(provider.fetch("KR", date(2026, 1, 1), date(2026, 9, 14)))
 
+    payload["universe"][0]["session"] = "2026-09-14"
+    payload["fx"] = [
+        {"session": "2026-09-15", "krw_per_usd": "1350", "spread_rate": "0.001"}
+    ]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ApproximateProviderError):
+        asyncio.run(provider.fetch("KR", date(2026, 1, 1), date(2026, 9, 14)))
+
+
+def test_prepared_provider_rejects_untrusted_provenance_and_readiness_is_truthful(
+    tmp_path: Path,
+) -> None:
+    payload = {
+        "market": "KR",
+        "universe": [
+            {
+                "session": "2026-09-14",
+                "symbol": "S1",
+                "name": "Sample",
+                "exchange": "KSC",
+                "currency": "KRW",
+            }
+        ],
+        "bars": [],
+        "simulated": True,
+    }
+    path = tmp_path / "approx.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    provider = JsonApproximateProvider(path)
+    with pytest.raises(ApproximateProviderError):
+        asyncio.run(provider.fetch("KR", date(2026, 1, 1), date(2026, 9, 14)))
+    readiness = ApproximateMarketHistorySource(provider).readiness(
+        "KR", datetime(2026, 9, 14, tzinfo=UTC)
+    )
+    assert readiness.ready is False
+    missing = {item.name for item in readiness.capabilities if item.status == "missing"}
+    assert missing >= {"membership", "bars"}
+
 
 def test_fixture_approximate_result_is_never_strict_ready() -> None:
-    from jusik.market_history_approximate import FixtureApproximateMarketHistorySource
-
     request = MarketResearchRequest(
         market="KR",
         start_date=date(2025, 9, 14),
@@ -89,6 +127,79 @@ def test_fixture_approximate_result_is_never_strict_ready() -> None:
     assert result.research_grade == "approximate"
     assert result.status == "approximate"
     assert result.completeness == "approximate"
+
+
+def test_approximate_uses_shared_execution_costs_and_next_open_core() -> None:
+    request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+        research_grade="approximate",
+    )
+    source = FixtureApproximateMarketHistorySource()
+    readiness = source.readiness("KR", datetime(2026, 9, 14, tzinfo=UTC))
+    result = run_approximate_market_research(
+        asyncio.run(source.collect(request)),
+        request,
+        readiness,
+        default_market_calendar(),
+    )
+    assert result.trades
+    assert all(trade.fill_session > trade.signal_session for trade in result.trades)
+    buys = [trade for trade in result.trades if trade.side == "buy"]
+    assert buys
+    assert all(trade.fee > 0 for trade in buys)
+    assert all(trade.fill_price > trade.market_open for trade in buys)
+
+
+def test_approximate_future_availability_and_fx_are_insufficient() -> None:
+    request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+        research_grade="approximate",
+    )
+    source = FixtureApproximateMarketHistorySource()
+    readiness = source.readiness("KR", datetime(2026, 9, 14, tzinfo=UTC))
+    snapshot = asyncio.run(source.collect(request))
+    future = snapshot.model_copy(
+        update={
+            "bars": tuple(
+                bar.model_copy(
+                    update={"available_at": bar.available_at + timedelta(days=1)}
+                )
+                for bar in snapshot.bars
+            )
+        }
+    )
+    result = run_approximate_market_research(
+        future, request, readiness, default_market_calendar()
+    )
+    assert result.status == "insufficient"
+    assert result.trades == ()
+
+    us_request = request.model_copy(update={"market": "US"})
+    us_snapshot = asyncio.run(source.collect(us_request))
+    us_readiness = source.readiness("US", datetime(2026, 9, 14, tzinfo=UTC))
+    future_fx = us_snapshot.model_copy(
+        update={
+            "fx": tuple(
+                observation.model_copy(
+                    update={
+                        "available_at": observation.available_at + timedelta(days=1)
+                    }
+                )
+                for observation in us_snapshot.fx
+            )
+        }
+    )
+    us_result = run_approximate_market_research(
+        future_fx, us_request, us_readiness, default_market_calendar()
+    )
+    assert us_result.status == "insufficient"
+    assert us_result.trades == ()
 
 
 def test_fixture_api_exposes_approximate_grade_without_pit_claim() -> None:
