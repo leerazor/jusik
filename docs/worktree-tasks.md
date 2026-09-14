@@ -1,5 +1,21 @@
 # 워크트리 작업 등록부
 
+## investor-workflow
+
+- 상태: 준비
+- 목표와 완료 조건: 한국·미국 종목 발굴, 근거가 있는 가치·추세 진입 판단, 저장된 매수 논거에 맞춘 보유·매도 검토를 코드와 웹에 연결합니다. 관련 검사와 독립 검토, local main 통합 검사, 웹 반영과 handoff를 완료합니다.
+- 담당 Luna: 예정 /root/luna_investor, 구현 소유자 한 명. explore 완료, plan 진행 중.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-investor-workflow
+- 작업 브랜치: feat/investor-workflow
+- 기준 커밋 SHA: e600d1fe12209892e06b82c14152ffab7402d877 이후 이 등록 커밋.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 사용자 투자자 관점 로직 구현 요청, 기존 KIS 읽기 전용 조회·웹·fixture, 공식 KIS API 예제. 거래 순위는 발굴 후보이며 시장 전수 평가나 기업가치 검증으로 표시하지 않습니다.
+- 수정 허용 범위: 투자자용 데이터·판단·논거 저장·API, 관련 계좌/신규 웹 화면·검사·한국어 사용 문서. 연구 결과·PAPER10%·주문 실행 경계는 보존합니다. 등록부는 감독만 수정합니다.
+- 포트·테스트 DB·출력 경로: 워크트리 전용 Python 가상환경·node_modules·build, fixture 8341 및 웹 3341, 임시 테스트 DB. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260914-investor-workflow.
+- 검증 명령과 결과: 예정 관련 pytest·Ruff·strict mypy, frontend lint·typecheck·build, 실제 브라우저의 후보/상세/논거 저장·오류·모바일 검사.
+- 검토 결과와 남은 문제: 새 provider 응답·결측·시각·종목 정체성 검증이 필요합니다. 현재 자동 실행기 paused, service/timer inactive를 유지합니다. 기존 미추적 파일과 6개 미완료 워크트리를 보존합니다.
+- handoff 저장 경로와 갱신 여부: 예정 /home/kwl/.local/share/jusik/portfolio-audit/20260914-investor-workflow/HANDOFF.md 및 루트 최신 안내.
+
 ## agent-tooling — 2026-09-13
 
 - 상태: 완료
