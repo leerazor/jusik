@@ -86,7 +86,12 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
         ),
         "web": (
             "web reads prepared bounded cache only; import-file validates a prepared "
-            "response; network collection is out of scope"
+            "response; network collection is CLI-only"
+        ),
+        "network_collection": (
+            "CLI collect may fetch bounded KRX, Alpha Vantage, Yahoo, and FRED "
+            "responses into secret-free resumable cache; missing keys, partial "
+            "responses, and unresolved actions remain insufficient"
         ),
         "credentials": (
             "missing KRX or Alpha Vantage credentials remain explicitly unavailable"

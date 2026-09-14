@@ -18,6 +18,8 @@ CalendarPhase = Literal[
 EXCHANGE_CALENDAR: dict[str, CalendarCode] = {
     "KRX": "XKRX",
     "KSC": "XKRX",
+    "KOSPI": "XKRX",
+    "KOSDAQ": "XKRX",
     "NAS": "XNYS",
     "NMS": "XNYS",
     "NGM": "XNYS",
