@@ -2,12 +2,12 @@
 
 ## free-market-data-collector
 
-- 상태: 준비
+- 상태: 진행
 - 목표와 완료 조건: 무료·공개 원천에서 한국·미국의 날짜별 종목 구성, 조정 가능한 과거 OHLCV와 미국 KRW/USD 환율을 실제로 수집해 기존 approximate prepared dataset을 생성합니다. 원본 응답과 provenance를 보존하고, 호출 제한·중단 재개·부분 실패를 안전하게 처리하며, 현재 종목을 과거에 소급하지 않습니다.
 - 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore→plan→code→review 순서로 진행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-free-market-data-collector
 - 작업 브랜치: feat/free-market-data-collector
-- 기준 커밋 SHA: 등록 커밋에서 확정
+- 기준 커밋 SHA: f15a3ffcbedc0355e406277acac2ef4b4d994a06
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: approximate-market-data 완료 main 0d56e251751793543b1e941f9fec474182b27998, 기존 `ApproximateDataset`·`import-file`·readiness 계약, 최신 연구 mandate. 사용자는 무료 데이터 수집기부터 진행하도록 승인했습니다.
 - 수정 허용 범위: market-data 수집 adapter·정규화·raw/cache manifest·재개 가능한 CLI, 관련 config·환경 예시·테스트·시장 연구 문서와 mandate. 전략·PAPER·broker/order·프런트 실행 계약은 변경하지 않습니다.
