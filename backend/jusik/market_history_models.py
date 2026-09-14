@@ -231,10 +231,6 @@ class MarketHistorySnapshot(HistoryModel):
             and self.evaluation_start != self.requested_start
         ):
             raise ValueError("snapshot evaluation start must equal requested start")
-        if self.evaluation_start is not None and len(self.warmup_sessions) != 20:
-            raise ValueError(
-                "staged snapshot warmup must contain exactly twenty sessions"
-            )
         if len(self.warmup_sessions) > 20:
             raise ValueError("snapshot warmup cannot exceed twenty sessions")
         if len(set(self.warmup_sessions)) != len(self.warmup_sessions):
