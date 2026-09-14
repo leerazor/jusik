@@ -1,8 +1,8 @@
 """Bounded, explicitly approximate historical market-data workflow.
 
 This module accepts prepared provider responses and never falls back to the
-current candidate universe.  Network backfills belong in a separate bounded
-CLI job; the web application only reads a prepared response file.
+current candidate universe.  The CLI imports and validates a prepared response
+file; network collection is intentionally outside this bounded workflow.
 """
 
 from __future__ import annotations
@@ -124,7 +124,7 @@ class HistoricalFXProvider(Protocol):
 
 
 class JsonApproximateProvider:
-    """Read one bounded provider response prepared by the backfill CLI."""
+    """Read one bounded provider response prepared by the import CLI."""
 
     def __init__(
         self,

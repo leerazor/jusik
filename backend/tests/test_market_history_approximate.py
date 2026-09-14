@@ -20,6 +20,7 @@ from jusik.market_history_approximate import (
     run_approximate_market_research,
 )
 from jusik.market_history_models import MarketResearchRequest
+from jusik.market_research_cli import main as market_research_cli
 from jusik.market_research_strategy import (
     RESEARCH_MANDATE_JSON_SHA256,
     market_research_policy_for_grade,
@@ -73,7 +74,6 @@ def test_json_provider_rejects_current_period_overflow_and_market_mismatch(
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ApproximateProviderError):
         asyncio.run(provider.fetch("KR", date(2026, 1, 1), date(2026, 9, 14)))
-
     payload["universe"][0]["session"] = "2026-09-14"
     payload["fx"] = [
         {"session": "2026-09-15", "krw_per_usd": "1350", "spread_rate": "0.001"}
@@ -81,6 +81,59 @@ def test_json_provider_rejects_current_period_overflow_and_market_mismatch(
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ApproximateProviderError):
         asyncio.run(provider.fetch("KR", date(2026, 1, 1), date(2026, 9, 14)))
+
+
+def test_cli_import_file_validates_and_copies_prepared_response(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    payload = {
+        "market": "KR",
+        "universe": [
+            {
+                "session": "2026-09-14",
+                "symbol": "S1",
+                "name": "Sample",
+                "exchange": "KSC",
+                "currency": "KRW",
+            }
+        ],
+        "bars": [
+            {
+                "session": "2026-09-14",
+                "symbol": "S1",
+                "exchange": "KSC",
+                "open": "100",
+                "high": "101",
+                "low": "99",
+                "close": "100",
+                "volume": "1000",
+                "currency": "KRW",
+            }
+        ],
+    }
+    source = tmp_path / "source.json"
+    target = tmp_path / "cache.json"
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    assert (
+        market_research_cli(
+            [
+                "import-file",
+                "--market",
+                "KR",
+                "--input",
+                str(source),
+                "--output",
+                str(target),
+                "--start",
+                "2026-01-01",
+                "--end",
+                "2026-09-14",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "imported"
+    assert target.read_bytes() == source.read_bytes()
 
 
 def test_prepared_provider_rejects_untrusted_provenance_and_readiness_is_truthful(
@@ -272,6 +325,39 @@ def test_approximate_does_not_fill_after_membership_expires() -> None:
         for trade in result.trades
     )
     assert any("membership" in limitation for limitation in result.limitations)
+
+
+def test_approximate_daily_membership_rows_carry_signal_eligibility() -> None:
+    request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+        research_grade="approximate",
+    )
+    source = FixtureApproximateMarketHistorySource()
+    readiness = source.readiness("KR", datetime(2026, 9, 14, tzinfo=UTC))
+    snapshot = asyncio.run(source.collect(request))
+    calendar = default_market_calendar()
+    sessions = sorted({bar.session for bar in snapshot.bars})
+    daily_memberships = tuple(
+        membership.model_copy(
+            update={
+                "stable_id": f"{membership.stable_id}:{session}",
+                "valid_from": session,
+                "valid_to": session,
+                "available_at": calendar.lookup("KSC", session).session.close_at,
+            }
+        )
+        for membership in snapshot.memberships
+        for session in sessions
+    )
+    daily_snapshot = snapshot.model_copy(update={"memberships": daily_memberships})
+    result = run_approximate_market_research(
+        daily_snapshot, request, readiness, calendar
+    )
+    assert result.status == "approximate"
+    assert any(trade.side == "buy" for trade in result.trades)
 
 
 def test_approximate_policy_tracks_the_maintained_mandate_checksum() -> None:

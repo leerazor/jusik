@@ -64,7 +64,7 @@
     "sources": ["KRX/public", "Alpha Vantage", "Yahoo historical OHLCV", "FRED DEXKOUS"],
     "contracts": "pilot pool is fixed through its end date; final must match market, grade, policy, assumptions, source, pool, normalization, missing-data, corporate-action, and FX contracts",
     "missing_data": "exclude non-held missing bars with coverage counts; held missing bars use last known mark with age/estimated caveat and no invented liquidation",
-    "web": "web reads prepared bounded cache only; resumable backfill is a separate CLI operation",
+    "web": "web reads prepared bounded cache only; import-file validates a prepared response; network collection is out of scope",
     "credentials": "missing KRX or Alpha Vantage credentials remain explicitly unavailable"
   }
 }

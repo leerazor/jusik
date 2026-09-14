@@ -30,7 +30,7 @@ DRAWDOWN_LIMIT = Decimal("0.20")
 # identifier in the policy hash makes mandate edits invalidate old pilots.
 RESEARCH_MANDATE_VERSION = "2026-09-13"
 RESEARCH_MANDATE_JSON_SHA256 = (
-    "5ed4b8d9351e941c3559aa51fb757099d03a3981cf2935c24438be9e0ddd7ccf"
+    "6bf343dc7a6f0405d7044b65a5e1bcb2d26e4f920fe8aa37841aace641f3db16"
 )
 MARKET_RESEARCH_POLICY: dict[str, object] = {
     "version": 2,
@@ -474,16 +474,41 @@ def run_market_research(
                     for item in all_sessions
                     if item.local_date == pending.signal_session
                 )
-                membership = next(
+                signal_membership = next(
                     (
                         item
                         for item in snapshot.memberships
                         if item.symbol == pending.symbol
                         and item.instrument_type == "stock"
-                        and item.is_valid_on(session.local_date)
+                        and item.is_valid_on(pending.signal_session)
                         and item.available_at <= signal_object.close_at
                     ),
                     None,
+                )
+                fill_memberships = tuple(
+                    item
+                    for item in snapshot.memberships
+                    if item.symbol == pending.symbol
+                    and item.instrument_type == "stock"
+                    and item.is_valid_on(session.local_date)
+                )
+                preopen_membership = next(
+                    (
+                        item
+                        for item in fill_memberships
+                        if item.available_at <= session.open_at
+                    ),
+                    None,
+                )
+                membership = preopen_membership or (
+                    signal_membership
+                    if signal_membership is not None and fill_memberships
+                    else (
+                        signal_membership
+                        if signal_membership is not None
+                        and signal_membership.is_valid_on(session.local_date)
+                        else None
+                    )
                 )
                 if membership is None:
                     if approximate:
@@ -609,7 +634,7 @@ def run_market_research(
             prior = [
                 bars_by_key[(candidate.symbol, prior_session.local_date)]
                 for prior_session in all_sessions[max(0, index - TWENTY) : index]
-                if membership.is_valid_on(prior_session.local_date)
+                if (approximate or membership.is_valid_on(prior_session.local_date))
                 and (candidate.symbol, prior_session.local_date) in bars_by_key
             ]
             current = bars_by_key[(candidate.symbol, session.local_date)]

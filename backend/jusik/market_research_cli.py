@@ -35,10 +35,16 @@ def parser() -> argparse.ArgumentParser:
     status = subcommands.add_parser("status")
     status.add_argument("--market", choices=("KR", "US"), default=None)
     status.add_argument("--grade", choices=("strict", "approximate"), default="strict")
-    backfill = subcommands.add_parser("backfill")
-    backfill.add_argument("--market", choices=("KR", "US"), required=True)
-    backfill.add_argument("--input", type=Path)
-    backfill.add_argument("--output", type=Path)
+    prepared = subcommands.add_parser(
+        "import-file",
+        aliases=("backfill",),
+        help="validate and import one prepared provider response file",
+    )
+    prepared.add_argument("--market", choices=("KR", "US"), required=True)
+    prepared.add_argument("--input", type=Path)
+    prepared.add_argument("--output", type=Path)
+    prepared.add_argument("--start")
+    prepared.add_argument("--end")
     run = subcommands.add_parser("run")
     run.add_argument("--market", choices=("KR", "US"), required=True)
     run.add_argument("--start")
@@ -70,15 +76,20 @@ def main(argv: list[str] | None = None) -> int:
         ]
         print(json.dumps(payload, ensure_ascii=False))
         return 0
-    if args.command == "backfill":
+    if args.command in {"import-file", "backfill"}:
         if args.input is None:
-            print("bounded backfill requires a prepared provider response file")
+            print("prepared-file import requires a provider response file")
             return 2
         try:
             raw = args.input.read_bytes()
             dataset = ApproximateDataset.model_validate(json.loads(raw))
             if dataset.market != args.market:
                 raise ValueError("market mismatch")
+            start = date.fromisoformat(args.start) if args.start else date.min
+            end = date.fromisoformat(args.end) if args.end else date.max
+            asyncio.run(
+                JsonApproximateProvider(args.input).fetch(args.market, start, end)
+            )
             if args.output is not None:
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_bytes(raw)
@@ -87,7 +98,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(
             json.dumps(
-                {"status": "prepared", "market": args.market}, ensure_ascii=False
+                {"status": "imported", "market": args.market}, ensure_ascii=False
             )
         )
         return 0
