@@ -2,19 +2,20 @@
 
 ## investor-workflow
 
-- 상태: 진행
-- 목표와 완료 조건: 한국·미국 종목 발굴, 근거가 있는 가치·추세 진입 판단, 저장된 매수 논거에 맞춘 보유·매도 검토를 코드와 웹에 연결합니다. 관련 검사와 독립 검토, local main 통합 검사, 웹 반영과 handoff를 완료합니다.
-- 담당 Luna: /root/luna_investor (gpt-5.6-luna), 구현 소유자 한 명. explore·plan 완료. 역할 사전 검사를 통과했으며, 재개된 Luna turn의 사후 helper 시각 경계 오류는 원본 child turn_id/model 근거로 별도 확인합니다.
-- 워크트리 절대 경로: /home/kwl/projects/jusik-investor-workflow
-- 작업 브랜치: feat/investor-workflow
+- 상태: 완료
+- 목표와 완료 조건: 한국·미국 후보 발굴, 가치·추세 진입 판단, 투자 논거 저장과 보유·매도 검토를 코드와 웹에 연결했습니다. local main 통합·독립 검토·운영 웹 반영·handoff와 작업 정리를 완료했습니다.
+- 담당 Luna: /root/luna_investor (gpt-5.6-luna), 구현 소유자 한 명. explore·plan·code·review 순서로 진행했습니다. reviewer 사후 helper는 7개 turn을 통과했고 Luna 8개 turn의 원본 child turn_id/model을 별도 확인했습니다. 지연된 settings marker로 인한 helper 오류는 audit에 원문 근거와 함께 기록했습니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-investor-workflow. 통합 검증·산출물 보존 후 정상 제거했습니다.
+- 작업 브랜치: feat/investor-workflow. 모든 결과 커밋 통합 후 정상 삭제했습니다.
 - 기준 커밋 SHA: d578bf62bb6bbb98a7ba0c5edddd93d4ba3a12de.
-- 통합 대상 브랜치: local main
-- 입력과 선행 작업: 사용자 투자자 관점 로직 구현 요청, 기존 KIS 읽기 전용 조회·웹·fixture, 공식 KIS API 예제. 거래 순위는 발굴 후보이며 시장 전수 평가나 기업가치 검증으로 표시하지 않습니다.
-- 수정 허용 범위: 투자자용 데이터·판단·논거 저장·API, 관련 계좌/신규 웹 화면·검사·한국어 사용 문서. 연구 결과·PAPER10%·주문 실행 경계는 보존합니다. 등록부는 감독만 수정합니다.
-- 포트·테스트 DB·출력 경로: 워크트리 전용 Python 가상환경·node_modules·build, fixture 8341 및 웹 3341, 임시 테스트 DB. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260914-investor-workflow.
-- 검증 명령과 결과: 예정 관련 pytest·Ruff·strict mypy, frontend lint·typecheck·build, 실제 브라우저의 후보/상세/논거 저장·오류·모바일 검사.
-- 검토 결과와 남은 문제: 새 provider 응답·결측·시각·종목 정체성 검증이 필요합니다. 현재 자동 실행기 paused, service/timer inactive를 유지합니다. 기존 미추적 파일과 6개 미완료 워크트리를 보존합니다.
-- handoff 저장 경로와 갱신 여부: 예정 /home/kwl/.local/share/jusik/portfolio-audit/20260914-investor-workflow/HANDOFF.md 및 루트 최신 안내.
+- 통합 대상 브랜치: local main. 첫 병합 직전 9fd1851, 기능 통합 3466db260c190f9d6b0efa3cda4687402112ef8d, 헤더 수정 추가 통합 5b58c5e2e10561d583656f130498a471f41f3f0c.
+- 입력과 범위: 사용자 투자자 관점 로직 구현 요청. 기존 KIS 조회와 Yahoo 가격·조정 일봉을 사용하며 시장 전수 평가나 자동 내재가치 산정으로 표시하지 않습니다. 사용자 EPS·목표 PER·안전마진 가정으로 가격 범위를 계산합니다. 연구 결과·PAPER10%·주문 실행 경계를 보존했습니다.
+- 결과 커밋 SHA: 4b02b8a, 99f22e2, bd6c589, d733108, af3c077, a53ca4b, 6a756c3. 최초 중간 커밋 b747498은 작업자가 정리했으며, 이후 후속 수정은 별도 커밋으로 보존했습니다.
+- 검증 결과: main 관련 pytest 90개, 변경 Python 9개 Ruff/format 및 8개 strict mypy 통과. frontend lint/typecheck와 운영 production build 통과. fixture 브라우저 25개, 운영 화면 14개와 최종 겹침 검사 12개 통과. 실제 KR/US 후보 각 20개, 삼성전자/NVIDIA/코스닥 086520의 사용 가능한 시세와 확정 일봉 확인.
+- 검토와 복구: 종목 동일성·회계기간·코스닥·저장 후 최신 재평가·시세 지연·통화·종류 검증·오류 URL 인코딩을 보완했습니다. 운영 이미지에서 발견한 전역 header 높이 상속 겹침도 수정 후 확인했습니다. 최종 독립 검토 중요 지적 없음.
+- 포트·테스트 DB·산출물: fixture 8341 및 테스트 웹 3341 종료. 전용 환경·테스트 DB 3개를 정리했으며, 필요한 결과·패치·환경 정보 등 audit 77개 파일의 SHA를 확인했습니다. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260914-investor-workflow.
+- 운영 상태: /investor와 기존 /research HTTP 200. 자동 실행기 paused와 service/timer inactive 유지. 기존 미추적 파일과 6개 미완료 워크트리 보존. 원격 push와 실제 주문 없음.
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260914-investor-workflow/HANDOFF.md. 루트 HANDOFF.md에 최신 안내를 추가하고 기존 인계를 보존합니다.
 
 ## agent-tooling — 2026-09-13
 
