@@ -297,22 +297,45 @@ class ApproximateMarketHistorySource:
             if isinstance(self.provider, JsonApproximateProvider)
             else None
         )
-        detail = (
-            "준비된 날짜별 표본 자료를 사용합니다. PIT 검증 자료가 아닙니다."
-            if cached_dataset is not None
-            else (
-                "KRX/Alpha Vantage 키 또는 무료 근사 자료 캐시가 없어 "
-                "CLI 백필이 필요합니다."
+        has_cached_data = cached_dataset is not None
+        has_invalid_file = self.provider.available and not has_cached_data
+        if has_cached_data:
+            detail = (
+                "검증된 준비 파일의 날짜별 표본 자료를 사용합니다. "
+                "PIT 검증 자료가 아닙니다."
             )
-        )
+        elif has_invalid_file:
+            detail = (
+                "준비 파일은 있지만 시장·provenance·형식 검증에 실패했습니다. "
+                "import-file로 검증된 응답을 다시 준비해야 합니다."
+            )
+        else:
+            detail = (
+                "준비된 자료 파일이 없습니다. "
+                "import-file로 검증된 응답을 준비해야 합니다."
+            )
+        if market == "KR":
+            fx_detail = "KR 시장은 KRW 기준으로 FX 자료가 필요하지 않습니다."
+        elif has_cached_data:
+            fx_detail = "검증된 준비 파일의 FRED DEXKOUS 환율 관측을 사용합니다."
+        elif has_invalid_file:
+            fx_detail = (
+                "준비 파일의 FX 자료 또는 provenance·형식 검증에 실패했습니다. "
+                "import-file로 검증된 응답을 다시 준비해야 합니다."
+            )
+        else:
+            fx_detail = (
+                "US 시장의 FX 자료가 없습니다. "
+                "준비 파일에 FRED DEXKOUS 관측이 필요합니다."
+            )
         names = (
-            ("credentials", "provider response file is prepared"),
+            ("credentials", detail),
             ("entitlement", "historical entitlement is approximate"),
-            ("calendar", "bundled exchange calendar is available"),
+            ("calendar", "내장 거래소 달력을 사용할 수 있습니다."),
             ("membership", detail),
             ("bars", detail),
             ("actions", "dividend and delisting history is excluded or unknown"),
-            ("fx", "FRED DEXKOUS observations are required for US"),
+            ("fx", fx_detail),
             ("policy", "approximate sample policy is configured"),
         )
         from jusik.market_history_models import Capability
@@ -322,7 +345,13 @@ class ApproximateMarketHistorySource:
                 name=cast(CapabilityName, name),
                 status="partial"
                 if name in {"entitlement", "actions", "policy"}
-                else ("ready" if cached_dataset is not None else "missing"),
+                else (
+                    "ready"
+                    if name == "calendar"
+                    or (name == "fx" and market == "KR")
+                    or has_cached_data
+                    else "missing"
+                ),
                 detail=value,
             )
             for name, value in names

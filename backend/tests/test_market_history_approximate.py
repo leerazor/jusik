@@ -19,7 +19,7 @@ from jusik.market_history_approximate import (
     deterministic_pool,
     run_approximate_market_research,
 )
-from jusik.market_history_models import MarketResearchRequest
+from jusik.market_history_models import Market, MarketResearchRequest
 from jusik.market_research_cli import main as market_research_cli
 from jusik.market_research_strategy import (
     RESEARCH_MANDATE_JSON_SHA256,
@@ -220,6 +220,88 @@ def test_prepared_provider_rejects_untrusted_provenance_and_readiness_is_truthfu
     assert readiness.ready is False
     missing = {item.name for item in readiness.capabilities if item.status == "missing"}
     assert missing >= {"membership", "bars"}
+    details = {item.name: item.detail for item in readiness.capabilities}
+    assert "검증에 실패했습니다" in details["credentials"]
+    assert "자료 파일이 없습니다" not in details["credentials"]
+    assert "import-file" in details["membership"]
+
+
+@pytest.mark.parametrize("market", ["KR", "US"])
+def test_approximate_readiness_reports_missing_file_truthfully(
+    tmp_path: Path, market: Market
+) -> None:
+    source = JsonApproximateProvider(tmp_path / f"missing-{market}.json")
+    readiness = ApproximateMarketHistorySource(source).readiness(
+        market, datetime(2026, 9, 14, tzinfo=UTC)
+    )
+    statuses = {item.name: item.status for item in readiness.capabilities}
+    details = {item.name: item.detail for item in readiness.capabilities}
+    assert statuses["credentials"] == "missing"
+    assert statuses["calendar"] == "ready"
+    assert statuses["membership"] == "missing"
+    assert statuses["bars"] == "missing"
+    assert statuses["fx"] == ("missing" if market == "US" else "ready")
+    assert "자료 파일이 없습니다" in details["credentials"]
+    assert "import-file" in details["membership"]
+    if market == "KR":
+        assert "필요하지 않습니다" in details["fx"]
+    else:
+        assert "FX 자료가 없습니다" in details["fx"]
+
+
+@pytest.mark.parametrize("market", ["KR", "US"])
+def test_approximate_readiness_reports_prepared_file_and_market_fx(
+    tmp_path: Path, market: Market
+) -> None:
+    currency = "KRW" if market == "KR" else "USD"
+    exchange = "KSC" if market == "KR" else "NMS"
+    payload: dict[str, object] = {
+        "market": market,
+        "universe": [
+            {
+                "session": "2026-09-14",
+                "symbol": "S1",
+                "name": "Sample",
+                "exchange": exchange,
+                "currency": currency,
+            }
+        ],
+        "bars": [
+            {
+                "session": "2026-09-14",
+                "symbol": "S1",
+                "exchange": exchange,
+                "open": "100",
+                "high": "101",
+                "low": "99",
+                "close": "100",
+                "volume": "1000",
+                "currency": currency,
+            }
+        ],
+    }
+    if market == "US":
+        payload["fx"] = [
+            {
+                "session": "2026-09-14",
+                "krw_per_usd": "1350",
+                "spread_rate": "0.001",
+            }
+        ]
+    source_path = tmp_path / f"prepared-{market}.json"
+    source_path.write_text(json.dumps(payload), encoding="utf-8")
+    readiness = ApproximateMarketHistorySource(
+        JsonApproximateProvider(source_path)
+    ).readiness(market, datetime(2026, 9, 14, tzinfo=UTC))
+    statuses = {item.name: item.status for item in readiness.capabilities}
+    details = {item.name: item.detail for item in readiness.capabilities}
+    assert statuses["credentials"] == "ready"
+    assert statuses["calendar"] == "ready"
+    assert statuses["membership"] == "ready"
+    assert statuses["bars"] == "ready"
+    assert statuses["fx"] == "ready"
+    assert "검증된 준비 파일" in details["credentials"]
+    assert "PIT 검증 자료가 아닙니다" in details["membership"]
 
 
 def test_declared_universe_source_is_preserved_in_snapshot(tmp_path: Path) -> None:
