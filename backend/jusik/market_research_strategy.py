@@ -30,7 +30,7 @@ DRAWDOWN_LIMIT = Decimal("0.20")
 # identifier in the policy hash makes mandate edits invalidate old pilots.
 RESEARCH_MANDATE_VERSION = "2026-09-13"
 RESEARCH_MANDATE_JSON_SHA256 = (
-    "6bf343dc7a6f0405d7044b65a5e1bcb2d26e4f920fe8aa37841aace641f3db16"
+    "abbd7cf0b93bbdb995e15315ea6b93bc7526e420a51214515056bb68ccf5c2ff"
 )
 MARKET_RESEARCH_POLICY: dict[str, object] = {
     "version": 2,

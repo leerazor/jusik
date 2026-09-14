@@ -7,6 +7,12 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
 
+from jusik.market_data_collector import (
+    AtomicResponseCache,
+    CollectorError,
+    collect_market_data,
+    load_collector_settings,
+)
 from jusik.market_history_approximate import (
     ApproximateDataset,
     ApproximateMarketHistorySource,
@@ -36,6 +42,22 @@ def parser() -> argparse.ArgumentParser:
     status = subcommands.add_parser("status")
     status.add_argument("--market", choices=("KR", "US"), default=None)
     status.add_argument("--grade", choices=("strict", "approximate"), default="strict")
+    collect_status = subcommands.add_parser(
+        "collect-status", help="show bounded collector cache status"
+    )
+    collect_status.add_argument("--cache", type=Path, required=True)
+    collect_status.add_argument("--market", choices=("KR", "US"), required=True)
+    collect = subcommands.add_parser(
+        "collect", help="collect and validate a prepared approximate dataset"
+    )
+    collect.add_argument("--market", choices=("KR", "US"), required=True)
+    collect.add_argument("--start", required=True)
+    collect.add_argument("--end", required=True)
+    collect.add_argument("--output", type=Path, required=True)
+    collect.add_argument("--cache", type=Path, required=True)
+    collect.add_argument("--sample-size", type=int, default=100)
+    collect.add_argument("--request-budget", type=int)
+    collect.add_argument("--resume", action="store_true")
     prepared = subcommands.add_parser(
         "import-file",
         aliases=("backfill",),
@@ -60,6 +82,67 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
+    if args.command == "collect-status":
+        settings = load_collector_settings()
+        missing = settings.required_missing_credentials(args.market)
+        cache_payload = AtomicResponseCache(args.cache).status()
+        entries = cache_payload.get("entries")
+        cache_payload.update(
+            {
+                "market": args.market,
+                "credentials_missing": list(missing),
+                "ready": not missing and isinstance(entries, int) and entries > 0,
+            }
+        )
+        print(json.dumps(cache_payload, ensure_ascii=False))
+        return 0 if bool(cache_payload["ready"]) else 2
+    if args.command == "collect":
+        settings = load_collector_settings()
+        missing = settings.required_missing_credentials(args.market)
+        if missing:
+            print(
+                json.dumps(
+                    {
+                        "status": "unavailable",
+                        "market": args.market,
+                        "missing_credentials": list(missing),
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 2
+        try:
+            if args.request_budget is not None:
+                settings = settings.model_copy(
+                    update={"request_budget": args.request_budget}
+                )
+            result = asyncio.run(
+                collect_market_data(
+                    market=cast(Market, args.market),
+                    start=date.fromisoformat(args.start),
+                    end=date.fromisoformat(args.end),
+                    output=args.output,
+                    cache_dir=args.cache,
+                    settings=settings,
+                    sample_size=args.sample_size,
+                    resume=args.resume,
+                )
+            )
+        except (CollectorError, ValueError) as exc:
+            print(json.dumps({"status": "insufficient", "reason": str(exc)}))
+            return 2
+        print(
+            json.dumps(
+                {
+                    "status": "collected",
+                    "market": args.market,
+                    "output": str(args.output),
+                    "excluded_symbols": list(result.excluded_symbols),
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 0
     if args.command == "status":
         status_source: MarketHistorySource
         if args.grade == "approximate":
@@ -71,11 +154,11 @@ def main(argv: list[str] | None = None) -> int:
         markets: tuple[Market, ...] = (
             (cast(Market, args.market),) if args.market else ("KR", "US")
         )
-        payload = [
+        status_payload = [
             status_source.readiness(market, datetime.now(UTC)).model_dump(mode="json")
             for market in markets
         ]
-        print(json.dumps(payload, ensure_ascii=False))
+        print(json.dumps(status_payload, ensure_ascii=False))
         return 0
     if args.command in {"import-file", "backfill"}:
         if args.input is None:
