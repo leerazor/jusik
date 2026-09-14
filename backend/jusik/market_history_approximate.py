@@ -298,27 +298,36 @@ class ApproximateMarketHistorySource:
             else None
         )
         has_cached_data = cached_dataset is not None
-        detail = (
-            "검증된 준비 파일의 날짜별 표본 자료를 사용합니다. "
-            "PIT 검증 자료가 아닙니다."
-            if has_cached_data
-            else (
+        has_invalid_file = self.provider.available and not has_cached_data
+        if has_cached_data:
+            detail = (
+                "검증된 준비 파일의 날짜별 표본 자료를 사용합니다. "
+                "PIT 검증 자료가 아닙니다."
+            )
+        elif has_invalid_file:
+            detail = (
+                "준비 파일은 있지만 시장·provenance·형식 검증에 실패했습니다. "
+                "import-file로 검증된 응답을 다시 준비해야 합니다."
+            )
+        else:
+            detail = (
                 "준비된 자료 파일이 없습니다. "
                 "import-file로 검증된 응답을 준비해야 합니다."
             )
-        )
-        fx_detail = (
-            "KR 시장은 KRW 기준으로 FX 자료가 필요하지 않습니다."
-            if market == "KR"
-            else (
-                "검증된 준비 파일의 FRED DEXKOUS 환율 관측을 사용합니다."
-                if has_cached_data
-                else (
-                    "US 시장의 FX 자료가 없습니다. "
-                    "준비 파일에 FRED DEXKOUS 관측이 필요합니다."
-                )
+        if market == "KR":
+            fx_detail = "KR 시장은 KRW 기준으로 FX 자료가 필요하지 않습니다."
+        elif has_cached_data:
+            fx_detail = "검증된 준비 파일의 FRED DEXKOUS 환율 관측을 사용합니다."
+        elif has_invalid_file:
+            fx_detail = (
+                "준비 파일의 FX 자료 또는 provenance·형식 검증에 실패했습니다. "
+                "import-file로 검증된 응답을 다시 준비해야 합니다."
             )
-        )
+        else:
+            fx_detail = (
+                "US 시장의 FX 자료가 없습니다. "
+                "준비 파일에 FRED DEXKOUS 관측이 필요합니다."
+            )
         names = (
             ("credentials", detail),
             ("entitlement", "historical entitlement is approximate"),

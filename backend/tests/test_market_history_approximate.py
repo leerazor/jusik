@@ -220,6 +220,10 @@ def test_prepared_provider_rejects_untrusted_provenance_and_readiness_is_truthfu
     assert readiness.ready is False
     missing = {item.name for item in readiness.capabilities if item.status == "missing"}
     assert missing >= {"membership", "bars"}
+    details = {item.name: item.detail for item in readiness.capabilities}
+    assert "검증에 실패했습니다" in details["credentials"]
+    assert "자료 파일이 없습니다" not in details["credentials"]
+    assert "import-file" in details["membership"]
 
 
 @pytest.mark.parametrize("market", ["KR", "US"])
