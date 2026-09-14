@@ -91,7 +91,7 @@ class ApproximateDataset(BaseModel):
     bars: tuple[ApproximateBarRow, ...]
     fx: tuple[ApproximateFXRow, ...] = ()
     source: SourceName = "approximate_file"
-    bar_source: Literal["yahoo"] = "yahoo"
+    bar_source: Literal["krx", "yahoo"] = "yahoo"
     fx_source: Literal["fred"] = "fred"
     simulated: bool = False
     normalization_version: str = Field(default="approx-v1", min_length=1, max_length=40)
@@ -116,7 +116,7 @@ class HistoricalDateUniverseProvider(Protocol):
 
 
 class HistoricalBarProvider(Protocol):
-    source_name: Literal["yahoo"]
+    source_name: Literal["krx", "yahoo"]
 
 
 class HistoricalFXProvider(Protocol):

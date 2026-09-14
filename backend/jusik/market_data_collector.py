@@ -44,6 +44,7 @@ FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
 MAX_RETRIES = 3
 MAX_RETRY_DELAY_SECONDS = 30
 DEFAULT_REQUEST_BUDGET = 250
+MAX_KRX_ROWS_PER_DAY = 10_000
 
 
 class CollectorError(RuntimeError):
@@ -244,17 +245,25 @@ class HttpFetcher:
         params: Mapping[str, str | int],
         headers: Mapping[str, str] | None = None,
         checkpoint: str | None = None,
+        method: Literal["GET", "POST"] = "GET",
+        data: Mapping[str, str | int] | None = None,
     ) -> bytes:
-        cache_params = {
-            key: value
-            for key, value in params.items()
-            if key.lower() not in {"auth_key", "api_key", "apikey"}
-        }
+        def cache_safe(values: Mapping[str, str | int]) -> dict[str, str | int]:
+            return {
+                key: value
+                for key, value in values.items()
+                if key.lower() not in {"auth_key", "api_key", "apikey"}
+            }
+
+        cache_params = cache_safe(params)
+        cache_data = cache_safe(data or {})
         request_key = json.dumps(
             {
                 "source": source,
                 "url": url,
+                "method": method,
                 "params": dict(sorted(cache_params.items())),
+                "data": dict(sorted(cache_data.items())),
             },
             sort_keys=True,
         )
@@ -263,18 +272,26 @@ class HttpFetcher:
             return cached[1]
         if self.requests_used >= self.settings.request_budget:
             raise RequestBudgetExceeded("collector request budget exhausted")
-        self.requests_used += 1
         request_headers = {"User-Agent": "jusik-market-data-collector/1.0"}
         if headers:
             request_headers.update(headers)
         for attempt in range(self.settings.max_retries + 1):
+            if self.requests_used >= self.settings.request_budget:
+                raise RequestBudgetExceeded("collector request budget exhausted")
+            self.requests_used += 1
             try:
+                request_kwargs: dict[str, object] = {
+                    "headers": request_headers,
+                    "timeout": self.settings.timeout_seconds,
+                }
+                if method == "POST":
+                    request_kwargs["data"] = data or {}
+                else:
+                    request_kwargs["params"] = params
                 response = await self.client.request(
-                    "GET",
+                    method,
                     url,
-                    params=params,
-                    headers=request_headers,
-                    timeout=self.settings.timeout_seconds,
+                    **request_kwargs,
                 )
             except (httpx.HTTPError, TimeoutError) as exc:
                 if attempt >= self.settings.max_retries:
@@ -366,19 +383,28 @@ def _field(row: Mapping[str, object], *names: str) -> object | None:
     return None
 
 
-def parse_krx_daily_response(
+@dataclass(frozen=True)
+class KRXDailyResponse:
+    universe: tuple[ApproximateUniverseRow, ...]
+    bars: tuple[ApproximateBarRow, ...]
+
+
+def parse_krx_daily_trade_response(
     body: bytes,
     *,
     checkpoint: date,
     market_board: Literal["STK", "KSQ"] = "STK",
     available_at: datetime | None = None,
-) -> tuple[ApproximateUniverseRow, ...]:
+) -> KRXDailyResponse:
     try:
         payload = json.loads(body)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise CollectorError("KRX response is not valid JSON") from exc
     rows = _rows(payload)
+    if len(rows) > MAX_KRX_ROWS_PER_DAY:
+        raise CollectorError("KRX daily response exceeds the row bound")
     normalized: list[ApproximateUniverseRow] = []
+    bars: list[ApproximateBarRow] = []
     seen: dict[tuple[date, str], tuple[str, str]] = {}
     for row in rows:
         raw_session = _field(
@@ -392,10 +418,26 @@ def parse_krx_daily_response(
         )
         session = _date(raw_session, "KRX") if raw_session is not None else checkpoint
         symbol = str(
-            _field(row, "ISU_SRT_CD", "isu_srt_cd", "symbol", "stck_shrn_iscd") or ""
+            _field(
+                row,
+                "ISU_SRT_CD",
+                "ISU_CD",
+                "isu_srt_cd",
+                "symbol",
+                "stck_shrn_iscd",
+            )
+            or ""
         ).strip()
         name = str(
-            _field(row, "ISU_ABBRV", "isu_abbrv", "name", "bstp_kor_isnm") or ""
+            _field(
+                row,
+                "ISU_ABBRV",
+                "ISU_NM",
+                "isu_abbrv",
+                "name",
+                "bstp_kor_isnm",
+            )
+            or ""
         ).strip()
         security_type = str(
             _field(row, "SECUGRP_NM", "ISU_TYP", "instrument_type") or ""
@@ -418,9 +460,6 @@ def parse_krx_daily_response(
             detail = "conflicting " if previous != identity else "duplicate "
             raise CollectorError(f"KRX response contains {detail}rows")
         seen[(session, symbol)] = identity
-        volume = _field(row, "ACC_TRDVOL", "acml_vol", "volume")
-        if volume is not None:
-            _decimal(volume, "KRX volume", nonnegative=True)
         row_available_at = available_at or datetime.combine(
             session, time(18), tzinfo=UTC
         )
@@ -434,9 +473,53 @@ def parse_krx_daily_response(
                 available_at=row_available_at,
             )
         )
+        price_fields = (
+            _field(row, "TDD_OPNPRC", "opnprc", "open"),
+            _field(row, "TDD_HGPRC", "hgprc", "high"),
+            _field(row, "TDD_LWPRC", "lwprc", "low"),
+            _field(row, "TDD_CLSPRC", "clsprc", "close"),
+            _field(row, "ACC_TRDVOL", "acml_vol", "volume"),
+        )
+        # KRX uses '-' for an untraded price. Preserve membership but do not
+        # invent a daily bar for that symbol.
+        if all(
+            value is not None and str(value).strip() not in {"", "-"}
+            for value in price_fields
+        ):
+            assert all(value is not None for value in price_fields)
+            bars.append(
+                ApproximateBarRow(
+                    session=session,
+                    symbol=symbol,
+                    exchange=exchange,
+                    open=_decimal(price_fields[0], "KRX open"),
+                    high=_decimal(price_fields[1], "KRX high"),
+                    low=_decimal(price_fields[2], "KRX low"),
+                    close=_decimal(price_fields[3], "KRX close"),
+                    volume=_decimal(price_fields[4], "KRX volume", nonnegative=True),
+                    currency="KRW",
+                    available_at=row_available_at,
+                )
+            )
     if not normalized:
         raise CollectorError("KRX response contains no valid stock rows")
-    return tuple(normalized)
+    return KRXDailyResponse(universe=tuple(normalized), bars=tuple(bars))
+
+
+def parse_krx_daily_response(
+    body: bytes,
+    *,
+    checkpoint: date,
+    market_board: Literal["STK", "KSQ"] = "STK",
+    available_at: datetime | None = None,
+) -> tuple[ApproximateUniverseRow, ...]:
+    """Compatibility wrapper returning the normalized membership rows."""
+    return parse_krx_daily_trade_response(
+        body,
+        checkpoint=checkpoint,
+        market_board=market_board,
+        available_at=available_at,
+    ).universe
 
 
 def parse_alpha_vantage_listing_status(
@@ -683,17 +766,56 @@ class NetworkCollectorTransport:
         return await self.fetcher.get(
             source="krx",
             url=KRX_URL,
-            params={
+            method="POST",
+            params={},
+            data={
                 "bld": "dbms/MDC/STAT/standard/MDCSTAT01501",
+                "locale": "ko_KR",
                 "mktId": market_board,
-                "strtDd": start.strftime("%Y%m%d"),
-                "endDd": end.strftime("%Y%m%d"),
+                "trdDd": start.strftime("%Y%m%d"),
                 "share": 1,
                 "money": 1,
                 "csvxls_isNo": "false",
                 "AUTH_KEY": key.get_secret_value(),
             },
-            checkpoint=f"krx:{market_board}:{start}:{end}",
+            headers={
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "ko-KR,ko;q=0.9",
+                "Origin": "https://data.krx.co.kr",
+                "Referer": "https://data.krx.co.kr/",
+            },
+            checkpoint=f"krx:daily:{market_board}:{start}",
+        )
+
+    async def krx_basic_info(self, market_board: str = "ALL") -> bytes:
+        """Fetch the official stock master shape for identity cross-checks.
+
+        It is deliberately not used as a historical universe: the master is
+        current information and therefore cannot replace date-specific rows.
+        """
+        key = self.settings.krx_auth_key
+        if key is None:
+            raise CollectorError("KRX_AUTH_KEY is not configured")
+        return await self.fetcher.get(
+            source="krx",
+            url=KRX_URL,
+            method="POST",
+            params={},
+            data={
+                "bld": "dbms/MDC/STAT/standard/MDCSTAT01901",
+                "locale": "ko_KR",
+                "mktId": market_board,
+                "share": 1,
+                "csvxls_isNo": "false",
+                "AUTH_KEY": key.get_secret_value(),
+            },
+            headers={
+                "Accept": "application/json, text/plain, */*",
+                "Accept-Language": "ko-KR,ko;q=0.9",
+                "Origin": "https://data.krx.co.kr",
+                "Referer": "https://data.krx.co.kr/",
+            },
+            checkpoint=f"krx:basic:{market_board}",
         )
 
     async def alpha_listing(self, as_of: date) -> bytes:
@@ -817,17 +939,26 @@ class FreeMarketDataCollector:
         if len(sessions) < 21:
             raise CollectorError("requested range lacks warmup and evaluation sessions")
         checkpoint = sessions[0]
+        alpha_limitations: list[str] = []
         if market == "KR":
             krx_rows: list[ApproximateUniverseRow] = []
+            krx_bars: list[ApproximateBarRow] = []
             boards: tuple[Literal["STK", "KSQ"], ...] = ("STK", "KSQ")
-            for board in boards:
-                krx_rows.extend(
-                    parse_krx_daily_response(
-                        await self.transport.krx(board, warmup_start, end),
-                        checkpoint=checkpoint,
-                        market_board=board,
+            for session in sessions:
+                for board in boards:
+                    lookup = self.calendar.lookup(
+                        "KSC" if board == "STK" else "KOSDAQ", session
                     )
-                )
+                    if lookup.session is None:
+                        raise CollectorError(f"calendar session unavailable: {session}")
+                    daily = parse_krx_daily_trade_response(
+                        await self.transport.krx(board, session, session),
+                        checkpoint=session,
+                        market_board=board,
+                        available_at=lookup.session.close_at + timedelta(minutes=1),
+                    )
+                    krx_rows.extend(daily.universe)
+                    krx_bars.extend(daily.bars)
             raw_rows: tuple[ApproximateUniverseRow, ...] = tuple(krx_rows)
             source: Literal["krx", "alpha_vantage"] = "krx"
         else:
@@ -835,72 +966,88 @@ class FreeMarketDataCollector:
                 await self.transport.alpha_listing(checkpoint), as_of=checkpoint
             )
             for listing_checkpoint in _listing_checkpoints(sessions)[1:]:
-                parse_alpha_vantage_listing_status(
-                    await self.transport.alpha_listing(listing_checkpoint),
-                    as_of=listing_checkpoint,
-                )
+                try:
+                    parse_alpha_vantage_listing_status(
+                        await self.transport.alpha_listing(listing_checkpoint),
+                        as_of=listing_checkpoint,
+                    )
+                except CollectorError:
+                    alpha_limitations.append(
+                        "Alpha Vantage membership checkpoint unavailable: "
+                        f"{listing_checkpoint}"
+                    )
             source = "alpha_vantage"
         first_day_rows = tuple(row for row in raw_rows if row.session == checkpoint)
         pool = deterministic_pool(first_day_rows, market=market, pool_end=end)
         symbols = tuple(sorted({row.symbol for row in pool.rows}))[:sample_size]
         if not symbols:
             raise CollectorError("historical eligible universe is empty")
-        available_at = datetime.combine(checkpoint, time(18), tzinfo=UTC)
-        universe = tuple(
-            ApproximateUniverseRow(
-                session=session,
-                symbol=row.symbol,
-                name=row.name,
-                exchange=row.exchange,
-                instrument_type=row.instrument_type,
-                currency=row.currency,
-                available_at=(
-                    row.available_at
-                    if row.available_at is not None and row.available_at <= available_at
-                    else available_at
-                ),
+        selected_symbols = set(symbols)
+        if market == "KR":
+            universe = tuple(row for row in raw_rows if row.symbol in selected_symbols)
+        else:
+            available_at = datetime.combine(checkpoint, time(18), tzinfo=UTC)
+            universe = tuple(
+                ApproximateUniverseRow(
+                    session=session,
+                    symbol=row.symbol,
+                    name=row.name,
+                    exchange=row.exchange,
+                    instrument_type=row.instrument_type,
+                    currency=row.currency,
+                    available_at=(
+                        row.available_at
+                        if row.available_at is not None
+                        and row.available_at <= available_at
+                        else available_at
+                    ),
+                )
+                for session in sessions
+                for row in pool.rows
+                if row.symbol in selected_symbols
             )
-            for session in sessions
-            for row in pool.rows
-            if row.symbol in symbols
-        )
         bars: list[ApproximateBarRow] = []
         excluded: list[str] = []
-        for symbol in symbols:
-            row = next(item for item in pool.rows if item.symbol == symbol)
-            try:
-                chart = parse_yahoo_chart(
-                    await self.transport.yahoo(symbol, warmup_start, end),
-                    symbol=symbol,
-                    exchange=row.exchange,
-                    currency="KRW" if market == "KR" else "USD",
-                    start=warmup_start,
-                    end=end,
-                )
-            except CollectorError:
-                excluded.append(symbol)
-                continue
-            if chart.events:
-                excluded.append(symbol)
-                continue
-            for chart_bar in chart.bars:
-                lookup = self.calendar.lookup(row.exchange, chart_bar.session)
-                if lookup.session is None:
-                    raise CollectorError(
-                        f"calendar session unavailable: {chart_bar.session}"
+        if market == "KR":
+            bars = [bar for bar in krx_bars if bar.symbol in selected_symbols]
+        else:
+            for symbol in symbols:
+                row = next(item for item in pool.rows if item.symbol == symbol)
+                try:
+                    chart = parse_yahoo_chart(
+                        await self.transport.yahoo(symbol, warmup_start, end),
+                        symbol=symbol,
+                        exchange=row.exchange,
+                        currency="USD",
+                        start=warmup_start,
+                        end=end,
                     )
-                bars.append(
-                    chart_bar.model_copy(
-                        update={
-                            "available_at": lookup.session.close_at
-                            + timedelta(minutes=1)
-                        }
+                except CollectorError:
+                    excluded.append(symbol)
+                    continue
+                if chart.events:
+                    excluded.append(symbol)
+                    continue
+                for chart_bar in chart.bars:
+                    lookup = self.calendar.lookup(row.exchange, chart_bar.session)
+                    if lookup.session is None:
+                        raise CollectorError(
+                            f"calendar session unavailable: {chart_bar.session}"
+                        )
+                    bars.append(
+                        chart_bar.model_copy(
+                            update={
+                                "available_at": lookup.session.close_at
+                                + timedelta(minutes=1)
+                            }
+                        )
                     )
-                )
         if not bars:
-            raise CollectorPartialError("no sampled symbol has a valid Yahoo history")
+            raise CollectorPartialError("no sampled symbol has a valid history")
         fx: tuple[ApproximateFXRow, ...] = ()
         limitations: list[str] = []
+        if market == "US":
+            limitations.extend(alpha_limitations)
         if market == "US":
             fx = parse_fred_observations(
                 await self.transport.fred(warmup_start, end),
@@ -935,7 +1082,7 @@ class FreeMarketDataCollector:
                 bars=tuple(item for item in bars if item.symbol not in excluded),
                 fx=fx,
                 source=source,
-                bar_source="yahoo",
+                bar_source="krx" if market == "KR" else "yahoo",
                 fx_source="fred",
                 simulated=False,
             ),
@@ -997,6 +1144,8 @@ __all__ = [
     "CollectorPartialError",
     "CollectorSettings",
     "FreeMarketDataCollector",
+    "KRXDailyResponse",
+    "MAX_KRX_ROWS_PER_DAY",
     "NetworkCollectorTransport",
     "RequestBudgetExceeded",
     "collect_market_data",
@@ -1004,5 +1153,6 @@ __all__ = [
     "parse_alpha_vantage_listing_status",
     "parse_fred_observations",
     "parse_krx_daily_response",
+    "parse_krx_daily_trade_response",
     "parse_yahoo_chart",
 ]

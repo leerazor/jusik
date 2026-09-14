@@ -24,4 +24,4 @@
 
 무료 근사 등급은 개인 투자 판단을 위한 bounded historical sample이다. 날짜별 KRX·공공 목록 또는 Alpha Vantage 상장 상태와 Yahoo 과거 일봉, FRED DEXKOUS를 사용하며, 고정 seed로 시장별 최대 100개 종목을 표본화한다. 현재 후보를 과거에 소급하지 않고, 누락 일봉·배당·상장폐지·생존자 편향·환율 한계를 결과에 표시한다. 근사 결과는 strict PIT 검증 자료가 아니며 `근사 계산`으로만 표시한다.
 
-웹 요청은 준비된 cache를 읽기만 한다. CLI의 `import-file`은 공급자가 별도로 준비한 응답 파일을 운영 loader와 같은 provenance·기간 검증으로 검사하고 복사한다. CLI의 `collect`만 고정된 KRX·Alpha Vantage·Yahoo·FRED 공식 endpoint에서 제한된 범위의 응답을 받아 secret-free cache와 checkpoint를 만들고, 그 결과를 검증된 prepared file로 저장한다. 키가 없거나 응답이 부분적·손상되었거나 기업행동을 해석할 수 없으면 성공 결과를 만들지 않는다. 파일 원문과 hash, 표본 계약, coverage와 제외 건수를 함께 보존하고 pilot과 final의 source·pool·정규화·누락·기업행동·환율 계약이 다르면 결합하지 않는다.
+웹 요청은 준비된 cache를 읽기만 한다. CLI의 `import-file`은 공급자가 별도로 준비한 응답 파일을 운영 loader와 같은 provenance·기간 검증으로 검사하고 복사한다. CLI의 `collect`만 고정된 KRX·Alpha Vantage·Yahoo·FRED 공식 endpoint에서 제한된 범위의 응답을 받아 secret-free cache와 checkpoint를 만들고, 그 결과를 검증된 prepared file로 저장한다. 한국 일별 시세는 KRX KOSPI·KOSDAQ 거래 응답의 OHLCV를 사용하며 Yahoo로 대체하지 않는다. 키가 없거나 응답이 부분적·손상되었거나 기업행동을 해석할 수 없으면 성공 결과를 만들지 않는다. 파일 원문과 hash, 표본 계약, coverage와 제외 건수를 함께 보존하고 pilot과 final의 source·pool·정규화·누락·기업행동·환율 계약이 다르면 결합하지 않는다.
