@@ -2,19 +2,18 @@
 
 ## volume-discovery
 
-- 상태: 진행
-- 목표와 완료 조건: 승인한 거래량 기준으로 개별주 기본·ETF 별도 후보를 제공하고 최근 20거래일 평균 대비 거래량 배수를 표시합니다. 미국 3거래소를 숫자 거래량으로 통합 정렬합니다. 독립 검토, local main 통합 검사, 운영 웹 반영, handoff와 이번 작업 정리를 완료합니다.
-- 담당 Luna: /root/luna_investor (gpt-5.6-luna), 구현 소유자 한 명. 기존 explore·plan agent의 후속 조사/계획 완료.
-- 워크트리 절대 경로: /home/kwl/projects/jusik-volume-discovery
-- 작업 브랜치: feat/volume-discovery
-- 기준 커밋 SHA: 0a9118e807596c18a082abec004258e42fce9b4c 이후 이 등록 커밋.
-- 통합 대상 브랜치: local main
-- 입력과 선행 작업: 사용자 개별주 기본·ETF 분리·거래량 순위와 급증률 병행 승인. 공식 KIS 필드와 국내 ETF/ETN 제외 필터 및 미국 NAS/NYS/AMS 각 100개 응답을 확인했습니다. 평균 기간 불명 KIS 평균값을 20일 평균으로 사용하지 않습니다.
-- 수정 허용 범위: investor 후보 데이터·모델·API/fixture·관련 검사, 후보 목록 웹/계약/CSS와 사용 문서. 기존 논거·가치/매도 분석·연구·주문·운영 DB 보존. 등록부는 감독만 수정합니다.
-- 포트·테스트 DB·출력 경로: 전용 venv/node_modules/build, fixture 8351·웹 3351, 합성 DB. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260914-volume-discovery.
-- 검증 예정: 숫자 정렬/분류 후 제한/부분 실패·20일 평균/장중·휴일/결측·분할·캐시 상한, 기존 투자 논거 회귀, Ruff·strict mypy, frontend lint/typecheck/build, 실제 브라우저와 읽기 전용 공급원 확인.
-- 운영 보존: 자동 실행기 paused, service/timer inactive 유지. 기존 미완료 워크트리 6개·미추적 사용자 파일 보존. 실제 주문과 원격 push 없음.
-- handoff: 예정 /home/kwl/.local/share/jusik/portfolio-audit/20260914-volume-discovery/HANDOFF.md 및 루트 최신 안내.
+- 상태: 완료
+- 목표와 결과: 승인한 거래량 기준으로 한국·미국 개별주 후보를 각각 최대 20개 제공하고 ETF를 별도로 분리했습니다. 미국 NAS/NYS/AMS를 숫자 거래량으로 통합 정렬하고 직전 완료 20거래일 평균 대비 거래량 배수를 웹에 표시합니다.
+- 담당: /root/luna_investor (gpt-5.6-luna), 단일 구현 소유자. explore·plan·독립 review 완료. 원본 turn context 대조로 code 11개 turn과 review 9개 turn 모델을 확인했습니다. 사후 helper의 지연 settings marker 한계와 동등 검증 근거는 audit에 보존했습니다.
+- 워크트리·브랜치: /home/kwl/projects/jusik-volume-discovery, feat/volume-discovery. 통합 검증 및 산출물 보존 후 정상 제거했습니다. 기존 미완료 워크트리 6개는 보존했습니다.
+- 기준 및 병합 직전 main: 11a9e61. 결과 커밋: e3c6dda, 335baee, 5b6cff0. 기능 통합: 2127399afeb26a9cdc6d17fdbf7c4b4616459220. 형식 수정 최종 통합: db11b1ba847570429632e23f97e7980c281fc1c7.
+- 변경 범위: investor 후보 데이터·모델·fixture·관련 검사, 웹 후보 목록·계약과 사용자 안내. 실제 동시 조회 실패를 재현한 뒤 kis.py의 credential별 인증 공유까지 범위를 좁혀 추가했습니다. 기존 가치·매도 분석, 논거 저장, 연구·주문 로직과 운영 DB는 보존했습니다.
+- 검증: main pytest 99개, strict mypy 8개 모듈, Ruff 6개 파일, frontend lint/typecheck 및 운영 production build 통과. 형식 수정 후 영향 테스트 63개 재통과. 기존 논거 합성 브라우저 20개, 후보 화면 35개, 운영 브라우저 49개 검사 통과.
+- 실제 자료: 새 프로세스 첫 동시 조회 8.06초, 한국·미국 주식 각 20개, ETF 18/20개. 미국 주식 NAS 12/NYS 7/AMS 1. NVDA 20일 평균을 별도 원자료로 재계산해 일치 확인했습니다.
+- 검토 및 복구: 코스닥 코드 대체 조회 누락, 동시 인증 충돌, 분할 당일 배수 계산, 공유 작업 취소 전파, 미검사 건수와 합성 수치 불일치를 수정했습니다. 독립 최종 검토 P1/P2 없음. main 형식 검사에서 테스트 파일 2개가 실패하여 동일 Luna가 수정했고 재검사가 통과했습니다.
+- 한계: KIS 첫 페이지 수집 후보를 정렬하며 전체 시장 순위를 보장하지 않습니다. Yahoo 분류 미확인 후보는 제외하고, 일별 이력·분할 등으로 배수가 불확실하면 사유와 함께 보류합니다. KIS 순위 수량과 Yahoo 배수 분자·시각을 구분해 공개합니다.
+- 운영: /investor와 종목 상세를 운영 웹에 반영했습니다. 자동 실행기 paused, service/timer inactive 유지. 테스트 3351/8351 및 브라우저 종료. 실제 주문·원격 push 없음. 기존 사용자 미추적 파일 보존.
+- 증거와 handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260914-volume-discovery/HANDOFF.md. 검사 결과·diff·환경 버전·실제 자료·화면·합성 DB를 보존하고 루트 HANDOFF.md 최신 안내를 추가했습니다.
 
 ## investor-workflow
 
