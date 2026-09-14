@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
+  { href: "/investor", label: "투자자 워크플로", matches: (path: string) => path.startsWith("/investor") },
   { href: "/research", label: "연구 개요", matches: (path: string) => path === "/research" },
   { href: "/research/progress", label: "성과 비교", matches: (path: string) => path.startsWith("/research/progress") || path.startsWith("/research/validation") },
   { href: "/research/forward", label: "가상 관찰", matches: (path: string) => path.startsWith("/research/forward") },

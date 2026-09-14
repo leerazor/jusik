@@ -1,8 +1,25 @@
-from datetime import UTC, date, datetime
+import os
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 
 from fastapi import FastAPI, Response
 
+from jusik.investor_analysis import analyze, evaluate_trend
+from jusik.investor_api import router as investor_router
+from jusik.investor_data import InMemoryInvestorProvider
+from jusik.investor_models import (
+    Candidate,
+    DailyBar,
+    DiscoveryResult,
+    FundamentalFacts,
+    Instrument,
+    InstrumentDetail,
+    Market,
+    QuoteFact,
+    TrendFacts,
+)
+from jusik.investor_store import InvestorStore
 from jusik.models import (
     AccountResult,
     AggregateSummary,
@@ -268,6 +285,156 @@ def fixture_portfolio() -> Portfolio:
 
 
 app = FastAPI(title="Jusik deterministic browser fixture")
+
+
+def _investor_detail(
+    instrument: Instrument, *, missing: bool = False
+) -> InstrumentDetail:
+    quote = QuoteFact(
+        price=None
+        if missing
+        else Decimal("72000" if instrument.market == "KR" else "180.25"),
+        currency=instrument.currency,
+        fetched_at=NOW,
+        source="합성 fixture · 실제 시세 아님",
+        unavailable_reason="합성 fixture에서 의도적으로 누락" if missing else None,
+    )
+    facts = FundamentalFacts(
+        eps=None
+        if missing or instrument.instrument_type != "stock"
+        else Decimal("6000"),
+        eps_period=None if missing else "2025-FY",
+        per=None if missing or instrument.instrument_type != "stock" else Decimal("12"),
+        pbr=None
+        if missing or instrument.instrument_type != "stock"
+        else Decimal("1.2"),
+        source="합성 fixture · 실제 재무자료 아님",
+        fetched_at=NOW,
+        unavailable_reasons=["합성 fixture에서 의도적으로 누락"] if missing else [],
+    )
+    bars = [
+        DailyBar(
+            session=date(2026, 8, 1) + timedelta(days=index),
+            close=Decimal("100"),
+            volume=Decimal("10"),
+            adjusted=True,
+        )
+        for index in range(22)
+    ]
+    if instrument.instrument_type == "stock" and not missing:
+        bars[-1] = bars[-1].model_copy(
+            update={"close": Decimal("120"), "volume": Decimal("20")}
+        )
+    trend = evaluate_trend(
+        bars, today=date(2026, 9, 1), source="합성 fixture · 실제 일봉 아님"
+    )
+    if missing:
+        trend = TrendFacts(
+            source="합성 fixture",
+            unavailable_reasons=["합성 fixture에서 일봉을 의도적으로 누락"],
+        )
+    analysis = analyze(instrument, quote, facts, trend, now=NOW)
+    return InstrumentDetail(
+        instrument=instrument,
+        analysis=analysis,
+        limitations=[
+            "합성 fixture · 실제 계좌·시세·성과가 아닙니다.",
+            "후보 순위는 저평가나 품질의 증명이 아닙니다.",
+        ],
+    )
+
+
+def fixture_investor_provider() -> InMemoryInvestorProvider:
+    kr_stock = Instrument(
+        market="KR",
+        exchange="KRX",
+        symbol="005930",
+        currency="KRW",
+        name="삼성전자",
+        instrument_type="stock",
+    )
+    kr_etf = Instrument(
+        market="KR",
+        exchange="KRX",
+        symbol="069500",
+        currency="KRW",
+        name="KODEX 200",
+        instrument_type="etf",
+    )
+    kr_unknown = Instrument(
+        market="KR",
+        exchange="KRX",
+        symbol="999999",
+        currency="KRW",
+        name="타입 미확인 종목",
+        instrument_type="unknown",
+    )
+    us_stock = Instrument(
+        market="US",
+        exchange="NAS",
+        symbol="AAPL",
+        currency="USD",
+        name="Apple",
+        instrument_type="stock",
+    )
+    us_etf = Instrument(
+        market="US",
+        exchange="NAS",
+        symbol="TQQQ",
+        currency="USD",
+        name="ProShares UltraPro QQQ",
+        instrument_type="etf",
+    )
+    details = [
+        _investor_detail(kr_stock),
+        _investor_detail(kr_etf),
+        _investor_detail(kr_unknown, missing=True),
+        _investor_detail(us_stock),
+        _investor_detail(us_etf),
+    ]
+    candidates: dict[Market, DiscoveryResult] = {
+        "KR": DiscoveryResult(
+            market="KR",
+            candidates=[
+                Candidate(
+                    instrument=item,
+                    rank=index,
+                    reason="합성 거래량 후보 · 투자 판단 아님",
+                    source="fixture",
+                    observed_at=NOW,
+                )
+                for index, item in enumerate((kr_stock, kr_etf, kr_unknown), 1)
+            ],
+            coverage="합성 첫 페이지 3건",
+            truncated=False,
+            fetched_at=NOW,
+        ),
+        "US": DiscoveryResult(
+            market="US",
+            candidates=[
+                Candidate(
+                    instrument=item,
+                    rank=index,
+                    reason="합성 거래량 후보 · 투자 판단 아님",
+                    source="fixture",
+                    observed_at=NOW,
+                )
+                for index, item in enumerate((us_stock, us_etf), 1)
+            ],
+            coverage="합성 첫 페이지 2건",
+            truncated=False,
+            fetched_at=NOW,
+        ),
+    }
+    return InMemoryInvestorProvider(details, candidates)
+
+
+app.state.investor_provider = fixture_investor_provider()
+fixture_db = Path(
+    os.environ.get("JUSIK_INVESTOR_DB_PATH", "/tmp/jusik-investor-fixture.db")
+)
+app.state.investor_store = InvestorStore(fixture_db)
+app.include_router(investor_router)
 
 
 @app.get("/health")

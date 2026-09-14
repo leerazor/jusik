@@ -1225,6 +1225,44 @@ footer {
 .detail-links { display: flex; flex-wrap: wrap; gap: 9px; }
 .detail-links a { color: var(--green); font-weight: 700; text-decoration: none; }
 .research-header > .research-account-link { flex-shrink: 0; color: var(--green); font-size: 12px; font-weight: 700; text-decoration: none; }
+.investor-main { max-width: 1240px; margin: auto; padding: 34px 36px 70px; }
+.investor-header, .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 18px 0 30px; }
+.investor-header h1, .detail-header h1 { max-width: 760px; }
+.lede { max-width: 760px; font-size: 17px; color: var(--muted); }
+.investor-walkthrough { border: 1px solid var(--line); border-radius: 14px; padding: 24px; background: #edf4f1; margin-bottom: 18px; }
+.investor-walkthrough h2 { margin: 0 0 16px; font-size: 20px; }
+.investor-walkthrough ol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 0; padding-left: 22px; }
+.investor-walkthrough li { padding-left: 6px; }
+.investor-walkthrough li strong, .investor-walkthrough li span { display: block; }
+.investor-walkthrough li span { margin-top: 6px; color: var(--muted); line-height: 1.6; }
+.investor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 18px 0; }
+.investor-panel { border: 1px solid var(--line); border-radius: 14px; background: white; padding: 24px; margin: 18px 0; min-width: 0; }
+.investor-panel h2 { margin: 0 0 14px; font-size: 21px; }
+.investor-panel-heading { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.investor-panel-heading span { color: var(--muted); font-size: 12px; }
+.candidate-list, .thesis-list { list-style: none; margin: 18px 0 0; padding: 0; }
+.candidate-list li, .thesis-list li { border-top: 1px solid var(--line); padding: 13px 0; }
+.candidate-list a, .thesis-list a { display: flex; justify-content: space-between; gap: 12px; color: var(--ink); text-decoration: none; }
+.candidate-list a:hover, .thesis-list a:hover { color: var(--green); }
+.candidate-list a span, .thesis-list a span, .candidate-list small, .thesis-list small { color: var(--muted); }
+.candidate-list small, .thesis-list small { display: block; margin-top: 5px; }
+.investor-error { color: #9c392f; }
+.lookup-form, .form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 12px; }
+.lookup-form label, .thesis-form label, .thesis-form fieldset label { display: grid; gap: 6px; font-weight: 600; color: var(--ink); }
+.lookup-form input, .lookup-form select, .thesis-form input, .thesis-form select, .thesis-form textarea { width: 100%; border: 1px solid #bccbc7; border-radius: 8px; background: white; color: var(--ink); padding: 10px; font: inherit; }
+.thesis-form { display: grid; gap: 14px; }
+.thesis-form textarea { min-height: 84px; resize: vertical; }
+.thesis-form fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 14px; }
+.thesis-form legend { padding: 0 5px; font-weight: 700; }
+.fact-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.fact-list div { border-top: 1px solid var(--line); padding-top: 10px; }
+.fact-list dt { color: var(--muted); font-size: 12px; }
+.fact-list dd { margin: 5px 0 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.investor-note, .investor-footnote { color: var(--muted); background: #f5f7f6; padding: 14px; border-radius: 8px; }
+.detail-back { margin-bottom: 10px; }
+.detail-back a { color: var(--green); font-weight: 600; }
+.advice small { display: block; color: var(--muted); font-weight: 400; }
+
 @media (max-width: 650px) {
   main {
     padding: 0 18px 24px;
@@ -1398,4 +1436,9 @@ footer {
   .metric-glossary { grid-template-columns: 1fr; gap: 8px; padding: 16px; }
   .metric-glossary strong { grid-column: auto; }
   .lab-detail-links { align-items: stretch; flex-direction: column; }
+  .investor-main { padding: 22px 18px 50px; }
+  .investor-header, .detail-header { flex-direction: column; }
+  .investor-header h1, .detail-header h1 { font-size: 32px; }
+  .investor-walkthrough ol, .investor-grid, .lookup-form, .form-grid { grid-template-columns: 1fr; }
+  .candidate-list a, .thesis-list a { flex-direction: column; gap: 3px; }
 }

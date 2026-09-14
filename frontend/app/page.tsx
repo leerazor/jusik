@@ -82,6 +82,7 @@ export default async function Home() {
           <span className="brand-sub">나의 투자 현황</span>
         </Link>
         <div className="header-actions">
+          <Link href="/investor" className="header-link">투자자 워크플로</Link>
           <Link href="/research" className="header-link">투자 연구 이해하기</Link>
           <span className="badge">실계좌 · 조회 전용</span>
         </div>
