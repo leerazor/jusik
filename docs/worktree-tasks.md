@@ -1,5 +1,25 @@
 # 워크트리 작업 등록부
 
+## free-market-data-collector
+
+- 상태: 준비
+- 목표와 완료 조건: 무료·공개 원천에서 한국·미국의 날짜별 종목 구성, 조정 가능한 과거 OHLCV와 미국 KRW/USD 환율을 실제로 수집해 기존 approximate prepared dataset을 생성합니다. 원본 응답과 provenance를 보존하고, 호출 제한·중단 재개·부분 실패를 안전하게 처리하며, 현재 종목을 과거에 소급하지 않습니다.
+- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore→plan→code→review 순서로 진행합니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-free-market-data-collector
+- 작업 브랜치: feat/free-market-data-collector
+- 기준 커밋 SHA: 등록 커밋에서 확정
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: approximate-market-data 완료 main 0d56e251751793543b1e941f9fec474182b27998, 기존 `ApproximateDataset`·`import-file`·readiness 계약, 최신 연구 mandate. 사용자는 무료 데이터 수집기부터 진행하도록 승인했습니다.
+- 수정 허용 범위: market-data 수집 adapter·정규화·raw/cache manifest·재개 가능한 CLI, 관련 config·환경 예시·테스트·시장 연구 문서와 mandate. 전략·PAPER·broker/order·프런트 실행 계약은 변경하지 않습니다.
+- 포트·테스트 DB·출력 경로: 3365/8365, 워크트리 내부 임시 raw/cache와 pytest tmp_path. 운영 DB·공유 cache·실제 주문은 사용하지 않습니다. 실제 smoke는 비밀값을 기록하지 않고 별도 임시 디렉터리에 제한합니다.
+- 검증 명령과 결과: 예정 — 공급자 계약·시간 인과성·symbol/시장 정규화·기업행사·환율·rate limit/retry/resume·부분 파일 원자성·provenance, pytest, Ruff, strict mypy, CLI smoke.
+- 결과 커밋 SHA: 예정
+- 검토 결과와 남은 문제: 현재 자격증명 유무와 각 무료 원천의 최신 계약을 조사 후 확정합니다. 무료 원천이 제공하지 않는 구간은 만들어내지 않고 readiness에 남깁니다.
+- 병합 직전 main SHA: 예정
+- 통합 커밋 SHA와 정리 여부: 예정
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- handoff 저장 경로와 갱신 여부: 예정
+
 ## approximate-market-data
 
 - 상태: 완료
