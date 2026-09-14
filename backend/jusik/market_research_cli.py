@@ -90,20 +90,37 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "collect-status":
         settings = load_collector_settings()
         missing = settings.required_missing_credentials(args.market)
-        cache_payload = AtomicResponseCache(args.cache).status()
+        cache = AtomicResponseCache(args.cache)
+        try:
+            cache_payload = cache.status()
+        except CollectorError:
+            print(
+                json.dumps(
+                    {
+                        "cache_dir": str(args.cache),
+                        "market": args.market,
+                        "completed": False,
+                        "ready": False,
+                        "credentials_missing": list(missing),
+                        "cache_error": "cache manifest is invalid",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 2
         marker_args = (args.start, args.end, args.output)
         completed = False
         if all(value is not None for value in marker_args):
             try:
                 completed = completed_collection_is_valid(
-                    AtomicResponseCache(args.cache),
+                    cache,
                     market=cast(Market, args.market),
                     start=date.fromisoformat(args.start),
                     end=date.fromisoformat(args.end),
                     sample_size=args.sample_size,
                     output=args.output,
                 )
-            except ValueError:
+            except (CollectorError, ValueError):
                 completed = False
         cache_payload.update(
             {

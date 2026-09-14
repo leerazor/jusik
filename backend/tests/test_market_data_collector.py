@@ -745,6 +745,46 @@ def test_collect_status_requires_exact_completed_marker_and_valid_hash(
     assert json.loads(capsys.readouterr().out)["ready"] is False
 
 
+def test_collect_status_rejects_malformed_manifest_without_dumping_cache_contents(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "manifest.json").write_text('{"entries": [', encoding="utf-8")
+
+    result = market_research_cli(
+        ["collect-status", "--market", "KR", "--cache", str(cache_dir)]
+    )
+
+    assert result == 2
+    output = capsys.readouterr().out
+    status = json.loads(output)
+    assert status["completed"] is False
+    assert status["ready"] is False
+    assert status["cache_error"] == "cache manifest is invalid"
+    assert '{"entries": [' not in output
+
+
+def test_collect_status_rejects_malformed_completed_marker_without_traceback(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cache_dir = tmp_path / "cache"
+    cache = AtomicResponseCache(cache_dir)
+    cache_dir.mkdir()
+    (cache.completed_path).write_text('{"market":', encoding="utf-8")
+
+    result = market_research_cli(
+        ["collect-status", "--market", "KR", "--cache", str(cache_dir)]
+    )
+
+    assert result == 2
+    status = json.loads(capsys.readouterr().out)
+    assert status["completed"] is False
+    assert status["ready"] is False
+
+
 class _RecordingHttpClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, dict[str, object]]] = []
