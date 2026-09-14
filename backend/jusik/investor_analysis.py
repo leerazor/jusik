@@ -1,6 +1,7 @@
 from collections.abc import Iterable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from typing import Literal
 
 from jusik.investor_models import (
     AnalysisResult,
@@ -14,6 +15,78 @@ from jusik.investor_models import (
     TrendFacts,
     ValuationAssumptions,
 )
+from jusik.research_market_calendar import CALENDAR_TIMEZONE, default_market_calendar
+
+QuoteStatus = Literal[
+    "usable",
+    "currency_mismatch",
+    "missing_time",
+    "invalid_time",
+    "future",
+    "stale",
+    "calendar_unavailable",
+]
+
+
+def quote_status(
+    instrument: Instrument, quote: QuoteFact, now: datetime
+) -> QuoteStatus:
+    expected_currency = "KRW" if instrument.market == "KR" else "USD"
+    if quote.currency != expected_currency:
+        return "currency_mismatch"
+    if now.tzinfo is None or quote.fetched_at.tzinfo is None:
+        return "invalid_time"
+    if quote.fetched_at > now:
+        return "future"
+    if now - quote.fetched_at > timedelta(days=7):
+        return "stale"
+    if quote.as_of is None:
+        return "missing_time"
+    if quote.as_of.tzinfo is None:
+        return "invalid_time"
+    if quote.as_of > now:
+        return "future"
+    calendar = default_market_calendar()
+    latest = calendar.latest_completed_session(instrument.exchange, now)
+    if latest is None:
+        return "calendar_unavailable"
+    timezone = CALENDAR_TIMEZONE.get(latest.calendar)
+    if timezone is None:
+        return "calendar_unavailable"
+    local_date = quote.as_of.astimezone(timezone).date()
+    now_local_date = now.astimezone(timezone).date()
+    current_lookup = calendar.lookup(instrument.exchange, now_local_date)
+    if current_lookup.state == "unavailable":
+        return "calendar_unavailable"
+    latest_lookup = calendar.lookup(instrument.exchange, latest.local_date)
+    if (
+        local_date == latest.local_date
+        and latest_lookup.session is not None
+        and latest_lookup.session.open_at
+        <= quote.as_of
+        <= latest_lookup.session.close_at
+    ):
+        return "usable"
+    current_session = current_lookup.session
+    if (
+        local_date == now_local_date
+        and current_session is not None
+        and current_session.open_at <= now < current_session.close_at
+        and current_session.open_at <= quote.as_of <= now
+    ):
+        return "usable"
+    return "stale"
+
+
+QUOTE_STATUS_REASONS: dict[QuoteStatus, str] = {
+    "usable": "",
+    "currency_mismatch": "시세 통화가 종목 시장과 일치하지 않아 판단을 보류합니다.",
+    "missing_time": "시세 기준 시각이 제공되지 않아 가격 판단을 보류합니다.",
+    "invalid_time": "시세 확인 시각이 유효하지 않아 판단을 보류합니다.",
+    "future": "시세 시각이 미래라 판단을 보류합니다.",
+    "stale": "시세 자료가 최신 완료 거래일과 맞지 않아 판단을 보류합니다.",
+    "calendar_unavailable": "거래소 달력 범위 밖이라 가격 판단을 보류합니다.",
+}
 
 
 def _invalid_bars(bars: list[DailyBar], today: date) -> str | None:
@@ -143,21 +216,9 @@ def analyze(
     now: datetime | None = None,
 ) -> AnalysisResult:
     timestamp = now or datetime.now(UTC)
-    quote_reason: str | None = None
-    expected_currency = "KRW" if instrument.market == "KR" else "USD"
-    if quote.currency != expected_currency:
-        quote_reason = "시세 통화가 종목 시장과 일치하지 않아 판단을 보류합니다."
-    elif quote.fetched_at.tzinfo is None or quote.fetched_at > timestamp:
-        quote_reason = "시세 확인 시각이 유효하지 않아 판단을 보류합니다."
-    elif (timestamp - quote.fetched_at).days > 7:
-        quote_reason = "시세 확인 시각이 오래되어 판단을 보류합니다."
-    elif quote.as_of is None:
-        quote_reason = "시세 기준 시각이 제공되지 않아 가격 판단을 보류합니다."
-    else:
-        if quote.as_of.tzinfo is None or quote.as_of > timestamp:
-            quote_reason = "시세 기준 시각이 유효하지 않아 판단을 보류합니다."
-        elif (timestamp - quote.as_of).days > 7:
-            quote_reason = "시세 기준일이 오래되어 판단을 보류합니다."
+    quote_reason: str | None = (
+        QUOTE_STATUS_REASONS[quote_status(instrument, quote, timestamp)] or None
+    )
     if quote.unavailable_reason:
         quote_reason = quote.unavailable_reason
     if instrument.instrument_type != "stock":
@@ -238,13 +299,10 @@ def review_thesis(
             review_overdue=overdue,
         )
     quote_unusable = (
-        analysis.quote.price is None
+        quote_status(analysis.instrument, analysis.quote, analysis.analyzed_at)
+        != "usable"
+        or analysis.quote.price is None
         or analysis.quote.unavailable_reason is not None
-        or analysis.quote.as_of is None
-        or any(
-            "오래되어" in reason or "유효하지 않아" in reason or "기준 시각" in reason
-            for reason in analysis.reasons
-        )
     )
     if thesis.health == "broken":
         reasons.append("사용자가 근거 훼손을 표시했습니다. 출구 검토가 필요합니다.")

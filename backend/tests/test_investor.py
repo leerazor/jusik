@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 import jusik.investor_data as investor_data
 from jusik.fixture_app import app as fixture_app
-from jusik.investor_analysis import analyze, evaluate_trend, review_thesis
+from jusik.investor_analysis import analyze, evaluate_trend, quote_status, review_thesis
 from jusik.investor_data import KisInvestorProvider
 from jusik.investor_models import (
     DailyBar,
@@ -94,7 +94,12 @@ def test_value_requires_explicit_assumptions_and_etf_is_unassessed() -> None:
         ).value_entry_status
         == "unassessed"
     )
-    quote_with_time = quote.model_copy(update={"as_of": quote.fetched_at})
+    quote_with_time = quote.model_copy(
+        update={
+            "as_of": datetime(2026, 1, 2, 6, tzinfo=UTC),
+            "fetched_at": datetime(2026, 1, 2, 6, tzinfo=UTC),
+        }
+    )
     assert (
         analyze(
             _instrument(),
@@ -102,7 +107,7 @@ def test_value_requires_explicit_assumptions_and_etf_is_unassessed() -> None:
             facts,
             trend,
             assumptions=assumptions,
-            now=datetime(2026, 1, 2, tzinfo=UTC),
+            now=datetime(2026, 1, 2, 6, tzinfo=UTC),
         ).value_entry_status
         == "review"
     )
@@ -154,16 +159,16 @@ def test_thesis_review_keeps_value_drop_separate_from_trend_failure() -> None:
     quote = QuoteFact(
         price=Decimal("50"),
         currency="KRW",
-        fetched_at="2026-01-01T00:00:00Z",
+        fetched_at="2026-01-02T06:00:00Z",
         source="fixture",
-        as_of="2026-01-01T00:00:00Z",
+        as_of="2026-01-02T06:00:00Z",
     )
     analysis = analyze(
         _instrument(),
         quote,
         FundamentalFacts(),
         TrendFacts(deterioration_observed=True),
-        now=datetime(2026, 1, 2, tzinfo=UTC),
+        now=datetime(2026, 1, 2, 6, tzinfo=UTC),
     )
     thesis = ThesisWrite(
         instrument=_instrument(),
@@ -395,6 +400,104 @@ def test_stale_quote_cannot_trigger_risk_exit() -> None:
     thesis = Thesis(
         **write.model_dump(exclude={"expected_revision"}),
         id="c" * 32,
+        revision=1,
+        created_at=now,
+        updated_at=now,
+        evidence=analysis,
+    )
+    assert review_thesis(thesis, analysis, today=now.date()).decision == "deferred"
+
+
+def test_quote_status_uses_exchange_sessions_for_freshness() -> None:
+    weekend_now = datetime(2026, 9, 12, 15, tzinfo=UTC)
+    friday_quote = QuoteFact(
+        price=Decimal("100"),
+        currency="USD",
+        as_of=datetime(2026, 9, 11, 20, tzinfo=UTC),
+        fetched_at=weekend_now,
+        source="fixture",
+    )
+    assert (
+        quote_status(
+            Instrument(
+                market="US",
+                exchange="NYS",
+                symbol="ABC",
+                currency="USD",
+                name="ABC",
+            ),
+            friday_quote,
+            weekend_now,
+        )
+        == "usable"
+    )
+    monday_now = datetime(2026, 9, 14, 15, tzinfo=UTC)
+    stale_quote = friday_quote.model_copy(
+        update={
+            "as_of": datetime(2026, 9, 8, 20, tzinfo=UTC),
+            "fetched_at": monday_now,
+        }
+    )
+    us_instrument = Instrument(
+        market="US", exchange="NYS", symbol="ABC", currency="USD", name="ABC"
+    )
+    assert quote_status(us_instrument, stale_quote, monday_now) == "stale"
+    kr_now = datetime(2026, 9, 14, 1, tzinfo=UTC)
+    kr_quote = QuoteFact(
+        price=Decimal("100"),
+        currency="KRW",
+        as_of=kr_now,
+        fetched_at=kr_now,
+        source="fixture",
+    )
+    assert quote_status(_instrument(), kr_quote, kr_now) == "usable"
+    coverage_now = datetime(2027, 1, 4, 1, tzinfo=UTC)
+    out_of_coverage = kr_quote.model_copy(
+        update={"as_of": coverage_now, "fetched_at": coverage_now}
+    )
+    assert (
+        quote_status(_instrument(), out_of_coverage, coverage_now)
+        == "calendar_unavailable"
+    )
+
+
+def test_currency_mismatch_cannot_trigger_risk_exit() -> None:
+    now = datetime(2026, 9, 14, 1, tzinfo=UTC)
+    quote = QuoteFact(
+        price=Decimal("10"),
+        currency="KRW",
+        as_of=now,
+        fetched_at=now,
+        source="fixture",
+    )
+    analysis = analyze(
+        _instrument().model_copy(
+            update={
+                "market": "US",
+                "currency": "USD",
+                "exchange": "NYS",
+                "symbol": "ABC",
+                "name": "ABC",
+            }
+        ),
+        quote,
+        FundamentalFacts(),
+        TrendFacts(),
+        now=now,
+    )
+    thesis = Thesis(
+        **ThesisWrite(
+            instrument=analysis.instrument,
+            state="holding",
+            entry_kind="value",
+            why="확인",
+            invalidation_criteria="무효",
+            next_review=date(2026, 12, 1),
+            health="intact",
+            risk_price=Decimal("60"),
+            expected_revision=0,
+        ).model_dump(exclude={"expected_revision"}),
+        id="d" * 32,
         revision=1,
         created_at=now,
         updated_at=now,

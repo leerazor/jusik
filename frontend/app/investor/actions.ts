@@ -31,9 +31,12 @@ export async function saveThesis(form: FormData): Promise<void> {
   try {
     response = await fetch(`${backendUrl()}/api/investor/theses${value.id ? `/${value.id}` : ""}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload), cache: "no-store" });
   } catch {
-    redirect(`/investor/${value.market}/${value.symbol}?exchange=${encodeURIComponent(value.exchange)}&error=연결 실패로 저장하지 못했습니다`);
+    redirect(`/investor/${value.market}/${value.symbol}?exchange=${encodeURIComponent(value.exchange)}&error=${encodeURIComponent("연결 실패로 저장하지 못했습니다")}`);
   }
-  if (!response!.ok) redirect(`/investor/${value.market}/${value.symbol}?exchange=${encodeURIComponent(value.exchange)}&error=${response!.status === 409 ? "동시에 수정되어 다시 불러왔습니다" : "저장에 실패했습니다"}`);
+  if (!response!.ok) {
+    const message = response!.status === 409 ? "동시에 수정되어 다시 불러왔습니다" : "저장에 실패했습니다";
+    redirect(`/investor/${value.market}/${value.symbol}?exchange=${encodeURIComponent(value.exchange)}&error=${encodeURIComponent(message)}`);
+  }
   thesisSchema.parse(await response!.json());
   revalidatePath("/investor");
   revalidatePath(`/investor/${value.market}/${value.symbol}`);
