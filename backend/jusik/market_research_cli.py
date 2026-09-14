@@ -10,6 +10,7 @@ from typing import cast
 from jusik.market_history_approximate import (
     ApproximateDataset,
     ApproximateMarketHistorySource,
+    ApproximateProviderError,
     JsonApproximateProvider,
 )
 from jusik.market_history_models import (
@@ -43,8 +44,8 @@ def parser() -> argparse.ArgumentParser:
     prepared.add_argument("--market", choices=("KR", "US"), required=True)
     prepared.add_argument("--input", type=Path)
     prepared.add_argument("--output", type=Path)
-    prepared.add_argument("--start")
-    prepared.add_argument("--end")
+    prepared.add_argument("--start", required=True)
+    prepared.add_argument("--end", required=True)
     run = subcommands.add_parser("run")
     run.add_argument("--market", choices=("KR", "US"), required=True)
     run.add_argument("--start")
@@ -85,15 +86,22 @@ def main(argv: list[str] | None = None) -> int:
             dataset = ApproximateDataset.model_validate(json.loads(raw))
             if dataset.market != args.market:
                 raise ValueError("market mismatch")
-            start = date.fromisoformat(args.start) if args.start else date.min
-            end = date.fromisoformat(args.end) if args.end else date.max
+            start = date.fromisoformat(args.start)
+            end = date.fromisoformat(args.end)
+            if start > end:
+                raise ValueError("prepared response start is after end")
             asyncio.run(
                 JsonApproximateProvider(args.input).fetch(args.market, start, end)
             )
             if args.output is not None:
                 args.output.parent.mkdir(parents=True, exist_ok=True)
                 args.output.write_bytes(raw)
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
+        except (
+            OSError,
+            ValueError,
+            json.JSONDecodeError,
+            ApproximateProviderError,
+        ) as exc:
             print(f"approximate response rejected: {exc}")
             return 2
         print(

@@ -485,29 +485,45 @@ def run_market_research(
                     ),
                     None,
                 )
-                fill_memberships = tuple(
+                fill_day_memberships = tuple(
                     item
                     for item in snapshot.memberships
                     if item.symbol == pending.symbol
                     and item.instrument_type == "stock"
-                    and item.is_valid_on(session.local_date)
+                    and item.valid_from == session.local_date
                 )
                 preopen_membership = next(
                     (
                         item
-                        for item in fill_memberships
+                        for item in fill_day_memberships
                         if item.available_at <= session.open_at
+                        and item.is_valid_on(session.local_date)
                     ),
                     None,
                 )
-                membership = preopen_membership or (
-                    signal_membership
-                    if signal_membership is not None and fill_memberships
+                has_preopen_fill_membership = any(
+                    item.available_at <= session.open_at
+                    for item in fill_day_memberships
+                )
+                membership = (
+                    preopen_membership
+                    if preopen_membership is not None
                     else (
-                        signal_membership
-                        if signal_membership is not None
-                        and signal_membership.is_valid_on(session.local_date)
-                        else None
+                        None
+                        if has_preopen_fill_membership
+                        else (
+                            signal_membership
+                            if signal_membership is not None
+                            and (
+                                signal_membership.is_valid_on(session.local_date)
+                                or (
+                                    signal_membership.valid_from
+                                    == signal_membership.valid_to
+                                    == pending.signal_session
+                                )
+                            )
+                            else None
+                        )
                     )
                 )
                 if membership is None:

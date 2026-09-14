@@ -136,6 +136,62 @@ def test_cli_import_file_validates_and_copies_prepared_response(
     assert target.read_bytes() == source.read_bytes()
 
 
+def test_cli_import_file_requires_range_and_reports_provider_rejection(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "source.json"
+    source.write_text(
+        json.dumps(
+            {
+                "market": "KR",
+                "universe": [
+                    {
+                        "session": "2026-09-14",
+                        "symbol": "S1",
+                        "name": "Sample",
+                        "exchange": "KSC",
+                        "currency": "KRW",
+                    }
+                ],
+                "bars": [
+                    {
+                        "session": "2026-09-15",
+                        "symbol": "S1",
+                        "exchange": "KSC",
+                        "open": "100",
+                        "high": "101",
+                        "low": "99",
+                        "close": "100",
+                        "volume": "1000",
+                        "currency": "KRW",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit) as missing_range:
+        market_research_cli(["import-file", "--market", "KR", "--input", str(source)])
+    assert missing_range.value.code == 2
+    assert (
+        market_research_cli(
+            [
+                "import-file",
+                "--market",
+                "KR",
+                "--input",
+                str(source),
+                "--start",
+                "2026-01-01",
+                "--end",
+                "2026-09-14",
+            ]
+        )
+        == 2
+    )
+    assert "rejected" in capsys.readouterr().out
+
+
 def test_prepared_provider_rejects_untrusted_provenance_and_readiness_is_truthful(
     tmp_path: Path,
 ) -> None:
@@ -358,6 +414,44 @@ def test_approximate_daily_membership_rows_carry_signal_eligibility() -> None:
     )
     assert result.status == "approximate"
     assert any(trade.side == "buy" for trade in result.trades)
+
+
+def test_approximate_future_fill_membership_row_does_not_change_signal() -> None:
+    request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+        research_grade="approximate",
+    )
+    source = FixtureApproximateMarketHistorySource()
+    readiness = source.readiness("KR", datetime(2026, 9, 14, tzinfo=UTC))
+    snapshot = asyncio.run(source.collect(request))
+    calendar = default_market_calendar()
+    baseline = run_approximate_market_research(snapshot, request, readiness, calendar)
+    first_buy = next(trade for trade in baseline.trades if trade.side == "buy")
+    original = next(
+        membership
+        for membership in snapshot.memberships
+        if membership.symbol == first_buy.symbol
+    )
+    fill_session = calendar.lookup("KSC", first_buy.fill_session).session
+    assert fill_session is not None
+    future_row = original.model_copy(
+        update={
+            "stable_id": f"future:{original.symbol}:{first_buy.fill_session}",
+            "valid_from": first_buy.fill_session,
+            "valid_to": first_buy.fill_session,
+            "available_at": fill_session.close_at,
+        }
+    )
+    augmented = snapshot.model_copy(
+        update={"memberships": (*snapshot.memberships, future_row)}
+    )
+    changed = run_approximate_market_research(augmented, request, readiness, calendar)
+    assert [trade.symbol for trade in changed.trades] == [
+        trade.symbol for trade in baseline.trades
+    ]
 
 
 def test_approximate_policy_tracks_the_maintained_mandate_checksum() -> None:
