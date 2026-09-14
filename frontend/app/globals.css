@@ -1226,7 +1226,7 @@ footer {
 .detail-links a { color: var(--green); font-weight: 700; text-decoration: none; }
 .research-header > .research-account-link { flex-shrink: 0; color: var(--green); font-size: 12px; font-weight: 700; text-decoration: none; }
 .investor-main { max-width: 1240px; margin: auto; padding: 34px 36px 70px; }
-.investor-header, .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 18px 0 30px; }
+.investor-header, .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; height: auto; border-bottom: 0; padding: 18px 0 30px; }
 .investor-header h1, .detail-header h1 { max-width: 760px; }
 .lede { max-width: 760px; font-size: 17px; color: var(--muted); }
 .investor-walkthrough { border: 1px solid var(--line); border-radius: 14px; padding: 24px; background: #edf4f1; margin-bottom: 18px; }
