@@ -18,6 +18,7 @@
 - 병합 직전 main SHA: d5b633075f85f871d20bf41311edde0af31860d6
 - 통합 커밋 SHA와 정리 여부: 1407d71fe5b4327b8e81c0429a38055e63f30bd0. 통합 검증·배포·handoff 후 전용 워크트리를 정상 제거합니다.
 - 통합 검증 실패 원인과 복구 결과: 첫 재배포에서 ngrok 새 터널의 basic-auth 확인이 일시적으로 실패해 전체 프로세스가 안전 종료됐습니다. 같은 정책의 독립 probe에서 1초부터 인증 적용을 확인한 뒤 제품 변경 없이 재시작하여 외부 비인증 401을 재확인했습니다.
+- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-15-free-market-data-collector.md`에 완료 범위, 계약, 검증, 안전 상태와 재개 조건을 기록합니다.
 - handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-free-market-data-collector/HANDOFF.md` 및 루트 `HANDOFF.md`를 갱신합니다.
 
 ## approximate-market-data
