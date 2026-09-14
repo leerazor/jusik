@@ -55,6 +55,43 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     parsed_recorded_at = datetime.fromisoformat(recorded_at)
     assert parsed_recorded_at.tzinfo == UTC
     staged_policy = mandate.pop("staged_market_research_policy")
+    approximate_policy = mandate.pop("approximate_market_data_policy")
+    assert approximate_policy == {
+        "grade": (
+            "approximate results are for personal investment judgment and never "
+            "strict PIT verified"
+        ),
+        "historical_universe": (
+            "date-specific KRX/public lists or Alpha Vantage "
+            "LISTING_STATUS(date active/delisted); current candidates are forbidden"
+        ),
+        "sample": (
+            "fixed seed, max 100 sampled symbols per market and max 400 unique "
+            "source symbols"
+        ),
+        "sources": [
+            "KRX/public",
+            "Alpha Vantage",
+            "Yahoo historical OHLCV",
+            "FRED DEXKOUS",
+        ],
+        "contracts": (
+            "pilot pool is fixed through its end date; final must match market, "
+            "grade, policy, assumptions, source, pool, normalization, missing-data, "
+            "corporate-action, and FX contracts"
+        ),
+        "missing_data": (
+            "exclude non-held missing bars with coverage counts; held missing bars "
+            "use last known mark with age/estimated caveat and no invented liquidation"
+        ),
+        "web": (
+            "web reads prepared bounded cache only; import-file validates a prepared "
+            "response; network collection is out of scope"
+        ),
+        "credentials": (
+            "missing KRX or Alpha Vantage credentials remain explicitly unavailable"
+        ),
+    }
     assert mandate == {
         "capital_krw": 100000000,
         "maximum_drawdown_fraction": "0.20",

@@ -18,13 +18,22 @@ from pydantic import (
 
 Market = Literal["KR", "US"]
 ResearchStage = Literal["pilot", "final", "legacy"]
+ResearchGrade = Literal["strict", "approximate"]
 InstrumentType = Literal["stock", "etf"]
 Currency = Literal["KRW", "USD"]
 STAGED_INITIAL_CASH_KRW = Decimal("100000000")
 STAGED_FEE_RATE = Decimal("0.00015")
 STAGED_SLIPPAGE_RATE = Decimal("0.001")
 STAGED_SELL_TAX_RATE = Decimal("0.0018")
-SourceName = Literal["fixture", "krx", "massive"]
+SourceName = Literal[
+    "fixture",
+    "krx",
+    "massive",
+    "yahoo",
+    "alpha_vantage",
+    "fred",
+    "approximate_file",
+]
 CapabilityName = Literal[
     "credentials",
     "entitlement",
@@ -225,6 +234,8 @@ class MarketHistorySnapshot(HistoryModel):
     warmup_sessions: tuple[date, ...] = ()
     evaluation_start: date | None = None
     data_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    research_grade: ResearchGrade = "strict"
+    pool_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def validate_snapshot(self) -> Self:
@@ -293,6 +304,7 @@ class MarketReadiness(HistoryModel):
     capabilities: tuple[Capability, ...]
     ready: bool
     simulated: bool = False
+    research_grade: ResearchGrade = "strict"
 
     @model_validator(mode="after")
     def validate_ready_status(self) -> Self:
@@ -329,6 +341,7 @@ class MarketResearchRequest(HistoryModel):
     sell_tax_rate: Decimal = Field(
         default=STAGED_SELL_TAX_RATE, ge=0, le=Decimal("0.1")
     )
+    research_grade: ResearchGrade = "strict"
 
     @model_validator(mode="after")
     def validate_period(self) -> Self:
@@ -404,8 +417,8 @@ class MarketResearchResult(HistoryModel):
     market: Market
     request: MarketResearchRequest
     readiness: MarketReadiness
-    status: Literal["ready", "insufficient"]
-    completeness: Literal["complete", "incomplete"]
+    status: Literal["ready", "insufficient", "approximate"]
+    completeness: Literal["complete", "incomplete", "approximate"]
     candidate_evidence: tuple[CandidateEvidence, ...] = ()
     trades: tuple[ResearchTrade, ...] = ()
     equity: tuple[ResearchEquityPoint, ...] = ()
@@ -417,6 +430,17 @@ class MarketResearchResult(HistoryModel):
     pilot_run_id: str | None = None
     data_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     warmup_sessions: tuple[date, ...] = ()
+    research_grade: ResearchGrade = "strict"
+    pool_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_grade_consistency(self) -> Self:
+        if (
+            self.research_grade != self.request.research_grade
+            or self.research_grade != self.readiness.research_grade
+        ):
+            raise ValueError("research grade must match request and readiness")
+        return self
 
 
 class MarketResearchRun(HistoryModel):

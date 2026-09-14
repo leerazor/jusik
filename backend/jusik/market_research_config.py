@@ -11,6 +11,9 @@ KRX_BASE_URL = "https://data.krx.co.kr"
 MASSIVE_BASE_URL = "https://api.massive.com"
 DEFAULT_DB_PATH = Path.home() / ".local/share/jusik/market-research.db"
 DEFAULT_ARTIFACT_DIR = Path.home() / ".local/share/jusik/market-research-artifacts"
+DEFAULT_APPROXIMATE_DATA_PATH = (
+    Path.home() / ".local/share/jusik/approximate-market-data.json"
+)
 
 
 class MarketResearchSettings(BaseModel):
@@ -22,6 +25,7 @@ class MarketResearchSettings(BaseModel):
     massive_base_url: str = MASSIVE_BASE_URL
     db_path: Path = DEFAULT_DB_PATH
     artifact_dir: Path = DEFAULT_ARTIFACT_DIR
+    approximate_data_path: Path = DEFAULT_APPROXIMATE_DATA_PATH
     request_timeout_seconds: int = Field(default=15, ge=1, le=60)
     max_pages: int = Field(default=100, ge=1, le=1000)
 
@@ -62,5 +66,8 @@ def load_market_research_settings(
         db_path=Path(text("MARKET_RESEARCH_DB_PATH", str(DEFAULT_DB_PATH))),
         artifact_dir=Path(
             text("MARKET_RESEARCH_ARTIFACT_DIR", str(DEFAULT_ARTIFACT_DIR))
+        ),
+        approximate_data_path=Path(
+            text("APPROXIMATE_MARKET_DATA_PATH", str(DEFAULT_APPROXIMATE_DATA_PATH))
         ),
     )

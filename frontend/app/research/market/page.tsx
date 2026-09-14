@@ -10,6 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 function readinessLabel(item: MarketReadiness): string {
+  if (item.research_grade === "approximate") return "무료 근사 자료 · PIT 검증 아님";
   if (item.ready && item.simulated) return "합성 자료로 흐름 확인 가능";
   if (item.ready) return "실행 가능";
   return "필수 자료 부족";
@@ -30,7 +31,12 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
   let readiness: MarketReadiness[] = [];
   let runs: MarketResearchRun[] = [];
   let unavailable = false;
-  try { readiness = await getMarketReadiness(); } catch { unavailable = true; }
+  try {
+    readiness = [
+      ...(await getMarketReadiness(undefined, "strict")),
+      ...(await getMarketReadiness(undefined, "approximate")),
+    ];
+  } catch { unavailable = true; }
   try { runs = await getMarketResearchRuns(); } catch { unavailable = true; }
   const eligiblePilots = runs.filter((run) => run.final_promotable);
   return (
@@ -39,7 +45,7 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
         <div>
           <p className="eyebrow">POINT-IN-TIME MARKET RESEARCH</p>
           <h1>거래일 당시의 거래량 상위 종목 연구</h1>
-          <p className="muted">각 거래일에 당시 확인 가능한 주식 전체에서 거래량 상위 20개를 고르고, 종가 신호 다음 거래일 시가로 체결하는 연구 흐름입니다.</p>
+          <p className="muted">엄격한 PIT는 거래일 당시 확인 가능한 전체 주식에서, 무료 근사는 과거 날짜별 최대 100개 표본 안에서 거래량 상위 20개를 고릅니다. 종가 신호 다음 거래일 시가로 체결하며 근사 자료는 PIT 검증 결과가 아닙니다.</p>
         </div>
         <div className="action-row"><Link className="secondary-button" href="/research">연구 개요</Link><Link className="secondary-button" href="/">계좌 현황</Link></div>
       </section>
@@ -48,7 +54,7 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
       <section className="research-step" aria-labelledby="readiness-title">
         <div className="step-heading"><p className="eyebrow">STEP 1</p><h2 id="readiness-title">실행 준비 상태</h2><p>자격 증명만으로 완전한 과거 자료가 있다고 판단하지 않습니다. 합성 자료는 화면과 계산 흐름만 확인합니다.</p></div>
         <div className="account-grid">
-          {readiness.map((item) => <article className="account-card" key={item.market}><div className="account-heading"><strong>{item.market === "KR" ? "한국" : "미국"}</strong><span className={`status status-${item.ready ? "ok" : "error"}`}>{readinessLabel(item)}</span></div><ul>{item.capabilities.map((capability) => <li key={capability.name}>{capability.name}: {capability.detail}</li>)}</ul></article>)}
+          {readiness.map((item) => <article className="account-card" key={`${item.market}-${item.research_grade}`}><div className="account-heading"><strong>{item.market === "KR" ? "한국" : "미국"}</strong><span className={`status status-${item.ready ? "ok" : "error"}`}>{readinessLabel(item)}</span></div><ul>{item.capabilities.map((capability) => <li key={capability.name}>{capability.name}: {capability.detail}</li>)}</ul></article>)}
         </div>
       </section>
       <section className="research-step" aria-labelledby="run-title">

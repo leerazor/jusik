@@ -10,6 +10,7 @@ from jusik.market_history_models import (
     Market,
     MarketResearchRequest,
     MarketResearchRun,
+    ResearchGrade,
     anniversary_start,
 )
 from jusik.market_research_service import (
@@ -29,6 +30,7 @@ class MarketResearchCreatePayload(BaseModel):
     start_date: date | None = None
     stage: Literal["pilot", "final"] = "pilot"
     pilot_run_id: str | None = None
+    research_grade: ResearchGrade = "strict"
 
 
 def service(request: Request) -> MarketResearchService:
@@ -43,10 +45,14 @@ def service(request: Request) -> MarketResearchService:
 async def market_status(
     request: Request,
     market: Annotated[str | None, Query(pattern="^(KR|US)$")] = None,
+    grade: Annotated[str, Query(pattern="^(strict|approximate)$")] = "strict",
 ) -> object:
     configured = service(request)
     markets = [market] if market else ["KR", "US"]
-    return [configured.readiness(cast("Market", item)) for item in markets]
+    return [
+        configured.readiness(cast("Market", item), cast("ResearchGrade", grade))
+        for item in markets
+    ]
 
 
 @router.post(
@@ -65,6 +71,7 @@ async def create_market_run(
             end_date=payload.end_date,
             stage=payload.stage,
             pilot_run_id=payload.pilot_run_id,
+            research_grade=payload.research_grade,
         )
     except ValidationError:
         raise HTTPException(

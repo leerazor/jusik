@@ -8,12 +8,15 @@ const capabilitySchema = z.object({
   missing_ranges: z.array(z.string()),
 });
 
+const researchGradeSchema = z.enum(["strict", "approximate"]);
+
 export const marketReadinessSchema = z.object({
   market: z.enum(["KR", "US"]),
   checked_at: z.string(),
   capabilities: z.array(capabilitySchema),
   ready: z.boolean(),
   simulated: z.boolean(),
+  research_grade: researchGradeSchema,
 });
 
 const requestSchema = z.object({
@@ -26,6 +29,7 @@ const requestSchema = z.object({
   fee_rate: z.string(),
   slippage_rate: z.string(),
   sell_tax_rate: z.string(),
+  research_grade: researchGradeSchema,
 });
 
 const tradeSchema = z.object({
@@ -48,8 +52,8 @@ const resultSchema = z.object({
   market: z.enum(["KR", "US"]),
   request: requestSchema,
   readiness: marketReadinessSchema,
-  status: z.enum(["ready", "insufficient"]),
-  completeness: z.enum(["complete", "incomplete"]),
+  status: z.enum(["ready", "insufficient", "approximate"]),
+  completeness: z.enum(["complete", "incomplete", "approximate"]),
   candidate_evidence: z.array(z.object({
     session: z.string(), symbol: z.string(), rank: z.number(), volume: z.string(),
     eligible: z.boolean(), membership_available_at: z.string().nullable(), bar_available_at: z.string().nullable(),
@@ -67,6 +71,8 @@ const resultSchema = z.object({
   pilot_run_id: z.string().nullable(),
   data_contract_hash: z.string().nullable(),
   warmup_sessions: z.array(z.string()),
+  research_grade: researchGradeSchema,
+  pool_contract_hash: z.string().nullable(),
 });
 
 export const marketResearchRunSchema = z.object({
@@ -88,9 +94,13 @@ export const marketResearchRunSchema = z.object({
 export type MarketReadiness = z.infer<typeof marketReadinessSchema>;
 export type MarketResearchRun = z.infer<typeof marketResearchRunSchema>;
 
-export async function getMarketReadiness(market?: "KR" | "US"): Promise<MarketReadiness[]> {
-  const query = market ? `?market=${market}` : "";
-  const response = await fetch(`${researchBackendUrl()}/api/research/market/status${query}`, { cache: "no-store" });
+export async function getMarketReadiness(
+  market?: "KR" | "US",
+  grade: "strict" | "approximate" = "strict",
+): Promise<MarketReadiness[]> {
+  const params = new URLSearchParams({ grade });
+  if (market) params.set("market", market);
+  const response = await fetch(`${researchBackendUrl()}/api/research/market/status?${params.toString()}`, { cache: "no-store" });
   if (!response.ok) throw new Error("market research unavailable");
   return z.array(marketReadinessSchema).parse(await response.json());
 }
