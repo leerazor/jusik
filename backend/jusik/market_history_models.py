@@ -431,6 +431,8 @@ class MarketResearchRun(HistoryModel):
     stage: ResearchStage = "legacy"
     pilot_run_id: str | None = None
     data_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    final_promotable: bool = False
+    final_promotability_reason: str = "최종 단계 참조 조건을 확인하지 않았습니다."
 
 
 def anniversary_start(end_date: date, *, years: int) -> date:

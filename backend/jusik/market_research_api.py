@@ -71,7 +71,8 @@ async def create_market_run(
             status_code=422, detail="invalid research request"
         ) from None
     try:
-        return await service(request).create_run(validated)
+        configured = service(request)
+        return configured.annotate_run(await configured.create_run(validated))
     except MarketResearchNotFound as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
     except MarketResearchConflict as exc:
@@ -85,13 +86,15 @@ async def list_market_runs(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> list[MarketResearchRun]:
-    return service(request).store.list_runs(limit)
+    configured = service(request)
+    return [configured.annotate_run(run) for run in configured.store.list_runs(limit)]
 
 
 @router.get("/runs/{run_id}", response_model=MarketResearchRun)
 async def get_market_run(request: Request, run_id: str) -> MarketResearchRun:
     try:
-        return service(request).store.get_run(run_id)
+        configured = service(request)
+        return configured.annotate_run(configured.store.get_run(run_id))
     except KeyError:
         raise HTTPException(
             status_code=404, detail="market research run not found"

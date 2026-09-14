@@ -198,6 +198,8 @@ def test_fixture_api_exposes_readiness_and_completed_simulated_run() -> None:
         assert created.status_code == 202
         body = created.json()
         assert body["status"] == "completed"
+        assert body["final_promotable"] is True
+        assert body["final_promotability_reason"] == ""
         assert body["result"]["limitations"]
         fetched = client.get(f"/api/research/market/runs/{body['id']}")
         assert fetched.status_code == 200
@@ -584,6 +586,9 @@ def test_store_reads_historical_staged_custom_assumptions_but_final_rejects(
     loaded = store.get_run("historical-pilot")
     assert loaded.request.fee_rate == Decimal("0.002")
     assert store.list_runs()[0].id == "historical-pilot"
+    annotated = MarketResearchService(source, store).annotate_run(loaded)
+    assert annotated.final_promotable is False
+    assert annotated.final_promotability_reason
     final = MarketResearchRequest(
         market="KR",
         start_date=date(2023, 9, 14),
@@ -618,6 +623,7 @@ def test_final_requires_completed_matching_pilot_and_collects_own_period(
     final = asyncio.run(service.create_run(final_request))
     assert final.status == "completed"
     assert final.stage == "final"
+    assert service.annotate_run(pilot).final_promotable is True
     assert final.input_hash != pilot.input_hash
     with pytest.raises(MarketResearchNotFound):
         asyncio.run(

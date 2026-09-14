@@ -81,6 +81,8 @@ export const marketResearchRunSchema = z.object({
   stage: z.enum(["pilot", "final", "legacy"]),
   pilot_run_id: z.string().nullable(),
   data_contract_hash: z.string().nullable(),
+  final_promotable: z.boolean(),
+  final_promotability_reason: z.string(),
 });
 
 export type MarketReadiness = z.infer<typeof marketReadinessSchema>;

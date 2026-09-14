@@ -32,10 +32,7 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
   let unavailable = false;
   try { readiness = await getMarketReadiness(); } catch { unavailable = true; }
   try { runs = await getMarketResearchRuns(); } catch { unavailable = true; }
-  const eligiblePilots = runs.filter((run) =>
-    run.stage === "pilot" && run.status === "completed" &&
-    run.result?.status === "ready" && run.result.completeness === "complete"
-  );
+  const eligiblePilots = runs.filter((run) => run.final_promotable);
   return (
     <main>
       <section className="intro research-intro">
@@ -58,7 +55,7 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
         <div className="step-heading"><p className="eyebrow">STEP 2</p><h2 id="run-title">결정론적 흐름 실행</h2><p>한국과 미국은 별도 원화 1억원으로 계산합니다. 미국은 시작 시점에만 달러로 환전하고 이후 달러 현금·거래와 원화 평가 곡선을 함께 기록합니다.</p></div>
         <StageForm pilots={eligiblePilots} />
       </section>
-      <section className="research-step" aria-labelledby="runs-title"><div className="step-heading"><p className="eyebrow">STEP 3</p><h2 id="runs-title">저장된 연구</h2></div><div className="panel">{runs.length === 0 ? <p className="empty-inline">저장된 실행이 없습니다.</p> : <div className="run-list">{runs.map((run) => <Link href={`/research/market/${run.id}`} className="run-row" key={run.id}><span><strong>{stageLabel(run.stage)} · {run.request.market} · {run.request.start_date}–{run.request.end_date}</strong><small>{run.created_at}</small></span><span className={`status status-${run.status}`}>{statusLabel(run.status)}</span></Link>)}</div>}</div></section>
+      <section className="research-step" aria-labelledby="runs-title"><div className="step-heading"><p className="eyebrow">STEP 3</p><h2 id="runs-title">저장된 연구</h2></div><div className="panel">{runs.length === 0 ? <p className="empty-inline">저장된 실행이 없습니다.</p> : <div className="run-list">{runs.map((run) => <Link href={`/research/market/${run.id}`} className="run-row" key={run.id}><span><strong>{stageLabel(run.stage)} · {run.request.market} · {run.request.start_date}–{run.request.end_date}{run.stage === "pilot" && !run.final_promotable ? " · 최종 참조 불가" : ""}</strong><small>{run.created_at}</small></span><span className={`status status-${run.status}`}>{statusLabel(run.status)}</span></Link>)}</div>}</div></section>
     </main>
   );
 }
