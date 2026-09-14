@@ -2,9 +2,9 @@
 
 ## staged-market-validation
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 시장 PIT 연구를 1년 파일럿과 정책 고정 3년 최종 검증으로 분리합니다. 파일럿은 자료·인과성 검증 전용이며 모델 선택이나 PAPER/실거래 활성화 근거가 될 수 없습니다. 최종 실행은 완료된 같은 시장 파일럿을 참조하고 동일 정책·자본·비용·원천 계약을 강제하며, 평가 시작 전 20개 완료 거래일의 준비 자료까지 검증합니다.
-- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore 완료, plan 진행 중, 독립 review 예정.
+- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore·plan·구현·독립 review와 지적 수정 재검토를 완료했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-staged-market-validation
 - 작업 브랜치: feat/staged-market-validation
 - 기준 커밋 SHA: 9a22fd044433aac4a1fd2ce0e432fcf8138c69f3
@@ -13,13 +13,13 @@
 - 수정 허용 범위: market research request/run/result/store/service/strategy/API, 관련 fixture·테스트, `/research/market` 단계 UI와 타입, mandate·시장 연구 문서. 기존 PAPER·operations·broker/order 경로와 일반 연구 엔진은 변경하지 않습니다.
 - 포트·테스트 DB·출력 경로: 작업 서버 3363/8363, 워크트리 내부 Python/Node 환경, pytest 임시 DB와 fixture. 운영 DB·공유 연구 DB·실제 주문·기존 서버는 사용하지 않습니다.
 - 고정 계약: pilot은 end date의 정확한 1년 전부터, final은 정확한 3년 전부터 평가하며 윤년 2월29일은 대상연도 2월28일로 맞춥니다. final은 completed·ready·complete pilot ID가 필수이고 market, current policy hash, 자본·수수료·세금·슬리피지, canonical data contract hash가 같아야 합니다. input hash는 기간별로 다릅니다. 시작 전 20개 완료 시장 세션은 지표 warmup이며 거래·equity를 만들지 않고, 신규 상장 전 bar를 요구하지 않습니다.
-- 검증 명령과 결과: 예정 — staged model/store migration/service/API/strategy tests, legacy 행 비승격, 기간·윤년·warmup·hash/config mismatch·provider unavailable, Ruff/mypy, frontend lint/typecheck/build, fixture/production browser.
-- 결과 커밋 SHA: 예정
-- 검토 결과와 남은 문제: 예정
-- 병합 직전 main SHA: 예정
-- 통합 커밋 SHA와 정리 여부: 예정
+- 검증 명령과 결과: 통합 main에서 market research·research API·runner planning pytest 51개, Ruff format/check, strict mypy 7개 모듈, frontend lint/typecheck/production build와 `git diff --check`가 통과했습니다. 운영 API는 KR/US 모두 실제 PIT provider 필수 자료 부족을 반환했고, iPad 1024×1366 브라우저에서 1년 파일럿→3년 최종 UI와 console error 0건을 확인했습니다. 외부 ngrok은 기존 인증 정책에 따라 비인증 401입니다.
+- 결과 커밋 SHA: 7d33b34, cc78b2e, 318f9d6, fe038fe, 5c2fe6e, cbffc59.
+- 검토 결과와 남은 문제: 신규상장 warmup 예외, 고정 가정·legacy 우회, 시장 불일치 UI, 과거 staged 행 읽기 호환성, final 후보 표시 진실성, 중첩 가변 list 역직렬화를 수정했습니다. 독립 최종 검토 P1/P2 없음. 실제 1년·3년 성과 산출은 membership·OHLCV·기업행사·PIT FX 공급원 연결 뒤 별도 실행합니다.
+- 병합 직전 main SHA: bfb31f6a13ab081d09a1cb1f48d2116f1268c7ed
+- 통합 커밋 SHA와 정리 여부: bb02962fbce5257c47f0ac729c05a337237862c6. 통합 검증과 handoff 보존 후 작업 워크트리를 정상 제거합니다.
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- handoff 저장 경로와 갱신 여부: 예정
+- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260914-staged-market-validation/HANDOFF.md` 및 루트 `HANDOFF.md`를 갱신합니다.
 
 ## point-in-time-discovery
 
