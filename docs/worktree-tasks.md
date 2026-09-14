@@ -2,12 +2,12 @@
 
 ## investor-workflow
 
-- 상태: 준비
+- 상태: 진행
 - 목표와 완료 조건: 한국·미국 종목 발굴, 근거가 있는 가치·추세 진입 판단, 저장된 매수 논거에 맞춘 보유·매도 검토를 코드와 웹에 연결합니다. 관련 검사와 독립 검토, local main 통합 검사, 웹 반영과 handoff를 완료합니다.
-- 담당 Luna: 예정 /root/luna_investor, 구현 소유자 한 명. explore 완료, plan 진행 중.
+- 담당 Luna: /root/luna_investor (gpt-5.6-luna), 구현 소유자 한 명. explore·plan 완료. 역할 사전 검사를 통과했으며, 재개된 Luna turn의 사후 helper 시각 경계 오류는 원본 child turn_id/model 근거로 별도 확인합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-investor-workflow
 - 작업 브랜치: feat/investor-workflow
-- 기준 커밋 SHA: e600d1fe12209892e06b82c14152ffab7402d877 이후 이 등록 커밋.
+- 기준 커밋 SHA: d578bf62bb6bbb98a7ba0c5edddd93d4ba3a12de.
 - 통합 대상 브랜치: local main
 - 입력과 선행 작업: 사용자 투자자 관점 로직 구현 요청, 기존 KIS 읽기 전용 조회·웹·fixture, 공식 KIS API 예제. 거래 순위는 발굴 후보이며 시장 전수 평가나 기업가치 검증으로 표시하지 않습니다.
 - 수정 허용 범위: 투자자용 데이터·판단·논거 저장·API, 관련 계좌/신규 웹 화면·검사·한국어 사용 문서. 연구 결과·PAPER10%·주문 실행 경계는 보존합니다. 등록부는 감독만 수정합니다.
