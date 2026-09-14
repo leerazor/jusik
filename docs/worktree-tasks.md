@@ -1,5 +1,21 @@
 # 워크트리 작업 등록부
 
+## volume-discovery
+
+- 상태: 진행
+- 목표와 완료 조건: 승인한 거래량 기준으로 개별주 기본·ETF 별도 후보를 제공하고 최근 20거래일 평균 대비 거래량 배수를 표시합니다. 미국 3거래소를 숫자 거래량으로 통합 정렬합니다. 독립 검토, local main 통합 검사, 운영 웹 반영, handoff와 이번 작업 정리를 완료합니다.
+- 담당 Luna: /root/luna_investor (gpt-5.6-luna), 구현 소유자 한 명. 기존 explore·plan agent의 후속 조사/계획 완료.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-volume-discovery
+- 작업 브랜치: feat/volume-discovery
+- 기준 커밋 SHA: 0a9118e807596c18a082abec004258e42fce9b4c 이후 이 등록 커밋.
+- 통합 대상 브랜치: local main
+- 입력과 선행 작업: 사용자 개별주 기본·ETF 분리·거래량 순위와 급증률 병행 승인. 공식 KIS 필드와 국내 ETF/ETN 제외 필터 및 미국 NAS/NYS/AMS 각 100개 응답을 확인했습니다. 평균 기간 불명 KIS 평균값을 20일 평균으로 사용하지 않습니다.
+- 수정 허용 범위: investor 후보 데이터·모델·API/fixture·관련 검사, 후보 목록 웹/계약/CSS와 사용 문서. 기존 논거·가치/매도 분석·연구·주문·운영 DB 보존. 등록부는 감독만 수정합니다.
+- 포트·테스트 DB·출력 경로: 전용 venv/node_modules/build, fixture 8351·웹 3351, 합성 DB. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20260914-volume-discovery.
+- 검증 예정: 숫자 정렬/분류 후 제한/부분 실패·20일 평균/장중·휴일/결측·분할·캐시 상한, 기존 투자 논거 회귀, Ruff·strict mypy, frontend lint/typecheck/build, 실제 브라우저와 읽기 전용 공급원 확인.
+- 운영 보존: 자동 실행기 paused, service/timer inactive 유지. 기존 미완료 워크트리 6개·미추적 사용자 파일 보존. 실제 주문과 원격 push 없음.
+- handoff: 예정 /home/kwl/.local/share/jusik/portfolio-audit/20260914-volume-discovery/HANDOFF.md 및 루트 최신 안내.
+
 ## investor-workflow
 
 - 상태: 완료
