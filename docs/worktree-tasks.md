@@ -2,12 +2,12 @@
 
 ## approximate-market-data
 
-- 상태: 준비
+- 상태: 진행
 - 목표와 완료 조건: 논문급 전수 PIT 대신 개인 투자 판단용 무료 근사 자료로 한국·미국의 1년 파일럿과 3년 최종 연구를 실행할 수 있게 합니다. 현재 후보의 과거 고정은 금지하고, 과거 연간 종목 목록의 결정적 표본 안에서 거래일마다 거래량 상위 20개를 재발굴합니다. 근사 등급·coverage·누락·배당/상폐/환율 가정을 결과와 웹에 공개하며 strict·fixture·PAPER·실거래와 혼합하지 않습니다.
 - 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore·plan 완료, 독립 review 예정.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-approximate-market-data
 - 작업 브랜치: feat/approximate-market-data
-- 기준 커밋 SHA: 등록 커밋 후 기록
+- 기준 커밋 SHA: b5117e4899a2be37bda6033297034db691ff632d
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: staged-market-validation 완료 main b850984, 사용자 승인 “논문을 쓰는 것이 아니므로 과도하게 정교한 데이터 없이 실용적으로 진행”. 현재 후보를 과거로 소급하지 않는 기존 결정은 유지합니다.
 - 수정 허용 범위: approximate market history source·모델·저장소·전략 분기·service/API/CLI/config/cache, 관련 fixture·테스트, `/research/market` coverage UI·타입, `.env.dev.example`, mandate·시장 연구 문서. strict PIT, 기존 PAPER·operations·broker/order 경로는 보존합니다.
