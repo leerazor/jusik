@@ -21,6 +21,10 @@ function statusLabel(status: MarketResearchRun["status"]): string {
   }[status];
 }
 
+function stageLabel(stage: MarketResearchRun["stage"]): string {
+  return { pilot: "1년 파일럿", final: "3년 최종", legacy: "기존 실행" }[stage];
+}
+
 export default async function MarketResearchPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const query = await searchParams;
   let readiness: MarketReadiness[] = [];
@@ -28,6 +32,10 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
   let unavailable = false;
   try { readiness = await getMarketReadiness(); } catch { unavailable = true; }
   try { runs = await getMarketResearchRuns(); } catch { unavailable = true; }
+  const eligiblePilots = runs.filter((run) =>
+    run.stage === "pilot" && run.status === "completed" &&
+    run.result?.status === "ready" && run.result.completeness === "complete"
+  );
   return (
     <main>
       <section className="intro research-intro">
@@ -48,9 +56,9 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
       </section>
       <section className="research-step" aria-labelledby="run-title">
         <div className="step-heading"><p className="eyebrow">STEP 2</p><h2 id="run-title">결정론적 흐름 실행</h2><p>한국과 미국은 별도 원화 1억원으로 계산합니다. 미국은 시작 시점에만 달러로 환전하고 이후 달러 현금·거래와 원화 평가 곡선을 함께 기록합니다.</p></div>
-        <form action={createMarketResearchRun} className="panel research-form"><label>시장<select name="market" defaultValue="KR"><option value="KR">한국</option><option value="US">미국</option></select></label><div className="form-grid"><label>시작일<input name="start_date" type="date" defaultValue="2024-01-15" required /></label><label>종료일<input name="end_date" type="date" defaultValue="2024-03-15" required /></label></div><button type="submit">시장 연구 실행</button><p className="basis">현재 화면의 합성 실행은 실제 수익률·주문 결과가 아니며, 실전 주문 API와 연결되지 않습니다.</p></form>
+        <form action={createMarketResearchRun} className="panel research-form"><label>시장<select name="market" defaultValue="KR"><option value="KR">한국</option><option value="US">미국</option></select></label><label>단계<select name="stage" defaultValue="pilot"><option value="pilot">1년 파일럿 · 검증</option><option value="final">3년 최종 · 완료 파일럿 필요</option></select></label><label>종료일<input name="end_date" type="date" defaultValue="2026-09-14" required /></label><label>참조할 완료 파일럿<select name="pilot_run_id" defaultValue=""><option value="">파일럿을 선택하세요 (최종 단계에서 필요)</option>{eligiblePilots.map((run) => <option value={run.id} key={run.id}>{run.request.market} · {run.request.end_date} · {run.id.slice(0, 8)}</option>)}</select></label><button type="submit">시장 연구 실행</button><p className="basis">파일럿은 종료일 기준 1년, 최종은 3년 전부터 서버가 기간을 계산합니다. 합성 실행은 인과 흐름 확인용이며 실제 수익률·주문 결과가 아닙니다.</p></form>
       </section>
-      <section className="research-step" aria-labelledby="runs-title"><div className="step-heading"><p className="eyebrow">STEP 3</p><h2 id="runs-title">저장된 연구</h2></div><div className="panel">{runs.length === 0 ? <p className="empty-inline">저장된 실행이 없습니다.</p> : <div className="run-list">{runs.map((run) => <Link href={`/research/market/${run.id}`} className="run-row" key={run.id}><span><strong>{run.request.market} · {run.request.start_date}–{run.request.end_date}</strong><small>{run.created_at}</small></span><span className={`status status-${run.status}`}>{statusLabel(run.status)}</span></Link>)}</div>}</div></section>
+      <section className="research-step" aria-labelledby="runs-title"><div className="step-heading"><p className="eyebrow">STEP 3</p><h2 id="runs-title">저장된 연구</h2></div><div className="panel">{runs.length === 0 ? <p className="empty-inline">저장된 실행이 없습니다.</p> : <div className="run-list">{runs.map((run) => <Link href={`/research/market/${run.id}`} className="run-row" key={run.id}><span><strong>{stageLabel(run.stage)} · {run.request.market} · {run.request.start_date}–{run.request.end_date}</strong><small>{run.created_at}</small></span><span className={`status status-${run.status}`}>{statusLabel(run.status)}</span></Link>)}</div>}</div></section>
     </main>
   );
 }

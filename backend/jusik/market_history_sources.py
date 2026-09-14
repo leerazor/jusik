@@ -30,6 +30,34 @@ def _hash(value: object) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def data_contract_hash(
+    snapshot: MarketHistorySnapshot, readiness: MarketReadiness
+) -> str:
+    """Hash only the normalized source contract, never dates or raw rows."""
+    payload = {
+        "version": "pit-data-contract-v1",
+        "market": snapshot.market,
+        "source_identities": sorted(
+            {item.source for item in snapshot.memberships}
+            | {item.source for item in snapshot.bars}
+            | {item.source for item in snapshot.fx}
+            | {item.source for item in snapshot.source_artifacts}
+        ),
+        "normalization_version": snapshot.normalization_version,
+        "simulated": readiness.simulated,
+        "capabilities": [
+            {"name": item.name, "status": item.status}
+            for item in sorted(readiness.capabilities, key=lambda item: item.name)
+        ],
+        "availability_semantics": {
+            "daily_bars": "full_bar_available_at_or_after_close_before_next_open",
+            "membership": "available_at_or_before_session_close",
+            "fx": "available_at_decision_cutoff",
+        },
+    }
+    return _hash(payload)
+
+
 class MarketHistorySource(Protocol):
     def readiness(self, market: Market, checked_at: datetime) -> MarketReadiness: ...
 
@@ -178,6 +206,9 @@ class FixtureMarketHistorySource:
             request.end_date + timedelta(days=1), datetime.min.time(), tzinfo=UTC
         )
         sessions = self._sessions(request)
+        warmup_sessions = tuple(item for item in sessions if item < request.start_date)[
+            -20:
+        ]
         symbols = (
             (
                 ("KR-A", "합성 한국 주식 A"),
@@ -318,4 +349,6 @@ class FixtureMarketHistorySource:
             source_artifacts=(artifact,),
             completeness="complete" if sessions else "incomplete",
             missing_ranges=() if sessions else ("calendar", "bars", "membership"),
+            warmup_sessions=warmup_sessions,
+            evaluation_start=request.start_date,
         )

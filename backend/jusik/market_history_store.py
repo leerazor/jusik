@@ -66,6 +66,22 @@ class MarketHistoryStore:
                 )
                 """
             )
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(pit_runs)").fetchall()
+            }
+            for name, definition in {
+                "stage": "TEXT NOT NULL DEFAULT 'legacy'",
+                "pilot_run_id": "TEXT",
+                "data_contract_hash": "TEXT",
+            }.items():
+                if name not in columns:
+                    connection.execute(
+                        f"ALTER TABLE pit_runs ADD COLUMN {name} {definition}"
+                    )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_pit_runs_stage ON pit_runs(stage)"
+            )
 
     def save_snapshot(self, snapshot: MarketHistorySnapshot) -> str:
         digest = snapshot.input_hash
@@ -144,11 +160,18 @@ class MarketHistoryStore:
                 INSERT INTO pit_runs
                     (
                         id, status, request_json, result_json, input_hash, error,
-                        created_at, updated_at
+                        created_at, updated_at, stage, pilot_run_id, data_contract_hash
                     )
-                VALUES (?, 'queued', ?, NULL, NULL, NULL, ?, ?)
+                VALUES (?, 'queued', ?, NULL, NULL, NULL, ?, ?, ?, ?, NULL)
                 """,
-                (selected, request.model_dump_json(), now.isoformat(), now.isoformat()),
+                (
+                    selected,
+                    request.model_dump_json(),
+                    now.isoformat(),
+                    now.isoformat(),
+                    request.stage,
+                    request.pilot_run_id,
+                ),
             )
         return self.get_run(selected)
 
@@ -160,12 +183,18 @@ class MarketHistoryStore:
         result: MarketResearchResult | None = None,
         input_hash: str | None = None,
         error: str | None = None,
+        data_contract_hash: str | None = None,
     ) -> None:
         now = datetime.now(UTC).isoformat()
         result_json = result.model_dump_json() if result else None
+        effective_contract_hash = (
+            data_contract_hash
+            if data_contract_hash is not None
+            else (result.data_contract_hash if result is not None else None)
+        )
         with self._connect() as connection:
             existing = connection.execute(
-                "SELECT status, result_json, input_hash, error "
+                "SELECT status, result_json, input_hash, error, data_contract_hash "
                 "FROM pit_runs WHERE id = ?",
                 (run_id,),
             ).fetchone()
@@ -177,6 +206,7 @@ class MarketHistoryStore:
                     or existing["result_json"] != result_json
                     or existing["input_hash"] != input_hash
                     or existing["error"] != error
+                    or existing["data_contract_hash"] != effective_contract_hash
                 ):
                     raise ValueError("terminal research runs are immutable")
                 return
@@ -184,7 +214,7 @@ class MarketHistoryStore:
                 """
                 UPDATE pit_runs
                 SET status = ?, result_json = ?, input_hash = ?, error = ?,
-                    updated_at = ?
+                    updated_at = ?, data_contract_hash = ?
                 WHERE id = ?
                 """,
                 (
@@ -193,6 +223,7 @@ class MarketHistoryStore:
                     input_hash,
                     error,
                     now,
+                    effective_contract_hash,
                     run_id,
                 ),
             )
@@ -221,6 +252,9 @@ class MarketHistoryStore:
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             error=row["error"],
+            stage=row["stage"] or "legacy",
+            pilot_run_id=row["pilot_run_id"],
+            data_contract_hash=row["data_contract_hash"],
         )
 
     def list_runs(self, limit: int = 50) -> list[MarketResearchRun]:

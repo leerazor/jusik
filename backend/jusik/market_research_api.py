@@ -1,17 +1,38 @@
 from __future__ import annotations
 
+from datetime import date
+from decimal import Decimal
 from typing import Annotated, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel, ValidationError
 
 from jusik.market_history_models import (
     Market,
     MarketResearchRequest,
     MarketResearchRun,
+    ResearchStage,
+    anniversary_start,
 )
-from jusik.market_research_service import MarketResearchService
+from jusik.market_research_service import (
+    MarketResearchConflict,
+    MarketResearchNotFound,
+    MarketResearchService,
+)
 
 router = APIRouter(prefix="/api/research/market", tags=["point-in-time research"])
+
+
+class MarketResearchCreatePayload(BaseModel):
+    market: Market
+    end_date: date
+    start_date: date | None = None
+    stage: ResearchStage = "legacy"
+    pilot_run_id: str | None = None
+    initial_cash_krw: Decimal = Decimal("100000000")
+    fee_rate: Decimal = Decimal("0.00015")
+    slippage_rate: Decimal = Decimal("0.001")
+    sell_tax_rate: Decimal = Decimal("0.0018")
 
 
 def service(request: Request) -> MarketResearchService:
@@ -36,10 +57,38 @@ async def market_status(
     "/runs", response_model=MarketResearchRun, status_code=status.HTTP_202_ACCEPTED
 )
 async def create_market_run(
-    request: Request, payload: MarketResearchRequest
+    request: Request, payload: MarketResearchCreatePayload
 ) -> MarketResearchRun:
+    if payload.start_date is None:
+        if payload.stage == "legacy":
+            raise HTTPException(status_code=422, detail="start_date is required")
+        start_date = anniversary_start(
+            payload.end_date, years=1 if payload.stage == "pilot" else 3
+        )
+    else:
+        start_date = payload.start_date
     try:
-        return await service(request).create_run(payload)
+        validated = MarketResearchRequest(
+            market=payload.market,
+            start_date=start_date,
+            end_date=payload.end_date,
+            stage=payload.stage,
+            pilot_run_id=payload.pilot_run_id,
+            initial_cash_krw=payload.initial_cash_krw,
+            fee_rate=payload.fee_rate,
+            slippage_rate=payload.slippage_rate,
+            sell_tax_rate=payload.sell_tax_rate,
+        )
+    except ValidationError:
+        raise HTTPException(
+            status_code=422, detail="invalid research request"
+        ) from None
+    try:
+        return await service(request).create_run(validated)
+    except MarketResearchNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except MarketResearchConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from None
 

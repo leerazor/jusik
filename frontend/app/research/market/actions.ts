@@ -6,14 +6,20 @@ import { researchBackendUrl } from "@/lib/research";
 
 export async function createMarketResearchRun(formData: FormData): Promise<void> {
   const market = formData.get("market");
-  const startDate = formData.get("start_date");
   const endDate = formData.get("end_date");
+  const stage = formData.get("stage");
+  const pilotRunId = formData.get("pilot_run_id");
   let response: Response;
   try {
     response = await fetch(`${researchBackendUrl()}/api/research/market/runs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ market, start_date: startDate, end_date: endDate }),
+      body: JSON.stringify({
+        market,
+        end_date: endDate,
+        stage,
+        pilot_run_id: pilotRunId || null,
+      }),
     });
   } catch {
     redirect(`/research/market?error=backend-unavailable`);

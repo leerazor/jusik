@@ -27,7 +27,7 @@ TWENTY = 20
 TARGET_WEIGHT = Decimal("0.05")
 DRAWDOWN_LIMIT = Decimal("0.20")
 MARKET_RESEARCH_POLICY: dict[str, object] = {
-    "version": 1,
+    "version": 2,
     "top_count": 20,
     "lookback_sessions": 20,
     "target_weight": "0.05",
@@ -37,6 +37,13 @@ MARKET_RESEARCH_POLICY: dict[str, object] = {
     "exit_rule": "two_consecutive_closes_below_sma20",
     "corporate_action_mode": "unsupported_actions_fail_closed",
     "rebalance": "none",
+    "staged_validation": {
+        "stages": ["pilot", "final"],
+        "pilot_years": 1,
+        "final_years": 3,
+        "warmup_sessions": 20,
+        "final_requires_completed_pilot": True,
+    },
 }
 
 
@@ -76,6 +83,24 @@ def _expected_sessions(
             sessions.append(lookup.session)
         cursor += timedelta(days=1)
     return sessions
+
+
+def _expected_warmup_sessions(
+    calendar: MarketCalendar, request: MarketResearchRequest
+) -> list[MarketSession] | None:
+    exchange = "KRX" if request.market == "KR" else "NMS"
+    sessions: list[MarketSession] = []
+    # Sixty calendar days covers twenty sessions for the supported calendars;
+    # keeping this bounded also makes calendar coverage failures explicit.
+    cursor = request.start_date - timedelta(days=60)
+    while cursor < request.start_date:
+        lookup = calendar.lookup(exchange, cursor)
+        if lookup.state == "unavailable":
+            return None
+        if lookup.session is not None:
+            sessions.append(lookup.session)
+        cursor += timedelta(days=1)
+    return sessions[-TWENTY:]
 
 
 def _eligible_memberships(
@@ -130,6 +155,8 @@ def _valid_coverage(
     snapshot: MarketHistorySnapshot,
     request: MarketResearchRequest,
     sessions: list[MarketSession] | None,
+    *,
+    evaluation_start_index: int = 0,
 ) -> tuple[bool, list[str]]:
     missing: list[str] = []
     if snapshot.completeness != "complete":
@@ -185,7 +212,7 @@ def _valid_coverage(
             observation = fx_by_date.get(session.local_date)
             if observation is None or observation.available_at > session.close_at:
                 missing.append(f"fx:{session.local_date}")
-            if index == 0 and (
+            if index == evaluation_start_index and (
                 observation is None or observation.available_at > session.open_at
             ):
                 missing.append("initial-fx")
@@ -211,9 +238,30 @@ def run_market_research(
             metrics={},
             input_hash=snapshot.input_hash,
             policy_hash=policy_hash,
+            stage=request.stage,
+            pilot_run_id=request.pilot_run_id,
+            data_contract_hash=snapshot.data_contract_hash,
+            warmup_sessions=(),
         )
     sessions = _expected_sessions(calendar, request)
-    complete, missing = _valid_coverage(snapshot, request, sessions)
+    expected_warmup = _expected_warmup_sessions(calendar, request)
+    warmup = list(snapshot.warmup_sessions)
+    warmup_missing: list[str] = []
+    if request.stage in {"pilot", "final"} and (
+        expected_warmup is None
+        or len(warmup) != TWENTY
+        or [item.local_date for item in expected_warmup] != warmup
+    ):
+        warmup = []
+        warmup_missing.append("warmup:exactly20_completed_sessions")
+    warmup_objects = [
+        item for item in expected_warmup or [] if item.local_date in warmup
+    ]
+    all_sessions = warmup_objects + (sessions or [])
+    complete, missing = _valid_coverage(
+        snapshot, request, all_sessions, evaluation_start_index=len(warmup_objects)
+    )
+    missing.extend(warmup_missing)
     unsupported_actions = sorted({item.kind for item in snapshot.actions})
     if unsupported_actions:
         complete = False
@@ -246,6 +294,10 @@ def run_market_research(
             ),
             metrics={},
             policy_hash=policy_hash,
+            stage=request.stage,
+            pilot_run_id=request.pilot_run_id,
+            data_contract_hash=snapshot.data_contract_hash,
+            warmup_sessions=tuple(warmup),
         ).model_copy(update={"input_hash": snapshot.input_hash})
 
     bars_by_key = {(bar.symbol, bar.session): bar for bar in snapshot.bars}
@@ -254,6 +306,8 @@ def run_market_research(
     trades: list[ResearchTrade] = []
     equity: list[ResearchEquityPoint] = []
     positions: dict[str, int] = {}
+    if not sessions:
+        raise ValueError("research requires at least one evaluation session")
     first_fx = _fx_for(fx_by_date, sessions[0].local_date)
     if request.market == "US":
         if first_fx is None:
@@ -271,7 +325,8 @@ def run_market_research(
     peak_nav = request.initial_cash_krw
     drawdown_latched = False
 
-    for index, session in enumerate(sessions):
+    for index, session in enumerate(all_sessions):
+        is_evaluation = index >= len(warmup_objects)
         fx_observation = _fx_for(fx_by_date, session.local_date)
         if request.market == "US":
             if fx_observation is None:
@@ -353,9 +408,12 @@ def run_market_research(
                 )
         pending_buys.clear()
 
+        if not is_evaluation:
+            continue
+
         decision_cutoff = (
-            sessions[index + 1].open_at
-            if index + 1 < len(sessions)
+            all_sessions[index + 1].open_at
+            if index + 1 < len(all_sessions)
             else session.close_at
         )
         candidates = _rank_candidates(
@@ -366,19 +424,21 @@ def run_market_research(
             bar = bars_by_key[(symbol, session.local_date)]
             sma_window = [
                 bars_by_key[(symbol, prior_session.local_date)]
-                for prior_session in sessions[max(0, index - TWENTY + 1) : index + 1]
+                for prior_session in all_sessions[
+                    max(0, index - TWENTY + 1) : index + 1
+                ]
             ]
             if len(sma_window) == TWENTY:
                 sma = sum((item.close for item in sma_window), Decimal()) / TWENTY
                 below_sma[symbol] = below_sma[symbol] + 1 if bar.close < sma else 0
-                if below_sma[symbol] >= 2 and index + 1 < len(sessions):
+                if below_sma[symbol] >= 2 and index + 1 < len(all_sessions):
                     pending_sells[symbol] = session.local_date
         for candidate in candidates:
             if candidate.rank > 20 or candidate.symbol in positions:
                 continue
             prior = [
                 bars_by_key[(candidate.symbol, prior_session.local_date)]
-                for prior_session in sessions[max(0, index - TWENTY) : index]
+                for prior_session in all_sessions[max(0, index - TWENTY) : index]
             ]
             current = bars_by_key[(candidate.symbol, session.local_date)]
             if (
@@ -386,7 +446,7 @@ def run_market_research(
                 and current.close > max(item.close for item in prior)
                 and current.volume
                 > sum((item.volume for item in prior), Decimal()) / TWENTY
-                and index + 1 < len(sessions)
+                and index + 1 < len(all_sessions)
                 and not drawdown_latched
             ):
                 pending_buys.append(
@@ -447,6 +507,10 @@ def run_market_research(
             metrics={},
             input_hash=snapshot.input_hash,
             policy_hash=policy_hash,
+            stage=request.stage,
+            pilot_run_id=request.pilot_run_id,
+            data_contract_hash=snapshot.data_contract_hash,
+            warmup_sessions=tuple(warmup),
         )
     return MarketResearchResult(
         market=request.market,
@@ -467,4 +531,8 @@ def run_market_research(
         metrics=metrics,
         input_hash=snapshot.input_hash,
         policy_hash=policy_hash,
+        stage=request.stage,
+        pilot_run_id=request.pilot_run_id,
+        data_contract_hash=snapshot.data_contract_hash,
+        warmup_sessions=tuple(warmup),
     )

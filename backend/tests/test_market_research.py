@@ -14,13 +14,14 @@ from jusik.market_history_models import (
     MarketReadiness,
     MarketResearchRequest,
     RawArtifact,
+    anniversary_start,
 )
 from jusik.market_history_sources import (
     FixtureMarketHistorySource,
     UnavailableMarketHistorySource,
 )
 from jusik.market_history_store import MarketHistoryStore
-from jusik.market_research_service import MarketResearchService
+from jusik.market_research_service import MarketResearchNotFound, MarketResearchService
 from jusik.market_research_strategy import (
     DRAWDOWN_LIMIT,
     MARKET_RESEARCH_POLICY,
@@ -408,3 +409,103 @@ def test_snapshot_rejects_duplicate_bars_and_actions() -> None:
         snapshot_data = snapshot.model_dump()
         snapshot_data["actions"] = (action, action)
         MarketHistorySnapshot(**snapshot_data)
+
+
+def test_staged_periods_use_calendar_anniversary_and_warmup() -> None:
+    assert anniversary_start(date(2024, 2, 29), years=1) == date(2023, 2, 28)
+    pilot = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 3, 14),
+        end_date=date(2026, 3, 14),
+        stage="pilot",
+    )
+    snapshot = asyncio.run(FixtureMarketHistorySource().collect(pilot))
+    result = run_market_research(
+        snapshot,
+        pilot,
+        FixtureMarketHistorySource().readiness("KR", datetime(2026, 3, 14, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert result.status == "ready"
+    assert len(result.warmup_sessions) == 20
+    assert result.equity
+    assert all(point.session >= pilot.start_date for point in result.equity)
+    assert all(trade.session >= pilot.start_date for trade in result.trades)
+
+
+def test_staged_request_rejects_wrong_period_and_reference() -> None:
+    with pytest.raises(ValidationError):
+        MarketResearchRequest(
+            market="KR",
+            start_date=date(2025, 1, 1),
+            end_date=date(2026, 1, 1),
+            stage="pilot",
+            pilot_run_id="a" * 8,
+        )
+    with pytest.raises(ValidationError):
+        MarketResearchRequest(
+            market="KR",
+            start_date=date(2023, 1, 1),
+            end_date=date(2026, 1, 1),
+            stage="final",
+        )
+
+
+def test_final_requires_completed_matching_pilot_and_collects_own_period(
+    tmp_path: Path,
+) -> None:
+    store = MarketHistoryStore(tmp_path / "staged.db")
+    service = MarketResearchService(FixtureMarketHistorySource(), store)
+    pilot_request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+    )
+    pilot = asyncio.run(service.create_run(pilot_request))
+    assert pilot.status == "completed"
+    final_request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2023, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="final",
+        pilot_run_id=pilot.id,
+    )
+    final = asyncio.run(service.create_run(final_request))
+    assert final.status == "completed"
+    assert final.stage == "final"
+    assert final.input_hash != pilot.input_hash
+    with pytest.raises(MarketResearchNotFound):
+        asyncio.run(
+            service.create_run(
+                final_request.model_copy(update={"pilot_run_id": "missing"})
+            )
+        )
+
+
+def test_old_pit_runs_migrate_to_legacy_without_rewriting_request(
+    tmp_path: Path,
+) -> None:
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "CREATE TABLE pit_runs (id TEXT PRIMARY KEY, status TEXT NOT NULL, "
+            "request_json TEXT NOT NULL, result_json TEXT, input_hash TEXT, "
+            "error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+        )
+        old_request = request().model_dump_json()
+        connection.execute(
+            "INSERT INTO pit_runs VALUES (?, 'queued', ?, NULL, NULL, NULL, ?, ?)",
+            (
+                "legacy123",
+                old_request,
+                "2024-01-01T00:00:00+00:00",
+                "2024-01-01T00:00:00+00:00",
+            ),
+        )
+    store = MarketHistoryStore(path)
+    loaded = store.get_run("legacy123")
+    assert loaded.stage == "legacy"
+    assert loaded.request.model_dump_json() == old_request

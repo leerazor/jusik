@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
 
-from jusik.market_history_models import Market, MarketResearchRequest
+from jusik.market_history_models import Market, MarketResearchRequest, anniversary_start
 from jusik.market_history_sources import (
     FixtureMarketHistorySource,
     MarketHistorySource,
@@ -28,8 +28,10 @@ def parser() -> argparse.ArgumentParser:
     backfill.add_argument("--market", choices=("KR", "US"), required=True)
     run = subcommands.add_parser("run")
     run.add_argument("--market", choices=("KR", "US"), required=True)
-    run.add_argument("--start", required=True)
+    run.add_argument("--start")
     run.add_argument("--end", required=True)
+    run.add_argument("--stage", choices=("pilot", "final"), default="pilot")
+    run.add_argument("--pilot-run-id")
     run.add_argument("--fixture", action="store_true")
     return command
 
@@ -53,10 +55,18 @@ def main(argv: list[str] | None = None) -> int:
             "coverage is configured"
         )
         return 2
+    end_date = date.fromisoformat(args.end)
+    start_date = (
+        date.fromisoformat(args.start)
+        if args.start
+        else anniversary_start(end_date, years=1 if args.stage == "pilot" else 3)
+    )
     request = MarketResearchRequest(
         market=args.market,
-        start_date=date.fromisoformat(args.start),
-        end_date=date.fromisoformat(args.end),
+        start_date=start_date,
+        end_date=end_date,
+        stage=args.stage,
+        pilot_run_id=args.pilot_run_id,
     )
     source: MarketHistorySource = (
         FixtureMarketHistorySource()
