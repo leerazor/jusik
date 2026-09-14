@@ -2,9 +2,9 @@
 
 ## point-in-time-discovery
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 한국·미국을 각각 1억원의 독립 계좌로 모의 운용합니다. 과거 각 거래일 종가까지 공개된 전체 시장 자료로 개별주 거래량 상위 20개를 다시 산출하고, 진입·청산 신호를 다음 거래일 시가에 체결해 수익률을 계산합니다. 전체 종목 OHLCV·당시 상장 상태·기업행사·환율 중 필수 자료가 누락되면 결과를 만들지 않고 준비 상태와 원인을 표시합니다. 현재 후보를 과거에 고정하는 경로는 허용하지 않습니다.
-- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore 완료, plan 진행 중, 독립 review 예정.
+- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore·plan·독립 review와 수정 재검토를 완료했습니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-point-in-time-discovery
 - 작업 브랜치: feat/point-in-time-discovery
 - 기준 커밋 SHA: 30c221107d79868cb3605fd0cb6c4c48ab484d95
@@ -13,13 +13,13 @@
 - 수정 허용 범위: point-in-time 시장 원장·source adapter·동적 발굴/백테스트 모델과 API, investor/research 웹 연결, 설정 예시·사용자 문서·mandate 및 관련 테스트. 기존 PAPER·실주문·operations 실행 계약은 변경하지 않습니다.
 - 포트·테스트 DB·출력 경로: 작업 서버 3362/8362, 워크트리 내부 Python/Node 환경, pytest 임시 DB와 fixture. 운영 DB·공유 연구 DB·실제 주문·기존 서버는 사용하지 않습니다.
 - 고정 연구 규칙: 시장별 최대 20종목, 신규 진입은 당시 NAV 5%, 거래량 순위 우선, 현금 부족 시 건너뛰고 기록, 기존 보유는 후보 이탈만으로 매도하지 않음. 20일 고점 돌파 및 당일 거래량이 직전 완료 20일 평균 초과 시 다음 시가 진입, 종가가 SMA20 아래인 상태가 2거래일 연속이면 다음 시가 청산. 미국 계좌는 시작 시점 환율과 비용으로 USD를 조성하고 USD 원장과 KRW 평가 곡선을 함께 제공합니다. KRW NAV 기준 최대 낙폭 20%입니다.
-- 검증 명령과 결과: 예정 — focused/full pytest, Ruff, mypy, frontend lint/typecheck/build, fixture API/browser, 미래정보 누출·생존 편향·누락 자료 fail-closed·환율·휴장일·중복/기업행사 경계 검증.
-- 결과 커밋 SHA: 예정
-- 검토 결과와 남은 문제: 실제 3년 실행은 KRX 승인 키와 미국의 검증 가능한 전시장 OHLCV·historical membership/actions 자료가 모두 준비된 뒤 별도 수행합니다. capability를 자격증명·OHLCV·membership·actions·FX·정책으로 나눠 표시합니다.
-- 병합 직전 main SHA: 예정
-- 통합 커밋 SHA와 정리 여부: 예정
-- 통합 검증 실패 원인과 복구 결과: 해당 없음
-- handoff 저장 경로와 갱신 여부: 예정
+- 검증 명령과 결과: main 관련 pytest 43개, 신규·mandate 35개, Ruff check/format, strict mypy 8개 모듈, frontend lint/typecheck/production build 통과. 전체 pytest는 957개 통과·기존 현재 시각 의존 3개 실패였습니다. iPad 크기 운영 브라우저에서 두 시장의 필수 자료 부족 상태, 연구 단계·메뉴와 console error 0개를 확인했습니다.
+- 결과 커밋 SHA: 59e5a74, cc54ea5, 706b7ba, 28203a2, 97e8035, 74218f5. 후속 연결 수정은 main에 ae30e0c로 cherry-pick했습니다.
+- 검토 결과와 남은 문제: 미래 일봉·FX, 기업행사 무시, 체결일 자료 누락, 시장·통화 혼합, readiness 조작, artifact 불일치, final-day 낙폭 청산 미체결과 잘못된 backend URL을 수정했습니다. 독립 최종 검토 P1/P2 없음. 실제 3년 실행은 KRX 승인 자료와 미국의 검증 가능한 전시장 OHLCV·historical membership/actions·PIT FX가 모두 준비된 뒤 별도 수행합니다.
+- 병합 직전 main SHA: 84de414fbb664cd5534d69d65f5c3e8fafd2d120
+- 통합 커밋 SHA와 정리 여부: 기능 통합 052ba5f5a1c8b7168c849a7cb7ac68b57183c458, 최종 코드 ae30e0c73e6778c700bf87c3ae4f79af5a1a98cc. 검증·handoff 보존 후 이번 워크트리를 정상 제거합니다.
+- 통합 검증 실패 원인과 복구 결과: 운영 브라우저에서 연구 화면이 일반 backend 8000을 조회해 자료를 못 불러오는 문제를 발견했습니다. 기존 `researchBackendUrl`로 수정·추가 통합·재배포 후 한국·미국 readiness 표시를 확인했습니다. 전체 pytest의 3개 실패는 이번 diff 밖의 날짜·현재 시각 의존 기존 테스트입니다.
+- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260914-point-in-time-discovery/HANDOFF.md` 및 루트 `HANDOFF.md`를 갱신합니다.
 
 ## volume-discovery
 
