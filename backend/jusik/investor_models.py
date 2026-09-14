@@ -41,22 +41,60 @@ class Instrument(StrictModel):
         return self
 
 
+class RelativeVolumeFacts(StrictModel):
+    numerator: Decimal | None = Field(default=None, ge=0, allow_inf_nan=False)
+    average20: Decimal | None = Field(default=None, ge=0, allow_inf_nan=False)
+    ratio: Decimal | None = Field(default=None, ge=0, allow_inf_nan=False)
+    sample_count: int = Field(default=0, ge=0, le=20)
+    sample_start: date | None = None
+    sample_end: date | None = None
+    source: str
+    source_url: str | None = None
+    as_of: datetime | None = None
+    fetched_at: datetime
+    unavailable_reason: str | None = Field(default=None, max_length=240)
+
+
 class Candidate(StrictModel):
     instrument: Instrument
     rank: int = Field(ge=1)
     reason: str = Field(min_length=1, max_length=240)
     source: str = Field(min_length=1, max_length=120)
     observed_at: datetime
+    ranking_volume: Decimal | None = Field(default=None, ge=0, allow_inf_nan=False)
+    classification_source: str | None = None
+    classification_observed_at: datetime | None = None
+    relative_volume: RelativeVolumeFacts | None = None
+
+    @field_validator("ranking_volume")
+    @classmethod
+    def integer_ranking_volume(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and value != value.to_integral_value():
+            raise ValueError("순위 거래량은 정수여야 합니다.")
+        return value
+
+
+class DiscoveryCounts(StrictModel):
+    source_rows: int = Field(default=0, ge=0)
+    valid_rows: int = Field(default=0, ge=0)
+    inspected: int = Field(default=0, ge=0)
+    stocks: int = Field(default=0, ge=0)
+    etfs: int = Field(default=0, ge=0)
+    unknown: int = Field(default=0, ge=0)
+    failed: int = Field(default=0, ge=0)
+    unscanned: int = Field(default=0, ge=0)
 
 
 class DiscoveryResult(StrictModel):
     market: Market
     candidates: list[Candidate]
+    etf_candidates: list[Candidate] = Field(default_factory=list)
     coverage: str = Field(min_length=1, max_length=240)
     truncated: bool
     partial: bool = False
     errors: list[str] = Field(default_factory=list, max_length=10)
     fetched_at: datetime
+    counts: DiscoveryCounts = Field(default_factory=DiscoveryCounts)
 
 
 class QuoteFact(StrictModel):

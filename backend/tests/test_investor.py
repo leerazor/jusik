@@ -198,10 +198,19 @@ def test_fixture_investor_routes() -> None:
     with TestClient(fixture_app) as client:
         response = client.get("/api/investor/candidates?market=KR")
         assert response.status_code == 200
+        payload = response.json()
         assert {
-            item["instrument"]["instrument_type"]
-            for item in response.json()["candidates"]
-        } == {"stock", "etf", "unknown"}
+            item["instrument"]["instrument_type"] for item in payload["candidates"]
+        } == {"stock"}
+        assert {
+            item["instrument"]["instrument_type"] for item in payload["etf_candidates"]
+        } == {"etf"}
+        for item in payload["candidates"] + payload["etf_candidates"]:
+            relative = item["relative_volume"]
+            assert Decimal(relative["ratio"]) == (
+                Decimal(relative["numerator"]) / Decimal(relative["average20"])
+            )
+        assert payload["counts"]["unknown"] == 1
         detail = client.get("/api/investor/instrument?market=KR&symbol=005930")
         assert detail.status_code == 200
         payload = detail.json()
@@ -571,7 +580,9 @@ def test_source_reference_and_incomplete_instrument_bounds() -> None:
         )
 
 
-def test_provider_uses_official_rank_code_and_keeps_financial_periods() -> None:
+def test_provider_uses_official_rank_code_and_keeps_financial_periods(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     provider = KisInvestorProvider(None)  # type: ignore[arg-type]
 
     async def request(
@@ -579,7 +590,13 @@ def test_provider_uses_official_rank_code_and_keeps_financial_periods() -> None:
     ) -> dict[str, object]:
         if path.endswith("volume-rank"):
             return {
-                "output": [{"mksc_shrn_iscd": "005930", "hts_kor_isnm": "삼성전자"}]
+                "output": [
+                    {
+                        "mksc_shrn_iscd": "005930",
+                        "hts_kor_isnm": "삼성전자",
+                        "acml_vol": "100",
+                    }
+                ]
             }
         if path.endswith("financial-ratio"):
             return {
@@ -594,7 +611,13 @@ def test_provider_uses_official_rank_code_and_keeps_financial_periods() -> None:
             }
         return {"output": [{"stac_yymm": "202512", "grs": "5"}]}
 
-    provider._request = request  # type: ignore[method-assign]
+    async def classify(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            instrument_type="stock", relative_volume=None, reason=None, failed=False
+        )
+
+    monkeypatch.setattr(provider, "_request", request)
+    monkeypatch.setattr(provider, "_candidate_chart", classify)
     result = asyncio.run(provider.discover("KR"))
     assert result.candidates[0].instrument.symbol == "005930"
     facts = asyncio.run(
@@ -605,6 +628,399 @@ def test_provider_uses_official_rank_code_and_keeps_financial_periods() -> None:
     assert facts.eps == Decimal("6000")
     assert facts.period_end == date(2025, 12, 31)
     assert facts.growth_period_end == date(2025, 12, 31)
+
+
+def test_rank_rows_attempts_each_us_exchange_and_sorts_decimal_volume() -> None:
+    provider = KisInvestorProvider(None)  # type: ignore[arg-type]
+    requested: list[str] = []
+
+    async def request(
+        path: str, _tr_id: str, params: dict[str, str]
+    ) -> dict[str, object]:
+        if path.endswith("trade-vol"):
+            exchange = params["EXCD"]
+            requested.append(exchange)
+            if exchange == "NYS":
+                raise investor_data.httpx.HTTPError("fixture failure")
+            return {
+                "output2": [
+                    {
+                        "symb": "AAA" if exchange == "NAS" else "BBB",
+                        "excd": exchange,
+                        "tvol": "100" if exchange == "NAS" else "80",
+                    }
+                ]
+            }
+        return {}
+
+    provider._request = request  # type: ignore[method-assign]
+    rows, source_rows, errors = asyncio.run(
+        provider._rank_rows("US", datetime(2026, 9, 7, 10, tzinfo=UTC))
+    )
+    assert requested == ["NAS", "NYS", "AMS"]
+    assert source_rows == 2
+    assert [row.instrument.symbol for row in rows] == ["AAA", "BBB"]
+    assert [row.volume for row in rows] == [Decimal("100"), Decimal("80")]
+    assert errors
+
+
+def test_us_qualified_symbol_prefix_is_split_only_for_rsym() -> None:
+    observed_at = datetime(2026, 9, 7, 10, tzinfo=UTC)
+    qualified = investor_data.KisInvestorProvider._parse_rank_row(
+        "US",
+        "NAS",
+        {"rsym": "DNASNVDA", "tvol": "90"},
+        observed_at,
+    )
+    plain = investor_data.KisInvestorProvider._parse_rank_row(
+        "US",
+        "NAS",
+        {"symb": "DIA", "tvol": "80"},
+        observed_at,
+    )
+    conflict = investor_data.KisInvestorProvider._parse_rank_row(
+        "US",
+        "NAS",
+        {"rsym": "DNYSNVDA", "tvol": "90"},
+        observed_at,
+    )
+    assert qualified is not None and qualified.instrument.symbol == "NVDA"
+    assert plain is not None and plain.instrument.symbol == "DIA"
+    assert conflict is None
+
+
+def test_classification_caps_each_verified_type_separately_after_sort() -> None:
+    provider = KisInvestorProvider(None)  # type: ignore[arg-type]
+    observed_at = datetime(2026, 9, 7, 10, tzinfo=UTC)
+    rows = [
+        investor_data._RankedRow(
+            instrument=Instrument(
+                market="US",
+                exchange="NAS",
+                symbol=f"E{index:02d}",
+                currency="USD",
+                name=f"ETF {index}",
+            ),
+            volume=Decimal(200 - index),
+            observed_at=observed_at,
+            source="fixture",
+        )
+        for index in range(20)
+    ] + [
+        investor_data._RankedRow(
+            instrument=Instrument(
+                market="US",
+                exchange="NAS",
+                symbol=f"S{index:02d}",
+                currency="USD",
+                name=f"Stock {index}",
+            ),
+            volume=Decimal(100 - index),
+            observed_at=observed_at,
+            source="fixture",
+        )
+        for index in range(20)
+    ]
+
+    async def classify(*args: object, **_kwargs: object) -> SimpleNamespace:
+        instrument = args[1] if len(args) > 1 else None
+        symbol = instrument.symbol if isinstance(instrument, Instrument) else ""
+        return SimpleNamespace(
+            instrument_type="etf" if symbol.startswith("E") else "stock",
+            relative_volume=None,
+            reason=None,
+            failed=False,
+        )
+
+    provider._candidate_chart = classify  # type: ignore[method-assign]
+    result = asyncio.run(provider._classify_rows("US", rows, 40, [], observed_at))
+    assert len(result.candidates) == 20
+    assert len(result.etf_candidates) == 20
+    assert result.counts.inspected == 40
+    assert result.candidates[0].instrument.instrument_type == "stock"
+    assert result.etf_candidates[0].instrument.instrument_type == "etf"
+
+
+def test_discovery_unscanned_counts_all_valid_rows_beyond_inspection_cap() -> None:
+    progress = investor_data._DiscoveryProgress(
+        counts=investor_data.DiscoveryCounts(),
+        source_rows=300,
+        valid_rows=300,
+        inspected=80,
+    )
+    result = KisInvestorProvider._discovery_result(
+        "US", progress, [], datetime(2026, 9, 14, tzinfo=UTC)
+    )
+    assert result.counts.unscanned == 220
+    assert result.truncated is True
+
+
+def test_cached_loader_cancellation_isolated_and_all_waiters_cancelled_is_drained(
+) -> None:
+    async def run() -> None:
+        provider = KisInvestorProvider(None)  # type: ignore[arg-type]
+        key = ("cache", "cancel")
+        started = asyncio.Event()
+        release = asyncio.Event()
+        calls = 0
+
+        async def loader() -> str:
+            nonlocal calls
+            calls += 1
+            started.set()
+            await release.wait()
+            return "shared"
+
+        first = asyncio.create_task(provider._cached(key, loader))
+        second = asyncio.create_task(provider._cached(key, loader))
+        for _ in range(10):
+            if provider._inflight_waiters.get(key) == 2:
+                break
+            await asyncio.sleep(0)
+        await started.wait()
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        release.set()
+        assert await second == "shared"
+        assert calls == 1
+
+        all_cancel_key = ("cache", "all-cancel")
+        all_started = asyncio.Event()
+        all_release = asyncio.Event()
+
+        async def cancellable_loader() -> str:
+            all_started.set()
+            await all_release.wait()
+            return "never"
+
+        cancelled = [
+            asyncio.create_task(provider._cached(all_cancel_key, cancellable_loader))
+            for _ in range(2)
+        ]
+        for _ in range(10):
+            if provider._inflight_waiters.get(all_cancel_key) == 2:
+                break
+            await asyncio.sleep(0)
+        await all_started.wait()
+        for task in cancelled:
+            task.cancel()
+        results = await asyncio.gather(*cancelled, return_exceptions=True)
+        assert all(isinstance(result, asyncio.CancelledError) for result in results)
+        await asyncio.sleep(0)
+
+        refreshed = await provider._cached(
+            all_cancel_key, lambda: _ready_value("fresh")
+        )
+        assert refreshed == "fresh"
+
+    async def _ready_value(value: str) -> str:
+        return value
+
+    asyncio.run(run())
+
+
+def test_korean_chart_type_fallback_tries_other_board_after_unsupported_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    instrument = Instrument(
+        market="KR",
+        exchange="KRX",
+        symbol="069540",
+        currency="KRW",
+        name="에코프로머티",
+    )
+    calls: list[str] = []
+    metas = {
+        ".KS": {
+            "symbol": "069540.KS",
+            "currency": "KRW",
+            "exchangeName": "KSC",
+            "exchangeTimezoneName": "Asia/Seoul",
+            "instrumentType": "MUTUALFUND",
+        },
+        ".KQ": {
+            "symbol": "069540.KQ",
+            "currency": "KRW",
+            "exchangeName": "KOE",
+            "exchangeTimezoneName": "Asia/Seoul",
+            "instrumentType": "EQUITY",
+        },
+    }
+
+    class FakeClient:
+        async def get(self, url: str, **_kwargs: object) -> SimpleNamespace:
+            suffix = ".KS" if url.endswith(".KS") else ".KQ"
+            calls.append(suffix)
+            return SimpleNamespace(
+                status_code=200,
+                json=lambda: {"chart": {"result": [{"meta": metas[suffix]}]}},
+            )
+
+    provider = KisInvestorProvider(None)  # type: ignore[arg-type]
+    monkeypatch.setattr(provider, "_relative_volume", lambda *_args: None)
+    result = asyncio.run(
+        provider._fetch_candidate_chart(
+            FakeClient(), instrument, datetime(2026, 9, 14, tzinfo=UTC)  # type: ignore[arg-type]
+        )
+    )
+    assert calls == [".KS", ".KQ"]
+    assert result.instrument_type == "stock"
+
+
+def test_relative_volume_uses_exact_twenty_prior_sessions_and_allows_zero_numerator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    instrument = Instrument(
+        market="US",
+        exchange="NYS",
+        symbol="ABC",
+        currency="USD",
+        name="ABC",
+    )
+    sessions: list[date] = []
+    cursor = date(2026, 9, 11)
+    while len(sessions) < 21:
+        if cursor.weekday() < 5:
+            sessions.append(cursor)
+        cursor -= timedelta(days=1)
+
+    def session_for(local_date: date) -> SimpleNamespace:
+        opened = datetime(
+            local_date.year, local_date.month, local_date.day, 13, 30, tzinfo=UTC
+        )
+        return SimpleNamespace(
+            local_date=local_date,
+            open_at=opened,
+            close_at=opened + timedelta(hours=6, minutes=30),
+        )
+
+    class FakeCalendar:
+        coverage_start = date(2026, 1, 1)
+
+        def latest_completed_session(
+            self, _exchange: str, _at: datetime
+        ) -> SimpleNamespace:
+            return session_for(sessions[0])
+
+        def lookup(self, _exchange: str, local_date: date) -> SimpleNamespace:
+            if local_date in sessions:
+                return SimpleNamespace(state="session", session=session_for(local_date))
+            return SimpleNamespace(state="closed", session=None)
+
+    monkeypatch.setattr(investor_data, "default_market_calendar", FakeCalendar)
+    anchor = session_for(sessions[0])
+    fetched_at = anchor.close_at + timedelta(minutes=30)
+    timestamps = [
+        int(session_for(local_date).close_at.timestamp())
+        for local_date in reversed(sessions)
+    ]
+    result = {
+        "timestamp": timestamps,
+        "indicators": {
+            "quote": [{"volume": [10 for _ in timestamps]}],
+        },
+        "events": {"splits": {}},
+    }
+    meta = {
+        "regularMarketVolume": 0,
+        "regularMarketTime": int(anchor.close_at.timestamp()),
+    }
+    facts = KisInvestorProvider(None)._relative_volume(
+        instrument, result, meta, fetched_at, "ABC"
+    )
+    assert facts.numerator == Decimal("0")
+    assert facts.average20 == Decimal("10")
+    assert facts.ratio == Decimal("0")
+    assert facts.sample_count == 20
+    assert facts.sample_start == sessions[-1]
+    assert facts.sample_end == sessions[1]
+
+
+def test_relative_volume_rejects_missing_history_and_splits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    instrument = Instrument(
+        market="US",
+        exchange="NYS",
+        symbol="ABC",
+        currency="USD",
+        name="ABC",
+    )
+    sessions: list[date] = []
+    cursor = date(2026, 9, 11)
+    while len(sessions) < 21:
+        if cursor.weekday() < 5:
+            sessions.append(cursor)
+        cursor -= timedelta(days=1)
+
+    def session_for(local_date: date) -> SimpleNamespace:
+        opened = datetime(
+            local_date.year, local_date.month, local_date.day, 13, 30, tzinfo=UTC
+        )
+        return SimpleNamespace(
+            local_date=local_date,
+            open_at=opened,
+            close_at=opened + timedelta(hours=6, minutes=30),
+        )
+
+    class FakeCalendar:
+        coverage_start = date(2026, 1, 1)
+
+        def latest_completed_session(
+            self, _exchange: str, _at: datetime
+        ) -> SimpleNamespace:
+            return session_for(sessions[0])
+
+        def lookup(self, _exchange: str, local_date: date) -> SimpleNamespace:
+            if local_date in sessions:
+                return SimpleNamespace(state="session", session=session_for(local_date))
+            return SimpleNamespace(state="closed", session=None)
+
+    monkeypatch.setattr(investor_data, "default_market_calendar", FakeCalendar)
+    anchor = session_for(sessions[0])
+    fetched_at = anchor.close_at + timedelta(minutes=30)
+    timestamps = [
+        int(session_for(local_date).close_at.timestamp())
+        for local_date in reversed(sessions)
+    ]
+    base = {
+        "timestamp": timestamps,
+        "indicators": {"quote": [{"volume": [10 for _ in timestamps]}]},
+    }
+    meta = {
+        "regularMarketVolume": 100,
+        "regularMarketTime": int(anchor.close_at.timestamp()),
+    }
+    missing = dict(base)
+    missing["indicators"] = {"quote": [{"volume": [10 for _ in timestamps[:-1]]}]}
+    missing_facts = KisInvestorProvider(None)._relative_volume(
+        instrument, missing, meta, fetched_at, "ABC"
+    )
+    split = dict(base)
+    split["events"] = {
+        "splits": {
+            "event": {"date": int(session_for(sessions[1]).close_at.timestamp())}
+        }
+    }
+    split_facts = KisInvestorProvider(None)._relative_volume(
+        instrument, split, meta, fetched_at, "ABC"
+    )
+    numerator_split = dict(base)
+    numerator_split["events"] = {
+        "splits": {
+            "event": {"date": int(session_for(sessions[0]).close_at.timestamp())}
+        }
+    }
+    numerator_split_facts = KisInvestorProvider(None)._relative_volume(
+        instrument, numerator_split, meta, fetched_at, "ABC"
+    )
+    assert missing_facts.ratio is None
+    assert missing_facts.unavailable_reason
+    assert split_facts.ratio is None
+    assert "분할" in (split_facts.unavailable_reason or "")
+    assert numerator_split_facts.ratio is None
+    assert "분할" in (numerator_split_facts.unavailable_reason or "")
 
 
 def test_provider_analyzes_quote_after_yahoo_fetch(
