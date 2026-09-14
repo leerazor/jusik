@@ -16,6 +16,8 @@ from fastapi.responses import FileResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from jusik.kis_stream import KisReadOnlyStream
+from jusik.market_research_api import router as market_research_router
+from jusik.market_research_service import production_market_research_service
 from jusik.operations_models import (
     ActivateStrategyRequest,
     OperationsStatus,
@@ -261,6 +263,9 @@ def create_research_app(
         except Exception:
             pass
         app.state.research_store = run_store
+        app.state.market_research_service = production_market_research_service(
+            run_store.path.with_name("market-research.db")
+        )
         app.state.research_worker = worker
         app.state.operations_store = operation_store
         app.state.automation = automation
@@ -323,6 +328,7 @@ def create_research_app(
         TrustedHostMiddleware,
         allowed_hosts=["127.0.0.1", "localhost", "testserver"],
     )
+    research_app.include_router(market_research_router)
     portfolio_repository = PortfolioRunRepository(portfolio_report_dir)
     dividend_repository = DividendOverlayRepository(dividend_report_dir)
     robustness_repository = PortfolioRobustnessRepository(validation_report_dir)
