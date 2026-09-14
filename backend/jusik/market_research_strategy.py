@@ -400,6 +400,12 @@ def run_market_research(
     unsettled_sells: set[str] = set()
     below_sma: dict[str, int] = defaultdict(int)
     last_close: dict[str, Decimal] = {}
+    last_mark_session: dict[str, date] = {}
+    missing_held_bars = 0
+    expected_candidate_bars = 0
+    usable_candidate_bars = 0
+    excluded_nonheld_bars = 0
+    limitations: list[str] = []
     peak_nav = request.initial_cash_krw
     drawdown_latched = False
 
@@ -463,6 +469,34 @@ def run_market_research(
                     raise ValueError(
                         f"missing entry bar: {pending.symbol} {session.local_date}"
                     )
+                signal_object = next(
+                    item
+                    for item in all_sessions
+                    if item.local_date == pending.signal_session
+                )
+                membership = next(
+                    (
+                        item
+                        for item in snapshot.memberships
+                        if item.symbol == pending.symbol
+                        and item.instrument_type == "stock"
+                        and item.is_valid_on(session.local_date)
+                        and item.available_at <= signal_object.close_at
+                    ),
+                    None,
+                )
+                if membership is None:
+                    if approximate:
+                        excluded_nonheld_bars += 1
+                        limitations.append(
+                            "진입일 membership 불충분으로 매수를 건너뜀: "
+                            f"{pending.symbol}"
+                        )
+                        continue
+                    raise ValueError(
+                        "invalid entry membership: "
+                        f"{pending.symbol} {session.local_date}"
+                    )
                 nav_native = cash_native + sum(
                     last_close.get(held, Decimal(0)) * quantity
                     for held, quantity in positions.items()
@@ -476,6 +510,7 @@ def run_market_research(
                     continue
                 cash_native -= notional + fee
                 positions[pending.symbol] = quantity
+                last_mark_session[pending.symbol] = session.local_date
                 trades.append(
                     ResearchTrade(
                         session=session.local_date,
@@ -510,10 +545,38 @@ def run_market_research(
             snapshot.memberships, bars_by_key, session, decision_cutoff
         )
         evidence.extend(candidates)
+        if approximate:
+            seen_symbols: set[str] = set()
+            for membership in _eligible_memberships(snapshot.memberships, session):
+                if membership.symbol in seen_symbols:
+                    continue
+                seen_symbols.add(membership.symbol)
+                expected_candidate_bars += 1
+                candidate_bar = bars_by_key.get((membership.symbol, session.local_date))
+                if (
+                    candidate_bar is not None
+                    and candidate_bar.available_at >= session.close_at
+                    and candidate_bar.available_at <= decision_cutoff
+                ):
+                    usable_candidate_bars += 1
+                elif membership.symbol not in positions:
+                    excluded_nonheld_bars += 1
         for symbol in list(positions):
             bar = bars_by_key.get((symbol, session.local_date))
             if bar is None:
                 if approximate:
+                    missing_held_bars += 1
+                    held_from = last_mark_session.get(symbol)
+                    age = 0
+                    if held_from is not None:
+                        age = sum(
+                            item.local_date > held_from
+                            for item in all_sessions[: index + 1]
+                        )
+                    limitations.append(
+                        f"보유 종목 {symbol}은 {age}세션 전 마지막 가격으로 "
+                        "평가합니다(추정값)."
+                    )
                     continue
                 raise ValueError(f"missing signal bar: {symbol} {session.local_date}")
             sma_window = [
@@ -566,6 +629,7 @@ def run_market_research(
             mark = bars_by_key.get((symbol, session.local_date))
             if mark is not None:
                 last_close[symbol] = mark.close
+                last_mark_session[symbol] = session.local_date
         invested_native = sum(
             last_close.get(symbol, Decimal(0)) * quantity
             for symbol, quantity in positions.items()
@@ -601,6 +665,16 @@ def run_market_research(
         "drawdown_latched": Decimal(1 if drawdown_latched else 0),
         "initial_fx_krw_per_usd": initial_fx,
     }
+    if approximate:
+        metrics.update(
+            {
+                "coverage_sessions": Decimal(len(equity)),
+                "expected_candidate_bars": Decimal(expected_candidate_bars),
+                "usable_candidate_bars": Decimal(usable_candidate_bars),
+                "excluded_nonheld_bars": Decimal(excluded_nonheld_bars),
+                "missing_held_bars": Decimal(missing_held_bars),
+            }
+        )
     unsettled = tuple(sorted(set(pending_sells) | unsettled_sells))
     if unsettled:
         return MarketResearchResult(
@@ -616,8 +690,23 @@ def run_market_research(
                 "마지막 거래일 이후 다음 거래일 시가 청산이 체결되지 않아 "
                 "성과를 공개하지 않습니다.",
                 "미청산 잔여 보유: " + ", ".join(unsettled),
+                *limitations,
             ),
-            metrics={},
+            metrics=(
+                {
+                    key: metrics[key]
+                    for key in (
+                        "coverage_sessions",
+                        "expected_candidate_bars",
+                        "usable_candidate_bars",
+                        "excluded_nonheld_bars",
+                        "missing_held_bars",
+                    )
+                    if key in metrics
+                }
+                if approximate
+                else {}
+            ),
             input_hash=snapshot.input_hash,
             policy_hash=policy_hash,
             stage=request.stage,
@@ -647,6 +736,7 @@ def run_market_research(
             ),
             "낙폭 제한은 감지된 뒤 다음 거래일 시가에 청산하며 gap으로 20%를 "
             "초과할 수 있습니다.",
+            *limitations,
         ),
         metrics=metrics,
         input_hash=snapshot.input_hash,

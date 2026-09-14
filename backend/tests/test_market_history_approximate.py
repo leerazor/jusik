@@ -176,6 +176,12 @@ def test_fixture_approximate_result_is_never_strict_ready() -> None:
     assert result.research_grade == "approximate"
     assert result.status == "approximate"
     assert result.completeness == "approximate"
+    assert result.metrics["coverage_sessions"] > 0
+    assert (
+        result.metrics["usable_candidate_bars"]
+        <= result.metrics["expected_candidate_bars"]
+    )
+    assert result.metrics["excluded_nonheld_bars"] == 0
 
 
 def test_approximate_uses_shared_execution_costs_and_next_open_core() -> None:
@@ -200,6 +206,72 @@ def test_approximate_uses_shared_execution_costs_and_next_open_core() -> None:
     assert buys
     assert all(trade.fee > 0 for trade in buys)
     assert all(trade.fill_price > trade.market_open for trade in buys)
+
+
+def test_approximate_held_missing_bar_is_marked_as_estimated() -> None:
+    request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+        research_grade="approximate",
+    )
+    source = FixtureApproximateMarketHistorySource()
+    readiness = source.readiness("KR", datetime(2026, 9, 14, tzinfo=UTC))
+    snapshot = asyncio.run(source.collect(request))
+    baseline = run_approximate_market_research(
+        snapshot, request, readiness, default_market_calendar()
+    )
+    first_buy = next(trade for trade in baseline.trades if trade.side == "buy")
+    missing = next(
+        bar
+        for bar in snapshot.bars
+        if bar.symbol == first_buy.symbol and bar.session > first_buy.fill_session
+    )
+    reduced = snapshot.model_copy(
+        update={"bars": tuple(bar for bar in snapshot.bars if bar != missing)}
+    )
+    result = run_approximate_market_research(
+        reduced, request, readiness, default_market_calendar()
+    )
+    assert result.status == "approximate"
+    assert result.metrics["missing_held_bars"] >= 1
+    assert any("추정값" in limitation for limitation in result.limitations)
+
+
+def test_approximate_does_not_fill_after_membership_expires() -> None:
+    request = MarketResearchRequest(
+        market="KR",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+        research_grade="approximate",
+    )
+    source = FixtureApproximateMarketHistorySource()
+    readiness = source.readiness("KR", datetime(2026, 9, 14, tzinfo=UTC))
+    snapshot = asyncio.run(source.collect(request))
+    baseline = run_approximate_market_research(
+        snapshot, request, readiness, default_market_calendar()
+    )
+    first_buy = next(trade for trade in baseline.trades if trade.side == "buy")
+    expired = snapshot.model_copy(
+        update={
+            "memberships": tuple(
+                membership.model_copy(update={"valid_to": first_buy.signal_session})
+                if membership.symbol == first_buy.symbol
+                else membership
+                for membership in snapshot.memberships
+            )
+        }
+    )
+    result = run_approximate_market_research(
+        expired, request, readiness, default_market_calendar()
+    )
+    assert not any(
+        trade.symbol == first_buy.symbol and trade.side == "buy"
+        for trade in result.trades
+    )
+    assert any("membership" in limitation for limitation in result.limitations)
 
 
 def test_approximate_policy_tracks_the_maintained_mandate_checksum() -> None:
