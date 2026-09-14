@@ -2,15 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { marketResearchRunSchema } from "@/lib/marketResearch";
+import { researchBackendUrl } from "@/lib/research";
 
 export async function createMarketResearchRun(formData: FormData): Promise<void> {
   const market = formData.get("market");
   const startDate = formData.get("start_date");
   const endDate = formData.get("end_date");
-  const backend = process.env.JUSIK_BACKEND_URL ?? "http://127.0.0.1:8000";
   let response: Response;
   try {
-    response = await fetch(`${backend}/api/research/market/runs`, {
+    response = await fetch(`${researchBackendUrl()}/api/research/market/runs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ market, start_date: startDate, end_date: endDate }),

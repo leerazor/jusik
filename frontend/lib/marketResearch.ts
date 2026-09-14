@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { researchBackendUrl } from "@/lib/research";
 
 const capabilitySchema = z.object({
   name: z.enum(["credentials", "entitlement", "calendar", "membership", "bars", "actions", "fx", "policy"]),
@@ -76,25 +77,21 @@ export const marketResearchRunSchema = z.object({
 export type MarketReadiness = z.infer<typeof marketReadinessSchema>;
 export type MarketResearchRun = z.infer<typeof marketResearchRunSchema>;
 
-function backendUrl(): string {
-  return process.env.JUSIK_BACKEND_URL ?? "http://127.0.0.1:8000";
-}
-
 export async function getMarketReadiness(market?: "KR" | "US"): Promise<MarketReadiness[]> {
   const query = market ? `?market=${market}` : "";
-  const response = await fetch(`${backendUrl()}/api/research/market/status${query}`, { cache: "no-store" });
+  const response = await fetch(`${researchBackendUrl()}/api/research/market/status${query}`, { cache: "no-store" });
   if (!response.ok) throw new Error("market research unavailable");
   return z.array(marketReadinessSchema).parse(await response.json());
 }
 
 export async function getMarketResearchRuns(): Promise<MarketResearchRun[]> {
-  const response = await fetch(`${backendUrl()}/api/research/market/runs`, { cache: "no-store" });
+  const response = await fetch(`${researchBackendUrl()}/api/research/market/runs`, { cache: "no-store" });
   if (!response.ok) throw new Error("market research unavailable");
   return z.array(marketResearchRunSchema).parse(await response.json());
 }
 
 export async function getMarketResearchRun(id: string): Promise<MarketResearchRun> {
-  const response = await fetch(`${backendUrl()}/api/research/market/runs/${encodeURIComponent(id)}`, { cache: "no-store" });
+  const response = await fetch(`${researchBackendUrl()}/api/research/market/runs/${encodeURIComponent(id)}`, { cache: "no-store" });
   if (!response.ok) throw new Error("market research unavailable");
   return marketResearchRunSchema.parse(await response.json());
 }
