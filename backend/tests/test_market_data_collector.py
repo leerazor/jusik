@@ -16,12 +16,19 @@ from jusik.market_data_collector import (
     HttpFetcher,
     NetworkCollectorTransport,
     RequestBudgetExceeded,
+    estimate_network_requests,
     parse_alpha_vantage_listing_status,
     parse_fred_observations,
     parse_krx_daily_response,
     parse_krx_daily_trade_response,
     parse_yahoo_chart,
 )
+from jusik.market_history_approximate import (
+    ApproximateMarketHistorySource,
+    JsonApproximateProvider,
+    run_approximate_market_research,
+)
+from jusik.market_history_models import MarketResearchRequest
 from jusik.market_research_cli import main as market_research_cli
 from jusik.research_market_calendar import default_market_calendar
 
@@ -235,6 +242,8 @@ class _FixtureTransport:
                         "TDD_LWPRC": "90",
                         "TDD_CLSPRC": "105",
                         "ACC_TRDVOL": "1000",
+                        "PARVAL": "100",
+                        "LIST_SHRS": "1000000",
                     }
                 ]
             }
@@ -292,6 +301,48 @@ class _FixtureTransport:
 
     async def fred(self, start: date, end: date) -> bytes:
         return b""
+
+    async def krx_basic_info(self, market_board: str, session: date) -> bytes:
+        symbol = "KOSPI1" if market_board == "STK" else "KOSDAQ1"
+        return json.dumps(
+            {
+                "OutBlock_1": [
+                    {"ISU_SRT_CD": symbol, "PARVAL": "100", "LIST_SHRS": "1000000"}
+                ]
+            }
+        ).encode()
+
+
+class _CorporateActionTransport(_FixtureTransport):
+    def __init__(self, mode: str) -> None:
+        super().__init__()
+        self.mode = mode
+        self.action_session = date(2026, 1, 5)
+
+    async def krx(self, market_board: str, start: date, end: date) -> bytes:
+        if (self.mode == "delisting" and start >= self.action_session) or (
+            self.mode == "halt" and start == self.action_session
+        ):
+            return b'{"OutBlock_1": []}'
+        body = await super().krx(market_board, start, end)
+        if self.mode == "split" and start >= self.action_session:
+            payload = json.loads(body)
+            payload["OutBlock_1"][0]["PARVAL"] = "200"
+            return json.dumps(payload).encode()
+        return body
+
+    async def krx_basic_info(self, market_board: str, session: date) -> bytes:
+        value = (
+            "200" if self.mode == "split" and session >= self.action_session else "100"
+        )
+        symbol = "KOSPI1" if market_board == "STK" else "KOSDAQ1"
+        return json.dumps(
+            {
+                "OutBlock_1": [
+                    {"ISU_SRT_CD": symbol, "PARVAL": value, "LIST_SHRS": "1000000"}
+                ]
+            }
+        ).encode()
 
 
 class _USCheckpointTransport:
@@ -387,6 +438,36 @@ def test_collector_builds_validated_kr_dataset_without_current_universe_fallback
     assert result.dataset.simulated is False
 
 
+def test_krx_collector_output_round_trips_through_approximate_strategy(
+    tmp_path: Path,
+) -> None:
+    start = date(2025, 9, 14)
+    end = date(2026, 9, 14)
+    collected = asyncio.run(
+        FreeMarketDataCollector(_FixtureTransport()).collect(
+            market="KR", start=start, end=end, sample_size=1
+        )
+    )
+    prepared = tmp_path / "prepared.json"
+    prepared.write_bytes(collected.dataset.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="KR",
+        start_date=start,
+        end_date=end,
+        research_grade="approximate",
+    )
+    provider = JsonApproximateProvider(prepared)
+    source = ApproximateMarketHistorySource(provider)
+    snapshot = asyncio.run(source.collect(request))
+    readiness = source.readiness("KR", datetime(2026, 9, 14, tzinfo=UTC))
+    result = run_approximate_market_research(
+        snapshot, request, readiness, default_market_calendar()
+    )
+    assert snapshot.bars
+    assert snapshot.bars[0].source == "krx"
+    assert result.research_grade == "approximate"
+
+
 def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap() -> (
     None
 ):
@@ -408,6 +489,27 @@ def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap()
     assert any(
         "membership checkpoint unavailable" in item for item in failed.limitations
     )
+
+
+@pytest.mark.parametrize(
+    ("mode", "reason"),
+    [
+        ("split", "par value or listed shares changed"),
+        ("halt", "halt or missing trade bar"),
+        ("delisting", "delisting"),
+    ],
+)
+def test_krx_event_forward_exclusion_is_truthful(mode: str, reason: str) -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(_CorporateActionTransport(mode)).collect(
+            market="KR",
+            start=date(2025, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=1,
+        )
+    )
+    assert any(reason in limitation for limitation in result.limitations)
+    assert all(bar.session < date(2026, 1, 5) for bar in result.dataset.bars)
 
 
 def test_cli_collector_missing_keys_is_controlled_and_cache_status_is_truthful(
@@ -498,6 +600,18 @@ def test_http_fetcher_budget_blocks_retry_attempt(tmp_path: Path) -> None:
     assert client.calls == 1
 
 
+def test_network_request_estimate_is_bounded_for_one_and_three_year_ranges() -> None:
+    one_year = estimate_network_requests(
+        market="KR", start=date(2025, 9, 14), end=date(2026, 9, 14)
+    )
+    three_year = estimate_network_requests(
+        market="KR", start=date(2023, 9, 14), end=date(2026, 9, 14)
+    )
+    assert one_year > 0
+    assert three_year > one_year
+    assert three_year < 10_000
+
+
 class _RecordingHttpClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, dict[str, object]]] = []
@@ -517,7 +631,7 @@ def test_network_krx_uses_official_post_daily_and_basic_shapes(tmp_path: Path) -
         settings,
     )
     asyncio.run(transport.krx("STK", date(2026, 9, 14), date(2026, 9, 14)))
-    asyncio.run(transport.krx_basic_info("ALL"))
+    asyncio.run(transport.krx_basic_info("ALL", date(2026, 9, 14)))
     assert [call[0] for call in client.calls] == ["POST", "POST"]
     daily = client.calls[0][2]["data"]
     assert isinstance(daily, dict)
