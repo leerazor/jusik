@@ -73,10 +73,15 @@ class InvestorStore:
         return self._load(row)
 
     def save(
-        self, thesis_id: str | None, request: ThesisWrite, evidence: AnalysisResult
+        self,
+        thesis_id: str | None,
+        request: ThesisWrite,
+        evidence: AnalysisResult,
+        current_analysis: AnalysisResult | None = None,
     ) -> Thesis:
         now = datetime.now(UTC)
         actual_id = thesis_id or uuid4().hex
+        latest = current_analysis or evidence
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
@@ -94,15 +99,42 @@ class InvestorStore:
                     created_at=current.created_at,
                     updated_at=now,
                     evidence=evidence,
+                    current_analysis=latest,
                     review=review_thesis(
-                        current.model_copy(update={"evidence": evidence}), evidence
+                        current.model_copy(update={"evidence": latest}), latest
                     ),
                 )
-                if candidate.model_dump(
-                    exclude={"revision", "updated_at", "evidence"}
-                ) == current.model_dump(exclude={"revision", "updated_at", "evidence"}):
+                comparable = {
+                    "revision",
+                    "updated_at",
+                    "evidence",
+                    "current_analysis",
+                    "review",
+                }
+                if candidate.model_dump(exclude=comparable) == current.model_dump(
+                    exclude=comparable
+                ):
+                    refreshed = current.model_copy(
+                        update={
+                            "updated_at": now,
+                            "current_analysis": latest,
+                            "review": review_thesis(
+                                current.model_copy(update={"evidence": latest}), latest
+                            ),
+                        }
+                    )
+                    refreshed_payload = json.dumps(
+                        refreshed.model_dump(mode="json"),
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    )
+                    connection.execute(
+                        "UPDATE investor_theses SET payload = ?, updated_at = ? "
+                        "WHERE id = ?",
+                        (refreshed_payload, now.isoformat(), actual_id),
+                    )
                     connection.commit()
-                    return current
+                    return refreshed
             else:
                 if request.expected_revision != 0:
                     connection.rollback()
@@ -114,9 +146,10 @@ class InvestorStore:
                     created_at=now,
                     updated_at=now,
                     evidence=evidence,
+                    current_analysis=latest,
                 )
             candidate = candidate.model_copy(
-                update={"review": review_thesis(candidate, evidence)}
+                update={"review": review_thesis(candidate, latest)}
             )
             payload = json.dumps(
                 candidate.model_dump(mode="json"),

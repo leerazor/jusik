@@ -13,16 +13,17 @@ export const instrumentSchema = z.object({
 });
 const quoteSchema = z.object({
   price: decimal.nullable(), currency: z.enum(["KRW", "USD"]), as_of: timestamp.nullable(),
-  fetched_at: timestamp, source: z.string(), unavailable_reason: z.string().nullable(),
+  fetched_at: timestamp, source: z.string(), source_url: z.string().url().nullable(), unavailable_reason: z.string().nullable(),
 });
 const factsSchema = z.object({
   eps: decimal.nullable(), eps_period: z.string().nullable(), per: decimal.nullable(), pbr: decimal.nullable(),
   growth: decimal.nullable(), roe: decimal.nullable(), debt_ratio: decimal.nullable(), period_end: z.iso.date().nullable(),
-  source: z.string().nullable(), fetched_at: timestamp.nullable(), unavailable_reasons: z.array(z.string()),
+  growth_period_end: z.iso.date().nullable(), roe_period_end: z.iso.date().nullable(), debt_period_end: z.iso.date().nullable(),
+  source: z.string().nullable(), source_url: z.string().url().nullable(), fetched_at: timestamp.nullable(), unavailable_reasons: z.array(z.string()),
 });
 const trendSchema = z.object({
   breakout_observed: z.boolean().nullable(), deterioration_observed: z.boolean().nullable(),
-  latest_completed_session: z.iso.date().nullable(), rule_version: z.string(), source: z.string().nullable(), unavailable_reasons: z.array(z.string()),
+  latest_completed_session: z.iso.date().nullable(), rule_version: z.string(), source: z.string().nullable(), source_url: z.string().url().nullable(), unavailable_reasons: z.array(z.string()),
 });
 export const analysisSchema = z.object({
   instrument: instrumentSchema, quote: quoteSchema, fundamentals: factsSchema, trend: trendSchema,
@@ -35,7 +36,7 @@ export const candidateSchema = z.object({ instrument: instrumentSchema, rank: z.
 export const discoverySchema = z.object({ market: marketSchema, candidates: z.array(candidateSchema), coverage: z.string(), truncated: z.boolean(), partial: z.boolean(), errors: z.array(z.string()), fetched_at: timestamp });
 export const valuationSchema = z.object({ normalized_eps: decimal.nullable(), eps_period: z.string().nullable(), target_pe_lower: decimal.nullable(), target_pe_upper: decimal.nullable(), margin_of_safety: decimal.nullable(), rationale: z.string().nullable() });
 export const thesisSchema = z.object({
-  instrument: instrumentSchema, state: z.enum(["watch", "holding", "closed"]), entry_kind: z.enum(["value", "trend"]), why: z.string(), source_references: z.array(z.string()), invalidation_criteria: z.string(), next_review: z.iso.date(), health: z.enum(["intact", "broken", "unknown"]), risk_price: decimal.nullable(), valuation: valuationSchema.nullable(), expected_revision: z.number().int().nonnegative().optional(), id: z.string(), revision: z.number().int().positive(), created_at: timestamp, updated_at: timestamp, evidence: analysisSchema, review: z.object({ decision: z.enum(["hold_review", "exit_review", "deferred", "closed"]), reasons: z.array(z.string()), review_overdue: z.boolean() }),
+  instrument: instrumentSchema, state: z.enum(["watch", "holding", "closed"]), entry_kind: z.enum(["value", "trend"]), why: z.string(), source_references: z.array(z.string()), invalidation_criteria: z.string(), next_review: z.iso.date(), health: z.enum(["intact", "broken", "unknown"]), risk_price: decimal.nullable(), valuation: valuationSchema.nullable(), expected_revision: z.number().int().nonnegative().optional(), id: z.string(), revision: z.number().int().positive(), created_at: timestamp, updated_at: timestamp, evidence: analysisSchema, current_analysis: analysisSchema.nullable(), review: z.object({ decision: z.enum(["hold_review", "exit_review", "deferred", "closed"]), reasons: z.array(z.string()), review_overdue: z.boolean() }),
 });
 export type Discovery = z.infer<typeof discoverySchema>;
 export type Detail = z.infer<typeof detailSchema>;

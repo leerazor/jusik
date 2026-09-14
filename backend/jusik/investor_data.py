@@ -1,10 +1,12 @@
 import asyncio
+import calendar
 import json
+import math
 import time
 from collections.abc import Callable, Coroutine, Mapping
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -24,6 +26,7 @@ from jusik.investor_models import (
     TrendFacts,
 )
 from jusik.kis import BrokerError, KisClient
+from jusik.research_market_calendar import default_market_calendar
 
 SOURCE_URL = "https://apiportal.koreainvestment.com/apiservice"
 MAX_CANDIDATES = 20
@@ -42,6 +45,16 @@ def _decimal(value: object) -> Decimal | None:
 
 def _text(value: object) -> str:
     return str(value or "").strip()
+
+
+def _period_end(value: object) -> date | None:
+    text = _text(value).replace(".", "").replace("-", "")
+    if len(text) != 6 or not text.isdigit():
+        return None
+    year, month = int(text[:4]), int(text[4:])
+    if month not in range(1, 13):
+        return None
+    return date(year, month, calendar.monthrange(year, month)[1])
 
 
 class InvestorProvider(Protocol):
@@ -106,7 +119,7 @@ class KisInvestorProvider:
         instrument_type = "etf" if etyp and "ETF" in etyp.upper() else "unknown"
         return Instrument(
             market=market,
-            exchange=exchange,
+            exchange="KRX" if market == "KR" else exchange,
             symbol=symbol,
             currency="KRW" if market == "KR" else "USD",
             name=name,
@@ -170,7 +183,10 @@ class KisInvestorProvider:
             seen: set[str] = set()
             for row in rows:
                 symbol = _text(
-                    row.get("stck_shrn_iscd") or row.get("symb") or row.get("rsym")
+                    row.get("mksc_shrn_iscd")
+                    or row.get("stck_shrn_iscd")
+                    or row.get("symb")
+                    or row.get("rsym")
                 )
                 if market == "US" and symbol.startswith("D") and len(symbol) > 5:
                     symbol = symbol[5:]
@@ -237,6 +253,7 @@ class KisInvestorProvider:
                         currency="KRW",
                         fetched_at=now,
                         source="KIS 국내 현재가",
+                        source_url=SOURCE_URL,
                         unavailable_reason=None if price else "현재가가 없습니다.",
                     )
                     fundamentals = FundamentalFacts(
@@ -244,6 +261,7 @@ class KisInvestorProvider:
                         per=_decimal(output.get("per")),
                         pbr=_decimal(output.get("pbr")),
                         source="KIS 국내 현재가",
+                        source_url=SOURCE_URL,
                         fetched_at=now,
                     )
                     fundamentals = await self._kr_financials(
@@ -286,6 +304,7 @@ class KisInvestorProvider:
                         currency="USD",
                         fetched_at=now,
                         source="KIS 해외 현재가상세",
+                        source_url=SOURCE_URL,
                         unavailable_reason=None
                         if _decimal(output.get("last"))
                         else "현재가가 없습니다.",
@@ -295,6 +314,7 @@ class KisInvestorProvider:
                         per=_decimal(output.get("perx")),
                         pbr=_decimal(output.get("pbrx")),
                         source="KIS 해외 현재가상세",
+                        source_url=SOURCE_URL,
                         fetched_at=now,
                     )
                     resolved_instrument = resolved_instrument.model_copy(
@@ -323,6 +343,7 @@ class KisInvestorProvider:
                     currency=resolved_instrument.currency,
                     fetched_at=now,
                     source="KIS",
+                    source_url=SOURCE_URL,
                     unavailable_reason="현재가·식별 정보를 확인할 수 없습니다.",
                 )
                 return InstrumentDetail(
@@ -387,13 +408,23 @@ class KisInvestorProvider:
                 else {}
             )
             period = _text(ratio.get("stac_yymm") or growth.get("stac_yymm")) or None
+            ratio_period_end = _period_end(ratio.get("stac_yymm"))
+            growth_period_end = _period_end(growth.get("stac_yymm"))
+            ratio_eps = _decimal(ratio.get("eps"))
             return base.model_copy(
                 update={
                     "growth": _decimal(growth.get("grs") or ratio.get("grs")),
                     "roe": _decimal(ratio.get("roe_val")),
                     "debt_ratio": _decimal(ratio.get("lblt_rate")),
-                    "period_end": None,
-                    "eps_period": period,
+                    "eps": ratio_eps if ratio_eps is not None else base.eps,
+                    "period_end": ratio_period_end or growth_period_end,
+                    "growth_period_end": growth_period_end,
+                    "roe_period_end": ratio_period_end,
+                    "debt_period_end": ratio_period_end,
+                    "eps_period": period if ratio_eps is not None else base.eps_period,
+                    "source": (
+                        "KIS financial-ratio (EPS·ROE·부채) + growth-ratio (성장)"
+                    ),
                     "unavailable_reasons": []
                     if ratio or growth
                     else ["재무비율 응답이 비어 있습니다."],
@@ -407,12 +438,21 @@ class KisInvestorProvider:
     async def _yahoo_trend(
         self, instrument: Instrument
     ) -> tuple[TrendFacts, InstrumentType | None]:
-        ticker = (
-            f"{instrument.symbol}.KS"
-            if instrument.market == "KR"
-            else instrument.symbol
-        )
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+        suffixes = (".KS", ".KQ") if instrument.market == "KR" else ("",)
+        calendar = default_market_calendar()
+        now = datetime.now(UTC)
+        expected = calendar.latest_completed_session(instrument.exchange, now)
+        if expected is None:
+            return (
+                TrendFacts(
+                    source="Yahoo chart",
+                    unavailable_reasons=[
+                        "거래소 달력에서 최신 완료 거래일을 확인하지 못했습니다."
+                    ],
+                ),
+                None,
+            )
+        verified_type: InstrumentType | None = None
         try:
             async with httpx.AsyncClient(
                 timeout=10,
@@ -420,119 +460,147 @@ class KisInvestorProvider:
                 trust_env=False,
                 headers={"User-Agent": "jusik-investor/1.0"},
             ) as client:
-                response = await client.get(
-                    url,
-                    params={
-                        "range": "6mo",
-                        "interval": "1d",
-                        "events": "div,splits",
-                        "includeAdjustedClose": "true",
-                    },
-                )
-                response.raise_for_status()
-                payload = response.json()
-            chart = payload.get("chart")
-            results = chart.get("result") if isinstance(chart, Mapping) else None
-            result = results[0] if isinstance(results, list) and results else None
-            if not isinstance(result, Mapping):
-                raise ValueError("chart result unavailable")
-            meta = result.get("meta")
-            if not isinstance(meta, Mapping):
-                raise ValueError("chart identity unavailable")
-            returned = _text(meta.get("symbol")).upper()
-            if returned != ticker.upper():
-                raise ValueError("chart identity mismatch")
-            provider_type = _text(meta.get("instrumentType")).upper()
-            if provider_type not in {"EQUITY", "ETF"}:
-                raise ValueError("chart type unavailable")
-            if instrument.instrument_type == "stock" and provider_type != "EQUITY":
-                raise ValueError("provider type conflict")
-            if instrument.instrument_type == "etf" and provider_type != "ETF":
-                raise ValueError("provider type conflict")
-            timestamps = result.get("timestamp")
-            indicators = result.get("indicators")
-            quote = indicators.get("quote") if isinstance(indicators, Mapping) else None
-            adj = (
-                indicators.get("adjclose") if isinstance(indicators, Mapping) else None
-            )
-            raw = quote[0] if isinstance(quote, list) and quote else None
-            adjusted = (
-                adj[0].get("adjclose")
-                if isinstance(adj, list) and adj and isinstance(adj[0], Mapping)
-                else None
-            )
-            if (
-                not isinstance(timestamps, list)
-                or not isinstance(raw, Mapping)
-                or not isinstance(adjusted, list)
-            ):
-                raise ValueError("chart bars unavailable")
-            timezone = ZoneInfo(
-                "Asia/Seoul" if instrument.market == "KR" else "America/New_York"
-            )
-            today = datetime.now(UTC).astimezone(timezone).date()
-            bars: list[DailyBar] = []
-            future_seen = False
-            for stamp, close, adj_close, volume in zip(
-                timestamps,
-                raw.get("close", []),
-                adjusted,
-                raw.get("volume", []),
-                strict=False,
-            ):
-                if (
-                    not isinstance(stamp, (int, float))
-                    or not isinstance(adj_close, (int, float))
-                    or not isinstance(close, (int, float))
-                    or not isinstance(volume, (int, float))
-                ):
-                    continue
-                session = datetime.fromtimestamp(stamp, UTC).astimezone(timezone).date()
-                if session > today:
-                    future_seen = True
-                    continue
-                if session >= today:
-                    continue
-                parsed_close = _decimal(adj_close)
-                parsed_volume = _decimal(volume)
-                if (
-                    parsed_close is not None
-                    and parsed_volume is not None
-                    and parsed_close > 0
-                    and parsed_volume >= 0
-                ):
-                    bars.append(
-                        DailyBar(
-                            session=session,
-                            close=parsed_close,
-                            volume=parsed_volume,
-                            adjusted=True,
-                        )
+                for suffix in suffixes:
+                    ticker = f"{instrument.symbol}{suffix}"
+                    response = await client.get(
+                        f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
+                        params={
+                            "range": "6mo",
+                            "interval": "1d",
+                            "events": "div,splits",
+                            "includeAdjustedClose": "true",
+                        },
                     )
-            if future_seen:
-                return (
-                    TrendFacts(
-                        source="Yahoo chart",
-                        unavailable_reasons=[
-                            "미래 거래일 자료가 포함되어 추세를 보류합니다."
-                        ],
-                    ),
-                    "etf" if provider_type == "ETF" else "stock",
-                )
-            if len(bars) < 22:
-                return (
-                    TrendFacts(
-                        source="Yahoo chart",
-                        unavailable_reasons=[
-                            "완료된 조정 일봉 22개를 확인하지 못했습니다."
-                        ],
-                    ),
-                    "etf" if provider_type == "ETF" else "stock",
-                )
-            return (
-                evaluate_trend(bars, today=today, source="Yahoo chart"),
-                "etf" if provider_type == "ETF" else "stock",
-            )
+                    if response.status_code >= 400:
+                        continue
+                    payload = response.json()
+                    chart = payload.get("chart")
+                    results = (
+                        chart.get("result") if isinstance(chart, Mapping) else None
+                    )
+                    result = (
+                        results[0] if isinstance(results, list) and results else None
+                    )
+                    if not isinstance(result, Mapping):
+                        continue
+                    meta = result.get("meta")
+                    if not isinstance(meta, Mapping):
+                        continue
+                    if _text(meta.get("symbol")).upper() != ticker.upper():
+                        continue
+                    provider_type = _text(meta.get("instrumentType")).upper()
+                    if provider_type not in {"EQUITY", "ETF"}:
+                        continue
+                    verified_type = "etf" if provider_type == "ETF" else "stock"
+                    if (
+                        instrument.instrument_type == "stock"
+                        and provider_type != "EQUITY"
+                    ):
+                        continue
+                    if instrument.instrument_type == "etf" and provider_type != "ETF":
+                        continue
+                    timestamps = result.get("timestamp")
+                    indicators = result.get("indicators")
+                    quote = (
+                        indicators.get("quote")
+                        if isinstance(indicators, Mapping)
+                        else None
+                    )
+                    adj = (
+                        indicators.get("adjclose")
+                        if isinstance(indicators, Mapping)
+                        else None
+                    )
+                    raw = quote[0] if isinstance(quote, list) and quote else None
+                    adjusted = (
+                        adj[0].get("adjclose")
+                        if isinstance(adj, list) and adj and isinstance(adj[0], Mapping)
+                        else None
+                    )
+                    closes = raw.get("close") if isinstance(raw, Mapping) else None
+                    volumes = raw.get("volume") if isinstance(raw, Mapping) else None
+                    if not all(
+                        isinstance(item, list)
+                        for item in (timestamps, closes, volumes, adjusted)
+                    ):
+                        continue
+                    timestamps = cast(list[object], timestamps)
+                    closes = cast(list[object], closes)
+                    volumes = cast(list[object], volumes)
+                    adjusted = cast(list[object], adjusted)
+                    if (
+                        not len(
+                            {len(timestamps), len(closes), len(volumes), len(adjusted)}
+                        )
+                        == 1
+                    ):
+                        continue
+                    timezone = ZoneInfo(
+                        "Asia/Seoul"
+                        if instrument.market == "KR"
+                        else "America/New_York"
+                    )
+                    today_local = now.astimezone(timezone).date()
+                    bars: list[DailyBar] = []
+                    for stamp, close, adj_close, volume in zip(
+                        timestamps, closes, adjusted, volumes, strict=True
+                    ):
+                        if any(
+                            isinstance(item, bool)
+                            or not isinstance(item, (int, float))
+                            or not math.isfinite(float(item))
+                            for item in (stamp, close, adj_close, volume)
+                        ):
+                            bars = []
+                            break
+                        session = (
+                            datetime.fromtimestamp(float(cast(int | float, stamp)), UTC)
+                            .astimezone(timezone)
+                            .date()
+                        )
+                        if session > today_local:
+                            bars = []
+                            break
+                        if session == today_local and (
+                            expected.local_date != today_local
+                            or expected.close_at > now
+                        ):
+                            continue
+                        parsed_close = _decimal(adj_close)
+                        parsed_volume = _decimal(volume)
+                        if (
+                            parsed_close is None
+                            or parsed_volume is None
+                            or parsed_close <= 0
+                            or parsed_volume < 0
+                        ):
+                            bars = []
+                            break
+                        bars.append(
+                            DailyBar(
+                                session=session,
+                                close=parsed_close,
+                                volume=parsed_volume,
+                                adjusted=True,
+                            )
+                        )
+                    if not bars:
+                        continue
+                    trend = evaluate_trend(
+                        bars,
+                        today=expected.local_date,
+                        expected_latest_session=expected.local_date,
+                        source=f"Yahoo chart ({ticker})",
+                    )
+                    if trend.unavailable_reasons:
+                        continue
+                    trend = trend.model_copy(
+                        update={
+                            "source_url": f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+                        }
+                    )
+                    return trend, verified_type
+            raise ValueError("validated chart bars unavailable")
         except (httpx.HTTPError, json.JSONDecodeError, TypeError, ValueError):
             return (
                 TrendFacts(
@@ -541,7 +609,7 @@ class KisInvestorProvider:
                         "신뢰할 수 있는 조정 일봉 자료를 확인하지 못했습니다."
                     ],
                 ),
-                None,
+                verified_type,
             )
 
 

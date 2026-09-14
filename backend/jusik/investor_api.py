@@ -37,6 +37,32 @@ def _origin_allowed(origin: str | None) -> bool:
     }
 
 
+def _identity_matches(left: Instrument, right: Instrument) -> bool:
+    return (
+        left.market == right.market
+        and left.exchange == right.exchange
+        and left.symbol == right.symbol
+        and left.currency == right.currency
+    )
+
+
+def _canonical_payload(payload: ThesisWrite, detail: Instrument) -> ThesisWrite:
+    if not _identity_matches(payload.instrument, detail):
+        raise HTTPException(
+            status_code=409,
+            detail="종목 시장·거래소·코드·통화가 조회 결과와 다릅니다.",
+        )
+    if (
+        payload.instrument.name != detail.name
+        or payload.instrument.instrument_type != detail.instrument_type
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="종목 이름·유형이 최신 조회 결과와 다릅니다. 다시 조회하세요.",
+        )
+    return payload.model_copy(update={"instrument": detail})
+
+
 @router.get("/candidates", response_model=DiscoveryResult)
 async def candidates(
     market: Market, request: Request, response: Response
@@ -109,16 +135,19 @@ async def thesis_create_or_update(
     provider, store = _services(request)
     try:
         detail = await provider.detail(payload.instrument)
-        canonical = payload.model_copy(update={"instrument": detail.instrument})
-        evidence = analyze(
+        canonical = _canonical_payload(payload, detail.instrument)
+        current_analysis = analyze(
             detail.instrument,
             detail.analysis.quote,
             detail.analysis.fundamentals,
             detail.analysis.trend,
             assumptions=canonical.valuation,
             entry_kind=canonical.entry_kind,
+            now=detail.analysis.analyzed_at,
         )
-        return store.save(None, canonical, evidence)
+        return store.save(
+            None, canonical, detail.analysis, current_analysis=current_analysis
+        )
     except ThesisConflictError:
         raise HTTPException(
             status_code=409, detail="thesis revision conflict"
@@ -139,17 +168,34 @@ async def thesis_update(
         )
     provider, store = _services(request)
     try:
-        detail = await provider.detail(payload.instrument)
-        canonical = payload.model_copy(update={"instrument": detail.instrument})
-        evidence = analyze(
+        current = store.get(thesis_id)
+        if not _identity_matches(payload.instrument, current.instrument):
+            raise HTTPException(
+                status_code=409,
+                detail="저장된 종목 식별자는 변경할 수 없습니다.",
+            )
+        detail = await provider.detail(current.instrument)
+        if not _identity_matches(detail.instrument, current.instrument):
+            raise HTTPException(
+                status_code=409,
+                detail="최신 조회 결과의 종목 식별자가 저장 기록과 다릅니다.",
+            )
+        canonical = _canonical_payload(payload, detail.instrument)
+        current_analysis = analyze(
             detail.instrument,
             detail.analysis.quote,
             detail.analysis.fundamentals,
             detail.analysis.trend,
             assumptions=canonical.valuation,
             entry_kind=canonical.entry_kind,
+            now=detail.analysis.analyzed_at,
         )
-        return store.save(thesis_id, canonical, evidence)
+        return store.save(
+            thesis_id,
+            canonical,
+            detail.analysis,
+            current_analysis=current_analysis,
+        )
     except ThesisConflictError:
         raise HTTPException(
             status_code=409, detail="thesis revision conflict"

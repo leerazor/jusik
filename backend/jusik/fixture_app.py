@@ -40,6 +40,7 @@ from jusik.models import (
 )
 
 NOW = datetime(2026, 9, 7, 10, 0, tzinfo=UTC)
+INVESTOR_NOW = datetime(2026, 9, 7, 10, 0, tzinfo=UTC)
 
 
 def _holding(
@@ -295,7 +296,7 @@ def _investor_detail(
         if missing
         else Decimal("72000" if instrument.market == "KR" else "180.25"),
         currency=instrument.currency,
-        fetched_at=NOW,
+        fetched_at=INVESTOR_NOW,
         source="합성 fixture · 실제 시세 아님",
         unavailable_reason="합성 fixture에서 의도적으로 누락" if missing else None,
     )
@@ -312,21 +313,30 @@ def _investor_detail(
         fetched_at=NOW,
         unavailable_reasons=["합성 fixture에서 의도적으로 누락"] if missing else [],
     )
+    sessions: list[date] = []
+    cursor = date(2026, 9, 4)
+    while len(sessions) < 22:
+        if cursor.weekday() < 5:
+            sessions.append(cursor)
+        cursor -= timedelta(days=1)
     bars = [
         DailyBar(
-            session=date(2026, 8, 1) + timedelta(days=index),
+            session=session,
             close=Decimal("100"),
             volume=Decimal("10"),
             adjusted=True,
         )
-        for index in range(22)
+        for session in reversed(sessions)
     ]
     if instrument.instrument_type == "stock" and not missing:
         bars[-1] = bars[-1].model_copy(
             update={"close": Decimal("120"), "volume": Decimal("20")}
         )
     trend = evaluate_trend(
-        bars, today=date(2026, 9, 1), source="합성 fixture · 실제 일봉 아님"
+        bars,
+        today=INVESTOR_NOW.date(),
+        expected_latest_session=sessions[0],
+        source="합성 fixture · 실제 일봉 아님",
     )
     if missing:
         trend = TrendFacts(

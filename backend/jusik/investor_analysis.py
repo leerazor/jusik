@@ -35,6 +35,7 @@ def evaluate_trend(
     bars: Iterable[DailyBar],
     *,
     today: date | None = None,
+    expected_latest_session: date | None = None,
     source: str = "KIS/Yahoo chart",
 ) -> TrendFacts:
     """Evaluate a fixed interpretable observation on completed daily bars."""
@@ -43,6 +44,14 @@ def evaluate_trend(
     reason = _invalid_bars(values, current_day)
     if reason:
         return TrendFacts(source=source, unavailable_reasons=[reason])
+    if (
+        expected_latest_session is not None
+        and values[-1].session != expected_latest_session
+    ):
+        return TrendFacts(
+            source=source,
+            unavailable_reasons=["최신 완료 거래일 자료가 없어 추세를 보류합니다."],
+        )
     latest = values[-1]
     previous = values[-2]
     previous20 = values[-21:-1]
@@ -73,8 +82,14 @@ def evaluate_trend(
 
 
 def _value_status(
-    quote: QuoteFact, facts: FundamentalFacts, assumptions: ValuationAssumptions | None
+    quote: QuoteFact,
+    facts: FundamentalFacts,
+    assumptions: ValuationAssumptions | None,
+    *,
+    unavailable_reason: str | None = None,
 ) -> tuple[str, list[str]]:
+    if unavailable_reason:
+        return "unassessed", [unavailable_reason]
     if (
         assumptions is None
         or assumptions.normalized_eps is None
@@ -128,13 +143,28 @@ def analyze(
     now: datetime | None = None,
 ) -> AnalysisResult:
     timestamp = now or datetime.now(UTC)
+    quote_reason: str | None = None
+    expected_currency = "KRW" if instrument.market == "KR" else "USD"
+    if quote.currency != expected_currency:
+        quote_reason = "시세 통화가 종목 시장과 일치하지 않아 판단을 보류합니다."
+    elif quote.fetched_at.tzinfo is None or quote.fetched_at > timestamp:
+        quote_reason = "시세 확인 시각이 유효하지 않아 판단을 보류합니다."
+    elif quote.as_of is not None:
+        if quote.as_of.tzinfo is None or quote.as_of > timestamp:
+            quote_reason = "시세 기준 시각이 유효하지 않아 판단을 보류합니다."
+        elif (timestamp - quote.as_of).days > 7:
+            quote_reason = "시세 기준일이 오래되어 판단을 보류합니다."
+    if quote.unavailable_reason:
+        quote_reason = quote.unavailable_reason
     if instrument.instrument_type != "stock":
         value_status = "unassessed"
         value_reasons = [
             "주식으로 확인되지 않은 종목은 기업 EPS 가치평가를 적용하지 않습니다."
         ]
     else:
-        value_status, value_reasons = _value_status(quote, fundamentals, assumptions)
+        value_status, value_reasons = _value_status(
+            quote, fundamentals, assumptions, unavailable_reason=quote_reason
+        )
     assumed_lower, assumed_upper, assumed_safety = _assumed_prices(assumptions)
     trend_status = "unassessed"
     trend_reasons: list[str] = []
@@ -152,6 +182,8 @@ def analyze(
         trend_reasons.extend(
             trend.unavailable_reasons or ["고정 추세 관찰 규칙에 해당하지 않습니다."]
         )
+    if quote_reason:
+        trend_reasons.insert(0, quote_reason)
     return AnalysisResult(
         instrument=instrument,
         quote=quote,
@@ -195,23 +227,39 @@ def review_thesis(
     current_day = today or datetime.now(UTC).date()
     overdue = thesis.next_review < current_day
     reasons: list[str] = []
-    if thesis.health == "broken":
-        reasons.append("사용자가 근거 훼손을 표시했습니다. 출구 검토가 필요합니다.")
-        decision = "exit_review"
-    elif thesis.state == "closed":
+    if thesis.state == "closed":
         return ThesisReview(
             decision="closed",
             reasons=["종료된 연구 기록입니다."],
             review_overdue=overdue,
         )
+    quote_unusable = (
+        analysis.quote.price is None
+        or analysis.quote.unavailable_reason is not None
+        or any(
+            "오래되어" in reason or "유효하지 않아" in reason
+            for reason in analysis.reasons
+        )
+    )
+    if thesis.health == "broken":
+        reasons.append("사용자가 근거 훼손을 표시했습니다. 출구 검토가 필요합니다.")
+        decision = "exit_review"
     elif (
         thesis.risk_price is not None
+        and not quote_unusable
         and analysis.quote.price is not None
         and analysis.quote.price <= thesis.risk_price
     ):
         reasons.append("사용자가 정한 위험 가격에 도달했습니다. 출구 검토 대상입니다.")
         decision = "exit_review"
-    elif thesis.entry_kind == "trend" and analysis.trend.deterioration_observed:
+    elif quote_unusable:
+        reasons.append("현재가가 없어 가격 기반 출구를 만들지 않습니다.")
+        decision = "deferred"
+    elif (
+        thesis.state == "holding"
+        and thesis.entry_kind == "trend"
+        and analysis.trend.deterioration_observed
+    ):
         reasons.append("추세 진입 thesis에서 이틀 연속 SMA20 하회가 관찰되었습니다.")
         decision = "exit_review"
     elif thesis.entry_kind == "value" and analysis.value_entry_status == "exit_review":
@@ -220,9 +268,6 @@ def review_thesis(
             "평가 출구를 검토합니다."
         )
         decision = "hold_review"
-    elif analysis.quote.price is None:
-        reasons.append("현재가가 없어 가격 기반 출구를 만들지 않습니다.")
-        decision = "deferred"
     else:
         reasons.append("현재 자료에서 명시적인 출구 조건은 확인되지 않았습니다.")
         decision = "hold_review"

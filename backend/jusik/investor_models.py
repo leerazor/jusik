@@ -36,6 +36,8 @@ class Instrument(StrictModel):
         expected = "KRW" if self.market == "KR" else "USD"
         if self.currency != expected:
             raise ValueError("시장과 통화가 일치하지 않습니다.")
+        if self.market == "KR" and self.exchange != "KRX":
+            raise ValueError("국내 거래소는 KRX로만 식별합니다.")
         return self
 
 
@@ -63,6 +65,7 @@ class QuoteFact(StrictModel):
     as_of: datetime | None = None
     fetched_at: datetime
     source: str
+    source_url: str | None = None
     unavailable_reason: str | None = Field(default=None, max_length=240)
 
     @field_validator("price")
@@ -82,7 +85,11 @@ class FundamentalFacts(StrictModel):
     roe: Decimal | None = Field(default=None, allow_inf_nan=False)
     debt_ratio: Decimal | None = Field(default=None, allow_inf_nan=False)
     period_end: date | None = None
+    growth_period_end: date | None = None
+    roe_period_end: date | None = None
+    debt_period_end: date | None = None
     source: str | None = None
+    source_url: str | None = None
     fetched_at: datetime | None = None
     unavailable_reasons: list[str] = Field(default_factory=list, max_length=12)
 
@@ -100,6 +107,7 @@ class TrendFacts(StrictModel):
     latest_completed_session: date | None = None
     rule_version: str = "breakout20_sma20_v1"
     source: str | None = None
+    source_url: str | None = None
     unavailable_reasons: list[str] = Field(default_factory=list, max_length=12)
 
 
@@ -169,6 +177,13 @@ class ThesisWrite(StrictModel):
     valuation: ValuationAssumptions | None = None
     expected_revision: int = Field(ge=0)
 
+    @field_validator("source_references")
+    @classmethod
+    def bounded_sources(cls, value: list[str]) -> list[str]:
+        if any(len(item) > 500 for item in value) or sum(map(len, value)) > 2000:
+            raise ValueError("출처는 항목당 500자, 전체 2000자로 제한합니다.")
+        return value
+
 
 class Thesis(StrictModel):
     instrument: Instrument
@@ -186,6 +201,7 @@ class Thesis(StrictModel):
     created_at: datetime
     updated_at: datetime
     evidence: AnalysisResult
+    current_analysis: AnalysisResult | None = None
     review: ThesisReview = Field(
         default_factory=lambda: ThesisReview(
             decision="deferred", reasons=[], review_overdue=False
