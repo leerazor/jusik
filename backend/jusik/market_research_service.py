@@ -2,16 +2,25 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
 
+from jusik.market_history_approximate import (
+    ApproximateMarketHistorySource,
+    JsonApproximateProvider,
+    run_approximate_market_research,
+)
 from jusik.market_history_models import (
     STAGED_FEE_RATE,
     STAGED_INITIAL_CASH_KRW,
     STAGED_SELL_TAX_RATE,
     STAGED_SLIPPAGE_RATE,
+    Capability,
     Market,
+    MarketHistorySnapshot,
     MarketReadiness,
     MarketResearchRequest,
     MarketResearchRun,
+    ResearchGrade,
 )
 from jusik.market_history_sources import MarketHistorySource, data_contract_hash
 from jusik.market_history_store import MarketHistoryStore
@@ -31,6 +40,14 @@ class MarketResearchConflict(ValueError):
     pass
 
 
+class ApproximateSource(Protocol):
+    def readiness(self, market: Market, checked_at: datetime) -> MarketReadiness: ...
+
+    async def collect(
+        self, request: MarketResearchRequest
+    ) -> MarketHistorySnapshot: ...
+
+
 class MarketResearchService:
     def __init__(
         self,
@@ -38,14 +55,52 @@ class MarketResearchService:
         store: MarketHistoryStore,
         *,
         calendar: MarketCalendar | None = None,
+        approximate_source: ApproximateSource | None = None,
     ) -> None:
         self.source = source
         self.store = store
         self.calendar = calendar or default_market_calendar()
+        self.approximate_source = approximate_source
         self.policy_hash = market_research_policy_hash()
 
-    def readiness(self, market: Market) -> MarketReadiness:
-        return self.source.readiness(market, datetime.now(UTC))
+    def _source_for_grade(self, grade: ResearchGrade) -> MarketHistorySource:
+        if grade == "approximate":
+            if self.approximate_source is None:
+                raise MarketResearchConflict("approximate source is not configured")
+            return self.approximate_source
+        return self.source
+
+    def readiness(
+        self, market: Market, grade: ResearchGrade = "strict"
+    ) -> MarketReadiness:
+        try:
+            source = self._source_for_grade(grade)
+        except MarketResearchConflict:
+            names = (
+                "credentials",
+                "entitlement",
+                "calendar",
+                "membership",
+                "bars",
+                "actions",
+                "fx",
+                "policy",
+            )
+            return MarketReadiness(
+                market=market,
+                checked_at=datetime.now(UTC),
+                capabilities=tuple(
+                    Capability(
+                        name=name,  # type: ignore[arg-type]
+                        status="missing",
+                        detail="approximate source is not configured",
+                    )
+                    for name in names
+                ),
+                ready=False,
+                research_grade=grade,
+            )
+        return source.readiness(market, datetime.now(UTC))
 
     @staticmethod
     def _fixed_assumptions_match(request: MarketResearchRequest) -> bool:
@@ -64,16 +119,32 @@ class MarketResearchService:
         pilot: MarketResearchRun,
         *,
         expected_market: Market | None = None,
+        expected_grade: ResearchGrade | None = None,
     ) -> tuple[bool, str]:
         """Return the server-owned predicate used before a final run."""
         if pilot.stage != "pilot":
             return False, "파일럿 단계가 아닙니다."
         if expected_market is not None and pilot.request.market != expected_market:
             return False, "파일럿 시장이 일치하지 않습니다."
+        if (
+            expected_grade is not None
+            and pilot.request.research_grade != expected_grade
+        ):
+            return False, "파일럿 자료 등급이 일치하지 않습니다."
         if pilot.status != "completed" or pilot.result is None:
             return False, "완료된 파일럿 결과가 없습니다."
-        if pilot.result.status != "ready" or pilot.result.completeness != "complete":
+        expected_status = (
+            ("ready", "complete")
+            if pilot.request.research_grade == "strict"
+            else ("approximate", "approximate")
+        )
+        if (
+            pilot.result.status != expected_status[0]
+            or pilot.result.completeness != expected_status[1]
+        ):
             return False, "파일럿 자료가 완전하게 확인되지 않았습니다."
+        if pilot.result.research_grade != pilot.request.research_grade:
+            return False, "파일럿 자료 등급이 일치하지 않습니다."
         if not self._fixed_assumptions_match(pilot.request):
             return (
                 False,
@@ -88,9 +159,9 @@ class MarketResearchService:
         ):
             return False, "파일럿 자료 계약을 확인할 수 없습니다."
         try:
-            current_readiness = self.source.readiness(
-                pilot.request.market, datetime.now(UTC)
-            )
+            current_readiness = self._source_for_grade(
+                pilot.request.research_grade
+            ).readiness(pilot.request.market, datetime.now(UTC))
         except Exception:
             return False, "현재 자료 공급원 상태를 확인할 수 없습니다."
         if current_readiness.simulated != pilot.result.readiness.simulated:
@@ -98,6 +169,11 @@ class MarketResearchService:
                 False,
                 "현재 자료 공급원 조건이 파일럿과 달라 "
                 "최종 단계에서 참조할 수 없습니다.",
+            )
+        if current_readiness.research_grade != pilot.request.research_grade:
+            return (
+                False,
+                "현재 자료 등급이 파일럿과 달라 최종 단계에서 참조할 수 없습니다.",
             )
         return True, ""
 
@@ -140,7 +216,9 @@ class MarketResearchService:
         except KeyError as exc:
             raise MarketResearchNotFound("pilot run not found") from exc
         promotable, reason = self.pilot_promotability(
-            pilot, expected_market=request.market
+            pilot,
+            expected_market=request.market,
+            expected_grade=request.research_grade,
         )
         if not promotable:
             raise MarketResearchConflict(reason)
@@ -149,8 +227,16 @@ class MarketResearchService:
     async def create_run(self, request: MarketResearchRequest) -> MarketResearchRun:
         pilot = self._pilot_for_final(request)
         try:
-            readiness = self.source.readiness(request.market, datetime.now(UTC))
-            snapshot = await self.source.collect(request)
+            source = self._source_for_grade(request.research_grade)
+            readiness = source.readiness(request.market, datetime.now(UTC))
+            snapshot = await source.collect(request)
+            if (
+                readiness.research_grade != request.research_grade
+                or snapshot.research_grade != request.research_grade
+            ):
+                raise MarketResearchConflict(
+                    "research grade does not match configured source"
+                )
             contract_hash = data_contract_hash(snapshot, readiness)
             snapshot = snapshot.model_copy(update={"data_contract_hash": contract_hash})
             if request.stage == "final" and pilot.data_contract_hash != contract_hash:
@@ -171,16 +257,29 @@ class MarketResearchService:
                 if saved_digest != artifact.artifact_id:
                     raise ValueError("saved artifact digest does not match metadata")
             snapshot_hash = self.store.save_snapshot(snapshot)
-            result = run_market_research(
-                snapshot,
-                request,
-                readiness,
-                self.calendar,
-                policy_hash=self.policy_hash,
-            )
+            if request.research_grade == "approximate":
+                result = run_approximate_market_research(
+                    snapshot,
+                    request,
+                    readiness,
+                    self.calendar,
+                    policy_hash=self.policy_hash,
+                )
+            else:
+                result = run_market_research(
+                    snapshot,
+                    request,
+                    readiness,
+                    self.calendar,
+                    policy_hash=self.policy_hash,
+                )
             self.store.update_run(
                 run.id,
-                status="completed" if result.status == "ready" else "insufficient",
+                status=(
+                    "completed"
+                    if result.status in {"ready", "approximate"}
+                    else "insufficient"
+                ),
                 result=result,
                 input_hash=snapshot_hash,
                 data_contract_hash=contract_hash,
@@ -199,6 +298,11 @@ def production_market_research_service(path: Path) -> MarketResearchService:
     from jusik.market_history_sources import UnavailableMarketHistorySource
 
     configured = load_market_research_settings()
+    approximate_source = ApproximateMarketHistorySource(
+        JsonApproximateProvider(configured.approximate_data_path)
+    )
     return MarketResearchService(
-        UnavailableMarketHistorySource(configured), MarketHistoryStore(path)
+        UnavailableMarketHistorySource(configured),
+        MarketHistoryStore(path),
+        approximate_source=approximate_source,
     )

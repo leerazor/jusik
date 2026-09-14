@@ -9,6 +9,7 @@ export async function createMarketResearchRun(formData: FormData): Promise<void>
   const endDate = formData.get("end_date");
   const stage = formData.get("stage");
   const pilotRunId = formData.get("pilot_run_id");
+  const researchGrade = formData.get("research_grade");
   let response: Response;
   try {
     response = await fetch(`${researchBackendUrl()}/api/research/market/runs`, {
@@ -19,6 +20,7 @@ export async function createMarketResearchRun(formData: FormData): Promise<void>
         end_date: endDate,
         stage,
         pilot_run_id: pilotRunId || null,
+        research_grade: researchGrade || "strict",
       }),
     });
   } catch {

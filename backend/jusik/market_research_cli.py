@@ -7,7 +7,17 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import cast
 
-from jusik.market_history_models import Market, MarketResearchRequest, anniversary_start
+from jusik.market_history_approximate import (
+    ApproximateDataset,
+    ApproximateMarketHistorySource,
+    JsonApproximateProvider,
+)
+from jusik.market_history_models import (
+    Market,
+    MarketResearchRequest,
+    ResearchGrade,
+    anniversary_start,
+)
 from jusik.market_history_sources import (
     FixtureMarketHistorySource,
     MarketHistorySource,
@@ -24,8 +34,11 @@ def parser() -> argparse.ArgumentParser:
     subcommands = command.add_subparsers(dest="command", required=True)
     status = subcommands.add_parser("status")
     status.add_argument("--market", choices=("KR", "US"), default=None)
+    status.add_argument("--grade", choices=("strict", "approximate"), default="strict")
     backfill = subcommands.add_parser("backfill")
     backfill.add_argument("--market", choices=("KR", "US"), required=True)
+    backfill.add_argument("--input", type=Path)
+    backfill.add_argument("--output", type=Path)
     run = subcommands.add_parser("run")
     run.add_argument("--market", choices=("KR", "US"), required=True)
     run.add_argument("--start")
@@ -33,13 +46,21 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument("--stage", choices=("pilot", "final"), default="pilot")
     run.add_argument("--pilot-run-id")
     run.add_argument("--fixture", action="store_true")
+    run.add_argument("--grade", choices=("strict", "approximate"), default="strict")
+    run.add_argument("--approximate-data", type=Path)
     return command
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.command == "status":
-        status_source = UnavailableMarketHistorySource()
+        status_source: MarketHistorySource
+        if args.grade == "approximate":
+            status_source = ApproximateMarketHistorySource(
+                JsonApproximateProvider(Path("approximate-market-data.json"))
+            )
+        else:
+            status_source = UnavailableMarketHistorySource()
         markets: tuple[Market, ...] = (
             (cast(Market, args.market),) if args.market else ("KR", "US")
         )
@@ -50,11 +71,26 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload, ensure_ascii=False))
         return 0
     if args.command == "backfill":
+        if args.input is None:
+            print("bounded backfill requires a prepared provider response file")
+            return 2
+        try:
+            raw = args.input.read_bytes()
+            dataset = ApproximateDataset.model_validate(json.loads(raw))
+            if dataset.market != args.market:
+                raise ValueError("market mismatch")
+            if args.output is not None:
+                args.output.parent.mkdir(parents=True, exist_ok=True)
+                args.output.write_bytes(raw)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"approximate response rejected: {exc}")
+            return 2
         print(
-            "point-in-time backfill is unavailable until verified provider "
-            "coverage is configured"
+            json.dumps(
+                {"status": "prepared", "market": args.market}, ensure_ascii=False
+            )
         )
-        return 2
+        return 0
     end_date = date.fromisoformat(args.end)
     start_date = (
         date.fromisoformat(args.start)
@@ -67,14 +103,22 @@ def main(argv: list[str] | None = None) -> int:
         end_date=end_date,
         stage=args.stage,
         pilot_run_id=args.pilot_run_id,
+        research_grade=cast("ResearchGrade", args.grade),
     )
     source: MarketHistorySource = (
         FixtureMarketHistorySource()
         if args.fixture
         else UnavailableMarketHistorySource()
     )
+    approximate_source = (
+        ApproximateMarketHistorySource(JsonApproximateProvider(args.approximate_data))
+        if args.approximate_data is not None
+        else None
+    )
     service = MarketResearchService(
-        source, MarketHistoryStore(Path("market-research.db"))
+        source,
+        MarketHistoryStore(Path("market-research.db")),
+        approximate_source=approximate_source,
     )
     run = asyncio.run(service.create_run(request))
     print(run.model_dump_json())

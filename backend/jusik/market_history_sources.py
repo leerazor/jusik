@@ -44,6 +44,8 @@ def data_contract_hash(
             | {item.source for item in snapshot.source_artifacts}
         ),
         "normalization_version": snapshot.normalization_version,
+        "research_grade": snapshot.research_grade,
+        "pool_contract_hash": snapshot.pool_contract_hash,
         "simulated": readiness.simulated,
         "capabilities": [
             {"name": item.name, "status": item.status}

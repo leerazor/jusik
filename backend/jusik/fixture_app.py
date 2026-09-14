@@ -22,6 +22,7 @@ from jusik.investor_models import (
     TrendFacts,
 )
 from jusik.investor_store import InvestorStore
+from jusik.market_history_approximate import FixtureApproximateMarketHistorySource
 from jusik.market_history_sources import FixtureMarketHistorySource
 from jusik.market_history_store import MarketHistoryStore
 from jusik.market_research_api import router as market_research_router
@@ -481,6 +482,7 @@ app.state.market_research_service = MarketResearchService(
             )
         )
     ),
+    approximate_source=FixtureApproximateMarketHistorySource(),
 )
 fixture_db = Path(
     os.environ.get("JUSIK_INVESTOR_DB_PATH", "/tmp/jusik-investor-fixture.db")

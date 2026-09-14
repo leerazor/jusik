@@ -10,6 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 function readinessLabel(item: MarketReadiness): string {
+  if (item.research_grade === "approximate") return "무료 근사 자료 · PIT 검증 아님";
   if (item.ready && item.simulated) return "합성 자료로 흐름 확인 가능";
   if (item.ready) return "실행 가능";
   return "필수 자료 부족";
@@ -30,7 +31,12 @@ export default async function MarketResearchPage({ searchParams }: { searchParam
   let readiness: MarketReadiness[] = [];
   let runs: MarketResearchRun[] = [];
   let unavailable = false;
-  try { readiness = await getMarketReadiness(); } catch { unavailable = true; }
+  try {
+    readiness = [
+      ...(await getMarketReadiness(undefined, "strict")),
+      ...(await getMarketReadiness(undefined, "approximate")),
+    ];
+  } catch { unavailable = true; }
   try { runs = await getMarketResearchRuns(); } catch { unavailable = true; }
   const eligiblePilots = runs.filter((run) => run.final_promotable);
   return (

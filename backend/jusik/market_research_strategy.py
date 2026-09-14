@@ -233,6 +233,27 @@ def run_market_research(
     *,
     policy_hash: str | None = None,
 ) -> MarketResearchResult:
+    if (
+        request.research_grade != "strict"
+        or snapshot.research_grade != "strict"
+        or readiness.research_grade != "strict"
+    ):
+        return MarketResearchResult(
+            market=request.market,
+            request=request,
+            readiness=readiness,
+            status="insufficient",
+            completeness="incomplete",
+            limitations=("근사 자료는 strict PIT 전략에서 계산하지 않습니다.",),
+            metrics={},
+            input_hash=snapshot.input_hash,
+            policy_hash=policy_hash,
+            stage=request.stage,
+            pilot_run_id=request.pilot_run_id,
+            data_contract_hash=snapshot.data_contract_hash,
+            warmup_sessions=(),
+            research_grade=request.research_grade,
+        )
     if snapshot.market != request.market or readiness.market != request.market:
         return MarketResearchResult(
             market=request.market,

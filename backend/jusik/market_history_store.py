@@ -24,6 +24,7 @@ from jusik.market_history_models import (
     MarketResearchResult,
     MarketResearchRun,
     ResearchEquityPoint,
+    ResearchGrade,
     ResearchStage,
     ResearchTrade,
 )
@@ -89,10 +90,10 @@ def _persisted_result(payload: object) -> MarketResearchResult:
         values["request"] = _persisted_request(values["request"])
         values["readiness"] = MarketReadiness.model_validate(values["readiness"])
         values["status"] = TypeAdapter(
-            Literal["ready", "insufficient"]
+            Literal["ready", "insufficient", "approximate"]
         ).validate_python(values["status"])
         values["completeness"] = TypeAdapter(
-            Literal["complete", "incomplete"]
+            Literal["complete", "incomplete", "approximate"]
         ).validate_python(values["completeness"])
         values["candidate_evidence"] = TypeAdapter(
             tuple[CandidateEvidence, ...]
@@ -127,6 +128,12 @@ def _persisted_result(payload: object) -> MarketResearchResult:
         values["warmup_sessions"] = TypeAdapter(tuple[date, ...]).validate_python(
             values.get("warmup_sessions", ())
         )
+        values["research_grade"] = TypeAdapter(ResearchGrade).validate_python(
+            values.get("research_grade", "strict")
+        )
+        values["pool_contract_hash"] = TypeAdapter(
+            Annotated[str | None, Field(pattern=r"^[0-9a-f]{64}$")]
+        ).validate_python(values.get("pool_contract_hash"))
         return MarketResearchResult.model_construct(**values)
 
 
