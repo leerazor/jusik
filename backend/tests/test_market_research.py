@@ -1,5 +1,6 @@
 import asyncio
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,7 @@ from jusik.market_history_sources import (
 from jusik.market_history_store import MarketHistoryStore
 from jusik.market_research_service import MarketResearchService
 from jusik.market_research_strategy import (
+    DRAWDOWN_LIMIT,
     MARKET_RESEARCH_POLICY,
     market_research_policy_hash,
     run_market_research,
@@ -97,6 +99,36 @@ def test_entry_equal_to_prior_high_is_not_a_breakout() -> None:
         trade.symbol == "KR-A" and trade.signal_session == signal_session
         for trade in result.trades
     )
+
+
+def test_final_day_drawdown_liquidation_is_not_reported_as_performance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = FixtureMarketHistorySource()
+    item = request()
+    snapshot = asyncio.run(source.collect(item))
+    final_session = max(bar.session for bar in snapshot.bars)
+    bars = tuple(
+        bar.model_copy(update={"close": Decimal("1"), "low": Decimal("1")})
+        if bar.symbol in {"KR-B", "KR-C"} and bar.session == final_session
+        else bar
+        for bar in snapshot.bars
+    )
+    data = snapshot.model_dump()
+    data["bars"] = bars
+    monkeypatch.setattr(
+        "jusik.market_research_strategy.DRAWDOWN_LIMIT", DRAWDOWN_LIMIT / 10
+    )
+    result = run_market_research(
+        MarketHistorySnapshot(**data),
+        item,
+        source.readiness("KR", datetime(2024, 3, 15, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert result.status == "insufficient"
+    assert result.metrics == {}
+    assert any("청산이 체결되지 않아" in item for item in result.limitations)
+    assert any("미청산 잔여 보유" in item for item in result.limitations)
 
 
 def test_fixture_us_keeps_native_cash_and_point_in_time_fx_curve() -> None:

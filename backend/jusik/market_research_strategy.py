@@ -428,6 +428,26 @@ def run_market_research(
         "drawdown_latched": Decimal(1 if drawdown_latched else 0),
         "initial_fx_krw_per_usd": initial_fx,
     }
+    unsettled_sells = tuple(sorted(pending_sells))
+    if unsettled_sells:
+        return MarketResearchResult(
+            market=request.market,
+            request=request,
+            readiness=readiness,
+            status="insufficient",
+            completeness="incomplete",
+            candidate_evidence=tuple(evidence),
+            trades=tuple(trades),
+            equity=tuple(equity),
+            limitations=(
+                "마지막 거래일 이후 다음 거래일 시가 청산이 체결되지 않아 "
+                "성과를 공개하지 않습니다.",
+                "미청산 잔여 보유: " + ", ".join(unsettled_sells),
+            ),
+            metrics={},
+            input_hash=snapshot.input_hash,
+            policy_hash=policy_hash,
+        )
     return MarketResearchResult(
         market=request.market,
         request=request,
