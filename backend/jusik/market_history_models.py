@@ -146,6 +146,7 @@ class CorporateAction(HistoryModel):
 
 class FXObservation(HistoryModel):
     session: date
+    observation_date: date | None = None
     pair: Literal["USDKRW"]
     krw_per_usd: Decimal = Field(gt=0, allow_inf_nan=False)
     spread_rate: Decimal = Field(ge=0, le=Decimal("0.1"), allow_inf_nan=False)

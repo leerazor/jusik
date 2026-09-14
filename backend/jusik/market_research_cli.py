@@ -11,6 +11,7 @@ from jusik.market_data_collector import (
     AtomicResponseCache,
     CollectorError,
     collect_market_data,
+    completed_collection_is_valid,
     load_collector_settings,
 )
 from jusik.market_history_approximate import (
@@ -47,6 +48,10 @@ def parser() -> argparse.ArgumentParser:
     )
     collect_status.add_argument("--cache", type=Path, required=True)
     collect_status.add_argument("--market", choices=("KR", "US"), required=True)
+    collect_status.add_argument("--start")
+    collect_status.add_argument("--end")
+    collect_status.add_argument("--sample-size", type=int, default=100)
+    collect_status.add_argument("--output", type=Path)
     collect = subcommands.add_parser(
         "collect", help="collect and validate a prepared approximate dataset"
     )
@@ -86,12 +91,26 @@ def main(argv: list[str] | None = None) -> int:
         settings = load_collector_settings()
         missing = settings.required_missing_credentials(args.market)
         cache_payload = AtomicResponseCache(args.cache).status()
-        entries = cache_payload.get("entries")
+        marker_args = (args.start, args.end, args.output)
+        completed = False
+        if all(value is not None for value in marker_args):
+            try:
+                completed = completed_collection_is_valid(
+                    AtomicResponseCache(args.cache),
+                    market=cast(Market, args.market),
+                    start=date.fromisoformat(args.start),
+                    end=date.fromisoformat(args.end),
+                    sample_size=args.sample_size,
+                    output=args.output,
+                )
+            except ValueError:
+                completed = False
         cache_payload.update(
             {
                 "market": args.market,
                 "credentials_missing": list(missing),
-                "ready": not missing and isinstance(entries, int) and entries > 0,
+                "completed": completed,
+                "ready": not missing and completed,
             }
         )
         print(json.dumps(cache_payload, ensure_ascii=False))

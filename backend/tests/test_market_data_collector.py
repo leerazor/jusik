@@ -17,6 +17,7 @@ from jusik.market_data_collector import (
     NetworkCollectorTransport,
     RequestBudgetExceeded,
     collect_market_data,
+    completed_collection_is_valid,
     estimate_network_requests,
     parse_alpha_vantage_listing_status,
     parse_fred_observations,
@@ -472,7 +473,14 @@ def test_yahoo_collector_output_round_trips_through_approximate_strategy(
     assert snapshot.bars
     assert snapshot.bars[0].source == "yahoo"
     assert snapshot.bars[0].available_at.time() == time(20)
+    assert collected.dataset.fx
+    assert collected.dataset.fx[0].observation_date is not None
+    assert collected.dataset.fx[0].observation_date < collected.dataset.fx[0].session
+    assert result.status == "approximate"
+    assert result.completeness == "approximate"
     assert result.research_grade == "approximate"
+    assert result.trades
+    assert result.metrics["coverage_sessions"] > 0
 
 
 def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap() -> (
@@ -645,6 +653,96 @@ def test_collection_preflight_does_not_subtract_unrelated_cache(
                 client=_RecordingHttpClient(),
             )
         )
+
+
+def test_collect_status_requires_exact_completed_marker_and_valid_hash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cache = AtomicResponseCache(tmp_path / "cache")
+    output = tmp_path / "prepared.json"
+    content = json.dumps(
+        {
+            "market": "KR",
+            "universe": [
+                {
+                    "session": "2026-09-14",
+                    "symbol": "S1",
+                    "name": "Sample",
+                    "exchange": "KSC",
+                    "currency": "KRW",
+                }
+            ],
+            "bars": [
+                {
+                    "session": "2026-09-14",
+                    "symbol": "S1",
+                    "exchange": "KSC",
+                    "open": "100",
+                    "high": "101",
+                    "low": "99",
+                    "close": "100",
+                    "volume": "1000",
+                    "currency": "KRW",
+                }
+            ],
+        }
+    ).encode()
+    output.write_bytes(content)
+    cache.write_completed(
+        market="KR",
+        start=date(2026, 1, 1),
+        end=date(2026, 9, 14),
+        sample_size=1,
+        output=output,
+        content=content,
+    )
+    assert completed_collection_is_valid(
+        cache,
+        market="KR",
+        start=date(2026, 1, 1),
+        end=date(2026, 9, 14),
+        sample_size=1,
+        output=output,
+    )
+    monkeypatch.setenv("KRX_AUTH_KEY", "configured")
+    status_args = [
+        "collect-status",
+        "--cache",
+        str(tmp_path / "cache"),
+        "--market",
+        "KR",
+        "--start",
+        "2026-01-01",
+        "--end",
+        "2026-09-14",
+        "--sample-size",
+        "1",
+        "--output",
+        str(output),
+    ]
+    assert market_research_cli(status_args) == 0
+    assert json.loads(capsys.readouterr().out)["ready"] is True
+    assert not completed_collection_is_valid(
+        cache,
+        market="US",
+        start=date(2026, 1, 1),
+        end=date(2026, 9, 14),
+        sample_size=1,
+        output=output,
+    )
+    output.write_bytes(content + b"corrupt")
+    assert not completed_collection_is_valid(
+        cache,
+        market="KR",
+        start=date(2026, 1, 1),
+        end=date(2026, 9, 14),
+        sample_size=1,
+        output=output,
+    )
+    assert market_research_cli(status_args) == 2
+    assert json.loads(capsys.readouterr().out)["ready"] is False
 
 
 class _RecordingHttpClient:

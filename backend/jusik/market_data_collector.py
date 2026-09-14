@@ -126,6 +126,20 @@ class CacheManifest(BaseModel):
     checkpoints: tuple[str, ...] = ()
 
 
+class CompletedCollection(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: Literal["collector-completed-v1"] = "collector-completed-v1"
+    market: Market
+    start: date
+    end: date
+    sample_size: int = Field(ge=1, le=100)
+    output_path: str = Field(min_length=1, max_length=1000)
+    output_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    dataset_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    completed_at: datetime
+
+
 class AtomicResponseCache:
     """Content-addressed raw cache with atomic files and a resumable manifest."""
 
@@ -133,6 +147,7 @@ class AtomicResponseCache:
         self.root = root
         self.raw_root = root / "raw"
         self.manifest_path = root / "manifest.json"
+        self.completed_path = root / "completed.json"
 
     def _read_manifest(self) -> CacheManifest:
         if not self.manifest_path.is_file():
@@ -214,12 +229,60 @@ class AtomicResponseCache:
     def checkpointed(self, checkpoint: str) -> bool:
         return checkpoint in self._read_manifest().checkpoints
 
+    def write_completed(
+        self,
+        *,
+        market: Market,
+        start: date,
+        end: date,
+        sample_size: int,
+        output: Path,
+        content: bytes,
+    ) -> CompletedCollection:
+        digest = hashlib.sha256(content).hexdigest()
+        marker = CompletedCollection(
+            market=market,
+            start=start,
+            end=end,
+            sample_size=sample_size,
+            output_path=str(output.resolve()),
+            output_sha256=digest,
+            dataset_sha256=digest,
+            completed_at=datetime.now(UTC),
+        )
+        self._atomic_write(
+            self.completed_path, marker.model_dump_json(indent=2).encode()
+        )
+        return marker
+
+    def read_completed(self) -> CompletedCollection | None:
+        if not self.completed_path.is_file():
+            return None
+        try:
+            return CompletedCollection.model_validate(
+                json.loads(self.completed_path.read_bytes())
+            )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            return None
+
+    def raw_entries_valid(self) -> bool:
+        manifest = self._read_manifest()
+        for entry in manifest.entries:
+            try:
+                body = (self.raw_root / f"{entry.key}.bin").read_bytes()
+            except OSError:
+                return False
+            if hashlib.sha256(body).hexdigest() != entry.content_sha256:
+                return False
+        return True
+
     def status(self) -> dict[str, object]:
         manifest = self._read_manifest()
         return {
             "cache_dir": str(self.root),
             "entries": len(manifest.entries),
             "checkpoints": list(manifest.checkpoints),
+            "completed": self.read_completed() is not None,
         }
 
 
@@ -897,6 +960,35 @@ def estimate_network_requests(
     return len(_listing_checkpoints(sessions)) + sample_size + 1
 
 
+def completed_collection_is_valid(
+    cache: AtomicResponseCache,
+    *,
+    market: Market,
+    start: date,
+    end: date,
+    sample_size: int,
+    output: Path,
+) -> bool:
+    marker = cache.read_completed()
+    if marker is None or not cache.raw_entries_valid():
+        return False
+    if (
+        marker.market != market
+        or marker.start != start
+        or marker.end != end
+        or marker.sample_size != sample_size
+        or marker.output_path != str(output.resolve())
+    ):
+        return False
+    try:
+        content = output.read_bytes()
+        ApproximateDataset.model_validate_json(content)
+    except (OSError, ValueError):
+        return False
+    digest = hashlib.sha256(content).hexdigest()
+    return digest == marker.output_sha256 == marker.dataset_sha256
+
+
 @dataclass(frozen=True)
 class CollectionOutput:
     dataset: ApproximateDataset
@@ -1111,24 +1203,48 @@ class FreeMarketDataCollector:
         if market == "US":
             limitations.extend(alpha_limitations)
         if market == "US":
+            fred_start = warmup_start - timedelta(days=7)
             fx = parse_fred_observations(
-                await self.transport.fred(warmup_start, end),
-                start=warmup_start,
+                await self.transport.fred(fred_start, end),
+                start=fred_start,
                 end=end,
             )
-            fx = tuple(
-                item.model_copy(
-                    update={
-                        "available_at": datetime.combine(
-                            item.session + timedelta(days=1), time(), UTC
+            fx_by_session: list[ApproximateFXRow] = []
+            for session in sessions:
+                lookup = self.calendar.lookup("NMS", session)
+                if lookup.session is None:
+                    raise CollectorError(f"calendar session unavailable: {session}")
+                usable = [
+                    item
+                    for item in fx
+                    if item.session <= session
+                    and item.available_at is not None
+                    and item.available_at <= lookup.session.open_at
+                ]
+                if not usable:
+                    if session >= start:
+                        raise CollectorError(
+                            f"FRED FX observation unavailable before {session} open"
                         )
-                    }
+                    continue
+                observation = max(usable, key=lambda item: item.session)
+                fx_by_session.append(
+                    observation.model_copy(
+                        update={
+                            "session": session,
+                            "observation_date": observation.session,
+                        }
+                    )
                 )
-                for item in fx
-            )
+            fx = tuple(fx_by_session)
             limitations.append(
                 "Alpha Vantage annual membership checkpoints are validated, "
                 "while the initial checkpoint fixes the sampled pool."
+            )
+            limitations.append(
+                "US session FX uses the latest prior FRED observation available "
+                "before each session open; observation date and availability are "
+                "preserved."
             )
         if excluded:
             limitations.append(
@@ -1209,6 +1325,7 @@ async def collect_market_data(
             NetworkCollectorTransport(fetcher, settings)
         ).collect(market=market, start=start, end=end, sample_size=sample_size)
         content = output_result.dataset.model_dump_json(indent=2).encode()
+        ApproximateDataset.model_validate_json(content)
         temporary: str | None = None
         output.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -1223,6 +1340,14 @@ async def collect_market_data(
         finally:
             if temporary is not None and Path(temporary).exists():
                 Path(temporary).unlink()
+        AtomicResponseCache(cache_dir).write_completed(
+            market=market,
+            start=start,
+            end=end,
+            sample_size=sample_size,
+            output=output,
+            content=content,
+        )
         return output_result
     finally:
         if owns_client:
@@ -1235,6 +1360,7 @@ __all__ = [
     "ApproximateProviderError",
     "CollectorError",
     "CollectorPartialError",
+    "CompletedCollection",
     "CollectorSettings",
     "FreeMarketDataCollector",
     "KRXDailyResponse",
@@ -1242,6 +1368,7 @@ __all__ = [
     "NetworkCollectorTransport",
     "RequestBudgetExceeded",
     "collect_market_data",
+    "completed_collection_is_valid",
     "estimate_network_requests",
     "load_collector_settings",
     "parse_alpha_vantage_listing_status",

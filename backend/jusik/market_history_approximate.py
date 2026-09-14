@@ -78,6 +78,7 @@ class ApproximateFXRow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     session: date
+    observation_date: date | None = None
     krw_per_usd: Decimal = Field(gt=0)
     spread_rate: Decimal = Field(ge=0, le=Decimal("0.1"))
     available_at: datetime | None = None
@@ -427,6 +428,7 @@ class ApproximateMarketHistorySource:
         fx = tuple(
             FXObservation(
                 session=fx_row.session,
+                observation_date=fx_row.observation_date,
                 pair="USDKRW",
                 krw_per_usd=fx_row.krw_per_usd,
                 spread_rate=fx_row.spread_rate,
