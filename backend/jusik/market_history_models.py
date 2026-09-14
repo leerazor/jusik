@@ -17,8 +17,13 @@ from pydantic import (
 )
 
 Market = Literal["KR", "US"]
+ResearchStage = Literal["pilot", "final", "legacy"]
 InstrumentType = Literal["stock", "etf"]
 Currency = Literal["KRW", "USD"]
+STAGED_INITIAL_CASH_KRW = Decimal("100000000")
+STAGED_FEE_RATE = Decimal("0.00015")
+STAGED_SLIPPAGE_RATE = Decimal("0.001")
+STAGED_SELL_TAX_RATE = Decimal("0.0018")
 SourceName = Literal["fixture", "krx", "massive"]
 CapabilityName = Literal[
     "credentials",
@@ -214,11 +219,28 @@ class MarketHistorySnapshot(HistoryModel):
     completeness: Literal["complete", "incomplete"]
     missing_ranges: tuple[str, ...] = ()
     normalization_version: str = "pit-v1"
+    # Exactly twenty completed sessions immediately before evaluation.  Kept in
+    # the immutable snapshot so the first signal cannot silently borrow future
+    # or current-period rows.
+    warmup_sessions: tuple[date, ...] = ()
+    evaluation_start: date | None = None
+    data_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def validate_snapshot(self) -> Self:
         if self.requested_end < self.requested_start:
             raise ValueError("snapshot period is invalid")
+        if (
+            self.evaluation_start is not None
+            and self.evaluation_start != self.requested_start
+        ):
+            raise ValueError("snapshot evaluation start must equal requested start")
+        if len(self.warmup_sessions) > 20:
+            raise ValueError("snapshot warmup cannot exceed twenty sessions")
+        if len(set(self.warmup_sessions)) != len(self.warmup_sessions):
+            raise ValueError("duplicate warmup sessions are not allowed")
+        if self.warmup_sessions and max(self.warmup_sessions) >= self.requested_start:
+            raise ValueError("warmup must precede evaluation")
         bar_keys = [(bar.symbol, bar.session) for bar in self.bars]
         if len(bar_keys) != len(set(bar_keys)):
             raise ValueError("duplicate bars are not allowed")
@@ -297,10 +319,16 @@ class MarketResearchRequest(HistoryModel):
     market: Market
     start_date: date
     end_date: date
-    initial_cash_krw: Decimal = Field(default=Decimal("100000000"), gt=0)
-    fee_rate: Decimal = Field(default=Decimal("0.00015"), ge=0, le=Decimal("0.1"))
-    slippage_rate: Decimal = Field(default=Decimal("0.001"), ge=0, le=Decimal("0.1"))
-    sell_tax_rate: Decimal = Field(default=Decimal("0.0018"), ge=0, le=Decimal("0.1"))
+    stage: ResearchStage = "legacy"
+    pilot_run_id: str | None = Field(default=None, min_length=8, max_length=64)
+    initial_cash_krw: Decimal = Field(default=STAGED_INITIAL_CASH_KRW, gt=0)
+    fee_rate: Decimal = Field(default=STAGED_FEE_RATE, ge=0, le=Decimal("0.1"))
+    slippage_rate: Decimal = Field(
+        default=STAGED_SLIPPAGE_RATE, ge=0, le=Decimal("0.1")
+    )
+    sell_tax_rate: Decimal = Field(
+        default=STAGED_SELL_TAX_RATE, ge=0, le=Decimal("0.1")
+    )
 
     @model_validator(mode="after")
     def validate_period(self) -> Self:
@@ -308,6 +336,31 @@ class MarketResearchRequest(HistoryModel):
             raise ValueError("end_date must not precede start_date")
         if (self.end_date - self.start_date).days > 1096:
             raise ValueError("research period may not exceed three years")
+        if self.stage == "pilot":
+            if self.pilot_run_id is not None:
+                raise ValueError("pilot cannot reference another run")
+            expected = anniversary_start(self.end_date, years=1)
+            if self.start_date != expected:
+                raise ValueError(
+                    "pilot start must be exactly one calendar year before end"
+                )
+        elif self.stage == "final":
+            if self.pilot_run_id is None:
+                raise ValueError("final requires pilot_run_id")
+            expected = anniversary_start(self.end_date, years=3)
+            if self.start_date != expected:
+                raise ValueError(
+                    "final start must be exactly three calendar years before end"
+                )
+        elif self.pilot_run_id is not None:
+            raise ValueError("legacy request cannot reference a pilot")
+        if self.stage in {"pilot", "final"} and (
+            self.initial_cash_krw != STAGED_INITIAL_CASH_KRW
+            or self.fee_rate != STAGED_FEE_RATE
+            or self.slippage_rate != STAGED_SLIPPAGE_RATE
+            or self.sell_tax_rate != STAGED_SELL_TAX_RATE
+        ):
+            raise ValueError("staged execution assumptions are fixed by the mandate")
         return self
 
 
@@ -360,6 +413,10 @@ class MarketResearchResult(HistoryModel):
     metrics: dict[str, Decimal] = Field(default_factory=dict)
     input_hash: str | None = None
     policy_hash: str | None = None
+    stage: ResearchStage = "legacy"
+    pilot_run_id: str | None = None
+    data_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    warmup_sessions: tuple[date, ...] = ()
 
 
 class MarketResearchRun(HistoryModel):
@@ -371,3 +428,18 @@ class MarketResearchRun(HistoryModel):
     created_at: datetime
     updated_at: datetime
     error: str | None = None
+    stage: ResearchStage = "legacy"
+    pilot_run_id: str | None = None
+    data_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    final_promotable: bool = False
+    final_promotability_reason: str = "최종 단계 참조 조건을 확인하지 않았습니다."
+
+
+def anniversary_start(end_date: date, *, years: int) -> date:
+    """Return the calendar anniversary, mapping Feb 29 to Feb 28."""
+    if years < 0:
+        raise ValueError("years must be non-negative")
+    try:
+        return end_date.replace(year=end_date.year - years)
+    except ValueError:
+        return end_date.replace(year=end_date.year - years, day=28)

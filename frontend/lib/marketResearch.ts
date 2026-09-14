@@ -20,6 +20,8 @@ const requestSchema = z.object({
   market: z.enum(["KR", "US"]),
   start_date: z.string(),
   end_date: z.string(),
+  stage: z.enum(["pilot", "final", "legacy"]),
+  pilot_run_id: z.string().nullable(),
   initial_cash_krw: z.string(),
   fee_rate: z.string(),
   slippage_rate: z.string(),
@@ -61,6 +63,10 @@ const resultSchema = z.object({
   metrics: z.record(z.string(), z.string()),
   input_hash: z.string().nullable(),
   policy_hash: z.string().nullable(),
+  stage: z.enum(["pilot", "final", "legacy"]),
+  pilot_run_id: z.string().nullable(),
+  data_contract_hash: z.string().nullable(),
+  warmup_sessions: z.array(z.string()),
 });
 
 export const marketResearchRunSchema = z.object({
@@ -72,6 +78,11 @@ export const marketResearchRunSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   error: z.string().nullable(),
+  stage: z.enum(["pilot", "final", "legacy"]),
+  pilot_run_id: z.string().nullable(),
+  data_contract_hash: z.string().nullable(),
+  final_promotable: z.boolean(),
+  final_promotability_reason: z.string(),
 });
 
 export type MarketReadiness = z.infer<typeof marketReadinessSchema>;

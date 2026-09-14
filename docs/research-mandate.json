@@ -44,5 +44,17 @@
     "drawdown_reference": "KRW running peak NAV; next-open liquidation and no re-entry during the run",
     "us_fx": "one initial KRW/USD conversion with spread, then native USD cash and trades with USD and KRW curves",
     "execution": "research and simulation only; no live or paper activation"
+  },
+  "staged_market_research_policy": {
+    "request_stages": {
+      "pilot": "exactly one calendar year ending on the requested end date",
+      "final": "exactly three calendar years ending on the requested end date"
+    },
+    "leap_day": "anniversary in a non-leap year is February 28",
+    "final_gate": "same market completed ready pilot with matching current policy, execution assumptions, and canonical data contract hash",
+    "pilot_reference": "pilot requires no reference; final requires pilot_run_id; legacy rows remain legacy",
+    "warmup": "exactly twenty completed sessions before evaluation; no warmup trades, equity, or positions",
+    "period_integrity": "pilot and final collect their own PIT data; period input hashes differ and today-candidate backfill is forbidden",
+    "production": "missing provider coverage remains insufficient and never executable"
   }
 }

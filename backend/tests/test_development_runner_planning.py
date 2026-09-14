@@ -54,6 +54,7 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     recorded_at = mandate.pop("recorded_at")
     parsed_recorded_at = datetime.fromisoformat(recorded_at)
     assert parsed_recorded_at.tzinfo == UTC
+    staged_policy = mandate.pop("staged_market_research_policy")
     assert mandate == {
         "capital_krw": 100000000,
         "maximum_drawdown_fraction": "0.20",
@@ -131,6 +132,14 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
             "execution": "research and simulation only; no live or paper activation",
         },
     }
+    assert staged_policy["request_stages"] == {
+        "pilot": "exactly one calendar year ending on the requested end date",
+        "final": "exactly three calendar years ending on the requested end date",
+    }
+    assert staged_policy["warmup"] == (
+        "exactly twenty completed sessions before evaluation; no warmup trades, "
+        "equity, or positions"
+    )
     assert _tracked_research_mandate(path.parents[1]) == raw_content
 
 

@@ -3,16 +3,143 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
+from typing import Annotated, Literal
 from uuid import uuid4
 
+from pydantic import Field, TypeAdapter, ValidationError
+
 from jusik.market_history_models import (
+    STAGED_FEE_RATE,
+    STAGED_INITIAL_CASH_KRW,
+    STAGED_SELL_TAX_RATE,
+    STAGED_SLIPPAGE_RATE,
+    CandidateEvidence,
+    Market,
     MarketHistorySnapshot,
+    MarketReadiness,
     MarketResearchRequest,
     MarketResearchResult,
     MarketResearchRun,
+    ResearchEquityPoint,
+    ResearchStage,
+    ResearchTrade,
 )
+
+
+def _persisted_request(payload: object) -> MarketResearchRequest:
+    """Read old staged rows without making them eligible for promotion."""
+    try:
+        return MarketResearchRequest.model_validate(payload)
+    except ValidationError as original_error:
+        if not isinstance(payload, dict) or payload.get("stage") not in {
+            "pilot",
+            "final",
+        }:
+            raise
+        try:
+            values = dict(payload)
+            values["market"] = str(values["market"])
+            values["start_date"] = date.fromisoformat(str(values["start_date"]))
+            values["end_date"] = date.fromisoformat(str(values["end_date"]))
+            values["initial_cash_krw"] = Decimal(str(values["initial_cash_krw"]))
+            values["fee_rate"] = Decimal(str(values["fee_rate"]))
+            values["slippage_rate"] = Decimal(str(values["slippage_rate"]))
+            values["sell_tax_rate"] = Decimal(str(values["sell_tax_rate"]))
+            if values["market"] not in {"KR", "US"}:
+                raise ValueError("invalid persisted market")
+            if values["end_date"] < values["start_date"]:
+                raise ValueError("invalid persisted period")
+            if values["stage"] == "pilot" and values.get("pilot_run_id") is not None:
+                raise ValueError("invalid persisted pilot reference")
+            if values["stage"] == "final" and not values.get("pilot_run_id"):
+                raise ValueError("invalid persisted final reference")
+            if not (
+                values["initial_cash_krw"] > 0
+                and Decimal(0) <= values["fee_rate"] <= Decimal("0.1")
+                and Decimal(0) <= values["slippage_rate"] <= Decimal("0.1")
+                and Decimal(0) <= values["sell_tax_rate"] <= Decimal("0.1")
+            ):
+                raise ValueError("invalid persisted execution assumptions")
+            if all(
+                values[name] == expected
+                for name, expected in {
+                    "initial_cash_krw": STAGED_INITIAL_CASH_KRW,
+                    "fee_rate": STAGED_FEE_RATE,
+                    "slippage_rate": STAGED_SLIPPAGE_RATE,
+                    "sell_tax_rate": STAGED_SELL_TAX_RATE,
+                }.items()
+            ):
+                raise original_error
+            return MarketResearchRequest.model_construct(**values)
+        except (KeyError, TypeError, ValueError):
+            raise original_error
+
+
+def _persisted_result(payload: object) -> MarketResearchResult:
+    if not isinstance(payload, dict):
+        return MarketResearchResult.model_validate(payload)
+    try:
+        return MarketResearchResult.model_validate(payload)
+    except ValidationError:
+        values = dict(payload)
+        values["market"] = TypeAdapter(Market).validate_python(values["market"])
+        values["request"] = _persisted_request(values["request"])
+        values["readiness"] = MarketReadiness.model_validate(values["readiness"])
+        values["status"] = TypeAdapter(
+            Literal["ready", "insufficient"]
+        ).validate_python(values["status"])
+        values["completeness"] = TypeAdapter(
+            Literal["complete", "incomplete"]
+        ).validate_python(values["completeness"])
+        values["candidate_evidence"] = TypeAdapter(
+            tuple[CandidateEvidence, ...]
+        ).validate_python(values.get("candidate_evidence", ()))
+        values["trades"] = TypeAdapter(tuple[ResearchTrade, ...]).validate_python(
+            values.get("trades", ())
+        )
+        values["equity"] = TypeAdapter(tuple[ResearchEquityPoint, ...]).validate_python(
+            values.get("equity", ())
+        )
+        values["limitations"] = TypeAdapter(tuple[str, ...]).validate_python(
+            values.get("limitations", ())
+        )
+        values["metrics"] = TypeAdapter(dict[str, Decimal]).validate_python(
+            values.get("metrics", {})
+        )
+        values["input_hash"] = TypeAdapter(str | None).validate_python(
+            values.get("input_hash")
+        )
+        values["policy_hash"] = TypeAdapter(str | None).validate_python(
+            values.get("policy_hash")
+        )
+        values["stage"] = TypeAdapter(ResearchStage).validate_python(
+            values.get("stage", "legacy")
+        )
+        values["pilot_run_id"] = TypeAdapter(str | None).validate_python(
+            values.get("pilot_run_id")
+        )
+        values["data_contract_hash"] = TypeAdapter(
+            Annotated[str | None, Field(pattern=r"^[0-9a-f]{64}$")]
+        ).validate_python(values.get("data_contract_hash"))
+        values["warmup_sessions"] = TypeAdapter(tuple[date, ...]).validate_python(
+            values.get("warmup_sessions", ())
+        )
+        return MarketResearchResult.model_construct(**values)
+
+
+def _uses_historical_assumptions(request: MarketResearchRequest) -> bool:
+    return request.stage in {"pilot", "final"} and any(
+        value != expected
+        for value, expected in (
+            (request.initial_cash_krw, STAGED_INITIAL_CASH_KRW),
+            (request.fee_rate, STAGED_FEE_RATE),
+            (request.slippage_rate, STAGED_SLIPPAGE_RATE),
+            (request.sell_tax_rate, STAGED_SELL_TAX_RATE),
+        )
+    )
 
 
 class MarketHistoryStore:
@@ -65,6 +192,22 @@ class MarketHistoryStore:
                     captured_at TEXT NOT NULL
                 )
                 """
+            )
+            columns = {
+                str(row["name"])
+                for row in connection.execute("PRAGMA table_info(pit_runs)").fetchall()
+            }
+            for name, definition in {
+                "stage": "TEXT NOT NULL DEFAULT 'legacy'",
+                "pilot_run_id": "TEXT",
+                "data_contract_hash": "TEXT",
+            }.items():
+                if name not in columns:
+                    connection.execute(
+                        f"ALTER TABLE pit_runs ADD COLUMN {name} {definition}"
+                    )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_pit_runs_stage ON pit_runs(stage)"
             )
 
     def save_snapshot(self, snapshot: MarketHistorySnapshot) -> str:
@@ -144,11 +287,18 @@ class MarketHistoryStore:
                 INSERT INTO pit_runs
                     (
                         id, status, request_json, result_json, input_hash, error,
-                        created_at, updated_at
+                        created_at, updated_at, stage, pilot_run_id, data_contract_hash
                     )
-                VALUES (?, 'queued', ?, NULL, NULL, NULL, ?, ?)
+                VALUES (?, 'queued', ?, NULL, NULL, NULL, ?, ?, ?, ?, NULL)
                 """,
-                (selected, request.model_dump_json(), now.isoformat(), now.isoformat()),
+                (
+                    selected,
+                    request.model_dump_json(),
+                    now.isoformat(),
+                    now.isoformat(),
+                    request.stage,
+                    request.pilot_run_id,
+                ),
             )
         return self.get_run(selected)
 
@@ -160,12 +310,18 @@ class MarketHistoryStore:
         result: MarketResearchResult | None = None,
         input_hash: str | None = None,
         error: str | None = None,
+        data_contract_hash: str | None = None,
     ) -> None:
         now = datetime.now(UTC).isoformat()
         result_json = result.model_dump_json() if result else None
+        effective_contract_hash = (
+            data_contract_hash
+            if data_contract_hash is not None
+            else (result.data_contract_hash if result is not None else None)
+        )
         with self._connect() as connection:
             existing = connection.execute(
-                "SELECT status, result_json, input_hash, error "
+                "SELECT status, result_json, input_hash, error, data_contract_hash "
                 "FROM pit_runs WHERE id = ?",
                 (run_id,),
             ).fetchone()
@@ -177,6 +333,7 @@ class MarketHistoryStore:
                     or existing["result_json"] != result_json
                     or existing["input_hash"] != input_hash
                     or existing["error"] != error
+                    or existing["data_contract_hash"] != effective_contract_hash
                 ):
                     raise ValueError("terminal research runs are immutable")
                 return
@@ -184,7 +341,7 @@ class MarketHistoryStore:
                 """
                 UPDATE pit_runs
                 SET status = ?, result_json = ?, input_hash = ?, error = ?,
-                    updated_at = ?
+                    updated_at = ?, data_contract_hash = ?
                 WHERE id = ?
                 """,
                 (
@@ -193,6 +350,7 @@ class MarketHistoryStore:
                     input_hash,
                     error,
                     now,
+                    effective_contract_hash,
                     run_id,
                 ),
             )
@@ -206,12 +364,28 @@ class MarketHistoryStore:
             ).fetchone()
         if row is None:
             raise KeyError(run_id)
-        request = MarketResearchRequest.model_validate(json.loads(row["request_json"]))
+        request_payload = json.loads(row["request_json"])
+        request = _persisted_request(request_payload)
         result = (
-            MarketResearchResult.model_validate(json.loads(row["result_json"]))
+            _persisted_result(json.loads(row["result_json"]))
             if row["result_json"]
             else None
         )
+        run_values = {
+            "id": row["id"],
+            "status": row["status"],
+            "request": request,
+            "result": result,
+            "input_hash": row["input_hash"],
+            "created_at": datetime.fromisoformat(row["created_at"]),
+            "updated_at": datetime.fromisoformat(row["updated_at"]),
+            "error": row["error"],
+            "stage": row["stage"] or "legacy",
+            "pilot_run_id": row["pilot_run_id"],
+            "data_contract_hash": row["data_contract_hash"],
+        }
+        if _uses_historical_assumptions(request):
+            return MarketResearchRun.model_construct(**run_values)
         return MarketResearchRun(
             id=row["id"],
             status=row["status"],
@@ -221,6 +395,9 @@ class MarketHistoryStore:
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             error=row["error"],
+            stage=row["stage"] or "legacy",
+            pilot_run_id=row["pilot_run_id"],
+            data_contract_hash=row["data_contract_hash"],
         )
 
     def list_runs(self, limit: int = 50) -> list[MarketResearchRun]:
