@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, datetime, timedelta
@@ -24,6 +26,30 @@ PERCENT = Decimal("100")
 TWENTY = 20
 TARGET_WEIGHT = Decimal("0.05")
 DRAWDOWN_LIMIT = Decimal("0.20")
+MARKET_RESEARCH_POLICY: dict[str, object] = {
+    "version": 1,
+    "top_count": 20,
+    "lookback_sessions": 20,
+    "target_weight": "0.05",
+    "drawdown_fraction": "0.20",
+    "breakout_comparison": "strict_greater_than_prior_20_high",
+    "entry_fill": "next_tradable_open",
+    "exit_rule": "two_consecutive_closes_below_sma20",
+    "corporate_action_mode": "unsupported_actions_fail_closed",
+    "rebalance": "none",
+}
+
+
+def market_research_policy_hash(
+    policy: dict[str, object] | None = None,
+) -> str:
+    canonical = json.dumps(
+        policy if policy is not None else MARKET_RESEARCH_POLICY,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(canonical).hexdigest()
 
 
 class _PendingBuy(NamedTuple):

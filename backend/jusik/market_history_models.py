@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from base64 import b64decode, b64encode
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Literal, Self
@@ -148,6 +149,20 @@ class RawArtifact(HistoryModel):
     source: SourceName
     source_url: HttpUrl | None = None
     raw_content: bytes = Field(default=b"", exclude=True, repr=False)
+    raw_content_b64: str = Field(default="", exclude=False, repr=False)
+
+    @model_validator(mode="after")
+    def validate_content_hash(self) -> Self:
+        content = self.raw_content
+        if not content and self.raw_content_b64:
+            try:
+                content = b64decode(self.raw_content_b64, validate=True)
+            except ValueError as exc:
+                raise ValueError("raw artifact content encoding is invalid") from exc
+        digest = hashlib.sha256(content).hexdigest()
+        if digest != self.artifact_id or digest != self.content_sha256:
+            raise ValueError("raw artifact content hash does not match metadata")
+        return self
 
     @classmethod
     def from_bytes(
@@ -172,6 +187,7 @@ class RawArtifact(HistoryModel):
                 else None
             ),
             raw_content=content,
+            raw_content_b64=b64encode(content).decode("ascii"),
         )
 
 
@@ -249,6 +265,19 @@ class MarketReadiness(HistoryModel):
 
     @model_validator(mode="after")
     def validate_ready_status(self) -> Self:
+        required_names = {
+            "credentials",
+            "entitlement",
+            "calendar",
+            "membership",
+            "bars",
+            "actions",
+            "fx",
+            "policy",
+        }
+        names = [item.name for item in self.capabilities]
+        if len(names) != len(required_names) or set(names) != required_names:
+            raise ValueError("readiness must contain each required capability once")
         required_ready = all(item.status == "ready" for item in self.capabilities)
         if self.ready != required_ready:
             raise ValueError("readiness.ready must match capability statuses")

@@ -12,13 +12,19 @@ from jusik.market_history_models import (
     MarketHistorySnapshot,
     MarketReadiness,
     MarketResearchRequest,
+    RawArtifact,
 )
 from jusik.market_history_sources import (
     FixtureMarketHistorySource,
     UnavailableMarketHistorySource,
 )
 from jusik.market_history_store import MarketHistoryStore
-from jusik.market_research_strategy import run_market_research
+from jusik.market_research_service import MarketResearchService
+from jusik.market_research_strategy import (
+    MARKET_RESEARCH_POLICY,
+    market_research_policy_hash,
+    run_market_research,
+)
 from jusik.research_market_calendar import default_market_calendar
 
 
@@ -267,6 +273,46 @@ def test_readiness_ready_must_match_capabilities() -> None:
     data["ready"] = False
     with pytest.raises(ValidationError):
         MarketReadiness(**data)
+
+    for capabilities in (
+        (),
+        (*readiness.capabilities[:-1], readiness.capabilities[0]),
+    ):
+        data["capabilities"] = capabilities
+        data["ready"] = True
+        with pytest.raises(ValidationError):
+            MarketReadiness(**data)
+
+
+def test_raw_artifact_hash_and_policy_manifest_are_verified() -> None:
+    artifact = RawArtifact.from_bytes(
+        b"fixture artifact",
+        content_type="application/octet-stream",
+        captured_at=datetime(2024, 3, 15, tzinfo=UTC),
+        source="fixture",
+    )
+    data = artifact.model_dump()
+    data["artifact_id"] = "a" * 64
+    data["raw_content"] = artifact.raw_content
+    with pytest.raises(ValidationError):
+        RawArtifact(**data)
+    changed_policy = {**MARKET_RESEARCH_POLICY, "top_count": 19}
+    assert market_research_policy_hash() != market_research_policy_hash(changed_policy)
+
+
+def test_service_rejects_mismatched_saved_artifact_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = FixtureMarketHistorySource()
+    store = MarketHistoryStore(tmp_path / "pit.db")
+
+    def wrong_digest(*args: object, **kwargs: object) -> str:
+        return "f" * 64
+
+    monkeypatch.setattr(store, "save_artifact", wrong_digest)
+    service = MarketResearchService(source, store)
+    with pytest.raises(RuntimeError):
+        asyncio.run(service.create_run(request()))
 
 
 def test_store_artifact_and_terminal_run_are_immutable(tmp_path: Path) -> None:

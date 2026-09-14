@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,7 +12,10 @@ from jusik.market_history_models import (
 from jusik.market_history_sources import MarketHistorySource
 from jusik.market_history_store import MarketHistoryStore
 from jusik.market_research_config import load_market_research_settings
-from jusik.market_research_strategy import run_market_research
+from jusik.market_research_strategy import (
+    market_research_policy_hash,
+    run_market_research,
+)
 from jusik.research_market_calendar import MarketCalendar, default_market_calendar
 
 
@@ -28,9 +30,7 @@ class MarketResearchService:
         self.source = source
         self.store = store
         self.calendar = calendar or default_market_calendar()
-        self.policy_hash = hashlib.sha256(
-            b"market-research-pit-v1-next-open-volume-top20"
-        ).hexdigest()
+        self.policy_hash = market_research_policy_hash()
 
     def readiness(self, market: Market) -> MarketReadiness:
         return self.source.readiness(market, datetime.now(UTC))
@@ -42,11 +42,15 @@ class MarketResearchService:
             snapshot = await self.source.collect(request)
             for artifact in snapshot.source_artifacts:
                 if artifact.raw_content:
-                    self.store.save_artifact(
+                    saved_digest = self.store.save_artifact(
                         artifact.raw_content,
                         content_type=artifact.content_type,
                         captured_at=artifact.captured_at,
                     )
+                    if saved_digest != artifact.artifact_id:
+                        raise ValueError(
+                            "saved artifact digest does not match metadata"
+                        )
             snapshot_hash = self.store.save_snapshot(snapshot)
             result = run_market_research(
                 snapshot,
