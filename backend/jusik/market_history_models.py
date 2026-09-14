@@ -20,6 +20,10 @@ Market = Literal["KR", "US"]
 ResearchStage = Literal["pilot", "final", "legacy"]
 InstrumentType = Literal["stock", "etf"]
 Currency = Literal["KRW", "USD"]
+STAGED_INITIAL_CASH_KRW = Decimal("100000000")
+STAGED_FEE_RATE = Decimal("0.00015")
+STAGED_SLIPPAGE_RATE = Decimal("0.001")
+STAGED_SELL_TAX_RATE = Decimal("0.0018")
 SourceName = Literal["fixture", "krx", "massive"]
 CapabilityName = Literal[
     "credentials",
@@ -317,10 +321,14 @@ class MarketResearchRequest(HistoryModel):
     end_date: date
     stage: ResearchStage = "legacy"
     pilot_run_id: str | None = Field(default=None, min_length=8, max_length=64)
-    initial_cash_krw: Decimal = Field(default=Decimal("100000000"), gt=0)
-    fee_rate: Decimal = Field(default=Decimal("0.00015"), ge=0, le=Decimal("0.1"))
-    slippage_rate: Decimal = Field(default=Decimal("0.001"), ge=0, le=Decimal("0.1"))
-    sell_tax_rate: Decimal = Field(default=Decimal("0.0018"), ge=0, le=Decimal("0.1"))
+    initial_cash_krw: Decimal = Field(default=STAGED_INITIAL_CASH_KRW, gt=0)
+    fee_rate: Decimal = Field(default=STAGED_FEE_RATE, ge=0, le=Decimal("0.1"))
+    slippage_rate: Decimal = Field(
+        default=STAGED_SLIPPAGE_RATE, ge=0, le=Decimal("0.1")
+    )
+    sell_tax_rate: Decimal = Field(
+        default=STAGED_SELL_TAX_RATE, ge=0, le=Decimal("0.1")
+    )
 
     @model_validator(mode="after")
     def validate_period(self) -> Self:
@@ -346,6 +354,13 @@ class MarketResearchRequest(HistoryModel):
                 )
         elif self.pilot_run_id is not None:
             raise ValueError("legacy request cannot reference a pilot")
+        if self.stage in {"pilot", "final"} and (
+            self.initial_cash_krw != STAGED_INITIAL_CASH_KRW
+            or self.fee_rate != STAGED_FEE_RATE
+            or self.slippage_rate != STAGED_SLIPPAGE_RATE
+            or self.sell_tax_rate != STAGED_SELL_TAX_RATE
+        ):
+            raise ValueError("staged execution assumptions are fixed by the mandate")
         return self
 
 

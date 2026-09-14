@@ -4,6 +4,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from jusik.market_history_models import (
+    STAGED_FEE_RATE,
+    STAGED_INITIAL_CASH_KRW,
+    STAGED_SELL_TAX_RATE,
+    STAGED_SLIPPAGE_RATE,
     Market,
     MarketReadiness,
     MarketResearchRequest,
@@ -44,9 +48,21 @@ class MarketResearchService:
         return self.source.readiness(market, datetime.now(UTC))
 
     def _pilot_for_final(self, request: MarketResearchRequest) -> MarketResearchRun:
+        if request.stage == "legacy":
+            raise MarketResearchConflict(
+                "new research runs require pilot or final stage"
+            )
+        if request.initial_cash_krw != STAGED_INITIAL_CASH_KRW:
+            raise MarketResearchConflict("initial capital is fixed by the mandate")
+        if request.fee_rate != STAGED_FEE_RATE:
+            raise MarketResearchConflict("fee assumption is fixed by the mandate")
+        if request.slippage_rate != STAGED_SLIPPAGE_RATE:
+            raise MarketResearchConflict("slippage assumption is fixed by the mandate")
+        if request.sell_tax_rate != STAGED_SELL_TAX_RATE:
+            raise MarketResearchConflict("tax assumption is fixed by the mandate")
         if request.stage != "final":
             return MarketResearchRun(
-                id="legacy-placeholder",
+                id="pilot-placeholder",
                 status="queued",
                 request=request,
                 created_at=datetime.now(UTC),

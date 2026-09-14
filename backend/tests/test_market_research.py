@@ -21,7 +21,11 @@ from jusik.market_history_sources import (
     UnavailableMarketHistorySource,
 )
 from jusik.market_history_store import MarketHistoryStore
-from jusik.market_research_service import MarketResearchNotFound, MarketResearchService
+from jusik.market_research_service import (
+    MarketResearchConflict,
+    MarketResearchNotFound,
+    MarketResearchService,
+)
 from jusik.market_research_strategy import (
     DRAWDOWN_LIMIT,
     MARKET_RESEARCH_POLICY,
@@ -34,8 +38,9 @@ from jusik.research_market_calendar import default_market_calendar
 def request(market: str = "KR") -> MarketResearchRequest:
     return MarketResearchRequest(
         market=market,  # type: ignore[arg-type]
-        start_date=date(2024, 1, 15),
+        start_date=date(2023, 3, 15),
         end_date=date(2024, 3, 15),
+        stage="pilot",
     )
 
 
@@ -185,8 +190,9 @@ def test_fixture_api_exposes_readiness_and_completed_simulated_run() -> None:
             "/api/research/market/runs",
             json={
                 "market": "KR",
-                "start_date": "2024-01-15",
+                "start_date": "2023-03-15",
                 "end_date": "2024-03-15",
+                "stage": "pilot",
             },
         )
         assert created.status_code == 202
@@ -441,6 +447,72 @@ def test_staged_request_rejects_wrong_period_and_reference() -> None:
             end_date=date(2026, 1, 1),
             stage="pilot",
             pilot_run_id="a" * 8,
+        )
+
+
+def test_new_listing_with_short_history_is_entry_ineligible_not_a_failure() -> None:
+    source = FixtureMarketHistorySource()
+    item = request()
+    snapshot = asyncio.run(source.collect(item))
+    listed = snapshot.warmup_sessions[10]
+    data = snapshot.model_dump()
+    data["memberships"] = tuple(
+        membership.model_copy(update={"valid_from": listed})
+        if membership.symbol == "KR-A"
+        else membership
+        for membership in snapshot.memberships
+    )
+    data["bars"] = tuple(
+        bar for bar in snapshot.bars if bar.symbol != "KR-A" or bar.session >= listed
+    )
+    result = run_market_research(
+        MarketHistorySnapshot(**data),
+        item,
+        source.readiness("KR", datetime(2024, 3, 15, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert result.status == "ready"
+    assert not any(
+        trade.symbol == "KR-A" and trade.signal_session < listed
+        for trade in result.trades
+    )
+
+
+def test_staged_api_rejects_client_execution_override_and_legacy_create() -> None:
+    with TestClient(fixture_app) as client:
+        override = client.post(
+            "/api/research/market/runs",
+            json={
+                "market": "KR",
+                "end_date": "2026-09-14",
+                "stage": "pilot",
+                "initial_cash_krw": "1",
+            },
+        )
+        assert override.status_code == 422
+        legacy = client.post(
+            "/api/research/market/runs",
+            json={
+                "market": "KR",
+                "start_date": "2023-03-15",
+                "end_date": "2024-03-15",
+                "stage": "legacy",
+            },
+        )
+        assert legacy.status_code == 422
+
+
+def test_service_rejects_direct_staged_execution_override(tmp_path: Path) -> None:
+    source = FixtureMarketHistorySource()
+    store = MarketHistoryStore(tmp_path / "staged-direct-override.db")
+    service = MarketResearchService(source, store)
+    with pytest.raises(MarketResearchConflict):
+        asyncio.run(
+            service.create_run(request().model_copy(update={"fee_rate": Decimal("0")}))
+        )
+    with pytest.raises(MarketResearchConflict):
+        asyncio.run(
+            service.create_run(request().model_copy(update={"stage": "legacy"}))
         )
     with pytest.raises(ValidationError):
         MarketResearchRequest(

@@ -37,6 +37,12 @@ MARKET_RESEARCH_POLICY: dict[str, object] = {
     "exit_rule": "two_consecutive_closes_below_sma20",
     "corporate_action_mode": "unsupported_actions_fail_closed",
     "rebalance": "none",
+    "execution_assumptions": {
+        "initial_cash_krw": "100000000",
+        "fee_rate": "0.00015",
+        "slippage_rate": "0.001",
+        "sell_tax_rate": "0.0018",
+    },
     "staged_validation": {
         "stages": ["pilot", "final"],
         "pilot_years": 1,
@@ -436,9 +442,23 @@ def run_market_research(
         for candidate in candidates:
             if candidate.rank > 20 or candidate.symbol in positions:
                 continue
+            membership = next(
+                (
+                    item
+                    for item in snapshot.memberships
+                    if item.symbol == candidate.symbol
+                    and item.instrument_type == "stock"
+                    and item.is_valid_on(session.local_date)
+                ),
+                None,
+            )
+            if membership is None:
+                continue
             prior = [
                 bars_by_key[(candidate.symbol, prior_session.local_date)]
                 for prior_session in all_sessions[max(0, index - TWENTY) : index]
+                if membership.is_valid_on(prior_session.local_date)
+                and (candidate.symbol, prior_session.local_date) in bars_by_key
             ]
             current = bars_by_key[(candidate.symbol, session.local_date)]
             if (

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from jusik.market_history_models import (
     Market,
     MarketResearchRequest,
     MarketResearchRun,
-    ResearchStage,
     anniversary_start,
 )
 from jusik.market_research_service import (
@@ -24,15 +22,13 @@ router = APIRouter(prefix="/api/research/market", tags=["point-in-time research"
 
 
 class MarketResearchCreatePayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     market: Market
     end_date: date
     start_date: date | None = None
-    stage: ResearchStage = "legacy"
+    stage: Literal["pilot", "final"] = "pilot"
     pilot_run_id: str | None = None
-    initial_cash_krw: Decimal = Decimal("100000000")
-    fee_rate: Decimal = Decimal("0.00015")
-    slippage_rate: Decimal = Decimal("0.001")
-    sell_tax_rate: Decimal = Decimal("0.0018")
 
 
 def service(request: Request) -> MarketResearchService:
@@ -59,14 +55,9 @@ async def market_status(
 async def create_market_run(
     request: Request, payload: MarketResearchCreatePayload
 ) -> MarketResearchRun:
-    if payload.start_date is None:
-        if payload.stage == "legacy":
-            raise HTTPException(status_code=422, detail="start_date is required")
-        start_date = anniversary_start(
-            payload.end_date, years=1 if payload.stage == "pilot" else 3
-        )
-    else:
-        start_date = payload.start_date
+    start_date = payload.start_date or anniversary_start(
+        payload.end_date, years=1 if payload.stage == "pilot" else 3
+    )
     try:
         validated = MarketResearchRequest(
             market=payload.market,
@@ -74,10 +65,6 @@ async def create_market_run(
             end_date=payload.end_date,
             stage=payload.stage,
             pilot_run_id=payload.pilot_run_id,
-            initial_cash_krw=payload.initial_cash_krw,
-            fee_rate=payload.fee_rate,
-            slippage_rate=payload.slippage_rate,
-            sell_tax_rate=payload.sell_tax_rate,
         )
     except ValidationError:
         raise HTTPException(
