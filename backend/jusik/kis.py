@@ -161,6 +161,8 @@ class KisClient:
         self.client = client
         self._tokens: dict[tuple[str, str], TokenState] = {}
         self._auth_retry_after: dict[tuple[str, str], float] = {}
+        self._auth_tasks: dict[tuple[str, str], asyncio.Task[str]] = {}
+        self._auth_lock = asyncio.Lock()
         self._last_request = 0.0
         self._request_interval_seconds = request_interval_seconds
         self._lock = asyncio.Lock()
@@ -172,8 +174,29 @@ class KisClient:
         state = self._tokens.get(credentials)
         if state is not None and time.monotonic() < state.expires_at:
             return state.token.get_secret_value()
-        if time.monotonic() < self._auth_retry_after.get(credentials, 0):
-            raise BrokerError("인증 재시도 대기 중입니다. 1분 후 새로고침하세요.")
+        async with self._auth_lock:
+            # A failed task remains in the map until this next access, so its
+            # retry gate is still enforced. An active task must win over that
+            # gate: concurrent callers wait for the first authentication.
+            task = self._auth_tasks.get(credentials)
+            if task is not None and task.done():
+                del self._auth_tasks[credentials]
+                task = None
+            if task is None:
+                state = self._tokens.get(credentials)
+                if state is not None and time.monotonic() < state.expires_at:
+                    return state.token.get_secret_value()
+                if time.monotonic() < self._auth_retry_after.get(credentials, 0):
+                    raise BrokerError(
+                        "인증 재시도 대기 중입니다. 1분 후 새로고침하세요."
+                    )
+                task = asyncio.create_task(self._request_token(account, credentials))
+                self._auth_tasks[credentials] = task
+        return await asyncio.shield(task)
+
+    async def _request_token(
+        self, account: RegisteredAccount, credentials: tuple[str, str]
+    ) -> str:
         self._auth_retry_after[credentials] = time.monotonic() + 60
         response = await self.client.post(
             "/oauth2/tokenP",

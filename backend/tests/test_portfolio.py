@@ -401,6 +401,51 @@ def test_multiple_accounts_preserve_same_symbol_and_reuse_token() -> None:
     assert "global-secret" not in serialized
 
 
+def test_concurrent_authentication_shares_one_token_request_and_failed_retry_gate(
+) -> None:
+    configured = settings()
+    account = configured.registered_accounts[0]
+
+    class DelayedTokenClient:
+        def __init__(self, status_code: int) -> None:
+            self.status_code = status_code
+            self.calls = 0
+
+        async def post(self, *_args: object, **_kwargs: object) -> httpx.Response:
+            self.calls += 1
+            await asyncio.sleep(0.01)
+            if self.status_code != 200:
+                return httpx.Response(self.status_code)
+            return httpx.Response(
+                200, json={"access_token": "shared-token", "expires_in": 3600}
+            )
+
+    async def run() -> None:
+        client = DelayedTokenClient(200)
+        broker = KisClient(
+            configured, client, request_interval_seconds=0  # type: ignore[arg-type]
+        )
+        tokens = await asyncio.gather(
+            broker._authenticate(account),
+            broker._authenticate(account),
+            broker._authenticate(account),
+        )
+        assert tokens == ["shared-token"] * 3
+        assert client.calls == 1
+
+        failing_client = DelayedTokenClient(503)
+        failing_broker = KisClient(
+            configured, failing_client, request_interval_seconds=0  # type: ignore[arg-type]
+        )
+        with pytest.raises(BrokerError):
+            await failing_broker._authenticate(account)
+        with pytest.raises(BrokerError, match="재시도 대기"):
+            await failing_broker._authenticate(account)
+        assert failing_client.calls == 1
+
+    asyncio.run(run())
+
+
 def test_partial_account_failure_preserves_success_and_marks_aggregate_partial() -> (
     None
 ):

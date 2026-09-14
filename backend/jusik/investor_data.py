@@ -116,6 +116,7 @@ class KisInvestorProvider:
         self.cache_seconds = cache_seconds
         self._cache: dict[tuple[str, str], tuple[object, float]] = {}
         self._inflight: dict[tuple[str, str], asyncio.Task[object]] = {}
+        self._inflight_waiters: dict[tuple[str, str], int] = {}
         self._inflight_lock = asyncio.Lock()
         self._candidate_semaphore = asyncio.Semaphore(4)
 
@@ -136,14 +137,35 @@ class KisInvestorProvider:
             if task is None:
                 task = asyncio.create_task(loader())
                 self._inflight[key] = task
+                self._inflight_waiters[key] = 0
+            self._inflight_waiters[key] += 1
         try:
-            result = await task
+            result = await asyncio.shield(task)
             self._cache[key] = (result, time.monotonic())
             return result
         finally:
+            drain = False
             async with self._inflight_lock:
-                if self._inflight.get(key) is task:
+                waiters = self._inflight_waiters.get(key, 1) - 1
+                if waiters <= 0:
+                    self._inflight_waiters.pop(key, None)
+                    drain = self._inflight.get(key) is task and not task.done()
+                else:
+                    self._inflight_waiters[key] = waiters
+                if self._inflight.get(key) is task and waiters <= 0:
                     del self._inflight[key]
+            if drain:
+                task.cancel()
+                asyncio.create_task(self._drain_task(task))
+
+    @staticmethod
+    async def _drain_task(task: asyncio.Task[object]) -> None:
+        try:
+            await task
+        except BaseException:
+            # Cancellation and loader failures are already delivered to the
+            # waiting callers; this prevents an orphaned task warning.
+            pass
 
     async def _request(
         self, path: str, tr_id: str, params: dict[str, str]
@@ -480,7 +502,7 @@ class KisInvestorProvider:
                 "inspected": progress.inspected,
                 "stocks": len(progress.stock_candidates),
                 "etfs": len(progress.etf_candidates),
-                "unscanned": max(0, min(len(rows), max_rows) - progress.inspected),
+                "unscanned": max(0, len(rows) - progress.inspected),
             }
         )
         return self._discovery_result(market, progress, errors, observed_at)
@@ -502,9 +524,7 @@ class KisInvestorProvider:
                 "inspected": progress.inspected,
                 "stocks": len(progress.stock_candidates),
                 "etfs": len(progress.etf_candidates),
-                "unscanned": max(
-                    0, min(progress.valid_rows, max_rows) - progress.inspected
-                ),
+                "unscanned": max(0, progress.valid_rows - progress.inspected),
             }
         )
         return DiscoveryResult(
@@ -575,11 +595,11 @@ class KisInvestorProvider:
                     continue
                 provider_type = _text(meta.get("instrumentType")).upper()
                 if provider_type not in {"EQUITY", "ETF"}:
-                    return _CandidateChartResult(
-                        instrument_type=None,
-                        relative_volume=None,
-                        reason="Yahoo 종목 유형을 확인하지 못해 후보에서 제외했습니다.",
-                    )
+                    # A Korean symbol can have a valid Yahoo listing on the
+                    # other board (for example, a mutual-fund record on .KS
+                    # and an equity record on .KQ). Keep trying the bounded
+                    # suffix list before declaring its type unknown.
+                    continue
                 instrument_type: InstrumentType = (
                     "etf" if provider_type == "ETF" else "stock"
                 )
@@ -627,7 +647,12 @@ class KisInvestorProvider:
             return False
         venue = _text(meta.get("exchangeName")).upper()
         if instrument.market == "KR":
-            return venue in {"KSC", "KOE", "KOSPI", "KOSDAQ", "KRX"}
+            suffix = ticker.rsplit(".", maxsplit=1)[-1].upper()
+            allowed_venues = {
+                "KS": {"KSC", "KOSPI"},
+                "KQ": {"KOE", "KOSDAQ"},
+            }.get(suffix, set())
+            return venue in allowed_venues
         return venue in YAHOO_EXCHANGES.get(instrument.exchange, set())
 
     def _relative_volume(
@@ -717,7 +742,7 @@ class KisInvestorProvider:
                 update={"unavailable_reason": "일봉 거래량 배열이 유효하지 않습니다."}
             )
         split_reason = self._split_in_comparison_window(
-            result, instrument, prior_sessions
+            result, instrument, prior_sessions, numerator_session
         )
         if split_reason:
             return unavailable.model_copy(update={"unavailable_reason": split_reason})
@@ -863,6 +888,7 @@ class KisInvestorProvider:
         result: Mapping[str, object],
         instrument: Instrument,
         sessions: list[MarketSession],
+        numerator_session: date | None = None,
     ) -> str | None:
         events = result.get("events")
         if events is None:
@@ -878,6 +904,8 @@ class KisInvestorProvider:
             "Asia/Seoul" if instrument.market == "KR" else "America/New_York"
         )
         comparison_dates = {session.local_date for session in sessions}
+        if numerator_session is not None:
+            comparison_dates.add(numerator_session)
         for item in splits.values():
             if not isinstance(item, Mapping):
                 return "분할 자료 형식이 유효하지 않습니다."
@@ -892,7 +920,7 @@ class KisInvestorProvider:
                 datetime.fromtimestamp(float(stamp), UTC).astimezone(timezone).date()
             )
             if split_date in comparison_dates:
-                return "직전 20거래일 비교 구간에 분할 자료가 있어 보류합니다."
+                return "분자 및 직전 20거래일 비교 구간에 분할 자료가 있어 보류합니다."
         return None
 
     async def detail(self, instrument: Instrument) -> InstrumentDetail:

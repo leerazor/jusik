@@ -205,6 +205,11 @@ def test_fixture_investor_routes() -> None:
         assert {
             item["instrument"]["instrument_type"] for item in payload["etf_candidates"]
         } == {"etf"}
+        for item in payload["candidates"] + payload["etf_candidates"]:
+            relative = item["relative_volume"]
+            assert Decimal(relative["ratio"]) == (
+                Decimal(relative["numerator"]) / Decimal(relative["average20"])
+            )
         assert payload["counts"]["unknown"] == 1
         detail = client.get("/api/investor/instrument?market=KR&symbol=005930")
         assert detail.status_code == 200
@@ -736,6 +741,133 @@ def test_classification_caps_each_verified_type_separately_after_sort() -> None:
     assert result.etf_candidates[0].instrument.instrument_type == "etf"
 
 
+def test_discovery_unscanned_counts_all_valid_rows_beyond_inspection_cap() -> None:
+    progress = investor_data._DiscoveryProgress(
+        counts=investor_data.DiscoveryCounts(),
+        source_rows=300,
+        valid_rows=300,
+        inspected=80,
+    )
+    result = KisInvestorProvider._discovery_result(
+        "US", progress, [], datetime(2026, 9, 14, tzinfo=UTC)
+    )
+    assert result.counts.unscanned == 220
+    assert result.truncated is True
+
+
+def test_cached_loader_cancellation_isolated_and_all_waiters_cancelled_is_drained(
+) -> None:
+    async def run() -> None:
+        provider = KisInvestorProvider(None)  # type: ignore[arg-type]
+        key = ("cache", "cancel")
+        started = asyncio.Event()
+        release = asyncio.Event()
+        calls = 0
+
+        async def loader() -> str:
+            nonlocal calls
+            calls += 1
+            started.set()
+            await release.wait()
+            return "shared"
+
+        first = asyncio.create_task(provider._cached(key, loader))
+        second = asyncio.create_task(provider._cached(key, loader))
+        for _ in range(10):
+            if provider._inflight_waiters.get(key) == 2:
+                break
+            await asyncio.sleep(0)
+        await started.wait()
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        release.set()
+        assert await second == "shared"
+        assert calls == 1
+
+        all_cancel_key = ("cache", "all-cancel")
+        all_started = asyncio.Event()
+        all_release = asyncio.Event()
+
+        async def cancellable_loader() -> str:
+            all_started.set()
+            await all_release.wait()
+            return "never"
+
+        cancelled = [
+            asyncio.create_task(provider._cached(all_cancel_key, cancellable_loader))
+            for _ in range(2)
+        ]
+        for _ in range(10):
+            if provider._inflight_waiters.get(all_cancel_key) == 2:
+                break
+            await asyncio.sleep(0)
+        await all_started.wait()
+        for task in cancelled:
+            task.cancel()
+        results = await asyncio.gather(*cancelled, return_exceptions=True)
+        assert all(isinstance(result, asyncio.CancelledError) for result in results)
+        await asyncio.sleep(0)
+
+        refreshed = await provider._cached(
+            all_cancel_key, lambda: _ready_value("fresh")
+        )
+        assert refreshed == "fresh"
+
+    async def _ready_value(value: str) -> str:
+        return value
+
+    asyncio.run(run())
+
+
+def test_korean_chart_type_fallback_tries_other_board_after_unsupported_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    instrument = Instrument(
+        market="KR",
+        exchange="KRX",
+        symbol="069540",
+        currency="KRW",
+        name="에코프로머티",
+    )
+    calls: list[str] = []
+    metas = {
+        ".KS": {
+            "symbol": "069540.KS",
+            "currency": "KRW",
+            "exchangeName": "KSC",
+            "exchangeTimezoneName": "Asia/Seoul",
+            "instrumentType": "MUTUALFUND",
+        },
+        ".KQ": {
+            "symbol": "069540.KQ",
+            "currency": "KRW",
+            "exchangeName": "KOE",
+            "exchangeTimezoneName": "Asia/Seoul",
+            "instrumentType": "EQUITY",
+        },
+    }
+
+    class FakeClient:
+        async def get(self, url: str, **_kwargs: object) -> SimpleNamespace:
+            suffix = ".KS" if url.endswith(".KS") else ".KQ"
+            calls.append(suffix)
+            return SimpleNamespace(
+                status_code=200,
+                json=lambda: {"chart": {"result": [{"meta": metas[suffix]}]}},
+            )
+
+    provider = KisInvestorProvider(None)  # type: ignore[arg-type]
+    monkeypatch.setattr(provider, "_relative_volume", lambda *_args: None)
+    result = asyncio.run(
+        provider._fetch_candidate_chart(
+            FakeClient(), instrument, datetime(2026, 9, 14, tzinfo=UTC)  # type: ignore[arg-type]
+        )
+    )
+    assert calls == [".KS", ".KQ"]
+    assert result.instrument_type == "stock"
+
+
 def test_relative_volume_uses_exact_twenty_prior_sessions_and_allows_zero_numerator(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -874,10 +1006,21 @@ def test_relative_volume_rejects_missing_history_and_splits(
     split_facts = KisInvestorProvider(None)._relative_volume(
         instrument, split, meta, fetched_at, "ABC"
     )
+    numerator_split = dict(base)
+    numerator_split["events"] = {
+        "splits": {
+            "event": {"date": int(session_for(sessions[0]).close_at.timestamp())}
+        }
+    }
+    numerator_split_facts = KisInvestorProvider(None)._relative_volume(
+        instrument, numerator_split, meta, fetched_at, "ABC"
+    )
     assert missing_facts.ratio is None
     assert missing_facts.unavailable_reason
     assert split_facts.ratio is None
     assert "분할" in (split_facts.unavailable_reason or "")
+    assert numerator_split_facts.ratio is None
+    assert "분할" in (numerator_split_facts.unavailable_reason or "")
 
 
 def test_provider_analyzes_quote_after_yahoo_fetch(

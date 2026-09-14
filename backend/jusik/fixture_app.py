@@ -420,8 +420,8 @@ def fixture_investor_provider() -> InMemoryInvestorProvider:
             classification_observed_at=INVESTOR_NOW,
             relative_volume=RelativeVolumeFacts(
                 numerator=Decimal(volume),
-                average20=Decimal("100"),
-                ratio=Decimal(ratio),
+                average20=Decimal("100000"),
+                ratio=Decimal(volume) / Decimal("100000"),
                 sample_count=20,
                 sample_start=date(2026, 8, 7),
                 sample_end=date(2026, 9, 4),
