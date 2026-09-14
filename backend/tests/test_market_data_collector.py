@@ -16,6 +16,7 @@ from jusik.market_data_collector import (
     HttpFetcher,
     NetworkCollectorTransport,
     RequestBudgetExceeded,
+    collect_market_data,
     estimate_network_requests,
     parse_alpha_vantage_listing_status,
     parse_fred_observations,
@@ -242,7 +243,6 @@ class _FixtureTransport:
                         "TDD_LWPRC": "90",
                         "TDD_CLSPRC": "105",
                         "ACC_TRDVOL": "1000",
-                        "PARVAL": "100",
                         "LIST_SHRS": "1000000",
                     }
                 ]
@@ -302,16 +302,6 @@ class _FixtureTransport:
     async def fred(self, start: date, end: date) -> bytes:
         return b""
 
-    async def krx_basic_info(self, market_board: str, session: date) -> bytes:
-        symbol = "KOSPI1" if market_board == "STK" else "KOSDAQ1"
-        return json.dumps(
-            {
-                "OutBlock_1": [
-                    {"ISU_SRT_CD": symbol, "PARVAL": "100", "LIST_SHRS": "1000000"}
-                ]
-            }
-        ).encode()
-
 
 class _CorporateActionTransport(_FixtureTransport):
     def __init__(self, mode: str) -> None:
@@ -327,22 +317,9 @@ class _CorporateActionTransport(_FixtureTransport):
         body = await super().krx(market_board, start, end)
         if self.mode == "split" and start >= self.action_session:
             payload = json.loads(body)
-            payload["OutBlock_1"][0]["PARVAL"] = "200"
+            payload["OutBlock_1"][0]["LIST_SHRS"] = "2000000"
             return json.dumps(payload).encode()
         return body
-
-    async def krx_basic_info(self, market_board: str, session: date) -> bytes:
-        value = (
-            "200" if self.mode == "split" and session >= self.action_session else "100"
-        )
-        symbol = "KOSPI1" if market_board == "STK" else "KOSDAQ1"
-        return json.dumps(
-            {
-                "OutBlock_1": [
-                    {"ISU_SRT_CD": symbol, "PARVAL": value, "LIST_SHRS": "1000000"}
-                ]
-            }
-        ).encode()
 
 
 class _USCheckpointTransport:
@@ -468,6 +445,36 @@ def test_krx_collector_output_round_trips_through_approximate_strategy(
     assert result.research_grade == "approximate"
 
 
+def test_yahoo_collector_output_round_trips_through_approximate_strategy(
+    tmp_path: Path,
+) -> None:
+    start = date(2025, 9, 14)
+    end = date(2026, 9, 14)
+    collected = asyncio.run(
+        FreeMarketDataCollector(_USCheckpointTransport(fail_later=False)).collect(
+            market="US", start=start, end=end, sample_size=1
+        )
+    )
+    prepared = tmp_path / "prepared-us.json"
+    prepared.write_bytes(collected.dataset.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="US",
+        start_date=start,
+        end_date=end,
+        research_grade="approximate",
+    )
+    source = ApproximateMarketHistorySource(JsonApproximateProvider(prepared))
+    snapshot = asyncio.run(source.collect(request))
+    readiness = source.readiness("US", datetime(2026, 9, 14, tzinfo=UTC))
+    result = run_approximate_market_research(
+        snapshot, request, readiness, default_market_calendar()
+    )
+    assert snapshot.bars
+    assert snapshot.bars[0].source == "yahoo"
+    assert snapshot.bars[0].available_at.time() == time(20)
+    assert result.research_grade == "approximate"
+
+
 def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap() -> (
     None
 ):
@@ -494,7 +501,7 @@ def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap()
 @pytest.mark.parametrize(
     ("mode", "reason"),
     [
-        ("split", "par value or listed shares changed"),
+        ("split", "listed share count changed"),
         ("halt", "halt or missing trade bar"),
         ("delisting", "delisting"),
     ],
@@ -612,6 +619,34 @@ def test_network_request_estimate_is_bounded_for_one_and_three_year_ranges() -> 
     assert three_year < 10_000
 
 
+@pytest.mark.parametrize("resume", [False, True])
+def test_collection_preflight_does_not_subtract_unrelated_cache(
+    tmp_path: Path, resume: bool
+) -> None:
+    cache = AtomicResponseCache(tmp_path / "cache")
+    cache.put(
+        source="other",
+        endpoint="https://example.test/other",
+        request_key="unrelated",
+        body=b"cached",
+        status_code=200,
+        captured_at=datetime(2026, 9, 14, tzinfo=UTC),
+    )
+    with pytest.raises(RequestBudgetExceeded, match="estimated"):
+        asyncio.run(
+            collect_market_data(
+                market="KR",
+                start=date(2025, 9, 14),
+                end=date(2026, 9, 14),
+                output=tmp_path / "prepared.json",
+                cache_dir=tmp_path / "cache",
+                settings=CollectorSettings(krx_auth_key="configured", request_budget=1),
+                resume=resume,
+                client=_RecordingHttpClient(),
+            )
+        )
+
+
 class _RecordingHttpClient:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, dict[str, object]]] = []
@@ -621,7 +656,7 @@ class _RecordingHttpClient:
         return httpx.Response(200, content=b'{"OutBlock_1": []}')
 
 
-def test_network_krx_uses_official_post_daily_and_basic_shapes(tmp_path: Path) -> None:
+def test_network_krx_uses_official_post_daily_shape(tmp_path: Path) -> None:
     client = _RecordingHttpClient()
     settings = CollectorSettings(krx_auth_key="test-key")
     transport = NetworkCollectorTransport(
@@ -631,15 +666,10 @@ def test_network_krx_uses_official_post_daily_and_basic_shapes(tmp_path: Path) -
         settings,
     )
     asyncio.run(transport.krx("STK", date(2026, 9, 14), date(2026, 9, 14)))
-    asyncio.run(transport.krx_basic_info("ALL", date(2026, 9, 14)))
-    assert [call[0] for call in client.calls] == ["POST", "POST"]
+    assert [call[0] for call in client.calls] == ["POST"]
     daily = client.calls[0][2]["data"]
     assert isinstance(daily, dict)
     assert daily["bld"] == "dbms/MDC/STAT/standard/MDCSTAT01501"
     assert daily["mktId"] == "STK"
     assert daily["trdDd"] == "20260914"
     assert "strtDd" not in daily and "endDd" not in daily
-    basic = client.calls[1][2]["data"]
-    assert isinstance(basic, dict)
-    assert basic["bld"] == "dbms/MDC/STAT/standard/MDCSTAT01901"
-    assert basic["mktId"] == "ALL"

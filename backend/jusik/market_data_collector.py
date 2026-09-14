@@ -387,12 +387,7 @@ def _field(row: Mapping[str, object], *names: str) -> object | None:
 class KRXDailyResponse:
     universe: tuple[ApproximateUniverseRow, ...]
     bars: tuple[ApproximateBarRow, ...]
-    details: dict[str, tuple[Decimal | None, Decimal | None]]
-
-
-@dataclass(frozen=True)
-class KRXBasicInfoResponse:
-    details: dict[str, tuple[Decimal, Decimal]]
+    listed_shares: dict[str, Decimal | None]
 
 
 def parse_krx_daily_trade_response(
@@ -411,7 +406,7 @@ def parse_krx_daily_trade_response(
         raise CollectorError("KRX daily response exceeds the row bound")
     normalized: list[ApproximateUniverseRow] = []
     bars: list[ApproximateBarRow] = []
-    details: dict[str, tuple[Decimal | None, Decimal | None]] = {}
+    listed_shares: dict[str, Decimal | None] = {}
     seen: dict[tuple[date, str], tuple[str, str]] = {}
     for row in rows:
         raw_session = _field(
@@ -480,15 +475,11 @@ def parse_krx_daily_trade_response(
                 available_at=row_available_at,
             )
         )
-        par_value = _field(row, "PARVAL", "parval", "par_value")
-        listed_shares = _field(row, "LIST_SHRS", "list_shrs", "listed_shares")
-        details[symbol] = (
-            _decimal(par_value, "KRX par value") if par_value is not None else None,
-            (
-                _decimal(listed_shares, "KRX listed shares", nonnegative=True)
-                if listed_shares is not None
-                else None
-            ),
+        listed_shares_value = _field(row, "LIST_SHRS", "list_shrs", "listed_shares")
+        listed_shares[symbol] = (
+            _decimal(listed_shares_value, "KRX listed shares", nonnegative=True)
+            if listed_shares_value is not None
+            else None
         )
         price_fields = (
             _field(row, "TDD_OPNPRC", "opnprc", "open"),
@@ -521,41 +512,8 @@ def parse_krx_daily_trade_response(
     if not normalized:
         raise CollectorError("KRX response contains no valid stock rows")
     return KRXDailyResponse(
-        universe=tuple(normalized), bars=tuple(bars), details=details
+        universe=tuple(normalized), bars=tuple(bars), listed_shares=listed_shares
     )
-
-
-def parse_krx_basic_info_response(
-    body: bytes, *, checkpoint: date, market_board: Literal["STK", "KSQ"]
-) -> KRXBasicInfoResponse:
-    """Parse date-scoped stock master data used only for event detection."""
-    try:
-        payload = json.loads(body)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise CollectorError("KRX basic response is not valid JSON") from exc
-    rows = _rows(payload)
-    details: dict[str, tuple[Decimal, Decimal]] = {}
-    for row in rows:
-        symbol = str(
-            _field(row, "ISU_SRT_CD", "ISU_CD", "isu_srt_cd", "symbol") or ""
-        ).strip()
-        if not symbol:
-            raise CollectorError("KRX basic response row lacks identity")
-        par_value = _field(row, "PARVAL", "parval", "par_value")
-        listed_shares = _field(row, "LIST_SHRS", "list_shrs", "listed_shares")
-        if par_value is None or listed_shares is None:
-            continue
-        if symbol in details:
-            raise CollectorError("KRX basic response contains duplicate symbols")
-        details[symbol] = (
-            _decimal(par_value, "KRX par value"),
-            _decimal(listed_shares, "KRX listed shares", nonnegative=True),
-        )
-    if not details:
-        raise CollectorError(
-            f"KRX basic response contains no usable {market_board} identity fields"
-        )
-    return KRXBasicInfoResponse(details=details)
 
 
 def parse_krx_daily_response(
@@ -839,38 +797,6 @@ class NetworkCollectorTransport:
             checkpoint=f"krx:daily:{market_board}:{start}",
         )
 
-    async def krx_basic_info(self, market_board: str, session: date) -> bytes:
-        """Fetch the official stock master shape for identity cross-checks.
-
-        It is deliberately not used as a historical universe: the master is
-        current information and therefore cannot replace date-specific rows.
-        """
-        key = self.settings.krx_auth_key
-        if key is None:
-            raise CollectorError("KRX_AUTH_KEY is not configured")
-        return await self.fetcher.get(
-            source="krx",
-            url=KRX_URL,
-            method="POST",
-            params={},
-            data={
-                "bld": "dbms/MDC/STAT/standard/MDCSTAT01901",
-                "locale": "ko_KR",
-                "mktId": market_board,
-                "trdDd": session.strftime("%Y%m%d"),
-                "share": 1,
-                "csvxls_isNo": "false",
-                "AUTH_KEY": key.get_secret_value(),
-            },
-            headers={
-                "Accept": "application/json, text/plain, */*",
-                "Accept-Language": "ko-KR,ko;q=0.9",
-                "Origin": "https://data.krx.co.kr",
-                "Referer": "https://data.krx.co.kr/",
-            },
-            checkpoint=f"krx:basic:{market_board}:{session}",
-        )
-
     async def alpha_listing(self, as_of: date) -> bytes:
         key = self.settings.alpha_vantage_api_key
         if key is None:
@@ -966,8 +892,8 @@ def estimate_network_requests(
     warmup_start = _warmup_start(calendar, exchange, start)
     sessions = _historical_sessions(calendar, exchange, warmup_start, end)
     if market == "KR":
-        # Two boards each require daily trade and date-scoped basic responses.
-        return len(sessions) * 4
+        # Two boards each require one date-specific daily trade response.
+        return len(sessions) * 2
     return len(_listing_checkpoints(sessions)) + sample_size + 1
 
 
@@ -1012,16 +938,9 @@ class FreeMarketDataCollector:
         if market == "KR":
             krx_rows: list[ApproximateUniverseRow] = []
             krx_bars: list[ApproximateBarRow] = []
-            krx_details: dict[
-                date, dict[str, tuple[Decimal | None, Decimal | None]]
-            ] = {}
+            krx_listed_shares: dict[date, dict[str, Decimal | None]] = {}
             krx_symbols: dict[date, set[str]] = {}
             krx_bar_symbols: dict[date, set[str]] = {}
-            basic_details: dict[date, dict[str, tuple[Decimal, Decimal]]] = {}
-            basic_info_available = callable(
-                getattr(self.transport, "krx_basic_info", None)
-            )
-            basic_info_failed = False
             boards: tuple[Literal["STK", "KSQ"], ...] = ("STK", "KSQ")
             for session in sessions:
                 for board in boards:
@@ -1054,27 +973,18 @@ class FreeMarketDataCollector:
                         )
                         if empty_rows != []:
                             raise
-                        daily = KRXDailyResponse(universe=(), bars=(), details={})
+                        daily = KRXDailyResponse(universe=(), bars=(), listed_shares={})
                     krx_rows.extend(daily.universe)
                     krx_bars.extend(daily.bars)
-                    krx_details.setdefault(session, {}).update(daily.details)
+                    krx_listed_shares.setdefault(session, {}).update(
+                        daily.listed_shares
+                    )
                     krx_symbols.setdefault(session, set()).update(
                         row.symbol for row in daily.universe
                     )
                     krx_bar_symbols.setdefault(session, set()).update(
                         row.symbol for row in daily.bars
                     )
-                    if basic_info_available:
-                        try:
-                            basic = await self.transport.krx_basic_info(board, session)  # type: ignore[attr-defined]
-                            parsed_basic = parse_krx_basic_info_response(
-                                basic, checkpoint=session, market_board=board
-                            )
-                            basic_details.setdefault(session, {}).update(
-                                parsed_basic.details
-                            )
-                        except CollectorError:
-                            basic_info_failed = True
             raw_rows: tuple[ApproximateUniverseRow, ...] = tuple(krx_rows)
             source: Literal["krx", "alpha_vantage"] = "krx"
         else:
@@ -1103,7 +1013,7 @@ class FreeMarketDataCollector:
         event_reasons: dict[str, str] = {}
         if market == "KR":
             universe = tuple(row for row in raw_rows if row.symbol in selected_symbols)
-            previous_details: dict[str, tuple[Decimal, Decimal]] = {}
+            previous_details: dict[str, Decimal] = {}
             previous_symbols: set[str] | None = None
             missing_sessions: dict[str, date] = {}
             for session in sessions:
@@ -1119,33 +1029,17 @@ class FreeMarketDataCollector:
                 for symbol in current_symbols - current_bar_symbols:
                     event_dates.setdefault(symbol, session)
                     event_reasons.setdefault(symbol, "halt or missing trade bar")
-                session_details = dict(krx_details.get(session, {}))
-                session_details.update(
-                    {
-                        symbol: values
-                        for symbol, values in basic_details.get(session, {}).items()
-                    }
-                )
                 for symbol in current_symbols:
-                    details = session_details.get(symbol)
-                    if basic_info_available and details is None:
+                    listed_shares = krx_listed_shares.get(session, {}).get(symbol)
+                    if listed_shares is None:
                         event_dates.setdefault(symbol, session)
-                        event_reasons.setdefault(
-                            symbol, "missing KRX basic identity fields"
-                        )
-                    elif (
-                        details is not None
-                        and details[0] is not None
-                        and details[1] is not None
-                    ):
-                        current_details = (details[0], details[1])
-                        prior = previous_details.get(symbol)
-                        if prior is not None and prior != current_details:
-                            event_dates.setdefault(symbol, session)
-                            event_reasons.setdefault(
-                                symbol, "par value or listed shares changed"
-                            )
-                        previous_details[symbol] = current_details
+                        event_reasons.setdefault(symbol, "missing listed share count")
+                        continue
+                    prior = previous_details.get(symbol)
+                    if prior is not None and prior != listed_shares:
+                        event_dates.setdefault(symbol, session)
+                        event_reasons.setdefault(symbol, "listed share count changed")
+                    previous_details[symbol] = listed_shares
                 previous_symbols = current_symbols
             for symbol, event_date in missing_sessions.items():
                 if any(
@@ -1156,12 +1050,6 @@ class FreeMarketDataCollector:
                     event_reasons[symbol] = "halt or missing trade bar"
                 else:
                     event_reasons[symbol] = "delisting"
-            if basic_info_failed:
-                for symbol in selected_symbols:
-                    event_dates.setdefault(symbol, checkpoint)
-                    event_reasons.setdefault(
-                        symbol, "KRX basic information unavailable"
-                    )
         else:
             available_at = datetime.combine(checkpoint, time(18), tzinfo=UTC)
             universe = tuple(
@@ -1213,10 +1101,7 @@ class FreeMarketDataCollector:
                         )
                     bars.append(
                         chart_bar.model_copy(
-                            update={
-                                "available_at": lookup.session.close_at
-                                + timedelta(minutes=1)
-                            }
+                            update={"available_at": lookup.session.close_at}
                         )
                     )
         if not bars:
@@ -1253,7 +1138,7 @@ class FreeMarketDataCollector:
         if event_dates:
             limitations.append(
                 "KRX symbols are excluded from the first affected session onward "
-                "when a halt, delisting, missing identity fields, or share-value "
+                "when a halt, delisting, missing listed-share data, or share-count "
                 "change is detected: "
                 + "; ".join(
                     f"{symbol} ({event_reasons[symbol]})"
@@ -1307,12 +1192,12 @@ async def collect_market_data(
         estimated = estimate_network_requests(
             market=market, start=start, end=end, sample_size=sample_size
         )
-        cached_entries = AtomicResponseCache(cache_dir).status()["entries"]
-        if isinstance(cached_entries, int) and settings.request_budget < max(
-            0, estimated - cached_entries
-        ):
+        # Generic entries cannot prove they are exact, hash-verified requests
+        # for this run. A full estimate is conservative in resume mode but
+        # prevents unrelated cache data from hiding a partial collection.
+        if settings.request_budget < estimated:
             raise RequestBudgetExceeded(
-                "collector request budget is below the estimated uncached call count"
+                "collector request budget is below the estimated call count"
             )
         fetcher = HttpFetcher(
             cast(HttpClient, http_client),
@@ -1352,7 +1237,6 @@ __all__ = [
     "CollectorPartialError",
     "CollectorSettings",
     "FreeMarketDataCollector",
-    "KRXBasicInfoResponse",
     "KRXDailyResponse",
     "MAX_KRX_ROWS_PER_DAY",
     "NetworkCollectorTransport",
@@ -1364,6 +1248,5 @@ __all__ = [
     "parse_fred_observations",
     "parse_krx_daily_response",
     "parse_krx_daily_trade_response",
-    "parse_krx_basic_info_response",
     "parse_yahoo_chart",
 ]
