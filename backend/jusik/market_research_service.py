@@ -15,6 +15,7 @@ from jusik.market_history_models import (
     STAGED_SELL_TAX_RATE,
     STAGED_SLIPPAGE_RATE,
     Capability,
+    CapabilityName,
     Market,
     MarketHistorySnapshot,
     MarketReadiness,
@@ -80,7 +81,7 @@ class MarketResearchService:
         try:
             source = self._source_for_grade(grade)
         except MarketResearchConflict:
-            names = (
+            names: tuple[CapabilityName, ...] = (
                 "credentials",
                 "entitlement",
                 "calendar",
@@ -95,7 +96,7 @@ class MarketResearchService:
                 checked_at=datetime.now(UTC),
                 capabilities=tuple(
                     Capability(
-                        name=name,  # type: ignore[arg-type]
+                        name=name,
                         status="missing",
                         detail="approximate source is not configured",
                     )
