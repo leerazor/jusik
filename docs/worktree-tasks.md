@@ -1,5 +1,26 @@
 # 워크트리 작업 등록부
 
+## point-in-time-discovery
+
+- 상태: 준비
+- 목표와 완료 조건: 한국·미국을 각각 1억원의 독립 계좌로 모의 운용합니다. 과거 각 거래일 종가까지 공개된 전체 시장 자료로 개별주 거래량 상위 20개를 다시 산출하고, 진입·청산 신호를 다음 거래일 시가에 체결해 수익률을 계산합니다. 전체 종목 OHLCV·당시 상장 상태·기업행사·환율 중 필수 자료가 누락되면 결과를 만들지 않고 준비 상태와 원인을 표시합니다. 현재 후보를 과거에 고정하는 경로는 허용하지 않습니다.
+- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore 완료, plan 진행 중, 독립 review 예정.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-point-in-time-discovery
+- 작업 브랜치: feat/point-in-time-discovery
+- 기준 커밋 SHA: 등록부 커밋 후 기록
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: 최신 `docs/research-mandate.json`, 기존 investor 거래량 발굴 규칙과 research portfolio 비용·환율·검증 계약. KRX Open API와 미국 전시장 자료 공급자의 자격증명은 현재 없으므로 실제 3년 성과를 만들지 않습니다.
+- 수정 허용 범위: point-in-time 시장 원장·source adapter·동적 발굴/백테스트 모델과 API, investor/research 웹 연결, 설정 예시·사용자 문서·mandate 및 관련 테스트. 기존 PAPER·실주문·operations 실행 계약은 변경하지 않습니다.
+- 포트·테스트 DB·출력 경로: 작업 서버 3362/8362, 워크트리 내부 Python/Node 환경, pytest 임시 DB와 fixture. 운영 DB·공유 연구 DB·실제 주문·기존 서버는 사용하지 않습니다.
+- 고정 연구 규칙: 시장별 최대 20종목, 신규 진입은 당시 NAV 5%, 거래량 순위 우선, 현금 부족 시 건너뛰고 기록, 기존 보유는 후보 이탈만으로 매도하지 않음. 20일 고점 돌파 및 당일 거래량이 직전 완료 20일 평균 초과 시 다음 시가 진입, 종가가 SMA20 아래인 상태가 2거래일 연속이면 다음 시가 청산. 미국 계좌는 시작 시점 환율과 비용으로 USD를 조성하고 USD 원장과 KRW 평가 곡선을 함께 제공합니다. KRW NAV 기준 최대 낙폭 20%입니다.
+- 검증 명령과 결과: 예정 — focused/full pytest, Ruff, mypy, frontend lint/typecheck/build, fixture API/browser, 미래정보 누출·생존 편향·누락 자료 fail-closed·환율·휴장일·중복/기업행사 경계 검증.
+- 결과 커밋 SHA: 예정
+- 검토 결과와 남은 문제: 실제 3년 실행은 KRX 승인 키와 미국의 검증 가능한 전시장 OHLCV·historical membership/actions 자료가 모두 준비된 뒤 별도 수행합니다. capability를 자격증명·OHLCV·membership·actions·FX·정책으로 나눠 표시합니다.
+- 병합 직전 main SHA: 예정
+- 통합 커밋 SHA와 정리 여부: 예정
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- handoff 저장 경로와 갱신 여부: 예정
+
 ## volume-discovery
 
 - 상태: 완료
