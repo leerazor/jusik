@@ -41,9 +41,10 @@ class MarketResearchService:
             readiness = self.source.readiness(request.market, datetime.now(UTC))
             snapshot = await self.source.collect(request)
             for artifact in snapshot.source_artifacts:
-                if artifact.raw_content:
+                content = artifact.decoded_content
+                if content:
                     saved_digest = self.store.save_artifact(
-                        artifact.raw_content,
+                        content,
                         content_type=artifact.content_type,
                         captured_at=artifact.captured_at,
                     )

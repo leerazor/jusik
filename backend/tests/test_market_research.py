@@ -296,6 +296,10 @@ def test_raw_artifact_hash_and_policy_manifest_are_verified() -> None:
     data["raw_content"] = artifact.raw_content
     with pytest.raises(ValidationError):
         RawArtifact(**data)
+    mismatched = artifact.model_dump()
+    mismatched["raw_content"] = b"different bytes"
+    with pytest.raises(ValidationError):
+        RawArtifact(**mismatched)
     changed_policy = {**MARKET_RESEARCH_POLICY, "top_count": 19}
     assert market_research_policy_hash() != market_research_policy_hash(changed_policy)
 
@@ -322,16 +326,19 @@ def test_store_artifact_and_terminal_run_are_immutable(tmp_path: Path) -> None:
     store = MarketHistoryStore(tmp_path / "pit.db")
     run = store.create_run(item)
     artifact = snapshot.source_artifacts[0]
-    assert artifact.raw_content
+    assert artifact.decoded_content == artifact.raw_content
     assert (
         store.save_artifact(
-            artifact.raw_content,
+            artifact.decoded_content,
             content_type=artifact.content_type,
             captured_at=artifact.captured_at,
         )
         == artifact.artifact_id
     )
-    assert store.get_artifact(artifact.artifact_id)[0] == artifact.raw_content
+    assert store.get_artifact(artifact.artifact_id)[0] == artifact.decoded_content
+    store.save_snapshot(snapshot)
+    loaded = store.get_snapshot(snapshot.input_hash)
+    assert loaded.source_artifacts[0].decoded_content == artifact.decoded_content
     result = run_market_research(
         snapshot,
         item,

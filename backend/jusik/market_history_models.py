@@ -154,15 +154,24 @@ class RawArtifact(HistoryModel):
     @model_validator(mode="after")
     def validate_content_hash(self) -> Self:
         content = self.raw_content
-        if not content and self.raw_content_b64:
+        if self.raw_content_b64:
             try:
-                content = b64decode(self.raw_content_b64, validate=True)
+                decoded = b64decode(self.raw_content_b64, validate=True)
             except ValueError as exc:
                 raise ValueError("raw artifact content encoding is invalid") from exc
+            if content and decoded != content:
+                raise ValueError("raw artifact content representations differ")
+            content = decoded
         digest = hashlib.sha256(content).hexdigest()
         if digest != self.artifact_id or digest != self.content_sha256:
             raise ValueError("raw artifact content hash does not match metadata")
         return self
+
+    @property
+    def decoded_content(self) -> bytes:
+        if self.raw_content_b64:
+            return b64decode(self.raw_content_b64, validate=True)
+        return self.raw_content
 
     @classmethod
     def from_bytes(
