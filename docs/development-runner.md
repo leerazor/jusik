@@ -68,6 +68,8 @@ cd backend
 
 각 runtime prompt는 통합 검사가 끝난 뒤 병합 worktree를 제거하기 전에 필요한 evidence, SHA-256 hash, handoff를 허용된 durable root에 보관하도록 요구합니다. completion JSON은 worktree 정리 뒤에도 남아 있는 파일만 참조해야 합니다. worktree 생성·통합·검증·정리의 전체 절차는 [워크트리 운영 절차](worktree-workflow.md#정리)를 따릅니다.
 
+실제 spawn CLI가 role 필드를 제공하지 않는 환경의 명시적 model/fork routing과 receipt 기반 parent/child 감사는 [agent tooling의 roleless CLI 절차](agent-tooling.md#roleless-cli-routing)를 따르고 `backend/jusik/agent_routing.py` adapter를 사용합니다.
+
 ## 빈 큐 자동 연구 계획
 
 `planning_enabled=true`이고 실행 가능한 연구 작업이 없으며 queued/running 연구 작업도 없을 때, 실행기는 내부 예약 영역 `__planning__`에서 planner를 한 번 dispatch합니다. planner는 기존 연구 task snapshot, 검증된 `main` HEAD, UTC 날짜를 fingerprint로 묶고 cost-adjusted portfolio return/risk/turnover 실험을 우선 검토합니다. planner state/history는 연구 pending 상한 8개에 포함하지 않습니다.

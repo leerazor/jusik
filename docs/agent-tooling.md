@@ -51,6 +51,26 @@ Context7는 이 프로젝트가 사용하는 Next.js·React·FastAPI 등 외부 
 
 Linear는 여러 worktree 작업의 사용자 가시성, 우선순위, 의존성, 완료 상태를 공유할 때 유용합니다. 저장소의 [작업 등록부](worktree-tasks.md)는 worktree 경로·브랜치·검증·통합·handoff를 담는 실행 기록이므로 계속 기준 기록으로 유지합니다. Linear issue가 입력으로 제공되면 시작 전에 범위와 완료 조건을 읽고, 작업 등록부에 issue 식별자 또는 링크만 기록할 수 있습니다. Linear 생성·상태 변경·댓글 작성은 외부 상태 변경이므로 사용자가 요청했거나 해당 작업 지시에 명시된 경우에만 합니다. issue에는 비밀값, 계좌 식별자, 원시 데이터, 내부 절대 경로, 긴 실행 로그를 넣지 않습니다. 작업 종료 후에는 검증 결과·커밋·handoff 경로의 짧은 요약만 남깁니다.
 
+## Roleless CLI routing
+
+설치된 generic skill이 `agent_type`을 요구하더라도 실제 `collaboration.spawn_agent` capability probe가 `role_parameter="NONE"`이고 `model`, `reasoning_effort`, `fork_turns`를 지원하면 이 절차를 적용합니다. native interactive 경로에는 적용하지 않습니다. capability evidence는 실제 도구 probe JSON이어야 하며 추정하거나 role TOML만으로 대체하지 않습니다.
+
+`backend/jusik/agent_routing.py`가 role TOML을 읽어 `model`, `model_reasoning_effort`, `developer_instructions`와 bounded task input(Goal, Ownership, Validation, Stop condition)을 하나의 private message로 묶습니다. `prepare`는 정확히 `task_name`, `message`, `model`, `reasoning_effort`, `fork_turns` 다섯 인자만 생성하고 `model`과 `reasoning_effort`를 명시하며 `fork_turns=none`을 고정합니다. message에는 nonce·role/task 입력 digest 기반 receipt를 포함하고 child가 도구 호출 전에 첫 public assistant response로 receipt를 출력하도록 요구합니다. TOML의 `sandbox_mode`를 child가 적용했다고 주장하지 않습니다. parent 권한은 상속되며 role instructions는 task message로 전달됩니다.
+
+```text
+PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing prepare \
+  --role-file .codex/agents/code.toml --capability-file PATH/probe.json \
+  --task-file PATH/task.json --base-commit SHA --task-name NAME \
+  --manifest PATH/manifest.json --spawn-args PATH/spawn.json
+PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing pre \
+  --manifest PATH/manifest.json --spawn-args PATH/spawn.json
+PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing post \
+  --manifest PATH/manifest.json --parent-jsonl PATH/parent.jsonl \
+  --child-jsonl PATH/child.jsonl
+```
+
+`pre`는 실제 호출 직전 다섯 인자의 집합·값·hash와 receipt/message delivery를 확인합니다. `post`는 완전히 기록된 parent/child JSONL을 대상으로 실제 function call의 다섯 인자, 동일 call id의 child 반환 경로, child `session_meta`의 id·parent link, child 소유 turn context의 모델 불변성과 첫 assistant receipt를 대조합니다. child의 raw initial input이 JSONL에 보존되지 않는 host에서는 receipt를 delivery evidence로 기록하고 raw message가 보존되었다고 주장하지 않습니다. JSONL이 비어 있거나 마지막 줄을 포함해 하나라도 malformed이면 fail closed하며 실패 출력에는 prompt·응답 원문·secret을 포함하지 않습니다. child 종료 전 parent JSONL이 아직 쓰이는 동안에는 post를 실행하지 말고 두 로그가 완결된 뒤 재검사합니다.
+
 ## supervisor 검사와 작업 경계
 
 개인 supervisor skill의 기준 경로는 `/home/kwl/.codex/skills/jusik-supervisor`이고, routing helper는 그 경로의 `scripts/check_routing.py`에 있습니다. helper pre/post 검사는 모델·role·fork만 확인합니다. helper가 없거나 CLI 계약을 확인할 수 없으면 설치된 `SKILL.md`와 `--help`를 먼저 확인하고, 그래도 불명확하면 실행을 보류합니다. cwd·worktree와 필요한 도구의 실제 사용 가능성은 helper 범위가 아니며 supervisor가 수동 검증합니다. runner root의 Astra는 설계상 supervisor 역할이므로 그 역할 매핑을 유지합니다.
