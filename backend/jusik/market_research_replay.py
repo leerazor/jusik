@@ -46,6 +46,15 @@ REPLAY_SCHEMA: Final = "r0-deterministic-replay-v1"
 REPLAY_FILE: Final = "replay.json"
 CATALOGUE_FILE: Final = "catalogue.json"
 SHA256_PATTERN: Final = r"^[0-9a-f]{64}$"
+REPLAY_DEPENDENCIES: Final = (
+    "backend/jusik/market_research_replay.py",
+    "backend/jusik/market_history_approximate.py",
+    "backend/jusik/market_research_strategy.py",
+    "backend/jusik/market_history_sources.py",
+    "backend/jusik/market_history_models.py",
+    "backend/jusik/research_market_calendar.py",
+    "backend/jusik/data/market_sessions_2023_2026.json",
+)
 
 
 class ReplayError(ValueError):
@@ -390,6 +399,34 @@ def _git_sha() -> str | None:
     return value if len(value) == 40 else None
 
 
+def _dependency_provenance() -> tuple[dict[str, object], bool]:
+    root = Path(__file__).resolve().parents[2]
+    dependencies: dict[str, object] = {}
+    any_dirty = False
+    for relative in REPLAY_DEPENDENCIES:
+        path = root / relative
+        try:
+            digest = _sha256_bytes(path.read_bytes())
+        except OSError as exc:
+            raise ReplayError("a replay calculation dependency is unavailable") from exc
+        try:
+            status = subprocess.run(
+                ["git", "status", "--porcelain", "--", relative],
+                cwd=root,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        except (OSError, subprocess.CalledProcessError) as exc:
+            raise ReplayError(
+                "replay dependency working-tree state is unavailable"
+            ) from exc
+        dirty = bool(status)
+        any_dirty = any_dirty or dirty
+        dependencies[relative] = {"sha256": digest, "dirty": dirty}
+    return dependencies, any_dirty
+
+
 def _write_outputs(
     output_dir: Path, replay_payload: bytes, catalogue_payload: bytes
 ) -> None:
@@ -514,15 +551,7 @@ async def replay_manifest(
         "comparison": comparison,
     }
     replay_payload = _canonical(replay_payload_obj) + b"\n"
-    source_paths = (
-        Path(__file__).resolve(),
-        Path(__file__).with_name("market_history_approximate.py").resolve(),
-        Path(__file__).with_name("market_research_strategy.py").resolve(),
-    )
-    source_hashes = {
-        source_path.name: _sha256_bytes(source_path.read_bytes())
-        for source_path in source_paths
-    }
+    dependencies, dependencies_dirty = _dependency_provenance()
     catalogue: dict[str, object] = {
         "schema_version": REPLAY_SCHEMA,
         "manifest": {"path": str(manifest_path), "sha256": _sha256_bytes(manifest_raw)},
@@ -531,7 +560,8 @@ async def replay_manifest(
         "code": {
             "baseline_sha": manifest.repository.get("current_replay_baseline_sha"),
             "executing_git_sha": _git_sha(),
-            "source_hashes": source_hashes,
+            "dependencies": dependencies,
+            "dependencies_dirty": dependencies_dirty,
         },
         "environment": {
             "python": platform.python_version(),
