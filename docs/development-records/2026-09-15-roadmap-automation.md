@@ -3,7 +3,7 @@
 - 상태: 차단 (코드 검증 완료, 운영 활성화 대기)
 - 기록 시각: 2026-09-15T07:10:21.954856+00:00
 - 작업 slug: `roadmap-automation`
-- 기준/통합: `3df0c0c` / 없음 (구현 브랜치)
+- 기준/통합: `3df0c0c` / `518ddb8b6f048dc4a46f36136fd14469f8f22782`
 - 범위: 기존 research runner를 보존하면서 `investment-roadmap` scope의 전용 상태 binding, Markdown checklist queue, coarse phase gate와 bounded planner/dispatch를 추가했다.
 
 ## 변경과 결정
@@ -28,17 +28,24 @@
 
 ## 안전·운영 상태
 
-- PAPER/live activation, 실제 주문, 운영 원장·서비스 변경, remote push는 수행하지 않았다.
-- 전용 scope는 실제 dispatch 없이 임시 fake runner와 parser 경계만 검증했다.
+- PAPER/live activation, 실제 주문, 운영 원장 변경, remote push는 수행하지 않았다. 기존 inactive 서비스에 전용 config용 drop-in을 설치하고 daemon-reload했으며, service/timer는 활성화하지 않았다.
+- main 통합 pytest78(13.60초)·Ruff·strict mypy·독립 review 통과. 전용 state는 기존 연구 큐와 별도로 초기화했고 R1-01 seed 1건을 등록했다. paused run-once smoke 통과; 실제 child dispatch는 아직 미확인.
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-roadmap-automation`; manifest: 없음; hash: 해당 없음
-- 남은 작업·차단 조건: 주 agent의 runbook 통합·독립 review·local main 통합 전에는 운영 활성화하지 않는다.
-- 다음 시작: 통합 worktree에서 전체 runner 검사와 scope config 경계를 재검증한 뒤 독립 review를 수행한다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-roadmap-automation`; manifest: `integration-verification.json`; 코드·lock·전용 config SHA-256과 실제 검사 결과 기록
+- 남은 작업·차단 조건: 코드·설정·큐 준비는 완료했다. 기존 미커밋 사용자 문서 보존 커밋 또는 별도 저장소 선택에 대한 응답을 기다리며 두 큐 모두 paused, service/timer inactive를 유지한다.
+- 다음 시작: 사용자 응답 후 문서 보존 방식과 clean-main을 확정하고, 전용 config resume·단일 timer/service 시작 후 실제 R1-01 attempt를 확인한다.
 
 ## 최종 검토 보완
 
 - 운용 조건 JSON의 구문과 필수 필드 검사를 복구했다. 잘못된 조건은 queued seed와 빈 큐 planner 모두 attempt 생성 전에 차단하며 큐·dispatch 한도를 소비하지 않는다.
 - 누락된 runbook뿐 아니라 실제 파일이 남아 있지만 Git 추적에서 제외된 경우도 검증했다.
 - Luna 구현 완료 후 host agent thread limit으로 동일 담당자의 재호출이 세 번 거부됐다. 감독 Astra가 이 마지막 검사 복구와 회귀 테스트만 인계받아 수정했으며, 이를 Luna 수행으로 표시하지 않는다. 수정은 별도 commit과 동일 독립 reviewer의 재검토 대상으로 남긴다.
+
+## 통합·운영 준비 증거
+
+- 통합 검사 후 이번 worktree만 제거했으며 기존 여섯 worktree는 보존했다.
+- 전용 config: `~/.config/jusik/roadmap-development-runner.json`; state: `~/.local/share/jusik/roadmap-development-runner`. `planning_enabled=true`, 기존 승인된 daily_launches=null·90분 timeout·60초 cooldown을 유지한다.
+- 기존 서비스 drop-in: `~/.config/systemd/user/jusik-development-runner.service.d/roadmap.conf`. 기존 연구 config/DB는 paused로 보존했다.
+- 실제 활성화가 끝나지 않았으므로 자동 개발 실행 중 또는 전체 로드맵 완료로 표시하지 않는다. R0만 완료이며 R1~R7은 미완료다.
