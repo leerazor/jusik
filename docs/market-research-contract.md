@@ -4,7 +4,7 @@
 
 ## 공개 경계와 private audit
 
-공개 API는 `/api/research/market/status`, `/api/research/market/runs`, `/api/research/market/runs/{id}`를 사용합니다. API 응답에 서버의 절대 경로, 환경 파일 경로, 원시 응답 본문, 인증정보를 넣지 않습니다. 원시 source artifact와 큰 입력 파일은 private audit 디렉터리에 보존하고, 결과에는 기존 hash와 아래의 source identity만 전달합니다.
+공개 API는 `/api/research/market/status`, `/api/research/market/runs`, `/api/research/market/runs/{id}`를 사용합니다. 새 `provenance` metadata에는 서버의 절대 경로, 환경 파일 경로, 원시 응답 본문, 인증정보를 넣지 않습니다. 기존 `/api/research/market/artifacts/{artifact_id}` endpoint는 현재 라우터 동작에 따라 저장된 artifact bytes를 별도로 반환하며, 이 작업은 기존 route를 제거·변경하거나 새로운 접근 제어 보장을 추가하지 않습니다. 원시 source artifact와 큰 입력 파일은 private audit 디렉터리에 보존하고, 결과에는 기존 hash와 아래의 source identity만 전달합니다.
 
 `MarketResearchResult.provenance`는 새 실행에서 snapshot의 실제 행과 artifact에서 도출한 선택적 provenance입니다. legacy 저장 결과처럼 필드가 없으면 `null` 또는 확인 불가로 해석합니다. 행이나 artifact가 비어 있을 때 source를 추정하지 않습니다.
 
@@ -15,8 +15,8 @@
 | `bar_sources` | source identity 문자열 배열 | `null` | bar 행이 없으면 unknown |
 | `fx_sources` | source identity 문자열 배열 | `null` | FX 행이 없으면 unknown 또는 해당 없음 판단은 소비자가 시장 계약으로 해석 |
 | `artifact_sources` | source identity 문자열 배열 | `null` | source artifact가 없으면 unknown |
-| `normalization_version` | 비어 있지 않은 문자열 | `null` | normalized membership/bar 행이 없으면 unknown |
-| `captured_at` | timezone-aware ISO-8601 timestamp, UTC | `null` | snapshot 자료와 artifact가 모두 없으면 unknown |
+| `normalization_version` | 비어 있지 않고 40자 이하인 문자열 | `null` | normalized membership/bar 행이 없으면 unknown |
+| `captured_at` | timezone offset을 포함한 ISO-8601 timestamp (UTC로 직렬화) | `null` | snapshot 자료와 artifact가 모두 없으면 unknown |
 
 source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`, `approximate_file` 중 하나입니다. 배열은 중복을 제거하고 정렬합니다. `provenance`는 결과의 설명 필드이며 snapshot hash 계산 대상이 아니므로, 이 필드를 추가해 기존 input/data contract hash가 달라지지 않습니다.
 

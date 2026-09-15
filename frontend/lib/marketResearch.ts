@@ -10,6 +10,7 @@ const capabilitySchema = z.object({
 
 const researchGradeSchema = z.enum(["strict", "approximate"]);
 const sourceNameSchema = z.enum(["fixture", "krx", "massive", "yahoo", "alpha_vantage", "fred", "approximate_file"]);
+const capturedAtSchema = z.iso.datetime({ offset: true });
 
 export const marketReadinessSchema = z.object({
   market: z.enum(["KR", "US"]),
@@ -54,8 +55,8 @@ export const marketResearchProvenanceSchema = z.object({
   bar_sources: z.array(sourceNameSchema).nullable(),
   fx_sources: z.array(sourceNameSchema).nullable(),
   artifact_sources: z.array(sourceNameSchema).nullable(),
-  normalization_version: z.string().nullable(),
-  captured_at: z.string().nullable(),
+  normalization_version: z.string().min(1).max(40).nullable(),
+  captured_at: capturedAtSchema.nullable(),
 });
 
 const resultSchema = z.object({

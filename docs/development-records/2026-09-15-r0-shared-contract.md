@@ -13,6 +13,7 @@
 - `frontend/lib/marketResearch.ts`에 같은 provenance Zod schema와 타입을 추가하고, 새 필드를 `optional().nullable()`로 두어 기존 저장 결과와 호환합니다.
 - `docs/market-research-contract.md`에 필드·단위·기본값·unknown 정책, UTC availability/capture/execution semantics, raw row와 계산 coverage 차이, run status/error/result 관계 및 private audit 경계를 기록했습니다.
 - fixture API와 저장 legacy fixture 검증을 확장해 source identity·normalization·capture 전달, 빈 source unknown, 기존 금융/trades/equity/grade gate 보존을 확인했습니다.
+- provenance metadata의 private boundary를 기존 artifact retrieval route와 구분하고, Zod에서 1~40자 normalization version과 timezone offset ISO capture timestamp를 검증하는 영구 fixture script를 추가했습니다.
 
 ## 문서·계약 영향
 
@@ -26,7 +27,7 @@
 - `PYTHONPATH=. backend/.venv/bin/python -m pytest backend/tests/test_market_research.py` — 통과; 27개 테스트, deprecation warning 2개.
 - `backend/.venv/bin/ruff format --check ... && backend/.venv/bin/ruff check ...` — 통과; 변경 Python 3개 파일.
 - `backend/.venv/bin/python -m mypy --strict jusik/market_history_models.py jusik/market_research_service.py` — 통과.
-- `npx --yes tsx -e '...marketResearchRunSchema.parse(current); ...legacy...'` — 통과; current와 provenance 누락 legacy run을 Zod로 실제 파싱했습니다.
+- `npx --yes tsx scripts/verify-market-research-contract.ts` — 통과; current와 provenance 누락 legacy run을 파싱하고 빈 normalization version·timezone 없는 capture timestamp를 거부했습니다.
 - `npm ci --no-audit --no-fund`, `npm run lint`, `npm run typecheck`, `npm run build` — 통과; Next.js production build 완료. npm deprecated/install-script 경고는 실패가 아닙니다.
 - 실행하지 않은 검사: 전체 backend pytest와 독립 review. 통합 전 supervisor가 전체 영향 범위를 재검증해야 합니다.
 
@@ -37,6 +38,6 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-shared-contract`; manifest: `r0-shared-contract-verification.json`; SHA-256: `a54171c0455cafb9746da09df5e84acc88162261c4afb2ab12f68764187392fe`.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-shared-contract`; manifest: `r0-shared-contract-verification.json`; SHA-256: `3d5dd33f88f6dfbb1d53d12933bb2260d0f7566ea7660cd074bd9c74d5551309`.
 - 남은 작업·차단 조건: supervisor 독립 review와 local `main` 통합 검증 전까지 완료로 표시하지 않습니다. R0-04 통화 metadata와 R0-05 grade label은 후속 작업입니다.
 - 다음 시작: supervisor가 이 브랜치의 diff와 contract 문서를 검토한 뒤 전체 backend 영향 테스트와 통합 검증을 수행합니다.
