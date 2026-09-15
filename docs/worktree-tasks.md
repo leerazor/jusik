@@ -47,22 +47,19 @@
 
 ## r1-us-membership
 
-- 상태: 차단 (구현 전 agent 라우팅 사전검사 실패)
-- 목표와 완료 조건: R1-01 frozen 계획의 미국 historical membership 구현, legacy replay 보존, 독립 review와 local main 통합 검증.
-- 담당 Luna: 미배정; 현재 spawn 도구에 필수 `agent_type` 인자가 없어 preflight 실패.
-- 워크트리 절대 경로·작업 브랜치: 생성하지 않음.
-- 기준 커밋 SHA: a55da5a190a8764764be6748e346e09fdfc8dac6
-- 통합 대상 브랜치: 로컬 main
-- 입력과 선행 작업: R0 완료, R1-01-PLAN.md, frozen baseline manifest; artifact 4개 해시 확인.
-- 수정 허용 범위: collector·approximate와 관련 테스트·계약 문서. 이번 시도는 차단 기록만 작성.
-- 포트·테스트 DB·출력 경로: 서버·DB 없음; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r1-01-24eb7749
-- 검증 명령과 결과: routing preflight 실패; 기존 main offline replay comparison.all=true, cache84개 검증.
-- 결과 커밋 SHA·통합 커밋 SHA: 구현·통합 없음.
-- 검토 결과와 남은 문제: 독립 review 미실행; 명시적 역할 인자를 지원하는 호스트 또는 호환 라우팅 절차 필요.
-- 통합 검증 실패 원인과 복구 결과: 통합 전 차단; R1-01 checkbox 미변경.
-- 개발 기록 경로: docs/development-records/2026-09-15-r1-us-membership.md
-- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r1-01-24eb7749/HANDOFF.md
-- 정리 여부: 새 worktree 없음; 기존 worktree 보존.
+- 상태: 준비; 이전 routing 차단 후 model-only adapter로 재개
+- task/attempt: roadmap-r1-01-v1 / 0406c82ad69743049331fa3e1ff08495
+- 목표: frozen R1-01 미국 historical membership 구현, legacy replay 보존, 독립 review 및 local main 검증
+- 담당: 감독 Astra, 조사 r1_explore (Luna); 구현 Luna 한 명 배정 예정
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-membership-0406 / feat/r1-us-membership-0406
+- 조사 기준 main: 5831862f9f5f1766d775db18e84cfa8362c5465b; 작업 기준은 등록부 커밋 후 기록
+- 입력: frozen R1-01-PLAN.md, baseline manifest; artifact4개 hash 일치, 기존 replay comparison.all=true
+- 범위: collector·approximate·관련 tests·계약 문서; 전략·KR·PAPER/live 경계 보존
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-01-0406c82a; 서버·DB·네트워크 수집 없음
+- 검증: prefix/availability/caps/legacy pytest, Ruff, mypy, 독립 review, main 통합 재검사 예정
+- 개발 기록: docs/development-records/2026-09-15-r1-us-membership.md (완료 경계에서 갱신)
+- handoff: audit/HANDOFF.md 예정; 사용자 기존 HANDOFF.md 보존
+- 통합·정리: 미실행; 기존 다른 worktree 보존
 
 ## roadmap-automation
 
