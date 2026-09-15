@@ -102,7 +102,7 @@ def _task_input(value: Mapping[str, Any]) -> dict[str, str]:
 
 def _message(instructions: str, task: Mapping[str, str], nonce: str) -> str:
     body = (
-        instructions.rstrip()
+        instructions
         + "\n\nBounded task input:\n"
         + "\n".join(f"{field}: {task[field]}" for field in TASK_FIELDS)
         + "\n"
@@ -255,7 +255,8 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
     if message_hash != manifest.get("message_sha256"):
         raise RoutingError("role instructions delivery is not verifiable")
     if (
-        "Bounded task input:\n" not in expected["message"]
+        not expected["message"].startswith(instructions)
+        or "Bounded task input:\n" not in expected["message"]
         or "Routing nonce: " not in expected["message"]
         or "Routing receipt: " not in expected["message"]
     ):
