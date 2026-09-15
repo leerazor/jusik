@@ -116,6 +116,14 @@ def _message(instructions: str, task: Mapping[str, str], nonce: str) -> str:
     )
 
 
+def _receipt_from_message(message: str, nonce: str) -> str:
+    marker = "\nRouting nonce:"
+    body, separator, _ = message.partition(marker)
+    if not separator:
+        raise RoutingError("routing nonce is missing")
+    return "ROUTING_RECEIPT_" + _sha256_bytes((nonce + body).encode())[:24]
+
+
 def _private_write(path: Path, content: bytes) -> None:
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if path.is_symlink():
@@ -268,6 +276,14 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
         or "Routing receipt: " not in expected["message"]
     ):
         raise RoutingError("role instructions delivery is not verifiable")
+    nonce = manifest.get("nonce")
+    receipt = manifest.get("receipt")
+    if not isinstance(nonce, str) or not nonce or not isinstance(receipt, str):
+        raise RoutingError("routing receipt metadata is missing")
+    if _receipt_from_message(expected["message"], nonce) != receipt:
+        raise RoutingError("routing receipt metadata does not match message")
+    if receipt not in expected["message"]:
+        raise RoutingError("routing receipt is missing from message")
     if _sha256_bytes(_canonical(actual)) != manifest.get("args_sha256"):
         raise RoutingError("spawn argument hash mismatch")
     return {

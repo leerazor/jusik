@@ -119,6 +119,35 @@ def test_prepare_has_exact_five_private_args_and_receipt(
     assert args_path.stat().st_mode & 0o077 == 0
 
 
+def test_prepare_rejects_missing_role_model(tmp_path: Path) -> None:
+    role = tmp_path / "role.toml"
+    role.write_text('name = "code"\ndeveloper_instructions = "instructions"\n')
+    capability = tmp_path / "capability.json"
+    capability.write_text(json.dumps(CAPABILITY))
+    task = tmp_path / "task.json"
+    task.write_text(json.dumps(TASK))
+    with pytest.raises(RoutingError):
+        prepare_routing(
+            role,
+            capability,
+            task,
+            "d90373b",
+            "routing-test",
+            tmp_path / "manifest.json",
+            tmp_path / "args.json",
+        )
+
+
+def test_pre_rejects_wrong_nonce(
+    prepared: tuple[Path, Path, dict[str, object]],
+) -> None:
+    manifest, args_path, data = prepared
+    data["nonce"] = "wrong-nonce"
+    manifest.write_text(json.dumps(data))
+    with pytest.raises(RoutingError):
+        preflight(manifest, args_path)
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [("model", "gpt-5.6-terra"), ("reasoning_effort", "low"), ("fork_turns", "all")],
