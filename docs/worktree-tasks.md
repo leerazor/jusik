@@ -49,7 +49,7 @@
 - 담당 Luna: /root/r0_replay (code, gpt-5.6-luna), replay 단일 구현 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-r0-deterministic-replay
 - 작업 브랜치: feat/r0-deterministic-replay
-- 기준 커밋 SHA: dc7656d; 등록 커밋 이후 생성
+- 기준 커밋 SHA: cd161ec
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: docs/investment-development-roadmap.md R0-03; 기존 미국 기준 audit; R0-02/04 계약 통합 완료; R0-05 표시 코드는 replay 입력과 독립. 새 replay 문서로 공유 문서 충돌 방지
 - 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
@@ -58,7 +58,7 @@
 - 결과 커밋 SHA: 없음
 - 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
 - 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미통합·생성 예정
+- 통합 커밋 SHA와 정리 여부: 미통합·worktree 생성 완료
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-deterministic-replay.md (예정)
 - handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
@@ -100,7 +100,7 @@
 - 결과 커밋 SHA: 455ccdc76c5289726b22c8b579fed49d27b13ecb
 - 검토 결과와 남은 문제: r0_review 중요 지적 없음; 경제적 목표 not-evaluated
 - 병합 직전 main SHA: cd161ec
-- 통합 커밋 SHA와 정리 여부: 01f2d6850e9a991d8eb0688127cc8f8fec8eb523; 증거 보존 후 제거 예정
+- 통합 커밋 SHA와 정리 여부: 01f2d6850e9a991d8eb0688127cc8f8fec8eb523; 증거 보존·worktree 제거 완료
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-grade-contract.md
 - handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md
