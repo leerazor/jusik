@@ -65,7 +65,7 @@
 
 ## r0-currency-contract
 
-- 상태: 진행 (R0-04)
+- 상태: 완료 (R0-04)
 - 목표와 완료 조건: 독립 원화 계좌·초기 자본·USD/KRW 단위·환전 방향 명시. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
 - 담당 Luna: /root/r0_freeze (code, gpt-5.6-luna), shared 계약 단일 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-r0-currency-contract
@@ -75,14 +75,14 @@
 - 입력과 선행 작업: docs/investment-development-roadmap.md R0-04; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
 - 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
 - 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-currency-contract
-- 검증 명령과 결과: 배정 시 확정, 미실행
-- 결과 커밋 SHA: 없음
-- 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
-- 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미통합·worktree 생성 완료
+- 검증 명령과 결과: pytest48·Ruff·mypy2개·Zod fixture·frontend lint/typecheck/build·diff 통과
+- 결과 커밋 SHA: 62ae5ac2dbae4c431cbd1f9d11f806e24d04447c
+- 검토 결과와 남은 문제: r0_review 중요 지적 없음; 경제적 목표 not-evaluated
+- 병합 직전 main SHA: 96698df
+- 통합 커밋 SHA와 정리 여부: f949a635bc6e750b6d2b50a5a0beb889890f0111; 증거 보존 후 제거 예정
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-currency-contract.md (예정)
-- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-currency-contract.md
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md
 
 ## r0-grade-contract
 

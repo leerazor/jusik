@@ -1,6 +1,6 @@
 # R0-04 통화·독립 simulated account 계약
 
-- 상태: 검증
+- 상태: 완료
 - 기록 시각: 2026-09-15T03:40:46Z
 - 작업 slug: `r0-currency-contract`
 - 기준/통합: `967df2f664dfcc5b3ad97f36d2fa1ec8ff3a008a` / 없음
@@ -38,3 +38,7 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-currency-contract`; manifest: `r0-currency-contract-verification.json`; SHA-256: `62c2da3cf4cc6723c8400c7766b77b485f0504854abb360336ae76f54861253e`.
 - 남은 작업·차단 조건: supervisor 독립 review와 local `main` 통합 전입니다. R0-05와 R0-03은 후속 작업입니다.
 - 다음 시작: supervisor가 이 브랜치의 currency metadata diff와 fixture·hash 불변성을 검토합니다.
+
+## 통합 검증
+
+최종62ae5ac 독립 review 중요 지적 없음. main `f949a635bc6e750b6d2b50a5a0beb889890f0111` 통합 후 pytest48개, Ruff format/check, strict mypy2개, npm 계약fixture·lint·typecheck·build 및 diff 검사 통과. R0-04만 완료하며 R0-05·R0-03은 후속입니다.

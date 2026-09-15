@@ -106,7 +106,7 @@ R0는 모든 후속 결과가 같은 입력과 단위를 사용하도록 만드�
   - 증거 (기술 status: `pass`, 경제 observed: `not-evaluated`): `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json` (SHA-256 `03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205`); 모델 parse 및 84개 cache raw entry SHA/size 검증 통과; commit은 이 작업 브랜치 결과를 참조하며 supervisor review·main 통합 전에는 완료로 바꾸지 않는다.
 - [x] **R0-02** result/data contract에 path, account, unit, timestamp, coverage, error schema를 정의하고 shared `ApproximateDataset`·`MarketResearchResult`의 availability, grade, source, limitation, pool/hash를 단일 계약 소유자가 관리한다.
 - [ ] **R0-03** 실행 시점과 미래 checkpoint를 포함한 deterministic replay 명령과 run catalogue를 만들고, 실행 시각·run ID를 제외한 metrics·trades·equity가 일치하는지 확인한다.
-- [ ] **R0-04** USD·KRW·원화 계좌·초기 자본·환전 방향을 결과 schema에서 명시한다.
+- [x] **R0-04** USD·KRW·원화 계좌·초기 자본·환전 방향을 결과 schema에서 명시한다.
 - [ ] **R0-05** strict, approximate, fixture, PAPER 등급을 결과와 화면에서 혼동하지 않도록 표시 규칙을 고정한다.
 
 기술 완료 증거는 계약 문서, fixture, replay 결과, 독립 review다. shared 모델을 소비하는 서비스·UI는 같은 계약의 호환 검사를 통과해야 한다. 경제적 평가는 아직 `not-evaluated`다.
