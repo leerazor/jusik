@@ -1,5 +1,19 @@
 # 워크트리 작업 등록부
 
+## r3-market-ui-fixture
+
+- 상태: 차단 (구현 전 routing preflight 실패).
+- 목표: R3-03 시장 연구 목록·상세의 loading, empty, partial/insufficient, error 고정 fixture 검증.
+- 담당 Luna·worktree·branch: 미배정·미생성. 기준 main 95e12a657081f191dbbd3172b8465c4a89e24869.
+- 입력·범위: R0 완료, 최신 mandate JSON, 기존 frontend contract·격리 화면 근거. 이번 변경은 차단 기록만 포함합니다.
+- 포트·DB: 없음. 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r3-03-0530ece4.
+- 검증: routing preflight exit 1, missing explicit agent_type. npm·브라우저·review·구현 통합 미실행.
+- 결과·통합 commit: 구현 없음. R3-03 checkbox 미변경.
+- 재개: 필수 역할 routing 환경 확보 후 PLAN.md부터 진행합니다.
+- 개발 기록: docs/development-records/2026-09-15-r3-market-ui-fixture.md.
+- Handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r3-03-0530ece4/HANDOFF.md.
+- 정리: 새 worktree 없음. 기존 worktree와 사용자 HANDOFF.md 보존.
+
 ## r2-dd-chronology
 
 - 상태: 차단 (구현 전 routing preflight 실패)
