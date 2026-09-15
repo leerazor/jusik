@@ -233,6 +233,8 @@ def test_post_accepts_actual_layout(
     assert result["child_id"] == "child-id"
     assert result["raw_input_available"] is False
     assert result["delivery_evidence"] == "assistant_receipt"
+    assert result["raw_call_message_available"] is True
+    assert result["message_integrity_verified"] is True
 
 
 def test_post_accepts_explicit_opaque_message_mode(

@@ -645,9 +645,11 @@ def post_audit(
         "model": next(iter(models)),
         "raw_input_available": False,
         "delivery_evidence": "assistant_receipt",
-        "raw_call_message_available": False,
+        "raw_call_message_available": opaque_message_hash is None,
         "nonmessage_args_verified": True,
-        "message_integrity_verified": None,
+        "message_integrity_verified": (
+            None if opaque_message_hash is not None else True
+        ),
         "prepared_args_sha256": manifest["args_sha256"],
         "parent_log_sha256": _sha256_file(parent_jsonl),
         "child_log_sha256": _sha256_file(child_jsonl),

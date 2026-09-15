@@ -57,21 +57,31 @@ Linear는 여러 worktree 작업의 사용자 가시성, 우선순위, 의존성
 
 `backend/jusik/agent_routing.py`가 role TOML을 읽어 `model`, `model_reasoning_effort`, `developer_instructions`와 bounded task input(Goal, Ownership, Validation, Stop condition)을 하나의 private message로 묶습니다. `prepare`는 정확히 `task_name`, `message`, `model`, `reasoning_effort`, `fork_turns` 다섯 인자만 생성하고 `model`과 `reasoning_effort`를 명시하며 `fork_turns=none`을 고정합니다. message에는 nonce·role/task 입력 digest 기반 receipt를 포함하고 child가 도구 호출 전에 첫 public assistant response로 receipt를 출력하도록 요구합니다. TOML의 `sandbox_mode`를 child가 적용했다고 주장하지 않습니다. parent 권한은 상속되며 role instructions는 task message로 전달됩니다.
 
+plaintext message를 기록하는 host에서는 두 명령에서 `--message-mode`를 생략합니다. opaque envelope를 기록하는 host에서만 아래처럼 prepare와 post에 같은 `--message-mode model-only-encrypted-message-v1`를 지정합니다.
+
 ```text
-PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing prepare \
+python3 backend/jusik/agent_routing.py prepare \
   --role-file .codex/agents/code.toml --capability-file PATH/probe.json \
   --task-file PATH/task.json --base-commit SHA --task-name NAME \
+  --manifest PATH/manifest.json --spawn-args PATH/spawn.json \
+  --message-mode model-only-encrypted-message-v1
+python3 backend/jusik/agent_routing.py pre \
   --manifest PATH/manifest.json --spawn-args PATH/spawn.json
-PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing pre \
-  --manifest PATH/manifest.json --spawn-args PATH/spawn.json
-PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing post \
+python3 backend/jusik/agent_routing.py post \
   --manifest PATH/manifest.json --capability-file PATH/probe.json \
-  --parent-jsonl PATH/parent.jsonl --child-jsonl PATH/child.jsonl
+  --parent-jsonl PATH/parent.jsonl --child-jsonl PATH/child.jsonl \
+  --message-mode model-only-encrypted-message-v1
 ```
 
-`pre`는 실제 호출 직전 다섯 인자의 집합·값·hash와 receipt/message delivery를 확인합니다. `post`는 완전히 기록된 parent/child JSONL을 대상으로 실제 function call의 다섯 인자, 동일 call id의 child 반환 경로, child `session_meta`의 id·parent link, child 소유 turn context의 모델 불변성과 첫 assistant receipt를 대조합니다. child의 raw initial input이 JSONL에 보존되지 않는 host에서는 receipt를 delivery evidence로 기록하고 raw message가 보존되었다고 주장하지 않습니다. JSONL이 비어 있거나 마지막 줄을 포함해 하나라도 malformed이면 fail closed하며 실패 출력에는 prompt·응답 원문·secret을 포함하지 않습니다. child 종료 전 parent JSONL이 아직 쓰이는 동안에는 post를 실행하지 말고 두 로그가 완결된 뒤 재검사합니다.
+`PATH/task.json`은 다음 네 개의 bounded field를 담습니다.
 
-관찰된 host가 parent log의 `message`를 opaque base64url envelope로 저장하는 경우에만 `--message-mode model-only-encrypted-message-v1`을 명시합니다. capability probe의 정확한 다섯 인자와 envelope 구조(첫 decoded byte와 길이 형태)만 확인하고 해독·키 접근·암호학적 무결성 주장을 하지 않습니다. 이 모드에서도 네 개의 non-message 인자는 정확히 일치해야 하고 plaintext message가 들어오면 실패합니다. 결과에는 `raw_input_available=false`, `raw_call_message_available=false`, `nonmessage_args_verified=true`, `message_integrity_verified=null`, 준비 args·parent/child 원본 log·opaque blob의 별도 hash, `delivery_evidence=assistant_receipt`를 기록합니다. 준비 manifest와 spawn args는 새 private 파일로만 생성하며 기존 파일·symlink를 덮어쓰지 않습니다.
+```json
+{"goal":"...","ownership":"...","validation":"...","stop_condition":"..."}
+```
+
+`pre`는 실제 호출 직전 다섯 인자의 집합·값·hash와 role/task 원본, 준비 message/receipt의 일관성을 확인합니다. 실제 child 전달은 `post`가 검증합니다. `post`는 child가 완료되고 parent가 현재 레코드 쓰기를 마친 안정 시점에 parent/child JSONL을 대상으로 실행합니다. parent 프로세스 자체의 종료는 요구하지 않습니다. JSONL이 아직 기록 중이거나 마지막 줄을 포함해 하나라도 malformed이면 fail closed하고, 안정 시점에 재시도합니다. post는 실제 function call의 다섯 인자, 동일 call id의 child 반환 경로, child `session_meta`의 id·parent link, child 소유 turn context의 모델 불변성과 첫 assistant receipt를 대조합니다. child의 raw initial input이 JSONL에 보존되지 않는 host에서는 receipt를 delivery evidence로 기록하고 raw message가 보존되었다고 주장하지 않습니다. 실패 출력에는 prompt·응답 원문·secret을 포함하지 않습니다.
+
+관찰된 host가 parent log의 `message`를 opaque base64url envelope로 저장하는 경우에만 `--message-mode model-only-encrypted-message-v1`을 명시합니다. capability probe의 정확한 다섯 인자와 envelope 구조(첫 decoded byte와 길이 형태)만 확인하고 해독·키 접근·암호학적 무결성 주장을 하지 않습니다. 이 모드에서도 네 개의 non-message 인자는 정확히 일치해야 하고 plaintext message가 들어오면 실패합니다. opaque 결과에는 `raw_input_available=false`, `raw_call_message_available=false`, `nonmessage_args_verified=true`, `message_integrity_verified=null`, 준비 args·parent/child 원본 log·opaque blob의 별도 hash, `delivery_evidence=assistant_receipt`를 기록합니다. plaintext exact-match 결과에는 `raw_call_message_available=true`, `message_integrity_verified=true`를 기록합니다. 준비 manifest와 spawn args는 새 private 파일로만 생성하며 기존 파일·symlink를 덮어쓰지 않습니다.
 
 ## supervisor 검사와 작업 경계
 
