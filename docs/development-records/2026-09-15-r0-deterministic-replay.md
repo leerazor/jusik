@@ -1,6 +1,6 @@
 # R0-03 오프라인 deterministic replay
 
-- 상태: 진행
+- 상태: 완료
 - 기록 시각: 2026-09-15T04:23:32Z
 - 작업 slug: `r0-deterministic-replay`
 - 기준/통합: `dc7656d` / 없음
@@ -79,3 +79,7 @@
   필요합니다.
 - 다음 시작: 부모 agent가 두 final catalogue를 보존하고 review 결과를 반영한
   뒤 local `main` 통합 검증을 실행합니다.
+
+## 통합 검증
+
+최종9cbc8da 독립 review 중요 지적 없음. main `b950266983970d32f014f809d51a802eadbf2572` 통합 후 pytest61개, Ruff format/check, strict mypy3개와 diff 검사를 통과했습니다. 통합 main의 실제 두 CLI 실행은 audit `r0-deterministic-replay/main-baseline`과 `main-future`에 보존했고 모두 comparison.all=true입니다. 전체 해시는 audit `integration-verification.json`에 연결했습니다. R0-01/02/03/04/05 완료이며 다음 R1/R2/R3는 별도 작업입니다.

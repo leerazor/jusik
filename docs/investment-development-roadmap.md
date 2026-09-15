@@ -1,6 +1,6 @@
 # 투자 개발 로드맵
 
-- 문서 상태: 제안된 후속 작업 계획
+- 문서 상태: 실행 중 — R0 완료, R1 이후 예정
 - 기준 커밋: `c2ada5c`
 - 작성일: 2026-09-15
 - 적용 범위: 미국 손실 진단을 먼저 끝내고, 검증 가능한 경우에만 한국 확장과 PAPER 판단으로 넘어간다.
@@ -63,7 +63,7 @@
 
 | 단계 | 상태 | 기술 목표 | 경제적 목표 평가 | 의존성 | 주 증거·현재 판단 |
 | --- | --- | --- | --- | --- | --- |
-| R0 | 진행 | 기준 실행·공통 결과/자료 계약·replay | 평가 불가 | 없음 | E-01~E-07, 손실 원인 진단의 기준 필요 |
+| R0 | 완료 | 기준 실행·공통 결과/자료 계약·replay | not-evaluated | 없음 | main b950266; 테스트61개·두 checkpoint exact replay·독립 review 통과 |
 | R1 | 예정 | 미국 PIT universe와 기업행사 정책 교정 | 평가 불가 | R0 계약 | 고정 pool·미래 사건 제외·actions 결함 |
 | R2 | 예정 | 손실·비용·FX·DD 독립 계산과 NAV 대사 | 평가 불가 | R0 (기존 자료로 독립 착수) | R4에서 R1 보정 자료를 재대사; 비용·단위·세금 가정을 검증해야 함 |
 | R3 | 예정 | 기존 자료의 결과 화면과 fixture API | 평가 불가 | R0 계약 | R1/R2와 독립적인 읽기 전용 UI 작업 |
@@ -105,11 +105,23 @@ R0는 모든 후속 결과가 같은 입력과 단위를 사용하도록 만드�
 - [x] **R0-01** 기준 main SHA, 파일럿 run ID, 입력 manifest, 결과 hash를 하나의 재현 기록으로 묶는다.
   - 증거 (기술 status: `pass`, 경제 observed: `not-evaluated`): `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json` (SHA-256 `03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205`); 모델 parse 및 84개 cache raw entry SHA/size 검증 통과; commit은 이 작업 브랜치 결과를 참조하며 supervisor review·main 통합 전에는 완료로 바꾸지 않는다.
 - [x] **R0-02** result/data contract에 path, account, unit, timestamp, coverage, error schema를 정의하고 shared `ApproximateDataset`·`MarketResearchResult`의 availability, grade, source, limitation, pool/hash를 단일 계약 소유자가 관리한다.
-- [ ] **R0-03** 실행 시점과 미래 checkpoint를 포함한 deterministic replay 명령과 run catalogue를 만들고, 실행 시각·run ID를 제외한 metrics·trades·equity가 일치하는지 확인한다.
+- [x] **R0-03** 실행 시점과 미래 checkpoint를 포함한 deterministic replay 명령과 run catalogue를 만들고, 실행 시각·run ID를 제외한 metrics·trades·equity가 일치하는지 확인한다.
 - [x] **R0-04** USD·KRW·원화 계좌·초기 자본·환전 방향을 결과 schema에서 명시한다.
 - [x] **R0-05** strict, approximate, fixture, PAPER 등급을 결과와 화면에서 혼동하지 않도록 표시 규칙을 고정한다.
 
 기술 완료 증거는 계약 문서, fixture, replay 결과, 독립 review다. shared 모델을 소비하는 서비스·UI는 같은 계약의 호환 검사를 통과해야 한다. 경제적 평가는 아직 `not-evaluated`다.
+
+### R0 완료 증거 (2026-09-15 UTC)
+
+| ID | status | observed | artifact/hash | command | commit | review/date |
+| --- | --- | --- | --- | --- | --- | --- |
+| R0-01 | pass | 입력·결과·원본84개 hash 검증 | r0-baseline-freeze/baseline-manifest.json | 모델 parse·SHA/size 검사 | 86beeea | r0_review / 2026-09-15 |
+| R0-02 | pass | optional provenance·legacy 호환 | r0-shared-contract verification | pytest46·Ruff·mypy·npm fixture/lint/typecheck/build | 5f91bba | r0_review / 2026-09-15 |
+| R0-04 | pass | 독립 KRW 계좌·USD 단위·Decimal 비교 | r0-currency-contract verification | pytest48·Ruff·mypy·npm checks | f949a63 | r0_review / 2026-09-15 |
+| R0-05 | pass | 등급/원천·실패/대기/결과없음 구분 | r0-grade-contract/browser/verification.json | npm checks·Playwright visible heading | 01f2d68 | r0_review / 2026-09-15 |
+| R0-03 | pass | 두 checkpoint의 106거래·252일 결과 정확히 일치 | r0-deterministic-replay/main-baseline 및 main-future | replay CLI·pytest61·Ruff·mypy | b950266 | r0_review / 2026-09-15 |
+
+증거 경로의 공통 루트는 `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline`이며, `integration-verification.json`에 통합 코드·실행 시각·두 catalogue/replay 해시를 기록합니다. 세부 명령은 각 개발 기록과 [replay 사용 문서](market-research-replay.md)에 있습니다. [자료·결과 계약](market-research-contract.md)은 R1/R2/R3의 공통 입력입니다. 원본 생성 코드 후보는 미확인으로 남기며, 현재 통합 코드로 기존 결과의 동등성을 검증했습니다. 수익률은 기존 -16.933% 그대로이고 경제적 목표 달성을 뜻하지 않습니다.
 
 ## R1 — 미국 자료와 시간 순서 교정
 
