@@ -216,6 +216,31 @@ def test_yahoo_parser_validates_identity_arrays_and_action_events() -> None:
         date(2026, 9, 14),
     ]
     assert parsed.events == ("splits",)
+    for requested_exchange in ("NAS", "NMS"):
+        for venue in ("NMS", "NGM", "NCM"):
+            candidate = json.loads(body)
+            candidate["chart"]["result"][0]["meta"]["exchangeName"] = venue
+            result = parse_yahoo_chart(
+                json.dumps(candidate).encode(),
+                symbol="AAA",
+                exchange=requested_exchange,
+                currency="USD",
+                start=date(2026, 9, 11),
+                end=date(2026, 9, 14),
+            )
+            assert result.bars
+        for venue in ("NYQ", "PCX"):
+            candidate = json.loads(body)
+            candidate["chart"]["result"][0]["meta"]["exchangeName"] = venue
+            with pytest.raises(CollectorError, match="identity"):
+                parse_yahoo_chart(
+                    json.dumps(candidate).encode(),
+                    symbol="AAA",
+                    exchange=requested_exchange,
+                    currency="USD",
+                    start=date(2026, 9, 11),
+                    end=date(2026, 9, 14),
+                )
     broken = json.loads(body)
     broken["chart"]["result"][0]["indicators"]["quote"][0]["volume"] = [100]
     with pytest.raises(CollectorError, match="arrays"):
