@@ -39,6 +39,9 @@ from jusik.research_market_calendar import (
 
 MAX_SAMPLE_SYMBOLS = 100
 MAX_UNIQUE_SYMBOLS = 400
+US_MEMBERSHIP_NORMALIZATION_VERSION = "approx-us-r1-membership-v1"
+US_MEMBERSHIP_POOL_POLICY_VERSION = "approximate-us-membership-pool-v1"
+US_MEMBERSHIP_SEED = 20260914
 APPROX_LOOKBACK_SESSIONS = 20
 APPROX_TARGET_WEIGHT = Decimal("0.05")
 
@@ -273,6 +276,56 @@ def deterministic_pool(
     )
 
 
+def us_membership_contract_hash() -> str:
+    """Return the stable policy hash for causal US membership selections.
+
+    Constituents and observations are deliberately excluded from this hash;
+    they are represented by the prepared input artifact hash instead.
+    """
+    return _hash(
+        {
+            "version": US_MEMBERSHIP_POOL_POLICY_VERSION,
+            "normalization_version": US_MEMBERSHIP_NORMALIZATION_VERSION,
+            "seed": US_MEMBERSHIP_SEED,
+            "per_session_sample_size": MAX_SAMPLE_SYMBOLS,
+            "cumulative_unique_admissions": MAX_UNIQUE_SYMBOLS,
+            "admission": "initial-seeded-retain-incumbents-fill-vacancies",
+            "availability": "checkpoint-close-fallback-monotonic",
+            "gaps": "failed-checkpoint-unknown-until-recovery",
+        }
+    )
+
+
+def _validate_us_membership_rows(
+    rows: tuple[ApproximateUniverseRow, ...],
+    *,
+    market: Market,
+) -> None:
+    """Validate collector-produced causal selections without resampling them."""
+    expected_currency = "KRW" if market == "KR" else "USD"
+    symbols_by_session: dict[date, set[str]] = {}
+    all_symbols: set[str] = set()
+    for row in rows:
+        if row.currency != expected_currency:
+            raise ApproximateProviderError("US membership currency is invalid")
+        session_symbols = symbols_by_session.setdefault(row.session, set())
+        if row.symbol in session_symbols:
+            raise ApproximateProviderError(
+                "US membership contains duplicate symbols on a session"
+            )
+        session_symbols.add(row.symbol)
+        all_symbols.add(row.symbol)
+    if any(
+        len(symbols) > MAX_SAMPLE_SYMBOLS
+        for symbols in symbols_by_session.values()
+    ):
+        raise ApproximateProviderError("US membership exceeds the per-session bound")
+    if len(all_symbols) > MAX_UNIQUE_SYMBOLS:
+        raise ApproximateProviderError(
+            "US membership exceeds the cumulative admission bound"
+        )
+
+
 def _session(calendar: MarketCalendar, exchange: str, session: date) -> MarketSession:
     lookup = calendar.lookup(exchange, session)
     if lookup.session is None:
@@ -380,9 +433,26 @@ class ApproximateMarketHistorySource:
             request.market, request.start_date, request.end_date
         )
         dataset = response.dataset
-        pool = deterministic_pool(
-            dataset.universe, market=request.market, pool_end=request.end_date
+        is_causal_us = (
+            request.market == "US"
+            and dataset.normalization_version
+            == US_MEMBERSHIP_NORMALIZATION_VERSION
         )
+        pool = (
+            deterministic_pool(
+                dataset.universe, market=request.market, pool_end=request.end_date
+            )
+            if not is_causal_us
+            else None
+        )
+        if is_causal_us:
+            _validate_us_membership_rows(dataset.universe, market=request.market)
+            selected_rows = dataset.universe
+            contract_hash = us_membership_contract_hash()
+        else:
+            assert pool is not None
+            selected_rows = pool.rows
+            contract_hash = pool.contract_hash
         if captured_at is None:
             captured = datetime.now(UTC)
         elif captured_at.tzinfo is None or captured_at.utcoffset() != timedelta(0):
@@ -390,7 +460,7 @@ class ApproximateMarketHistorySource:
         else:
             captured = captured_at.astimezone(UTC)
         memberships: list[PITMembership] = []
-        for row in pool.rows:
+        for row in selected_rows:
             market_session = _session(self.calendar, row.exchange, row.session)
             memberships.append(
                 PITMembership(
@@ -411,7 +481,7 @@ class ApproximateMarketHistorySource:
                 )
             )
         bars: list[MarketBar] = []
-        selected_symbols = {row.symbol for row in pool.rows}
+        selected_symbols = {row.symbol for row in selected_rows}
         for bar_row in dataset.bars:
             if bar_row.symbol not in selected_symbols:
                 continue
@@ -476,7 +546,7 @@ class ApproximateMarketHistorySource:
             normalization_version=dataset.normalization_version,
             evaluation_start=request.start_date,
             research_grade="approximate",
-            pool_contract_hash=pool.contract_hash,
+            pool_contract_hash=contract_hash,
         )
 
 

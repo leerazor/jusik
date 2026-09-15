@@ -28,6 +28,9 @@ from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from jusik.market_history_approximate import (
+    MAX_UNIQUE_SYMBOLS,
+    US_MEMBERSHIP_NORMALIZATION_VERSION,
+    US_MEMBERSHIP_SEED,
     ApproximateBarRow,
     ApproximateDataset,
     ApproximateFXRow,
@@ -1120,7 +1123,12 @@ def estimate_network_requests(
     if market == "KR":
         # Two boards each require one date-specific daily trade response.
         return len(sessions) * 2
-    return len(_listing_checkpoints(sessions)) + sample_size + 1
+    checkpoint_count = len(_listing_checkpoints(sessions))
+    return (
+        checkpoint_count
+        + min(MAX_UNIQUE_SYMBOLS, sample_size * checkpoint_count)
+        + 1
+    )
 
 
 def completed_collection_is_valid(
@@ -1243,34 +1251,165 @@ class FreeMarketDataCollector:
             raw_rows: tuple[ApproximateUniverseRow, ...] = tuple(krx_rows)
             source: Literal["krx", "alpha_vantage"] = "krx"
         else:
-            initial_listing = parse_alpha_vantage_listing_status_detailed(
-                await self.transport.alpha_listing(checkpoint), as_of=checkpoint
-            )
-            raw_rows = initial_listing.rows
-            alpha_limitations.append(
-                self._alpha_checkpoint_summary(checkpoint, initial_listing)
-            )
-            for listing_checkpoint in _listing_checkpoints(sessions)[1:]:
+            checkpoint_rows: dict[date, tuple[ApproximateUniverseRow, ...] | None] = {}
+            checkpoint_selected: dict[date, tuple[str, ...]] = {}
+            admitted_symbols: set[str] = set()
+            us_current_symbols: tuple[str, ...] = ()
+            symbol_details: dict[str, ApproximateUniverseRow] = {}
+            listing_checkpoints = _listing_checkpoints(sessions)
+            for checkpoint_index, listing_checkpoint in enumerate(listing_checkpoints):
+                lookup = self.calendar.lookup("NMS", listing_checkpoint)
+                if lookup.session is None:
+                    raise CollectorError(
+                        f"calendar session unavailable: {listing_checkpoint}"
+                    )
                 try:
                     listing = parse_alpha_vantage_listing_status_detailed(
                         await self.transport.alpha_listing(listing_checkpoint),
                         as_of=listing_checkpoint,
-                    )
-                    alpha_limitations.append(
-                        self._alpha_checkpoint_summary(listing_checkpoint, listing)
+                        available_at=lookup.session.close_at,
                     )
                 except CollectorError:
+                    if checkpoint_index == 0:
+                        raise
+                    checkpoint_rows[listing_checkpoint] = None
                     alpha_limitations.append(
                         "Alpha Vantage membership checkpoint unavailable: "
-                        f"{listing_checkpoint}"
+                        f"{listing_checkpoint}; current_selected=0; "
+                        f"cumulative_admitted={len(admitted_symbols)}"
                     )
+                    continue
+                checkpoint_rows[listing_checkpoint] = listing.rows
+                eligible = {row.symbol for row in listing.rows}
+                for row in listing.rows:
+                    symbol_details.setdefault(row.symbol, row)
+                seeded = sorted(
+                    eligible,
+                    key=lambda symbol: hashlib.sha256(
+                        f"{US_MEMBERSHIP_SEED}:US:{symbol}".encode()
+                    ).hexdigest(),
+                )
+                if checkpoint_index == 0:
+                    us_current_symbols = tuple(seeded[:sample_size])
+                    admitted_symbols.update(us_current_symbols)
+                else:
+                    retained = [
+                        symbol for symbol in us_current_symbols if symbol in eligible
+                    ]
+                    retained_set = set(retained)
+                    for symbol in seeded:
+                        if len(retained) >= sample_size:
+                            break
+                        if symbol in retained_set:
+                            continue
+                        if symbol not in admitted_symbols:
+                            if len(admitted_symbols) >= MAX_UNIQUE_SYMBOLS:
+                                continue
+                            admitted_symbols.add(symbol)
+                        retained.append(symbol)
+                        retained_set.add(symbol)
+                    us_current_symbols = tuple(retained)
+                checkpoint_selected[listing_checkpoint] = us_current_symbols
+                alpha_limitations.append(
+                    self._alpha_checkpoint_summary(
+                        listing_checkpoint,
+                        listing,
+                        selected=len(us_current_symbols),
+                        cumulative_admitted=len(admitted_symbols),
+                    )
+                )
+            if not us_current_symbols:
+                raise CollectorError("historical eligible universe is empty")
+            symbols = tuple(sorted(admitted_symbols))
+            if not symbols:
+                raise CollectorError("historical eligible universe is empty")
+            # Expand each successful checkpoint selection through its known
+            # interval. A failed checkpoint starts an unknown interval; no
+            # membership rows are emitted until the next successful checkpoint.
+            universe_rows: list[ApproximateUniverseRow] = []
+            last_available: dict[str, datetime] = {}
+
+            def exchange_close(session: date) -> datetime:
+                lookup = self.calendar.lookup("NMS", session)
+                if lookup.session is None:
+                    raise CollectorError(f"calendar session unavailable: {session}")
+                return lookup.session.close_at
+
+            effective_starts: dict[date, date] = {}
+            for listing_checkpoint in listing_checkpoints:
+                checkpoint_listing = checkpoint_rows.get(listing_checkpoint)
+                if checkpoint_listing is None:
+                    continue
+                checkpoint_close = exchange_close(listing_checkpoint)
+                known_at = max(
+                    (
+                        row.available_at or checkpoint_close
+                        for row in checkpoint_listing
+                    ),
+                    default=checkpoint_close,
+                )
+                effective_start = next(
+                    (
+                        session
+                        for session in sessions
+                        if session >= listing_checkpoint
+                        and exchange_close(session) >= known_at
+                    ),
+                    None,
+                )
+                if effective_start is not None:
+                    effective_starts[listing_checkpoint] = effective_start
+            for checkpoint_index, listing_checkpoint in enumerate(listing_checkpoints):
+                selected = checkpoint_selected.get(listing_checkpoint)
+                effective_start = effective_starts.get(listing_checkpoint)
+                if selected is None or effective_start is None:
+                    continue
+                next_checkpoint = None
+                if checkpoint_index + 1 < len(listing_checkpoints):
+                    next_checkpoint = listing_checkpoints[checkpoint_index + 1]
+                    next_effective = effective_starts.get(next_checkpoint)
+                    if next_effective is not None:
+                        next_checkpoint = next_effective
+                period_sessions = tuple(
+                    session
+                    for session in sessions
+                    if session >= effective_start
+                    and (next_checkpoint is None or session < next_checkpoint)
+                )
+                details_by_symbol = {
+                    row.symbol: row
+                    for row in checkpoint_rows[listing_checkpoint] or ()
+                }
+                for session in period_sessions:
+                    for symbol in selected:
+                        detail = details_by_symbol.get(symbol) or symbol_details[symbol]
+                        available_at = detail.available_at
+                        if available_at is None:
+                            available_at = exchange_close(listing_checkpoint)
+                        previous_available = last_available.get(symbol)
+                        if previous_available is not None:
+                            available_at = max(available_at, previous_available)
+                        last_available[symbol] = available_at
+                        universe_rows.append(
+                            detail.model_copy(
+                                update={
+                                    "session": session,
+                                    "available_at": available_at,
+                                }
+                            )
+                        )
+            raw_rows = tuple(universe_rows)
+            selected_symbols = set(symbols)
             source = "alpha_vantage"
-        first_day_rows = tuple(row for row in raw_rows if row.session == checkpoint)
-        pool = deterministic_pool(first_day_rows, market=market, pool_end=end)
-        symbols = tuple(sorted({row.symbol for row in pool.rows}))[:sample_size]
-        if not symbols:
-            raise CollectorError("historical eligible universe is empty")
-        selected_symbols = set(symbols)
+            normalization_version = US_MEMBERSHIP_NORMALIZATION_VERSION
+        if market == "KR":
+            first_day_rows = tuple(row for row in raw_rows if row.session == checkpoint)
+            pool = deterministic_pool(first_day_rows, market=market, pool_end=end)
+            symbols = tuple(sorted({row.symbol for row in pool.rows}))[:sample_size]
+            if not symbols:
+                raise CollectorError("historical eligible universe is empty")
+            selected_symbols = set(symbols)
+            normalization_version = NORMALIZATION_VERSION
         event_dates: dict[str, date] = {}
         event_reasons: dict[str, str] = {}
         if market == "KR":
@@ -1313,33 +1452,15 @@ class FreeMarketDataCollector:
                 else:
                     event_reasons[symbol] = "delisting"
         else:
-            available_at = datetime.combine(checkpoint, time(18), tzinfo=UTC)
-            universe = tuple(
-                ApproximateUniverseRow(
-                    session=session,
-                    symbol=row.symbol,
-                    name=row.name,
-                    exchange=row.exchange,
-                    instrument_type=row.instrument_type,
-                    currency=row.currency,
-                    available_at=(
-                        row.available_at
-                        if row.available_at is not None
-                        and row.available_at <= available_at
-                        else available_at
-                    ),
-                )
-                for session in sessions
-                for row in pool.rows
-                if row.symbol in selected_symbols
-            )
+            universe = raw_rows
         bars: list[ApproximateBarRow] = []
         excluded: list[str] = []
         if market == "KR":
             bars = [bar for bar in krx_bars if bar.symbol in selected_symbols]
         else:
+            candidate_rows = raw_rows
             for symbol in symbols:
-                row = next(item for item in pool.rows if item.symbol == symbol)
+                row = next(item for item in candidate_rows if item.symbol == symbol)
                 try:
                     chart = parse_yahoo_chart(
                         await self.transport.yahoo(symbol, warmup_start, end),
@@ -1408,8 +1529,9 @@ class FreeMarketDataCollector:
                 )
             fx = tuple(fx_by_session)
             limitations.append(
-                "Alpha Vantage annual membership checkpoints are validated, "
-                "while the initial checkpoint fixes the sampled pool."
+                "Alpha Vantage annual membership checkpoints use causal selections: "
+                "eligible incumbents are retained and vacancies use then-eligible "
+                "seeded candidates. Failed checkpoints create unknown intervals."
             )
             limitations.append(
                 "US session FX uses the latest prior FRED observation available "
@@ -1454,7 +1576,7 @@ class FreeMarketDataCollector:
                 bar_source="krx" if market == "KR" else "yahoo",
                 fx_source="fred",
                 simulated=False,
-                normalization_version=NORMALIZATION_VERSION,
+                normalization_version=normalization_version,
             ),
             limitations=tuple(limitations),
             excluded_symbols=tuple(sorted(excluded)),
@@ -1462,7 +1584,11 @@ class FreeMarketDataCollector:
 
     @staticmethod
     def _alpha_checkpoint_summary(
-        checkpoint: date, result: AlphaListingParseResult
+        checkpoint: date,
+        result: AlphaListingParseResult,
+        *,
+        selected: int | None = None,
+        cumulative_admitted: int | None = None,
     ) -> str:
         excluded = (
             ", ".join(f"{reason}={count}" for reason, count in result.excluded)
@@ -1472,6 +1598,12 @@ class FreeMarketDataCollector:
             "Alpha Vantage listing checkpoint "
             f"{checkpoint}: input={result.input_rows}, accepted={result.accepted}, "
             f"excluded=({excluded})"
+            + (
+                f", current_selected={selected}, "
+                f"cumulative_admitted={cumulative_admitted}"
+                if selected is not None and cumulative_admitted is not None
+                else ""
+            )
         )
 
 

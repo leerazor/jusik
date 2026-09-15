@@ -10,6 +10,10 @@ from fastapi.testclient import TestClient
 
 from jusik.fixture_app import app as fixture_app
 from jusik.market_history_approximate import (
+    US_MEMBERSHIP_NORMALIZATION_VERSION,
+    ApproximateBarRow,
+    ApproximateDataset,
+    ApproximateFXRow,
     ApproximateMarketHistorySource,
     ApproximateProviderError,
     ApproximateUniverseRow,
@@ -18,6 +22,7 @@ from jusik.market_history_approximate import (
     KRXDateListProvider,
     deterministic_pool,
     run_approximate_market_research,
+    us_membership_contract_hash,
 )
 from jusik.market_history_models import Market, MarketResearchRequest
 from jusik.market_research_cli import main as market_research_cli
@@ -47,6 +52,120 @@ def test_deterministic_pool_is_bounded_and_seeded() -> None:
     assert first.unique_symbols == 450
     assert first.sampled_symbols == 100
     assert len({row.symbol for row in first.rows}) == 100
+
+
+def test_causal_us_source_keeps_preselected_rows_and_contract_is_policy_only(
+    tmp_path: Path,
+) -> None:
+    first_session = date(2026, 9, 11)
+    second_session = date(2026, 9, 14)
+    rows = (
+        ApproximateUniverseRow(
+            session=first_session,
+            symbol="AAA",
+            name="Alpha",
+            exchange="NMS",
+            currency="USD",
+        ),
+        ApproximateUniverseRow(
+            session=second_session,
+            symbol="NEW",
+            name="Newcomer",
+            exchange="NMS",
+            currency="USD",
+        ),
+    )
+    dataset = ApproximateDataset(
+        market="US",
+        universe=rows,
+        bars=(
+            ApproximateBarRow(
+                session=first_session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            ),
+        ),
+        fx=(ApproximateFXRow(session=first_session, krw_per_usd=1400, spread_rate=0),),
+        normalization_version=US_MEMBERSHIP_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "causal-us.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    try:
+        snapshot = asyncio.run(
+            ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+                MarketResearchRequest(
+                    market="US",
+                    start_date=first_session,
+                    end_date=second_session,
+                    research_grade="approximate",
+                )
+            )
+        )
+    finally:
+        source_path.unlink(missing_ok=True)
+    assert [item.symbol for item in snapshot.memberships] == ["AAA", "NEW"]
+    assert snapshot.pool_contract_hash == us_membership_contract_hash()
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        tuple(
+            ApproximateUniverseRow(
+                session=date(2026, 9, 11),
+                symbol=f"S{index:03d}",
+                name="Sample",
+                exchange="NMS",
+                currency="USD",
+            )
+            for index in range(101)
+        ),
+        tuple(
+            ApproximateUniverseRow(
+                session=date(2026, 9, 11),
+                symbol=f"S{index:03d}",
+                name="Sample",
+                exchange="NMS",
+                currency="USD",
+            )
+            for index in range(401)
+        ),
+    ],
+)
+def test_causal_us_source_rejects_membership_bounds(
+    rows: tuple[ApproximateUniverseRow, ...],
+    tmp_path: Path,
+) -> None:
+    dataset = ApproximateDataset(
+        market="US",
+        universe=rows,
+        bars=(),
+        normalization_version=US_MEMBERSHIP_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "causal-us-bounds.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    try:
+        with pytest.raises(ApproximateProviderError, match="bound"):
+            asyncio.run(
+                ApproximateMarketHistorySource(
+                    JsonApproximateProvider(source_path)
+                ).collect(
+                    MarketResearchRequest(
+                        market="US",
+                        start_date=date(2026, 9, 11),
+                        end_date=date(2026, 9, 14),
+                        research_grade="approximate",
+                    )
+                )
+            )
+    finally:
+        source_path.unlink(missing_ok=True)
 
 
 def test_json_provider_rejects_current_period_overflow_and_market_mismatch(

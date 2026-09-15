@@ -29,6 +29,7 @@ from jusik.market_data_collector import (
     parse_yahoo_chart,
 )
 from jusik.market_history_approximate import (
+    US_MEMBERSHIP_NORMALIZATION_VERSION,
     ApproximateMarketHistorySource,
     JsonApproximateProvider,
     run_approximate_market_research,
@@ -473,6 +474,30 @@ class _USCheckpointTransport:
         ).encode()
 
 
+class _CausalUSCheckpointTransport(_USCheckpointTransport):
+    def __init__(
+        self,
+        later_symbols: tuple[str, ...],
+        initial_symbols: tuple[str, ...] = ("AAA", "BBB"),
+    ) -> None:
+        super().__init__(fail_later=False)
+        self.later_symbols = later_symbols
+        self.initial_symbols = initial_symbols
+
+    async def alpha_listing(self, as_of: date) -> bytes:
+        self.alpha_calls += 1
+        symbols = self.initial_symbols if as_of.year == 2025 else self.later_symbols
+        rows = [
+            f"{symbol},Sample {symbol},NASDAQ,Stock,2020-01-01,null,Active"
+            for symbol in symbols
+        ]
+        return (
+            "symbol,name,exchange,assetType,ipoDate,delistingDate,status\n"
+            + "\n".join(rows)
+            + "\n"
+        ).encode()
+
+
 def test_collector_builds_validated_kr_dataset_without_current_universe_fallback() -> (
     None
 ):
@@ -557,6 +582,78 @@ def test_yahoo_collector_output_round_trips_through_approximate_strategy(
     assert result.research_grade == "approximate"
     assert result.trades
     assert result.metrics["coverage_sessions"] > 0
+
+
+def test_us_collector_uses_causal_version_and_unknown_gap_after_failed_checkpoint() -> (
+    None
+):
+    checkpoint = date(2026, 1, 2)
+    result = asyncio.run(
+        FreeMarketDataCollector(_USCheckpointTransport(fail_later=True)).collect(
+            market="US",
+            start=date(2025, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=1,
+        )
+    )
+    assert result.dataset.normalization_version == US_MEMBERSHIP_NORMALIZATION_VERSION
+    assert all(row.session < checkpoint for row in result.dataset.universe)
+    assert any(
+        "current_selected=0" in item and "cumulative_admitted=1" in item
+        for item in result.limitations
+    )
+
+
+def test_us_collector_future_newcomer_cannot_change_prior_membership_prefix() -> None:
+    kwargs = {
+        "market": "US",
+        "start": date(2025, 9, 14),
+        "end": date(2026, 9, 14),
+        "sample_size": 2,
+    }
+    baseline = asyncio.run(
+        FreeMarketDataCollector(
+            _CausalUSCheckpointTransport(("AAA", "BBB", "NEW"))
+        ).collect(**kwargs)
+    )
+    permuted = asyncio.run(
+        FreeMarketDataCollector(
+            _CausalUSCheckpointTransport(("NEW", "BBB", "AAA"))
+        ).collect(**kwargs)
+    )
+    checkpoint = date(2026, 1, 2)
+    baseline_prefix = tuple(
+        row for row in baseline.dataset.universe if row.session < checkpoint
+    )
+    permuted_prefix = tuple(
+        row for row in permuted.dataset.universe if row.session < checkpoint
+    )
+    assert baseline_prefix == permuted_prefix
+    assert "NEW" not in {row.symbol for row in baseline_prefix}
+    assert "NEW" not in {row.symbol for row in permuted_prefix}
+
+
+def test_us_collector_keeps_warmup_prices_but_admits_new_symbol_at_checkpoint() -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(
+            _CausalUSCheckpointTransport(
+                ("AAA", "NEW"), initial_symbols=("AAA",)
+            )
+        ).collect(
+            market="US",
+            start=date(2025, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=2,
+        )
+    )
+    membership_sessions = [
+        row.session for row in result.dataset.universe if row.symbol == "NEW"
+    ]
+    price_sessions = [bar.session for bar in result.dataset.bars if bar.symbol == "NEW"]
+    assert membership_sessions
+    assert min(membership_sessions) >= date(2026, 1, 2)
+    assert price_sessions
+    assert min(price_sessions) < min(membership_sessions)
 
 
 def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap() -> (
@@ -822,6 +919,21 @@ def test_network_request_estimate_is_bounded_for_one_and_three_year_ranges() -> 
     assert one_year > 0
     assert three_year > one_year
     assert three_year < 10_000
+
+
+def test_us_network_request_estimate_includes_cumulative_admission_bound() -> None:
+    one_year = estimate_network_requests(
+        market="US", start=date(2025, 9, 14), end=date(2026, 9, 14), sample_size=1
+    )
+    one_year_full = estimate_network_requests(
+        market="US", start=date(2025, 9, 14), end=date(2026, 9, 14), sample_size=100
+    )
+    three_year_full = estimate_network_requests(
+        market="US", start=date(2023, 9, 14), end=date(2026, 9, 14), sample_size=100
+    )
+    assert one_year == 5
+    assert one_year_full == 203
+    assert three_year_full == 405
 
 
 @pytest.mark.parametrize("resume", [False, True])
