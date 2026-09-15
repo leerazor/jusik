@@ -1,7 +1,7 @@
 # R0-03 오프라인 deterministic replay
 
 - 상태: 진행
-- 기록 시각: 2026-09-15T00:00:00Z
+- 기록 시각: 2026-09-15T04:23:32Z
 - 작업 slug: `r0-deterministic-replay`
 - 기준/통합: `dc7656d` / 없음
 - 범위: frozen approximate baseline을 네트워크·DB 없이 검증하고 재실행하는
@@ -18,6 +18,10 @@
   metadata만 제어하며 `available_at`과 전략 수학은 보존합니다.
 - 결과의 metrics·candidate evidence·trades·equity·limitations 및 계약 hash를
   baseline과 exact 비교하고, capture 의존적인 input hash는 별도로 기록합니다.
+- catalogue에는 replay에 직접 영향을 주는 세 실행 모듈과 history source·model·
+  calendar 코드·calendar JSON의 SHA-256 및 각 파일의 dirty flag를 기록합니다.
+  manifest SHA는 읽은 바이트의 기록값이며, 외부 기대 digest가 없으면 독립
+  identity 검증으로 해석하지 않습니다.
 
 ## 문서·계약 영향
 
@@ -29,12 +33,35 @@
 
 ## 검증
 
-- frozen baseline checkpoint `2026-09-15T01:10:31Z` — replay exact comparison
-  전체 통과, audit output은 저장소 밖에 보존했습니다.
-- frozen future checkpoint `2026-10-15T01:10:31Z` — replay exact comparison
-  전체 통과; 새 market observation으로 해석하지 않습니다.
-- Ruff와 strict mypy — 구현 파일 통과.
-- 전체 pytest와 신규 테스트 — 기록 시점에 추가 예정.
+- `cd backend && .venv/bin/python -m pytest -q tests/test_market_research_replay.py
+  tests/test_market_history_approximate.py tests/test_market_research.py` — 60
+  passed (2 dependency deprecation warnings).
+- `cd backend && .venv/bin/ruff format jusik/market_research_replay.py
+  tests/test_market_research_replay.py jusik/market_history_approximate.py` —
+  통과; `cd backend && .venv/bin/ruff check jusik/market_research_replay.py
+  tests/test_market_research_replay.py jusik/market_history_approximate.py` —
+  통과.
+- `cd backend && .venv/bin/python -m mypy jusik/market_research_replay.py
+  jusik/market_history_approximate.py tests/test_market_research_replay.py` —
+  통과.
+- 기준 checkpoint 실제 명령:
+  ```text
+  cd /home/kwl/projects/jusik-r0-deterministic-replay/backend && .venv/bin/python -m jusik.market_research_replay --manifest /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json --checkpoint-at 2026-09-15T01:10:31Z --output-dir /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-deterministic-replay/final-baseline
+  ```
+  — `comparison.all=true`, replay SHA
+  `ad17544ced4bca0530661e57e50ebe90503c5e61dd6e09e98669268d362c5eee`,
+  catalogue SHA
+  `1cb98b7ed8e30c1dd323b2d9ce7c1e02cb8e0428d208b3b53069cfafb5c152fa`, dirty
+  `false`, executing Git SHA `bd7770db5d60978a63e58641909d7d38a292d3b6`.
+- 미래 checkpoint 실제 명령:
+  ```text
+  cd /home/kwl/projects/jusik-r0-deterministic-replay/backend && .venv/bin/python -m jusik.market_research_replay --manifest /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json --checkpoint-at 2026-10-15T01:10:31Z --output-dir /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-deterministic-replay/final-future
+  ```
+  — `comparison.all=true`, replay SHA
+  `de97461b1fb9d021c7db037804c6db63b0a5ee019abfefa26d06668c130b7123`,
+  catalogue SHA
+  `57c75efcc446922385adf60bcdf635623d3837ebae5316ca4862c1dbef864caa`, dirty
+  `false`, executing Git SHA `bd7770db5d60978a63e58641909d7d38a292d3b6`.
 
 ## 안전·운영 상태
 
@@ -45,9 +72,10 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-deterministic-replay`;
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-deterministic-replay/final-baseline`와
+  `final-future`;
   manifest: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json`
-- 남은 작업·차단 조건: 신규 테스트 작성, 전체 관련 검사와 독립 review, main
-  통합이 필요합니다.
-- 다음 시작: `tests/test_market_research_replay.py`를 추가하고 실제 audit
-  결과의 두 checkpoint 출력 hash와 오류 경로를 검증합니다.
+- 남은 작업·차단 조건: 독립 review 후 local `main` 통합과 통합 검증이
+  필요합니다.
+- 다음 시작: 부모 agent가 두 final catalogue를 보존하고 review 결과를 반영한
+  뒤 local `main` 통합 검증을 실행합니다.

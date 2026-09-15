@@ -24,13 +24,19 @@ strategy를 호출하지 않고 종료합니다. 출력 디렉터리가 입력 �
 `replay.json` 또는 `catalogue.json`이 이미 있으면 기존 파일을 보존한 채
 거부합니다.
 
+catalogue의 `manifest.sha256`은 실행 시 읽은 manifest 바이트의 SHA-256을
+기록한 값입니다. manifest 자체에 별도의 기대 SHA가 없으므로 외부에서 고정한
+manifest digest와 대조하지 않는 한 manifest identity의 독립 검증을 의미하지
+않습니다.
+
 성공하면 출력 디렉터리에 두 파일을 원자적으로 생성합니다.
 
 - `replay.json`: checkpoint, replay `MarketResearchResult`, 배열별 exact 비교
   결과.
 - `catalogue.json`: manifest·입력 artifact hash, frozen baseline code SHA와 현재
   실행 Git SHA/source hash, Python·platform·lock 환경, snapshot input hash,
-  output hash와 비교 결과.
+  output hash와 비교 결과. 관련 계산 dependency마다 SHA-256과 dirty flag도
+  기록합니다.
 
 `metrics`, `candidate_evidence`, `trades`, `equity`, limitations, status와
 `policy_hash`, `data_contract_hash`, `pool_contract_hash`를 baseline과 exact
