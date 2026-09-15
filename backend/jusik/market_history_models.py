@@ -425,6 +425,19 @@ class MarketResearchProvenance(HistoryModel):
     captured_at: datetime | None = None
 
 
+class MarketResearchAccountMetadata(HistoryModel):
+    """Optional market-scoped account and currency facts for a result."""
+
+    account_scope: Literal["market_specific_independent_simulated"] = (
+        "market_specific_independent_simulated"
+    )
+    reporting_currency: Literal["KRW"] = "KRW"
+    native_currency: Currency
+    initial_cash_krw: Decimal = Field(gt=0, allow_inf_nan=False)
+    fx_krw_per_usd: Decimal | None = Field(default=None, gt=0, allow_inf_nan=False)
+    initial_cash_conversion: Literal["identity", "initial_krw_to_usd"]
+
+
 class MarketResearchResult(HistoryModel):
     market: Market
     request: MarketResearchRequest
@@ -445,6 +458,7 @@ class MarketResearchResult(HistoryModel):
     research_grade: ResearchGrade = "strict"
     pool_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     provenance: MarketResearchProvenance | None = None
+    account: MarketResearchAccountMetadata | None = None
 
     @model_validator(mode="after")
     def validate_grade_consistency(self) -> Self:
@@ -453,6 +467,22 @@ class MarketResearchResult(HistoryModel):
             or self.research_grade != self.readiness.research_grade
         ):
             raise ValueError("research grade must match request and readiness")
+        if self.account is not None:
+            expected_native = "KRW" if self.market == "KR" else "USD"
+            if self.account.native_currency != expected_native:
+                raise ValueError("account native currency does not match market")
+            if self.account.initial_cash_krw != self.request.initial_cash_krw:
+                raise ValueError("account initial cash does not match request")
+            expected_conversion = (
+                "identity" if self.market == "KR" else "initial_krw_to_usd"
+            )
+            if self.account.initial_cash_conversion != expected_conversion:
+                raise ValueError("account cash conversion does not match market")
+            if self.market == "KR" and self.account.fx_krw_per_usd not in (
+                None,
+                Decimal("1"),
+            ):
+                raise ValueError("KR account FX quote must be identity")
         return self
 
 

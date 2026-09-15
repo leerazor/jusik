@@ -59,6 +59,15 @@ export const marketResearchProvenanceSchema = z.object({
   captured_at: capturedAtSchema.nullable(),
 });
 
+export const marketResearchAccountSchema = z.object({
+  account_scope: z.literal("market_specific_independent_simulated"),
+  reporting_currency: z.literal("KRW"),
+  native_currency: z.enum(["KRW", "USD"]),
+  initial_cash_krw: z.string(),
+  fx_krw_per_usd: z.string().nullable(),
+  initial_cash_conversion: z.enum(["identity", "initial_krw_to_usd"]),
+});
+
 const resultSchema = z.object({
   market: z.enum(["KR", "US"]),
   request: requestSchema,
@@ -85,6 +94,39 @@ const resultSchema = z.object({
   research_grade: researchGradeSchema,
   pool_contract_hash: z.string().nullable(),
   provenance: marketResearchProvenanceSchema.nullable().optional(),
+  account: marketResearchAccountSchema.nullable().optional(),
+}).superRefine((result, context) => {
+  if (result.account === undefined || result.account === null) return;
+  const expectedNativeCurrency = result.market === "KR" ? "KRW" : "USD";
+  if (result.account.native_currency !== expectedNativeCurrency) {
+    context.addIssue({
+      code: "custom",
+      path: ["account", "native_currency"],
+      message: "account native currency does not match market",
+    });
+  }
+  if (result.account.initial_cash_krw !== result.request.initial_cash_krw) {
+    context.addIssue({
+      code: "custom",
+      path: ["account", "initial_cash_krw"],
+      message: "account initial cash does not match request",
+    });
+  }
+  const expectedConversion = result.market === "KR" ? "identity" : "initial_krw_to_usd";
+  if (result.account.initial_cash_conversion !== expectedConversion) {
+    context.addIssue({
+      code: "custom",
+      path: ["account", "initial_cash_conversion"],
+      message: "account cash conversion does not match market",
+    });
+  }
+  if (result.market === "KR" && result.account.fx_krw_per_usd !== null && result.account.fx_krw_per_usd !== "1") {
+    context.addIssue({
+      code: "custom",
+      path: ["account", "fx_krw_per_usd"],
+      message: "KR account FX quote must be identity",
+    });
+  }
 });
 
 export const marketResearchRunSchema = z.object({
@@ -105,6 +147,7 @@ export const marketResearchRunSchema = z.object({
 
 export type MarketReadiness = z.infer<typeof marketReadinessSchema>;
 export type MarketResearchProvenance = z.infer<typeof marketResearchProvenanceSchema>;
+export type MarketResearchAccount = z.infer<typeof marketResearchAccountSchema>;
 export type MarketResearchRun = z.infer<typeof marketResearchRunSchema>;
 
 export async function getMarketReadiness(

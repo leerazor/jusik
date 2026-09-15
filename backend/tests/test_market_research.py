@@ -13,8 +13,10 @@ from jusik.market_history_models import (
     CorporateAction,
     MarketHistorySnapshot,
     MarketReadiness,
+    MarketResearchAccountMetadata,
     MarketResearchProvenance,
     MarketResearchRequest,
+    MarketResearchResult,
     RawArtifact,
     anniversary_start,
 )
@@ -211,6 +213,13 @@ def test_fixture_api_exposes_readiness_and_completed_simulated_run() -> None:
         assert provenance["artifact_sources"] == ["fixture"]
         assert provenance["normalization_version"] == "pit-v1"
         assert provenance["captured_at"]
+        account = body["result"]["account"]
+        assert account["account_scope"] == "market_specific_independent_simulated"
+        assert account["reporting_currency"] == "KRW"
+        assert account["native_currency"] == "KRW"
+        assert account["initial_cash_krw"] == "100000000"
+        assert account["fx_krw_per_usd"] == "1"
+        assert account["initial_cash_conversion"] == "identity"
         fetched = client.get(f"/api/research/market/runs/{body['id']}")
         assert fetched.status_code == 200
         assert fetched.json()["input_hash"]
@@ -231,6 +240,50 @@ def test_empty_source_provenance_is_explicitly_unknown(tmp_path: Path) -> None:
     assert run.result is not None
     assert run.result.status == "insufficient"
     assert run.result.provenance == MarketResearchProvenance()
+    assert run.result.account is not None
+    assert run.result.account.native_currency == "KRW"
+    assert run.result.account.fx_krw_per_usd == Decimal("1")
+
+
+def test_us_account_metadata_uses_native_currency_and_initial_fx(
+    tmp_path: Path,
+) -> None:
+    source = FixtureMarketHistorySource()
+    run = asyncio.run(
+        MarketResearchService(
+            source, MarketHistoryStore(tmp_path / "us.db")
+        ).create_run(request("US"))
+    )
+    assert run.result is not None
+    assert run.result.account is not None
+    assert run.result.account.native_currency == "USD"
+    assert run.result.account.reporting_currency == "KRW"
+    assert run.result.account.initial_cash_krw == Decimal("100000000")
+    assert (
+        run.result.account.fx_krw_per_usd
+        == run.result.metrics["initial_fx_krw_per_usd"]
+    )
+    assert run.result.account.initial_cash_conversion == "initial_krw_to_usd"
+
+
+def test_account_metadata_rejects_market_or_request_contradictions() -> None:
+    source = FixtureMarketHistorySource()
+    item = request("KR")
+    result = run_market_research(
+        asyncio.run(source.collect(item)),
+        item,
+        source.readiness("KR", datetime(2024, 3, 15, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    payload = result.model_dump()
+    payload["account"] = MarketResearchAccountMetadata(
+        native_currency="USD",
+        initial_cash_krw=item.initial_cash_krw,
+        fx_krw_per_usd=Decimal("1300"),
+        initial_cash_conversion="initial_krw_to_usd",
+    ).model_dump()
+    with pytest.raises(ValidationError):
+        MarketResearchResult.model_validate(payload)
 
 
 @pytest.mark.parametrize("kind", ["split", "halt", "delisting"])
@@ -651,6 +704,7 @@ def test_store_reads_historical_staged_custom_assumptions_but_final_rejects(
     assert isinstance(loaded.result.metrics["sample"], Decimal)
     assert isinstance(loaded.result.warmup_sessions, tuple)
     assert loaded.result.provenance is None
+    assert loaded.result.account is None
     assert loaded.result.warmup_sessions == (date(2026, 9, 10),)
     assert store.list_runs()[0].id == "historical-pilot"
     annotated = MarketResearchService(source, store).annotate_run(loaded)

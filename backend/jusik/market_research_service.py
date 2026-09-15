@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -20,6 +21,7 @@ from jusik.market_history_models import (
     Market,
     MarketHistorySnapshot,
     MarketReadiness,
+    MarketResearchAccountMetadata,
     MarketResearchProvenance,
     MarketResearchRequest,
     MarketResearchRun,
@@ -78,6 +80,22 @@ def _snapshot_provenance(
             snapshot.normalization_version if has_normalized_rows else None
         ),
         captured_at=snapshot.captured_at if has_snapshot_data else None,
+    )
+
+
+def _account_metadata(
+    request: MarketResearchRequest,
+    result_metrics: dict[str, Decimal],
+) -> MarketResearchAccountMetadata:
+    """Build non-identifying account and currency facts from the result request."""
+    is_kr = request.market == "KR"
+    return MarketResearchAccountMetadata(
+        native_currency="KRW" if is_kr else "USD",
+        initial_cash_krw=request.initial_cash_krw,
+        fx_krw_per_usd=(
+            Decimal("1") if is_kr else result_metrics.get("initial_fx_krw_per_usd")
+        ),
+        initial_cash_conversion="identity" if is_kr else "initial_krw_to_usd",
     )
 
 
@@ -312,7 +330,10 @@ class MarketResearchService:
                     policy_hash=self._policy_hash_for_grade(request.research_grade),
                 )
             result = result.model_copy(
-                update={"provenance": _snapshot_provenance(snapshot)}
+                update={
+                    "provenance": _snapshot_provenance(snapshot),
+                    "account": _account_metadata(request, result.metrics),
+                }
             )
             self.store.update_run(
                 run.id,
