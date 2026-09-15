@@ -163,7 +163,7 @@ def test_cli_rejects_missing_frozen_file(tmp_path: Path) -> None:
 
 
 def test_dependency_provenance_detects_calendar_change_in_temporary_repo(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repo = tmp_path / "repo"
     for relative in REPLAY_DEPENDENCIES:
@@ -193,14 +193,18 @@ def test_dependency_provenance_detects_calendar_change_in_temporary_repo(
         capture_output=True,
     )
 
-    clean, clean_dirty = _dependency_provenance(repo)
+    monkeypatch.setattr(
+        "jusik.market_research_replay.__file__",
+        str(repo / "backend/jusik/market_research_replay.py"),
+    )
+    clean, clean_dirty = _dependency_provenance()
     assert clean_dirty is False
     calendar_key = "backend/jusik/data/market_sessions_2023_2026.json"
     assert cast(dict[str, object], clean[calendar_key])["dirty"] is False
 
     calendar = repo / calendar_key
     calendar.write_text("changed\n", encoding="utf-8")
-    changed, changed_dirty = _dependency_provenance(repo)
+    changed, changed_dirty = _dependency_provenance()
     assert changed_dirty is True
     assert cast(dict[str, object], changed[calendar_key])["dirty"] is True
     assert (

@@ -399,8 +399,8 @@ def _git_sha() -> str | None:
     return value if len(value) == 40 else None
 
 
-def _dependency_provenance(root: Path | None = None) -> tuple[dict[str, object], bool]:
-    root = root or Path(__file__).resolve().parents[2]
+def _dependency_provenance() -> tuple[dict[str, object], bool]:
+    root = Path(__file__).resolve().parents[2]
     dependencies: dict[str, object] = {}
     any_dirty = False
     for relative in REPLAY_DEPENDENCIES:
