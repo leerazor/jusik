@@ -95,7 +95,7 @@ class ApproximateDataset(BaseModel):
     bar_source: Literal["krx", "yahoo"] = "yahoo"
     fx_source: Literal["fred"] = "fred"
     simulated: bool = False
-    normalization_version: str = Field(default="approx-v1", min_length=1, max_length=40)
+    normalization_version: str = Field(default="approx-v2", min_length=1, max_length=40)
 
 
 @dataclass(frozen=True)

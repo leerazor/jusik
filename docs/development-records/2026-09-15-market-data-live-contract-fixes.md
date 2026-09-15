@@ -8,18 +8,20 @@
 
 ## 변경과 결정
 
-- collector CLI의 `collect-status`가 손상된 캐시 manifest 또는 완료 marker를 원시 내용 없이 `ready:false`와 종료 코드 2로 보고하도록 보완했습니다.
-- 캐시 검증 오류를 정상적인 준비 안 됨 상태로 처리해 traceback과 비밀정보 노출을 막았습니다.
+- KRX 일별 자료를 공식 `data-dbg.krx.co.kr` board별 GET endpoint와 `basDd` query, `AUTH_KEY` header로 요청하고 응답 envelope·일자·board를 검증합니다.
+- Alpha Vantage CSV 전체 header를 검증하고 상품·거래소·이름·날짜·중복 오류를 행 단위로 제외하며 checkpoint별 입력·허용·제외 사유를 limitation에 기록합니다.
+- 명시적 dotenv 파일과 표준/alias 환경변수 precedence를 지원하고 보간·프로세스 환경 변이는 사용하지 않습니다.
+- collector cache와 completion contract를 v2로 올려 이전 marker를 재사용하지 않으며, `collect-status`가 손상된 cache를 원시 내용 없이 `ready:false`와 종료 코드 2로 보고합니다.
 
 ## 문서·계약 영향
 
-- 사용자 문서: 이번 보완은 기존 CLI 오류 계약을 fail-closed로 구체화한 내부 동작 변경입니다.
+- 사용자 문서: `docs/market-research.md`, `.env.example`, `.env.dev.example`에 provider endpoint·env-file·행 단위 exclusion 계약을 반영했습니다.
 - 운영 문서: 외부 provider smoke는 실행하지 않았습니다.
-- API·설정·데이터 계약: 손상 캐시는 유효한 완료 수집으로 재사용하지 않습니다.
+- API·설정·데이터 계약: 손상 캐시는 유효한 완료 수집으로 재사용하지 않으며 normalization·cache·completion 계약 버전을 갱신했습니다.
 
 ## 검증
 
-- `backend/.venv-verify/bin/python -m pytest backend/tests/test_market_data_collector.py backend/tests/test_market_history_approximate.py backend/tests/test_market_research.py backend/tests/test_development_runner_planning.py -q` — 85 passed
+- `backend/.venv-verify/bin/python -m pytest backend/tests/test_market_data_collector.py backend/tests/test_market_history_approximate.py backend/tests/test_market_research.py backend/tests/test_development_runner_planning.py -q` — 통과
 - `backend/.venv-verify/bin/ruff format --check ...` 및 `ruff check ...` — 통과
 - `backend/.venv-verify/bin/python -m mypy --strict` (관련 8개 source) — 통과
 - `git diff --check` — 통과

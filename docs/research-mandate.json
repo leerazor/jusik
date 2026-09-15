@@ -65,7 +65,7 @@
     "contracts": "pilot pool is fixed through its end date; final must match market, grade, policy, assumptions, source, pool, normalization, missing-data, corporate-action, and FX contracts",
     "missing_data": "exclude non-held missing bars with coverage counts; held missing bars use last known mark with age/estimated caveat and no invented liquidation",
     "web": "web reads prepared bounded cache only; import-file validates a prepared response; network collection is CLI-only",
-    "network_collection": "CLI collect may fetch bounded KRX, Alpha Vantage, Yahoo, and FRED responses into secret-free resumable cache; missing keys, partial responses, and unresolved actions remain insufficient",
+    "network_collection": "CLI collect may fetch bounded KRX official daily GET, Alpha Vantage, Yahoo, and FRED responses into secret-free resumable cache; missing keys, partial responses, malformed responses, and unresolved actions remain insufficient",
     "credentials": "missing KRX or Alpha Vantage credentials remain explicitly unavailable"
   }
 }
