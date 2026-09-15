@@ -16,10 +16,10 @@
 - 결과 커밋 SHA: 9a3bf3a, e8a7465, feb836f, aeeed81.
 - 검토 결과와 남은 문제: KRX KOSPI·KOSDAQ 공식 endpoint는 현재 키를 `krx authentication was rejected`로 거부하므로 한국 자료와 실행은 준비되지 않았습니다. US 1년 표본은 100개 중 40개가 완전한 무배당·무분할 이력으로 남았고 60개는 기업행사·부분/무응답·identity 불일치로 제외됐습니다. 무료 근사 표본의 선택 편향과 배당 미반영 한계를 유지하며 PAPER·실주문에는 사용하지 않습니다.
 - 병합 직전 main SHA: e69f85876e4b25f7ba689c228a1ad1bfbee6d59a
-- 통합 커밋 SHA와 정리 여부: fee4eddb21e022fe3a89c4d269a7ed53fc03a06d. 통합 검증·handoff 후 전용 워크트리를 제거합니다.
+- 통합 커밋 SHA와 정리 여부: fee4eddb21e022fe3a89c4d269a7ed53fc03a06d. 통합 검증과 handoff 보존 후 전용 워크트리를 제거했습니다.
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-15-market-data-live-contract-fixes.md` 갱신 완료
-- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-market-data-live-contract-fixes/HANDOFF.md` 및 루트 `HANDOFF.md`를 완료 시점에 갱신합니다.
+- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-market-data-live-contract-fixes/HANDOFF.md` 및 루트 `HANDOFF.md` 갱신 완료
 
 ## free-market-data-collector
 
