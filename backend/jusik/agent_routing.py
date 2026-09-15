@@ -401,13 +401,17 @@ def _received_receipt(records: list[dict[str, Any]], receipt: str) -> None:
         ):
             continue
         item_type = payload.get("type")
-        if payload.get("role") in {"assistant", "agent_message"}:
+        if payload.get("role") == "assistant" or item_type == "agent_message":
             saw_assistant = True
         elif item_type in {"function_call", "custom_tool_call"} and not saw_assistant:
             raise RoutingError("child tool call preceded routing receipt")
         else:
             continue
-        if saw_assistant and payload.get("role") not in {"assistant", "agent_message"}:
+        if (
+            saw_assistant
+            and payload.get("role") != "assistant"
+            and item_type != "agent_message"
+        ):
             continue
         texts: list[str] = []
         for item in _walk(payload.get("content", payload.get("text", ""))):
