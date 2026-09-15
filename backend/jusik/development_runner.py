@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import fcntl
 import hashlib
 import json
@@ -29,6 +30,18 @@ from jusik.development_runner_planning import (
 )
 from jusik.development_runner_planning import (
     fingerprint as planning_fingerprint,
+)
+from jusik.development_runner_roadmap import (
+    ROADMAP_SCOPE,
+    RoadmapError,
+    eligible_areas,
+    load_roadmap,
+    roadmap_fingerprint,
+    roadmap_planner_context,
+    roadmap_prompt,
+    validate_enqueue,
+    validate_planner_area,
+    validate_roadmap_completion,
 )
 from jusik.development_runner_store import RunnerStore, RunnerTask
 from jusik.research_history import HistoryRepository
@@ -130,6 +143,7 @@ class RunnerConfig(BaseModel):
     daily_launches: int | None = Field(default=8, ge=1, le=24)
     cooldown_seconds: int = Field(default=60, ge=0, le=86400)
     planning_enabled: bool = False
+    scope: Literal["research", "investment-roadmap"] = "research"
 
 
 class Evidence(BaseModel):
@@ -213,6 +227,26 @@ COMPLETION_SCHEMA: dict[str, Any] = {
 }
 
 
+def _completion_schema(allowed_areas: set[str]) -> dict[str, Any]:
+    schema = copy.deepcopy(COMPLETION_SCHEMA)
+    followup = schema["properties"]["followup"]
+    if isinstance(followup, dict) and isinstance(followup.get("properties"), dict):
+        area = followup["properties"].get("area")
+        if isinstance(area, dict):
+            area["enum"] = sorted(allowed_areas)
+    return schema
+
+
+def _planning_schema(allowed_areas: set[str]) -> dict[str, Any]:
+    schema = copy.deepcopy(PLANNING_SCHEMA)
+    proposal = schema["properties"]["proposal"]
+    if isinstance(proposal, dict) and isinstance(proposal.get("properties"), dict):
+        area = proposal["properties"].get("area")
+        if isinstance(area, dict):
+            area["enum"] = sorted(allowed_areas)
+    return schema
+
+
 @dataclass(frozen=True)
 class RunResult:
     status: str
@@ -264,8 +298,14 @@ def init_config(
     history: Path | None,
     history_db: Path | None,
     artifact_dir: Path | None = None,
+    scope: Literal["research", "investment-roadmap"] = "research",
 ) -> RunnerConfig:
     state = state.expanduser().resolve()
+    if scope == ROADMAP_SCOPE:
+        if state == DEFAULT_STATE.resolve():
+            raise ValueError("investment roadmap requires a dedicated state directory")
+        if (state / "runner.db").exists():
+            raise ValueError("investment roadmap state must be a new blank database")
     history_dir = (history or DEFAULT_HISTORY).expanduser().resolve()
     config = RunnerConfig(
         repo=repo.expanduser().resolve(),
@@ -273,21 +313,27 @@ def init_config(
         history_dir=history_dir,
         history_db=(history_db or DEFAULT_HISTORY_DB).expanduser().resolve(),
         artifact_dir=(artifact_dir or DEFAULT_ARTIFACTS).expanduser().resolve(),
+        scope=scope,
     )
-    save_config(config, path.expanduser().resolve())
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
-    for area, task_id, prompt in BACKLOG:
-        dependency = (
-            "entry-amount-distribution-v1"
-            if task_id == "preregistration-small-entry-v1"
-            else None
-        )
-        store.enqueue(
-            task_id,
-            area,
-            f"{COMMON_PROMPT}\n\nResearch area: {area}\n\n{prompt}",
-            dependency,
-        )
+    existing_scope = store.get_meta("scope")
+    if existing_scope is not None and existing_scope != scope:
+        raise ValueError("runner state scope mismatch")
+    save_config(config, path.expanduser().resolve())
+    store.set_meta("scope", scope)
+    if scope == "research":
+        for area, task_id, prompt in BACKLOG:
+            dependency = (
+                "entry-amount-distribution-v1"
+                if task_id == "preregistration-small-entry-v1"
+                else None
+            )
+            store.enqueue(
+                task_id,
+                area,
+                f"{COMMON_PROMPT}\n\nResearch area: {area}\n\n{prompt}",
+                dependency,
+            )
     return config
 
 
@@ -400,7 +446,12 @@ def _hash_file(path: Path) -> str:
 
 
 def validate_completion(
-    payload: Any, task: RunnerTask, attempt_id: str, config: RunnerConfig
+    payload: Any,
+    task: RunnerTask,
+    attempt_id: str,
+    config: RunnerConfig,
+    *,
+    allowed_areas: set[str] | None = None,
 ) -> Completion:
     try:
         completion = Completion.model_validate(payload)
@@ -458,22 +509,45 @@ def validate_completion(
         or handoff.is_symlink()
     ):
         raise ValueError("handoff path invalid")
+    if allowed_areas is None and config.scope == ROADMAP_SCOPE:
+        try:
+            allowed_areas = set(load_roadmap(config.repo).by_id)
+        except RoadmapError as exc:
+            raise ValueError("tracked investment roadmap is unavailable") from exc
+    followup_areas = ALLOWED_AREAS if allowed_areas is None else allowed_areas
     if (
         completion.followup is not None
-        and completion.followup.area not in ALLOWED_AREAS
+        and completion.followup.area not in followup_areas
     ):
         raise ValueError("followup area is not allowed")
     return completion
 
 
-def _next_task(store: RunnerStore) -> RunnerTask | None:
+def _bind_scope(store: RunnerStore, scope: str) -> tuple[bool, str]:
+    existing = store.get_meta("scope")
+    if existing is None:
+        if scope != "research":
+            return False, "investment roadmap cannot use an unbound legacy state"
+        store.set_meta("scope", "research")
+        return True, ""
+    if existing != scope:
+        return False, "runner state scope mismatch"
+    return True, ""
+
+
+def _next_task(
+    store: RunnerStore, scope: Literal["research", "investment-roadmap"] = "research"
+) -> RunnerTask | None:
     now = datetime.now(UTC)
     for task in store.tasks():
         if task.status != "queued" or task.area == PLANNING_AREA:
             continue
         if task.depends_on is not None:
             dependency = store.task(task.depends_on)
-            if dependency is None or dependency.status not in {"completed", "blocked"}:
+            accepted = (
+                {"completed"} if scope == ROADMAP_SCOPE else {"completed", "blocked"}
+            )
+            if dependency is None or dependency.status not in accepted:
                 continue
         if task.next_allowed_at and datetime.fromisoformat(task.next_allowed_at) > now:
             continue
@@ -509,8 +583,45 @@ def _tracked_research_mandate(repo: Path) -> str | None:
 
 
 def _planning_task(
-    store: RunnerStore, repo: Path
+    store: RunnerStore,
+    repo: Path,
+    scope: Literal["research", "investment-roadmap"] = "research",
 ) -> tuple[RunnerTask, str, list[tuple[str, str, str | None]]] | None:
+    if scope == ROADMAP_SCOPE:
+        try:
+            roadmap = load_roadmap(repo)
+        except RoadmapError:
+            return None
+        tasks = _research_snapshot(store)
+        if any(status in {"queued", "running"} for _, status, _ in tasks):
+            return None
+        if (
+            sum(
+                status not in {"completed", "failed", "blocked", "interrupted"}
+                for _, status, _ in tasks
+            )
+            >= 8
+        ):
+            return None
+        eligible = eligible_areas(roadmap) - {
+            task.area.lower() for task in store.tasks() if task.area != PLANNING_AREA
+        }
+        if not eligible:
+            return None
+        head = _git(repo, "rev-parse", "main").stdout.strip()
+        day = datetime.now(UTC).date().isoformat()
+        digest = roadmap_fingerprint(tasks, head, day, roadmap)
+        existing = store.task(planner_task_id(digest))
+        if existing is not None:
+            return (existing, digest, tasks) if existing.status == "queued" else None
+        task_id = planner_task_id(digest)
+        store.enqueue(
+            task_id,
+            PLANNING_AREA,
+            roadmap_planner_context(roadmap, tasks, eligible),
+        )
+        task = store.task(task_id)
+        return (task, digest, tasks) if task is not None else None
     tasks = _research_snapshot(store)
     if any(status in {"queued", "running"} for _, status, _ in tasks):
         return None
@@ -548,6 +659,11 @@ def _run_planning(
     candidate: tuple[RunnerTask, str, list[tuple[str, str, str | None]]],
     stop_requested: Callable[[], bool] | None,
     started_at: datetime,
+    *,
+    allowed_areas: set[str] | None = None,
+    context: str | None = None,
+    fingerprint_factory: Callable[[list[tuple[str, str, str | None]], str, str], str]
+    | None = None,
 ) -> RunResult:
     task, digest, snapshot = candidate
     attempt_id = uuid.uuid4().hex
@@ -574,10 +690,13 @@ def _run_planning(
         config.history_dir,
         config.artifact_dir,
     )
+    planning_areas = ALLOWED_AREAS if allowed_areas is None else allowed_areas
+    scope_context = "" if context is None else f"{context}\n"
     prompt = (
         f"Task id: {task.id}\nAttempt id: {attempt_id}\nFingerprint: {digest}\n\n"
         f"{task.prompt}\nResearch snapshot: {json.dumps(snapshot, sort_keys=True)}\n"
-        f"Current main HEAD: {main_head}\nAllowed areas: {sorted(ALLOWED_AREAS)}\n"
+        f"Current main HEAD: {main_head}\nAllowed areas: {sorted(planning_areas)}\n"
+        f"{scope_context}"
         f"{mandate_context}\n"
         f"Permitted evidence roots: "
         f"{[str(path.resolve()) for path in evidence_roots]}\n"
@@ -608,7 +727,8 @@ def _run_planning(
         return RunResult("idle")
     schema_path = attempt_dir / "planning.schema.json"
     _write_private(
-        schema_path, (json.dumps(PLANNING_SCHEMA, sort_keys=True) + "\n").encode()
+        schema_path,
+        (json.dumps(_planning_schema(planning_areas), sort_keys=True) + "\n").encode(),
     )
     command = _codex_command(config, common, schema_path, output_path, planning=True)
     with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
@@ -690,7 +810,7 @@ def _run_planning(
             digest,
             config,
             attempt_dir,
-            ALLOWED_AREAS,
+            planning_areas,
             {item.id for item in store.tasks()},
         )
         if mandate is None and result.proposal is not None:
@@ -708,8 +828,12 @@ def _run_planning(
         if not ready:
             raise ValueError(reason)
         current_head = _git(config.repo, "rev-parse", "main").stdout.strip()
-        current_digest = planning_fingerprint(
-            snapshot, current_head, started_at.date().isoformat()
+        current_digest = (
+            planning_fingerprint(snapshot, current_head, started_at.date().isoformat())
+            if fingerprint_factory is None
+            else fingerprint_factory(
+                snapshot, current_head, started_at.date().isoformat()
+            )
         )
     except (OSError, json.JSONDecodeError, ValueError, subprocess.CalledProcessError):
         store.finish(attempt_id, task.id, "failed", failure_code="planning_invalid")
@@ -723,6 +847,13 @@ def _run_planning(
             f"{COMMON_PROMPT}\n\n{result.proposal.prompt}",
         )
     )
+    if proposal is not None and allowed_areas is not None:
+        try:
+            roadmap = load_roadmap(config.repo)
+            validate_planner_area(roadmap, proposal[1], store.tasks())
+        except RoadmapError:
+            store.finish(attempt_id, task.id, "failed", failure_code="planning_invalid")
+            return RunResult("failed", task.id, attempt_id, "planning_invalid")
     if store.is_paused() or (stop_requested is not None and stop_requested()):
         store.finish(
             attempt_id,
@@ -873,6 +1004,19 @@ def run_once(
         except BlockingIOError:
             return RunResult("busy")
         store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+        scope_ready, scope_reason = _bind_scope(store, config.scope)
+        if not scope_ready:
+            return RunResult("blocked", reason=scope_reason)
+        roadmap = None
+        if config.scope == ROADMAP_SCOPE:
+            try:
+                roadmap = load_roadmap(config.repo)
+            except RoadmapError as exc:
+                return RunResult("blocked", reason=str(exc))
+            if _tracked_research_mandate(config.repo) is None:
+                return RunResult(
+                    "blocked", reason="tracked research mandate is missing or malformed"
+                )
         active = store.active_attempt()
         if active is not None and _process_group_alive(active.process_group_id):
             return RunResult(
@@ -902,11 +1046,11 @@ def run_once(
             seconds=config.cooldown_seconds
         ):
             return RunResult("cooldown")
-        task = _next_task(store)
+        task = _next_task(store, config.scope)
         if task is None:
             if not config.planning_enabled:
                 return RunResult("idle")
-            candidate = _planning_task(store, config.repo)
+            candidate = _planning_task(store, config.repo, config.scope)
             if candidate is None:
                 return RunResult("idle")
             try:
@@ -915,11 +1059,39 @@ def run_once(
                 return RunResult(
                     "blocked", candidate[0].id, reason="artifact directory unavailable"
                 )
+            planning_kwargs: dict[str, Any] = {}
+            if config.scope == ROADMAP_SCOPE and roadmap is not None:
+                eligible = eligible_areas(roadmap) - {
+                    item.area.lower()
+                    for item in store.tasks()
+                    if item.area != PLANNING_AREA
+                }
+                planning_kwargs = {
+                    "allowed_areas": eligible,
+                    "context": roadmap_planner_context(roadmap, candidate[2], eligible),
+                    "fingerprint_factory": lambda tasks, head, day: roadmap_fingerprint(
+                        tasks, head, day, load_roadmap(config.repo)
+                    ),
+                }
             result = _run_planning(
-                config, common, store, candidate, stop_requested, now
+                config, common, store, candidate, stop_requested, now, **planning_kwargs
             )
             _safe_history_flush(store, config)
             return result
+        roadmap_prompt_text = ""
+        if roadmap is not None:
+            try:
+                if task.area.lower() not in roadmap.by_id:
+                    raise RoadmapError("queued roadmap area is not tracked")
+                if roadmap.by_id[task.area.lower()].complete:
+                    raise RoadmapError("queued roadmap area is already complete")
+                roadmap_prompt_text = roadmap_prompt(
+                    task.area.lower(),
+                    roadmap.by_id[task.area.lower()],
+                    _tracked_research_mandate(config.repo),
+                )
+            except RoadmapError as exc:
+                return RunResult("blocked", task.id, reason=str(exc))
         try:
             _prepare_artifact_dir(config.artifact_dir)
         except OSError:
@@ -935,7 +1107,8 @@ def run_once(
         previous = task.last_attempt_id or "none"
         prompt = (
             f"Task id: {task.id}\nAttempt id: {attempt_id}\n"
-            f"Previous attempt id: {previous}\n\n{task.prompt}\n\n"
+            f"Previous attempt id: {previous}\n\n{task.prompt}\n"
+            f"{roadmap_prompt_text}\n\n"
             "Return the required completion JSON to the output path supplied by "
             "the CLI. Use the exact task and attempt ids, include SHA-256 evidence "
             "paths under the allowed roots, "
@@ -948,7 +1121,16 @@ def run_once(
         _safe_history_flush(store, config)
         schema_path = attempt_dir / "completion.schema.json"
         _write_private(
-            schema_path, (json.dumps(COMPLETION_SCHEMA, sort_keys=True) + "\n").encode()
+            schema_path,
+            (
+                json.dumps(
+                    _completion_schema(
+                        set(roadmap.by_id) if roadmap is not None else ALLOWED_AREAS
+                    ),
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode(),
         )
         command = _codex_command(config, common, schema_path, output_path)
         with (
@@ -1027,8 +1209,16 @@ def run_once(
             return RunResult("failed", task.id, attempt_id, "codex_exit")
         try:
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            completion = validate_completion(payload, task, attempt_id, config)
-        except (OSError, json.JSONDecodeError, ValueError):
+            completion = validate_completion(
+                payload,
+                task,
+                attempt_id,
+                config,
+                allowed_areas=set(roadmap.by_id) if roadmap is not None else None,
+            )
+            if roadmap is not None:
+                validate_roadmap_completion(load_roadmap(config.repo), task, completion)
+        except (OSError, json.JSONDecodeError, RoadmapError, ValueError):
             store.finish(
                 attempt_id, task.id, "failed", failure_code="completion_invalid"
             )
@@ -1054,11 +1244,35 @@ def run_once(
                 if item.status not in {"completed", "failed"}
             ]
             if len(pending) < 8:
-                store.enqueue(
-                    completion.followup.id,
-                    completion.followup.area,
-                    f"{COMMON_PROMPT}\n\n{completion.followup.prompt}",
-                )
+                if roadmap is None:
+                    store.enqueue(
+                        completion.followup.id,
+                        completion.followup.area,
+                        f"{COMMON_PROMPT}\n\n{completion.followup.prompt}",
+                    )
+                else:
+                    try:
+                        current_roadmap = load_roadmap(config.repo)
+                        area = validate_enqueue(
+                            current_roadmap,
+                            store.tasks(),
+                            completion.followup.id,
+                            completion.followup.area,
+                        )
+                    except RoadmapError:
+                        area = None
+                    if area is not None:
+                        followup_prompt = roadmap_prompt(
+                            area,
+                            current_roadmap.by_id[area],
+                            _tracked_research_mandate(config.repo),
+                        )
+                        store.enqueue(
+                            completion.followup.id,
+                            area,
+                            f"{COMMON_PROMPT}\n\n{followup_prompt}\n\n"
+                            f"{completion.followup.prompt}",
+                        )
         _safe_history_flush(store, config)
         return RunResult("completed", task.id, attempt_id)
 
@@ -1073,13 +1287,16 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--history-dir", type=Path)
     init.add_argument("--history-db", type=Path)
     init.add_argument("--artifact-dir", type=Path, default=DEFAULT_ARTIFACTS)
+    init.add_argument(
+        "--scope", choices=["research", ROADMAP_SCOPE], default="research"
+    )
     for name in ("status", "run-once", "pause", "resume"):
         command = sub.add_parser(name)
         command.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     enqueue = sub.add_parser("enqueue")
     enqueue.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     enqueue.add_argument("--id", required=True)
-    enqueue.add_argument("--area", required=True, choices=sorted(ALLOWED_AREAS))
+    enqueue.add_argument("--area", required=True)
     enqueue.add_argument("--prompt", required=True)
     retry = sub.add_parser("retry")
     retry.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
@@ -1097,15 +1314,25 @@ def main(argv: list[str] | None = None) -> int:
             args.history_dir,
             args.history_db,
             args.artifact_dir,
+            args.scope,
         )
         print(
             json.dumps(
-                {"status": "initialized", "tasks": len(BACKLOG)}, ensure_ascii=False
+                {
+                    "status": "initialized",
+                    "scope": config.scope,
+                    "tasks": len(BACKLOG) if config.scope == "research" else 0,
+                },
+                ensure_ascii=False,
             )
         )
         return 0
     config = load_config(args.config)
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    scope_ready, scope_reason = _bind_scope(store, config.scope)
+    if not scope_ready:
+        print(json.dumps({"status": "blocked", "reason": scope_reason}))
+        return 2
     if args.command == "status":
         print(
             json.dumps(
@@ -1118,9 +1345,21 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if args.command == "enqueue":
+        if config.scope == ROADMAP_SCOPE:
+            try:
+                roadmap = load_roadmap(config.repo)
+                area = validate_enqueue(roadmap, store.tasks(), args.id, args.area)
+            except RoadmapError as exc:
+                print(json.dumps({"enqueued": False, "reason": str(exc)}))
+                return 2
+        else:
+            area = args.area
+            if area not in ALLOWED_AREAS:
+                print(json.dumps({"enqueued": False, "reason": "area is not allowed"}))
+                return 2
         print(
             json.dumps(
-                {"enqueued": store.enqueue(args.id, args.area, args.prompt)},
+                {"enqueued": store.enqueue(args.id, area, args.prompt)},
                 ensure_ascii=False,
             )
         )

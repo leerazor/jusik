@@ -75,3 +75,21 @@ cd backend
 planner는 최대 하나의 새 연구 task만 제안하거나, 고정된 한국어 대기 상태를 남깁니다. 제안 prompt에는 Objective, Scope, Inputs, Computation cap, Tests, Stop condition의 6개 섹션을 순서대로 짧게 담고 1600자 이내를 목표로 합니다(검증 hard cap 2000자). 기존 evidence만 SHA-256으로 참조할 수 있습니다. 제안을 검증한 뒤 연구 task enqueue, planner 완료, history outbox 기록을 하나의 SQLite transaction으로 처리합니다. 이 transaction 안에서 연구 task snapshot과 대기 상한을 다시 확인합니다. 입력 fingerprint가 바뀌면 재검토하고, 같은 fingerprint의 failed/interrupted/terminal planner는 자동 재시도하지 않습니다.
 
 planner dispatch는 별도 `jusik-planning` named profile을 사용합니다. profile은 `:read-only`를 상속하고 해당 attempt directory만 write, network는 disabled로 둡니다. planner는 읽기 전용 명령으로 근거를 확인할 수 있지만 repository, DB, config, remote, order API를 변경하거나 subagent를 생성할 수 없습니다. network 제한은 자식 셸 명령에 적용됩니다. 일반 연구 task의 `jusik-development` profile과 PAPER10% contract는 변경하지 않습니다. `planning_enabled` 기본값은 `false`이며 현재 설치 설정에서는 `true`로 활성화했습니다.
+
+## 투자 개발 로드맵 전용 scope
+
+투자 로드맵 자동 실행은 기존 연구 실행기의 state와 큐를 공유하지 않는 `scope="investment-roadmap"` 전용 설정으로 초기화합니다. 기존 `~/.config/jusik/development-runner.json`과 state는 그대로 보존하며, 전용 설정 예시는 `roadmap-automation` audit에 남깁니다.
+
+```bash
+cd /home/kwl/projects/jusik/backend
+.venv/bin/python -m jusik.development_runner init \
+  --config ~/.config/jusik/roadmap-development-runner.json \
+  --repo /home/kwl/projects/jusik \
+  --state-dir ~/.local/share/jusik/roadmap-development-runner \
+  --history-dir ~/.local/share/jusik/research-history \
+  --history-db ~/.local/share/jusik/research-history-journal.db \
+  --artifact-dir ~/.local/share/jusik/portfolio-audit \
+  --scope investment-roadmap
+```
+
+초기화는 빈 큐만 만들며 첫 `r1-01` slice는 별도로 검토한 뒤 `enqueue --id roadmap-r1-01-v1 --area r1-01`로 준비합니다. 한 slice의 기술 완료와 전체 checklist 완료는 다르므로, 전체 조건을 충족하기 전에는 Markdown checkbox를 억지로 갱신하지 않습니다. 실행기는 tracked 로드맵과 mandate가 없거나 malformed이면 자식 dispatch를 하지 않습니다. 자동 child는 runner를 pause하거나 service를 중지하지 않습니다. 수동 변경 전에는 새 config로 `pause`한 다음 동일한 단일 service를 중지하고 `systemctl --user is-active jusik-development-runner.service`가 `inactive`인지 확인합니다. 검사가 끝나고 tracked worktree가 깨끗해진 뒤 같은 config로 `resume`합니다. 실제 주문·PAPER/live activation·운영 원장 변경은 이 scope에서도 금지합니다.
