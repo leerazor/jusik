@@ -31,3 +31,32 @@
 - `HANDOFF.md`: 미충족 완료 조건과 재개 지점.
 
 재개하려면 명시적 역할 인자를 지원하는 호스트 또는 현재 호스트를 지원하는 승인된 라우팅 절차가 필요합니다. 이후 같은 작업을 명시적으로 retry하고 frozen 계획부터 Luna 단일 worktree 구현·독립 review·local main 통합 검증을 수행해야 합니다. R1-01과 R1 전체는 미완료입니다.
+
+
+## 2026-09-16 재시도
+
+- task/attempt: `roadmap-r1-01-v1` / `0406c82ad69743049331fa3e1ff08495`.
+- 상태: 구현 검증 완료, 독립 재검토 및 main 통합 대기.
+- 조사 기준 main: `5831862f9f5f1766d775db18e84cfa8362c5465b`; 작업 기준: `a8a2ac8`.
+- 구현: `32815e75f6bbda311d43861954b54c99289925a5`; review 보완: `897abd46a653c70e93807fc3ea7ef2c55300e5bb`.
+- 워크트리: `/home/kwl/projects/jusik-r1-us-membership-0406`; 담당 Luna `r1_code`, 독립 Terra `r1_review`.
+- 영구 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-01-0406c82a`.
+
+### 변경과 계약
+
+미국 collector는 `approx-us-r1-membership-v1`에서 초기 seeded 표본과 이후 membership을 구분합니다. 성공한 연간 관측에서 여전히 eligible인 incumbent를 유지하고 빈자리만 당시 후보로 채웁니다. 세션당 최대100개와 실행 전체 누적 admission400개를 구분하며, 요청 예산은 관측 횟수와 누적 admission 상한을 반영합니다. 소비자는 전체 기간 symbol 합집합을 다시 추출하지 않습니다.
+
+이용 가능한 시각부터 변경을 반영하고, 실패 관측부터 다음 성공 관측까지 eligibility를 확인 불가로 남깁니다. 과거 membership과 보유 평가용 가격은 보존하며 warmup 가격으로 과거 eligibility를 만들지 않습니다. 새 membership 시각은 UTC로 정규화합니다. 새 pool 계약은 정책·seed·상한·admission/gap 규칙을 hash하고 실제 구성원은 입력 hash로 구분합니다.
+
+`docs/market-research.md`에 새 미국 근사 계약을 기록했습니다. 기존 `approx-v2` 파싱·pool·replay, KR 경로, 전략·mandate·PAPER/live 경계는 보존했습니다. API schema·운영 설정·원장·서비스 변경, 네트워크 자료 수집, 실제 주문과 원격 push는 없습니다.
+
+### 검증과 한계
+
+- 현재 baseline artifact4개 hash 일치, 수정 전 main legacy replay `comparison.all=true`.
+- 초기 review는 UTC 처리와 검증 누락을 지적했습니다. 동일 Luna가 보완했습니다.
+- 보완 commit에서 지정 pytest4개 파일111개, Ruff, strict source mypy 통과. `code-verification/pytest-final.log`, `ruff-final.log`, `mypy-final.log`이 최종 구현 근거입니다.
+- 초기 `pytest-focused.log`의 dirty dependency 실패는 미커밋 소스 검사이며 보존했습니다. 커밋 후 최종 검사와 혼동하지 않습니다.
+- frozen replay `replay-final-v2-result.json`: `comparison.all=true`, `dependencies_dirty=false`.
+- event-free collector/source/strategy의 membership·candidate prefix 동일성, 실패/복구, UTC, admission 이전 매수 방지,100/400 경계와 예산을 검증했습니다.
+- 프런트엔드 변경이 없어 빌드 미실행. 기존 테스트 fixture의 전체 strict typing 부채는 범위 밖이며 변경한 제품 모듈2개의 configured mypy를 실행했습니다.
+- 연간 관측 carry-forward는 근사 membership이며 strict PIT 일별 실제 명부가 아닙니다. 전체 종목 event 제외는 R1-02, 분류는 R1-03, 배당·split 회계는 R1-04로 남습니다. 수익 개선이나 R1 전체 완료, PAPER 승격을 주장하지 않습니다.

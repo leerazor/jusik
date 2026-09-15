@@ -47,12 +47,12 @@
 
 ## r1-us-membership
 
-- 상태: 준비; 이전 routing 차단 후 model-only adapter로 재개
+- 상태: 진행; 이전 routing 차단 후 model-only adapter로 재개
 - task/attempt: roadmap-r1-01-v1 / 0406c82ad69743049331fa3e1ff08495
 - 목표: frozen R1-01 미국 historical membership 구현, legacy replay 보존, 독립 review 및 local main 검증
-- 담당: 감독 Astra, 조사 r1_explore (Luna); 구현 Luna 한 명 배정 예정
+- 담당: 감독 Astra, 조사 r1_explore (Luna), 계획 r1_plan (Astra), 구현 r1_code (Luna)
 - 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-membership-0406 / feat/r1-us-membership-0406
-- 조사 기준 main: 5831862f9f5f1766d775db18e84cfa8362c5465b; 작업 기준은 등록부 커밋 후 기록
+- 조사 기준 main: 5831862f9f5f1766d775db18e84cfa8362c5465b; 작업 기준 a8a2ac8
 - 입력: frozen R1-01-PLAN.md, baseline manifest; artifact4개 hash 일치, 기존 replay comparison.all=true
 - 범위: collector·approximate·관련 tests·계약 문서; 전략·KR·PAPER/live 경계 보존
 - 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-01-0406c82a; 서버·DB·네트워크 수집 없음
