@@ -47,19 +47,20 @@
 
 ## r1-us-membership
 
-- 상태: 진행; 이전 routing 차단 후 model-only adapter로 재개
+- 상태: 완료; R1-01만 체크, R1 전체 미완료
 - task/attempt: roadmap-r1-01-v1 / 0406c82ad69743049331fa3e1ff08495
-- 목표: frozen R1-01 미국 historical membership 구현, legacy replay 보존, 독립 review 및 local main 검증
-- 담당: 감독 Astra, 조사 r1_explore (Luna), 계획 r1_plan (Astra), 구현 r1_code (Luna)
-- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-membership-0406 / feat/r1-us-membership-0406
-- 조사 기준 main: 5831862f9f5f1766d775db18e84cfa8362c5465b; 작업 기준 a8a2ac8
-- 입력: frozen R1-01-PLAN.md, baseline manifest; artifact4개 hash 일치, 기존 replay comparison.all=true
-- 범위: collector·approximate·관련 tests·계약 문서; 전략·KR·PAPER/live 경계 보존
-- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-01-0406c82a; 서버·DB·네트워크 수집 없음
-- 검증: prefix/availability/caps/legacy pytest, Ruff, mypy, 독립 review, main 통합 재검사 예정
-- 개발 기록: docs/development-records/2026-09-15-r1-us-membership.md (완료 경계에서 갱신)
-- handoff: audit/HANDOFF.md 예정; 사용자 기존 HANDOFF.md 보존
-- 통합·정리: 미실행; 기존 다른 worktree 보존
+- 목표: frozen R1-01 미국 historical membership, legacy replay 보존
+- 담당: 감독 Astra; r1_explore (Luna), r1_plan (Astra), r1_code (Luna), r1_review (Terra)
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-membership-0406 / feat/r1-us-membership-0406; 증거 보관·검증 후 정리 완료
+- 기준/병합 직전 main: a8a2ac8 / 7915813cd597812769dc15c954f5c562bc1e06fe
+- 구현/보완: 32815e75f6bbda311d43861954b54c99289925a5 / 897abd46a653c70e93807fc3ea7ef2c55300e5bb
+- 통합: 52ef32e7c0990acc900a14a73ef38a166f820ff1
+- 검증: main pytest111·Ruff·strict mypy2 source·legacy replay all=true; Terra 독립 재검토 PASS, 라우팅 감사 PASS
+- 범위: collector·approximate·관련 tests·계약 문서; 전략·KR·mandate·PAPER/live 보존
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-01-0406c82a; 서버·DB·네트워크 자료 수집 없음
+- 개발 기록: docs/development-records/2026-09-15-r1-us-membership.md
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-01-0406c82a/HANDOFF.md
+- 한계: 연간 근사 carry-forward, R1-02 행사·R1-03 분류·R1-04 회계 별도; 경제적 개선·PAPER 승격 없음
 
 ## roadmap-automation
 

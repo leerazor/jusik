@@ -1,6 +1,6 @@
-# R1-01 historical US membership 사전검사
+# R1-01 historical US membership
 
-- 상태: 차단
+- 최신 상태: 완료; 아래 첫 시도 차단 이력은 보존
 - 작업 slug: `r1-us-membership`
 - task/attempt: `roadmap-r1-01-v1` / `24eb774959c9485eae4e8cdb32609dc4`
 - 기준: `a55da5a190a8764764be6748e346e09fdfc8dac6`; 구현 통합 없음.
@@ -36,7 +36,7 @@
 ## 2026-09-16 재시도
 
 - task/attempt: `roadmap-r1-01-v1` / `0406c82ad69743049331fa3e1ff08495`.
-- 상태: 구현 검증 완료, 독립 재검토 및 main 통합 대기.
+- 상태: 완료; 독립 재검토 및 main 통합 검증 통과.
 - 조사 기준 main: `5831862f9f5f1766d775db18e84cfa8362c5465b`; 작업 기준: `a8a2ac8`.
 - 구현: `32815e75f6bbda311d43861954b54c99289925a5`; review 보완: `897abd46a653c70e93807fc3ea7ef2c55300e5bb`.
 - 워크트리: `/home/kwl/projects/jusik-r1-us-membership-0406`; 담당 Luna `r1_code`, 독립 Terra `r1_review`.
@@ -60,3 +60,12 @@
 - event-free collector/source/strategy의 membership·candidate prefix 동일성, 실패/복구, UTC, admission 이전 매수 방지,100/400 경계와 예산을 검증했습니다.
 - 프런트엔드 변경이 없어 빌드 미실행. 기존 테스트 fixture의 전체 strict typing 부채는 범위 밖이며 변경한 제품 모듈2개의 configured mypy를 실행했습니다.
 - 연간 관측 carry-forward는 근사 membership이며 strict PIT 일별 실제 명부가 아닙니다. 전체 종목 event 제외는 R1-02, 분류는 R1-03, 배당·split 회계는 R1-04로 남습니다. 수익 개선이나 R1 전체 완료, PAPER 승격을 주장하지 않습니다.
+
+### 최종 통합과 보존
+
+- 독립 Terra 재검토 PASS, 중요한 미해결 지적 없음. 모델 라우팅4역할 prepare/pre/post 검증 PASS; opaque message는 receipt 전달 근거이며 원문 무결성이나 role sandbox 적용으로 주장하지 않습니다.
+- 병합 직전 main: `7915813cd597812769dc15c954f5c562bc1e06fe`; 통합: `52ef32e7c0990acc900a14a73ef38a166f820ff1`.
+- main 통합 검사: pytest111·Ruff·strict mypy2 source·frozen replay `comparison.all=true` 모두 통과. `integration-verification.json`과 `integrated-*.log`에 실제 명령과 결과 hash를 보관했습니다.
+- R1-01 체크박스만 갱신했습니다. R1 전체는 미완료이며 다른 체크박스와 연구 조건은 변경하지 않았습니다.
+- handoff: audit의 `HANDOFF.md`. 사용자 기존 루트 HANDOFF.md와 다른 워크트리6개는 보존합니다.
+- 정리: 증거·환경·patch·handoff 및 SHA-256 보관·검증 후 이번 병합 워크트리와 브랜치를 제거했습니다. 기존6개 워크트리는 보존했습니다.
