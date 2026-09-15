@@ -1,5 +1,20 @@
 # 워크트리 작업 등록부
 
+## r1-us-product-types
+
+- 상태: 준비; model-only opaque explore 감사 통과, bounded plan 진행
+- task/attempt: roadmap-r1-03-v1 / 9bd64c1361374e3f8414f0b131024715
+- 목표: collector 내부 구조화 상품 분류와 NASDAQ alias 정규화; 기존 공개 schema와 membership/사건 시점 보존
+- 담당: 감독 Astra; 구현 Luna r103_code 예정, 독립 Terra review 예정
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-product-types-9bd6 / feat/r1-us-product-types-9bd6 (생성 예정)
+- 조사 기준 main: 1a9dd30a102d4605d5908422adea00c627c3537d; 입력 bf5640f는 현재 HEAD의 조상
+- 범위: collector, 관련 fixture tests, docs/market-research.md, 개발 기록. 감독만 이 등록부와 해당 checklist 관리
+- 검증 한도: 고정 새 fixture 최대40개, CPU900초; 수집·backtest·GPU·PAPER/live·운영 DB·서비스·설정·remote 변경 없음
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-03-9bd64c13; 서버·DB 없음, 작업별 venv/cache 사용
+- 결과·통합·정리: 미완료; 독립 review와 main 통합 검사 후 증거/handoff를 보존하고 해당 worktree만 정리
+- 개발 기록: docs/development-records/2026-09-16-r1-us-product-types.md
+- handoff: audit/HANDOFF.md 예정; 기존 루트 HANDOFF.md 보존. 경제 평가 not-evaluated
+
 ## runner-routing-compat
 
 - 상태: 코드 통합·검증 완료; 자동 재착수 확인은 외부 activation.json에 기록
