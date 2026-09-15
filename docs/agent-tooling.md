@@ -37,12 +37,19 @@ agent는 결과를 다음 다섯 항목으로 짧게 반환합니다. 각 항목
 | Serena MCP | `Serena 1.7.0` | `/home/kwl/.local/bin/serena`; Codex MCP command는 `/home/kwl/.local/bin/serena start-mcp-server --context codex --project-from-cwd --enable-web-dashboard=false --open-web-dashboard=false` |
 | Playwright CLI + skill | `@playwright/cli 0.1.19` | skill은 `/home/kwl/.codex/skills/playwright-cli/SKILL.md`; WSL 정상 실행은 `/home/kwl/.config/jusik/agent-tools/playwright-cli open <URL>` |
 | Context7 CLI + skill | `ctx7 0.5.11` | `ctx7 --version`; skill은 `/home/kwl/.codex/skills/context7-cli/SKILL.md`; 문서 조회는 먼저 `ctx7 library <name> <query>` 후 `ctx7 docs <libraryId> <query>` |
+| Linear plugin | `linear 5.0.1`, installed and enabled | Codex session에서 connector와 권한을 확인한 뒤에만 사용합니다. |
 
 위 버전·경로와 설치·smoke 결과는 [도구 검증 기록](/home/kwl/.local/share/jusik/tooling-audit/20260913-tools/VERIFICATION.md)에서 확인합니다. WSL 기본 Chrome은 `libasound.so.2`가 없어 직접 실행이 실패할 수 있으므로 wrapper가 범위 지정한 browser library와 Chromium 설정을 자식 프로세스에만 적용합니다. 시스템 환경은 변경하지 않습니다. 다른 환경에서는 `command -v`와 각 `--version`을 다시 실행하고, 확인하지 못한 설치를 완료로 보고하지 않습니다. 설치된 공식 skill은 다음 turn 또는 새 Codex 세션에서 로드 여부를 확인한 뒤 사용합니다.
 
 runner가 자식 Codex를 `--ignore-user-config`로 실행할 때 현재 사용자의 config에 등록한 도구가 자동 상속된다는 보장은 없습니다. 따라서 dispatch 전에 해당 실행에서 필요한 MCP·CLI·skill이 실제로 사용 가능한지 확인하고, 불가능하면 도구 의존 작업을 실행하지 않거나 차단 사유를 남깁니다. 이 확인은 사용자 전역 설정을 수정하지 않습니다.
 
 각 작업은 전용 cwd와 worktree에서 실행합니다. Python 환경, frontend 의존성·빌드 출력, 로그·임시 산출물도 작업 경계를 지키며 공유하지 않습니다. 자세한 경로·lock·runner 권한 규칙은 연결된 운영 문서에서 확인합니다.
+
+## Context7와 Linear 사용 경계
+
+Context7는 이 프로젝트가 사용하는 Next.js·React·FastAPI 등 외부 의존성의 현재 API, 마이그레이션, 보안·호환성 규칙을 확인해야 할 때 사용합니다. 구현 전 저장소의 잠긴 버전과 기존 코드를 먼저 확인하고, 지식이 오래됐을 가능성이 있거나 공식 문서 확인이 필요한 쟁점만 `ctx7 library`로 식별한 뒤 `ctx7 docs`로 조회합니다. Context7 결과는 현재 코드·테스트·잠금 파일보다 우선하지 않으며, 조회 자체가 의존성 추가나 업그레이드 승인이 되지 않습니다. `ctx7 skills suggest`는 보조 후보 탐색일 뿐이며, 새 skill 설치는 별도 사용자 요청이 있을 때만 합니다.
+
+Linear는 여러 worktree 작업의 사용자 가시성, 우선순위, 의존성, 완료 상태를 공유할 때 유용합니다. 저장소의 [작업 등록부](worktree-tasks.md)는 worktree 경로·브랜치·검증·통합·handoff를 담는 실행 기록이므로 계속 기준 기록으로 유지합니다. Linear issue가 입력으로 제공되면 시작 전에 범위와 완료 조건을 읽고, 작업 등록부에 issue 식별자 또는 링크만 기록할 수 있습니다. Linear 생성·상태 변경·댓글 작성은 외부 상태 변경이므로 사용자가 요청했거나 해당 작업 지시에 명시된 경우에만 합니다. issue에는 비밀값, 계좌 식별자, 원시 데이터, 내부 절대 경로, 긴 실행 로그를 넣지 않습니다. 작업 종료 후에는 검증 결과·커밋·handoff 경로의 짧은 요약만 남깁니다.
 
 ## supervisor 검사와 작업 경계
 
