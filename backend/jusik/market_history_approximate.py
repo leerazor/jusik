@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal, Protocol, cast
@@ -366,7 +366,12 @@ class ApproximateMarketHistorySource:
             research_grade="approximate",
         )
 
-    async def collect(self, request: MarketResearchRequest) -> MarketHistorySnapshot:
+    async def collect(
+        self,
+        request: MarketResearchRequest,
+        *,
+        captured_at: datetime | None = None,
+    ) -> MarketHistorySnapshot:
         if request.research_grade != "approximate":
             raise ApproximateProviderError(
                 "approximate source requires approximate request"
@@ -378,7 +383,12 @@ class ApproximateMarketHistorySource:
         pool = deterministic_pool(
             dataset.universe, market=request.market, pool_end=request.end_date
         )
-        captured = datetime.now(UTC)
+        if captured_at is None:
+            captured = datetime.now(UTC)
+        elif captured_at.tzinfo is None or captured_at.utcoffset() != timedelta(0):
+            raise ApproximateProviderError("captured_at must be an aware UTC timestamp")
+        else:
+            captured = captured_at.astimezone(UTC)
         memberships: list[PITMembership] = []
         for row in pool.rows:
             market_session = _session(self.calendar, row.exchange, row.session)
