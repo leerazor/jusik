@@ -1,5 +1,26 @@
 # 워크트리 작업 등록부
 
+## market-data-live-contract-fixes
+
+- 상태: 준비
+- 목표와 완료 조건: 실제 provider smoke에서 확인한 KRX Open API 요청 계약과 Alpha Vantage 종목 정규화 오류를 수정합니다. 공식 KRX endpoint·`AUTH_KEY` header·`basDd`를 사용하고, 미국 목록에서 보통주가 아닌 상품과 비정상 표시명을 한 행 단위로 제외해 전체 수집을 보존합니다. 사용자가 저장한 안전한 env alias를 지원한 뒤 KR/US 소규모 실제 smoke를 재실행합니다.
+- 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore→plan→code→review 순서로 진행합니다.
+- 워크트리 절대 경로: /home/kwl/projects/jusik-market-data-live-contract-fixes
+- 작업 브랜치: fix/market-data-live-contract-fixes
+- 기준 커밋 SHA: 등록 커밋에서 확정
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: free-market-data-collector 완료 main 8521268, durable docs main 8602e3b. 실제 smoke에서 구현 KRX URL은 HTTP 403, 공식 KRX KOSPI·KOSDAQ endpoint는 현재 키로 401, Alpha 응답은 긴 warrant 명칭 때문에 전체 validation 실패했습니다.
+- 수정 허용 범위: collector source URL/request/response parser, listing security-type/name normalization, collector env loading·CLI, 관련 테스트·문서·mandate/checksum·개발 기록. 전략·PAPER·broker/order·프런트는 변경하지 않습니다.
+- 포트·테스트 DB·출력 경로: 3366/8366, worktree-local test environment. 실제 smoke raw/cache/output은 `/home/kwl/.local/share/jusik/portfolio-audit/20260915-free-market-data-live-smoke`에 비밀정보 없이 저장합니다. 운영 DB·주문은 사용하지 않습니다.
+- 검증 명령과 결과: 예정 — official KRX request/response fixture, Alpha real-shaped common-stock filtering, env alias/secret non-disclosure, focused pytest·Ruff·strict mypy, KR/US live smoke.
+- 결과 커밋 SHA: 예정
+- 검토 결과와 남은 문제: KRX 키의 두 일별매매정보 API 이용 승인은 현재 401로 보이며 코드 수정 후 다시 구분합니다. 실제 성공하지 않은 시장은 완료로 표시하지 않습니다.
+- 병합 직전 main SHA: 예정
+- 통합 커밋 SHA와 정리 여부: 예정
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-15-market-data-live-contract-fixes.md` 예정
+- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-market-data-live-contract-fixes/HANDOFF.md` 및 루트 `HANDOFF.md` 예정
+
 ## free-market-data-collector
 
 - 상태: 완료
