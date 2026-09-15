@@ -47,8 +47,8 @@ const current = {
       account_scope: "market_specific_independent_simulated" as const,
       reporting_currency: "KRW" as const,
       native_currency: "USD" as const,
-      initial_cash_krw: "100000000",
-      fx_krw_per_usd: "1300",
+      initial_cash_krw: "100000000.00",
+      fx_krw_per_usd: "1300.0",
       initial_cash_conversion: "initial_krw_to_usd" as const,
     },
     provenance: {
@@ -96,12 +96,25 @@ const kr = {
     account: {
       ...current.result.account,
       native_currency: "KRW" as const,
-      fx_krw_per_usd: "1",
+      fx_krw_per_usd: "1.0",
       initial_cash_conversion: "identity" as const,
     },
   },
 };
 marketResearchRunSchema.parse(kr);
+
+const equivalentExponent = {
+  ...current,
+  result: {
+    ...current.result,
+    account: {
+      ...current.result.account,
+      initial_cash_krw: "1e8",
+      fx_krw_per_usd: "13e2",
+    },
+  },
+};
+marketResearchRunSchema.parse(equivalentExponent);
 
 const emptyNormalization = structuredClone(current);
 emptyNormalization.result.provenance.normalization_version = "";
@@ -123,4 +136,35 @@ const contradictoryAccount = {
 };
 assertRejects(contradictoryAccount, "US account with KRW native currency");
 
-console.log("US, KR, legacy, and contradictory currency checks: PASS");
+for (const invalid of ["0", "-1", "not-a-number", "NaN", "Infinity"]) {
+  const invalidInitial = {
+    ...current,
+    result: {
+      ...current.result,
+      account: { ...current.result.account, initial_cash_krw: invalid },
+    },
+  };
+  assertRejects(invalidInitial, `invalid initial_cash_krw ${invalid}`);
+  const invalidFx = {
+    ...current,
+    result: {
+      ...current.result,
+      account: { ...current.result.account, fx_krw_per_usd: invalid },
+    },
+  };
+  assertRejects(invalidFx, `invalid fx_krw_per_usd ${invalid}`);
+}
+
+const precisionNearCapital = {
+  ...current,
+  result: {
+    ...current.result,
+    account: {
+      ...current.result.account,
+      initial_cash_krw: "100000000.0000000000000000001",
+    },
+  },
+};
+assertRejects(precisionNearCapital, "precision-near-but-distinct initial cash");
+
+console.log("US, KR, legacy, decimal, and contradictory currency checks: PASS");

@@ -1,6 +1,39 @@
 import { z } from "zod";
 import { researchBackendUrl } from "@/lib/research";
 
+type CanonicalDecimal = { coefficient: bigint; exponent: bigint };
+
+const decimalPattern = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$/;
+
+function canonicalDecimal(value: string): CanonicalDecimal | null {
+  const match = decimalPattern.exec(value);
+  if (!match) return null;
+  const fraction = match[3] ?? match[4] ?? "";
+  let coefficient = BigInt(`${match[2] ?? ""}${fraction}`);
+  if (match[1] === "-") coefficient = -coefficient;
+  if (coefficient === 0n) return { coefficient: 0n, exponent: 0n };
+  let exponent = BigInt(match[5] ?? "0") - BigInt(fraction.length);
+  while (coefficient % 10n === 0n) {
+    coefficient /= 10n;
+    exponent += 1n;
+  }
+  return { coefficient, exponent };
+}
+
+const positiveDecimalStringSchema = z.string().refine((value) => {
+  const parsed = canonicalDecimal(value);
+  return parsed !== null && parsed.coefficient > 0n;
+}, "must be a positive finite Decimal string");
+
+const decimalStringsEqual = (left: string, right: string): boolean => {
+  const leftCanonical = canonicalDecimal(left);
+  const rightCanonical = canonicalDecimal(right);
+  return leftCanonical !== null
+    && rightCanonical !== null
+    && leftCanonical.coefficient === rightCanonical.coefficient
+    && leftCanonical.exponent === rightCanonical.exponent;
+};
+
 const capabilitySchema = z.object({
   name: z.enum(["credentials", "entitlement", "calendar", "membership", "bars", "actions", "fx", "policy"]),
   status: z.enum(["ready", "missing", "unsupported", "partial"]),
@@ -63,8 +96,8 @@ export const marketResearchAccountSchema = z.object({
   account_scope: z.literal("market_specific_independent_simulated"),
   reporting_currency: z.literal("KRW"),
   native_currency: z.enum(["KRW", "USD"]),
-  initial_cash_krw: z.string(),
-  fx_krw_per_usd: z.string().nullable(),
+  initial_cash_krw: positiveDecimalStringSchema,
+  fx_krw_per_usd: positiveDecimalStringSchema.nullable(),
   initial_cash_conversion: z.enum(["identity", "initial_krw_to_usd"]),
 });
 
@@ -105,7 +138,7 @@ const resultSchema = z.object({
       message: "account native currency does not match market",
     });
   }
-  if (result.account.initial_cash_krw !== result.request.initial_cash_krw) {
+  if (!decimalStringsEqual(result.account.initial_cash_krw, result.request.initial_cash_krw)) {
     context.addIssue({
       code: "custom",
       path: ["account", "initial_cash_krw"],
@@ -120,7 +153,7 @@ const resultSchema = z.object({
       message: "account cash conversion does not match market",
     });
   }
-  if (result.market === "KR" && result.account.fx_krw_per_usd !== null && result.account.fx_krw_per_usd !== "1") {
+  if (result.market === "KR" && result.account.fx_krw_per_usd !== null && !decimalStringsEqual(result.account.fx_krw_per_usd, "1")) {
     context.addIssue({
       code: "custom",
       path: ["account", "fx_krw_per_usd"],

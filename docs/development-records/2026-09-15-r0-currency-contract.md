@@ -11,6 +11,7 @@
 - `MarketResearchAccountMetadata`는 account scope, KRW reporting currency, market native currency, request 초기 자본, KRW-per-USD quote, 초기 자본 환전 방향만 포함하며 account identifier를 저장하지 않습니다.
 - `MarketResearchService`가 계산된 result metrics와 request에서 metadata를 만들어 결과에만 주입합니다. KR은 native KRW·FX identity `1`, US는 native USD·초기 KRW-per-USD quote·`initial_krw_to_usd`를 사용하며 quote가 없는 불충분 결과는 `null`입니다.
 - Python model validator와 frontend Zod schema가 market/native/reporting/conversion/initial cash의 모순을 거부합니다. 기존 result의 account 누락은 `None`/unknown으로 파싱됩니다.
+- frontend는 binary float 없이 BigInt canonical 비교를 사용해 trailing zero·지수 표기의 동등 Decimal을 허용하고, 0·음수·비수치·NaN·Infinity와 정밀도 차이를 거부합니다.
 - 계약 문서에 trade native currency와 equity native/reporting 금액의 의미, KR FX identity, 독립 simulated scope를 기록했습니다.
 
 ## 문서·계약 영향
@@ -34,6 +35,6 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-currency-contract`; manifest: `r0-currency-contract-verification.json`; SHA-256: `870b73477b087468b552652cf586645267f354bc4b1b02b163791b5e4f5493f3`.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-currency-contract`; manifest: `r0-currency-contract-verification.json`; SHA-256: `62c2da3cf4cc6723c8400c7766b77b485f0504854abb360336ae76f54861253e`.
 - 남은 작업·차단 조건: supervisor 독립 review와 local `main` 통합 전입니다. R0-05와 R0-03은 후속 작업입니다.
 - 다음 시작: supervisor가 이 브랜치의 currency metadata diff와 fixture·hash 불변성을 검토합니다.

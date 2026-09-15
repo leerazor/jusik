@@ -33,6 +33,8 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 | `fx_krw_per_usd` | Decimal 문자열, KRW per USD 또는 `null` | US는 초기 평가에 사용한 KRW-per-USD quote이며, KR은 identity `1`입니다. 자료가 없으면 `null`입니다. |
 | `initial_cash_conversion` | KR: `identity`, US: `initial_krw_to_usd` | 초기 KRW 자본을 native account cash로 해석한 방향입니다. |
 
+`initial_cash_krw`와 `fx_krw_per_usd`는 양의 유한 Decimal 문자열이며, `null`인 FX quote는 아직 확인되지 않았음을 뜻합니다. request와 metadata의 금액·quote 비교는 trailing zero와 지수 표기를 보존하는 Decimal 의미로 수행하고 binary floating point로 반올림하지 않습니다.
+
 거래의 `trade.currency`는 체결 자산과 fee·tax·notional의 native 통화를 뜻합니다. `equity.cash_native`는 account native cash이고, `equity.cash_krw`, `equity.invested_krw`, `equity.nav_krw`는 reporting currency인 KRW입니다. `equity.fx_krw_per_usd`는 각 평가 session의 USD→KRW quote이며, KR 결과에서는 항상 `1`입니다. 이 metadata는 기존 Decimal 계산, fee·tax·FX 적용, snapshot/input/data/pool hash를 재계산하거나 변경하지 않습니다.
 
 ## 시간 의미

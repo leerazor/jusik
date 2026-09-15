@@ -276,11 +276,30 @@ def test_account_metadata_rejects_market_or_request_contradictions() -> None:
         default_market_calendar(),
     )
     payload = result.model_dump()
+    equivalent_account = MarketResearchAccountMetadata(
+        native_currency="KRW",
+        initial_cash_krw="100000000.00",
+        fx_krw_per_usd="1.0",
+        initial_cash_conversion="identity",
+    )
+    payload["account"] = equivalent_account.model_dump()
+    validated = MarketResearchResult.model_validate(payload)
+    assert validated.account == equivalent_account
+
     payload["account"] = MarketResearchAccountMetadata(
         native_currency="USD",
         initial_cash_krw=item.initial_cash_krw,
         fx_krw_per_usd=Decimal("1300"),
         initial_cash_conversion="initial_krw_to_usd",
+    ).model_dump()
+    with pytest.raises(ValidationError):
+        MarketResearchResult.model_validate(payload)
+
+    payload["account"] = MarketResearchAccountMetadata(
+        native_currency="KRW",
+        initial_cash_krw="100000000.0000000000000000001",
+        fx_krw_per_usd="1",
+        initial_cash_conversion="identity",
     ).model_dump()
     with pytest.raises(ValidationError):
         MarketResearchResult.model_validate(payload)
