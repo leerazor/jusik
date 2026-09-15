@@ -231,7 +231,7 @@ def test_post_accepts_actual_layout(
     _jsonl(child_path, child)
     result = post_audit(manifest_path, parent_path, child_path)
     assert result["child_id"] == "child-id"
-    assert result["raw_input_available"] == "false"
+    assert result["raw_input_available"] is False
     assert result["delivery_evidence"] == "assistant_receipt"
 
 

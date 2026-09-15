@@ -622,14 +622,16 @@ def post_audit(
     result: dict[str, object] = {
         "status": "PASS",
         "transport": TRANSPORT,
+        "message_mode": mode,
         "parent_id": parent_id,
         "child_id": child_id,
         "model": next(iter(models)),
-        "raw_input_available": "false",
+        "raw_input_available": False,
         "delivery_evidence": "assistant_receipt",
         "raw_call_message_available": False,
         "nonmessage_args_verified": True,
         "message_integrity_verified": None,
+        "prepared_args_sha256": manifest["args_sha256"],
         "parent_log_sha256": _sha256_file(parent_jsonl),
         "child_log_sha256": _sha256_file(child_jsonl),
     }
@@ -687,6 +689,7 @@ def main(argv: list[str] | None = None) -> int:
             result: Mapping[str, object] = {
                 "status": "PASS",
                 "transport": TRANSPORT,
+                "message_mode": args.message_mode,
                 "manifest_path": str(prepared.manifest_path),
                 "spawn_args_path": str(prepared.spawn_args_path),
                 "manifest_sha256": prepared.manifest_sha256,
