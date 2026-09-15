@@ -1,5 +1,21 @@
 # 워크트리 작업 등록부
 
+## r2-dd-chronology
+
+- 상태: 차단 (구현 전 routing preflight 실패)
+- 목표와 완료 조건: R2-04 초기 자본 포함 KRW peak/DD/20% latch 독립 Decimal 검산 및 저장 파일럿 대조.
+- 담당 Luna: 미배정; host에 필수 agent_type 인자가 없음.
+- 워크트리·브랜치: 생성하지 않음. 기준 main: bf5640faac7e790adee93fd0b5b065dca420cdfd.
+- 입력과 선행 작업: R0 완료, 현재 mandate JSON, 동결 approximate 파일럿252세션; artifact4개 hash 일치.
+- 수정 허용 범위: 독립 검산·fixture·보고서. 이번 시도는 차단 기록만 작성.
+- 포트·DB: 없음. 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r2-04-665ad529.
+- 검증: routing preflight exit1; 독립 계산·pytest/Ruff/mypy·review·통합 검사 미실행.
+- 결과/통합 commit: 구현 없음. R2-04 checkbox 미변경.
+- 남은 문제: host와 필수 routing 계약 불일치 해소 후 PLAN.md부터 재개.
+- 개발 기록: docs/development-records/2026-09-15-r2-dd-chronology.md.
+- Handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r2-04-665ad529/HANDOFF.md.
+- 정리: 새 worktree 없음. 기존 worktree와 untracked HANDOFF.md 보존.
+
 ## r1-us-membership
 
 - 상태: 차단 (구현 전 agent 라우팅 사전검사 실패)
