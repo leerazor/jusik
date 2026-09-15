@@ -23,7 +23,7 @@
 
 ## r0-shared-contract
 
-- 상태: 진행 (R0-02)
+- 상태: 완료 (R0-02)
 - 목표와 완료 조건: 자료·결과의 경로·시각·coverage·오류·등급 계약을 단일 소유자로 고정. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
 - 담당 Luna: /root/r0_freeze (code, gpt-5.6-luna), shared 계약 단일 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-r0-shared-contract
@@ -33,14 +33,14 @@
 - 입력과 선행 작업: docs/investment-development-roadmap.md R0-02; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
 - 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
 - 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-shared-contract
-- 검증 명령과 결과: 배정 시 확정, 미실행
-- 결과 커밋 SHA: 없음
-- 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
-- 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미통합·worktree 생성 완료
+- 검증 명령과 결과: pytest46·Ruff·mypy2개·Zod fixture·frontend lint/typecheck/build·예비 replay·diff 통과
+- 결과 커밋 SHA: 176a948a4cdae1ef39b3e4c6ea70ed8692636638
+- 검토 결과와 남은 문제: r0_review 중요 지적 없음; 경제적 목표 not-evaluated
+- 병합 직전 main SHA: f72743f
+- 통합 커밋 SHA와 정리 여부: 5f91bbac41b5ac60a2e97c368c3116e5c6daac29; 증거 보존 후 제거 예정
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-shared-contract.md (예정)
-- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-shared-contract.md
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md
 
 ## r0-deterministic-replay
 

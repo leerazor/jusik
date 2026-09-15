@@ -1,6 +1,6 @@
 # R0-02 시장 연구 자료 계약
 
-- 상태: 검증
+- 상태: 완료
 - 기록 시각: 2026-09-15T03:06:42Z
 - 작업 slug: `r0-shared-contract`
 - 기준/통합: `935a31e3400e2aab445b6146fea71b0adde91598` / 없음
@@ -41,3 +41,7 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-shared-contract`; manifest: `r0-shared-contract-verification.json`; SHA-256: `07e46296228238bde9fceb2e40400c7a03473b6d64d031929c86f11cceb93c1a`.
 - 남은 작업·차단 조건: supervisor 독립 review와 local `main` 통합 검증 전까지 완료로 표시하지 않습니다. R0-04 통화 metadata와 R0-05 grade label은 후속 작업입니다.
 - 다음 시작: supervisor가 이 브랜치의 diff와 contract 문서를 검토한 뒤 전체 backend 영향 테스트와 통합 검증을 수행합니다.
+
+## 통합 검증
+
+로컬 main `5f91bbac41b5ac60a2e97c368c3116e5c6daac29`에 통합했습니다. 최종 `176a948` 독립 review 중요 지적 없음. 통합 pytest46개, Ruff format/check, strict mypy2개, 고정 npm fixture 검증·lint·typecheck·build와 diff 검사 통과. 기존 미국 예비 재현의 metrics·trades·equity·정책/data/pool hash가 모두 일치합니다. R0-03 공식 replay 검증은 미완료입니다.
