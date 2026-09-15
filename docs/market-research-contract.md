@@ -1,6 +1,6 @@
 # 시장 연구 자료·결과 계약
 
-이 문서는 R0-02의 시장 연구 API 계약을 정의합니다. 연구 결과는 한국과 미국을 별도 실행하며, 자료 등급(`strict` 또는 `approximate`)과 `simulated` 여부를 보존합니다. 이 계약은 기존 snapshot hash, `data_contract_hash`, 정책 hash, 전략 계산과 저장된 금융 수치를 변경하지 않습니다.
+이 문서는 R0-02와 R0-04의 시장 연구 API 계약을 정의합니다. 연구 결과는 한국과 미국을 별도 실행하며, 자료 등급(`strict` 또는 `approximate`)과 `simulated` 여부를 보존합니다. 이 계약은 기존 snapshot hash, `data_contract_hash`, 정책 hash, 전략 계산과 저장된 금융 수치를 변경하지 않습니다.
 
 ## 공개 경계와 private audit
 
@@ -19,6 +19,23 @@
 | `captured_at` | timezone offset을 포함한 ISO-8601 timestamp (UTC로 직렬화) | `null` | snapshot 자료와 artifact가 모두 없으면 unknown |
 
 source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`, `approximate_file` 중 하나입니다. 배열은 중복을 제거하고 정렬합니다. `provenance`는 결과의 설명 필드이며 snapshot hash 계산 대상이 아니므로, 이 필드를 추가해 기존 input/data contract hash가 달라지지 않습니다.
+
+## 통화와 독립 simulated account
+
+`MarketResearchResult.account`는 새 실행이 사용한 시장별 독립 simulated account의 단위·초기 자본 설명입니다. 계좌 번호나 broker 식별자는 포함하지 않으며, 기존 저장 결과처럼 필드가 없으면 `null` 또는 unknown으로 해석합니다.
+
+| 필드 | 값·단위 | 규칙 |
+| --- | --- | --- |
+| `account_scope` | `market_specific_independent_simulated` | 시장별 account는 서로 독립된 simulated scope입니다. |
+| `reporting_currency` | `KRW` | 모든 결과 보고 금액의 기준 통화입니다. |
+| `native_currency` | KR: `KRW`, US: `USD` | 시장의 거래·보유 native 통화입니다. |
+| `initial_cash_krw` | Decimal 문자열, KRW | `request.initial_cash_krw`와 항상 같습니다. |
+| `fx_krw_per_usd` | Decimal 문자열, KRW per USD 또는 `null` | US는 초기 평가에 사용한 KRW-per-USD quote이며, KR은 identity `1`입니다. 자료가 없으면 `null`입니다. |
+| `initial_cash_conversion` | KR: `identity`, US: `initial_krw_to_usd` | 초기 KRW 자본을 native account cash로 해석한 방향입니다. |
+
+`initial_cash_krw`와 `fx_krw_per_usd`는 양의 유한 Decimal 문자열이며, `null`인 FX quote는 아직 확인되지 않았음을 뜻합니다. request와 metadata의 금액·quote 비교는 trailing zero와 지수 표기를 보존하는 Decimal 의미로 수행하고 binary floating point로 반올림하지 않습니다.
+
+거래의 `trade.currency`는 체결 자산과 fee·tax·notional의 native 통화를 뜻합니다. `equity.cash_native`는 account native cash이고, `equity.cash_krw`, `equity.invested_krw`, `equity.nav_krw`는 reporting currency인 KRW입니다. `equity.fx_krw_per_usd`는 각 평가 session의 USD→KRW quote이며, KR 결과에서는 항상 `1`입니다. 이 metadata는 기존 Decimal 계산, fee·tax·FX 적용, snapshot/input/data/pool hash를 재계산하거나 변경하지 않습니다.
 
 ## 시간 의미
 
@@ -54,4 +71,4 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 
 ## 호환성
 
-새 provenance는 optional nullable 필드입니다. 기존 저장 결과와 provenance가 없는 fixture는 계속 파싱되고 unknown으로 표시합니다. 프런트엔드 Zod schema도 누락 또는 `null`을 허용하지만, 값이 존재하면 source identity·timestamp·normalization 형식을 검증합니다. 기존 `request`, `metrics`, `trades`, `equity`, grade gate와 모든 Decimal 문자열의 의미는 유지합니다.
+새 provenance와 `account`는 optional nullable 필드입니다. 기존 저장 결과와 두 metadata가 없는 fixture는 계속 파싱되고 unknown으로 표시합니다. 프런트엔드 Zod schema도 누락 또는 `null`을 허용하지만, 값이 존재하면 source identity·timestamp·normalization·market currency 형식을 검증합니다. 기존 `request`, `metrics`, `trades`, `equity`, grade gate와 모든 Decimal 문자열의 의미는 유지합니다.

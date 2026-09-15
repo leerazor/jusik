@@ -1,6 +1,39 @@
 import { z } from "zod";
 import { researchBackendUrl } from "@/lib/research";
 
+type CanonicalDecimal = { coefficient: bigint; exponent: bigint };
+
+const decimalPattern = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$/;
+
+function canonicalDecimal(value: string): CanonicalDecimal | null {
+  const match = decimalPattern.exec(value);
+  if (!match) return null;
+  const fraction = match[3] ?? match[4] ?? "";
+  let coefficient = BigInt(`${match[2] ?? ""}${fraction}`);
+  if (match[1] === "-") coefficient = -coefficient;
+  if (coefficient === 0n) return { coefficient: 0n, exponent: 0n };
+  let exponent = BigInt(match[5] ?? "0") - BigInt(fraction.length);
+  while (coefficient % 10n === 0n) {
+    coefficient /= 10n;
+    exponent += 1n;
+  }
+  return { coefficient, exponent };
+}
+
+const positiveDecimalStringSchema = z.string().refine((value) => {
+  const parsed = canonicalDecimal(value);
+  return parsed !== null && parsed.coefficient > 0n;
+}, "must be a positive finite Decimal string");
+
+const decimalStringsEqual = (left: string, right: string): boolean => {
+  const leftCanonical = canonicalDecimal(left);
+  const rightCanonical = canonicalDecimal(right);
+  return leftCanonical !== null
+    && rightCanonical !== null
+    && leftCanonical.coefficient === rightCanonical.coefficient
+    && leftCanonical.exponent === rightCanonical.exponent;
+};
+
 const capabilitySchema = z.object({
   name: z.enum(["credentials", "entitlement", "calendar", "membership", "bars", "actions", "fx", "policy"]),
   status: z.enum(["ready", "missing", "unsupported", "partial"]),
@@ -59,6 +92,15 @@ export const marketResearchProvenanceSchema = z.object({
   captured_at: capturedAtSchema.nullable(),
 });
 
+export const marketResearchAccountSchema = z.object({
+  account_scope: z.literal("market_specific_independent_simulated"),
+  reporting_currency: z.literal("KRW"),
+  native_currency: z.enum(["KRW", "USD"]),
+  initial_cash_krw: positiveDecimalStringSchema,
+  fx_krw_per_usd: positiveDecimalStringSchema.nullable(),
+  initial_cash_conversion: z.enum(["identity", "initial_krw_to_usd"]),
+});
+
 const resultSchema = z.object({
   market: z.enum(["KR", "US"]),
   request: requestSchema,
@@ -85,6 +127,39 @@ const resultSchema = z.object({
   research_grade: researchGradeSchema,
   pool_contract_hash: z.string().nullable(),
   provenance: marketResearchProvenanceSchema.nullable().optional(),
+  account: marketResearchAccountSchema.nullable().optional(),
+}).superRefine((result, context) => {
+  if (result.account === undefined || result.account === null) return;
+  const expectedNativeCurrency = result.market === "KR" ? "KRW" : "USD";
+  if (result.account.native_currency !== expectedNativeCurrency) {
+    context.addIssue({
+      code: "custom",
+      path: ["account", "native_currency"],
+      message: "account native currency does not match market",
+    });
+  }
+  if (!decimalStringsEqual(result.account.initial_cash_krw, result.request.initial_cash_krw)) {
+    context.addIssue({
+      code: "custom",
+      path: ["account", "initial_cash_krw"],
+      message: "account initial cash does not match request",
+    });
+  }
+  const expectedConversion = result.market === "KR" ? "identity" : "initial_krw_to_usd";
+  if (result.account.initial_cash_conversion !== expectedConversion) {
+    context.addIssue({
+      code: "custom",
+      path: ["account", "initial_cash_conversion"],
+      message: "account cash conversion does not match market",
+    });
+  }
+  if (result.market === "KR" && result.account.fx_krw_per_usd !== null && !decimalStringsEqual(result.account.fx_krw_per_usd, "1")) {
+    context.addIssue({
+      code: "custom",
+      path: ["account", "fx_krw_per_usd"],
+      message: "KR account FX quote must be identity",
+    });
+  }
 });
 
 export const marketResearchRunSchema = z.object({
@@ -105,6 +180,7 @@ export const marketResearchRunSchema = z.object({
 
 export type MarketReadiness = z.infer<typeof marketReadinessSchema>;
 export type MarketResearchProvenance = z.infer<typeof marketResearchProvenanceSchema>;
+export type MarketResearchAccount = z.infer<typeof marketResearchAccountSchema>;
 export type MarketResearchRun = z.infer<typeof marketResearchRunSchema>;
 
 export async function getMarketReadiness(
