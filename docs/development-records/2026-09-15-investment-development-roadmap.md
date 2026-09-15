@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-15T02:15:40Z
 - 작업 slug: `investment-development-roadmap`
-- 기준/통합: `c2ada5c` / 없음
+- 기준/통합: `c2ada5c` / `1d6ebfce1ecf2620a0c670e24866e5608f67572a`
 - 범위: 미래 투자 개발 계획, 단계별 체크리스트, 경제 목표 평가, 증거 추적, 병렬 개발·통합 기준을 문서화했습니다. 코드·전략·mandate·실행기·거래 정책은 변경하지 않았습니다.
 
 ## 변경과 결정
@@ -25,17 +25,19 @@
 
 - `git diff --check` — 통과.
 - 문서 링크, 체크리스트 ID, 단계 의존성, 줄 수와 허용 경로를 독립적으로 확인 — 통과.
+- 작업/통합 main 문서 검사: 미래 체크 ID 40개 모두 미완료, 단계 8개, 로컬 링크 2개 통과. 독립 review는 `08aee0e`의 재현·기업행사·등급별 final 기준과 병렬 소유권을 확인했으며 중요 지적이 없습니다.
+- 이전 미국 산출물의 두 SHA-256을 재확인했습니다. 수익률을 재실행하거나 새 자료를 수집한 것은 아닙니다.
 - 테스트·lint·type check·build — 코드 변경이 없는 문서 작업이므로 실행하지 않습니다.
 
 ## 안전·운영 상태
 
-- PAPER·실주문, brokerage API, 서비스, 데이터베이스, runner, 외부 배포와 원격 push 변경 없음.
+- PAPER·실주문, brokerage API, 서비스, 연구 데이터베이스, 외부 배포와 원격 push 변경 없음. 자동 runner는 pause를 확인·유지했으며 service/timer가 inactive임을 확인했습니다.
 - 비밀정보·인증정보·계좌 식별자·원시 provider 응답을 기록하지 않았습니다.
 - 기존 사용자 변경과 작업 등록부, AGENTS, agent-tooling, research mandate, 코드는 보존했습니다.
 
 ## 증거와 재개
 
-- audit: 기존 기준 증거 `/home/kwl/.local/share/jusik/portfolio-audit/20260915-market-data-live-contract-fixes`; 새 실행 없음.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-investment-development-roadmap`; `baseline-evidence.json`에 기존 artifact 해시 확인, `validate_docs.py`에 문서 검사 절차를 보존합니다. 기준 연구 증거는 기존 live-contract-fixes audit에 있습니다.
 - manifest: 기존 `us-pilot-1y-stable.json`과 `us-web-pilot-run.json`은 로드맵에 해시로만 참조했습니다.
 - 남은 작업·차단 조건: 모든 R0~R7 기능 체크리스트는 미완료이며, 실제 후속 작업의 테스트·독립 review·main 통합이 필요합니다.
 - 다음 시작: R0-01부터 기준 manifest·결과 계약·deterministic replay 계획을 실제 작업 등록부와 대조합니다.

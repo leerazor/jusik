@@ -2,24 +2,24 @@
 
 ## investment-development-roadmap
 
-- 상태: 진행
+- 상태: 완료 (계획 문서); R0~R7 후속 기능은 미완료
 - 목표와 완료 조건: 미국 손실 진단을 우선으로 단계별 목표·체크리스트·증거·병렬 소유권·통합 기준을 문서화하고 다음 개발의 기준 문서로 연결합니다. 이번 범위는 계획 문서이며 후속 기능의 완료를 의미하지 않습니다.
 - 담당 Luna: roadmap_code, 문서 단일 구현 소유자. 감독은 등록부만 관리합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-investment-development-roadmap
 - 작업 브랜치: docs/investment-development-roadmap
-- 기준 커밋 SHA: 등록 커밋에서 시작; 선행 main 164ae1450588d16d5991ed964cc48b6a04513bb6
+- 기준 커밋 SHA: c2ada5c6a8770ac81519a3d41b8aff693e5723d1
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: 미국 1년 파일럿과 KRX 인증 통과 후 zero-OHLC 수집 실패, 현재 mandate, 사용자 계획·체크리스트·병렬 개발 요청
 - 수정 허용 범위: docs/investment-development-roadmap.md, docs/architecture.md 안내 링크, 해당 개발 기록. 거래 정책·코드·mandate·사용자 agent-tooling 변경 제외
 - 포트·테스트 DB·출력 경로: 서버·DB 미사용. 외부 audit /home/kwl/.local/share/jusik/portfolio-audit/20260915-investment-development-roadmap
-- 검증 명령과 결과: 문서 링크·체크리스트 ID·의존성·현재 증거 대조와 독립 review 예정
-- 결과 커밋 SHA: 대기
-- 검토 결과와 남은 문제: 후속 실제 구현은 체크리스트에서 미완료로 유지
-- 병합 직전 main SHA: 대기
-- 통합 커밋 SHA와 정리 여부: 대기
+- 검증 명령과 결과: 작업/통합 main의 문서 검사에서 40개 고유 미완료 체크 ID·8단계·2개 로컬 링크와 diff 검사를 통과했습니다. 미국 artifact hash를 대조했고, 독립 review에서 의존성과 실제 grade별 final 계약을 확인했습니다. 문서 전용이므로 제품 테스트·lint·typecheck·build는 실행하지 않았습니다.
+- 결과 커밋 SHA: 03ce143f51e7ee847ad4d5cacf3ee876a50fdb8f, 08aee0e12dda4fd4282aa3bc370443b0ce9a6777
+- 검토 결과와 남은 문제: 독립 review 최종 중요 지적 없음. 후속 실제 구현은 체크리스트에서 미완료로 유지하며 R0 기준 재현·공통 계약부터 착수합니다. 이후 R1/R2/R3 병렬, R4 계산은 UI 완료를 기다리지 않습니다.
+- 병합 직전 main SHA: c2ada5c6a8770ac81519a3d41b8aff693e5723d1
+- 통합 커밋 SHA와 정리 여부: 1d6ebfce1ecf2620a0c670e24866e5608f67572a; 통합 검증·증거·handoff 보존 후 전용 worktree 제거 완료, branch 보존
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-investment-development-roadmap.md 예정
-- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-investment-development-roadmap/HANDOFF.md 예정
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-investment-development-roadmap.md 갱신
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-investment-development-roadmap/HANDOFF.md 저장
 
 ## market-data-live-contract-fixes
 
