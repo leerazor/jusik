@@ -183,6 +183,48 @@ export type MarketResearchProvenance = z.infer<typeof marketResearchProvenanceSc
 export type MarketResearchAccount = z.infer<typeof marketResearchAccountSchema>;
 export type MarketResearchRun = z.infer<typeof marketResearchRunSchema>;
 
+export function marketResearchGradeLabel(grade: "strict" | "approximate"): string {
+  return grade === "strict" ? "엄격한 PIT 등급" : "근사 등급";
+}
+
+export function marketResearchSourceLabel(simulated: boolean | undefined): string {
+  if (simulated === true) return "합성 자료";
+  if (simulated === false) return "원천 자료";
+  return "자료 성격 확인 불가";
+}
+
+export function marketResearchReadinessLabel(item: MarketReadiness): string {
+  const state = item.ready ? "준비됨" : "자료 확인 불충분";
+  return `${marketResearchGradeLabel(item.research_grade)} · ${marketResearchSourceLabel(item.simulated)} · ${state}`;
+}
+
+export function marketResearchRunLabel(run: MarketResearchRun): string {
+  if (run.result === null) return "자료 성격·실행 결과 확인 불가";
+  return `${marketResearchGradeLabel(run.request.research_grade)} · ${marketResearchSourceLabel(run.result.readiness.simulated)} · 시뮬레이션 연구 실행 · PAPER 별도`;
+}
+
+export function marketResearchNullResultMessage(run: MarketResearchRun): {
+  heading: string;
+  detail: string;
+} {
+  if (run.status === "queued" || run.status === "running") {
+    return {
+      heading: "결과 대기 중",
+      detail: "연구 실행이 아직 결과를 만들지 않았습니다.",
+    };
+  }
+  if (run.status === "failed") {
+    return {
+      heading: "연구 실행 실패",
+      detail: "연구 결과를 생성하지 못했습니다. 자세한 오류는 표시하지 않습니다.",
+    };
+  }
+  return {
+    heading: "결과 확인 불가",
+    detail: "저장된 실행에 결과가 없어 상태를 확인할 수 없습니다.",
+  };
+}
+
 export async function getMarketReadiness(
   market?: "KR" | "US",
   grade: "strict" | "approximate" = "strict",

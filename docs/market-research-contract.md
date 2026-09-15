@@ -2,6 +2,20 @@
 
 이 문서는 R0-02와 R0-04의 시장 연구 API 계약을 정의합니다. 연구 결과는 한국과 미국을 별도 실행하며, 자료 등급(`strict` 또는 `approximate`)과 `simulated` 여부를 보존합니다. 이 계약은 기존 snapshot hash, `data_contract_hash`, 정책 hash, 전략 계산과 저장된 금융 수치를 변경하지 않습니다.
 
+## 등급·자료 성격·실행 표시
+
+`research_grade`, `readiness.simulated`, 실행 상태는 서로 다른 사실을 표시합니다. 프런트엔드는 응답을 확인한 뒤 아래 정보를 함께 표시하며, 로딩·오류로 응답을 확인하지 못하면 자료의 등급이나 성과를 주장하지 않습니다.
+
+| 계약 값 | 표시 의미 | 해석 범위 |
+| --- | --- | --- |
+| `research_grade=strict` | 엄격한 PIT 등급 | 요청된 자료 검증 등급이며, 단독으로 자료 완전성이나 경제적 성공을 뜻하지 않음 |
+| `research_grade=approximate` | 근사 등급 | 표본·제한 자료를 사용하며 strict PIT 검증 결과가 아님 |
+| `readiness.simulated=true` | 합성 자료 | source가 화면·계산 흐름 확인용 합성 자료임을 뜻하며 등급을 바꾸지 않음 |
+| `readiness.simulated=false` | 원천 자료 | 합성 여부에 대한 source 상태이며, `ready=false`이면 검증 불충분으로 표시 |
+| 결과가 확인된 실행 | 시뮬레이션 연구 실행 · PAPER 별도 | 이 결과의 계산 실행과 별도 전진 PAPER 관찰을 혼동하지 않음 |
+
+`status=insufficient`, failed run, 로딩 또는 API 오류에는 strict 검증 완료·원천 자료 완전성·수익 성과를 표시하지 않습니다. `PAPER`는 이 API의 새로운 등급이나 결과 상태가 아니라 별도 운영 관찰 계약입니다.
+
 ## 공개 경계와 private audit
 
 공개 API는 `/api/research/market/status`, `/api/research/market/runs`, `/api/research/market/runs/{id}`를 사용합니다. 새 `provenance` metadata에는 서버의 절대 경로, 환경 파일 경로, 원시 응답 본문, 인증정보를 넣지 않습니다. 기존 `/api/research/market/artifacts/{artifact_id}` endpoint는 현재 라우터 동작에 따라 저장된 artifact bytes를 별도로 반환하며, 이 작업은 기존 route를 제거·변경하거나 새로운 접근 제어 보장을 추가하지 않습니다. 원시 source artifact와 큰 입력 파일은 private audit 디렉터리에 보존하고, 결과에는 기존 hash와 아래의 source identity만 전달합니다.
@@ -64,6 +78,8 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 | `completed` | 존재 | `null` | 결과의 `status`·`completeness`·등급을 함께 확인 |
 | `insufficient` | 존재 가능 | `null` 또는 설명 | 필수 자료·coverage가 부족해 경제 수치를 만들지 않음 |
 | `failed` | `null` | 안전한 사용자용 설명 | 예외 또는 저장 실패; 원시 예외와 자격증명은 노출하지 않음 |
+
+상세 화면에서 `result=null`인 `queued`·`running`은 `결과 대기 중`, `failed`는 원시 오류를 노출하지 않는 `연구 실행 실패`, `completed`·`legacy`는 `결과 확인 불가`로 표시합니다. 저장된 결과가 없는 상태를 성공이나 검증 완료로 해석하지 않습니다.
 
 결과 `status`는 `ready`, `insufficient`, `approximate`이고 `completeness`는 `complete`, `incomplete`, `approximate`입니다. strict 결과의 평가 gate는 `completed` + `ready` + `complete`, approximate 결과의 gate는 `completed` + `approximate` + `approximate`입니다. `research_grade`는 request·readiness·result에서 같아야 하며, `simulated`는 자료의 실행 성격을 별도로 나타냅니다.
 

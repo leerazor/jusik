@@ -1,4 +1,9 @@
-import { marketResearchRunSchema } from "../lib/marketResearch";
+import {
+  marketResearchNullResultMessage,
+  marketResearchReadinessLabel,
+  marketResearchRunLabel,
+  marketResearchRunSchema,
+} from "../lib/marketResearch";
 
 const request = {
   market: "US" as const,
@@ -78,6 +83,39 @@ const assertRejects = (value: unknown, label: string): void => {
 };
 
 marketResearchRunSchema.parse(current);
+if (!marketResearchReadinessLabel(current.result.readiness).includes("근사 등급 · 합성 자료")) {
+  throw new Error("approximate synthetic readiness label missing");
+}
+if (!marketResearchRunLabel(current).includes("시뮬레이션 연구 실행 · PAPER 별도")) {
+  throw new Error("simulation/PAPER execution label missing");
+}
+
+const queued = { ...current, status: "queued" as const, result: null };
+marketResearchRunSchema.parse(queued);
+if (marketResearchNullResultMessage(queued).heading !== "결과 대기 중") {
+  throw new Error("queued null result must be waiting");
+}
+const running = { ...current, status: "running" as const, result: null };
+if (marketResearchNullResultMessage(running).heading !== "결과 대기 중") {
+  throw new Error("running null result must be waiting");
+}
+const failedRun = { ...current, status: "failed" as const, result: null, error: "hidden fixture error" };
+marketResearchRunSchema.parse(failedRun);
+if (marketResearchNullResultMessage(failedRun).heading !== "연구 실행 실패") {
+  throw new Error("failed null result must show generic failure");
+}
+const completedLegacy = {
+  ...current,
+  status: "completed" as const,
+  request: { ...current.request, stage: "legacy" as const },
+  result: null,
+  stage: "legacy" as const,
+  error: null,
+};
+marketResearchRunSchema.parse(completedLegacy);
+if (marketResearchNullResultMessage(completedLegacy).heading !== "결과 확인 불가") {
+  throw new Error("completed legacy null result must be unknown");
+}
 
 const legacy = structuredClone(current);
 const legacyResult = { ...legacy.result };
@@ -102,6 +140,68 @@ const kr = {
   },
 };
 marketResearchRunSchema.parse(kr);
+
+const strictUnavailableReadiness = {
+  ...current.result.readiness,
+  research_grade: "strict" as const,
+  simulated: false,
+  ready: false,
+};
+if (!marketResearchReadinessLabel(strictUnavailableReadiness).includes("엄격한 PIT 등급 · 원천 자료 · 자료 확인 불충분")) {
+  throw new Error("unavailable strict readiness label is overstated");
+}
+if (!marketResearchRunLabel({ ...current, result: null }).includes("확인 불가")) {
+  throw new Error("missing run result must not claim an outcome");
+}
+
+const strictRealReadiness = {
+  ...current.result.readiness,
+  research_grade: "strict" as const,
+  simulated: false,
+};
+if (!marketResearchReadinessLabel(strictRealReadiness).includes("엄격한 PIT 등급 · 원천 자료")) {
+  throw new Error("strict real-source readiness label missing");
+}
+const strictSyntheticReadiness = { ...strictRealReadiness, simulated: true };
+if (!marketResearchReadinessLabel(strictSyntheticReadiness).includes("엄격한 PIT 등급 · 합성 자료")) {
+  throw new Error("strict synthetic readiness label missing");
+}
+const approximateRealReadiness = { ...current.result.readiness, simulated: false };
+if (!marketResearchReadinessLabel(approximateRealReadiness).includes("근사 등급 · 원천 자료")) {
+  throw new Error("approximate real-source readiness label missing");
+}
+
+const partial = {
+  ...current,
+  status: "insufficient" as const,
+  result: {
+    ...current.result,
+    status: "insufficient" as const,
+    completeness: "incomplete" as const,
+    readiness: { ...strictRealReadiness, ready: false },
+  },
+};
+marketResearchRunSchema.parse(partial);
+if (marketResearchReadinessLabel(partial.result.readiness).includes("준비됨")) {
+  throw new Error("partial readiness must not claim verified readiness");
+}
+
+const failed = {
+  ...current,
+  status: "failed" as const,
+  request: { ...current.request, stage: "legacy" as const },
+  result: null,
+  stage: "legacy" as const,
+  error: "safe fixture error",
+};
+marketResearchRunSchema.parse(failed);
+
+const emptyLegacy = {
+  ...failed,
+  status: "completed" as const,
+  error: null,
+};
+marketResearchRunSchema.parse(emptyLegacy);
 
 const equivalentExponent = {
   ...current,
@@ -167,4 +267,4 @@ const precisionNearCapital = {
 };
 assertRejects(precisionNearCapital, "precision-near-but-distinct initial cash");
 
-console.log("US, KR, legacy, decimal, and contradictory currency checks: PASS");
+console.log("grade/source labels, null-result states, and strict/approximate synthetic/non-synthetic legacy checks: PASS");
