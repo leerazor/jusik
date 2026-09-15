@@ -203,6 +203,28 @@ export function marketResearchRunLabel(run: MarketResearchRun): string {
   return `${marketResearchGradeLabel(run.request.research_grade)} · ${marketResearchSourceLabel(run.result.readiness.simulated)} · 시뮬레이션 연구 실행 · PAPER 별도`;
 }
 
+export function marketResearchNullResultMessage(run: MarketResearchRun): {
+  heading: string;
+  detail: string;
+} {
+  if (run.status === "queued" || run.status === "running") {
+    return {
+      heading: "결과 대기 중",
+      detail: "연구 실행이 아직 결과를 만들지 않았습니다.",
+    };
+  }
+  if (run.status === "failed") {
+    return {
+      heading: "연구 실행 실패",
+      detail: "연구 결과를 생성하지 못했습니다. 자세한 오류는 표시하지 않습니다.",
+    };
+  }
+  return {
+    heading: "결과 확인 불가",
+    detail: "저장된 실행에 결과가 없어 상태를 확인할 수 없습니다.",
+  };
+}
+
 export async function getMarketReadiness(
   market?: "KR" | "US",
   grade: "strict" | "approximate" = "strict",

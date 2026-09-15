@@ -1,4 +1,5 @@
 import {
+  marketResearchNullResultMessage,
   marketResearchReadinessLabel,
   marketResearchRunLabel,
   marketResearchRunSchema,
@@ -87,6 +88,33 @@ if (!marketResearchReadinessLabel(current.result.readiness).includes("근사 등
 }
 if (!marketResearchRunLabel(current).includes("시뮬레이션 연구 실행 · PAPER 별도")) {
   throw new Error("simulation/PAPER execution label missing");
+}
+
+const queued = { ...current, status: "queued" as const, result: null };
+marketResearchRunSchema.parse(queued);
+if (marketResearchNullResultMessage(queued).heading !== "결과 대기 중") {
+  throw new Error("queued null result must be waiting");
+}
+const running = { ...current, status: "running" as const, result: null };
+if (marketResearchNullResultMessage(running).heading !== "결과 대기 중") {
+  throw new Error("running null result must be waiting");
+}
+const failedRun = { ...current, status: "failed" as const, result: null, error: "hidden fixture error" };
+marketResearchRunSchema.parse(failedRun);
+if (marketResearchNullResultMessage(failedRun).heading !== "연구 실행 실패") {
+  throw new Error("failed null result must show generic failure");
+}
+const completedLegacy = {
+  ...current,
+  status: "completed" as const,
+  request: { ...current.request, stage: "legacy" as const },
+  result: null,
+  stage: "legacy" as const,
+  error: null,
+};
+marketResearchRunSchema.parse(completedLegacy);
+if (marketResearchNullResultMessage(completedLegacy).heading !== "결과 확인 불가") {
+  throw new Error("completed legacy null result must be unknown");
 }
 
 const legacy = structuredClone(current);
@@ -239,4 +267,4 @@ const precisionNearCapital = {
 };
 assertRejects(precisionNearCapital, "precision-near-but-distinct initial cash");
 
-console.log("grade/source labels, strict/approximate, synthetic/non-synthetic, and legacy checks: PASS");
+console.log("grade/source labels, null-result states, and strict/approximate synthetic/non-synthetic legacy checks: PASS");
