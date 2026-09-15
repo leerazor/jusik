@@ -229,6 +229,20 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
     manifest = _read_manifest(manifest_path)
     expected = _expected_args(manifest)
     actual = _actual_args(spawn_args_path)
+    role_file_value = manifest.get("role_file")
+    role_file = Path(role_file_value) if isinstance(role_file_value, str) else None
+    if role_file is None:
+        raise RoutingError("role file is missing")
+    role, role_hash = _read_role(role_file)
+    if role_hash != manifest.get("role_sha256"):
+        raise RoutingError("role TOML changed")
+    if role.get("name") != manifest.get("logical_role"):
+        raise RoutingError("logical role changed")
+    instructions = role.get("developer_instructions")
+    if not isinstance(instructions, str):
+        raise RoutingError("role instructions are missing")
+    if _sha256_bytes(instructions.encode()) != manifest.get("instruction_sha256"):
+        raise RoutingError("role instructions changed")
     if actual != expected:
         raise RoutingError("spawn arguments do not match manifest")
     if expected["model"] != manifest.get("model"):
@@ -437,7 +451,7 @@ def _own_models(
         raise RoutingError("child turn is inherited from parent")
     if not own_turns:
         raise RoutingError("child task turn evidence is missing")
-    contexts: dict[str, str] = {}
+    context_models: set[str] = set()
     for record in records:
         payload = record.get("payload")
         item = payload if isinstance(payload, dict) else record
@@ -449,8 +463,8 @@ def _own_models(
         model = item.get("model")
         if not isinstance(model, str) or not model:
             raise RoutingError("child turn model is missing")
-        contexts[turn_id] = model
-    models.update(contexts.values())
+        context_models.add(model)
+    models.update(context_models)
     if not models:
         raise RoutingError("child-owned turn context model is missing")
     return models
@@ -481,6 +495,8 @@ def post_audit(
         "parent_id": parent_id,
         "child_id": child_id,
         "model": next(iter(models)),
+        "raw_input_available": "false",
+        "delivery_evidence": "assistant_receipt",
     }
 
 

@@ -158,7 +158,10 @@ def test_post_accepts_actual_layout(
     parent_path, child_path = tmp_path / "parent.jsonl", tmp_path / "child.jsonl"
     _jsonl(parent_path, parent)
     _jsonl(child_path, child)
-    assert post_audit(manifest_path, parent_path, child_path)["child_id"] == "child-id"
+    result = post_audit(manifest_path, parent_path, child_path)
+    assert result["child_id"] == "child-id"
+    assert result["raw_input_available"] == "false"
+    assert result["delivery_evidence"] == "assistant_receipt"
 
 
 def test_post_rejects_wrong_call_output_child_and_parent_link(
