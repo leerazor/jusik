@@ -205,7 +205,9 @@ def prepare_routing(
         "fork_turns": "none",
         "role_file": str(role_file.resolve()),
         "role_sha256": role_hash,
+        "role_file_sha256": role_hash,
         "instruction_sha256": _sha256_bytes(instructions.encode()),
+        "developer_instructions_sha256": _sha256_bytes(instructions.encode()),
         "message_sha256": _sha256_bytes(message.encode()),
         "receipt": receipt,
         "nonce": nonce,
@@ -234,14 +236,19 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
     if role_file is None:
         raise RoutingError("role file is missing")
     role, role_hash = _read_role(role_file)
-    if role_hash != manifest.get("role_sha256"):
+    if role_hash != manifest.get("role_sha256") or role_hash != manifest.get(
+        "role_file_sha256"
+    ):
         raise RoutingError("role TOML changed")
     if role.get("name") != manifest.get("logical_role"):
         raise RoutingError("logical role changed")
     instructions = role.get("developer_instructions")
     if not isinstance(instructions, str):
         raise RoutingError("role instructions are missing")
-    if _sha256_bytes(instructions.encode()) != manifest.get("instruction_sha256"):
+    instruction_hash = _sha256_bytes(instructions.encode())
+    if instruction_hash != manifest.get(
+        "instruction_sha256"
+    ) or instruction_hash != manifest.get("developer_instructions_sha256"):
         raise RoutingError("role instructions changed")
     if actual != expected:
         raise RoutingError("spawn arguments do not match manifest")
