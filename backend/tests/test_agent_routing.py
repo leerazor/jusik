@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
 
-from jusik.agent_routing import RoutingError, post_audit, preflight, prepare_routing
+from jusik.agent_routing import (
+    RoutingError,
+    _private_write,
+    post_audit,
+    preflight,
+    prepare_routing,
+)
 
 CAPABILITY = {
     "tool_name": "collaboration.spawn_agent",
@@ -138,6 +146,19 @@ def test_prepare_rejects_missing_role_model(tmp_path: Path) -> None:
         )
 
 
+def test_private_write_refuses_overwrite_and_symlink(tmp_path: Path) -> None:
+    destination = tmp_path / "private.json"
+    _private_write(destination, b"first")
+    with pytest.raises(RoutingError):
+        _private_write(destination, b"second")
+    target = tmp_path / "target"
+    target.write_bytes(b"target")
+    link = tmp_path / "link"
+    link.symlink_to(target)
+    with pytest.raises(RoutingError):
+        _private_write(link, b"replacement")
+
+
 def test_pre_rejects_wrong_nonce(
     prepared: tuple[Path, Path, dict[str, object]],
 ) -> None:
@@ -146,6 +167,27 @@ def test_pre_rejects_wrong_nonce(
     manifest.write_text(json.dumps(data))
     with pytest.raises(RoutingError):
         preflight(manifest, args_path)
+
+
+@pytest.mark.parametrize("field", ["model", "reasoning_effort"])
+def test_pre_rejects_manifest_and_args_tamper_against_current_role(
+    prepared: tuple[Path, Path, dict[str, object]], field: str
+) -> None:
+    manifest_path, args_path, data = prepared
+    replacement = "gpt-5.6-terra" if field == "model" else "low"
+    args = data["args"]
+    assert isinstance(args, dict)
+    args[field] = replacement
+    data[field] = replacement
+    canonical = (
+        json.dumps(args, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+        + "\n"
+    )
+    data["args_sha256"] = hashlib.sha256(canonical.encode()).hexdigest()
+    args_path.write_text(json.dumps(args))
+    manifest_path.write_text(json.dumps(data))
+    with pytest.raises(RoutingError):
+        preflight(manifest_path, args_path)
 
 
 @pytest.mark.parametrize(
@@ -191,6 +233,50 @@ def test_post_accepts_actual_layout(
     assert result["child_id"] == "child-id"
     assert result["raw_input_available"] == "false"
     assert result["delivery_evidence"] == "assistant_receipt"
+
+
+def test_post_accepts_explicit_opaque_message_mode(
+    prepared: tuple[Path, Path, dict[str, object]], tmp_path: Path
+) -> None:
+    manifest_path, args_path, manifest = prepared
+    manifest["message_mode"] = "model-only-encrypted-message-v1"
+    manifest_path.write_text(json.dumps(manifest))
+    parent, child = _logs(manifest, json.loads(args_path.read_text()))
+    blob = b"\x80" + b"x" * 56
+    parent_args = json.loads(parent[1]["payload"]["arguments"])  # type: ignore[index]
+    parent_args["message"] = base64.urlsafe_b64encode(blob).decode().rstrip("=")
+    parent[1]["payload"]["arguments"] = json.dumps(parent_args)  # type: ignore[index]
+    parent_path, child_path = tmp_path / "parent.jsonl", tmp_path / "child.jsonl"
+    _jsonl(parent_path, parent)
+    _jsonl(child_path, child)
+    result = post_audit(manifest_path, parent_path, child_path)
+    assert result["raw_call_message_available"] is False
+    assert result["nonmessage_args_verified"] is True
+    assert result["message_integrity_verified"] is None
+    assert isinstance(result["opaque_message_sha256"], str)
+
+
+def test_post_rejects_opaque_mode_plaintext_or_nonmessage_tamper(
+    prepared: tuple[Path, Path, dict[str, object]], tmp_path: Path
+) -> None:
+    manifest_path, args_path, manifest = prepared
+    manifest["message_mode"] = "model-only-encrypted-message-v1"
+    manifest_path.write_text(json.dumps(manifest))
+    parent, child = _logs(manifest, json.loads(args_path.read_text()))
+    parent_args = json.loads(parent[1]["payload"]["arguments"])  # type: ignore[index]
+    parent_args["message"] = "different plaintext"
+    parent_args["model"] = "gpt-5.6-terra"
+    parent[1]["payload"]["arguments"] = json.dumps(parent_args)  # type: ignore[index]
+    parent_path, child_path = tmp_path / "parent.jsonl", tmp_path / "child.jsonl"
+    _jsonl(parent_path, parent)
+    _jsonl(child_path, child)
+    with pytest.raises(RoutingError):
+        post_audit(manifest_path, parent_path, child_path)
+    parent_args["model"] = manifest["model"]
+    parent[1]["payload"]["arguments"] = json.dumps(parent_args)  # type: ignore[index]
+    _jsonl(parent_path, parent)
+    with pytest.raises(RoutingError):
+        post_audit(manifest_path, parent_path, child_path)
 
 
 def test_post_rejects_wrong_call_output_child_and_parent_link(

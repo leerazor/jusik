@@ -8,6 +8,8 @@ prints only fixed metadata.  It does not intercept or perform a spawn.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -20,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 TRANSPORT = "model-only"
+OPAQUE_TRANSPORT = "model-only-encrypted-message-v1"
 SUPPORTED_ARGS = frozenset(
     {"fork_turns", "message", "model", "reasoning_effort", "task_name"}
 )
@@ -93,6 +96,26 @@ def _capability_proof(value: Mapping[str, Any]) -> None:
         raise RoutingError("unexpected spawn tool capability")
 
 
+def _opaque_blob(value: object) -> bool:
+    if (
+        not isinstance(value, str)
+        or not value
+        or any(
+            char
+            not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+            for char in value
+        )
+    ):
+        return False
+    try:
+        decoded = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    except (ValueError, binascii.Error):
+        return False
+    return (
+        len(decoded) >= 57 and decoded[:1] == b"\x80" and (len(decoded) - 57) % 16 == 0
+    )
+
+
 def _task_input(value: Mapping[str, Any]) -> dict[str, str]:
     result: dict[str, str] = {}
     for field in TASK_FIELDS:
@@ -125,12 +148,19 @@ def _receipt_from_message(message: str, nonce: str) -> str:
 
 
 def _private_write(path: Path, content: bytes) -> None:
+    if path.exists() or path.is_symlink():
+        raise RoutingError("private output already exists")
+    for parent in path.parents:
+        if parent.is_symlink():
+            raise RoutingError("private output parent is a symlink")
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if path.is_symlink():
-        raise RoutingError("private output is a symlink")
     try:
-        with path.open("wb") as handle:
-            os.fchmod(handle.fileno(), 0o600)
+        fd = os.open(
+            path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+        with os.fdopen(fd, "wb") as handle:
             handle.write(content)
     except OSError as exc:
         raise RoutingError("private output unavailable") from exc
@@ -176,11 +206,15 @@ def prepare_routing(
     task_name: str,
     manifest_path: Path,
     spawn_args_path: Path,
+    *,
+    message_mode: str = "model-only",
 ) -> Prepared:
     role, role_hash = _read_role(role_file)
     capability = _read_json(capability_file)
     _capability_proof(capability)
     task = _task_input(_read_json(task_file))
+    if message_mode not in {"model-only", OPAQUE_TRANSPORT}:
+        raise RoutingError("unsupported message mode")
     logical_role = _required_string(role.get("name"), "role name")
     model = _required_string(role.get("model"), "role model")
     effort = _required_string(role.get("model_reasoning_effort"), "reasoning effort")
@@ -207,11 +241,15 @@ def prepare_routing(
     manifest: dict[str, Any] = {
         "version": 1,
         "transport": TRANSPORT,
+        "message_mode": message_mode,
+        "capability_file": str(capability_file.resolve()),
+        "capability_sha256": _sha256_file(capability_file),
         "logical_role": logical_role,
         "model": model,
         "reasoning_effort": effort,
         "fork_turns": "none",
         "role_file": str(role_file.resolve()),
+        "task_file": str(task_file.resolve()),
         "role_sha256": role_hash,
         "role_file_sha256": role_hash,
         "instruction_sha256": _sha256_bytes(instructions.encode()),
@@ -250,6 +288,17 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
         raise RoutingError("role TOML changed")
     if role.get("name") != manifest.get("logical_role"):
         raise RoutingError("logical role changed")
+    role_model = _required_string(role.get("model"), "role model")
+    role_effort = _required_string(
+        role.get("model_reasoning_effort"), "reasoning effort"
+    )
+    if (
+        role_model != manifest.get("model")
+        or role_model != expected["model"]
+        or role_effort != manifest.get("reasoning_effort")
+        or role_effort != expected["reasoning_effort"]
+    ):
+        raise RoutingError("current role routing values do not match manifest")
     instructions = role.get("developer_instructions")
     if not isinstance(instructions, str):
         raise RoutingError("role instructions are missing")
@@ -258,6 +307,13 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
         "instruction_sha256"
     ) or instruction_hash != manifest.get("developer_instructions_sha256"):
         raise RoutingError("role instructions changed")
+    task_file_value = manifest.get("task_file")
+    task_file = Path(task_file_value) if isinstance(task_file_value, str) else None
+    if task_file is None:
+        raise RoutingError("task file is missing")
+    task = _task_input(_read_json(task_file))
+    if _sha256_bytes(_canonical(task)) != manifest.get("task_input_sha256"):
+        raise RoutingError("bounded task input changed")
     if actual != expected:
         raise RoutingError("spawn arguments do not match manifest")
     if expected["model"] != manifest.get("model"):
@@ -282,6 +338,10 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
         raise RoutingError("routing receipt metadata is missing")
     if _receipt_from_message(expected["message"], nonce) != receipt:
         raise RoutingError("routing receipt metadata does not match message")
+    if expected["task_name"] != manifest.get("task_name"):
+        raise RoutingError("task name does not match manifest")
+    if _message(instructions, task, nonce) != expected["message"]:
+        raise RoutingError("role instructions or bounded task changed")
     if receipt not in expected["message"]:
         raise RoutingError("routing receipt is missing from message")
     if _sha256_bytes(_canonical(actual)) != manifest.get("args_sha256"):
@@ -349,8 +409,11 @@ def _session_meta(
 
 
 def _spawn_call(
-    records: list[dict[str, Any]], expected: Mapping[str, str]
-) -> tuple[str, str]:
+    records: list[dict[str, Any]],
+    expected: Mapping[str, str],
+    *,
+    allow_opaque_message: bool = False,
+) -> tuple[str, str, str | None]:
     calls: list[tuple[str, dict[str, Any]]] = []
     outputs: dict[str, str] = {}
     for record in records:
@@ -364,12 +427,22 @@ def _spawn_call(
                     raw = json.loads(raw)
                 except json.JSONDecodeError as exc:
                     raise RoutingError("spawn call arguments are malformed") from exc
-            if (
-                not isinstance(raw, dict)
-                or set(raw) != SUPPORTED_ARGS
-                or raw != dict(expected)
-            ):
+            if not isinstance(raw, dict) or set(raw) != SUPPORTED_ARGS:
                 raise RoutingError("actual spawn arguments do not match manifest")
+            for key in SUPPORTED_ARGS - {"message"}:
+                if raw.get(key) != expected[key]:
+                    raise RoutingError("actual spawn arguments do not match manifest")
+            actual_message = raw.get("message")
+            if actual_message != expected["message"]:
+                if (
+                    not isinstance(actual_message, str)
+                    or not allow_opaque_message
+                    or not _opaque_blob(actual_message)
+                ):
+                    raise RoutingError("actual spawn message does not match manifest")
+                opaque_message_hash = _sha256_bytes(actual_message.encode())
+            else:
+                opaque_message_hash = None
             call_id = item.get("call_id", item.get("id"))
             if not isinstance(call_id, str) or not call_id:
                 raise RoutingError("spawn call id is missing")
@@ -379,7 +452,16 @@ def _spawn_call(
         if isinstance(record_payload, dict) and not isinstance(record_call_id, str):
             record_call_id = record_payload.get("call_id")
         call_id = record_call_id
-        if isinstance(call_id, str) and call_id:
+        output_type = (
+            record_payload.get("type")
+            if isinstance(record_payload, dict)
+            else record.get("type")
+        )
+        if (
+            isinstance(call_id, str)
+            and call_id
+            and output_type in {"function_call_output", "custom_tool_call_output"}
+        ):
             raw_output = record.get("output", record.get("result"))
             if raw_output is None and isinstance(record_payload, dict):
                 raw_output = record_payload.get("output", record_payload.get("result"))
@@ -401,7 +483,7 @@ def _spawn_call(
     child_id = outputs.get(call_id)
     if child_id is None:
         raise RoutingError("spawn call output child id is missing")
-    return call_id, child_id
+    return call_id, child_id, opaque_message_hash
 
 
 def _received_receipt(records: list[dict[str, Any]], receipt: str) -> None:
@@ -417,17 +499,13 @@ def _received_receipt(records: list[dict[str, Any]], receipt: str) -> None:
         ):
             continue
         item_type = payload.get("type")
-        if payload.get("role") == "assistant" or item_type == "agent_message":
+        if payload.get("role") == "assistant" and item_type == "message":
             saw_assistant = True
         elif item_type in {"function_call", "custom_tool_call"} and not saw_assistant:
             raise RoutingError("child tool call preceded routing receipt")
         else:
             continue
-        if (
-            saw_assistant
-            and payload.get("role") != "assistant"
-            and item_type != "agent_message"
-        ):
+        if saw_assistant and payload.get("role") != "assistant":
             continue
         texts: list[str] = []
         for item in _walk(payload.get("content", payload.get("text", ""))):
@@ -499,17 +577,41 @@ def _own_models(
 
 
 def post_audit(
-    manifest_path: Path, parent_jsonl: Path, child_jsonl: Path
-) -> dict[str, str]:
+    manifest_path: Path,
+    parent_jsonl: Path,
+    child_jsonl: Path,
+    capability_file: Path | None = None,
+    message_mode: str | None = None,
+) -> dict[str, object]:
     manifest = _read_manifest(manifest_path)
     expected = _expected_args(manifest)
+    mode = manifest.get("message_mode", "model-only")
+    if message_mode is not None and message_mode != mode:
+        raise RoutingError("message mode does not match manifest")
+    if mode not in {"model-only", OPAQUE_TRANSPORT}:
+        raise RoutingError("unsupported message mode")
+    capability_value = manifest.get("capability_file")
+    capability_path = capability_file or (
+        Path(capability_value) if isinstance(capability_value, str) else None
+    )
+    if capability_path is None or _sha256_file(capability_path) != manifest.get(
+        "capability_sha256"
+    ):
+        raise RoutingError("capability evidence is unavailable or changed")
+    _capability_proof(_read_json(capability_path))
     parent = _read_jsonl(parent_jsonl)
     child = _read_jsonl(child_jsonl)
     parent_id, _, _ = _session_meta(parent, child=False)
     child_id, child_parent, child_path = _session_meta(child, child=True)
     if child_parent != parent_id:
         raise RoutingError("child parent linkage mismatch")
-    _, output_child_path = _spawn_call(parent, expected)
+    _, output_child_path, opaque_message_hash = _spawn_call(
+        parent, expected, allow_opaque_message=mode == OPAQUE_TRANSPORT
+    )
+    if mode == OPAQUE_TRANSPORT and opaque_message_hash is None:
+        raise RoutingError("opaque message mode received plaintext message")
+    if mode == "model-only" and opaque_message_hash is not None:
+        raise RoutingError("plaintext message mode received opaque message")
     if child_path is None or output_child_path != child_path:
         raise RoutingError("spawn output child id mismatch")
     _received_receipt(child, _required_string(manifest.get("receipt"), "receipt"))
@@ -517,7 +619,7 @@ def post_audit(
     models = _own_models(child, child_id, parent_turns)
     if models != {manifest.get("model")}:
         raise RoutingError("child model mismatch or changed")
-    return {
+    result: dict[str, object] = {
         "status": "PASS",
         "transport": TRANSPORT,
         "parent_id": parent_id,
@@ -525,7 +627,15 @@ def post_audit(
         "model": next(iter(models)),
         "raw_input_available": "false",
         "delivery_evidence": "assistant_receipt",
+        "raw_call_message_available": False,
+        "nonmessage_args_verified": True,
+        "message_integrity_verified": None,
+        "parent_log_sha256": _sha256_file(parent_jsonl),
+        "child_log_sha256": _sha256_file(child_jsonl),
     }
+    if opaque_message_hash is not None:
+        result["opaque_message_sha256"] = opaque_message_hash
+    return result
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -541,6 +651,9 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--task-file", "--task-input", type=Path, required=True)
     prepare.add_argument("--base-commit", required=True)
     prepare.add_argument("--task-name", required=True)
+    prepare.add_argument(
+        "--message-mode", choices=["model-only", OPAQUE_TRANSPORT], default="model-only"
+    )
     prepare.add_argument("--manifest", "--manifest-path", type=Path, required=True)
     prepare.add_argument("--spawn-args", "--spawn-args-path", type=Path, required=True)
     pre = subs.add_parser("pre")
@@ -548,6 +661,10 @@ def _parser() -> argparse.ArgumentParser:
     pre.add_argument("--spawn-args", "--spawn-args-path", type=Path, required=True)
     post = subs.add_parser("post")
     post.add_argument("--manifest", "--manifest-path", type=Path, required=True)
+    post.add_argument(
+        "--capability-file", "--capability-evidence", type=Path, required=True
+    )
+    post.add_argument("--message-mode", choices=["model-only", OPAQUE_TRANSPORT])
     post.add_argument("--parent-jsonl", type=Path, required=True)
     post.add_argument("--child-jsonl", type=Path, required=True)
     return parser
@@ -565,8 +682,9 @@ def main(argv: list[str] | None = None) -> int:
                 args.task_name,
                 args.manifest,
                 args.spawn_args,
+                message_mode=args.message_mode,
             )
-            result: Mapping[str, str] = {
+            result: Mapping[str, object] = {
                 "status": "PASS",
                 "transport": TRANSPORT,
                 "manifest_path": str(prepared.manifest_path),
@@ -578,7 +696,13 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "pre":
             result = preflight(args.manifest, args.spawn_args)
         else:
-            result = post_audit(args.manifest, args.parent_jsonl, args.child_jsonl)
+            result = post_audit(
+                args.manifest,
+                args.parent_jsonl,
+                args.child_jsonl,
+                args.capability_file,
+                args.message_mode,
+            )
     except RoutingError:
         print("FAIL verification unavailable or failed")
         return 1

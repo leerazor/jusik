@@ -65,11 +65,13 @@ PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing prepare \
 PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing pre \
   --manifest PATH/manifest.json --spawn-args PATH/spawn.json
 PYTHONPATH=backend backend/.venv/bin/python -m jusik.agent_routing post \
-  --manifest PATH/manifest.json --parent-jsonl PATH/parent.jsonl \
-  --child-jsonl PATH/child.jsonl
+  --manifest PATH/manifest.json --capability-file PATH/probe.json \
+  --parent-jsonl PATH/parent.jsonl --child-jsonl PATH/child.jsonl
 ```
 
 `pre`는 실제 호출 직전 다섯 인자의 집합·값·hash와 receipt/message delivery를 확인합니다. `post`는 완전히 기록된 parent/child JSONL을 대상으로 실제 function call의 다섯 인자, 동일 call id의 child 반환 경로, child `session_meta`의 id·parent link, child 소유 turn context의 모델 불변성과 첫 assistant receipt를 대조합니다. child의 raw initial input이 JSONL에 보존되지 않는 host에서는 receipt를 delivery evidence로 기록하고 raw message가 보존되었다고 주장하지 않습니다. JSONL이 비어 있거나 마지막 줄을 포함해 하나라도 malformed이면 fail closed하며 실패 출력에는 prompt·응답 원문·secret을 포함하지 않습니다. child 종료 전 parent JSONL이 아직 쓰이는 동안에는 post를 실행하지 말고 두 로그가 완결된 뒤 재검사합니다.
+
+관찰된 host가 parent log의 `message`를 opaque base64url envelope로 저장하는 경우에만 `--message-mode model-only-encrypted-message-v1`을 명시합니다. capability probe의 정확한 다섯 인자와 envelope 구조(첫 decoded byte와 길이 형태)만 확인하고 해독·키 접근·암호학적 무결성 주장을 하지 않습니다. 이 모드에서도 네 개의 non-message 인자는 정확히 일치해야 하고 plaintext message가 들어오면 실패합니다. 결과에는 `raw_call_message_available=false`, `nonmessage_args_verified=true`, `message_integrity_verified=null`, parent/child 원본 log와 opaque blob의 hash, `delivery_evidence=assistant_receipt`를 기록합니다. 준비 manifest와 spawn args는 새 private 파일로만 생성하며 기존 파일·symlink를 덮어쓰지 않습니다.
 
 ## supervisor 검사와 작업 경계
 
