@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 from jusik.market_history_approximate import (
     ApproximateMarketHistorySource,
@@ -19,9 +20,11 @@ from jusik.market_history_models import (
     Market,
     MarketHistorySnapshot,
     MarketReadiness,
+    MarketResearchProvenance,
     MarketResearchRequest,
     MarketResearchRun,
     ResearchGrade,
+    SourceName,
 )
 from jusik.market_history_sources import MarketHistorySource, data_contract_hash
 from jusik.market_history_store import MarketHistoryStore
@@ -48,6 +51,34 @@ class ApproximateSource(Protocol):
     async def collect(
         self, request: MarketResearchRequest
     ) -> MarketHistorySnapshot: ...
+
+
+def _provenance_sources(items: Iterable[object]) -> tuple[SourceName, ...] | None:
+    sources = {cast(SourceName, getattr(item, "source")) for item in items}
+    return tuple(sorted(sources)) or None
+
+
+def _snapshot_provenance(
+    snapshot: MarketHistorySnapshot,
+) -> MarketResearchProvenance:
+    """Expose only source facts present in the immutable snapshot."""
+    has_snapshot_data = bool(
+        snapshot.memberships
+        or snapshot.bars
+        or snapshot.fx
+        or snapshot.source_artifacts
+    )
+    has_normalized_rows = bool(snapshot.memberships or snapshot.bars)
+    return MarketResearchProvenance(
+        universe_sources=_provenance_sources(snapshot.memberships),
+        bar_sources=_provenance_sources(snapshot.bars),
+        fx_sources=_provenance_sources(snapshot.fx),
+        artifact_sources=_provenance_sources(snapshot.source_artifacts),
+        normalization_version=(
+            snapshot.normalization_version if has_normalized_rows else None
+        ),
+        captured_at=snapshot.captured_at if has_snapshot_data else None,
+    )
 
 
 class MarketResearchService:
@@ -280,6 +311,9 @@ class MarketResearchService:
                     self.calendar,
                     policy_hash=self._policy_hash_for_grade(request.research_grade),
                 )
+            result = result.model_copy(
+                update={"provenance": _snapshot_provenance(snapshot)}
+            )
             self.store.update_run(
                 run.id,
                 status=(

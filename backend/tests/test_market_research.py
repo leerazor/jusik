@@ -13,6 +13,7 @@ from jusik.market_history_models import (
     CorporateAction,
     MarketHistorySnapshot,
     MarketReadiness,
+    MarketResearchProvenance,
     MarketResearchRequest,
     RawArtifact,
     anniversary_start,
@@ -203,6 +204,13 @@ def test_fixture_api_exposes_readiness_and_completed_simulated_run() -> None:
         assert body["final_promotable"] is True
         assert body["final_promotability_reason"] == ""
         assert body["result"]["limitations"]
+        provenance = body["result"]["provenance"]
+        assert provenance["universe_sources"] == ["fixture"]
+        assert provenance["bar_sources"] == ["fixture"]
+        assert provenance["fx_sources"] is None
+        assert provenance["artifact_sources"] == ["fixture"]
+        assert provenance["normalization_version"] == "pit-v1"
+        assert provenance["captured_at"]
         fetched = client.get(f"/api/research/market/runs/{body['id']}")
         assert fetched.status_code == 200
         assert fetched.json()["input_hash"]
@@ -211,6 +219,18 @@ def test_fixture_api_exposes_readiness_and_completed_simulated_run() -> None:
         )
         assert artifact_response.status_code == 200
         assert artifact_response.content == fixture_artifact.raw_content
+
+
+def test_empty_source_provenance_is_explicitly_unknown(tmp_path: Path) -> None:
+    source = UnavailableMarketHistorySource()
+    run = asyncio.run(
+        MarketResearchService(
+            source, MarketHistoryStore(tmp_path / "empty.db")
+        ).create_run(request())
+    )
+    assert run.result is not None
+    assert run.result.status == "insufficient"
+    assert run.result.provenance == MarketResearchProvenance()
 
 
 @pytest.mark.parametrize("kind", ["split", "halt", "delisting"])
@@ -630,6 +650,7 @@ def test_store_reads_historical_staged_custom_assumptions_but_final_rejects(
     assert isinstance(loaded.result.limitations, tuple)
     assert isinstance(loaded.result.metrics["sample"], Decimal)
     assert isinstance(loaded.result.warmup_sessions, tuple)
+    assert loaded.result.provenance is None
     assert loaded.result.warmup_sessions == (date(2026, 9, 10),)
     assert store.list_runs()[0].id == "historical-pilot"
     annotated = MarketResearchService(source, store).annotate_run(loaded)

@@ -414,6 +414,17 @@ class ResearchEquityPoint(HistoryModel):
     drawdown_pct: Decimal = Field(ge=0, allow_inf_nan=False)
 
 
+class MarketResearchProvenance(HistoryModel):
+    """Optional source facts copied from the immutable research snapshot."""
+
+    universe_sources: tuple[SourceName, ...] | None = None
+    bar_sources: tuple[SourceName, ...] | None = None
+    fx_sources: tuple[SourceName, ...] | None = None
+    artifact_sources: tuple[SourceName, ...] | None = None
+    normalization_version: str | None = Field(default=None, min_length=1, max_length=40)
+    captured_at: datetime | None = None
+
+
 class MarketResearchResult(HistoryModel):
     market: Market
     request: MarketResearchRequest
@@ -433,6 +444,7 @@ class MarketResearchResult(HistoryModel):
     warmup_sessions: tuple[date, ...] = ()
     research_grade: ResearchGrade = "strict"
     pool_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    provenance: MarketResearchProvenance | None = None
 
     @model_validator(mode="after")
     def validate_grade_consistency(self) -> Self:
