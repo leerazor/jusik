@@ -2,21 +2,18 @@
 
 ## runner-routing-compat
 
-- 상태: 진행
-- 목표와 완료 조건: 자동 CLI의 model/fork 인자에 맞는 명시적 역할 전달·사전검사·실제 모델 감사 경로를 추가합니다. 실제 CLI 위임 검증과 차단 작업 재개 후 구현 착수까지 확인합니다.
-- 담당 Luna: /root/routing_compat_code (code, gpt-5.6-luna); 구현 단일 소유자
-- 워크트리: /home/kwl/projects/jusik-runner-routing-compat
-- 브랜치: fix/runner-routing-compat
-- 기준: d90373b; 원인 확인 main 34ec215
-- 통합 대상: 로컬 main
-- 입력: 기존 supervisor helper/역할 TOML/runner 및 실제 CLI schema probe
-- 허용 범위: 역할 호환 helper·관련 테스트·runner 안내 문맥·AGENTS/운영 문서·개발 기록. 금융 계산·기존 큐 구조·전역 권한 변경 제외
-- 격리: 전용 venv·임시 DB; audit /home/kwl/.local/share/jusik/portfolio-audit/20260916-runner-routing
-- 검증: 대화형 native 경로 보존, model-only 실제 인자·역할/모델/fork 검사, 실제 CLI child 모델 및 요청 연결 감사, runner 회귀 검사, 독립 review
-- 결과·통합 SHA: 미확정
-- 정리·handoff: 통합 검증 후 기록
-- 개발 기록: docs/development-records/2026-09-16-runner-routing-compat.md 예정
-- 운영 상태: 전용 큐 paused, service inactive. 기존 blocked 이력 보존 후 검증한 동일 task ID를 retry합니다.
+- 상태: 코드 통합·검증 완료; 자동 재착수 확인은 외부 activation.json에 기록
+- 목표: roleless CLI 호환 경로를 추가하고 기존 차단 작업을 재시도하여 실제 구현 착수를 확인합니다.
+- 담당: /root/routing_compat_code (Luna), /root/routing_compat_review (Terra); 부모 통합
+- 워크트리·브랜치: /home/kwl/projects/jusik-runner-routing-compat / fix/runner-routing-compat — 검증 후 정리
+- 기준/병합 직전 main: d90373b / ecbc83a
+- 결과/통합: cf30c906c0b62f387836d550bc5f3b004096a5fb / f9ed8b1f09decdde1c730c1ff37b30880bceff41
+- 범위: stdlib 역할 전달·검사 helper, focused tests, runner 안내·운영 문서. 금융 코드·큐 스키마 변경 없음
+- 검증: 통합 pytest95, Ruff, strict mypy2 source, 실제 CLI Luna/Terra 감사, native 모델 감사, 독립 review 통과
+- 한계: opaque 호출 message 원문·암호학적 무결성·native role sandbox 적용은 주장하지 않음
+- 개발 기록: docs/development-records/2026-09-16-runner-routing-compat.md
+- audit·운영 확인: /home/kwl/.local/share/jusik/portfolio-audit/20260916-runner-routing/integration-verification.json 및 activation.json
+- handoff: HANDOFF.md 갱신, untracked 유지. 자동 재개 후 main 수동 변경 금지
 
 ## r3-market-ui-fixture
 
