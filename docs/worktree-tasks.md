@@ -2,12 +2,12 @@
 
 ## r0-baseline-freeze
 
-- 상태: 준비 (R0-01; explore·plan 후 순차 배정)
+- 상태: 진행 (R0-01; explore·plan 완료)
 - 목표와 완료 조건: 기존 미국 기준 main·run·입력 manifest·결과 해시를 재현 기록으로 고정. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
-- 담당 Luna: 배정 예정, 작업별 단일 구현 소유자
-- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-baseline-freeze (생성 예정)
+- 담당 Luna: /root/r0_freeze (code, gpt-5.6-luna), 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-baseline-freeze
 - 작업 브랜치: docs/r0-baseline-freeze
-- 기준 커밋 SHA: 배정 시 확정; 조사 기준 39541c5d8a07136f8f227e8f8477a7aeb57d8c89
+- 기준 커밋 SHA: 008ca02; 원래 연구 실행 SHA와 현재 재현 SHA는 증거에서 구분
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: docs/investment-development-roadmap.md R0-01; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
 - 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
