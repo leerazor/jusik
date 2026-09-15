@@ -58,7 +58,7 @@
 - 결과 커밋 SHA: 9cbc8daa0b641dd39c73756a8119c2f37620a4a5
 - 검토 결과와 남은 문제: r0_review 중요 지적 없음; 경제적 목표 not-evaluated
 - 병합 직전 main SHA: 58b504a
-- 통합 커밋 SHA와 정리 여부: b950266983970d32f014f809d51a802eadbf2572; 증거 보존 후 제거 예정
+- 통합 커밋 SHA와 정리 여부: b950266983970d32f014f809d51a802eadbf2572; 증거 보존·worktree 제거 완료, branch 보존
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-deterministic-replay.md
 - handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md

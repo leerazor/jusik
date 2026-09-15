@@ -83,3 +83,11 @@
 ## 통합 검증
 
 최종9cbc8da 독립 review 중요 지적 없음. main `b950266983970d32f014f809d51a802eadbf2572` 통합 후 pytest61개, Ruff format/check, strict mypy3개와 diff 검사를 통과했습니다. 통합 main의 실제 두 CLI 실행은 audit `r0-deterministic-replay/main-baseline`과 `main-future`에 보존했고 모두 comparison.all=true입니다. 전체 해시는 audit `integration-verification.json`에 연결했습니다. R0-01/02/03/04/05 완료이며 다음 R1/R2/R3는 별도 작업입니다.
+
+## 배포·정리와 후속 단계
+
+`start.sh`로 로컬 웹·두 API를 재시작했으며 health/시장 상세 HTTP200과 새 등급 문구를 확인했습니다. 이전 ngrok process가 종료돼 외부404를 확인한 뒤, 같은 기존 인증 정책으로 ngrok을 다시 실행해 비인증401을 확인했습니다. PAPER·실주문·원격 push 변경은 없습니다. runner service/timer는 inactive와 pause를 유지합니다. 재현 worktree는 통합·증거 보존 후 제거했고 브랜치는 보존합니다.
+
+R1/R2/R3의 읽기 전용 조사·구현 계획은 audit `R1-01-PLAN.md`, `R2-PLAN.md`, `R3-PLAN.md`에 있습니다. 현재 구현은 R0까지 완료했으며 후속 단계의 기능 체크는 완료로 표시하지 않습니다. 다음 착수는 당시 종목 구성, 독립 손실 대사, 기존 결과 곡선의 서로 다른 소유 범위입니다.
+
+역할 감사 helper는 후속 turn의 settings epoch를 검색하면서 과거 context를 누락해 실패했습니다. 원본 실패를 보존하고, child 자체 task_started의 turn_id와 같은 child turn_context/model을 대조한 보조 검사에서는 기대 Luna/Terra와 모두 일치했습니다. 자세한 안전 metadata는 audit `routing-supplemental.json`에 있습니다. 제품 검증 결과와 역할 감사의 제한을 구분합니다.
