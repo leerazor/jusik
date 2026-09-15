@@ -114,7 +114,7 @@ R0는 모든 후속 결과가 같은 입력과 단위를 사용하도록 만드�
 
 R1은 데이터가 당시 알 수 있었던 universe를 표현하는지 확인한다. 실패한 심볼을 미래 성과가 좋아 보이는 다른 심볼로 바꾸지 않는다. 목표는 100/100을 강제로 만드는 것이 아니라 올바른 coverage와 결측 정책을 만드는 것이다.
 
-- [ ] **R1-01** historical listing과 checkpoint로 당시 eligible universe를 결정하고 현재 pool 소급을 제거한다.
+- [ ] **R1-01** 시작 시 historical listing에서 고정한 표본과 이후 membership을 구분하고, 이용 가능한 시점 기준으로 eligible universe를 반영한다.
 - [ ] **R1-02** 기업행사·상장폐지·delisting·중단일을 관측 시점에 맞춰 처리하고 미래 사건을 추가해도 사건 전 선택이 불변인지 확인하는 회귀 fixture를 추가한다.
 - [ ] **R1-03** stock type을 구조화된 분류로 정규화해 보통주, ETF, warrant와 비대상 상품을 구분하고, `NCM`은 상품 종류가 아닌 거래소 alias로 별도 정규화한다.
 - [ ] **R1-04** split와 dividend actions를 가격·현금흐름 모델에 연결해 배당 중복 계상을 0으로 만들고 분할 전후 자산을 보존하며, 자료가 없을 때의 missing 정책을 결과에 남긴다.
