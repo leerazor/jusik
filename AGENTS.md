@@ -37,6 +37,8 @@
 
 ## Agent workflow
 
+실제 spawn CLI가 role 필드를 제공하지 않는 경우에는 [agent routing compatibility procedure](docs/agent-tooling.md#roleless-cli-routing)를 따르고 `backend/jusik/agent_routing.py`의 model-only adapter를 사용합니다. 이 예외는 roleless CLI에만 적용하며 native interactive helper의 검사는 바꾸지 않습니다.
+
 ### 감독과 작업자 구성
 
 - 주 agent인 Astra가 감독을 맡습니다. 연구 가설, 우선순위, 작업 범위, 완료 기준을 정하고 결과 통합과 최종 판단을 담당합니다.

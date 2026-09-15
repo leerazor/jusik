@@ -93,7 +93,9 @@ RUNTIME_PROMPT_SUFFIX = (
     "Before removing any merged worktree after integration checks, archive all "
     "needed evidence, its SHA-256 hashes, and the handoff in durable files under "
     "the allowed roots. The completion JSON must reference only files that survive "
-    "worktree cleanup."
+    "worktree cleanup. For role routing, read docs/agent-tooling.md and use the "
+    "model-only adapter in backend/jusik/agent_routing.py when the actual spawn "
+    "tool has no role field; missing agent_type alone is not a halt condition."
 )
 BACKLOG = (
     (

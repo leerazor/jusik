@@ -302,6 +302,7 @@ output.write_text(json.dumps({{
     assert "Before removing any merged worktree" in captured_prompt.read_text(
         encoding="utf-8"
     )
+    assert "model-only adapter" in captured_prompt.read_text(encoding="utf-8")
 
 
 def test_run_once_prepares_absent_custom_artifact_before_child_dispatch(
