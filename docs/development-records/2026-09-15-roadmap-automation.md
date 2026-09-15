@@ -1,7 +1,7 @@
 # 투자 개발 로드맵 자동 실행기
 
-- 상태: 완료
-- 기록 시각: 2026-09-15T00:00:00Z
+- 상태: 차단 (코드 검증 완료, 운영 활성화 대기)
+- 기록 시각: 2026-09-15T07:10:21.954856+00:00
 - 작업 slug: `roadmap-automation`
 - 기준/통합: `3df0c0c` / 없음 (구현 브랜치)
 - 범위: 기존 research runner를 보존하면서 `investment-roadmap` scope의 전용 상태 binding, Markdown checklist queue, coarse phase gate와 bounded planner/dispatch를 추가했다.
@@ -21,7 +21,7 @@
 
 ## 검증
 
-- `backend/.venv/bin/python -m pytest -q backend/tests/test_development_runner*.py` — 73 passed.
+- `backend/.venv/bin/python -m pytest -q backend/tests/test_development_runner*.py` — 78 passed.
 - `backend/.venv/bin/ruff format --check ... && backend/.venv/bin/ruff check ...` — 통과.
 - `backend/.venv/bin/mypy --strict backend/jusik/development_runner.py backend/jusik/development_runner_roadmap.py` — 통과.
 - `git diff --check` — 통과.
@@ -36,3 +36,9 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-roadmap-automation`; manifest: 없음; hash: 해당 없음
 - 남은 작업·차단 조건: 주 agent의 runbook 통합·독립 review·local main 통합 전에는 운영 활성화하지 않는다.
 - 다음 시작: 통합 worktree에서 전체 runner 검사와 scope config 경계를 재검증한 뒤 독립 review를 수행한다.
+
+## 최종 검토 보완
+
+- 운용 조건 JSON의 구문과 필수 필드 검사를 복구했다. 잘못된 조건은 queued seed와 빈 큐 planner 모두 attempt 생성 전에 차단하며 큐·dispatch 한도를 소비하지 않는다.
+- 누락된 runbook뿐 아니라 실제 파일이 남아 있지만 Git 추적에서 제외된 경우도 검증했다.
+- Luna 구현 완료 후 host agent thread limit으로 동일 담당자의 재호출이 세 번 거부됐다. 감독 Astra가 이 마지막 검사 복구와 회귀 테스트만 인계받아 수정했으며, 이를 Luna 수행으로 표시하지 않는다. 수정은 별도 commit과 동일 독립 reviewer의 재검토 대상으로 남긴다.

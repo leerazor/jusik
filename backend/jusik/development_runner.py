@@ -599,6 +599,8 @@ def _roadmap_documents_ready(repo: Path) -> tuple[bool, str]:
             relative
         ):
             return False, f"required roadmap document is not tracked: {relative}"
+    if _tracked_research_mandate(repo) is None:
+        return False, "tracked research mandate is missing or malformed"
     return True, ""
 
 

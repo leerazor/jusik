@@ -103,9 +103,18 @@ def test_planner_ignores_blocked_dependency_and_keeps_independent_phases(
     assert "r4-01" not in candidate[0].prompt
 
 
-def test_untracked_required_runbook_blocks_dispatch(tmp_path: Path) -> None:
+@pytest.mark.parametrize("missing", [True, False])
+def test_untracked_required_runbook_blocks_dispatch(
+    tmp_path: Path, missing: bool
+) -> None:
     repo = _tracked_repo(tmp_path)
-    (repo / "docs" / "roadmap-automation.md").unlink()
+    relative = "docs/roadmap-automation.md"
+    subprocess.run(["git", "rm", "--cached", "--", relative], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "untrack runbook"], cwd=repo, check=True)
+    if missing:
+        (repo / relative).unlink()
+    else:
+        assert (repo / relative).is_file()
     config = RunnerConfig(
         repo=repo,
         state_dir=tmp_path / "state",
@@ -122,6 +131,41 @@ def test_untracked_required_runbook_blocks_dispatch(tmp_path: Path) -> None:
     assert result.status == "blocked"
     assert "roadmap document" in (result.reason or "")
     assert not (tmp_path / "state" / "attempts").exists()
+
+
+@pytest.mark.parametrize("payload", ["{", "{}"])
+@pytest.mark.parametrize("queued", [True, False])
+def test_invalid_tracked_mandate_blocks_before_attempt(
+    tmp_path: Path, payload: str, queued: bool
+) -> None:
+    repo = _tracked_repo(tmp_path)
+    relative = "docs/research-mandate.json"
+    (repo / relative).write_text(payload, encoding="utf-8")
+    subprocess.run(["git", "add", "--", relative], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "invalid mandate"], cwd=repo, check=True)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+        planning_enabled=True,
+    )
+    store = RunnerStore(config.state_dir / "runner.db")
+    store.set_meta("scope", ROADMAP_SCOPE)
+    if queued:
+        store.enqueue("roadmap-r1-01-v1", "r1-01", "seed")
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    assert result.reason == "tracked research mandate is missing or malformed"
+    assert store.active_attempt() is None
+    assert store.get_meta("last_launch_at") is None
+    assert not (config.state_dir / "attempts").exists()
+    assert all(task.status == "queued" for task in store.tasks())
+    assert len(store.tasks()) == int(queued)
 
 
 def test_slice_completion_is_distinct_from_full_checklist_completion(
