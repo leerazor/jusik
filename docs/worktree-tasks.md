@@ -4,7 +4,7 @@
 
 - 상태: 검증
 - 목표와 완료 조건: 기존 실행기에 투자 로드맵 전용 범위를 추가하고 별도 큐에서 미완료 체크리스트의 선행 조건을 확인하여 자동 개발을 이어갑니다. 회귀 검사·독립 검토·main 통합 후 첫 실제 dispatch를 확인합니다.
-- 담당 Luna: /root/roadmap_automation_code (code, gpt-5.6-luna); 구현 단일 소유자
+- 담당 Luna: /root/roadmap_automation_code (code, gpt-5.6-luna); 초기 구현 소유자; 재호출 thread limit으로 마지막 mandate gate 복구만 감독 Astra가 인계
 - 워크트리 절대 경로: /home/kwl/projects/jusik-roadmap-automation
 - 작업 브랜치: feat/roadmap-automation
 - 기준 커밋 SHA: 3df0c0c
@@ -12,9 +12,9 @@
 - 입력과 선행 작업: R0 완료 main fa4bb7c; 투자 개발 로드맵; 기존 runner 조사 및 제한된 계획
 - 수정 허용 범위: development_runner 관련 코드·테스트, 자동 개발 운영 문서·개발 기록. 투자 계산·PAPER·실주문·사용자 미커밋 문서는 제외
 - 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-roadmap-automation
-- 검증 명령과 결과: 작업 worktree runner pytest70·Ruff·strict mypy 통과; 독립 review 및 main 통합 검사 대기
-- 결과 커밋 SHA: 217a982bf34368110b95be4a5ed37594e83f179e
-- 검토 결과와 남은 문제: 기존 사용자 문서 보존 커밋 또는 별도 저장소 선택 응답 대기; 승인 전 사용자 변경 보존
+- 검증 명령과 결과: 작업 worktree runner pytest78·Ruff·strict mypy 통과; 독립 review 최종 중요 지적 없음; main 통합 검사 대기
+- 결과 커밋 SHA: 0d08b8e (Luna 217a982·85d510a, 감독의 최종 gate 복구 포함)
+- 검토 결과와 남은 문제: 독립 review 지적 모두 수정·재검토 통과. 사용자 문서 보존 방식 응답 대기; 원문·해시 보존
 - 병합 직전 main SHA: 미확정
 - 통합 커밋 SHA와 정리 여부: 미통합
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
