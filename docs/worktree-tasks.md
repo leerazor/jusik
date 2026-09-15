@@ -2,7 +2,7 @@
 
 ## market-data-live-contract-fixes
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 실제 provider smoke에서 확인한 KRX Open API 요청 계약과 Alpha Vantage 종목 정규화 오류를 수정합니다. 공식 KRX endpoint·`AUTH_KEY` header·`basDd`를 사용하고, 미국 목록에서 보통주가 아닌 상품과 비정상 표시명을 한 행 단위로 제외해 전체 수집을 보존합니다. 사용자가 저장한 안전한 env alias를 지원한 뒤 KR/US 소규모 실제 smoke를 재실행합니다.
 - 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore→plan→code→review 순서로 진행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-market-data-live-contract-fixes
@@ -11,15 +11,15 @@
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: free-market-data-collector 완료 main 8521268, durable docs main 8602e3b. 실제 smoke에서 구현 KRX URL은 HTTP 403, 공식 KRX KOSPI·KOSDAQ endpoint는 현재 키로 401, Alpha 응답은 긴 warrant 명칭 때문에 전체 validation 실패했습니다.
 - 수정 허용 범위: collector source URL/request/response parser, listing security-type/name normalization, collector env loading·CLI, 관련 테스트·문서·mandate/checksum·개발 기록. 전략·PAPER·broker/order·프런트는 변경하지 않습니다.
-- 포트·테스트 DB·출력 경로: 3366/8366, worktree-local test environment. 실제 smoke raw/cache/output은 `/home/kwl/.local/share/jusik/portfolio-audit/20260915-free-market-data-live-smoke`에 비밀정보 없이 저장합니다. 운영 DB·주문은 사용하지 않습니다.
-- 검증 명령과 결과: 예정 — official KRX request/response fixture, Alpha real-shaped common-stock filtering, env alias/secret non-disclosure, focused pytest·Ruff·strict mypy, KR/US live smoke.
-- 결과 커밋 SHA: 예정
-- 검토 결과와 남은 문제: KRX 키의 두 일별매매정보 API 이용 승인은 현재 401로 보이며 코드 수정 후 다시 구분합니다. 실제 성공하지 않은 시장은 완료로 표시하지 않습니다.
-- 병합 직전 main SHA: 예정
-- 통합 커밋 SHA와 정리 여부: 예정
+- 포트·테스트 DB·출력 경로: 3366/8366, worktree-local test environment. 실제 smoke raw/cache/output은 `/home/kwl/.local/share/jusik/portfolio-audit/20260915-market-data-live-contract-fixes`에 비밀정보 없이 저장합니다. 운영 주문은 사용하지 않습니다.
+- 검증 명령과 결과: 작업 및 통합 main에서 관련 pytest 99개, Ruff, strict mypy 9개 source, `git diff --check`, Next.js production build가 통과했습니다. 독립 review는 KRX 손상 envelope, 설정 오류 비노출, 인증 실패 비캐시, Yahoo NASDAQ `NCM` identity를 직접 probe하고 최종 P1/P2 없음으로 판정했습니다. 실제 US 2종목 smoke는 재개 시 manifest 불변과 `ready:true`를 확인했고, 안정 완료일 기준 1년·100종목 수집과 웹 API 파일럿 실행을 완료했습니다.
+- 결과 커밋 SHA: 9a3bf3a, e8a7465, feb836f, aeeed81.
+- 검토 결과와 남은 문제: KRX KOSPI·KOSDAQ 공식 endpoint는 현재 키를 `krx authentication was rejected`로 거부하므로 한국 자료와 실행은 준비되지 않았습니다. US 1년 표본은 100개 중 40개가 완전한 무배당·무분할 이력으로 남았고 60개는 기업행사·부분/무응답·identity 불일치로 제외됐습니다. 무료 근사 표본의 선택 편향과 배당 미반영 한계를 유지하며 PAPER·실주문에는 사용하지 않습니다.
+- 병합 직전 main SHA: e69f85876e4b25f7ba689c228a1ad1bfbee6d59a
+- 통합 커밋 SHA와 정리 여부: fee4eddb21e022fe3a89c4d269a7ed53fc03a06d. 통합 검증·handoff 후 전용 워크트리를 제거합니다.
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-15-market-data-live-contract-fixes.md` 예정
-- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-market-data-live-contract-fixes/HANDOFF.md` 및 루트 `HANDOFF.md` 예정
+- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-15-market-data-live-contract-fixes.md` 갱신 완료
+- handoff 저장 경로와 갱신 여부: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-market-data-live-contract-fixes/HANDOFF.md` 및 루트 `HANDOFF.md`를 완료 시점에 갱신합니다.
 
 ## free-market-data-collector
 
