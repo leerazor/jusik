@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## runner-routing-compat
+
+- 상태: 준비
+- 목표와 완료 조건: 자동 CLI의 model/fork 인자에 맞는 명시적 역할 전달·사전검사·실제 모델 감사 경로를 추가합니다. 실제 CLI 위임 검증과 차단 작업 재개 후 구현 착수까지 확인합니다.
+- 담당 Luna: 배정 예정; 구현 단일 소유자
+- 워크트리: /home/kwl/projects/jusik-runner-routing-compat
+- 브랜치: fix/runner-routing-compat
+- 기준: 등록 커밋; 원인 확인 main 34ec215
+- 통합 대상: 로컬 main
+- 입력: 기존 supervisor helper/역할 TOML/runner 및 실제 CLI schema probe
+- 허용 범위: 역할 호환 helper·관련 테스트·runner 안내 문맥·AGENTS/운영 문서·개발 기록. 금융 계산·기존 큐 구조·전역 권한 변경 제외
+- 격리: 전용 venv·임시 DB; audit /home/kwl/.local/share/jusik/portfolio-audit/20260916-runner-routing
+- 검증: 대화형 native 경로 보존, model-only 실제 인자·역할/모델/fork 검사, 실제 CLI child 모델 및 요청 연결 감사, runner 회귀 검사, 독립 review
+- 결과·통합 SHA: 미확정
+- 정리·handoff: 통합 검증 후 기록
+- 개발 기록: docs/development-records/2026-09-16-runner-routing-compat.md 예정
+- 운영 상태: 전용 큐 paused, service inactive. 기존 blocked 이력 보존 후 검증한 동일 task ID를 retry합니다.
+
 ## r3-market-ui-fixture
 
 - 상태: 차단 (구현 전 routing preflight 실패).
