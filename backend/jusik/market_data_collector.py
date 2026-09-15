@@ -25,7 +25,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from jusik.market_history_approximate import (
     ApproximateBarRow,
@@ -137,12 +137,15 @@ def load_collector_settings(env_path: Path | None = None) -> CollectorSettings:
         parsed_budget = int(budget) if budget else DEFAULT_REQUEST_BUDGET
     except (TypeError, ValueError) as exc:
         raise CollectorError("request budget is invalid") from exc
-    return CollectorSettings(
-        krx_auth_key=secret("KRX_AUTH_KEY", "KRX_API_KEY"),
-        alpha_vantage_api_key=secret("ALPHA_VANTAGE_API_KEY", "ALPHA_VANTAGE_KEY"),
-        fred_api_key=secret("FRED_API_KEY", "FRED_KEY"),
-        request_budget=parsed_budget,
-    )
+    try:
+        return CollectorSettings(
+            krx_auth_key=secret("KRX_AUTH_KEY", "KRX_API_KEY"),
+            alpha_vantage_api_key=secret("ALPHA_VANTAGE_API_KEY", "ALPHA_VANTAGE_KEY"),
+            fred_api_key=secret("FRED_API_KEY", "FRED_KEY"),
+            request_budget=parsed_budget,
+        )
+    except ValidationError as exc:
+        raise CollectorError("collector settings are invalid") from exc
 
 
 class CacheEntry(BaseModel):
@@ -485,6 +488,11 @@ def _rows(payload: object) -> list[Mapping[str, object]]:
 def _krx_rows(payload: object) -> list[Mapping[str, object]]:
     if not isinstance(payload, dict) or "OutBlock_1" not in payload:
         raise CollectorError("KRX response envelope is missing")
+    raw_rows = payload["OutBlock_1"]
+    if not isinstance(raw_rows, list) or any(
+        not isinstance(row, Mapping) for row in raw_rows
+    ):
+        raise CollectorError("KRX response rows are malformed")
     return _rows(payload)
 
 

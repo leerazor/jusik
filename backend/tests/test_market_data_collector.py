@@ -72,6 +72,21 @@ def test_krx_parser_normalizes_all_daily_rows_and_market_board() -> None:
         market_board="KSQ",
     )
     assert kosdaq[0].exchange == "KOSDAQ"
+    malformed_rows = {
+        "OutBlock_1": [
+            {
+                "BAS_DD": "20260914",
+                "ISU_SRT_CD": "005930",
+                "ISU_ABBRV": "삼성전자",
+                "MKT_NM": "KOSPI",
+            },
+            "malformed row",
+        ]
+    }
+    with pytest.raises(CollectorError, match="rows are malformed"):
+        parse_krx_daily_response(
+            json.dumps(malformed_rows).encode(), checkpoint=date(2026, 9, 14)
+        )
     duplicate = {
         "OutBlock_1": [
             {
@@ -636,6 +651,55 @@ def test_collector_settings_explicit_file_alias_precedence_and_no_interpolation(
     assert process_settings.krx_auth_key.get_secret_value() == "process-standard"
     with pytest.raises(CollectorError, match="environment file"):
         load_collector_settings(tmp_path / "missing.env")
+
+
+@pytest.mark.parametrize("budget", ["0", "10001", "not-a-number"])
+@pytest.mark.parametrize("command", ["status", "collect", "collect-status"])
+def test_cli_rejects_invalid_budget_without_echoing_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    budget: str,
+    command: str,
+) -> None:
+    monkeypatch.delenv("MARKET_DATA_REQUEST_BUDGET", raising=False)
+    env_file = tmp_path / "invalid-collector.env"
+    env_file.write_text(f"MARKET_DATA_REQUEST_BUDGET={budget}\n", encoding="utf-8")
+    if command == "status":
+        arguments = ["status", "--market", "KR", "--env-file", str(env_file)]
+    elif command == "collect":
+        arguments = [
+            "collect",
+            "--market",
+            "KR",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-09-14",
+            "--output",
+            str(tmp_path / "prepared.json"),
+            "--cache",
+            str(tmp_path / "cache"),
+            "--env-file",
+            str(env_file),
+        ]
+    else:
+        arguments = [
+            "collect-status",
+            "--market",
+            "KR",
+            "--cache",
+            str(tmp_path / "cache"),
+            "--env-file",
+            str(env_file),
+        ]
+
+    assert market_research_cli(arguments) == 2
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert payload["reason"] == "environment configuration is invalid"
+    assert budget not in output
+    assert str(env_file) not in output
 
 
 class _RetryingHttpClient:
