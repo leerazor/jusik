@@ -103,6 +103,7 @@
 R0는 모든 후속 결과가 같은 입력과 단위를 사용하도록 만드는 순차 게이트다. 기존 미국 파일럿을 새 정책의 성공 증거로 재해석하지 않는다.
 
 - [ ] **R0-01** 기준 main SHA, 파일럿 run ID, 입력 manifest, 결과 hash를 하나의 재현 기록으로 묶는다.
+  - 증거 (기술 status: `pass`, 경제 observed: `not-evaluated`): `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json` (SHA-256 `03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205`); 모델 parse 및 84개 cache raw entry SHA/size 검증 통과; commit은 이 작업 브랜치 결과를 참조하며 supervisor review·main 통합 전에는 완료로 바꾸지 않는다.
 - [ ] **R0-02** result/data contract에 path, account, unit, timestamp, coverage, error schema를 정의하고 shared `ApproximateDataset`·`MarketResearchResult`의 availability, grade, source, limitation, pool/hash를 단일 계약 소유자가 관리한다.
 - [ ] **R0-03** 실행 시점과 미래 checkpoint를 포함한 deterministic replay 명령과 run catalogue를 만들고, 실행 시각·run ID를 제외한 metrics·trades·equity가 일치하는지 확인한다.
 - [ ] **R0-04** USD·KRW·원화 계좌·초기 자본·환전 방향을 결과 schema에서 명시한다.
