@@ -97,18 +97,29 @@ def _capability_proof(value: Mapping[str, Any]) -> None:
 
 
 def _opaque_blob(value: object) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    unpadded = value.rstrip("=")
+    supplied_padding = value[len(unpadded) :]
     if (
-        not isinstance(value, str)
-        or not value
+        not unpadded
+        or "=" in unpadded
         or any(
             char
             not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
-            for char in value
+            for char in unpadded
         )
     ):
         return False
+    required_padding = "=" * (-len(unpadded) % 4)
+    if supplied_padding not in {"", "=", "=="} or (
+        supplied_padding and supplied_padding != required_padding
+    ):
+        return False
     try:
-        decoded = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+        decoded = base64.b64decode(
+            unpadded + required_padding, altchars=b"-_", validate=True
+        )
     except (ValueError, binascii.Error):
         return False
     return (
@@ -273,10 +284,9 @@ def prepare_routing(
     )
 
 
-def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
-    manifest = _read_manifest(manifest_path)
-    expected = _expected_args(manifest)
-    actual = _actual_args(spawn_args_path)
+def _validate_manifest_sources(
+    manifest: Mapping[str, Any], expected: Mapping[str, str]
+) -> None:
     role_file_value = manifest.get("role_file")
     role_file = Path(role_file_value) if isinstance(role_file_value, str) else None
     if role_file is None:
@@ -314,14 +324,6 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
     task = _task_input(_read_json(task_file))
     if _sha256_bytes(_canonical(task)) != manifest.get("task_input_sha256"):
         raise RoutingError("bounded task input changed")
-    if actual != expected:
-        raise RoutingError("spawn arguments do not match manifest")
-    if expected["model"] != manifest.get("model"):
-        raise RoutingError("model does not match manifest")
-    if expected["reasoning_effort"] != manifest.get("reasoning_effort"):
-        raise RoutingError("reasoning effort does not match manifest")
-    if expected["fork_turns"] != "none" or manifest.get("fork_turns") != "none":
-        raise RoutingError("fork_turns must be none")
     message_hash = _sha256_bytes(expected["message"].encode())
     if message_hash != manifest.get("message_sha256"):
         raise RoutingError("role instructions delivery is not verifiable")
@@ -344,6 +346,15 @@ def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
         raise RoutingError("role instructions or bounded task changed")
     if receipt not in expected["message"]:
         raise RoutingError("routing receipt is missing from message")
+
+
+def preflight(manifest_path: Path, spawn_args_path: Path) -> dict[str, str]:
+    manifest = _read_manifest(manifest_path)
+    expected = _expected_args(manifest)
+    actual = _actual_args(spawn_args_path)
+    _validate_manifest_sources(manifest, expected)
+    if actual != expected:
+        raise RoutingError("spawn arguments do not match manifest")
     if _sha256_bytes(_canonical(actual)) != manifest.get("args_sha256"):
         raise RoutingError("spawn argument hash mismatch")
     return {
@@ -427,7 +438,12 @@ def _spawn_call(
                     raw = json.loads(raw)
                 except json.JSONDecodeError as exc:
                     raise RoutingError("spawn call arguments are malformed") from exc
-            if not isinstance(raw, dict) or set(raw) != SUPPORTED_ARGS:
+            if (
+                not isinstance(raw, dict)
+                or raw.get("task_name") != expected["task_name"]
+            ):
+                continue
+            if set(raw) != SUPPORTED_ARGS:
                 raise RoutingError("actual spawn arguments do not match manifest")
             for key in SUPPORTED_ARGS - {"message"}:
                 if raw.get(key) != expected[key]:
@@ -588,8 +604,9 @@ def post_audit(
     mode = manifest.get("message_mode", "model-only")
     if message_mode is not None and message_mode != mode:
         raise RoutingError("message mode does not match manifest")
-    if mode not in {"model-only", OPAQUE_TRANSPORT}:
+    if not isinstance(mode, str) or mode not in {"model-only", OPAQUE_TRANSPORT}:
         raise RoutingError("unsupported message mode")
+    _validate_manifest_sources(manifest, expected)
     capability_value = manifest.get("capability_file")
     capability_path = capability_file or (
         Path(capability_value) if isinstance(capability_value, str) else None

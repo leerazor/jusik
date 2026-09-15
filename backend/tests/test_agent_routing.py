@@ -242,9 +242,9 @@ def test_post_accepts_explicit_opaque_message_mode(
     manifest["message_mode"] = "model-only-encrypted-message-v1"
     manifest_path.write_text(json.dumps(manifest))
     parent, child = _logs(manifest, json.loads(args_path.read_text()))
-    blob = b"\x80" + b"x" * 56
+    blob = b"\x80" + b"x" * 72
     parent_args = json.loads(parent[1]["payload"]["arguments"])  # type: ignore[index]
-    parent_args["message"] = base64.urlsafe_b64encode(blob).decode().rstrip("=")
+    parent_args["message"] = base64.urlsafe_b64encode(blob).decode()
     parent[1]["payload"]["arguments"] = json.dumps(parent_args)  # type: ignore[index]
     parent_path, child_path = tmp_path / "parent.jsonl", tmp_path / "child.jsonl"
     _jsonl(parent_path, parent)
@@ -254,6 +254,42 @@ def test_post_accepts_explicit_opaque_message_mode(
     assert result["nonmessage_args_verified"] is True
     assert result["message_integrity_verified"] is None
     assert isinstance(result["opaque_message_sha256"], str)
+
+
+def test_post_ignores_other_task_spawn(
+    prepared: tuple[Path, Path, dict[str, object]], tmp_path: Path
+) -> None:
+    manifest_path, args_path, manifest = prepared
+    parent, child = _logs(manifest, json.loads(args_path.read_text()))
+    unrelated_args = json.loads(args_path.read_text())
+    unrelated_args["task_name"] = "other-task"
+    parent.insert(
+        1,
+        {
+            "type": "response_item",
+            "payload": {
+                "type": "function_call",
+                "name": "spawn_agent",
+                "call_id": "other-call",
+                "arguments": json.dumps(unrelated_args),
+            },
+        },
+    )
+    parent.insert(
+        2,
+        {
+            "type": "response_item",
+            "payload": {
+                "type": "function_call_output",
+                "call_id": "other-call",
+                "output": json.dumps({"task_name": "/root/other-task"}),
+            },
+        },
+    )
+    parent_path, child_path = tmp_path / "parent.jsonl", tmp_path / "child.jsonl"
+    _jsonl(parent_path, parent)
+    _jsonl(child_path, child)
+    assert post_audit(manifest_path, parent_path, child_path)["status"] == "PASS"
 
 
 def test_post_rejects_opaque_mode_plaintext_or_nonmessage_tamper(
