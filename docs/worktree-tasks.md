@@ -79,19 +79,19 @@
 - 결과 커밋 SHA: 62ae5ac2dbae4c431cbd1f9d11f806e24d04447c
 - 검토 결과와 남은 문제: r0_review 중요 지적 없음; 경제적 목표 not-evaluated
 - 병합 직전 main SHA: 96698df
-- 통합 커밋 SHA와 정리 여부: f949a635bc6e750b6d2b50a5a0beb889890f0111; 증거 보존 후 제거 예정
+- 통합 커밋 SHA와 정리 여부: f949a635bc6e750b6d2b50a5a0beb889890f0111; 증거 보존·worktree 제거 완료
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-currency-contract.md
 - handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md
 
 ## r0-grade-contract
 
-- 상태: 준비 (R0-05; explore·plan 후 순차 배정)
+- 상태: 진행 (R0-05)
 - 목표와 완료 조건: strict·approximate·fixture·PAPER의 결과·화면 표시 규칙과 호환 fixture 고정. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
-- 담당 Luna: 배정 예정, 작업별 단일 구현 소유자
-- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-grade-contract (생성 예정)
+- 담당 Luna: /root/r0_freeze (code, gpt-5.6-luna), 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-grade-contract
 - 작업 브랜치: docs/r0-grade-contract
-- 기준 커밋 SHA: 배정 시 확정; 조사 기준 39541c5d8a07136f8f227e8f8477a7aeb57d8c89
+- 기준 커밋 SHA: 7ea9825
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: docs/investment-development-roadmap.md R0-05; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
 - 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
@@ -100,7 +100,7 @@
 - 결과 커밋 SHA: 없음
 - 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
 - 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미통합·미생성
+- 통합 커밋 SHA와 정리 여부: 미통합·worktree 생성 완료
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-grade-contract.md (예정)
 - handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
