@@ -2,12 +2,12 @@
 
 ## market-data-live-contract-fixes
 
-- 상태: 준비
+- 상태: 진행
 - 목표와 완료 조건: 실제 provider smoke에서 확인한 KRX Open API 요청 계약과 Alpha Vantage 종목 정규화 오류를 수정합니다. 공식 KRX endpoint·`AUTH_KEY` header·`basDd`를 사용하고, 미국 목록에서 보통주가 아닌 상품과 비정상 표시명을 한 행 단위로 제외해 전체 수집을 보존합니다. 사용자가 저장한 안전한 env alias를 지원한 뒤 KR/US 소규모 실제 smoke를 재실행합니다.
 - 담당 Luna: /root/luna_investor (code, gpt-5.6-luna), 단일 구현 소유자. explore→plan→code→review 순서로 진행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-market-data-live-contract-fixes
 - 작업 브랜치: fix/market-data-live-contract-fixes
-- 기준 커밋 SHA: 등록 커밋에서 확정
+- 기준 커밋 SHA: e608835832f2a3f9b3ba0ecfa247ddafd54a93b4
 - 통합 대상 브랜치: 로컬 main
 - 입력과 선행 작업: free-market-data-collector 완료 main 8521268, durable docs main 8602e3b. 실제 smoke에서 구현 KRX URL은 HTTP 403, 공식 KRX KOSPI·KOSDAQ endpoint는 현재 키로 401, Alpha 응답은 긴 warrant 명칭 때문에 전체 validation 실패했습니다.
 - 수정 허용 범위: collector source URL/request/response parser, listing security-type/name normalization, collector env loading·CLI, 관련 테스트·문서·mandate/checksum·개발 기록. 전략·PAPER·broker/order·프런트는 변경하지 않습니다.
