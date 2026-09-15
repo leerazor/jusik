@@ -1,5 +1,110 @@
 # 워크트리 작업 등록부
 
+## r0-baseline-freeze
+
+- 상태: 준비 (R0-01; explore·plan 후 순차 배정)
+- 목표와 완료 조건: 기존 미국 기준 main·run·입력 manifest·결과 해시를 재현 기록으로 고정. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
+- 담당 Luna: 배정 예정, 작업별 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-baseline-freeze (생성 예정)
+- 작업 브랜치: docs/r0-baseline-freeze
+- 기준 커밋 SHA: 배정 시 확정; 조사 기준 39541c5d8a07136f8f227e8f8477a7aeb57d8c89
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: docs/investment-development-roadmap.md R0-01; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
+- 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
+- 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze
+- 검증 명령과 결과: 배정 시 확정, 미실행
+- 결과 커밋 SHA: 없음
+- 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
+- 병합 직전 main SHA: 미정
+- 통합 커밋 SHA와 정리 여부: 미통합·미생성
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-baseline-freeze.md (예정)
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
+
+## r0-shared-contract
+
+- 상태: 준비 (R0-02; explore·plan 후 순차 배정)
+- 목표와 완료 조건: 자료·결과의 경로·시각·coverage·오류·등급 계약을 단일 소유자로 고정. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
+- 담당 Luna: 배정 예정, 작업별 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-shared-contract (생성 예정)
+- 작업 브랜치: feat/r0-shared-contract
+- 기준 커밋 SHA: 배정 시 확정; 조사 기준 39541c5d8a07136f8f227e8f8477a7aeb57d8c89
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: docs/investment-development-roadmap.md R0-02; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
+- 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
+- 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-shared-contract
+- 검증 명령과 결과: 배정 시 확정, 미실행
+- 결과 커밋 SHA: 없음
+- 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
+- 병합 직전 main SHA: 미정
+- 통합 커밋 SHA와 정리 여부: 미통합·미생성
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-shared-contract.md (예정)
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
+
+## r0-deterministic-replay
+
+- 상태: 준비 (R0-03; explore·plan 후 순차 배정)
+- 목표와 완료 조건: 격리된 재실행 명령과 catalogue로 metrics·trades·equity 일치 검증. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
+- 담당 Luna: 배정 예정, 작업별 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-deterministic-replay (생성 예정)
+- 작업 브랜치: feat/r0-deterministic-replay
+- 기준 커밋 SHA: 배정 시 확정; 조사 기준 39541c5d8a07136f8f227e8f8477a7aeb57d8c89
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: docs/investment-development-roadmap.md R0-03; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
+- 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
+- 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-deterministic-replay
+- 검증 명령과 결과: 배정 시 확정, 미실행
+- 결과 커밋 SHA: 없음
+- 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
+- 병합 직전 main SHA: 미정
+- 통합 커밋 SHA와 정리 여부: 미통합·미생성
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-deterministic-replay.md (예정)
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
+
+## r0-currency-contract
+
+- 상태: 준비 (R0-04; explore·plan 후 순차 배정)
+- 목표와 완료 조건: 독립 원화 계좌·초기 자본·USD/KRW 단위·환전 방향 명시. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
+- 담당 Luna: 배정 예정, 작업별 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-currency-contract (생성 예정)
+- 작업 브랜치: feat/r0-currency-contract
+- 기준 커밋 SHA: 배정 시 확정; 조사 기준 39541c5d8a07136f8f227e8f8477a7aeb57d8c89
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: docs/investment-development-roadmap.md R0-04; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
+- 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
+- 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-currency-contract
+- 검증 명령과 결과: 배정 시 확정, 미실행
+- 결과 커밋 SHA: 없음
+- 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
+- 병합 직전 main SHA: 미정
+- 통합 커밋 SHA와 정리 여부: 미통합·미생성
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-currency-contract.md (예정)
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
+
+## r0-grade-contract
+
+- 상태: 준비 (R0-05; explore·plan 후 순차 배정)
+- 목표와 완료 조건: strict·approximate·fixture·PAPER의 결과·화면 표시 규칙과 호환 fixture 고정. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
+- 담당 Luna: 배정 예정, 작업별 단일 구현 소유자
+- 워크트리 절대 경로: /home/kwl/projects/jusik-r0-grade-contract (생성 예정)
+- 작업 브랜치: docs/r0-grade-contract
+- 기준 커밋 SHA: 배정 시 확정; 조사 기준 39541c5d8a07136f8f227e8f8477a7aeb57d8c89
+- 통합 대상 브랜치: 로컬 main
+- 입력과 선행 작업: docs/investment-development-roadmap.md R0-05; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
+- 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
+- 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-grade-contract
+- 검증 명령과 결과: 배정 시 확정, 미실행
+- 결과 커밋 SHA: 없음
+- 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
+- 병합 직전 main SHA: 미정
+- 통합 커밋 SHA와 정리 여부: 미통합·미생성
+- 통합 검증 실패 원인과 복구 결과: 해당 없음
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-grade-contract.md (예정)
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
+
 ## investment-development-roadmap
 
 - 상태: 완료 (계획 문서); R0~R7 후속 기능은 미완료
