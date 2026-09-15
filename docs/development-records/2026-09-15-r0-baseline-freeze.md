@@ -1,9 +1,9 @@
 # R0 미국 기준선 증거 고정
 
-- 상태: 검증
+- 상태: 완료
 - 기록 시각: 2026-09-15T02:39:21Z
 - 작업 slug: `r0-baseline-freeze`
-- 기준/통합: `008ca02867224832fd36f4d437547b12173bcd47` / 없음
+- 기준/통합: `008ca02867224832fd36f4d437547b12173bcd47` / `86beeeabf998b4b4e720290ac65019e6486545c0`
 - 범위: 기존 미국 approximate pilot의 입력·실행·cache 증거를 외부 manifest 하나로 묶었습니다. 현재 replay 기준 SHA와 원본 생성 코드 후보를 분리했고, 코드·전략·프로바이더·DB·운영 설정은 변경하지 않았습니다.
 
 ## 변경과 결정
@@ -38,5 +38,5 @@
 ## 증거와 재개
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze`; manifest: `baseline-manifest.json`; SHA-256: `03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205`.
-- 남은 작업·차단 조건: supervisor의 독립 review와 local `main` 통합 검증 전까지 R0-01을 완료로 표시하지 않습니다. R0-03에서 현재 replay 기준으로 metrics·trades·equity 동등성을 검증해야 합니다.
-- 다음 시작: supervisor가 이 커밋을 검토한 뒤 외부 manifest를 보존하고 R0-01 통합 검증을 수행합니다.
+- 남은 작업·차단 조건: 독립 review 중요 지적 없음. 로컬 main 통합 후 모델 파싱·원본 hash·diff 검사를 통과했습니다. R0-03에서 현재 replay 기준으로 metrics·trades·equity 동등성을 검증해야 합니다.
+- 다음 시작: R0-02 자료·결과 계약을 구현합니다.

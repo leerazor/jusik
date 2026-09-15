@@ -2,7 +2,7 @@
 
 ## r0-baseline-freeze
 
-- 상태: 진행 (R0-01; explore·plan 완료)
+- 상태: 완료 (R0-01)
 - 목표와 완료 조건: 기존 미국 기준 main·run·입력 manifest·결과 해시를 재현 기록으로 고정. 관련 검사·독립 검토·로컬 main 통합 후에만 완료합니다.
 - 담당 Luna: /root/r0_freeze (code, gpt-5.6-luna), 단일 구현 소유자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-r0-baseline-freeze
@@ -12,14 +12,14 @@
 - 입력과 선행 작업: docs/investment-development-roadmap.md R0-01; 기존 미국 기준 audit; 공통 계약 의존성은 plan 후 순차 확정
 - 수정 허용 범위: 해당 체크 ID의 계약·재현 도구·관련 테스트와 문서. 전략·수집 정책·PAPER·실주문·운영 DB 변경 금지
 - 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze
-- 검증 명령과 결과: 배정 시 확정, 미실행
-- 결과 커밋 SHA: 없음
-- 검토 결과와 남은 문제: 미검토; 경제적 목표 not-evaluated
-- 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미통합·미생성
+- 검증 명령과 결과: 입력3개 hash·모델parse·cache84개 hash/size·pytest45개 통과; 통합 main parse/hash/diff 통과
+- 결과 커밋 SHA: 2a2de61b26acb73723bc09b1b6a76b42809819d8
+- 검토 결과와 남은 문제: /root/r0_review 중요 지적 없음; 경제적 목표 not-evaluated
+- 병합 직전 main SHA: 7949c9f
+- 통합 커밋 SHA와 정리 여부: 86beeeabf998b4b4e720290ac65019e6486545c0; 증거 보존 후 worktree 제거 예정
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-baseline-freeze.md (예정)
-- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md (예정)
+- 개발 기록 경로와 갱신 여부: docs/development-records/2026-09-15-r0-baseline-freeze.md
+- handoff 저장 경로와 갱신 여부: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/HANDOFF.md
 
 ## r0-shared-contract
 

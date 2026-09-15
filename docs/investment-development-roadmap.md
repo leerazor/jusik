@@ -63,7 +63,7 @@
 
 | 단계 | 상태 | 기술 목표 | 경제적 목표 평가 | 의존성 | 주 증거·현재 판단 |
 | --- | --- | --- | --- | --- | --- |
-| R0 | 예정 | 기준 실행·공통 결과/자료 계약·replay | 평가 불가 | 없음 | E-01~E-07, 손실 원인 진단의 기준 필요 |
+| R0 | 진행 | 기준 실행·공통 결과/자료 계약·replay | 평가 불가 | 없음 | E-01~E-07, 손실 원인 진단의 기준 필요 |
 | R1 | 예정 | 미국 PIT universe와 기업행사 정책 교정 | 평가 불가 | R0 계약 | 고정 pool·미래 사건 제외·actions 결함 |
 | R2 | 예정 | 손실·비용·FX·DD 독립 계산과 NAV 대사 | 평가 불가 | R0 (기존 자료로 독립 착수) | R4에서 R1 보정 자료를 재대사; 비용·단위·세금 가정을 검증해야 함 |
 | R3 | 예정 | 기존 자료의 결과 화면과 fixture API | 평가 불가 | R0 계약 | R1/R2와 독립적인 읽기 전용 UI 작업 |
@@ -102,7 +102,7 @@
 
 R0는 모든 후속 결과가 같은 입력과 단위를 사용하도록 만드는 순차 게이트다. 기존 미국 파일럿을 새 정책의 성공 증거로 재해석하지 않는다.
 
-- [ ] **R0-01** 기준 main SHA, 파일럿 run ID, 입력 manifest, 결과 hash를 하나의 재현 기록으로 묶는다.
+- [x] **R0-01** 기준 main SHA, 파일럿 run ID, 입력 manifest, 결과 hash를 하나의 재현 기록으로 묶는다.
   - 증거 (기술 status: `pass`, 경제 observed: `not-evaluated`): `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json` (SHA-256 `03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205`); 모델 parse 및 84개 cache raw entry SHA/size 검증 통과; commit은 이 작업 브랜치 결과를 참조하며 supervisor review·main 통합 전에는 완료로 바꾸지 않는다.
 - [ ] **R0-02** result/data contract에 path, account, unit, timestamp, coverage, error schema를 정의하고 shared `ApproximateDataset`·`MarketResearchResult`의 availability, grade, source, limitation, pool/hash를 단일 계약 소유자가 관리한다.
 - [ ] **R0-03** 실행 시점과 미래 checkpoint를 포함한 deterministic replay 명령과 run catalogue를 만들고, 실행 시각·run ID를 제외한 metrics·trades·equity가 일치하는지 확인한다.
