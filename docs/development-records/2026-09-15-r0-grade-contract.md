@@ -1,6 +1,6 @@
 # R0-05 연구 등급·자료 성격 표시 계약
 
-- 상태: 검증
+- 상태: 완료
 - 기록 시각: 2026-09-15T03:53:41Z
 - 작업 slug: `r0-grade-contract`
 - 기준/통합: `7ea9825ff702414db7cd6707eb6b5ff212f79b0b` / 없음
@@ -36,3 +36,7 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-grade-contract`; manifest: `r0-grade-contract-verification.json`; SHA-256: `d34c101ce7daf1e38cc510977a86c339470973b761a646ef4636f75feae5e2d1`.
 - 남은 작업·차단 조건: supervisor 독립 review와 local `main` 통합 전입니다. R0-03은 후속 작업입니다.
 - 다음 시작: supervisor가 helper label과 목록·상세 소비 위치를 검토합니다.
+
+## 통합 검증
+
+최종455ccdc 독립 review 중요 지적 없음. main `01f2d6850e9a991d8eb0688127cc8f8fec8eb523` 통합 후 고정 npm fixture·lint·typecheck·build 및 diff 통과. Supervisor Playwright의 격리 fixture 서버에서 strict/approximate·원천/합성 조합과 null 결과 상태를 검증했습니다. 실패·대기·결과없음 heading 모두 일치하며 console 오류0개입니다. 외부 audit `r0-grade-contract/browser/verification.json`에 기록했고 테스트 서버·브라우저는 종료했습니다. R0-03은 별도 backend 소유자로 병렬 진행하며 공유 파일 변경은 없습니다.
