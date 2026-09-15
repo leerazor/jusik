@@ -4,13 +4,16 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from jusik.market_research_replay import (
     CATALOGUE_FILE,
+    REPLAY_DEPENDENCIES,
     REPLAY_FILE,
     ReplayError,
+    _dependency_provenance,
     _parse_checkpoint,
     replay_manifest,
 )
@@ -72,6 +75,14 @@ def test_frozen_replay_writes_result_and_refuses_overwrite(tmp_path: Path) -> No
     }
     assert (output_dir / REPLAY_FILE).is_file()
     assert (output_dir / CATALOGUE_FILE).is_file()
+    code = cast(dict[str, object], catalogue["code"])
+    dependencies = cast(dict[str, object], code["dependencies"])
+    assert len(dependencies) == 7 == len(REPLAY_DEPENDENCIES)
+    assert code["dependencies_dirty"] is False
+    assert all(
+        cast(dict[str, object], item)["dirty"] is False
+        for item in dependencies.values()
+    )
     with pytest.raises(ReplayError, match="overwrite"):
         asyncio.run(
             replay_manifest(
@@ -149,3 +160,50 @@ def test_cli_rejects_missing_frozen_file(tmp_path: Path) -> None:
     )
     assert process.returncode == 2
     assert "unavailable" in process.stderr
+
+
+def test_dependency_provenance_detects_calendar_change_in_temporary_repo(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    for relative in REPLAY_DEPENDENCIES:
+        path = repo / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("initial\n", encoding="utf-8")
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+
+    git("init", "--quiet")
+    git("add", ".")
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Replay Test",
+            "-c",
+            "user.email=replay-test@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "fixture",
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+    clean, clean_dirty = _dependency_provenance(repo)
+    assert clean_dirty is False
+    calendar_key = "backend/jusik/data/market_sessions_2023_2026.json"
+    assert cast(dict[str, object], clean[calendar_key])["dirty"] is False
+
+    calendar = repo / calendar_key
+    calendar.write_text("changed\n", encoding="utf-8")
+    changed, changed_dirty = _dependency_provenance(repo)
+    assert changed_dirty is True
+    assert cast(dict[str, object], changed[calendar_key])["dirty"] is True
+    assert (
+        cast(dict[str, object], changed[calendar_key])["sha256"]
+        != cast(dict[str, object], clean[calendar_key])["sha256"]
+    )
