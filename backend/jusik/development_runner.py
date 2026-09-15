@@ -36,6 +36,7 @@ from jusik.development_runner_roadmap import (
     RoadmapError,
     eligible_areas,
     load_roadmap,
+    reserved_areas,
     roadmap_fingerprint,
     roadmap_planner_context,
     roadmap_prompt,
@@ -582,18 +583,42 @@ def _tracked_research_mandate(repo: Path) -> str | None:
         return None
 
 
+def _roadmap_documents_ready(repo: Path) -> tuple[bool, str]:
+    required = (
+        Path("docs/investment-development-roadmap.md"),
+        Path("docs/research-mandate.json"),
+        Path("docs/development-runner.md"),
+        Path("docs/roadmap-automation.md"),
+    )
+    for relative in required:
+        path = repo / relative
+        if not path.is_file() or path.is_symlink() or not os.access(path, os.R_OK):
+            return False, f"required roadmap document is missing: {relative}"
+        tracked = _git(repo, "ls-files", "--error-unmatch", str(relative), check=False)
+        if getattr(tracked, "returncode", 1) != 0 or tracked.stdout.strip() != str(
+            relative
+        ):
+            return False, f"required roadmap document is not tracked: {relative}"
+    return True, ""
+
+
 def _planning_task(
     store: RunnerStore,
     repo: Path,
     scope: Literal["research", "investment-roadmap"] = "research",
 ) -> tuple[RunnerTask, str, list[tuple[str, str, str | None]]] | None:
     if scope == ROADMAP_SCOPE:
+        documents_ready, _ = _roadmap_documents_ready(repo)
+        if not documents_ready:
+            return None
         try:
             roadmap = load_roadmap(repo)
         except RoadmapError:
             return None
         tasks = _research_snapshot(store)
-        if any(status in {"queued", "running"} for _, status, _ in tasks):
+        if any(status == "running" for _, status, _ in tasks):
+            return None
+        if _next_task(store, ROADMAP_SCOPE) is not None:
             return None
         if (
             sum(
@@ -603,9 +628,9 @@ def _planning_task(
             >= 8
         ):
             return None
-        eligible = eligible_areas(roadmap) - {
-            task.area.lower() for task in store.tasks() if task.area != PLANNING_AREA
-        }
+        eligible = eligible_areas(roadmap) - reserved_areas(
+            task for task in store.tasks() if task.area != PLANNING_AREA
+        )
         if not eligible:
             return None
         head = _git(repo, "rev-parse", "main").stdout.strip()
@@ -1009,14 +1034,13 @@ def run_once(
             return RunResult("blocked", reason=scope_reason)
         roadmap = None
         if config.scope == ROADMAP_SCOPE:
+            documents_ready, documents_reason = _roadmap_documents_ready(config.repo)
+            if not documents_ready:
+                return RunResult("blocked", reason=documents_reason)
             try:
                 roadmap = load_roadmap(config.repo)
             except RoadmapError as exc:
                 return RunResult("blocked", reason=str(exc))
-            if _tracked_research_mandate(config.repo) is None:
-                return RunResult(
-                    "blocked", reason="tracked research mandate is missing or malformed"
-                )
         active = store.active_attempt()
         if active is not None and _process_group_alive(active.process_group_id):
             return RunResult(
@@ -1061,11 +1085,9 @@ def run_once(
                 )
             planning_kwargs: dict[str, Any] = {}
             if config.scope == ROADMAP_SCOPE and roadmap is not None:
-                eligible = eligible_areas(roadmap) - {
-                    item.area.lower()
-                    for item in store.tasks()
-                    if item.area != PLANNING_AREA
-                }
+                eligible = eligible_areas(roadmap) - reserved_areas(
+                    item for item in store.tasks() if item.area != PLANNING_AREA
+                )
                 planning_kwargs = {
                     "allowed_areas": eligible,
                     "context": roadmap_planner_context(roadmap, candidate[2], eligible),

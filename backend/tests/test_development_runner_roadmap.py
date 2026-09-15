@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from jusik.development_runner import RunnerConfig, _bind_scope, init_config
+from jusik.development_runner import RunnerConfig, _bind_scope, init_config, run_once
 from jusik.development_runner_roadmap import (
     ROADMAP_SCOPE,
     RoadmapError,
@@ -31,6 +32,22 @@ def _repo(tmp_path: Path) -> Path:
     return repo
 
 
+def _tracked_repo(tmp_path: Path) -> Path:
+    repo = _repo(tmp_path)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.invalid"],
+        cwd=repo,
+        check=True,
+    )
+    subprocess.run(["git", "config", "user.name", "test"], cwd=repo, check=True)
+    (repo / "docs" / "development-runner.md").write_text("runbook\n", encoding="utf-8")
+    (repo / "docs" / "roadmap-automation.md").write_text("scope\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "initial"], cwd=repo, check=True)
+    return repo
+
+
 def test_roadmap_areas_are_lowercase_and_gates_are_independent(tmp_path: Path) -> None:
     roadmap = load_roadmap(_repo(tmp_path))
     areas = eligible_areas(roadmap)
@@ -52,6 +69,59 @@ def test_roadmap_enqueue_quarantines_used_area_and_complete_area(
         validate_enqueue(roadmap, [queued], "roadmap-r1-01-v2", "R1-01")
     with pytest.raises(RoadmapError, match="complete"):
         validate_enqueue(roadmap, [], "roadmap-r0-01-v1", "r0-01")
+
+
+def test_completed_partial_slice_can_enqueue_a_distinct_task_id(tmp_path: Path) -> None:
+    roadmap = load_roadmap(_repo(tmp_path))
+    completed = SimpleNamespace(area="r1-01", status="completed")
+
+    assert (
+        validate_enqueue(roadmap, [completed], "roadmap-r1-01-v2", "r1-01") == "r1-01"
+    )
+
+
+def test_planner_ignores_blocked_dependency_and_keeps_independent_phases(
+    tmp_path: Path,
+) -> None:
+    from jusik.development_runner import _planning_task
+
+    repo = _tracked_repo(tmp_path)
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.set_meta("scope", ROADMAP_SCOPE)
+    store.enqueue("blocked", "r9-99", "blocked")
+    blocked = store.task("blocked")
+    assert blocked is not None
+    store.claim(blocked, "blocked-attempt", tmp_path / "out", tmp_path / "err")
+    store.finish("blocked-attempt", "blocked", "blocked")
+    store.enqueue("roadmap-r1-01-v1", "r1-01", "seed", depends_on="blocked")
+
+    candidate = _planning_task(store, repo, ROADMAP_SCOPE)
+
+    assert candidate is not None
+    assert "r2-01" in candidate[0].prompt
+    assert "r3-01" in candidate[0].prompt
+    assert "r4-01" not in candidate[0].prompt
+
+
+def test_untracked_required_runbook_blocks_dispatch(tmp_path: Path) -> None:
+    repo = _tracked_repo(tmp_path)
+    (repo / "docs" / "roadmap-automation.md").unlink()
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+        planning_enabled=True,
+    )
+    RunnerStore(config.state_dir / "runner.db").set_meta("scope", ROADMAP_SCOPE)
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    assert "roadmap document" in (result.reason or "")
+    assert not (tmp_path / "state" / "attempts").exists()
 
 
 def test_slice_completion_is_distinct_from_full_checklist_completion(

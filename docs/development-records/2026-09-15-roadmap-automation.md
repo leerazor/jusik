@@ -11,6 +11,7 @@
 - `RunnerConfig.scope`는 `research`를 기본값으로 유지한다. 투자 scope 초기화는 전용 blank state만 허용하고 기존 state나 기본 research state를 재사용하지 않는다.
 - area는 tracked `docs/investment-development-roadmap.md` checklist ID를 소문자로 정규화한다. Markdown checkbox는 전체 checklist 완료의 authoritative source이며 slice 기술 완료와 분리하고 phase 전체를 자동 완료하지 않는다.
 - R0→R1/R2/R3, R1+R2→R4, R4→R5/R6, R5→R7 gate를 planner와 CLI enqueue에 함께 적용한다. 실패·차단·중단 area는 같은 ID를 명시적으로 retry할 때까지 quarantine한다.
+- Review 후 partial slice의 완료 이력은 새 bounded slice를 허용하되, 실행 중·실패·차단·중단 이력은 계속 격리한다. 실행 불가능한 queued dependency는 독립 phase planner를 막지 않으며, 필수 roadmap/mandate/runbook 문서는 regular readable tracked 파일인지 dispatch 전에 확인한다.
 
 ## 문서·계약 영향
 
@@ -20,7 +21,7 @@
 
 ## 검증
 
-- `backend/.venv/bin/python -m pytest -q backend/tests/test_development_runner.py backend/tests/test_development_runner_planning.py backend/tests/test_development_runner_roadmap.py` — 70 passed.
+- `backend/.venv/bin/python -m pytest -q backend/tests/test_development_runner*.py` — 73 passed.
 - `backend/.venv/bin/ruff format --check ... && backend/.venv/bin/ruff check ...` — 통과.
 - `backend/.venv/bin/mypy --strict backend/jusik/development_runner.py backend/jusik/development_runner_roadmap.py` — 통과.
 - `git diff --check` — 통과.

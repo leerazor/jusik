@@ -136,8 +136,24 @@ def pending_task_count(tasks: Iterable[Any]) -> int:
     return sum(getattr(task, "status", None) in {"queued", "running"} for task in tasks)
 
 
+def reserved_areas(tasks: Iterable[Any]) -> set[str]:
+    """Areas unavailable to a new slice until an explicit retry."""
+    quarantined = {"queued", "running", "failed", "blocked", "interrupted"}
+    return {
+        str(task.area).lower()
+        for task in tasks
+        if getattr(task, "status", None) in quarantined
+    }
+
+
 def _task_by_area(tasks: Iterable[Any], area: str) -> list[Any]:
-    return [task for task in tasks if getattr(task, "area", "").lower() == area]
+    return [
+        task
+        for task in tasks
+        if getattr(task, "area", "").lower() == area
+        and getattr(task, "status", None)
+        in {"queued", "running", "failed", "blocked", "interrupted"}
+    ]
 
 
 def validate_enqueue(
@@ -230,8 +246,6 @@ def validate_roadmap_completion(
         followup_area = str(followup.area).lower()
         if followup_area not in eligible_areas(roadmap):
             raise RoadmapError("roadmap followup area is not eligible")
-        if followup_area == area:
-            raise RoadmapError("roadmap followup must be a distinct checklist slice")
 
 
 def validate_planner_area(roadmap: Roadmap, area: str, tasks: Iterable[Any]) -> str:
