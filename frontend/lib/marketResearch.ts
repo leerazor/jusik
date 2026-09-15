@@ -9,6 +9,7 @@ const capabilitySchema = z.object({
 });
 
 const researchGradeSchema = z.enum(["strict", "approximate"]);
+const sourceNameSchema = z.enum(["fixture", "krx", "massive", "yahoo", "alpha_vantage", "fred", "approximate_file"]);
 
 export const marketReadinessSchema = z.object({
   market: z.enum(["KR", "US"]),
@@ -48,6 +49,15 @@ const tradeSchema = z.object({
   rationale: z.string(),
 });
 
+export const marketResearchProvenanceSchema = z.object({
+  universe_sources: z.array(sourceNameSchema).nullable(),
+  bar_sources: z.array(sourceNameSchema).nullable(),
+  fx_sources: z.array(sourceNameSchema).nullable(),
+  artifact_sources: z.array(sourceNameSchema).nullable(),
+  normalization_version: z.string().nullable(),
+  captured_at: z.string().nullable(),
+});
+
 const resultSchema = z.object({
   market: z.enum(["KR", "US"]),
   request: requestSchema,
@@ -73,6 +83,7 @@ const resultSchema = z.object({
   warmup_sessions: z.array(z.string()),
   research_grade: researchGradeSchema,
   pool_contract_hash: z.string().nullable(),
+  provenance: marketResearchProvenanceSchema.nullable().optional(),
 });
 
 export const marketResearchRunSchema = z.object({
@@ -92,6 +103,7 @@ export const marketResearchRunSchema = z.object({
 });
 
 export type MarketReadiness = z.infer<typeof marketReadinessSchema>;
+export type MarketResearchProvenance = z.infer<typeof marketResearchProvenanceSchema>;
 export type MarketResearchRun = z.infer<typeof marketResearchRunSchema>;
 
 export async function getMarketReadiness(
