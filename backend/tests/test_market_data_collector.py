@@ -10,6 +10,7 @@ import pytest
 
 from jusik.market_data_collector import (
     AtomicResponseCache,
+    CollectorAuthenticationError,
     CollectorError,
     CollectorSettings,
     FreeMarketDataCollector,
@@ -19,7 +20,9 @@ from jusik.market_data_collector import (
     collect_market_data,
     completed_collection_is_valid,
     estimate_network_requests,
+    load_collector_settings,
     parse_alpha_vantage_listing_status,
+    parse_alpha_vantage_listing_status_detailed,
     parse_fred_observations,
     parse_krx_daily_response,
     parse_krx_daily_trade_response,
@@ -45,20 +48,45 @@ def test_krx_parser_normalizes_all_daily_rows_and_market_board() -> None:
                     "ISU_ABBRV": "삼성전자",
                     "MKT_NM": "KOSPI",
                 },
-                {
-                    "basDd": "2026-09-15",
-                    "symbol": "123456",
-                    "name": "Sample",
-                    "market": "KOSDAQ",
-                },
             ]
         }
     ).encode()
     rows = parse_krx_daily_response(body, checkpoint=date(2026, 9, 14))
     assert [(row.session, row.symbol, row.exchange) for row in rows] == [
-        (date(2026, 9, 14), "005930", "KOSPI"),
-        (date(2026, 9, 15), "123456", "KOSDAQ"),
+        (date(2026, 9, 14), "005930", "KOSPI")
     ]
+    kosdaq = parse_krx_daily_response(
+        json.dumps(
+            {
+                "OutBlock_1": [
+                    {
+                        "basDd": "2026-09-14",
+                        "symbol": "123456",
+                        "name": "Sample",
+                        "market": "KOSDAQ",
+                    }
+                ]
+            }
+        ).encode(),
+        checkpoint=date(2026, 9, 14),
+        market_board="KSQ",
+    )
+    assert kosdaq[0].exchange == "KOSDAQ"
+    malformed_rows = {
+        "OutBlock_1": [
+            {
+                "BAS_DD": "20260914",
+                "ISU_SRT_CD": "005930",
+                "ISU_ABBRV": "삼성전자",
+                "MKT_NM": "KOSPI",
+            },
+            "malformed row",
+        ]
+    }
+    with pytest.raises(CollectorError, match="rows are malformed"):
+        parse_krx_daily_response(
+            json.dumps(malformed_rows).encode(), checkpoint=date(2026, 9, 14)
+        )
     duplicate = {
         "OutBlock_1": [
             {
@@ -117,6 +145,29 @@ def test_alpha_listing_status_filters_etf_and_future_or_delisted_rows() -> None:
     assert rows[0].exchange == "NAS"
 
 
+def test_alpha_listing_status_reports_row_exclusions_and_rejects_bad_header() -> None:
+    body = (
+        b"symbol,name,exchange,assetType,ipoDate,delistingDate,status\n"
+        b"AAA,Active,NASDAQ,Stock,2020-01-01,null,Active\n"
+        b"W,Company warrant,NASDAQ,Stock,2020-01-01,null,Active\n"
+        b"ETF,Fund,NYSE,ETF,2020-01-01,null,Active\n"
+        b"BAD,Too late,NASDAQ,Stock,not-a-date,null,Active\n"
+        b"AAA,Duplicate,NASDAQ,Stock,2020-01-01,null,Active\n"
+    )
+    parsed = parse_alpha_vantage_listing_status_detailed(body, as_of=date(2026, 9, 14))
+    assert parsed.input_rows == 5
+    assert parsed.accepted == 1
+    assert dict(parsed.excluded) == {
+        "date": 1,
+        "duplicate": 1,
+        "security_type": 2,
+    }
+    with pytest.raises(CollectorError, match="header"):
+        parse_alpha_vantage_listing_status(
+            b"symbol,name\nAAA,Active\n", as_of=date(2026, 9, 14)
+        )
+
+
 def test_yahoo_parser_validates_identity_arrays_and_action_events() -> None:
     timestamps = [
         int(datetime(2026, 9, 11, 20, tzinfo=UTC).timestamp()),
@@ -165,6 +216,31 @@ def test_yahoo_parser_validates_identity_arrays_and_action_events() -> None:
         date(2026, 9, 14),
     ]
     assert parsed.events == ("splits",)
+    for requested_exchange in ("NAS", "NMS"):
+        for venue in ("NMS", "NGM", "NCM"):
+            candidate = json.loads(body)
+            candidate["chart"]["result"][0]["meta"]["exchangeName"] = venue
+            result = parse_yahoo_chart(
+                json.dumps(candidate).encode(),
+                symbol="AAA",
+                exchange=requested_exchange,
+                currency="USD",
+                start=date(2026, 9, 11),
+                end=date(2026, 9, 14),
+            )
+            assert result.bars
+        for venue in ("NYQ", "PCX"):
+            candidate = json.loads(body)
+            candidate["chart"]["result"][0]["meta"]["exchangeName"] = venue
+            with pytest.raises(CollectorError, match="identity"):
+                parse_yahoo_chart(
+                    json.dumps(candidate).encode(),
+                    symbol="AAA",
+                    exchange=requested_exchange,
+                    currency="USD",
+                    start=date(2026, 9, 11),
+                    end=date(2026, 9, 14),
+                )
     broken = json.loads(body)
     broken["chart"]["result"][0]["indicators"]["quote"][0]["volume"] = [100]
     with pytest.raises(CollectorError, match="arrays"):
@@ -562,6 +638,95 @@ def test_cli_collector_missing_keys_is_controlled_and_cache_status_is_truthful(
     assert status["entries"] == 0
 
 
+def test_collector_settings_explicit_file_alias_precedence_and_no_interpolation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for name in (
+        "KRX_AUTH_KEY",
+        "KRX_API_KEY",
+        "ALPHA_VANTAGE_API_KEY",
+        "ALPHA_VANTAGE_KEY",
+        "FRED_API_KEY",
+        "FRED_KEY",
+        "MARKET_DATA_REQUEST_BUDGET",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    env_file = tmp_path / "collector.env"
+    env_file.write_text(
+        "KRX_AUTH_KEY=file-standard\n"
+        "KRX_API_KEY=file-alias\n"
+        "ALPHA_VANTAGE_KEY=file-alpha\n"
+        "FRED_KEY=${UNSET_VALUE}\n"
+        "MARKET_DATA_REQUEST_BUDGET=123\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("KRX_API_KEY", "process-alias")
+    settings = load_collector_settings(env_file)
+    assert settings.krx_auth_key is not None
+    assert settings.krx_auth_key.get_secret_value() == "file-standard"
+    assert settings.alpha_vantage_api_key is not None
+    assert settings.alpha_vantage_api_key.get_secret_value() == "file-alpha"
+    assert settings.fred_api_key is not None
+    assert settings.fred_api_key.get_secret_value() == "${UNSET_VALUE}"
+    assert settings.request_budget == 123
+
+    monkeypatch.setenv("KRX_AUTH_KEY", "process-standard")
+    process_settings = load_collector_settings(env_file)
+    assert process_settings.krx_auth_key is not None
+    assert process_settings.krx_auth_key.get_secret_value() == "process-standard"
+    with pytest.raises(CollectorError, match="environment file"):
+        load_collector_settings(tmp_path / "missing.env")
+
+
+@pytest.mark.parametrize("budget", ["0", "10001", "not-a-number"])
+@pytest.mark.parametrize("command", ["status", "collect", "collect-status"])
+def test_cli_rejects_invalid_budget_without_echoing_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    budget: str,
+    command: str,
+) -> None:
+    monkeypatch.delenv("MARKET_DATA_REQUEST_BUDGET", raising=False)
+    env_file = tmp_path / "invalid-collector.env"
+    env_file.write_text(f"MARKET_DATA_REQUEST_BUDGET={budget}\n", encoding="utf-8")
+    if command == "status":
+        arguments = ["status", "--market", "KR", "--env-file", str(env_file)]
+    elif command == "collect":
+        arguments = [
+            "collect",
+            "--market",
+            "KR",
+            "--start",
+            "2026-01-01",
+            "--end",
+            "2026-09-14",
+            "--output",
+            str(tmp_path / "prepared.json"),
+            "--cache",
+            str(tmp_path / "cache"),
+            "--env-file",
+            str(env_file),
+        ]
+    else:
+        arguments = [
+            "collect-status",
+            "--market",
+            "KR",
+            "--cache",
+            str(tmp_path / "cache"),
+            "--env-file",
+            str(env_file),
+        ]
+
+    assert market_research_cli(arguments) == 2
+    output = capsys.readouterr().out
+    payload = json.loads(output)
+    assert payload["reason"] == "environment configuration is invalid"
+    assert budget not in output
+    assert str(env_file) not in output
+
+
 class _RetryingHttpClient:
     def __init__(self) -> None:
         self.calls = 0
@@ -571,6 +736,38 @@ class _RetryingHttpClient:
         if self.calls == 1:
             return httpx.Response(429, headers={"Retry-After": "0"})
         return httpx.Response(200, content=b"ok")
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_http_fetcher_auth_failures_are_nonretryable_and_not_cached(
+    tmp_path: Path, status: int
+) -> None:
+    class StatusClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            self.calls += 1
+            return httpx.Response(status, content=b"sensitive provider response")
+
+    client = StatusClient()
+    fetcher = HttpFetcher(
+        client=client,
+        cache=AtomicResponseCache(tmp_path),
+        settings=CollectorSettings(krx_auth_key="configured", request_budget=3),
+    )
+    with pytest.raises(CollectorAuthenticationError, match="authentication"):
+        asyncio.run(
+            fetcher.get(
+                source="krx",
+                url="https://example.test/daily",
+                params={"basDd": "20260914"},
+            )
+        )
+    assert client.calls == 1
+    assert not (tmp_path / "manifest.json").exists()
 
 
 def test_http_fetcher_retries_429_and_counts_one_bounded_request(
@@ -745,6 +942,31 @@ def test_collect_status_requires_exact_completed_marker_and_valid_hash(
     assert json.loads(capsys.readouterr().out)["ready"] is False
 
 
+def test_old_completion_marker_is_not_reused(tmp_path: Path) -> None:
+    cache = AtomicResponseCache(tmp_path / "cache")
+    output = tmp_path / "prepared.json"
+    output.write_bytes(b"{}")
+    cache.write_completed(
+        market="KR",
+        start=date(2026, 1, 1),
+        end=date(2026, 9, 14),
+        sample_size=1,
+        output=output,
+        content=b"{}",
+    )
+    marker = json.loads(cache.completed_path.read_text(encoding="utf-8"))
+    marker["version"] = "collector-completed-v1"
+    cache.completed_path.write_text(json.dumps(marker), encoding="utf-8")
+    assert not completed_collection_is_valid(
+        cache,
+        market="KR",
+        start=date(2026, 1, 1),
+        end=date(2026, 9, 14),
+        sample_size=1,
+        output=output,
+    )
+
+
 def test_collect_status_rejects_malformed_manifest_without_dumping_cache_contents(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -794,7 +1016,7 @@ class _RecordingHttpClient:
         return httpx.Response(200, content=b'{"OutBlock_1": []}')
 
 
-def test_network_krx_uses_official_post_daily_shape(tmp_path: Path) -> None:
+def test_network_krx_uses_official_get_daily_shape(tmp_path: Path) -> None:
     client = _RecordingHttpClient()
     settings = CollectorSettings(krx_auth_key="test-key")
     transport = NetworkCollectorTransport(
@@ -804,10 +1026,12 @@ def test_network_krx_uses_official_post_daily_shape(tmp_path: Path) -> None:
         settings,
     )
     asyncio.run(transport.krx("STK", date(2026, 9, 14), date(2026, 9, 14)))
-    assert [call[0] for call in client.calls] == ["POST"]
-    daily = client.calls[0][2]["data"]
-    assert isinstance(daily, dict)
-    assert daily["bld"] == "dbms/MDC/STAT/standard/MDCSTAT01501"
-    assert daily["mktId"] == "STK"
-    assert daily["trdDd"] == "20260914"
-    assert "strtDd" not in daily and "endDd" not in daily
+    assert [call[0] for call in client.calls] == ["GET"]
+    request = client.calls[0][2]
+    params = request["params"]
+    headers = request["headers"]
+    assert isinstance(params, dict)
+    assert params == {"basDd": "20260914"}
+    assert isinstance(headers, dict)
+    assert headers["AUTH_KEY"] == "test-key"
+    assert "strtDd" not in params and "endDd" not in params

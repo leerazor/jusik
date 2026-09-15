@@ -43,11 +43,13 @@ def parser() -> argparse.ArgumentParser:
     status = subcommands.add_parser("status")
     status.add_argument("--market", choices=("KR", "US"), default=None)
     status.add_argument("--grade", choices=("strict", "approximate"), default="strict")
+    status.add_argument("--env-file", type=Path)
     collect_status = subcommands.add_parser(
         "collect-status", help="show bounded collector cache status"
     )
     collect_status.add_argument("--cache", type=Path, required=True)
     collect_status.add_argument("--market", choices=("KR", "US"), required=True)
+    collect_status.add_argument("--env-file", type=Path)
     collect_status.add_argument("--start")
     collect_status.add_argument("--end")
     collect_status.add_argument("--sample-size", type=int, default=100)
@@ -56,6 +58,7 @@ def parser() -> argparse.ArgumentParser:
         "collect", help="collect and validate a prepared approximate dataset"
     )
     collect.add_argument("--market", choices=("KR", "US"), required=True)
+    collect.add_argument("--env-file", type=Path)
     collect.add_argument("--start", required=True)
     collect.add_argument("--end", required=True)
     collect.add_argument("--output", type=Path, required=True)
@@ -88,7 +91,22 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     if args.command == "collect-status":
-        settings = load_collector_settings()
+        try:
+            settings = load_collector_settings(args.env_file)
+        except CollectorError:
+            print(
+                json.dumps(
+                    {
+                        "market": args.market,
+                        "completed": False,
+                        "ready": False,
+                        "status": "unavailable",
+                        "reason": "environment configuration is invalid",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 2
         missing = settings.required_missing_credentials(args.market)
         cache = AtomicResponseCache(args.cache)
         try:
@@ -133,7 +151,19 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(cache_payload, ensure_ascii=False))
         return 0 if bool(cache_payload["ready"]) else 2
     if args.command == "collect":
-        settings = load_collector_settings()
+        try:
+            settings = load_collector_settings(args.env_file)
+        except CollectorError:
+            print(
+                json.dumps(
+                    {
+                        "status": "unavailable",
+                        "reason": "environment configuration is invalid",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 2
         missing = settings.required_missing_credentials(args.market)
         if missing:
             print(
@@ -180,6 +210,19 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if args.command == "status":
+        try:
+            load_collector_settings(args.env_file)
+        except CollectorError:
+            print(
+                json.dumps(
+                    {
+                        "status": "unavailable",
+                        "reason": "environment configuration is invalid",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 2
         status_source: MarketHistorySource
         if args.grade == "approximate":
             status_source = ApproximateMarketHistorySource(

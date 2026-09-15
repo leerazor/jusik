@@ -24,7 +24,8 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from dotenv import dotenv_values
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from jusik.market_history_approximate import (
     ApproximateBarRow,
@@ -37,7 +38,8 @@ from jusik.market_history_approximate import (
 from jusik.market_history_models import Market
 from jusik.research_market_calendar import MarketCalendar, default_market_calendar
 
-KRX_URL = "https://data.krx.co.kr/comm/bldAttendant/getJsonData.cmd"
+KRX_STK_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
+KRX_KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
 ALPHA_VANTAGE_URL = "https://www.alphavantage.co/query"
 YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
 FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
@@ -45,10 +47,19 @@ MAX_RETRIES = 3
 MAX_RETRY_DELAY_SECONDS = 30
 DEFAULT_REQUEST_BUDGET = 5_000
 MAX_KRX_ROWS_PER_DAY = 10_000
+NORMALIZATION_VERSION: str = "approx-v2"
+COMPLETION_CONTRACT_VERSION: Literal["collector-completed-v2"] = (
+    "collector-completed-v2"
+)
+CACHE_CONTRACT_VERSION: Literal["collector-cache-v2"] = "collector-cache-v2"
 
 
 class CollectorError(RuntimeError):
     """A collection cannot produce a trustworthy prepared dataset."""
+
+
+class CollectorAuthenticationError(CollectorError):
+    """A provider rejected authentication without a retryable response."""
 
 
 class CollectorPartialError(CollectorError):
@@ -92,18 +103,49 @@ class CollectorSettings(BaseModel):
         return tuple(name for name in required if name in self.missing_credentials)
 
 
-def load_collector_settings() -> CollectorSettings:
-    def secret(name: str) -> SecretStr | None:
-        value = os.environ.get(name)
-        return SecretStr(value) if value else None
+def load_collector_settings(env_path: Path | None = None) -> CollectorSettings:
+    """Load explicit dotenv values without interpolation or process mutation."""
+    file_values: Mapping[str, str | None] = {}
+    if env_path is not None:
+        if not env_path.is_file():
+            raise CollectorError("environment file is unavailable")
+        try:
+            file_values = dotenv_values(env_path, interpolate=False)
+        except (OSError, UnicodeDecodeError, ValueError) as exc:
+            raise CollectorError("environment file is invalid") from exc
 
-    budget = os.environ.get("MARKET_DATA_REQUEST_BUDGET")
-    return CollectorSettings(
-        krx_auth_key=secret("KRX_AUTH_KEY"),
-        alpha_vantage_api_key=secret("ALPHA_VANTAGE_API_KEY"),
-        fred_api_key=secret("FRED_API_KEY"),
-        request_budget=int(budget) if budget else DEFAULT_REQUEST_BUDGET,
+    def value(standard: str, alias: str) -> str | None:
+        for source, name in (
+            (os.environ, standard),
+            (file_values, standard),
+            (os.environ, alias),
+            (file_values, alias),
+        ):
+            candidate = source.get(name)
+            if isinstance(candidate, str) and candidate:
+                return candidate
+        return None
+
+    def secret(standard: str, alias: str) -> SecretStr | None:
+        candidate = value(standard, alias)
+        return SecretStr(candidate) if candidate else None
+
+    budget = os.environ.get("MARKET_DATA_REQUEST_BUDGET") or file_values.get(
+        "MARKET_DATA_REQUEST_BUDGET"
     )
+    try:
+        parsed_budget = int(budget) if budget else DEFAULT_REQUEST_BUDGET
+    except (TypeError, ValueError) as exc:
+        raise CollectorError("request budget is invalid") from exc
+    try:
+        return CollectorSettings(
+            krx_auth_key=secret("KRX_AUTH_KEY", "KRX_API_KEY"),
+            alpha_vantage_api_key=secret("ALPHA_VANTAGE_API_KEY", "ALPHA_VANTAGE_KEY"),
+            fred_api_key=secret("FRED_API_KEY", "FRED_KEY"),
+            request_budget=parsed_budget,
+        )
+    except ValidationError as exc:
+        raise CollectorError("collector settings are invalid") from exc
 
 
 class CacheEntry(BaseModel):
@@ -121,7 +163,7 @@ class CacheEntry(BaseModel):
 class CacheManifest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    version: Literal["collector-cache-v1"] = "collector-cache-v1"
+    version: Literal["collector-cache-v2"] = CACHE_CONTRACT_VERSION
     entries: tuple[CacheEntry, ...] = ()
     checkpoints: tuple[str, ...] = ()
 
@@ -129,7 +171,7 @@ class CacheManifest(BaseModel):
 class CompletedCollection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    version: Literal["collector-completed-v1"] = "collector-completed-v1"
+    version: Literal["collector-completed-v2"] = COMPLETION_CONTRACT_VERSION
     market: Market
     start: date
     end: date
@@ -361,6 +403,10 @@ class HttpFetcher:
                     raise CollectorError(f"{source} request failed") from exc
                 await asyncio.sleep(min(2**attempt, MAX_RETRY_DELAY_SECONDS))
                 continue
+            if response.status_code in {401, 403}:
+                raise CollectorAuthenticationError(
+                    f"{source} authentication was rejected"
+                )
             if response.status_code == 429 or response.status_code >= 500:
                 if attempt >= self.settings.max_retries:
                     raise CollectorError(f"{source} request returned HTTP error")
@@ -439,6 +485,17 @@ def _rows(payload: object) -> list[Mapping[str, object]]:
     ]
 
 
+def _krx_rows(payload: object) -> list[Mapping[str, object]]:
+    if not isinstance(payload, dict) or "OutBlock_1" not in payload:
+        raise CollectorError("KRX response envelope is missing")
+    raw_rows = payload["OutBlock_1"]
+    if not isinstance(raw_rows, list) or any(
+        not isinstance(row, Mapping) for row in raw_rows
+    ):
+        raise CollectorError("KRX response rows are malformed")
+    return _rows(payload)
+
+
 def _field(row: Mapping[str, object], *names: str) -> object | None:
     for name in names:
         if name in row and row[name] not in (None, ""):
@@ -464,7 +521,21 @@ def parse_krx_daily_trade_response(
         payload = json.loads(body)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise CollectorError("KRX response is not valid JSON") from exc
-    rows = _rows(payload)
+    if isinstance(payload, dict):
+        response_date = _field(payload, "basDd", "BAS_DD", "trdDd", "TRD_DD")
+        if response_date is not None and _date(response_date, "KRX") != checkpoint:
+            raise CollectorError("KRX response date does not match request")
+        response_board = _field(payload, "mktNm", "MKT_NM", "market", "mktId")
+        if response_board is not None:
+            expected_board = "KOSDAQ" if market_board == "KSQ" else "KOSPI"
+            board_text = str(response_board).strip().upper()
+            accepted_boards = {
+                "KOSPI": {"KOSPI", "STK", "KSC"},
+                "KOSDAQ": {"KOSDAQ", "KSQ", "KQ"},
+            }
+            if board_text not in accepted_boards[expected_board]:
+                raise CollectorError("KRX response board does not match request")
+    rows = _krx_rows(payload)
     if len(rows) > MAX_KRX_ROWS_PER_DAY:
         raise CollectorError("KRX daily response exceeds the row bound")
     normalized: list[ApproximateUniverseRow] = []
@@ -482,6 +553,8 @@ def parse_krx_daily_trade_response(
             "date",
         )
         session = _date(raw_session, "KRX") if raw_session is not None else checkpoint
+        if session != checkpoint:
+            raise CollectorError("KRX response date does not match request")
         symbol = str(
             _field(
                 row,
@@ -514,6 +587,14 @@ def parse_krx_daily_trade_response(
         exchange_raw = str(
             _field(row, "MKT_NM", "mktNm", "market", "exchange") or ""
         ).upper()
+        if exchange_raw:
+            expected_board = "KOSDAQ" if market_board == "KSQ" else "KOSPI"
+            board_aliases = {
+                "KOSPI": {"KOSPI", "STK", "KSC"},
+                "KOSDAQ": {"KOSDAQ", "KSQ", "KQ"},
+            }
+            if exchange_raw not in board_aliases[expected_board]:
+                raise CollectorError("KRX response board does not match request")
         exchange = (
             "KOSDAQ"
             if "KOSDAQ" in exchange_raw or exchange_raw in {"KSQ", "KQ"}
@@ -595,12 +676,35 @@ def parse_krx_daily_response(
     ).universe
 
 
-def parse_alpha_vantage_listing_status(
+@dataclass(frozen=True)
+class AlphaListingParseResult:
+    rows: tuple[ApproximateUniverseRow, ...]
+    input_rows: int
+    accepted: int
+    excluded: tuple[tuple[str, int], ...]
+
+
+_ALPHA_HEADERS = frozenset(
+    {"symbol", "name", "exchange", "assetType", "ipoDate", "delistingDate", "status"}
+)
+
+
+def parse_alpha_vantage_listing_status_detailed(
     body: bytes, *, as_of: date, available_at: datetime | None = None
-) -> tuple[ApproximateUniverseRow, ...]:
+) -> AlphaListingParseResult:
     try:
         text = body.decode("utf-8-sig")
-        rows = list(csv.DictReader(io.StringIO(text)))
+        reader = csv.DictReader(io.StringIO(text), strict=True)
+        headers = reader.fieldnames
+        if (
+            headers is None
+            or set(headers) != _ALPHA_HEADERS
+            or len(headers) != len(_ALPHA_HEADERS)
+        ):
+            raise CollectorError("Alpha Vantage CSV header is invalid")
+        rows = list(reader)
+    except CollectorError:
+        raise
     except (UnicodeDecodeError, csv.Error) as exc:
         raise CollectorError("Alpha Vantage response is not valid CSV") from exc
     if not rows:
@@ -608,40 +712,83 @@ def parse_alpha_vantage_listing_status(
     observed_at = available_at or datetime.combine(as_of, time(18), tzinfo=UTC)
     result: list[ApproximateUniverseRow] = []
     seen: set[str] = set()
+    exclusion_counts: dict[str, int] = {}
+
+    def exclude(reason: str) -> None:
+        exclusion_counts[reason] = exclusion_counts.get(reason, 0) + 1
+
     for row in rows:
+        if None in row or any(value is None for value in row.values()):
+            exclude("schema")
+            continue
         symbol = (row.get("symbol") or "").strip()
-        asset_type = (row.get("assetType") or row.get("asset_type") or "").strip()
-        status = (row.get("status") or "").strip().lower()
+        name = (row.get("name") or "").strip()
+        exchange_raw = (row.get("exchange") or "").strip().upper()
+        asset_type = (row.get("assetType") or "").strip().casefold()
+        status = (row.get("status") or "").strip().casefold()
         if (
             not symbol
-            or asset_type.lower() not in {"stock", "common stock", "common_stock"}
-            or status not in {"active", "delisted"}
+            or len(symbol) > 20
+            or any(not (char.isalnum() or char in ".-_^") for char in symbol)
         ):
+            exclude("symbol")
             continue
-        ipo = row.get("ipoDate") or row.get("ipo_date")
-        delisted = row.get("delistingDate") or row.get("delisting_date")
-        if ipo and ipo not in {"null", "None"} and _date(ipo, "ipo") > as_of:
+        if not name or len(name) > 120:
+            exclude("name")
             continue
-        if (
-            delisted
-            and delisted not in {"null", "None"}
-            and _date(delisted, "delisting") < as_of
+        exchange = {
+            "NYSE": "NYS",
+            "NASDAQ": "NAS",
+            "NYSE ARCA": "AMS",
+            "NYSEARCA": "AMS",
+            "NASDAQ GLOBAL SELECT MARKET": "NAS",
+        }.get(exchange_raw, exchange_raw)
+        if exchange not in {"NAS", "NYS", "AMS"}:
+            exclude("exchange")
+            continue
+        if asset_type not in {"stock", "common stock", "common_stock"}:
+            exclude("security_type")
+            continue
+        security_text = f"{symbol} {name}".casefold()
+        if any(
+            marker in security_text
+            for marker in ("warrant", "right", "unit", "preferred", " etf")
+        ) or symbol.casefold().endswith(("-ws", ".ws", "-wt", ".wt")):
+            exclude("security_type")
+            continue
+        if status not in {"active", "delisted"}:
+            exclude("status")
+            continue
+        try:
+            ipo_raw = row.get("ipoDate") or ""
+            delisted_raw = row.get("delistingDate") or ""
+            ipo = (
+                None
+                if ipo_raw.casefold() in {"null", "none"}
+                else (_date(ipo_raw, "ipo") if ipo_raw else None)
+            )
+            delisted = (
+                None
+                if delisted_raw.casefold() in {"null", "none"}
+                else (_date(delisted_raw, "delisting") if delisted_raw else None)
+            )
+        except CollectorError:
+            exclude("date")
+            continue
+        if (ipo is not None and ipo > as_of) or (
+            delisted is not None and delisted < as_of
         ):
+            exclude("date")
             continue
         if symbol in seen:
-            raise CollectorError("Alpha Vantage response contains duplicate symbols")
-        seen.add(symbol)
-        exchange = (row.get("exchange") or "NYS").strip().upper()
-        exchange = {"NYSE": "NYS", "NASDAQ": "NAS", "NYSE ARCA": "AMS"}.get(
-            exchange, exchange
-        )
-        if exchange not in {"NAS", "NYS", "AMS"}:
+            exclude("duplicate")
             continue
+        seen.add(symbol)
         result.append(
             ApproximateUniverseRow(
                 session=as_of,
                 symbol=symbol,
-                name=(row.get("name") or symbol).strip(),
+                name=name,
                 exchange=exchange,
                 currency="USD",
                 available_at=observed_at,
@@ -649,7 +796,20 @@ def parse_alpha_vantage_listing_status(
         )
     if not result:
         raise CollectorError("Alpha Vantage response contains no eligible stocks")
-    return tuple(result)
+    return AlphaListingParseResult(
+        rows=tuple(result),
+        input_rows=len(rows),
+        accepted=len(result),
+        excluded=tuple(sorted(exclusion_counts.items())),
+    )
+
+
+def parse_alpha_vantage_listing_status(
+    body: bytes, *, as_of: date, available_at: datetime | None = None
+) -> tuple[ApproximateUniverseRow, ...]:
+    return parse_alpha_vantage_listing_status_detailed(
+        body, as_of=as_of, available_at=available_at
+    ).rows
 
 
 @dataclass(frozen=True)
@@ -692,8 +852,8 @@ def parse_yahoo_chart(
         "KSC": {"KSC", "KOSPI", "KOE"},
         "KOSPI": {"KSC", "KOSPI", "KOE"},
         "KOSDAQ": {"KOE", "KOSDAQ"},
-        "NAS": {"NAS", "NMS", "NGM"},
-        "NMS": {"NAS", "NMS", "NGM"},
+        "NAS": {"NAS", "NMS", "NGM", "NCM"},
+        "NMS": {"NAS", "NMS", "NGM", "NCM"},
         "NYS": {"NYS", "NYQ"},
         "NYQ": {"NYS", "NYQ"},
         "AMS": {"AMS", "PCX"},
@@ -836,28 +996,31 @@ class NetworkCollectorTransport:
         key = self.settings.krx_auth_key
         if key is None:
             raise CollectorError("KRX_AUTH_KEY is not configured")
+        normalized_board = {
+            "STK": "STK",
+            "KOSPI": "STK",
+            "KSQ": "KSQ",
+            "KOSDAQ": "KSQ",
+        }.get(market_board.upper())
+        endpoint = (
+            KRX_STK_URL
+            if normalized_board == "STK"
+            else KRX_KSQ_URL
+            if normalized_board == "KSQ"
+            else None
+        )
+        if endpoint is None:
+            raise CollectorError("KRX market board is invalid")
         return await self.fetcher.get(
             source="krx",
-            url=KRX_URL,
-            method="POST",
-            params={},
-            data={
-                "bld": "dbms/MDC/STAT/standard/MDCSTAT01501",
-                "locale": "ko_KR",
-                "mktId": market_board,
-                "trdDd": start.strftime("%Y%m%d"),
-                "share": 1,
-                "money": 1,
-                "csvxls_isNo": "false",
-                "AUTH_KEY": key.get_secret_value(),
-            },
+            url=endpoint,
+            params={"basDd": start.strftime("%Y%m%d")},
             headers={
                 "Accept": "application/json, text/plain, */*",
                 "Accept-Language": "ko-KR,ko;q=0.9",
-                "Origin": "https://data.krx.co.kr",
-                "Referer": "https://data.krx.co.kr/",
+                "AUTH_KEY": key.get_secret_value(),
             },
-            checkpoint=f"krx:daily:{market_board}:{start}",
+            checkpoint=f"krx:daily:{normalized_board}:{start}",
         )
 
     async def alpha_listing(self, as_of: date) -> bytes:
@@ -1080,14 +1243,21 @@ class FreeMarketDataCollector:
             raw_rows: tuple[ApproximateUniverseRow, ...] = tuple(krx_rows)
             source: Literal["krx", "alpha_vantage"] = "krx"
         else:
-            raw_rows = parse_alpha_vantage_listing_status(
+            initial_listing = parse_alpha_vantage_listing_status_detailed(
                 await self.transport.alpha_listing(checkpoint), as_of=checkpoint
+            )
+            raw_rows = initial_listing.rows
+            alpha_limitations.append(
+                self._alpha_checkpoint_summary(checkpoint, initial_listing)
             )
             for listing_checkpoint in _listing_checkpoints(sessions)[1:]:
                 try:
-                    parse_alpha_vantage_listing_status(
+                    listing = parse_alpha_vantage_listing_status_detailed(
                         await self.transport.alpha_listing(listing_checkpoint),
                         as_of=listing_checkpoint,
+                    )
+                    alpha_limitations.append(
+                        self._alpha_checkpoint_summary(listing_checkpoint, listing)
                     )
                 except CollectorError:
                     alpha_limitations.append(
@@ -1284,9 +1454,24 @@ class FreeMarketDataCollector:
                 bar_source="krx" if market == "KR" else "yahoo",
                 fx_source="fred",
                 simulated=False,
+                normalization_version=NORMALIZATION_VERSION,
             ),
             limitations=tuple(limitations),
             excluded_symbols=tuple(sorted(excluded)),
+        )
+
+    @staticmethod
+    def _alpha_checkpoint_summary(
+        checkpoint: date, result: AlphaListingParseResult
+    ) -> str:
+        excluded = (
+            ", ".join(f"{reason}={count}" for reason, count in result.excluded)
+            or "none"
+        )
+        return (
+            "Alpha Vantage listing checkpoint "
+            f"{checkpoint}: input={result.input_rows}, accepted={result.accepted}, "
+            f"excluded=({excluded})"
         )
 
 
@@ -1358,15 +1543,22 @@ __all__ = [
     "ALPHA_VANTAGE_URL",
     "AtomicResponseCache",
     "ApproximateProviderError",
+    "CACHE_CONTRACT_VERSION",
+    "COMPLETION_CONTRACT_VERSION",
+    "CollectorAuthenticationError",
     "CollectorError",
     "CollectorPartialError",
     "CompletedCollection",
     "CollectorSettings",
     "FreeMarketDataCollector",
     "KRXDailyResponse",
+    "KRX_KSQ_URL",
+    "KRX_STK_URL",
     "MAX_KRX_ROWS_PER_DAY",
     "NetworkCollectorTransport",
+    "NORMALIZATION_VERSION",
     "RequestBudgetExceeded",
+    "parse_alpha_vantage_listing_status_detailed",
     "collect_market_data",
     "completed_collection_is_valid",
     "estimate_network_requests",
