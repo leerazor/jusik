@@ -2,7 +2,7 @@
 
 ## roadmap-automation
 
-- 상태: 차단 (코드·설정·큐 준비 완료, 사용자 문서 보존 방식 응답 대기로 활성화 전)
+- 상태: 진행 (코드·설정 검증 완료, 사용자 승인으로 자동 운영 전환; 실제 dispatch는 audit/activation.json 참조)
 - 목표와 완료 조건: 기존 실행기에 투자 로드맵 전용 범위를 추가하고 별도 큐에서 미완료 체크리스트의 선행 조건을 확인하여 자동 개발을 이어갑니다. 회귀 검사·독립 검토·main 통합 후 첫 실제 dispatch를 확인합니다.
 - 담당 Luna: /root/roadmap_automation_code (code, gpt-5.6-luna); 초기 구현 소유자; 재호출 thread limit으로 마지막 mandate gate 복구만 감독 Astra가 인계
 - 워크트리 절대 경로: /home/kwl/projects/jusik-roadmap-automation
@@ -14,7 +14,7 @@
 - 포트·테스트 DB·출력 경로: 서버 없음; 작업별 임시 DB·환경; /home/kwl/.local/share/jusik/portfolio-audit/20260915-roadmap-automation
 - 검증 명령과 결과: main 통합 runner pytest78·Ruff·strict mypy 통과; 독립 review 최종 중요 지적 없음; 전용 큐 seed 등록·paused smoke 통과
 - 결과 커밋 SHA: 0d08b8e (Luna 217a982·85d510a, 감독의 최종 gate 복구 포함)
-- 검토 결과와 남은 문제: 독립 review 지적 모두 수정·재검토 통과. 사용자 문서 보존 방식 응답 대기; 원문·해시 보존
+- 검토 결과와 남은 문제: 독립 review 지적 모두 수정·재검토 통과. 사용자 승인 후 문서 보존 커밋 a4f9760 완료; 추가 의사결정 없이 전용 자동 실행 시작
 - 병합 직전 main SHA: 8d4ea489ed183500261ae9669abdf5387cfaa22b
 - 통합 커밋 SHA와 정리 여부: 518ddb8b6f048dc4a46f36136fd14469f8f22782; 증거 보존 후 worktree 제거 완료, branch 보존
 - 통합 검증 실패 원인과 복구 결과: 해당 없음

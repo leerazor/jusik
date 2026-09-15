@@ -12,6 +12,6 @@ phase gate는 R0 완료 후 R1·R2·R3를 독립적으로 허용하고, R1과 R2
 
 ## 현재 설치 상태와 제어
 
-2026-09-15 기준 전용 config는 `~/.config/jusik/roadmap-development-runner.json`, state는 `~/.local/share/jusik/roadmap-development-runner`입니다. 기존 `jusik-development-runner.service`에 `roadmap.conf` drop-in을 추가해 같은 서비스 하나가 새 config를 읽도록 준비했습니다. 기존 연구 큐는 paused로 보존했습니다. R1-01 seed는 queued이며 새 큐도 paused, service/timer도 inactive입니다. 사용자 미커밋 문서 보존 방식을 확정한 뒤 clean-main 조건을 충족해야 활성화할 수 있습니다.
+2026-09-15 기준 전용 config는 `~/.config/jusik/roadmap-development-runner.json`, state는 `~/.local/share/jusik/roadmap-development-runner`입니다. 기존 `jusik-development-runner.service`에 `roadmap.conf` drop-in을 추가해 같은 서비스 하나가 새 config를 읽도록 준비했습니다. 기존 연구 큐는 paused로 보존했습니다. 사용자가 필요한 커밋과 자동 개발 시작을 승인했고 기존 문서 두 개는 `a4f9760`으로 보존했습니다. R1-01 seed로 자동 운영을 시작합니다. 실제 시작 여부·attempt ID·확인 시각은 audit의 `activation.json`을 기준으로 확인합니다. 기존 연구 큐는 재개하지 않습니다.
 
 수동 작업 전에는 backend에서 `.venv/bin/python -m jusik.development_runner pause --config ~/.config/jusik/roadmap-development-runner.json`을 실행하고, `systemctl --user stop jusik-development-runner.service`와 inactive 확인을 수행합니다. `status`, `resume`, `retry`에도 같은 config를 명시합니다. 자동 child는 자기 service를 중지하지 않습니다. WSL이 종료되면 자동 실행도 멈춥니다.

@@ -1,6 +1,6 @@
 # 투자 개발 로드맵 자동 실행기
 
-- 상태: 차단 (코드 검증 완료, 운영 활성화 대기)
+- 상태: 진행 (코드 검증 완료, 사용자 승인 후 자동 운영 전환)
 - 기록 시각: 2026-09-15T07:10:21.954856+00:00
 - 작업 slug: `roadmap-automation`
 - 기준/통합: `3df0c0c` / `518ddb8b6f048dc4a46f36136fd14469f8f22782`
@@ -34,8 +34,8 @@
 ## 증거와 재개
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-roadmap-automation`; manifest: `integration-verification.json`; 코드·lock·전용 config SHA-256과 실제 검사 결과 기록
-- 남은 작업·차단 조건: 코드·설정·큐 준비는 완료했다. 기존 미커밋 사용자 문서 보존 커밋 또는 별도 저장소 선택에 대한 응답을 기다리며 두 큐 모두 paused, service/timer inactive를 유지한다.
-- 다음 시작: 사용자 응답 후 문서 보존 방식과 clean-main을 확정하고, 전용 config resume·단일 timer/service 시작 후 실제 R1-01 attempt를 확인한다.
+- 남은 작업·차단 조건: 코드·설정·큐 준비는 완료했다. 사용자가 필요한 커밋과 자동 실행을 승인했다. 기존 문서는 a4f9760으로 보존했고 전용 큐만 시작한다. 실제 서비스·attempt 상태는 activation.json에 기록한다.
+- 다음 시작: 전용 큐의 실제 R1-01 attempt와 이후 체크리스트 진행을 관찰한다. 과거 activation 대기 상태는 activation.json의 확인 시각과 상태로 대체한다.
 
 ## 최종 검토 보완
 
@@ -49,3 +49,8 @@
 - 전용 config: `~/.config/jusik/roadmap-development-runner.json`; state: `~/.local/share/jusik/roadmap-development-runner`. `planning_enabled=true`, 기존 승인된 daily_launches=null·90분 timeout·60초 cooldown을 유지한다.
 - 기존 서비스 drop-in: `~/.config/systemd/user/jusik-development-runner.service.d/roadmap.conf`. 기존 연구 config/DB는 paused로 보존했다.
 - 실제 활성화가 끝나지 않았으므로 자동 개발 실행 중 또는 전체 로드맵 완료로 표시하지 않는다. R0만 완료이며 R1~R7은 미완료다.
+
+## 자동 실행 승인
+
+- 사용자가 필요한 커밋과 자동 개발 시작을 승인했다. 문서 보존 커밋은 `a4f9760`이며 파일 내용은 그대로 유지했다. 추가 시작 승인은 필요하지 않다.
+- 자동 운영 전환 직전 기록이며, 실제 dispatch 증거는 audit `activation.json`에 분리해 기록한다. 실행 중인 supervisor와 동시에 main 문서를 수정하지 않기 위한 경계다.
