@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
@@ -498,6 +499,76 @@ class _CausalUSCheckpointTransport(_USCheckpointTransport):
         ).encode()
 
 
+class _ThreeCheckpointUSCheckpointTransport(_USCheckpointTransport):
+    def __init__(self) -> None:
+        super().__init__(fail_later=False)
+
+    async def alpha_listing(self, as_of: date) -> bytes:
+        self.alpha_calls += 1
+        if as_of.year == 2025:
+            raise CollectorError("checkpoint unavailable")
+        symbols = ("AAA", "BBB") if as_of.year == 2024 else ("AAA", "NEW")
+        rows = [
+            f"{symbol},Sample {symbol},NASDAQ,Stock,2020-01-01,null,Active"
+            for symbol in symbols
+        ]
+        return (
+            "symbol,name,exchange,assetType,ipoDate,delistingDate,status\n"
+            + "\n".join(rows)
+            + "\n"
+        ).encode()
+
+
+class _CappedUSCheckpointTransport(_USCheckpointTransport):
+    async def alpha_listing(self, as_of: date) -> bytes:
+        self.alpha_calls += 1
+        symbols = tuple(
+            f"Y{self.alpha_calls}{index:03d}" for index in range(100)
+        )
+        rows = [
+            f"{symbol},Sample {symbol},NASDAQ,Stock,2020-01-01,null,Active"
+            for symbol in symbols
+        ]
+        return (
+            "symbol,name,exchange,assetType,ipoDate,delistingDate,status\n"
+            + "\n".join(rows)
+            + "\n"
+        ).encode()
+
+    async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
+        return json.dumps(
+            {
+                "chart": {
+                    "result": [
+                        {
+                            "meta": {
+                                "symbol": symbol,
+                                "currency": "USD",
+                                "instrumentType": "EQUITY",
+                                "exchangeName": "NMS",
+                                "exchangeTimezoneName": "America/New_York",
+                            },
+                            "timestamp": [
+                                int(datetime.combine(start, time(20), UTC).timestamp())
+                            ],
+                            "indicators": {
+                                "quote": [
+                                    {
+                                        "open": [100],
+                                        "high": [101],
+                                        "low": [99],
+                                        "close": [100],
+                                        "volume": [1000],
+                                    }
+                                ]
+                            },
+                        }
+                    ]
+                }
+            }
+        ).encode()
+
+
 def test_collector_builds_validated_kr_dataset_without_current_universe_fallback() -> (
     None
 ):
@@ -633,7 +704,9 @@ def test_us_collector_future_newcomer_cannot_change_prior_membership_prefix() ->
     assert "NEW" not in {row.symbol for row in permuted_prefix}
 
 
-def test_us_collector_keeps_warmup_prices_but_admits_new_symbol_at_checkpoint() -> None:
+def test_us_collector_keeps_warmup_prices_but_admits_new_symbol_at_checkpoint(
+    tmp_path: Path,
+) -> None:
     result = asyncio.run(
         FreeMarketDataCollector(
             _CausalUSCheckpointTransport(
@@ -654,6 +727,231 @@ def test_us_collector_keeps_warmup_prices_but_admits_new_symbol_at_checkpoint() 
     assert min(membership_sessions) >= date(2026, 1, 2)
     assert price_sessions
     assert min(price_sessions) < min(membership_sessions)
+    prepared = tmp_path / "new-symbol.json"
+    prepared.write_bytes(result.dataset.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="US",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        research_grade="approximate",
+    )
+    source = ApproximateMarketHistorySource(JsonApproximateProvider(prepared))
+    snapshot = asyncio.run(
+        source.collect(request, captured_at=datetime(2026, 9, 16, tzinfo=UTC))
+    )
+    strategy_result = run_approximate_market_research(
+        snapshot,
+        request,
+        source.readiness("US", datetime(2026, 9, 16, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert strategy_result.status == "approximate"
+    assert strategy_result.trades
+    assert all(
+        trade.symbol != "NEW" or trade.fill_session >= min(membership_sessions)
+        for trade in strategy_result.trades
+    )
+
+
+def test_us_collector_three_checkpoint_gap_and_delayed_recovery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from jusik import market_data_collector as collector_module
+
+    original_parser = collector_module.parse_alpha_vantage_listing_status_detailed
+
+    def delayed_parser(
+        body: bytes,
+        *,
+        as_of: date,
+        available_at: datetime | None = None,
+    ):
+        parsed = original_parser(body, as_of=as_of, available_at=available_at)
+        if as_of.year == 2026:
+            delayed = tuple(
+                row.model_copy(
+                    update={"available_at": datetime(2026, 10, 1, tzinfo=UTC)}
+                )
+                for row in parsed.rows
+            )
+            return replace(parsed, rows=delayed)
+        return parsed
+
+    monkeypatch.setattr(
+        collector_module,
+        "parse_alpha_vantage_listing_status_detailed",
+        delayed_parser,
+    )
+    result = asyncio.run(
+        FreeMarketDataCollector(_ThreeCheckpointUSCheckpointTransport()).collect(
+            market="US",
+            start=date(2024, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=2,
+        )
+    )
+    failed_checkpoint = date(2025, 1, 2)
+    assert any("checkpoint unavailable" in item for item in result.limitations)
+    assert all(row.session < failed_checkpoint for row in result.dataset.universe)
+    assert "NEW" not in {row.symbol for row in result.dataset.universe}
+    assert "BBB" in {row.symbol for row in result.dataset.universe}
+    assert "NEW" in {bar.symbol for bar in result.dataset.bars}
+
+
+def test_us_collector_recovery_after_gap_retains_incumbent_and_fills_vacancy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from jusik import market_data_collector as collector_module
+
+    original_parser = collector_module.parse_alpha_vantage_listing_status_detailed
+
+    def recovery_parser(
+        body: bytes,
+        *,
+        as_of: date,
+        available_at: datetime | None = None,
+    ):
+        parsed = original_parser(body, as_of=as_of, available_at=available_at)
+        if as_of.year == 2026:
+            recovered = tuple(
+                row.model_copy(
+                    update={"available_at": datetime(2026, 1, 7, tzinfo=UTC)}
+                )
+                for row in parsed.rows
+            )
+            return replace(parsed, rows=recovered)
+        return parsed
+
+    monkeypatch.setattr(
+        collector_module,
+        "parse_alpha_vantage_listing_status_detailed",
+        recovery_parser,
+    )
+    result = asyncio.run(
+        FreeMarketDataCollector(_ThreeCheckpointUSCheckpointTransport()).collect(
+            market="US",
+            start=date(2024, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=2,
+        )
+    )
+    failed_checkpoint = date(2025, 1, 2)
+    recovery_session = date(2026, 1, 7)
+    recovery_rows = [
+        row
+        for row in result.dataset.universe
+        if row.session >= recovery_session
+    ]
+    assert {row.symbol for row in recovery_rows} == {"AAA", "NEW"}
+    assert all(
+        row.session < failed_checkpoint
+        or row.session >= recovery_session
+        for row in result.dataset.universe
+    )
+    assert "BBB" not in {row.symbol for row in recovery_rows}
+
+
+def test_us_collector_enforces_cumulative_four_hundred_admission_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from jusik import market_data_collector as collector_module
+
+    checkpoints = (
+        date(2023, 8, 15),
+        date(2023, 9, 1),
+        date(2024, 1, 3),
+        date(2025, 1, 3),
+        date(2026, 1, 2),
+    )
+    monkeypatch.setattr(
+        collector_module, "_listing_checkpoints", lambda sessions: checkpoints
+    )
+    result = asyncio.run(
+        FreeMarketDataCollector(_CappedUSCheckpointTransport(fail_later=False)).collect(
+            market="US",
+            start=date(2023, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=100,
+        )
+    )
+    symbols_by_session: dict[date, set[str]] = {}
+    for row in result.dataset.universe:
+        symbols_by_session.setdefault(row.session, set()).add(row.symbol)
+    assert max(map(len, symbols_by_session.values())) == 100
+    assert len({row.symbol for row in result.dataset.universe}) == 400
+    assert any("cumulative_admitted=400" in item for item in result.limitations)
+
+
+def test_us_collector_source_strategy_prefix_is_invariant_to_future_listing(
+    tmp_path: Path,
+) -> None:
+    async def run(later_symbols: tuple[str, ...], output: Path):
+        collected = await FreeMarketDataCollector(
+            _CausalUSCheckpointTransport(later_symbols)
+        ).collect(
+            market="US",
+            start=date(2025, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=2,
+        )
+        output.write_bytes(collected.dataset.model_dump_json().encode())
+        request = MarketResearchRequest(
+            market="US",
+            start_date=date(2025, 9, 14),
+            end_date=date(2026, 9, 14),
+            research_grade="approximate",
+        )
+        source = ApproximateMarketHistorySource(JsonApproximateProvider(output))
+        snapshot = await source.collect(
+            request, captured_at=datetime(2026, 9, 16, tzinfo=UTC)
+        )
+        readiness = source.readiness("US", datetime(2026, 9, 16, tzinfo=UTC))
+        result = run_approximate_market_research(
+            snapshot, request, readiness, default_market_calendar()
+        )
+        return snapshot, result
+
+    baseline_snapshot, baseline_result = asyncio.run(
+        run(("AAA", "NEW"), tmp_path / "baseline.json")
+    )
+    changed_snapshot, changed_result = asyncio.run(
+        run(("AAA", "OTHER"), tmp_path / "changed.json")
+    )
+    checkpoint = date(2026, 1, 2)
+    baseline_membership_prefix = tuple(
+        item
+        for item in baseline_snapshot.memberships
+        if item.valid_from < checkpoint
+    )
+    changed_membership_prefix = tuple(
+        item
+        for item in changed_snapshot.memberships
+        if item.valid_from < checkpoint
+    )
+    baseline_evidence_prefix = tuple(
+        item
+        for item in baseline_result.candidate_evidence
+        if item.session < checkpoint
+    )
+    changed_evidence_prefix = tuple(
+        item
+        for item in changed_result.candidate_evidence
+        if item.session < checkpoint
+    )
+    assert baseline_membership_prefix == changed_membership_prefix
+    assert baseline_evidence_prefix == changed_evidence_prefix
+    assert baseline_result.status == changed_result.status == "approximate"
+    assert baseline_evidence_prefix
+    assert any(
+        item.symbol == "NEW"
+        for item in baseline_result.candidate_evidence
+        if item.session >= checkpoint
+    )
+    assert any(
+        item.symbol == "OTHER"
+        for item in changed_result.candidate_evidence
+        if item.session >= checkpoint
+    )
 
 
 def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap() -> (

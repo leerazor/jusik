@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -113,6 +113,44 @@ def test_causal_us_source_keeps_preselected_rows_and_contract_is_policy_only(
     assert snapshot.pool_contract_hash == us_membership_contract_hash()
 
 
+def test_causal_us_source_normalizes_membership_availability_to_utc(
+    tmp_path: Path,
+) -> None:
+    session = date(2026, 9, 11)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+                available_at=datetime(
+                    2026, 9, 12, 14, tzinfo=timezone(timedelta(hours=9))
+                ),
+            ),
+        ),
+        bars=(),
+        normalization_version=US_MEMBERSHIP_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "causal-us-utc.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    snapshot = asyncio.run(
+        ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            MarketResearchRequest(
+                market="US",
+                start_date=session,
+                end_date=session,
+                research_grade="approximate",
+            )
+        )
+    )
+    assert snapshot.memberships[0].available_at == datetime(
+        2026, 9, 12, 5, tzinfo=UTC
+    )
+
+
 @pytest.mark.parametrize(
     "rows",
     [
@@ -166,6 +204,80 @@ def test_causal_us_source_rejects_membership_bounds(
             )
     finally:
         source_path.unlink(missing_ok=True)
+
+
+def test_causal_us_source_accepts_one_hundred_rows_per_session(tmp_path: Path) -> None:
+    session = date(2026, 9, 11)
+    rows = tuple(
+        ApproximateUniverseRow(
+            session=session,
+            symbol=f"S{index:03d}",
+            name="Sample",
+            exchange="NMS",
+            currency="USD",
+        )
+        for index in range(100)
+    )
+    dataset = ApproximateDataset(
+        market="US",
+        universe=rows,
+        bars=(),
+        normalization_version=US_MEMBERSHIP_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "causal-us-100.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    snapshot = asyncio.run(
+        ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            MarketResearchRequest(
+                market="US",
+                start_date=session,
+                end_date=session,
+                research_grade="approximate",
+            )
+        )
+    )
+    assert len(snapshot.memberships) == 100
+
+
+def test_causal_us_source_rejects_four_hundred_one_across_sessions(
+    tmp_path: Path,
+) -> None:
+    sessions = (
+        date(2026, 9, 8),
+        date(2026, 9, 9),
+        date(2026, 9, 10),
+        date(2026, 9, 11),
+        date(2026, 9, 14),
+    )
+    rows = tuple(
+        ApproximateUniverseRow(
+            session=sessions[index // 100],
+            symbol=f"S{index:03d}",
+            name="Sample",
+            exchange="NMS",
+            currency="USD",
+        )
+        for index in range(401)
+    )
+    dataset = ApproximateDataset(
+        market="US",
+        universe=rows,
+        bars=(),
+        normalization_version=US_MEMBERSHIP_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "causal-us-cumulative.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    with pytest.raises(ApproximateProviderError, match="cumulative"):
+        asyncio.run(
+            ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+                MarketResearchRequest(
+                    market="US",
+                    start_date=sessions[0],
+                    end_date=sessions[-1],
+                    research_grade="approximate",
+                )
+            )
+        )
 
 
 def test_json_provider_rejects_current_period_overflow_and_market_mismatch(

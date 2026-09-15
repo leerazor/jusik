@@ -462,6 +462,16 @@ class ApproximateMarketHistorySource:
         memberships: list[PITMembership] = []
         for row in selected_rows:
             market_session = _session(self.calendar, row.exchange, row.session)
+            membership_available_at = row.available_at or market_session.close_at
+            if is_causal_us:
+                if (
+                    membership_available_at.tzinfo is None
+                    or membership_available_at.utcoffset() is None
+                ):
+                    raise ApproximateProviderError(
+                        "US membership availability must be timezone-aware"
+                    )
+                membership_available_at = membership_available_at.astimezone(UTC)
             memberships.append(
                 PITMembership(
                     stable_id=f"approx:{row.session}:{row.symbol}",
@@ -473,7 +483,7 @@ class ApproximateMarketHistorySource:
                     currency=row.currency,
                     valid_from=row.session,
                     valid_to=row.session,
-                    available_at=row.available_at or market_session.close_at,
+                    available_at=membership_available_at,
                     captured_at=captured,
                     source=dataset.source,
                     source_hash=_hash(row.model_dump(mode="json")),

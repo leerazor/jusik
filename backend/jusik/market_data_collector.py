@@ -1198,6 +1198,7 @@ class FreeMarketDataCollector:
             raise CollectorError("requested range lacks warmup and evaluation sessions")
         checkpoint = sessions[0]
         alpha_limitations: list[str] = []
+        us_symbol_details: dict[str, ApproximateUniverseRow] = {}
         if market == "KR":
             krx_rows: list[ApproximateUniverseRow] = []
             krx_bars: list[ApproximateBarRow] = []
@@ -1255,7 +1256,7 @@ class FreeMarketDataCollector:
             checkpoint_selected: dict[date, tuple[str, ...]] = {}
             admitted_symbols: set[str] = set()
             us_current_symbols: tuple[str, ...] = ()
-            symbol_details: dict[str, ApproximateUniverseRow] = {}
+            symbol_details = us_symbol_details
             listing_checkpoints = _listing_checkpoints(sessions)
             for checkpoint_index, listing_checkpoint in enumerate(listing_checkpoints):
                 lookup = self.calendar.lookup("NMS", listing_checkpoint)
@@ -1318,7 +1319,7 @@ class FreeMarketDataCollector:
                         cumulative_admitted=len(admitted_symbols),
                     )
                 )
-            if not us_current_symbols:
+            if not admitted_symbols:
                 raise CollectorError("historical eligible universe is empty")
             symbols = tuple(sorted(admitted_symbols))
             if not symbols:
@@ -1370,6 +1371,11 @@ class FreeMarketDataCollector:
                     next_effective = effective_starts.get(next_checkpoint)
                     if next_effective is not None:
                         next_checkpoint = next_effective
+                    elif checkpoint_rows.get(next_checkpoint) is not None:
+                        # The successful observation is after the requested
+                        # range. Keep the prior state through the range; the
+                        # transition cannot be applied yet.
+                        next_checkpoint = None
                 period_sessions = tuple(
                     session
                     for session in sessions
@@ -1460,7 +1466,19 @@ class FreeMarketDataCollector:
         else:
             candidate_rows = raw_rows
             for symbol in symbols:
-                row = next(item for item in candidate_rows if item.symbol == symbol)
+                candidate_row = next(
+                    (
+                        item
+                        for item in candidate_rows
+                        if item.symbol == symbol
+                    ),
+                    us_symbol_details.get(symbol),
+                )
+                if candidate_row is None:
+                    raise CollectorError(
+                        f"admitted symbol details unavailable: {symbol}"
+                    )
+                row = candidate_row
                 try:
                     chart = parse_yahoo_chart(
                         await self.transport.yahoo(symbol, warmup_start, end),
