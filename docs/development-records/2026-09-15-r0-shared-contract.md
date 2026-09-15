@@ -24,10 +24,10 @@
 ## 검증
 
 - `python3.13 -m venv backend/.venv && backend/.venv/bin/python -m pip install --disable-pip-version-check -r backend/requirements.lock` — 통과; 워크트리 전용 Python 3.13 환경과 lock 의존성을 사용했습니다.
-- `PYTHONPATH=. backend/.venv/bin/python -m pytest backend/tests/test_market_research.py` — 통과; 27개 테스트, deprecation warning 2개.
+- `cd backend && PYTHONPATH=. .venv/bin/python -m pytest tests/test_market_research.py tests/test_market_history_approximate.py` — 통과; 46개 테스트, deprecation warning 2개.
 - `backend/.venv/bin/ruff format --check ... && backend/.venv/bin/ruff check ...` — 통과; 변경 Python 3개 파일.
 - `backend/.venv/bin/python -m mypy --strict jusik/market_history_models.py jusik/market_research_service.py` — 통과.
-- `npx --yes tsx scripts/verify-market-research-contract.ts` — 통과; current와 provenance 누락 legacy run을 파싱하고 빈 normalization version·timezone 없는 capture timestamp를 거부했습니다.
+- `npm run verify:market-research-contract` (`tsx` 4.23.13 고정) — 통과; current와 provenance 누락 legacy run을 파싱하고 빈 normalization version·timezone 없는 capture timestamp를 거부했습니다.
 - `npm ci --no-audit --no-fund`, `npm run lint`, `npm run typecheck`, `npm run build` — 통과; Next.js production build 완료. npm deprecated/install-script 경고는 실패가 아닙니다.
 - 실행하지 않은 검사: 전체 backend pytest와 독립 review. 통합 전 supervisor가 전체 영향 범위를 재검증해야 합니다.
 
@@ -38,6 +38,6 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-shared-contract`; manifest: `r0-shared-contract-verification.json`; SHA-256: `3d5dd33f88f6dfbb1d53d12933bb2260d0f7566ea7660cd074bd9c74d5551309`.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-r0-baseline/r0-shared-contract`; manifest: `r0-shared-contract-verification.json`; SHA-256: `07e46296228238bde9fceb2e40400c7a03473b6d64d031929c86f11cceb93c1a`.
 - 남은 작업·차단 조건: supervisor 독립 review와 local `main` 통합 검증 전까지 완료로 표시하지 않습니다. R0-04 통화 metadata와 R0-05 grade label은 후속 작업입니다.
 - 다음 시작: supervisor가 이 브랜치의 diff와 contract 문서를 검토한 뒤 전체 backend 영향 테스트와 통합 검증을 수행합니다.
