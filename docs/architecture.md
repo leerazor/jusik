@@ -27,5 +27,6 @@
 2. `docs/worktree-tasks.md`에서 활성·차단 작업과 충돌하는 경로를 확인합니다.
 3. 해당 slug의 `docs/development-records/` 기록과 최신 `HANDOFF.md`를 읽고 실제 Git 상태를 대조합니다.
 4. 연구 작업은 `docs/research-mandate.md`와 JSON을 먼저 확인합니다. runner 또는 worktree 작업은 해당 운영 문서를 먼저 읽습니다.
+5. 투자 개발 후속 작업은 [투자 개발 로드맵](investment-development-roadmap.md)을 먼저 읽고 해당 단계의 체크리스트·증거·의존성을 따릅니다.
 
 완료 시에는 [개발 기록 기준](development-records.md)을 따릅니다.
