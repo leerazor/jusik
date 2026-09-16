@@ -15,8 +15,10 @@
 
 ## r2-counterfactual-fe92
 
-- 상태: 재시도 진행. task `roadmap-r2-06-v1`, attempt `474fb22d193c4302893e77e27f8d1b55`; 이전 환경 중단은 이력으로 보존합니다. 기존 소유 branch/worktree를 재사용하며 Python 3.13.15와 첨부 4개 SHA 일치를 새로 확인했습니다.
-- 현재 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-474fb22d/`; Luna 조사·단일 구현, Terra 독립 review, Astra main 통합을 순차 진행합니다.
+- 상태: 재시도 차단. task `roadmap-r2-06-v1`, attempt `474fb22d193c4302893e77e27f8d1b55`; 기존 worktree를 재사용해 구현했으나 단일 가정 검증 결함이 독립 review에서 두 번째 발생하여 중단했습니다. 이전 환경 실패 이력은 보존합니다.
+- 현재 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-474fb22d/`; `review-final.md`, `stop-evidence.json`, `evidence-manifest.json`, `HANDOFF.md`에 근거·재개 입력을 저장합니다.
+- 결과: Luna 구현 `0bab5ad04ff03f4c9561a522e202586bc04e4ccc`; fresh pytest43·Ruff check/format·strict mypy 통과, Terra review 미통과. 구현 main 병합·통합 검사는 미실행. container→scalar 교체의 다중 leaf 제거를 막는 수정이 필요합니다. 분류 `implementation` / `actionable_review`.
+- 정리: 미병합 소유 worktree/branch와 snapshot/patch를 보존합니다. 실제 자료 acceptance 부재로 R2-06 미체크이며 기술 slice도 미완료입니다.
 - 목표: 이미 준비된 기준 및 단일 가정 변경 결과를 오프라인 비교하고 비용·배당·FX의 비가산 차이를 별도 기록합니다. 전체 R2-06은 실제 acceptance 전 미체크 유지합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r2-counterfactual-fe92`, `feat/r2-counterfactual-fe92`; 요청 기준 `d0d029996ea993216036385962c9153968ea61fe`, 등록 커밋에서 분기하고 local main에 통합합니다.

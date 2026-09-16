@@ -1,4 +1,28 @@
-# R2-06 오프라인 counterfactual 비교 — 환경 준비 중단
+# R2-06 오프라인 counterfactual 비교 — 재검토 중단
+
+- 현재 상태: 차단. 동일한 단일 가정 검증 결함이 독립 review에서 두 번째 확인되어 사용자 중단 조건을 적용했습니다.
+- task/attempt: `roadmap-r2-06-v1` / `474fb22d193c4302893e77e27f8d1b55`; 이전 attempt: `fe9204931f0b446f8dfba0d21473f39d`.
+- 요청 기준: `d0d029996ea993216036385962c9153968ea61fe`는 현재 main의 조상이며 첨부 4개 SHA와 최신 mandate가 일치했습니다.
+- 구현: 기존 소유 worktree `/home/kwl/projects/jusik-r2-counterfactual-fe92`, branch `feat/r2-counterfactual-fe92`, 최종 커밋 `0bab5ad04ff03f4c9561a522e202586bc04e4ccc`. 구현 main 통합은 없습니다.
+
+## 이번 재시도의 변경과 검증
+
+Luna가 별도 prepared-report 비교 모듈·CLI, 관련 테스트와 한국어 계약을 구현했습니다. 원본 bytes SHA와 공통 계약을 대조하고 동일 통화·단위의 available 값만 Decimal 차감합니다. 원본 report와 unavailable/diagnostic을 보존하고 배당·FX 근거 부족은 blocked delta와 재개 입력으로 남깁니다. 초기 계좌 통화와 결과 통화를 분리하고 시나리오별 변경 경로·전후 값을 기록합니다. 구현은 아직 독립 review를 통과하지 않았으므로 사용 완료 계약으로 간주하지 않습니다.
+
+기존 전용 venv Python 3.13.15를 확인했고 fresh focused pytest 43개(새 비교22개와 기존 손실 회계21개), Ruff check/format, configured strict mypy 2파일은 통과했습니다. 초기 독립 review 후 동일 Luna가 수정하고 fresh 검사를 다시 통과했으나 재검토에서 단일 가정 결함이 남았습니다. main 통합 검사는 review gate 미통과로 실행하지 않았습니다.
+
+## 중단 근거와 재개 조건
+
+`market_counterfactual_comparison.py`에서 cost 객체 `{fees: "1", taxes: "1"}`를 `null`로 교체하면 하위 두 가정 제거를 한 atomic 변경으로 처리합니다. `change.path="cost"`를 선언한 envelope가 통과하는 것을 Terra가 재현했습니다. 최초 단일 가정 위반 지적의 두 번째 발생이므로 이번 시도에서 추가 수정·검사·병합은 중단했습니다. 다음 허용된 재시도는 container 교체를 거절하거나 하위 leaf 변경을 모두 계산하고 이 경계를 포함한 fresh tests 및 독립 review를 다시 수행해야 합니다. 자동 복구 분류는 `implementation` / `actionable_review`입니다.
+
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-474fb22d/`; `review-initial.md`, `review-final.md`, `stop-evidence.json`, final2 검사 로그, 소스 snapshot/patch와 `evidence-manifest.json`을 보존합니다.
+- handoff: 같은 audit의 `HANDOFF.md`. 미병합 소유 worktree/branch를 보존하며 다른 worktree와 기존 루트 HANDOFF는 변경하지 않았습니다.
+- 전체 R2-06: 미체크. 실제 준비 결과·benchmark·미래 관찰 acceptance가 없으며 경제 평가는 not-evaluated입니다. 기술 slice도 review 미통과로 미완료입니다.
+- network/provider 수집·historical engine/replay·GPU 실행0회. PAPER/live·주문·운영 원장/DB·서비스·설정·remote 변경0회. UI·연구 성과 공개는 해당 없습니다.
+
+## 이전 시도 이력
+
+### 이전 환경 준비 중단
 
 - 상태: 차단. 기술 slice 및 전체 R2-06 모두 미완료입니다.
 - task/attempt: `roadmap-r2-06-v1` / `fe9204931f0b446f8dfba0d21473f39d`
