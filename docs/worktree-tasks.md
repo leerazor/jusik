@@ -15,6 +15,8 @@
 
 ## r2-counterfactual-fe92
 
+- 현재 재시도: attempt `16e000f1b0cb4314b54eb2a5acbe50f0`에서 기존 소유 branch/워크트리를 재사용합니다. 이전 중단은 역사 상태이며 현재 환경 Python 3.13.15와 이전 증거 48개 SHA 및 원래 입력 4개 SHA를 재확인했습니다. container 구조 교체 결함의 제한 수정, fresh 검사와 독립 review 후 통합합니다. audit `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-16e000f1`.
+
 - 상태: 재시도 차단. task `roadmap-r2-06-v1`, attempt `474fb22d193c4302893e77e27f8d1b55`; 기존 worktree를 재사용해 구현했으나 단일 가정 검증 결함이 독립 review에서 두 번째 발생하여 중단했습니다. 이전 환경 실패 이력은 보존합니다.
 - 현재 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-474fb22d/`; `review-final.md`, `stop-evidence.json`, `evidence-manifest.json`, `HANDOFF.md`에 근거·재개 입력을 저장합니다.
 - 결과: Luna 구현 `0bab5ad04ff03f4c9561a522e202586bc04e4ccc`; fresh pytest43·Ruff check/format·strict mypy 통과, Terra review 미통과. 구현 main 병합·통합 검사는 미실행. container→scalar 교체의 다중 leaf 제거를 막는 수정이 필요합니다. 분류 `implementation` / `actionable_review`.
