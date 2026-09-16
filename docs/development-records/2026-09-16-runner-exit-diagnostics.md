@@ -33,5 +33,5 @@
 ## 증거와 재개
 
 - audit: 없음; manifest: 없음; hash: 없음.
-- 남은 작업·차단 조건: focused 검증과 parent 통합 검토가 남아 있습니다.
-- 다음 시작: 허용된 실행기 테스트와 Ruff·mypy를 실행해 sidecar 및 기존 pause/timeout/completion 회귀를 확인합니다.
+- 남은 작업·차단 조건: parent 통합 검토가 남아 있습니다.
+- 다음 시작: parent agent가 이 커밋을 검토한 뒤 main 통합 전 최종 실행기 회귀 증거를 확인합니다.
