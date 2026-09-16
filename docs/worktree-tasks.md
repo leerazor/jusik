@@ -1,5 +1,19 @@
 # 워크트리 작업 등록부
 
+## r3-value-44f7
+
+- 상태: 진행. task `roadmap-r3-04-v1`, attempt `44f7dba3fcd04864b951f5987ad58ffe`; 이전 시도에는 소유 worktree/branch/구현이 없어 새 전용 작업을 생성합니다.
+- 목표: 현재 투자자 가치 분석과 역사적 breakout/SMA20 설명 및 자료 시점 구분. 미래 valuation 소급 금지. R3-04 하나만 수행합니다.
+- 담당: Astra 계획·통합·정적 fixture 검증, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-r3-value-44f7`, `feat/r3-value-44f7`; 기준 main `99346e9062a729b133bafcb68d43880dd8393b43`, 통합 local main.
+- 입력: R0 완료, tracked mandate JSON, investor/market 기능 문서와 기존 고정 fixture. 요청 HEAD는 현재 main의 조상입니다.
+- 수정 범위: investor·market 홈/상세 설명, 두 기능 문서, 해당 개발 기록. 전략/API/계산 계약 유지.
+- 격리·검사: 별도 node_modules/.next, loopback3234/8934, DB없음. frontend contract/lint/typecheck/build, 통합 browser4화면×2뷰포트. 연구엔진·수집·GPU0회.
+- 경계: 다른 실패/차단 작업·R3-03 재개 금지; PAPER/live·주문·운영 원장·서비스/설정·remote 변경 금지.
+- 계획/증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-04-44f7dba3/PLAN.md`.
+- 개발 기록: `docs/development-records/2026-09-16-r3-value-44f7.md`; handoff는 같은 audit의 `HANDOFF.md`에 저장 예정.
+- 완료 조건: 독립 review·main 통합 검사·SHA/handoff 선보관 후 소유 worktree 정리. 전체 acceptance 전 checkbox 미체크 유지.
+
 ## r2-nav-components-7284
 
 - 상태: 기술 복구 완료·main 통합 검증 완료. 전체 R2-05는 실제 자료 근거 부족으로 미완료이며 runner의 과거 blocked 시도는 보존합니다.
