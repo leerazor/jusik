@@ -1,5 +1,24 @@
 # 워크트리 작업 등록부
 
+## r2-market-cost-b8a5
+
+- 상태: 진행; 기술 slice와 경제 not-evaluated를 분리하며 전체 R2-02는 미체크 유지
+- task/attempt: roadmap-r2-02-v1 / b8a573f2cb564b6cb46ea646452071e5
+- 목표: KR/US fee·slippage·sell_tax_rate 구현 가정과 저장 거래 적용식 독립 검산
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review
+- 워크트리·브랜치: /home/kwl/projects/jusik-r2-market-cost-b8a5 / feat/r2-market-cost-b8a5
+- 시작 main: baa192591a4ccf9a8cc9a21623ca075bacc8acc3; 통합 대상 local main
+- 입력: 첨부 evidence5개·R0 동결 artifact4개·raw84개 SHA 검증 통과, 최신 mandate
+- 허용 범위: 신규 독립 진단 모듈·테스트·한국어 계약·개발 기록; 기존 전략·shared model·고정 세율 읽기 전용
+- 격리/한도: 전용 Python 환경·cache, 포트·DB 없음; CPU seed0, fixture16개×최대2심볼/10세션, 저장 US pilot252세션/106거래, 검사900초/artifact20MiB
+- 경계: network·simulation/replay·GPU·PAPER/live·주문·운영DB/원장·서비스/설정·remote 변경 금지. 다른 격리 작업 재사용·재개 금지
+- 검증: 관련 pytest·Ruff·configured mypy·독립 review·main 통합 검사 예정; hash 불일치/상한 초과/동일 실패2회 중단
+- 계획·증거: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-02-b8a573f2/PLAN.md
+- 개발 기록: docs/development-records/2026-09-16-r2-market-cost-b8a5.md
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-02-b8a573f2/HANDOFF.md
+- 완료 조건: 기술 검증·local main 병합 후 증거/SHA/handoff 선보관과 소유 worktree 정리. 법정 세목·기간·출처 부족은 unavailable로 유지
+
+
 ## r3-equity-97b2
 
 - 상태: 표시 slice 통합·검증 완료; 전체 R3-01은 benchmark·USD 계약 부재로 차단, 경제 not-evaluated
