@@ -2,7 +2,7 @@
 
 ## r1-provider-response-fixtures
 
-- 상태: 독립 review 지적2건 수정 중; 초기 구현9749765 보존, pytest140 통과. 이전 시도는 소유 worktree/branch 없음
+- 상태: R1-06 완료; Terra 재검토·main pytest143/Ruff/configured mypy PASS. 경제 평가 not-evaluated
 - task/attempt: roadmap-r1-06-v1 / 518dc0fb997d44c08dab07140154667a; 이전20160a6ae67744da916c84644ef4a484 보존
 - 목표: 합성 오프라인 fixture로 정상/null/quota/auth/parse/coverage 구분, 기존 예외 호환성 및 실패 캐시·비밀정보 차단 검증
 - 담당: Astra 감독·계획, Luna 조사 및 단일 구현, Terra 독립 review. 최초 Luna receipt 오타로 감사 실패를 보존하고 r106_code_verified로 같은 worktree 소유권을 순차 인계
@@ -15,6 +15,9 @@
 - 경계: 수집·pilot/final·backtest·GPU·PAPER/live·운영 원장/서비스/설정·remote 변경 없음. 경제 평가 not-evaluated
 - 완료 조건: 독립 review, local main 통합 검사, 증거·hash·handoff 보존 후 worktree 정리; 다른 checklist 변경 없음
 - 개발 기록: docs/development-records/2026-09-16-r1-provider-response-fixtures.md
+
+- 결과/통합: 9749765 및 6cb05a1; 병합 직전 c1e4aa1; 통합 e335342829a50cd56f57c782ec12edb25764bb72. R1-06만 체크
+- 증거·handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-06-518dc0fb; manifest.json, HANDOFF.md. 증거 보관·hash 검증 후 해당 worktree/branch 정리 완료
 
 ## runner-exit-diagnostics
 
