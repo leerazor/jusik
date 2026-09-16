@@ -1,9 +1,9 @@
 # Codex 종료 진단
 
-- 상태: 검증 대기
+- 상태: 완료
 - 기록 시각: 2026-09-16T03:31:34Z
 - 작업 slug: `runner-exit-diagnostics`
-- 기준/통합: `ca493eb` / 없음
+- 기준/통합: `ca493eb` / `269a34d3e965e82cb36c9baac4c6eb18b2d2d835`
 - 범위: 연구 task의 nonzero `codex_exit` 시도에 private 진단 sidecar를 기록하고 재시도 prompt를 보강했습니다. 기존 상태·스키마·retry 정책과 비연구 경로는 보존했습니다.
 
 ## 변경과 결정
@@ -33,6 +33,10 @@
 
 ## 증거와 재개
 
-- audit: 없음; manifest: 없음; hash: 없음.
-- 남은 작업·차단 조건: parent 통합 검토가 남아 있습니다.
-- 다음 시작: parent agent가 이 커밋을 검토한 뒤 main 통합 전 최종 실행기 회귀 증거를 확인합니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-roadmap-recovery`; manifest: `runner-integration.json`; source hash와 원본 검사 결과는 `runner-source/`, `runner-final/`에 보존합니다.
+- 남은 작업·차단 조건: 없음. 과거 CLI 종료 원인은 누락된 종료 코드를 소급 생성하지 않아 미확정으로 유지합니다.
+- 다음 시작: 복구 작업 완료 뒤 자동 실행을 재개하고 새 비정상 종료가 있으면 private exit-diagnostics.json부터 확인합니다.
+
+## 통합 검증 (2026-09-16T03:34:52.215623+00:00)
+
+main에서 실행기·planner·roadmap pytest84, 관련 Ruff check/format 및 strict mypy2 source가 통과했습니다. 최초 통합의 3개 실패는 실제 로드맵 진행을 읽던 테스트 fixture 때문이었으며 임시 복사본 상태를 고정해 해결했습니다. 실제 로드맵 체크는 바꾸지 않았습니다. 독립 Terra 재검토는 P1/P2 없음입니다.

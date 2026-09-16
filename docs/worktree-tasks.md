@@ -2,16 +2,16 @@
 
 ## runner-exit-diagnostics
 
-- 상태: 통합 검증 보완 중; 3e16bc2에 진단 변경 병합. 실제 로드맵 완료 상태를 읽던 기존 테스트3건을 고정 fixture로 수정 중(80 passed/3 failed).
-- 목표: codex_exit의 numeric returncode/signal/완료 파일 존재 여부를 private sidecar에 기록하고 기존 작업 재사용을 안내합니다.
-- 담당: Astra 감독, routing_compat_code Luna 단일 구현자, routing_compat_review Terra 독립 검토
-- 워크트리·브랜치: /home/kwl/projects/jusik-runner-exit-diagnostics / fix/runner-exit-diagnostics
-- 기준: 등록 커밋; 통합 대상 local main
-- 허용 범위: development_runner.py, 해당 tests, docs/development-runner.md, 전용 개발 기록
-- 검증: runner focused pytest, Ruff/format/mypy, 기록 실패 시 기존 실패 상태 보존. 실제 CLI 실패 유도 없음
-- 경계: DB schema/status/retry 정책·금융 코드·전역 설정 불변, 기존 실패 원인 소급 추정 없음
-- audit: /home/kwl/.local/share/jusik/portfolio-audit/20260916-roadmap-recovery
-
+- 상태: 완료; main 통합 및 회귀 검증 PASS
+- 목표: codex_exit의 numeric returncode/signal/완료 파일 존재를 private sidecar로 기록, retry 시 기존 소유 worktree 재사용 안내
+- 담당: routing_compat_code Luna 구현, routing_compat_review Terra 독립 검토, Astra 통합
+- 워크트리·브랜치: /home/kwl/projects/jusik-runner-exit-diagnostics / fix/runner-exit-diagnostics — 통합 검증·증거 보관 후 정리 완료
+- 기준/결과/통합: ca493eb / 1278202 / 269a34d3e965e82cb36c9baac4c6eb18b2d2d835
+- 검증: main runner3파일 pytest84·Ruff check/format·strict mypy2 source·독립 review PASS
+- 복구: live checklist를 읽던 기존 테스트3건은 임시 fixture 상태 고정으로 해결. 실제 로드맵 체크 변경 없음
+- 경계: DB schema/status/retry 정책·금융 코드·전역 설정 불변. 과거 CLI 종료 원인 추정 없음
+- 개발 기록: docs/development-records/2026-09-16-runner-exit-diagnostics.md
+- audit: /home/kwl/.local/share/jusik/portfolio-audit/20260916-roadmap-recovery/runner-integration.json
 
 ## r1-us-event-timing
 
