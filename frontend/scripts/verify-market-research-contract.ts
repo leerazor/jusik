@@ -92,12 +92,12 @@ if (!marketResearchRunLabel(current).includes("시뮬레이션 연구 실행 · 
 
 const queued = { ...current, status: "queued" as const, result: null };
 marketResearchRunSchema.parse(queued);
-if (marketResearchNullResultMessage(queued).heading !== "결과 대기 중") {
-  throw new Error("queued null result must be waiting");
+if (marketResearchNullResultMessage(queued).heading !== "실행 대기 중") {
+  throw new Error("queued null result must be queued");
 }
 const running = { ...current, status: "running" as const, result: null };
-if (marketResearchNullResultMessage(running).heading !== "결과 대기 중") {
-  throw new Error("running null result must be waiting");
+if (marketResearchNullResultMessage(running).heading !== "연구 실행 중") {
+  throw new Error("running null result must be running");
 }
 const failedRun = { ...current, status: "failed" as const, result: null, error: "hidden fixture error" };
 marketResearchRunSchema.parse(failedRun);

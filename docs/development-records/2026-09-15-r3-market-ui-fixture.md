@@ -26,3 +26,12 @@
 - 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-03-67c55654`의 `REVIEW.md`, `WORKER-REPORT.md`, `browser-assertion-summary.json`, `evidence-manifest.json`. 미병합 worktree `/home/kwl/projects/jusik-r3-market-ui-fixture-67c5`와 브랜치를 보존합니다. 구현 diff는 audit/implementation.patch에도 저장합니다.
 - 재개 조건: 새로 승인된 시도의 한도 안에서 정적8개 응답과 실행 가능한 harness를 먼저 고정하고, 지연 pending·insufficient 목록을 포함한 전체 desktop/mobile 검증·npm 원문 로그·CPU 회계를 확보합니다. review 후 main 통합·검증·handoff·정리를 마칩니다.
 - Handoff: audit/HANDOFF.md. benchmark·미래 관측은 제공·검증되지 않았고 경제 평가는 not-evaluated입니다. 성과 비교가 없어 성과 catalog/웹 수치는 변경하지 않습니다.
+## 2026-09-16 증거 회복 시도
+
+- 상태: 기술 증거 회복 완료; 독립 review·local main 통합·체크리스트 갱신은 부모 작업으로 남겼습니다.
+- 범위: 기존 구현 커밋 `8d5a590`의 frontend 동작은 수정하지 않았습니다. 정적 GET 전용 fixture 8개, 실행 가능한 Playwright CLI harness, 시나리오별 요청 로그·화면 캡처를 저장했습니다.
+- 복구: `insufficient` fixture의 top-level `run.status`를 `completed`에서 `insufficient`로 고쳐 `result.status=insufficient`와 함께 목록·상세 표시를 검증했습니다. 전후 SHA는 `status-repair.json`에 기록했습니다.
+- 브라우저: desktop 8/8, mobile 8/8을 합성 응답으로 통과했습니다. mobile은 부모 중단 전 4개와 승인된 resume 4개로 구성되며, normal list/detail의 지연 loading 문구와 final DOM을 각각 확인했습니다. 각 viewport에서 모바일 overflow가 없고 fixture 로그의 unknown/non-GET 요청이 없습니다.
+- 검증: `npm run verify:market-research-contract`, `npm run lint`, `npm run typecheck`, `npm run build`, `git diff --check`가 통과했습니다. npm 각 명령의 raw stdout/stderr, exit code, wall/user/system CPU는 audit에 보존했으며 browser/frontend CPU는 측정하지 않았습니다.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-03-recovery-manual/`; 통합 `browser-results.json`, `audit-sha-manifest.json`, `process-check.json`과 resume output을 포함합니다. benchmark·미래 관측·경제 평가는 여전히 미검증/not-evaluated입니다.
+- 안전: loopback fixture/frontend와 browser만 사용했으며 외부 수집, 연구 replay, DB, PAPER/live, 주문, 서비스, 설정, remote push 변경은 없습니다. 포트 3213·8913과 소유 process는 종료 확인했습니다.
