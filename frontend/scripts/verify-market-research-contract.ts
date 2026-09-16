@@ -1,6 +1,12 @@
 import {
+  marketResearchCapabilityStatusLabel,
+  marketResearchCompletenessLabel,
+  marketResearchCounter,
+  marketResearchCoverageLabel,
   marketResearchNullResultMessage,
+  marketResearchProvisionalLabel,
   marketResearchReadinessLabel,
+  marketResearchResultStatusLabel,
   marketResearchRunLabel,
   marketResearchRunSchema,
 } from "../lib/marketResearch";
@@ -28,7 +34,10 @@ const current = {
     readiness: {
       market: "US" as const,
       checked_at: "2026-09-15T01:10:31.457295Z",
-      capabilities: [],
+      capabilities: [
+        { name: "bars" as const, status: "partial" as const, detail: "fixture partial bars", missing_ranges: ["2025-09-12", "2025-09-13"] },
+        { name: "calendar" as const, status: "ready" as const, detail: "fixture calendar", missing_ranges: [] },
+      ],
       ready: true,
       simulated: true,
       research_grade: "approximate" as const,
@@ -38,8 +47,15 @@ const current = {
     candidate_evidence: [],
     trades: [],
     equity: [],
-    limitations: [],
-    metrics: {},
+    limitations: ["보유 종목 AAA은 1세션 전 마지막 가격으로 평가합니다(추정값)."],
+    metrics: {
+      coverage_sessions: "3",
+      expected_candidate_bars: "6",
+      usable_candidate_bars: "5",
+      excluded_nonheld_bars: "1",
+      missing_held_bars: "1",
+      trade_count: "0",
+    },
     input_hash: null,
     policy_hash: null,
     stage: "pilot" as const,
@@ -89,6 +105,30 @@ if (!marketResearchReadinessLabel(current.result.readiness).includes("근사 등
 if (!marketResearchRunLabel(current).includes("시뮬레이션 연구 실행 · PAPER 별도")) {
   throw new Error("simulation/PAPER execution label missing");
 }
+if (marketResearchCapabilityStatusLabel("partial") !== "부분 확인") {
+  throw new Error("capability partial label missing");
+}
+if (!marketResearchProvisionalLabel(current.result).includes("bars 부분 확인")) {
+  throw new Error("capability-derived provisional reason missing");
+}
+if (marketResearchResultStatusLabel("approximate") !== "근사 결과" || marketResearchCompletenessLabel("approximate") !== "근사") {
+  throw new Error("result status/completeness labels missing");
+}
+if (marketResearchCoverageLabel("5", "6") !== "5 / 6 (83.33%)") {
+  throw new Error("coverage ratio label missing");
+}
+if (marketResearchCoverageLabel("0", "0") !== "확인 불가") {
+  throw new Error("zero denominator must remain unknown");
+}
+if (marketResearchCoverageLabel("NaN", "6") !== "확인 불가" || marketResearchCoverageLabel("1.5", "6") !== "확인 불가" || marketResearchCoverageLabel("-1", "6") !== "확인 불가") {
+  throw new Error("malformed or negative counters must remain unknown");
+}
+if (!marketResearchCoverageLabel("7", "6").includes("116.67%")) {
+  throw new Error("coverage ratio must not clamp numerator");
+}
+if (marketResearchCounter("0", "건") !== "0건" || marketResearchCounter("bad", "건") !== "확인 불가") {
+  throw new Error("counter zero/unknown labels missing");
+}
 
 const queued = { ...current, status: "queued" as const, result: null };
 marketResearchRunSchema.parse(queued);
@@ -121,6 +161,9 @@ const legacy = structuredClone(current);
 const legacyResult = { ...legacy.result };
 delete (legacyResult as { provenance?: typeof legacy.result.provenance }).provenance;
 delete (legacyResult as { account?: typeof legacy.result.account }).account;
+legacyResult.metrics = {} as typeof legacyResult.metrics;
+legacyResult.limitations = [];
+legacyResult.readiness = { ...legacyResult.readiness, capabilities: [] };
 marketResearchRunSchema.parse({ ...legacy, result: legacyResult });
 
 const kr = {
@@ -184,6 +227,23 @@ const partial = {
 marketResearchRunSchema.parse(partial);
 if (marketResearchReadinessLabel(partial.result.readiness).includes("준비됨")) {
   throw new Error("partial readiness must not claim verified readiness");
+}
+if (marketResearchResultStatusLabel(partial.result.status) !== "검증 불충분" || marketResearchCompletenessLabel(partial.result.completeness) !== "불완전") {
+  throw new Error("insufficient result state labels missing");
+}
+
+const ready = {
+  ...current,
+  result: {
+    ...current.result,
+    status: "ready" as const,
+    completeness: "complete" as const,
+    readiness: { ...current.result.readiness, ready: true, capabilities: [{ name: "bars" as const, status: "ready" as const, detail: "complete fixture bars", missing_ranges: [] }] },
+  },
+};
+marketResearchRunSchema.parse(ready);
+if (!marketResearchProvisionalLabel(ready.result).includes("잠정 사유 없음")) {
+  throw new Error("ready complete result must not invent provisional failure reason");
 }
 
 const failed = {

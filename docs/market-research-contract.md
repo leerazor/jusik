@@ -70,6 +70,10 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 
 `metrics.coverage_sessions`는 실제 평가에 사용된 거래 세션 수입니다. `metrics.expected_candidate_bars`, `usable_candidate_bars`, `excluded_nonheld_bars`, `missing_held_bars`는 후보·보유 bar coverage를 설명하는 계산 지표입니다. 원시 snapshot 행 수(universe, bars, fx)와 서로 대체할 수 없으며, 원시 행 수는 private audit 또는 source 상태에서 보존합니다. 결측·부분 자료·기업행동 제한은 `limitations`와 `missing_ranges`에 남기고 유리한 기간으로 바꾸지 않습니다.
 
+상세 화면은 이 다섯 metrics를 `ready`, `insufficient`, `approximate` 결과 모두에서 표시합니다. metric이 없거나 유한한 정수가 아니면 `확인 불가`로 표시하고, `usable_candidate_bars / expected_candidate_bars` 비율은 유효한 정수 분자와 양의 정수 분모가 있을 때만 계산합니다. 분모가 0이거나 값이 malformed이면 계산하지 않으며, 분자가 분모보다 크다고 해서 100%로 clamp하지 않습니다. 명시된 0은 0으로 표시합니다. `missing_held_bars`는 영향받은 세션·종목 수가 아니며, 마지막 가격의 시점·경과일은 `limitations`의 개별 문구에서만 해석합니다.
+
+상세 화면은 `result.status`, `result.completeness`, `readiness.ready`를 서로 다른 필드로 표시하고, `readiness.capabilities`의 각 `status`, `detail`, `missing_ranges`와 missing range 항목 수를 함께 보여 줍니다. range 항목 수는 배열의 길이이며 영향받은 세션·종목 수를 뜻하지 않습니다. capability가 비어 있으면 세부 상태를 확인 불가로 표시합니다. `research_grade`와 `readiness.simulated`는 각각 자료 등급과 자료 성격으로 독립 표시합니다. status·completeness·readiness에서 도출한 잠정 문구는 화면 설명용이며 자료 확정성이나 최종 승격 가능성을 추정하지 않습니다.
+
 ## 실행 상태와 오류
 
 | run 상태 | `result` | `error` | 의미 |
