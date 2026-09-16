@@ -79,7 +79,7 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 | `insufficient` | 존재 가능 | `null` 또는 설명 | 필수 자료·coverage가 부족해 경제 수치를 만들지 않음 |
 | `failed` | `null` | 안전한 사용자용 설명 | 예외 또는 저장 실패; 원시 예외와 자격증명은 노출하지 않음 |
 
-상세 화면에서 `result=null`인 `queued`·`running`은 `결과 대기 중`, `failed`는 원시 오류를 노출하지 않는 `연구 실행 실패`, `completed`·`legacy`는 `결과 확인 불가`로 표시합니다. 저장된 결과가 없는 상태를 성공이나 검증 완료로 해석하지 않습니다.
+상세 화면에서 `result=null`인 `queued`는 `실행 대기 중`, `running`은 `연구 실행 중`으로 구분하고, `failed`는 원시 오류를 노출하지 않는 `연구 실행 실패`, `completed`·`legacy`는 `결과 확인 불가`로 표시합니다. 저장된 결과가 없는 상태를 성공이나 검증 완료로 해석하지 않습니다.
 
 결과 `status`는 `ready`, `insufficient`, `approximate`이고 `completeness`는 `complete`, `incomplete`, `approximate`입니다. strict 결과의 평가 gate는 `completed` + `ready` + `complete`, approximate 결과의 gate는 `completed` + `approximate` + `approximate`입니다. `research_grade`는 request·readiness·result에서 같아야 하며, `simulated`는 자료의 실행 성격을 별도로 나타냅니다.
 

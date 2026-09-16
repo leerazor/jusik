@@ -207,10 +207,16 @@ export function marketResearchNullResultMessage(run: MarketResearchRun): {
   heading: string;
   detail: string;
 } {
-  if (run.status === "queued" || run.status === "running") {
+  if (run.status === "queued") {
     return {
-      heading: "결과 대기 중",
-      detail: "연구 실행이 아직 결과를 만들지 않았습니다.",
+      heading: "실행 대기 중",
+      detail: "시장 연구가 대기열에 등록되었으며 아직 실행되지 않았습니다.",
+    };
+  }
+  if (run.status === "running") {
+    return {
+      heading: "연구 실행 중",
+      detail: "시장 연구가 실행 중이며 결과를 아직 만들지 않았습니다.",
     };
   }
   if (run.status === "failed") {
