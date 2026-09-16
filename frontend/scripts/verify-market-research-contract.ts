@@ -391,7 +391,9 @@ for (const scenario of marketResearchFixtureScenarios) {
     throw new Error(`${scenario.id} must preserve stored curves while hiding return`);
   }
   if (scenario.id === "status-error-preserved"
-    && (parsed.status !== "insufficient" || parsed.result.status !== "insufficient" || parsed.result.completeness !== "incomplete" || parsed.error !== "safe fixture error")) {
+    && (parsed.status !== "insufficient" || parsed.result.status !== "insufficient" || parsed.result.completeness !== "incomplete" || parsed.error !== "safe fixture error"
+      || parsed.request.start_date !== "2026-01-00" || parsed.request.end_date !== "2026-02-30"
+      || curves.nav.status !== "unavailable" || curves.drawdown.status !== "unavailable" || marketResearchKrwReturn(parsed.result) !== "확인 불가")) {
     throw new Error("status, completeness, and safe error were not preserved");
   }
 }

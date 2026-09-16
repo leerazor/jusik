@@ -248,7 +248,10 @@ function finiteDecimalNumber(value: string | null | undefined): number | null {
 }
 
 function validEquityDates(result: MarketResearchResult): boolean {
-  if (result.equity.length === 0) return false;
+  if (result.equity.length === 0
+    || !isCalendarDate(result.request.start_date)
+    || !isCalendarDate(result.request.end_date)
+    || result.request.start_date > result.request.end_date) return false;
   let previous = "";
   return result.equity.every((item) => {
     const valid = isCalendarDate(item.session)

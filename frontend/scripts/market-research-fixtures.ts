@@ -206,12 +206,13 @@ export const marketResearchFixtureScenarios: MarketResearchFixtureScenario[] = [
   ], { account: { ...account, fx_krw_per_usd: null }, expected: { navValues: [100000000, 102000000], drawdownValues: [0, 0], krwReturn: "확인 불가" } }),
   makeScenario("legacy-no-metadata", "metadata 없는 legacy도 저장 NAV·낙폭은 표시", [baseEquity[0], baseEquity[1]], { removeMetadata: true, expected: { navValues: [100000000, 102000000], drawdownValues: [0, 0], krwReturn: "확인 불가" } }),
   makeScenario("status-error-preserved", "insufficient 상태·등급·coverage·안전한 오류 보존", [baseEquity[0]], {
+    request: { ...request, start_date: "2026-01-00", end_date: "2026-02-30" },
     status: "insufficient",
     resultStatus: "insufficient",
     completeness: "incomplete",
     limitations: ["fixture coverage unavailable"],
     error: "safe fixture error",
-    expected: { navValues: [100000000], drawdownValues: [0], krwReturn: "0%" },
+    expected: { navStatus: "unavailable", drawdownStatus: "unavailable", navValues: [], drawdownValues: [], krwReturn: "확인 불가" },
   }),
 ];
 
