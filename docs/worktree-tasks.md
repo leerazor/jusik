@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## r2-nav-components-7284
+
+- 상태: 계획; 저장 NAV 구성요소 진단 slice, 전체 R2-05 및 경제 평가 미완료
+- task/attempt: roadmap-r2-05-v1 / 7284d0564f3f4dd9887d2560e503df0f
+- 목표: 날짜별 Decimal residual과 1 KRW 한도, 실패 날짜 및 coverage를 오프라인 artifact로 보존합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review
+- 워크트리·브랜치: /home/kwl/projects/jusik-r2-nav-components-7284 / feat/r2-nav-components-7284
+- 시작 main: be8a85dd34c42e825638ac282a530880decdcec3; 통합 대상 local main
+- 입력: 첨부 evidence5개 및 R0 동결 artifact4개 SHA 검증 통과; US approximate 고유252세션
+- 허용 범위: 신규 오프라인 진단 모듈·테스트·한국어 계약·개발 기록. 다른 격리 작업 재개/재사용 금지
+- 격리/한도: 전용 Python 환경·cache, 포트/DB 없음. CPU seed0, 저장 run1개/300세션, fixture최대24개×2심볼/10세션, 검사1200초/artifact20MiB
+- 경계: network·simulation/replay·GPU·PAPER/live·주문·운영DB/원장·서비스/설정·remote 변경 금지
+- 검증: pytest·Ruff·configured mypy·Terra review·main 통합 검사. hash 불일치/상한 초과/동일 실패2회 즉시 중단
+- 계획·증거: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-05-7284d056/PLAN.md
+- 개발 기록: docs/development-records/2026-09-16-r2-nav-components-7284.md
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-05-7284d056/HANDOFF.md
+- 완료 조건: 기술 slice 검증·local main 통합·증거/SHA/handoff 선보관·소유 worktree 정리. 전체 checkbox 미체크; calendar 근거 부재 unavailable, 경제 not-evaluated
+
 ## r2-market-cost-b8a5
 
 - 상태: 차단·미통합. 동일 Ruff 환경 실패2회 중단 위반, fixture 상한 위반, Terra review FAIL; 기술 slice 미완료·경제 not-evaluated
