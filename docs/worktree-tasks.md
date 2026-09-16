@@ -1,5 +1,19 @@
 # 워크트리 작업 등록부
 
+## r2-counterfactual-fe92
+
+- 상태: 계획·구현 준비. task `roadmap-r2-06-v1`, attempt `fe9204931f0b446f8dfba0d21473f39d`; 최초 시도이며 기존 소유 branch/worktree가 없습니다.
+- 목표: 이미 준비된 기준 및 단일 가정 변경 결과를 오프라인 비교하고 비용·배당·FX의 비가산 차이를 별도 기록합니다. 전체 R2-06은 실제 acceptance 전 미체크 유지합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-r2-counterfactual-fe92`, `feat/r2-counterfactual-fe92`; 요청 기준 `d0d029996ea993216036385962c9153968ea61fe`, 등록 커밋에서 분기하고 local main에 통합합니다.
+- 입력: R0 완료, 최신 mandate와 첨부 4개 SHA 일치. 기존 loss accounting availability 보존.
+- 범위: 새 비교 모듈·CLI, 관련 테스트, 한국어 계약·개발 기록. 감독은 이 기존 등록부만 관리합니다.
+- 격리: 별도 venv, 테스트 tmp/audit; 포트·DB 없음. CPU seed0, 합성 fixture 최대24개·각30세션/20거래, 기준1+단일변경3 이하, 검증1200초·산출물50MiB 상한.
+- 금지: network/provider/engine/replay/GPU 실행, PAPER/live·주문·운영원장/DB·서비스·설정·remote 변경, 다른 격리 작업 재개.
+- 검사: focused pytest·Ruff check/format·configured strict mypy, 독립 review, main 통합 검사. 같은 실패2회 또는 상한 도달 시 중단합니다.
+- 증거/계획/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-06-fe920493/`; 삭제 전 영구 증거·SHA·handoff 보존.
+- 개발 기록: `docs/development-records/2026-09-16-r2-counterfactual-fe92.md`.
+
 ## r3-value-44f7
 
 - 상태: R3-04 완료·독립 review 및 main 통합 검사 통과. task `roadmap-r3-04-v1`, attempt `44f7dba3fcd04864b951f5987ad58ffe`; 이전 시도에는 소유 worktree/branch/구현이 없어 새 전용 작업을 생성합니다.
