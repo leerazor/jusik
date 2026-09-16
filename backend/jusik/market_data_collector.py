@@ -13,11 +13,13 @@ import hashlib
 import io
 import json
 import os
+import re
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
+from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Protocol, cast
 from urllib.parse import quote
@@ -687,6 +689,108 @@ class AlphaListingParseResult:
     excluded: tuple[tuple[str, int], ...]
 
 
+class _AlphaProductType(StrEnum):
+    ORDINARY = "ordinary"
+    ETF = "etf"
+    WARRANT = "warrant"
+    OTHER = "other"
+    UNKNOWN = "unknown"
+
+
+_ALPHA_ASSET_TYPE_MAP: dict[str, _AlphaProductType] = {
+    "stock": _AlphaProductType.ORDINARY,
+    "common stock": _AlphaProductType.ORDINARY,
+    "common_stock": _AlphaProductType.ORDINARY,
+    "etf": _AlphaProductType.ETF,
+    "warrant": _AlphaProductType.WARRANT,
+    "warrants": _AlphaProductType.WARRANT,
+    "right": _AlphaProductType.OTHER,
+    "rights": _AlphaProductType.OTHER,
+    "unit": _AlphaProductType.OTHER,
+    "units": _AlphaProductType.OTHER,
+    "preferred": _AlphaProductType.OTHER,
+    "preferred stock": _AlphaProductType.OTHER,
+    "preferred shares": _AlphaProductType.OTHER,
+    "etn": _AlphaProductType.OTHER,
+    "etns": _AlphaProductType.OTHER,
+    "adr": _AlphaProductType.OTHER,
+    "ads": _AlphaProductType.OTHER,
+    "depositary receipt": _AlphaProductType.OTHER,
+    "depositary receipts": _AlphaProductType.OTHER,
+    "fund": _AlphaProductType.OTHER,
+    "bond": _AlphaProductType.OTHER,
+    "note": _AlphaProductType.OTHER,
+    "trust": _AlphaProductType.OTHER,
+}
+
+_ALPHA_NAME_PRODUCT_PATTERNS: tuple[tuple[_AlphaProductType, re.Pattern[str]], ...] = (
+    (_AlphaProductType.ETF, re.compile(r"\betfs?\b")),
+    (_AlphaProductType.WARRANT, re.compile(r"\bwarrants?\b")),
+    (
+        _AlphaProductType.OTHER,
+        re.compile(
+            r"\bunits?(?:\s*[,;:.]?\s*$|\s*(?:[,;:]\s*)?(?:each|consisting\s+of)\b)"
+        ),
+    ),
+    (
+        _AlphaProductType.OTHER,
+        re.compile(
+            r"\brights?(?:\s*[,;:.]?\s*$|\s*(?:[,;:]\s*)?(?:each|consisting\s+of)\b)"
+        ),
+    ),
+    (_AlphaProductType.OTHER, re.compile(r"\betns?\b")),
+    (
+        _AlphaProductType.OTHER,
+        re.compile(r"\bpreferred[-\s]+(?:stock|shares?)\b"),
+    ),
+    (_AlphaProductType.OTHER, re.compile(r"\b(?:adr|ads)\b")),
+    (_AlphaProductType.OTHER, re.compile(r"\bdepositary\s+receipts?\b")),
+)
+
+
+def _classify_alpha_product(
+    asset_type: str, *, symbol: str = "", name: str = ""
+) -> _AlphaProductType:
+    """Classify one listing from independent, conservative product evidence."""
+    evidence: set[_AlphaProductType] = set()
+    mapped = _ALPHA_ASSET_TYPE_MAP.get(asset_type.strip().casefold())
+    if mapped is not None:
+        evidence.add(mapped)
+    if re.search(r"(?:-ws|\.ws|-wt|\.wt)$", symbol.strip(), re.IGNORECASE):
+        evidence.add(_AlphaProductType.WARRANT)
+    normalized_name = name.strip().casefold()
+    for product_type, pattern in _ALPHA_NAME_PRODUCT_PATTERNS:
+        if pattern.search(normalized_name):
+            evidence.add(product_type)
+
+    nonordinary = evidence - {_AlphaProductType.ORDINARY}
+    if len(nonordinary) == 1:
+        return next(iter(nonordinary))
+    if len(nonordinary) > 1:
+        return _AlphaProductType.UNKNOWN
+    return _AlphaProductType.ORDINARY if evidence else _AlphaProductType.UNKNOWN
+
+
+_ALPHA_EXCHANGE_MAP = {
+    "NYSE": "NYS",
+    "NASDAQ": "NAS",
+    "NASDAQ CAPITAL MARKET": "NAS",
+    "NASDAQ GLOBAL MARKET": "NAS",
+    "NASDAQ GLOBAL SELECT MARKET": "NAS",
+    "NCM": "NAS",
+    "NGM": "NAS",
+    "NMS": "NAS",
+    "NYSE ARCA": "AMS",
+    "NYSEARCA": "AMS",
+}
+
+
+def _normalize_alpha_exchange(exchange: str) -> str:
+    """Normalize Alpha exchange labels without using product information."""
+    normalized = exchange.strip().upper()
+    return _ALPHA_EXCHANGE_MAP.get(normalized, normalized)
+
+
 _ALPHA_HEADERS = frozenset(
     {"symbol", "name", "exchange", "assetType", "ipoDate", "delistingDate", "status"}
 )
@@ -739,24 +843,12 @@ def parse_alpha_vantage_listing_status_detailed(
         if not name or len(name) > 120:
             exclude("name")
             continue
-        exchange = {
-            "NYSE": "NYS",
-            "NASDAQ": "NAS",
-            "NYSE ARCA": "AMS",
-            "NYSEARCA": "AMS",
-            "NASDAQ GLOBAL SELECT MARKET": "NAS",
-        }.get(exchange_raw, exchange_raw)
+        exchange = _normalize_alpha_exchange(exchange_raw)
         if exchange not in {"NAS", "NYS", "AMS"}:
             exclude("exchange")
             continue
-        if asset_type not in {"stock", "common stock", "common_stock"}:
-            exclude("security_type")
-            continue
-        security_text = f"{symbol} {name}".casefold()
-        if any(
-            marker in security_text
-            for marker in ("warrant", "right", "unit", "preferred", " etf")
-        ) or symbol.casefold().endswith(("-ws", ".ws", "-wt", ".wt")):
+        product_type = _classify_alpha_product(asset_type, symbol=symbol, name=name)
+        if product_type is not _AlphaProductType.ORDINARY:
             exclude("security_type")
             continue
         if status not in {"active", "delisted"}:
