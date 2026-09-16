@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## runner-exit-diagnostics
+
+- 상태: 준비; read-only 조사·제한 계획 완료
+- 목표: codex_exit의 numeric returncode/signal/완료 파일 존재 여부를 private sidecar에 기록하고 기존 작업 재사용을 안내합니다.
+- 담당: Astra 감독, Luna 단일 구현자, Terra 독립 검토
+- 워크트리·브랜치: /home/kwl/projects/jusik-runner-exit-diagnostics / fix/runner-exit-diagnostics
+- 기준: 등록 커밋; 통합 대상 local main
+- 허용 범위: development_runner.py, 해당 tests, docs/development-runner.md, 전용 개발 기록
+- 검증: runner focused pytest, Ruff/format/mypy, 기록 실패 시 기존 실패 상태 보존. 실제 CLI 실패 유도 없음
+- 경계: DB schema/status/retry 정책·금융 코드·전역 설정 불변, 기존 실패 원인 소급 추정 없음
+- audit: /home/kwl/.local/share/jusik/portfolio-audit/20260916-roadmap-recovery
+
+
 ## r1-us-event-timing
 
 - 상태: 복구 검증; 기존 구현03b837f와 최종 focused pytest134 통과 기록 보존, 감독 검증·독립 검토 후 기술 slice 통합 예정. 원래 실행은 codex_exit으로 종료했습니다.
