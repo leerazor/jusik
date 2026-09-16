@@ -1,5 +1,22 @@
 # 워크트리 작업 등록부
 
+## r1-us-collection-diagnostics
+
+- 상태: 조사 완료, 제한된 계획 검토 중
+- task/attempt: roadmap-r1-05-v1 / eae146bd3ed54a61ae617fad1c425d53
+- 목표: 미국 CollectorError 제외 경로의 심볼별 안전한 원인과 coverage를 직렬화 후에도 보존합니다. R1-05 전체 체크는 보류하며 경제 평가는 not-evaluated입니다.
+- 담당: Astra 감독·계획, Luna 조사 및 단일 구현, Terra 독립 검토
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-diagnostics-eae1 / fix/r1-us-diagnostics-eae1
+- 기준 main: ef19498632afce9edddac1f5e8aee8e5bbdeff8e; 통합 대상 local main
+- 입력: R0 완료 로드맵, 현재 mandate JSON, collector, R1-06 개발 기록; 입력 hash는 audit inputs.json에 보존합니다.
+- 허용 범위: collector, 관련 결과 계약·오프라인 테스트·계약 문서·개발 기록. 표본·membership·사건 시점·실패 cache·매매·회계 정책은 보존합니다.
+- 검증: 오프라인 CPU, seed 0, 신규 fixture 최대20개·각8심볼/60세션, pytest/Ruff/configured mypy 합계900초 이내
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-05-eae146bd; 전용 venv/cache, 서버·DB 없음
+- 경계: 자동 runner가 배정한 단일 작업입니다. 네트워크 수집·pilot/final·GPU·PAPER/live·주문·원장·서비스·설정·remote 변경 및 다른 실패 작업 재개는 금지합니다.
+- 완료 조건: 독립 review, main 통합 검사, 증거·SHA·handoff 보관 후 해당 worktree 정리
+- 개발 기록: docs/development-records/2026-09-16-r1-us-collection-diagnostics.md
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-05-eae146bd/HANDOFF.md
+
 ## r1-provider-response-fixtures
 
 - 상태: R1-06 완료; Terra 재검토·main pytest143/Ruff/configured mypy PASS. 경제 평가 not-evaluated
