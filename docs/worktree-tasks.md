@@ -47,19 +47,20 @@
 
 ## r2-dd-chronology
 
-- 상태: 차단 (구현 전 routing preflight 실패)
-- 목표와 완료 조건: R2-04 초기 자본 포함 KRW peak/DD/20% latch 독립 Decimal 검산 및 저장 파일럿 대조.
-- 담당 Luna: 미배정; host에 필수 agent_type 인자가 없음.
-- 워크트리·브랜치: 생성하지 않음. 기준 main: bf5640faac7e790adee93fd0b5b065dca420cdfd.
-- 입력과 선행 작업: R0 완료, 현재 mandate JSON, 동결 approximate 파일럿252세션; artifact4개 hash 일치.
-- 수정 허용 범위: 독립 검산·fixture·보고서. 이번 시도는 차단 기록만 작성.
-- 포트·DB: 없음. 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r2-04-665ad529.
-- 검증: routing preflight exit1; 독립 계산·pytest/Ruff/mypy·review·통합 검사 미실행.
-- 결과/통합 commit: 구현 없음. R2-04 checkbox 미변경.
-- 남은 문제: host와 필수 routing 계약 불일치 해소 후 PLAN.md부터 재개.
-- 개발 기록: docs/development-records/2026-09-15-r2-dd-chronology.md.
-- Handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r2-04-665ad529/HANDOFF.md.
-- 정리: 새 worktree 없음. 기존 worktree와 untracked HANDOFF.md 보존.
+- 상태: 진행; 이전 routing 차단은 model-only adapter pre/post PASS로 해소
+- task/attempt: roadmap-r2-04-v1 / cb6b03f16c8f438cb4c55cfc551fe089
+- 목표: 초기 자본 포함 KRW peak/DD/20% latch 독립 Decimal 검산과 저장 파일럿 대조
+- 담당: Astra 감독; r204_explore Luna, r204_plan Astra; 구현 r204_code Luna, 독립 r204_review Terra
+- 워크트리·브랜치: /home/kwl/projects/jusik-r2-dd-chronology-cb6b / feat/r2-dd-chronology-cb6b
+- 조사 기준 main: 80cf90abb3fc01006c5ec758bc652e3e8089f967; 통합 대상 local main
+- 선행: R0 완료, 현재 mandate JSON, 동결 approximate 파일럿252세션; 원본4개 SHA 일치
+- 범위: 신규 독립 검산 모듈/test/offline fixture 최대12개·각300세션 이하, 진단 문서 및 기존 개발 기록
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-04-cb6b03f1; 포트/DB 없음; 전용 venv/cache
+- 한도: CPU 단일 프로세스·저장 파일럿1개; 네트워크/GPU/신규 연구/PAPER/live/원장/서비스/설정/remote 변경 없음
+- 검증: focused pytest/Ruff/strict mypy, Terra review, main 통합 검사 예정
+- 결과: 자료 부족/불일치 시 blocked, R2-04 체크 유지. 전략과 R1-01/R1-03 수정 금지
+- 개발 기록: docs/development-records/2026-09-15-r2-dd-chronology.md
+- handoff: audit/HANDOFF.md 예정; 기존 root HANDOFF.md 보존
 
 ## r1-us-membership
 
