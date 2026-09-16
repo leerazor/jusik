@@ -23,8 +23,9 @@
 
 ## r2-market-cost-b8a5
 
-- 상태: 차단·미통합. 동일 Ruff 환경 실패2회 중단 위반, fixture 상한 위반, Terra review FAIL; 기술 slice 미완료·경제 not-evaluated
+- 상태: 새 수동 복구 계획 진행. 이전 동일 Ruff 실패·한도 위반·검토 실패 이력을 보존하고 같은 worktree를 재사용합니다.
 - task/attempt: roadmap-r2-02-v1 / b8a573f2cb564b6cb46ea646452071e5
+- 복구 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery`. 사용자 자율 진행 승인. 손실 계산과 다른 파일의 비용 대사·시간 순서·독립 기대값 검증만 복구합니다. runner paused/service inactive.
 - 목표: KR/US fee·slippage·sell_tax_rate 구현 가정과 저장 거래 적용식 독립 검산
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review
 - 워크트리·브랜치: /home/kwl/projects/jusik-r2-market-cost-b8a5 / feat/r2-market-cost-b8a5
