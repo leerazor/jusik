@@ -2,7 +2,7 @@
 
 ## r2-market-cost-b8a5
 
-- 상태: 진행; 기술 slice와 경제 not-evaluated를 분리하며 전체 R2-02는 미체크 유지
+- 상태: 차단·미통합. 동일 Ruff 환경 실패2회 중단 위반, fixture 상한 위반, Terra review FAIL; 기술 slice 미완료·경제 not-evaluated
 - task/attempt: roadmap-r2-02-v1 / b8a573f2cb564b6cb46ea646452071e5
 - 목표: KR/US fee·slippage·sell_tax_rate 구현 가정과 저장 거래 적용식 독립 검산
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review
@@ -17,6 +17,12 @@
 - 개발 기록: docs/development-records/2026-09-16-r2-market-cost-b8a5.md
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-02-b8a573f2/HANDOFF.md
 - 완료 조건: 기술 검증·local main 병합 후 증거/SHA/handoff 선보관과 소유 worktree 정리. 법정 세목·기간·출처 부족은 unavailable로 유지
+
+- 구현 commit: ed03e2c647bfec876eee4d9e5a1b23c4562e758e; local main 병합 없음, integrated_commit=null
+- 검증 결과: 입력 SHA와 감독 pilot 산술 일치. 후속 pytest19/Ruff/mypy 통과 기록은 중단 위반 후 결과로 acceptance 불인정; tests_passed=false, review_passed=false
+- 독립 지적: 저장 mismatch success, 매수 독립 기대값/이중차감 증명 누락, 시간대/chronology coverage 부족, fixture16개 외 assumptions4개
+- 정리: 미병합 worktree/branch 보존; source-snapshot·실패 로그·review·SHA·handoff durable 보관. 기존 HANDOFF와 다른 작업 보존
+- 재개: 명시적 retry와 새 한도 하에서 동일 소유 브랜치 재사용. 법정 세목·기간·출처 및 체결 이력 근거 별도 필요
 
 
 ## r3-equity-97b2
