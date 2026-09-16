@@ -34,8 +34,8 @@ from jusik.market_data_collector import (
 )
 from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
-    ApproximateMarketHistorySource,
     ApproximateEvent,
+    ApproximateMarketHistorySource,
     JsonApproximateProvider,
     canonicalize_approximate_events,
     run_approximate_market_research,
@@ -762,20 +762,26 @@ class _CausalUSCheckpointTransport(_USCheckpointTransport):
 
 
 class _USEventTransport(_CausalUSCheckpointTransport):
-    def __init__(self, occurrence: datetime, observed: object) -> None:
-        super().__init__(("AAA",))
+    def __init__(
+        self,
+        occurrence: datetime,
+        observed: object,
+        symbols: tuple[str, ...] = ("AAA",),
+    ) -> None:
+        super().__init__(symbols, initial_symbols=symbols)
         self.occurrence = occurrence
         self.observed = observed
 
     async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
         payload = json.loads(await super().yahoo(symbol, start, end))
-        payload["chart"]["result"][0]["events"] = {
-            "splits": {
-                str(int(self.occurrence.timestamp())): {
-                    "observed_at": self.observed,
+        if symbol == "AAA":
+            payload["chart"]["result"][0]["events"] = {
+                "splits": {
+                    str(int(self.occurrence.timestamp())): {
+                        "observed_at": self.observed,
+                    }
                 }
             }
-        }
         return json.dumps(payload).encode()
 
 
@@ -1270,12 +1276,13 @@ def test_us_collector_delayed_event_isolates_rows_from_observed_date(
             _USEventTransport(
                 datetime(2026, 1, 5, 14, 30, tzinfo=UTC),
                 "2026-01-05T22:00:00+00:00",
+                symbols=("AAA", "BBB"),
             )
         ).collect(
             market="US",
             start=date(2025, 9, 14),
             end=date(2026, 9, 14),
-            sample_size=1,
+            sample_size=2,
         )
     )
     assert result.dataset.events[0].occurrence_at == datetime(

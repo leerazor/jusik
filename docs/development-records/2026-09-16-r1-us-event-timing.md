@@ -30,8 +30,8 @@
 | --- | ---: | ---: | ---: | ---: |
 | parser and canonical timing | 4 | 1 | 1 | 0 |
 | source unknown, future, conflict, and intraday bounds | 6 | 2 | 1 | 0 |
-| collector future/delayed event and strategy prefix | 2 | 260 | 1 | 0 |
-- broad `backend/.venv/bin/python -m pytest -q` — 2회 실행, 각 1123 passed·10 failed·1 skipped; wall 104.81s/101.04s, CPU 31.66s/29.82s. 실패는 roadmap registry와 frozen forensic/replay 계약의 기존 환경 불일치입니다.
+| collector future/delayed event and strategy prefix | 2 | 260 | 2 | 0 |
+- broad `backend/.venv/bin/python -m pytest -q` — 2회 실행, 각 1123 passed·10 failed·1 skipped; wall 104.81s/101.04s, CPU 31.66s/29.82s. 실패 원인은 이 작업에서 분류하지 않았으며, 아래에 실패 파일과 경계를 그대로 기록합니다.
 - broad 실행의 10개 실패는 `tests/test_development_runner_roadmap.py` 3개, `tests/test_market_research_replay.py` 1개, `tests/test_research_prospective_registration.py` 1개, `tests/test_research_signal_anomaly_episodes.py` 1개, `tests/test_research_signal_timestamp_forensics.py` 4개입니다. broad 실행에는 `tests/test_operations.py`의 paper fill/account 및 `tests/test_research_forward.py`의 `ForwardCoordinator`/`ForwardStore` 검사가 포함되어 내부 PAPER 시뮬레이션과 `tmp_path` 임시 DB mutation이 발생했습니다. 실제 broker 주문·외부 네트워크 호출은 확인되지 않았습니다. 작업 경계상 broad 실행은 부적절했으며 결과를 승격 근거로 사용하지 않습니다.
 - 독립 venv의 `python -m ruff`는 Ruff 실행 binary 부재로 실행하지 못했고, 별도 설치 binary의 관련 파일 검사만 통과했습니다. 변경 source strict mypy는 통과했습니다. frozen replay 최종 검사는 commit 후 부모가 실행해야 합니다.
 

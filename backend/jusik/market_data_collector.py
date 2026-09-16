@@ -39,8 +39,8 @@ from jusik.market_history_approximate import (
     ApproximateFXRow,
     ApproximateProviderError,
     ApproximateUniverseRow,
-    canonicalize_approximate_events,
     _event_cutoff_session,
+    canonicalize_approximate_events,
     deterministic_pool,
 )
 from jusik.market_history_models import Market
