@@ -303,6 +303,9 @@ output.write_text(json.dumps({{
         encoding="utf-8"
     )
     assert "model-only adapter" in captured_prompt.read_text(encoding="utf-8")
+    assert "reuse a matching owned branch" in captured_prompt.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_run_once_prepares_absent_custom_artifact_before_child_dispatch(
@@ -608,6 +611,127 @@ def test_timeout_marks_attempt_failed_without_retrying_implicitly(
     task = RunnerStore(state / "runner.db", history).task("task-a")
     assert task is not None and task.status == "failed"
     assert _next_task(RunnerStore(state / "runner.db", history)) is None
+
+
+def _run_nonzero_codex(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    returncode: int,
+    completion: bool = False,
+) -> tuple[RunResult, RunnerStore, Path]:
+    repo = _repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    assert store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    config = RunnerConfig(
+        repo=repo,
+        codex="unused",
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        cooldown_seconds=0,
+    )
+
+    class ExitProcess:
+        pid = 100_001
+
+        def __init__(self) -> None:
+            self.returncode = returncode
+
+        def communicate(self, _prompt: bytes, timeout: int) -> None:
+            return None
+
+    def fake_popen(command: list[str], **_kwargs: Any) -> ExitProcess:
+        if completion:
+            output = Path(command[command.index("-o") + 1])
+            output.write_text("{}\n", encoding="utf-8")
+        return ExitProcess()
+
+    monkeypatch.setattr("jusik.development_runner.subprocess.Popen", fake_popen)
+    monkeypatch.setattr(
+        "jusik.development_runner._git_common", lambda _repo: repo / ".git"
+    )
+    monkeypatch.setattr("jusik.development_runner._git_ready", lambda _repo: (True, ""))
+    monkeypatch.setattr("jusik.development_runner.os.getpgid", lambda _pid: 100_001)
+
+    result = run_once(config)
+    assert result.attempt_id is not None
+    attempt_dir = state / "attempts" / result.attempt_id
+    return result, RunnerStore(state / "runner.db", history), attempt_dir
+
+
+def test_nonzero_codex_exit_writes_private_diagnostics_without_completion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result, store, attempt_dir = _run_nonzero_codex(tmp_path, monkeypatch, 1)
+
+    assert result.status == "failed"
+    assert result.reason == "codex_exit"
+    assert store.task("task-a").status == "failed"  # type: ignore[union-attr]
+    assert json.loads(
+        (attempt_dir / "exit-diagnostics.json").read_text(encoding="utf-8")
+    ) == {
+        "completion_present": False,
+        "returncode": 1,
+        "signal_number": None,
+    }
+    assert (attempt_dir / "exit-diagnostics.json").stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize(
+    ("returncode", "signal_number"),
+    [(-9, 9), (137, None)],
+)
+def test_exit_diagnostics_distinguishes_signal_from_exit_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    returncode: int,
+    signal_number: int | None,
+) -> None:
+    result, _store, attempt_dir = _run_nonzero_codex(tmp_path, monkeypatch, returncode)
+
+    assert result.status == "failed"
+    diagnostics = json.loads(
+        (attempt_dir / "exit-diagnostics.json").read_text(encoding="utf-8")
+    )
+    assert diagnostics["returncode"] == returncode
+    assert diagnostics["signal_number"] == signal_number
+
+
+def test_nonzero_codex_exit_remains_failed_when_completion_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result, store, attempt_dir = _run_nonzero_codex(
+        tmp_path, monkeypatch, 1, completion=True
+    )
+
+    assert result.status == "failed"
+    assert result.reason == "codex_exit"
+    assert store.task("task-a").status == "failed"  # type: ignore[union-attr]
+    assert (
+        json.loads((attempt_dir / "exit-diagnostics.json").read_text(encoding="utf-8"))[
+            "completion_present"
+        ]
+        is True
+    )
+
+
+def test_exit_diagnostics_write_failure_does_not_change_failed_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "jusik.development_runner._write_exit_diagnostics",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("read-only")),
+    )
+
+    result, store, attempt_dir = _run_nonzero_codex(tmp_path, monkeypatch, 1)
+
+    assert result.status == "failed"
+    assert result.reason == "codex_exit"
+    assert store.task("task-a").status == "failed"  # type: ignore[union-attr]
+    assert not (attempt_dir / "exit-diagnostics.json").exists()
 
 
 def test_live_previous_group_fails_closed_before_recovery(

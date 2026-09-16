@@ -49,6 +49,8 @@ cd /home/kwl/projects/jusik/backend
 
 `running` 시도는 재시작 때 `interrupted`로 보존되며 자동으로 다시 실행하지 않습니다. `retry TASK_ID`가 이전 시도 ID를 기록한 뒤 명시적으로 큐에 넣습니다. Codex가 종료 코드 0을 반환해도 commit이 local `main`의 조상인지, evidence 파일의 SHA-256과 허용 경로를 검증하지 못하면 완료로 기록하지 않습니다. `tests_passed`와 `review_passed`는 agent가 보고하는 값이며 runner가 대신 실행하거나 독립 review를 주장하지 않습니다. 미래 데이터가 없으면 `status=blocked`와 사유를 제출할 수 있고, 이 결과는 commit·evidence를 요구하지 않습니다. 실패·중단·blocked 시도는 명시적 retry 전까지 격리합니다.
 
+연구 task가 Codex 종료 코드 0이 아닌 값으로 끝나면 해당 private attempt에 `exit-diagnostics.json`을 남깁니다. 파일에는 return code, 음수 종료 코드일 때만 계산한 signal number, completion 파일의 존재 여부만 기록하며 stderr·prompt·completion 내용은 복사하지 않습니다. 진단 파일을 쓰지 못해도 기존 `failed`/`codex_exit` 상태는 유지합니다.
+
 실행 기록의 history outbox는 고정된 한국어 상태 제목·요약과 task/attempt ID만 기록합니다. Codex 출력, 오류, 절대 경로는 history에 복사하지 않습니다. history DB가 일시적으로 실패하면 private outbox에 남아 다음 cycle에서 재시도합니다. 완료 결과는 허용된 연구 영역에서 구체적 후속 작업을 하나만 제안할 수 있으며, 미래 데이터가 준비되지 않은 작업은 blocked 근거로 종료해야 합니다.
 
 ## 수동 단일 실행
