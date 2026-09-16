@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## r2-loss-accounting-2760
+
+- 상태: 준비; 독립 진단 slice, 전체 R2-01 acceptance는 자료 부족으로 보류합니다.
+- task/attempt: roadmap-r2-01-v1 / 2760e570f1d745a9bb960a93575c6ed2
+- 목표: 저장 거래·평가 자료의 가격손익·배당·FX·수수료·slippage·세금·현금 잔액을 독립 진단하고 각 항목의 계산 가능 여부와 재개 입력을 기록합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 검토
+- 워크트리·브랜치: /home/kwl/projects/jusik-r2-loss-accounting-2760 / feat/r2-loss-accounting-2760
+- 시작 main: 52ed4b74293bafbbe32ec014d31eddab04a26f8f; 통합 대상 local main
+- 입력: R0 완료 로드맵, 최신 mandate, 결과 모델, SHA 검증한 동결 manifest 및 artifact4개·raw84개
+- 허용 범위: 신규 독립 진단 모듈·오프라인 tests·한국어 설명·개발 기록. 기존 전략·collector·shared model은 읽기 전용입니다.
+- 자원: CPU만, seed0, fixture 최대16개·각8심볼/40세션, 저장 미국 파일럿1개·300세션/200거래 이하. simulation/replay/GPU0회, 검사 총900초, audit20MiB 이하
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-01-2760e570; 전용 worktree venv/cache, 포트·DB 없음
+- 경계: runner 배정 단일 작업; 다른 격리 작업 재개, 네트워크 수집, PAPER/live, 주문, 운영 원장·DB·서비스·설정, remote push 금지
+- 완료 조건: pytest/Ruff/configured mypy·독립 review·main 통합 검사·증거 SHA와 handoff 보관 후 소유 worktree 정리. 입력 hash 불일치 또는 같은 실패2회 시 중단합니다.
+- 경제 평가: not-evaluated; 자료 없는 항목은 unavailable이며 전체 체크는 변경하지 않습니다.
+- 개발 기록: docs/development-records/2026-09-16-r2-loss-accounting-2760.md
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-01-2760e570/HANDOFF.md
+
 ## r3-market-detail-coverage
 
 - 상태: 완료; R3-02 기술 acceptance·Terra review·main 통합 검사 PASS, 경제 not-evaluated
