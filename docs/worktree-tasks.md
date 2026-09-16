@@ -2,16 +2,15 @@
 
 ## r1-actions-bf7b
 
-- 상태: 조사 완료, 제한 계획 확정 중. task `roadmap-r1-04-v1`, attempt `bf7be9ff5dd64096848f7599f0c8265f`.
-- 목표: R1-04 첫 slice인 호환 가능한 연구용 split/dividend 입력 계약과 순수 Decimal 회계 변환 및 오프라인 결정적 증거. 전체 checkbox는 미체크를 유지합니다.
-- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 검토.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-r1-actions-bf7b` / `feat/r1-actions-bf7b`; 기준 main `5688c38b1f8c091db5e52d495df5262f5d1ed749` 이후 등록 커밋, 통합 local main.
-- 입력: R0 완료, tracked mandate·roadmap·history 모델·approximate source. 실제 actions 비어 있음과 incomplete/approximate를 보존합니다.
-- 허용 범위: history 행사 optional 계약, 독립 순수 회계 module, 단일 bounded fixture/test, 계약 문서·개발 기록. collector·universe·사건 cutoff·전략·PAPER 변경 금지.
-- 검증: 오프라인 CPU 단일 프로세스 seed0, 새 fixture 최대20개·각4심볼/40세션, pytest/Ruff/configured mypy 및 독립 review·main 재검사 합계900초 이내. 네트워크 수집·pilot/final·최적화·GPU0회.
-- 격리: 전용 backend/.venv, audit 아래 캐시·로그. 서버/DB 없음. 주문·원장·서비스·설정·remote 변경 없음. 다른 차단 작업 보존.
-- 계획·증거·handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r1-04-bf7be9ff/`.
-- 개발 기록: `docs/development-records/2026-09-17-r1-actions-bf7b.md`. 필요한 증거와 hash·handoff 저장 후 통합된 소유 worktree만 정리합니다.
+- 상태: 차단. task `roadmap-r1-04-v1`, attempt `bf7be9ff5dd64096848f7599f0c8265f`; 구현·전체 R1-04 미완료, checkbox 미체크.
+- 담당: Astra 감독·계획, Luna 단일 구현, Terra 읽기 전용 독립 감사.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-r1-actions-bf7b` / `feat/r1-actions-bf7b`; 요청 기준 `5688c38b1f8c091db5e52d495df5262f5d1ed749`, 등록 기준 `e84aa55`. 미커밋 구현 보존, main 구현 통합 없음.
+- 범위: 별도 연구용 split/dividend 회계 adapter·순수 Decimal 변환·fixture·문서 초안. 공통 history hash·collector·universe·사건 cutoff·전략·PAPER 계약 불변.
+- 차단: 허용된 두 순수 회귀 대신 기존 파일 전체를 두 번 실행해 합성 pilot 연구 경로가 실행됐습니다. 독립 감사에서 변경 입력을 포함한 신규 fixture가 최소21개로 cap20 초과임을 확인했습니다. code routing receipt 불일치로 delivery audit도 실패했습니다. 자동 복구 분류 없음.
+- 검증: worker 마지막 pytest60·Ruff·strict mypy 통과는 acceptance로 사용하지 않습니다. 추가 계산 중단, tests/review gate 차단, main 통합 검사 미실행.
+- 안전: 실제 자료 수집·실제 연구 성과 평가·PAPER/live·주문·운영 원장/DB·서비스·설정·GPU·remote 변경없음. 기존 차단 작업 보존.
+- 증거/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r1-04-bf7be9ff/`의 source snapshot·실행 이력·review·manifest·HANDOFF. 미병합 worktree는 삭제하지 않습니다.
+- 기록: `docs/development-records/2026-09-17-r1-actions-bf7b.md`. 다음 명시적 재시도는 같은 소유 branch/worktree에서 입력 목록과 검사 범위를 먼저 고정합니다.
 
 ## runner-autorecovery
 
