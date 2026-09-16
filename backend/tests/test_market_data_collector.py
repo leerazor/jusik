@@ -1309,7 +1309,41 @@ def test_us_collector_delayed_event_isolates_rows_from_observed_date(
         source.readiness("US", datetime(2026, 9, 16, tzinfo=UTC)),
         default_market_calendar(),
     )
-    assert research.candidate_evidence
+    baseline_prepared = tmp_path / "delayed-event-baseline.json"
+    baseline_prepared.write_bytes(
+        result.dataset.model_copy(update={"events": ()}).model_dump_json().encode()
+    )
+    baseline_source = ApproximateMarketHistorySource(
+        JsonApproximateProvider(baseline_prepared)
+    )
+    baseline_snapshot = asyncio.run(baseline_source.collect(request))
+    baseline = run_approximate_market_research(
+        baseline_snapshot,
+        request,
+        baseline_source.readiness("US", datetime(2026, 9, 16, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    effective_cutoff = date(2026, 1, 6)
+    event_candidates = tuple(
+        item
+        for item in research.candidate_evidence
+        if item.session < effective_cutoff
+    )
+    baseline_candidates = tuple(
+        item
+        for item in baseline.candidate_evidence
+        if item.session < effective_cutoff
+    )
+    event_trades = tuple(
+        item for item in research.trades if item.session < effective_cutoff
+    )
+    baseline_trades = tuple(
+        item for item in baseline.trades if item.session < effective_cutoff
+    )
+    assert event_candidates == baseline_candidates
+    assert event_candidates
+    assert event_trades == baseline_trades
+    assert event_trades
     assert any(trade.side == "buy" for trade in research.trades)
     assert not any(trade.side == "sell" for trade in research.trades)
     assert research.metrics["missing_held_bars"] >= 1

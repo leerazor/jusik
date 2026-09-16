@@ -446,6 +446,18 @@ def _event_cutoff_session(
     return None, False
 
 
+def _last_session_close(
+    calendar: MarketCalendar, *, start: date, end: date
+) -> datetime | None:
+    cursor = end
+    while cursor >= start:
+        lookup = calendar.lookup("NMS", cursor)
+        if lookup.session is not None:
+            return lookup.session.close_at
+        cursor -= timedelta(days=1)
+    return None
+
+
 def _session(calendar: MarketCalendar, exchange: str, session: date) -> MarketSession:
     lookup = calendar.lookup(exchange, session)
     if lookup.session is None:
@@ -587,14 +599,23 @@ class ApproximateMarketHistorySource:
             == US_EVENT_TIMING_NORMALIZATION_VERSION
         )
         normalized_events: tuple[ApproximateEvent, ...]
-        contradictory_event_symbols: frozenset[str]
         if event_timing_enabled:
-            normalized_events, contradictory_event_symbols = (
-                canonicalize_approximate_events(dataset.events)
-            )
+            normalized_events, _ = canonicalize_approximate_events(dataset.events)
         else:
             normalized_events = ()
-            contradictory_event_symbols = frozenset()
+        final_session_close = _last_session_close(
+            self.calendar, start=request.start_date, end=request.end_date
+        )
+        visible_events = tuple(
+            event
+            for event in normalized_events
+            if final_session_close is None
+            or event.observed_at is None
+            or event.observed_at.astimezone(UTC) <= final_session_close
+        )
+        _, visible_contradictory_event_symbols = canonicalize_approximate_events(
+            visible_events
+        )
         event_cutoffs: dict[str, date] = {}
         ambiguous_event_symbols: set[str] = set()
         if event_timing_enabled:
@@ -723,7 +744,7 @@ class ApproximateMarketHistorySource:
         unknown_event_symbols = sorted(
             {
                 event.symbol
-                for event in normalized_events
+                for event in visible_events
                 if event_timing_enabled
                 and (
                     event.occurrence_at is None
@@ -734,7 +755,7 @@ class ApproximateMarketHistorySource:
                         and event.observed_at is None
                     )
                     or (
-                        event.symbol in contradictory_event_symbols
+                        event.symbol in visible_contradictory_event_symbols
                         and (
                             event.occurrence_at is None
                             or event.occurrence_at.astimezone(UTC).date()

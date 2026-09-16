@@ -22,15 +22,15 @@
 
 ## 검증
 
-- `backend/.venv/bin/python -m pytest -q tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 마지막 실행은 통과 (112개). 이후 6개 테스트를 추가하여 현재 예상 수는 118개이며 부모가 재실행해야 합니다. 신규 event fixture는 총 12개이며 모두 최대 300 sessions·8 symbols 범위 안의 결정적 입력입니다(난수 추출 없음, seed 0 계약).
+- `backend/.venv/bin/python -m pytest -q tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 이전 focused 실행은 112개 통과였습니다. 부모의 `885a7bc` 검증은 130개 통과·1개 실패였고, delayed-event fixture의 후보 evidence가 비어 있던 문제를 이 후속 commit에서 보완했습니다. 현재 3개 fixture scenario를 추가하여 재검증 예상은 133개입니다. 신규 event fixture는 총 15개이며 모두 최대 300 sessions·8 symbols 범위 안의 결정적 입력입니다(난수 추출 없음, seed 0 계약).
 
 부모 실행 focused pytest 파일: `tests/test_market_data_collector.py`, `tests/test_market_history_approximate.py`, `tests/test_market_research.py`.
 
 | fixture group | count | max sessions | max symbols | seed |
 | --- | ---: | ---: | ---: | ---: |
 | parser and canonical timing | 4 | 1 | 1 | 0 |
-| source unknown, future, conflict, and intraday bounds | 6 | 2 | 1 | 0 |
-| collector future/delayed event and strategy prefix | 2 | 260 | 2 | 0 |
+| source unknown, future, conflict, and intraday bounds | 9 | 2 | 1 | 0 |
+| collector future/delayed event and strategy prefix | 2 | 300 | 2 | 0 |
 - broad `backend/.venv/bin/python -m pytest -q` — 2회 실행, 각 1123 passed·10 failed·1 skipped; wall 104.81s/101.04s, CPU 31.66s/29.82s. 실패 원인은 이 작업에서 분류하지 않았으며, 아래에 실패 파일과 경계를 그대로 기록합니다.
 - broad 실행의 10개 실패는 `tests/test_development_runner_roadmap.py` 3개, `tests/test_market_research_replay.py` 1개, `tests/test_research_prospective_registration.py` 1개, `tests/test_research_signal_anomaly_episodes.py` 1개, `tests/test_research_signal_timestamp_forensics.py` 4개입니다. broad 실행에는 `tests/test_operations.py`의 paper fill/account 및 `tests/test_research_forward.py`의 `ForwardCoordinator`/`ForwardStore` 검사가 포함되어 내부 PAPER 시뮬레이션과 `tmp_path` 임시 DB mutation이 발생했습니다. 실제 broker 주문·외부 네트워크 호출은 확인되지 않았습니다. 작업 경계상 broad 실행은 부적절했으며 결과를 승격 근거로 사용하지 않습니다.
 - 독립 venv의 `python -m ruff`는 Ruff 실행 binary 부재로 실행하지 못했고, 별도 설치 binary의 관련 파일 검사만 통과했습니다. 변경 source strict mypy는 통과했습니다. frozen replay 최종 검사는 commit 후 부모가 실행해야 합니다.
