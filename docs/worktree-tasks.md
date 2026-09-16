@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## r1-actions-bf7b
+
+- 상태: 조사 완료, 제한 계획 확정 중. task `roadmap-r1-04-v1`, attempt `bf7be9ff5dd64096848f7599f0c8265f`.
+- 목표: R1-04 첫 slice인 호환 가능한 연구용 split/dividend 입력 계약과 순수 Decimal 회계 변환 및 오프라인 결정적 증거. 전체 checkbox는 미체크를 유지합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 검토.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-r1-actions-bf7b` / `feat/r1-actions-bf7b`; 기준 main `5688c38b1f8c091db5e52d495df5262f5d1ed749` 이후 등록 커밋, 통합 local main.
+- 입력: R0 완료, tracked mandate·roadmap·history 모델·approximate source. 실제 actions 비어 있음과 incomplete/approximate를 보존합니다.
+- 허용 범위: history 행사 optional 계약, 독립 순수 회계 module, 단일 bounded fixture/test, 계약 문서·개발 기록. collector·universe·사건 cutoff·전략·PAPER 변경 금지.
+- 검증: 오프라인 CPU 단일 프로세스 seed0, 새 fixture 최대20개·각4심볼/40세션, pytest/Ruff/configured mypy 및 독립 review·main 재검사 합계900초 이내. 네트워크 수집·pilot/final·최적화·GPU0회.
+- 격리: 전용 backend/.venv, audit 아래 캐시·로그. 서버/DB 없음. 주문·원장·서비스·설정·remote 변경 없음. 다른 차단 작업 보존.
+- 계획·증거·handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r1-04-bf7be9ff/`.
+- 개발 기록: `docs/development-records/2026-09-17-r1-actions-bf7b.md`. 필요한 증거와 hash·handoff 저장 후 통합된 소유 worktree만 정리합니다.
+
 ## runner-autorecovery
 
 - 상태: 구현·독립 검토·local main 통합 완료. 사용자 자율재개 승인에 따라 roadmap queue cap과 환경/계획/범위 내 구현 오류의 명시적 bounded 자동 복구를 반영했습니다.
