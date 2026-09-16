@@ -151,6 +151,15 @@ def _leaf_differences(
 ) -> tuple[tuple[str, ...], ...]:
     if _json_equal(left, right):
         return ()
+    left_is_mapping = isinstance(left, Mapping)
+    right_is_mapping = isinstance(right, Mapping)
+    left_is_list = isinstance(left, list)
+    right_is_list = isinstance(right, list)
+    if left_is_mapping != right_is_mapping or left_is_list != right_is_list:
+        raise ValueError(
+            "assumptions must not replace a container or change container type; "
+            "this is not an atomic assumption leaf"
+        )
     if isinstance(left, Mapping) and isinstance(right, Mapping):
         keys = sorted(set(left) | set(right))
         differences: list[tuple[str, ...]] = []
@@ -452,17 +461,19 @@ def _validate_assumptions(
 def _change_record(
     baseline: ComparisonScenario, scenario: ComparisonScenario
 ) -> dict[str, object]:
-    """Return the validated atomic change, deriving values from assumptions."""
+    """Return the validated atomic change, deriving it from the changed leaf."""
 
     kind = cast(str, scenario.change["kind"])
-    path = cast(str, scenario.change["path"])
-    if path.startswith(f"{kind}."):
-        path = path[len(kind) + 1 :]
-    relative_path = tuple(path.split("."))
+    changed_paths = _leaf_differences(
+        baseline.assumptions[kind], scenario.assumptions[kind]
+    )
+    if len(changed_paths) != 1:
+        raise ValueError("scenario must change exactly one atomic assumption leaf")
+    relative_path = changed_paths[0]
     before = _at_path(baseline.assumptions[kind], relative_path)
     after = _at_path(scenario.assumptions[kind], relative_path)
     record = copy.deepcopy(dict(scenario.change))
-    record["atomic_path"] = f"{kind}.{path}"
+    record["atomic_path"] = ".".join((kind,) + relative_path)
     record["before"] = copy.deepcopy(before)
     record["after"] = copy.deepcopy(after)
     return record

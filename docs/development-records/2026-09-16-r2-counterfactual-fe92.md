@@ -35,3 +35,9 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-474fb22d`; manifest: 구현 검증 후 기록 예정; hash: 원본 준비 report별 SHA를 결과에 보존합니다.
 - 남은 작업·차단 조건: 독립 Terra review와 부모의 local main 통합 검증이 남았습니다. 전체 R2-06 checkbox와 경제 평가는 미완료·not-evaluated입니다.
 - 다음 시작: 독립 review가 모듈·테스트·계약을 읽고 metadata와 delta 경계를 재검증합니다.
+
+## 제한 재시도 보완 (2026-09-17)
+
+- `_leaf_differences`에서 container/scalar 및 mapping/list 유형 교체를 atomic leaf 변경으로 허용하던 우회를 거절하도록 보완했습니다. `_change_record`는 검증된 실제 단일 leaf에서 `atomic_path`와 `before`·`after`를 파생해 최상위 scalar 변경도 `cost`처럼 정확히 기록합니다.
+- 관련 합성 회귀 검사를 추가하고 문서 입력 예시의 기준 `fee_rate`를 시나리오 변경과 일치시켰습니다. CPU seed 0, 준비된 오프라인 fixture만 사용하며 실제 acceptance·경제 평가는 여전히 미평가입니다.
+- 제한 재검증: comparison/loss accounting pytest 45개 통과, Ruff check·format 및 `pyproject.toml` strict mypy 통과, `git diff --check` 통과. 로그는 retry audit의 `logs/`에 보존했습니다.
