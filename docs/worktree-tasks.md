@@ -2,11 +2,11 @@
 
 ## r1-us-product-types
 
-- 상태: 준비; model-only opaque explore 감사 통과, bounded plan 진행
+- 상태: 통합 대기; Terra 재검토 PASS, 초기 지적 동일 Luna 수정 완료
 - task/attempt: roadmap-r1-03-v1 / 9bd64c1361374e3f8414f0b131024715
 - 목표: collector 내부 구조화 상품 분류와 NASDAQ alias 정규화; 기존 공개 schema와 membership/사건 시점 보존
-- 담당: 감독 Astra; 구현 Luna r103_code 예정, 독립 Terra review 예정
-- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-product-types-9bd6 / feat/r1-us-product-types-9bd6 (생성 예정)
+- 담당: 감독 Astra; 구현 Luna r103_code, 독립 Terra r103_review
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-product-types-9bd6 / feat/r1-us-product-types-9bd6 (생성 완료)
 - 조사 기준 main: 1a9dd30a102d4605d5908422adea00c627c3537d; 입력 bf5640f는 현재 HEAD의 조상
 - 범위: collector, 관련 fixture tests, docs/market-research.md, 개발 기록. 감독만 이 등록부와 해당 checklist 관리
 - 검증 한도: 고정 새 fixture 최대40개, CPU900초; 수집·backtest·GPU·PAPER/live·운영 DB·서비스·설정·remote 변경 없음
