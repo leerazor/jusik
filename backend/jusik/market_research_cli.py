@@ -195,7 +195,14 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
         except (CollectorError, ValueError) as exc:
-            print(json.dumps({"status": "insufficient", "reason": str(exc)}))
+            payload: dict[str, object] = {
+                "status": "insufficient",
+                "reason": str(exc),
+            }
+            diagnostics = getattr(exc, "diagnostics", None)
+            if diagnostics is not None:
+                payload["collection_diagnostics"] = diagnostics.model_dump(mode="json")
+            print(json.dumps(payload, ensure_ascii=False))
             return 2
         print(
             json.dumps(

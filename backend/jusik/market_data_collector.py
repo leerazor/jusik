@@ -40,6 +40,10 @@ from jusik.market_history_approximate import (
     ApproximateFXRow,
     ApproximateProviderError,
     ApproximateUniverseRow,
+    CollectionCoverage,
+    CollectionDiagnosticReason,
+    CollectionDiagnostics,
+    CollectionSymbolDiagnostic,
     _event_cutoff_session,
     canonicalize_approximate_events,
     deterministic_pool,
@@ -71,6 +75,10 @@ class CollectorParseError(CollectorError):
     """A provider response is not parseable as the requested payload."""
 
 
+class CollectorIdentityError(CollectorParseError):
+    """A provider response identifies a different instrument than requested."""
+
+
 class CollectorQuotaError(CollectorError):
     """A provider rejected a request because a quota or rate limit was reached."""
 
@@ -81,6 +89,12 @@ class CollectorAuthenticationError(CollectorError):
 
 class CollectorPartialError(CollectorError):
     """A bounded collection completed only partially."""
+
+    def __init__(
+        self, message: str, *, diagnostics: CollectionDiagnostics | None = None
+    ) -> None:
+        super().__init__(message)
+        self.diagnostics = diagnostics
 
 
 class CollectorNullError(CollectorPartialError):
@@ -1169,7 +1183,9 @@ def parse_yahoo_chart(
             and venue not in venue_aliases.get(exchange, {exchange})
         )
     ):
-        raise CollectorError("Yahoo chart identity does not match requested stock")
+        raise CollectorIdentityError(
+            "Yahoo chart identity does not match requested stock"
+        )
     if expected_currency not in {"KRW", "USD"}:
         raise CollectorError("Yahoo chart currency is invalid")
     normalized_exchange = exchange or venue
@@ -1621,6 +1637,66 @@ class CollectionOutput:
     dataset: ApproximateDataset
     limitations: tuple[str, ...]
     excluded_symbols: tuple[str, ...]
+    collection_diagnostics: CollectionDiagnostics | None = None
+
+
+def _diagnostic_reason_for_error(error: CollectorError) -> CollectionDiagnosticReason:
+    if isinstance(error, CollectorIdentityError):
+        return "identity_mismatch"
+    if isinstance(error, CollectorCoverageError):
+        return "coverage"
+    if isinstance(error, CollectorQuotaError):
+        return "quota"
+    if isinstance(error, CollectorAuthenticationError):
+        return "auth"
+    if isinstance(error, RequestBudgetExceeded):
+        return "budget"
+    if isinstance(error, CollectorNullError):
+        return "null"
+    if isinstance(error, CollectorParseError):
+        return "parse"
+    return "unknown"
+
+
+def _observed_delisting_event(
+    events: tuple[ApproximateEvent, ...],
+    *,
+    calendar: MarketCalendar,
+    symbol: str,
+    cutoff: date | None,
+    contradictory_symbols: frozenset[str],
+    end: date,
+) -> ApproximateEvent | None:
+    """Return only an explicit, causally usable delisting event."""
+    if cutoff is None or symbol in contradictory_symbols:
+        return None
+    candidates = tuple(
+        event
+        for event in events
+        if event.symbol == symbol
+        and event.kind.casefold() in {"delist", "delisting", "delisted"}
+        and not event.invalid_timing
+        and event.occurrence_at is not None
+        and event.observed_at is not None
+        and event.occurrence_at.astimezone(UTC).date() <= end
+        and event.observed_at.astimezone(UTC).date() <= end
+    )
+    for event in candidates:
+        if event.occurrence_at is None or event.observed_at is None:
+            continue
+        effective_at = max(
+            event.occurrence_at.astimezone(UTC),
+            event.observed_at.astimezone(UTC),
+        )
+        event_cutoff, ambiguous = _event_cutoff_session(
+            calendar,
+            effective_at,
+            start=event.occurrence_at.astimezone(UTC).date(),
+            end=end,
+        )
+        if not ambiguous and event_cutoff == cutoff:
+            return event
+    return None
 
 
 class FreeMarketDataCollector:
@@ -1876,6 +1952,11 @@ class FreeMarketDataCollector:
         event_reasons: dict[str, str] = {}
         us_events: list[ApproximateEvent] = []
         us_event_cutoffs: dict[str, date] = {}
+        us_event_symbols_with_unknown_timing: set[str] = set()
+        us_failed_reasons: dict[str, CollectionDiagnosticReason] = {}
+        us_raw_bars: dict[str, tuple[ApproximateBarRow, ...]] = {}
+        us_observed_delistings: dict[str, ApproximateEvent] = {}
+        us_contradictory_event_symbols: frozenset[str] = frozenset()
         if market == "KR":
             universe = tuple(row for row in raw_rows if row.symbol in selected_symbols)
             previous_details: dict[str, Decimal] = {}
@@ -1961,10 +2042,12 @@ class FreeMarketDataCollector:
                         start=warmup_start,
                         end=end,
                     )
-                except CollectorError:
+                except CollectorError as exc:
                     excluded.append(symbol)
+                    us_failed_reasons[symbol] = _diagnostic_reason_for_error(exc)
                     continue
                 us_events.extend(chart.event_rows)
+                us_raw_bars[symbol] = chart.bars
                 for chart_bar in chart.bars:
                     lookup = self.calendar.lookup(row.exchange, chart_bar.session)
                     if lookup.session is None:
@@ -1994,10 +2077,122 @@ class FreeMarketDataCollector:
                 event_prior = us_event_cutoffs.get(event.symbol)
                 if event_prior is None or cutoff < event_prior:
                     us_event_cutoffs[event.symbol] = cutoff
-            normalized_us_events, _ = canonicalize_approximate_events(tuple(us_events))
+            normalized_us_events, contradictory = canonicalize_approximate_events(
+                tuple(us_events)
+            )
+            us_contradictory_event_symbols = contradictory
             us_events = list(normalized_us_events)
+            for event in us_events:
+                if (
+                    event.symbol in us_contradictory_event_symbols
+                    or event.invalid_timing
+                    or event.occurrence_at is None
+                    or event.observed_at is None
+                ):
+                    if event.occurrence_at is None or (
+                        event.occurrence_at.astimezone(UTC).date() <= end
+                    ):
+                        us_event_symbols_with_unknown_timing.add(event.symbol)
+            for symbol, cutoff in us_event_cutoffs.items():
+                observed = _observed_delisting_event(
+                    tuple(us_events),
+                    calendar=self.calendar,
+                    symbol=symbol,
+                    cutoff=cutoff,
+                    contradictory_symbols=us_contradictory_event_symbols,
+                    end=end,
+                )
+                if observed is not None:
+                    us_observed_delistings[symbol] = observed
+        collection_diagnostics: CollectionDiagnostics | None = None
+        if market == "US":
+            expected_sessions = len(sessions)
+            diagnostic_symbols: list[CollectionSymbolDiagnostic] = []
+            for symbol in sorted(symbols):
+                raw_symbol_bars = us_raw_bars.get(symbol, ())
+                actual_sessions = len(raw_symbol_bars)
+                cutoff = us_event_cutoffs.get(symbol)
+                event_excluded_sessions = sum(
+                    1
+                    for item in raw_symbol_bars
+                    if cutoff is not None and item.session >= cutoff
+                )
+                retained_sessions = actual_sessions - event_excluded_sessions
+                reasons: list[CollectionDiagnosticReason] = []
+                failed_reason = us_failed_reasons.get(symbol)
+                if failed_reason is not None:
+                    reasons.append(failed_reason)
+                if symbol in us_raw_bars and actual_sessions < expected_sessions:
+                    reasons.append("partial_history")
+                observed = us_observed_delistings.get(symbol)
+                if observed is not None:
+                    reasons.append("observed_delisting")
+                if symbol in us_event_symbols_with_unknown_timing:
+                    reasons.append("unknown")
+                deduped_reasons = tuple(dict.fromkeys(reasons))
+                diagnostic_symbols.append(
+                    CollectionSymbolDiagnostic(
+                        symbol=symbol,
+                        reasons=deduped_reasons,
+                        coverage=CollectionCoverage(
+                            expected_sessions=expected_sessions,
+                            actual_sessions=actual_sessions,
+                            missing_sessions=expected_sessions - actual_sessions,
+                            retained_sessions=retained_sessions,
+                            event_excluded_sessions=event_excluded_sessions,
+                        ),
+                        occurrence_at=(
+                            observed.occurrence_at if observed is not None else None
+                        ),
+                        observed_at=(
+                            observed.observed_at if observed is not None else None
+                        ),
+                    )
+                )
+            reason_counts: dict[CollectionDiagnosticReason, int] = {}
+            for item in diagnostic_symbols:
+                for reason in item.reasons:
+                    reason_counts[reason] = reason_counts.get(reason, 0) + 1
+            all_failed = not us_raw_bars
+            if all_failed:
+                for item_index, item in enumerate(diagnostic_symbols):
+                    if "all_failure" not in item.reasons:
+                        diagnostic_symbols[item_index] = item.model_copy(
+                            update={"reasons": (*item.reasons, "all_failure")}
+                        )
+                reason_counts["all_failure"] = len(diagnostic_symbols)
+            aggregate = CollectionCoverage(
+                expected_sessions=sum(
+                    item.coverage.expected_sessions for item in diagnostic_symbols
+                ),
+                actual_sessions=sum(
+                    item.coverage.actual_sessions for item in diagnostic_symbols
+                ),
+                missing_sessions=sum(
+                    item.coverage.missing_sessions for item in diagnostic_symbols
+                ),
+                retained_sessions=sum(
+                    item.coverage.retained_sessions for item in diagnostic_symbols
+                ),
+                event_excluded_sessions=sum(
+                    item.coverage.event_excluded_sessions
+                    for item in diagnostic_symbols
+                ),
+            )
+            collection_diagnostics = CollectionDiagnostics(
+                requested_start=start,
+                requested_end=end,
+                warmup_start=warmup_start,
+                coverage=aggregate,
+                symbols=tuple(diagnostic_symbols),
+                reason_counts=reason_counts,
+                all_failed=all_failed,
+            )
         if not bars:
-            raise CollectorPartialError("no sampled symbol has a valid history")
+            raise CollectorPartialError(
+                "no sampled symbol has a valid history",
+                diagnostics=collection_diagnostics,
+            )
         fx: tuple[ApproximateFXRow, ...] = ()
         limitations: list[str] = []
         if market == "US":
@@ -2090,9 +2285,11 @@ class FreeMarketDataCollector:
                 fx_source="fred",
                 simulated=False,
                 normalization_version=normalization_version,
+                collection_diagnostics=collection_diagnostics,
             ),
             limitations=tuple(limitations),
             excluded_symbols=tuple(sorted(excluded)),
+            collection_diagnostics=collection_diagnostics,
         )
 
     @staticmethod
@@ -2193,6 +2390,7 @@ __all__ = [
     "CollectorAuthenticationError",
     "CollectorCoverageError",
     "CollectorError",
+    "CollectorIdentityError",
     "CollectorNullError",
     "CollectorNullResponseError",
     "CollectorParseError",

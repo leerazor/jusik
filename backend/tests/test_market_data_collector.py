@@ -15,7 +15,9 @@ from jusik.market_data_collector import (
     CollectorAuthenticationError,
     CollectorCoverageError,
     CollectorError,
+    CollectorIdentityError,
     CollectorNullError,
+    CollectorPartialError,
     CollectorParseError,
     CollectorQuotaError,
     CollectorSettings,
@@ -41,6 +43,9 @@ from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
     ApproximateEvent,
     ApproximateMarketHistorySource,
+    CollectionCoverage,
+    CollectionDiagnostics,
+    CollectionSymbolDiagnostic,
     JsonApproximateProvider,
     canonicalize_approximate_events,
     run_approximate_market_research,
@@ -1056,6 +1061,187 @@ class _USEventTransport(_CausalUSCheckpointTransport):
                 }
             }
         return json.dumps(payload).encode()
+
+
+class _DiagnosticUSTransport(_CausalUSCheckpointTransport):
+    def __init__(self, mode: str) -> None:
+        super().__init__(("AAA",), initial_symbols=("AAA",))
+        self.mode = mode
+
+    async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
+        payload = json.loads(await super().yahoo(symbol, start, end))
+        result = payload["chart"]["result"][0]
+        if self.mode == "identity":
+            result["meta"]["symbol"] = "OTHER"
+        elif self.mode == "partial":
+            for key in ("timestamp",):
+                result[key] = result[key][:-1]
+            for key in ("open", "high", "low", "close", "volume"):
+                result["indicators"]["quote"][0][key] = result[
+                    "indicators"
+                ]["quote"][0][key][:-1]
+        elif self.mode == "delisting":
+            result["events"] = {
+                "delisting": {
+                    str(int(datetime(2026, 2, 17, 14, 30, tzinfo=UTC).timestamp())): {
+                        "observed_at": "2026-02-17T22:00:00+00:00"
+                    }
+                }
+            }
+        return json.dumps(payload).encode()
+
+
+@pytest.mark.parametrize("mode", ["partial", "delisting"])
+def test_us_collection_diagnostics_reconcile_and_round_trip(mode: str) -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(_DiagnosticUSTransport(mode)).collect(
+            market="US",
+            start=date(2026, 2, 16),
+            end=date(2026, 3, 31),
+            sample_size=1,
+        )
+    )
+    diagnostics = result.collection_diagnostics
+    assert isinstance(diagnostics, CollectionDiagnostics)
+    assert diagnostics.symbols == tuple(
+        sorted(diagnostics.symbols, key=lambda x: x.symbol)
+    )
+    assert diagnostics.coverage.expected_sessions == (
+        diagnostics.coverage.actual_sessions + diagnostics.coverage.missing_sessions
+    )
+    assert diagnostics.coverage.actual_sessions == (
+        diagnostics.coverage.retained_sessions
+        + diagnostics.coverage.event_excluded_sessions
+    )
+    assert (
+        CollectionDiagnostics.model_validate_json(diagnostics.model_dump_json())
+        == diagnostics
+    )
+    symbol = diagnostics.symbols[0]
+    if mode == "partial":
+        assert "partial_history" in symbol.reasons
+        assert symbol.coverage.missing_sessions == 1
+    else:
+        assert "observed_delisting" in symbol.reasons
+        assert symbol.occurrence_at is not None
+        assert symbol.observed_at is not None
+        assert symbol.coverage.event_excluded_sessions > 0
+
+
+def test_us_collection_diagnostics_preserve_unknown_event_timing() -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(
+            _USEventTransport(
+                datetime(2026, 2, 17, 14, 30, tzinfo=UTC),
+                None,
+            )
+        ).collect(
+            market="US",
+            start=date(2026, 2, 16),
+            end=date(2026, 3, 31),
+            sample_size=1,
+        )
+    )
+    assert result.collection_diagnostics is not None
+    symbol = result.collection_diagnostics.symbols[0]
+    assert "unknown" in symbol.reasons
+    assert "observed_delisting" not in symbol.reasons
+    assert symbol.occurrence_at is None
+    assert symbol.observed_at is None
+
+
+def test_identity_mismatch_is_typed_and_all_failure_diagnostics_serialize() -> None:
+    body = asyncio.run(
+        _DiagnosticUSTransport("identity").yahoo(
+            "AAA", date(2026, 2, 16), date(2026, 2, 17)
+        )
+    )
+    with pytest.raises(CollectorIdentityError):
+        parse_yahoo_chart(
+            body,
+            symbol="AAA",
+            exchange="NMS",
+            currency="USD",
+            start=date(2026, 2, 16),
+            end=date(2026, 2, 17),
+        )
+    with pytest.raises(CollectorPartialError) as raised:
+        asyncio.run(
+            FreeMarketDataCollector(_DiagnosticUSTransport("identity")).collect(
+                market="US",
+                start=date(2026, 2, 16),
+                end=date(2026, 3, 31),
+                sample_size=1,
+            )
+        )
+    assert raised.value.diagnostics is not None
+    assert raised.value.diagnostics.all_failed is True
+    assert "all_failure" in raised.value.diagnostics.symbols[0].reasons
+    assert CollectionDiagnostics.model_validate_json(
+        raised.value.diagnostics.model_dump_json()
+    ) == raised.value.diagnostics
+
+
+def test_cli_serializes_typed_all_failure_diagnostics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    diagnostics = CollectionDiagnostics(
+        requested_start=date(2025, 9, 14),
+        requested_end=date(2026, 9, 14),
+        warmup_start=date(2025, 8, 15),
+        coverage=CollectionCoverage(
+            expected_sessions=1,
+            actual_sessions=0,
+            missing_sessions=1,
+            retained_sessions=0,
+            event_excluded_sessions=0,
+        ),
+        symbols=(
+            CollectionSymbolDiagnostic(
+                symbol="AAA",
+                reasons=("identity_mismatch", "all_failure"),
+                coverage=CollectionCoverage(
+                    expected_sessions=1,
+                    actual_sessions=0,
+                    missing_sessions=1,
+                    retained_sessions=0,
+                    event_excluded_sessions=0,
+                ),
+            ),
+        ),
+        reason_counts={"identity_mismatch": 1, "all_failure": 1},
+        all_failed=True,
+    )
+
+    async def unavailable(**_kwargs: object) -> object:
+        raise CollectorPartialError(
+            "no sampled symbol has a valid history", diagnostics=diagnostics
+        )
+
+    monkeypatch.setattr("jusik.market_research_cli.collect_market_data", unavailable)
+    for name in ("ALPHA_VANTAGE_API_KEY", "FRED_API_KEY"):
+        monkeypatch.setenv(name, "configured")
+    result = market_research_cli(
+        [
+            "collect",
+            "--market",
+            "US",
+            "--start",
+            "2025-09-14",
+            "--end",
+            "2026-09-14",
+            "--output",
+            str(tmp_path / "prepared.json"),
+            "--cache",
+            str(tmp_path / "cache"),
+        ]
+    )
+    assert result == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["collection_diagnostics"]["all_failed"] is True
+    assert payload["collection_diagnostics"]["symbols"][0]["symbol"] == "AAA"
 
 
 class _ThreeCheckpointUSCheckpointTransport(_USCheckpointTransport):

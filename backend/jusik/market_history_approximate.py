@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -46,6 +47,20 @@ US_EVENT_TIMING_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v1"
 US_MEMBERSHIP_SEED = 20260914
 APPROX_LOOKBACK_SESSIONS = 20
 APPROX_TARGET_WEIGHT = Decimal("0.05")
+
+CollectionDiagnosticReason = Literal[
+    "partial_history",
+    "coverage",
+    "identity_mismatch",
+    "quota",
+    "auth",
+    "budget",
+    "parse",
+    "null",
+    "observed_delisting",
+    "unknown",
+    "all_failure",
+]
 
 
 class ApproximateProviderError(RuntimeError):
@@ -121,6 +136,116 @@ class ApproximateEvent(BaseModel):
         return self.occurrence_at
 
 
+class CollectionCoverage(BaseModel):
+    """Reconciled coverage for one Yahoo request or an aggregate."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    expected_sessions: int = Field(ge=0)
+    actual_sessions: int = Field(ge=0)
+    missing_sessions: int = Field(ge=0)
+    retained_sessions: int = Field(ge=0)
+    event_excluded_sessions: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def reconcile(self) -> CollectionCoverage:
+        if self.expected_sessions != self.actual_sessions + self.missing_sessions:
+            raise ValueError("collection coverage expected/actual/missing mismatch")
+        if self.actual_sessions != (
+            self.retained_sessions + self.event_excluded_sessions
+        ):
+            raise ValueError("collection coverage actual/retained/excluded mismatch")
+        return self
+
+
+class CollectionSymbolDiagnostic(BaseModel):
+    """Bounded, provider-body-free diagnostics for one requested symbol."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    symbol: str = Field(min_length=1, max_length=20)
+    reasons: tuple[CollectionDiagnosticReason, ...] = ()
+    coverage: CollectionCoverage
+    occurrence_at: datetime | None = None
+    observed_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_reasons(self) -> CollectionSymbolDiagnostic:
+        if self.occurrence_at is not None and (
+            self.occurrence_at.tzinfo is None or self.occurrence_at.utcoffset() is None
+        ):
+            raise ValueError("diagnostic occurrence timestamp must include a timezone")
+        if self.observed_at is not None and (
+            self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None
+        ):
+            raise ValueError("diagnostic observation timestamp must include a timezone")
+        if "observed_delisting" in self.reasons and (
+            self.occurrence_at is None or self.observed_at is None
+        ):
+            raise ValueError("observed delisting requires both event timestamps")
+        return self
+
+
+class CollectionDiagnostics(BaseModel):
+    """Serializable US collection diagnostics, independent of strategy inputs."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: Literal["us-collection-diagnostics-v1"] = (
+        "us-collection-diagnostics-v1"
+    )
+    requested_start: date
+    requested_end: date
+    warmup_start: date
+    coverage: CollectionCoverage
+    symbols: tuple[CollectionSymbolDiagnostic, ...] = ()
+    reason_counts: dict[CollectionDiagnosticReason, int] = Field(default_factory=dict)
+    all_failed: bool = False
+
+    @model_validator(mode="after")
+    def validate_diagnostics(self) -> CollectionDiagnostics:
+        if self.requested_end < self.requested_start:
+            raise ValueError("diagnostic requested period is invalid")
+        if self.warmup_start > self.requested_start:
+            raise ValueError("diagnostic warmup must not follow requested start")
+        symbols = tuple(sorted(self.symbols, key=lambda item: item.symbol))
+        if symbols != self.symbols:
+            raise ValueError("diagnostic symbols must be sorted")
+        if len({item.symbol for item in symbols}) != len(symbols):
+            raise ValueError("diagnostic symbols must be unique")
+        aggregate = _aggregate_coverage(item.coverage for item in symbols)
+        if aggregate != self.coverage:
+            raise ValueError("diagnostic aggregate coverage does not match symbols")
+        if self.all_failed and symbols and not all(
+            item.coverage.actual_sessions == 0 for item in symbols
+        ):
+            raise ValueError("all-failure diagnostics cannot retain actual sessions")
+        expected_counts: dict[CollectionDiagnosticReason, int] = {}
+        for item in symbols:
+            if len(item.reasons) != len(set(item.reasons)):
+                raise ValueError("diagnostic reasons must be unique")
+            for reason in item.reasons:
+                expected_counts[reason] = expected_counts.get(reason, 0) + 1
+        if any(value < 0 for value in self.reason_counts.values()):
+            raise ValueError("diagnostic reason counts must be non-negative")
+        if self.reason_counts != expected_counts:
+            raise ValueError("diagnostic reason counts do not match symbols")
+        return self
+
+
+def _aggregate_coverage(
+    coverages: Iterable[CollectionCoverage],
+) -> CollectionCoverage:
+    values = tuple(coverages)
+    return CollectionCoverage(
+        expected_sessions=sum(item.expected_sessions for item in values),
+        actual_sessions=sum(item.actual_sessions for item in values),
+        missing_sessions=sum(item.missing_sessions for item in values),
+        retained_sessions=sum(item.retained_sessions for item in values),
+        event_excluded_sessions=sum(item.event_excluded_sessions for item in values),
+    )
+
+
 class ApproximateDataset(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -134,6 +259,9 @@ class ApproximateDataset(BaseModel):
     fx_source: Literal["fred"] = "fred"
     simulated: bool = False
     normalization_version: str = Field(default="approx-v2", min_length=1, max_length=40)
+    collection_diagnostics: CollectionDiagnostics | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 @dataclass(frozen=True)
