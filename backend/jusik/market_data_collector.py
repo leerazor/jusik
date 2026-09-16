@@ -31,13 +31,16 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from jusik.market_history_approximate import (
     MAX_UNIQUE_SYMBOLS,
-    US_MEMBERSHIP_NORMALIZATION_VERSION,
+    US_EVENT_TIMING_NORMALIZATION_VERSION,
     US_MEMBERSHIP_SEED,
     ApproximateBarRow,
     ApproximateDataset,
+    ApproximateEvent,
     ApproximateFXRow,
     ApproximateProviderError,
     ApproximateUniverseRow,
+    canonicalize_approximate_events,
+    _event_cutoff_session,
     deterministic_pool,
 )
 from jusik.market_history_models import Market
@@ -911,6 +914,46 @@ def parse_alpha_vantage_listing_status(
 class YahooChart:
     bars: tuple[ApproximateBarRow, ...]
     events: tuple[str, ...]
+    event_rows: tuple[ApproximateEvent, ...] = ()
+
+
+def _event_datetime(value: object, field: str) -> datetime | None:
+    """Parse an event timestamp without inventing an intraday boundary."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        raise CollectorError(f"Yahoo {field} timestamp is invalid")
+    if isinstance(value, (int, float, Decimal)):
+        try:
+            result = datetime.fromtimestamp(float(value), UTC)
+        except (OverflowError, OSError, ValueError) as exc:
+            raise CollectorError(f"Yahoo {field} timestamp is invalid") from exc
+        return result
+    if not isinstance(value, str):
+        raise CollectorError(f"Yahoo {field} timestamp is invalid")
+    text = value.strip()
+    if not text:
+        return None
+    if re.fullmatch(r"\d+(?:\.\d+)?", text):
+        try:
+            return datetime.fromtimestamp(float(text), UTC)
+        except (OverflowError, OSError, ValueError) as exc:
+            raise CollectorError(f"Yahoo {field} timestamp is invalid") from exc
+    # A date-only provider value has no safe intraday ordering.  Preserve the
+    # event as unknown rather than treating midnight as its occurrence time.
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        try:
+            date.fromisoformat(text)
+        except ValueError as exc:
+            raise CollectorError(f"Yahoo {field} timestamp is invalid") from exc
+        return None
+    try:
+        result = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise CollectorError(f"Yahoo {field} timestamp is invalid") from exc
+    if result.tzinfo is None or result.utcoffset() is None:
+        raise CollectorError(f"Yahoo {field} timestamp must include a timezone")
+    return result.astimezone(UTC)
 
 
 def parse_yahoo_chart(
@@ -922,6 +965,7 @@ def parse_yahoo_chart(
     start: date,
     end: date,
     available_at: datetime | None = None,
+    observed_at: datetime | None = None,
 ) -> YahooChart:
     try:
         payload = json.loads(body)
@@ -1030,12 +1074,111 @@ def parse_yahoo_chart(
     raw_events = result.get("events") or {}
     if not isinstance(raw_events, Mapping):
         raise CollectorError("Yahoo chart events are malformed")
-    events = tuple(
+    # ``available_at`` timestamps the returned bars.  It is deliberately not
+    # reused as an event observation timestamp: only the explicit event field
+    # or ``observed_at`` supplied by the provider is authoritative.
+    supplied_observed_at = observed_at
+    if supplied_observed_at is not None:
+        if (
+            supplied_observed_at.tzinfo is None
+            or supplied_observed_at.utcoffset() is None
+        ):
+            raise CollectorError("Yahoo event observation must include a timezone")
+        supplied_observed_at = supplied_observed_at.astimezone(UTC)
+    events = tuple(sorted(
         str(kind)
         for kind, values in raw_events.items()
         if isinstance(values, dict) and values
+    ))
+    event_rows: list[ApproximateEvent] = []
+    event_time_fields = {
+        "occurrence_at",
+        "occurrenceAt",
+        "timestamp",
+        "date",
+        "observed_at",
+        "observedAt",
+    }
+    for kind, raw_values in raw_events.items():
+        if not isinstance(raw_values, Mapping) or not raw_values:
+            if raw_values not in ({}, None):
+                raise CollectorError("Yahoo chart events are malformed")
+            continue
+        entries: list[tuple[object | None, Mapping[str, object]]]
+        if event_time_fields.intersection(raw_values):
+            entries = [(None, cast(Mapping[str, object], raw_values))]
+        else:
+            entries = [
+                (key, cast(Mapping[str, object], value))
+                for key, value in raw_values.items()
+                if isinstance(value, Mapping)
+            ]
+            if len(entries) != len(raw_values):
+                raise CollectorError("Yahoo chart events are malformed")
+        for event_key_value, values in entries:
+            occurrence_value = next(
+                (
+                    values.get(name)
+                    for name in (
+                        "occurrence_at",
+                        "occurrenceAt",
+                        "timestamp",
+                        "date",
+                    )
+                    if values.get(name) not in (None, "")
+                ),
+                None,
+            )
+            invalid_timing = False
+            try:
+                occurrence_at = _event_datetime(occurrence_value, "event")
+            except CollectorError:
+                occurrence_at = None
+                invalid_timing = True
+            if occurrence_value in (None, "") and (
+                isinstance(event_key_value, (int, float))
+                or (
+                    isinstance(event_key_value, str)
+                    and re.fullmatch(r"\d+(?:\.\d+)?", event_key_value)
+                    is not None
+                )
+            ):
+                try:
+                    occurrence_at = _event_datetime(event_key_value, "event")
+                except CollectorError:
+                    occurrence_at = None
+                    invalid_timing = True
+            event_observed_value = next(
+                (
+                    values.get(name)
+                    for name in ("observed_at", "observedAt")
+                    if values.get(name) not in (None, "")
+                ),
+                None,
+            )
+            try:
+                event_observed_at = _event_datetime(
+                    event_observed_value, "observation"
+                )
+            except CollectorError:
+                event_observed_at = None
+                invalid_timing = True
+            if event_observed_at is None:
+                event_observed_at = supplied_observed_at
+            event_rows.append(
+                ApproximateEvent(
+                    symbol=symbol,
+                    kind=str(kind),
+                    occurrence_at=occurrence_at,
+                    observed_at=event_observed_at,
+                    invalid_timing=invalid_timing,
+                    source="yahoo",
+                )
+            )
+    normalized_event_rows, _ = canonicalize_approximate_events(tuple(event_rows))
+    return YahooChart(
+        bars=tuple(bars), events=events, event_rows=normalized_event_rows
     )
-    return YahooChart(bars=tuple(bars), events=events)
 
 
 def parse_fred_observations(
@@ -1499,7 +1642,7 @@ class FreeMarketDataCollector:
             raw_rows = tuple(universe_rows)
             selected_symbols = set(symbols)
             source = "alpha_vantage"
-            normalization_version = US_MEMBERSHIP_NORMALIZATION_VERSION
+            normalization_version = US_EVENT_TIMING_NORMALIZATION_VERSION
         if market == "KR":
             first_day_rows = tuple(row for row in raw_rows if row.session == checkpoint)
             pool = deterministic_pool(first_day_rows, market=market, pool_end=end)
@@ -1510,6 +1653,8 @@ class FreeMarketDataCollector:
             normalization_version = NORMALIZATION_VERSION
         event_dates: dict[str, date] = {}
         event_reasons: dict[str, str] = {}
+        us_events: list[ApproximateEvent] = []
+        us_event_cutoffs: dict[str, date] = {}
         if market == "KR":
             universe = tuple(row for row in raw_rows if row.symbol in selected_symbols)
             previous_details: dict[str, Decimal] = {}
@@ -1583,9 +1728,7 @@ class FreeMarketDataCollector:
                 except CollectorError:
                     excluded.append(symbol)
                     continue
-                if chart.events:
-                    excluded.append(symbol)
-                    continue
+                us_events.extend(chart.event_rows)
                 for chart_bar in chart.bars:
                     lookup = self.calendar.lookup(row.exchange, chart_bar.session)
                     if lookup.session is None:
@@ -1597,6 +1740,26 @@ class FreeMarketDataCollector:
                             update={"available_at": lookup.session.close_at}
                         )
                     )
+            for event in us_events:
+                if event.occurrence_at is None or event.observed_at is None:
+                    continue
+                effective_at = max(
+                    event.occurrence_at.astimezone(UTC),
+                    event.observed_at.astimezone(UTC),
+                )
+                cutoff, ambiguous = _event_cutoff_session(
+                    self.calendar,
+                    effective_at,
+                    start=start,
+                    end=end,
+                )
+                if ambiguous or cutoff is None:
+                    continue
+                event_prior = us_event_cutoffs.get(event.symbol)
+                if event_prior is None or cutoff < event_prior:
+                    us_event_cutoffs[event.symbol] = cutoff
+            normalized_us_events, _ = canonicalize_approximate_events(tuple(us_events))
+            us_events = list(normalized_us_events)
         if not bars:
             raise CollectorPartialError("no sampled symbol has a valid history")
         fx: tuple[ApproximateFXRow, ...] = ()
@@ -1666,7 +1829,10 @@ class FreeMarketDataCollector:
 
         def before_event(row: ApproximateUniverseRow | ApproximateBarRow) -> bool:
             event_date = event_dates.get(row.symbol)
-            return event_date is None or row.session < event_date
+            if event_date is not None and row.session >= event_date:
+                return False
+            us_event_date = us_event_cutoffs.get(row.symbol)
+            return us_event_date is None or row.session < us_event_date
 
         return CollectionOutput(
             dataset=ApproximateDataset(
@@ -1682,6 +1848,7 @@ class FreeMarketDataCollector:
                     if item.symbol not in excluded and before_event(item)
                 ),
                 fx=fx,
+                events=tuple(us_events),
                 source=source,
                 bar_source="krx" if market == "KR" else "yahoo",
                 fx_source="fred",

@@ -33,9 +33,11 @@ from jusik.market_data_collector import (
     parse_yahoo_chart,
 )
 from jusik.market_history_approximate import (
-    US_MEMBERSHIP_NORMALIZATION_VERSION,
+    US_EVENT_TIMING_NORMALIZATION_VERSION,
     ApproximateMarketHistorySource,
+    ApproximateEvent,
     JsonApproximateProvider,
+    canonicalize_approximate_events,
     run_approximate_market_research,
 )
 from jusik.market_history_models import MarketResearchRequest
@@ -353,6 +355,179 @@ def test_yahoo_parser_validates_identity_arrays_and_action_events() -> None:
         )
 
 
+def test_yahoo_parser_preserves_occurrence_and_observed_event_times() -> None:
+    occurrence = datetime(2026, 1, 5, 14, 30, tzinfo=UTC)
+    observed = datetime(2026, 1, 7, 21, 15, tzinfo=UTC)
+    body = json.dumps(
+        {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "symbol": "AAA",
+                            "currency": "USD",
+                            "instrumentType": "EQUITY",
+                            "exchangeName": "NMS",
+                            "exchangeTimezoneName": "America/New_York",
+                        },
+                        "timestamp": [int(occurrence.timestamp())],
+                        "indicators": {
+                            "quote": [
+                                {
+                                    "open": [10],
+                                    "high": [11],
+                                    "low": [9],
+                                    "close": [10],
+                                    "volume": [100],
+                                }
+                            ]
+                        },
+                        "events": {
+                            "splits": {
+                                str(int(occurrence.timestamp())): {
+                                    "observed_at": observed.isoformat(),
+                                }
+                            }
+                        },
+                    }
+                ]
+            }
+        }
+    ).encode()
+    parsed = parse_yahoo_chart(
+        body,
+        symbol="AAA",
+        exchange="NAS",
+        currency="USD",
+        start=date(2026, 1, 5),
+        end=date(2026, 1, 5),
+    )
+    assert parsed.event_rows[0].occurrence_at == occurrence
+    assert parsed.event_rows[0].observed_at == observed
+    assert parsed.event_rows[0].occurred_at == occurrence
+
+
+def test_yahoo_parser_keeps_date_only_event_unknown() -> None:
+    body = json.dumps(
+        {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "symbol": "AAA",
+                            "currency": "USD",
+                            "instrumentType": "EQUITY",
+                            "exchangeName": "NMS",
+                            "exchangeTimezoneName": "America/New_York",
+                        },
+                        "timestamp": [
+                            int(datetime(2026, 1, 5, 20, tzinfo=UTC).timestamp())
+                        ],
+                        "indicators": {
+                            "quote": [
+                                {
+                                    "open": [10],
+                                    "high": [11],
+                                    "low": [9],
+                                    "close": [10],
+                                    "volume": [100],
+                                }
+                            ]
+                        },
+                        "events": {"dividends": {"date": "2026-01-05"}},
+                    }
+                ]
+            }
+        }
+    ).encode()
+    parsed = parse_yahoo_chart(
+        body,
+        symbol="AAA",
+        exchange="NAS",
+        currency="USD",
+        start=date(2026, 1, 5),
+        end=date(2026, 1, 5),
+    )
+    assert parsed.event_rows[0].occurrence_at is None
+    assert parsed.event_rows[0].observed_at is None
+
+
+def test_yahoo_parser_retains_invalid_event_timing_as_unknown() -> None:
+    body = json.dumps(
+        {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "symbol": "AAA",
+                            "currency": "USD",
+                            "instrumentType": "EQUITY",
+                            "exchangeName": "NMS",
+                            "exchangeTimezoneName": "America/New_York",
+                        },
+                        "timestamp": [
+                            int(datetime(2026, 1, 5, 20, tzinfo=UTC).timestamp())
+                        ],
+                        "indicators": {
+                            "quote": [
+                                {
+                                    "open": [10],
+                                    "high": [11],
+                                    "low": [9],
+                                    "close": [10],
+                                    "volume": [100],
+                                }
+                            ]
+                        },
+                        "events": {
+                            "dividends": {
+                                "bad-key": {
+                                    "occurrence_at": "not-a-timestamp",
+                                    "observed_at": "also-not-a-timestamp",
+                                }
+                            }
+                        },
+                    }
+                ]
+            }
+        }
+    ).encode()
+    parsed = parse_yahoo_chart(
+        body,
+        symbol="AAA",
+        exchange="NAS",
+        currency="USD",
+        start=date(2026, 1, 5),
+        end=date(2026, 1, 5),
+    )
+    assert len(parsed.event_rows) == 1
+    assert parsed.event_rows[0].invalid_timing is True
+    assert parsed.event_rows[0].occurrence_at is None
+    assert parsed.event_rows[0].observed_at is None
+
+
+def test_approximate_event_dedup_is_canonical_and_conflicts_are_reported() -> None:
+    occurrence = datetime(2026, 1, 5, 14, 30, tzinfo=UTC)
+    first = ApproximateEvent(
+        symbol="AAA",
+        kind="splits",
+        occurrence_at=occurrence,
+        observed_at=datetime(2026, 1, 7, 21, tzinfo=UTC),
+    )
+    duplicate = first.model_copy()
+    conflicting = first.model_copy(
+        update={"observed_at": datetime(2026, 1, 8, 21, tzinfo=UTC)}
+    )
+    ordered, contradictions = canonicalize_approximate_events(
+        (conflicting, duplicate, first)
+    )
+    assert len(ordered) == 2
+    assert contradictions == frozenset({"AAA"})
+    reversed_ordered, reversed_contradictions = canonicalize_approximate_events(
+        tuple(reversed((conflicting, duplicate, first)))
+    )
+    assert reversed_ordered == ordered
+    assert reversed_contradictions == contradictions
 def test_fred_parser_rejects_empty_range_and_preserves_decimal_values() -> None:
     body = json.dumps(
         {
@@ -586,6 +761,24 @@ class _CausalUSCheckpointTransport(_USCheckpointTransport):
         ).encode()
 
 
+class _USEventTransport(_CausalUSCheckpointTransport):
+    def __init__(self, occurrence: datetime, observed: object) -> None:
+        super().__init__(("AAA",))
+        self.occurrence = occurrence
+        self.observed = observed
+
+    async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
+        payload = json.loads(await super().yahoo(symbol, start, end))
+        payload["chart"]["result"][0]["events"] = {
+            "splits": {
+                str(int(self.occurrence.timestamp())): {
+                    "observed_at": self.observed,
+                }
+            }
+        }
+        return json.dumps(payload).encode()
+
+
 class _ThreeCheckpointUSCheckpointTransport(_USCheckpointTransport):
     def __init__(self) -> None:
         super().__init__(fail_later=False)
@@ -754,7 +947,10 @@ def test_us_collector_uses_causal_version_and_unknown_gap_after_failed_checkpoin
             sample_size=1,
         )
     )
-    assert result.dataset.normalization_version == US_MEMBERSHIP_NORMALIZATION_VERSION
+    assert (
+        result.dataset.normalization_version
+        == US_EVENT_TIMING_NORMALIZATION_VERSION
+    )
     assert all(row.session < checkpoint for row in result.dataset.universe)
     assert any(
         "current_selected=0" in item and "cumulative_admitted=1" in item
@@ -1039,6 +1235,78 @@ def test_us_collector_source_strategy_prefix_is_invariant_to_future_listing(
         for item in changed_result.candidate_evidence
         if item.session >= checkpoint
     )
+
+
+def test_us_collector_future_event_keeps_prior_symbol_rows() -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(
+            _USEventTransport(
+                datetime(2027, 1, 5, 14, 30, tzinfo=UTC),
+                "2026-09-15T21:00:00+00:00",
+            )
+        ).collect(
+            market="US",
+            start=date(2025, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=1,
+        )
+    )
+    assert result.dataset.events
+    assert {event.symbol for event in result.dataset.events}
+    assert {event.symbol for event in result.dataset.events} <= {
+        row.symbol for row in result.dataset.bars
+    }
+    assert result.dataset.universe
+    assert result.dataset.bars
+    assert min(row.session for row in result.dataset.bars) < date(2026, 1, 2)
+    assert "AAA" not in result.excluded_symbols
+
+
+def test_us_collector_delayed_event_isolates_rows_from_observed_date(
+    tmp_path: Path,
+) -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(
+            _USEventTransport(
+                datetime(2026, 1, 5, 14, 30, tzinfo=UTC),
+                "2026-01-05T22:00:00+00:00",
+            )
+        ).collect(
+            market="US",
+            start=date(2025, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=1,
+        )
+    )
+    assert result.dataset.events[0].occurrence_at == datetime(
+        2026, 1, 5, 14, 30, tzinfo=UTC
+    )
+    assert result.dataset.events[0].observed_at == datetime(
+        2026, 1, 5, 22, tzinfo=UTC
+    )
+    assert all(row.session < date(2026, 1, 6) for row in result.dataset.universe)
+    assert all(row.session < date(2026, 1, 6) for row in result.dataset.bars)
+    prepared = tmp_path / "delayed-event.json"
+    prepared.write_bytes(result.dataset.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="US",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        research_grade="approximate",
+    )
+    source = ApproximateMarketHistorySource(JsonApproximateProvider(prepared))
+    snapshot = asyncio.run(source.collect(request))
+    research = run_approximate_market_research(
+        snapshot,
+        request,
+        source.readiness("US", datetime(2026, 9, 16, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert research.candidate_evidence
+    assert any(trade.side == "buy" for trade in research.trades)
+    assert not any(trade.side == "sell" for trade in research.trades)
+    assert research.metrics["missing_held_bars"] >= 1
+    assert any("추정값" in item for item in research.limitations)
 
 
 def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap() -> (
