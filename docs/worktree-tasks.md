@@ -1,5 +1,15 @@
 # 워크트리 작업 등록부
 
+## runner-autorecovery
+
+- 상태: 구현 준비. 사용자 자율재개 승인에 따라 roadmap queue cap과 환경/계획 오류의 bounded 자동 복구를 구현합니다.
+- 담당: Astra 감독, loss_recovery_explore 조사·loss_recovery_plan 계획, cost_recovery_code Luna 단일 구현, Terra 독립 검토.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-runner-autorecovery` / `fix/runner-autorecovery`; 기준 main7658714 이후 이 등록커밋, 통합 localmain.
+- 범위: runner/store 및 필요시 planning/roadmap, 기존test3파일, 운영문서·새개발기록. 거래/전략/자료판정 불변. 자동runner paused/service inactive.
+- 검증: fakechild/임시DB focused tests, Ruff/format/strictmypy, 독립review와 main통합검사. 실제주문·자동Codex를 테스트로 실행하지 않습니다.
+- 계획·증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-runner-autorecovery/PLAN.md`. 기본off설정으로 호환성을 유지하고 설치roadmap만 감독이 활성화합니다.
+- 완료: 원자적cap/2회backoff복구/격리cache 검증, 증거/SHA/handoff저장·worktree정리 후 실제R2-06재개확인. 미복구자료부족은 자동성공처리하지 않습니다.
+
 ## r2-counterfactual-fe92
 
 - 상태: 차단. uv 캐시 읽기 전용 오류가 환경 준비 두 명령에서 반복되어 중단 조건 적용. 구현·검사·review·구현 통합 없음. 소유 worktree/branch 보존. task `roadmap-r2-06-v1`, attempt `fe9204931f0b446f8dfba0d21473f39d`; 최초 시도이며 기존 소유 branch/worktree가 없습니다.
