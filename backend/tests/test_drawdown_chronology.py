@@ -179,6 +179,22 @@ def test_non_positive_initial_cash_and_fixed_tolerance() -> None:
 def test_saved_approximate_pilot_is_blocked_without_required_evidence(
     tmp_path: Path,
 ) -> None:
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    source = next(
+        case for case in fixture["cases"] if case["name"] == "exact_threshold"
+    )
+    scale = Decimal("1000000")
+    expected_drawdowns = ["0", "0", "20"]
+    equity = [
+        {
+            "session": row["session"],
+            "nav_krw": str(Decimal(row["nav_krw"]) * scale),
+            "drawdown_pct": drawdown,
+        }
+        for row, drawdown in zip(
+            source["observations"][:3], expected_drawdowns, strict=True
+        )
+    ]
     pilot = {
         "result": {
             "request": {"initial_cash_krw": "100000000"},
@@ -188,10 +204,7 @@ def test_saved_approximate_pilot_is_blocked_without_required_evidence(
                 "drawdown_latched": "1",
             },
             "research_grade": "approximate",
-            "equity": [
-                {"session": "2026-01-02", "nav_krw": "100000000", "drawdown_pct": "0"},
-                {"session": "2026-01-05", "nav_krw": "80000000", "drawdown_pct": "20"},
-            ],
+            "equity": equity,
             "trades": [],
         }
     }
