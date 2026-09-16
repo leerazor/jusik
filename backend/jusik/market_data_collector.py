@@ -1655,7 +1655,7 @@ def _diagnostic_reason_for_error(error: CollectorError) -> CollectionDiagnosticR
         return "null"
     if isinstance(error, CollectorParseError):
         return "parse"
-    return "unknown"
+    return "unknown_request_exclusion"
 
 
 def _observed_delisting_event(
@@ -1663,12 +1663,11 @@ def _observed_delisting_event(
     *,
     calendar: MarketCalendar,
     symbol: str,
-    cutoff: date | None,
     contradictory_symbols: frozenset[str],
     end: date,
 ) -> ApproximateEvent | None:
     """Return only an explicit, causally usable delisting event."""
-    if cutoff is None or symbol in contradictory_symbols:
+    if symbol in contradictory_symbols:
         return None
     candidates = tuple(
         event
@@ -1694,7 +1693,7 @@ def _observed_delisting_event(
             start=event.occurrence_at.astimezone(UTC).date(),
             end=end,
         )
-        if not ambiguous and event_cutoff == cutoff:
+        if not ambiguous and event_cutoff is not None:
             return event
     return None
 
@@ -1953,6 +1952,7 @@ class FreeMarketDataCollector:
         us_events: list[ApproximateEvent] = []
         us_event_cutoffs: dict[str, date] = {}
         us_event_symbols_with_unknown_timing: set[str] = set()
+        us_ambiguous_event_symbols: set[str] = set()
         us_failed_reasons: dict[str, CollectionDiagnosticReason] = {}
         us_raw_bars: dict[str, tuple[ApproximateBarRow, ...]] = {}
         us_observed_delistings: dict[str, ApproximateEvent] = {}
@@ -2073,6 +2073,8 @@ class FreeMarketDataCollector:
                     end=end,
                 )
                 if ambiguous or cutoff is None:
+                    if ambiguous:
+                        us_ambiguous_event_symbols.add(event.symbol)
                     continue
                 event_prior = us_event_cutoffs.get(event.symbol)
                 if event_prior is None or cutoff < event_prior:
@@ -2098,7 +2100,6 @@ class FreeMarketDataCollector:
                     tuple(us_events),
                     calendar=self.calendar,
                     symbol=symbol,
-                    cutoff=cutoff,
                     contradictory_symbols=us_contradictory_event_symbols,
                     end=end,
                 )
@@ -2129,6 +2130,8 @@ class FreeMarketDataCollector:
                     reasons.append("observed_delisting")
                 if symbol in us_event_symbols_with_unknown_timing:
                     reasons.append("unknown")
+                if symbol in us_ambiguous_event_symbols:
+                    reasons.append("unknown")
                 deduped_reasons = tuple(dict.fromkeys(reasons))
                 diagnostic_symbols.append(
                     CollectionSymbolDiagnostic(
@@ -2141,6 +2144,7 @@ class FreeMarketDataCollector:
                             retained_sessions=retained_sessions,
                             event_excluded_sessions=event_excluded_sessions,
                         ),
+                        request_excluded=symbol in excluded,
                         occurrence_at=(
                             observed.occurrence_at if observed is not None else None
                         ),
@@ -2185,6 +2189,8 @@ class FreeMarketDataCollector:
                 coverage=aggregate,
                 symbols=tuple(diagnostic_symbols),
                 reason_counts=reason_counts,
+                request_excluded_symbols=tuple(sorted(excluded)),
+                request_excluded_symbol_count=len(excluded),
                 all_failed=all_failed,
             )
         if not bars:

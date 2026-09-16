@@ -41,6 +41,7 @@ from jusik.market_data_collector import (
 )
 from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
+    ApproximateDataset,
     ApproximateEvent,
     ApproximateMarketHistorySource,
     CollectionCoverage,
@@ -1088,7 +1089,46 @@ class _DiagnosticUSTransport(_CausalUSCheckpointTransport):
                     }
                 }
             }
+        elif self.mode == "split-delisting":
+            result["events"] = {
+                "splits": {
+                    str(int(datetime(2026, 2, 17, 14, 30, tzinfo=UTC).timestamp())): {
+                        "observed_at": "2026-02-17T22:00:00+00:00"
+                    }
+                },
+                "delisting": {
+                    str(int(datetime(2026, 2, 24, 14, 30, tzinfo=UTC).timestamp())): {
+                        "observed_at": "2026-02-24T22:00:00+00:00"
+                    }
+                },
+            }
+        elif self.mode == "ambiguous-delisting":
+            result["events"] = {
+                "delisting": {
+                    str(int(datetime(2026, 2, 17, 16, tzinfo=UTC).timestamp())): {
+                        "observed_at": "2026-02-17T16:00:00+00:00"
+                    }
+                }
+            }
+        elif self.mode == "future-delisting":
+            result["events"] = {
+                "delisting": {
+                    str(int(datetime(2026, 4, 20, 14, 30, tzinfo=UTC).timestamp())): {
+                        "observed_at": "2026-04-20T22:00:00+00:00"
+                    }
+                }
+            }
         return json.dumps(payload).encode()
+
+
+class _MixedFailureUSTransport(_CausalUSCheckpointTransport):
+    def __init__(self) -> None:
+        super().__init__(("AAA", "BBB"), initial_symbols=("AAA", "BBB"))
+
+    async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
+        if symbol == "BBB":
+            raise CollectorError("synthetic generic provider failure")
+        return await super().yahoo(symbol, start, end)
 
 
 @pytest.mark.parametrize("mode", ["partial", "delisting"])
@@ -1148,6 +1188,60 @@ def test_us_collection_diagnostics_preserve_unknown_event_timing() -> None:
     assert "observed_delisting" not in symbol.reasons
     assert symbol.occurrence_at is None
     assert symbol.observed_at is None
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_reason"),
+    [
+        ("split-delisting", "observed_delisting"),
+        ("ambiguous-delisting", "unknown"),
+        ("future-delisting", None),
+    ],
+)
+def test_us_delisting_diagnostics_respect_event_evidence(
+    mode: str, expected_reason: str | None
+) -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(_DiagnosticUSTransport(mode)).collect(
+            market="US",
+            start=date(2026, 2, 16),
+            end=date(2026, 3, 31),
+            sample_size=1,
+        )
+    )
+    assert result.collection_diagnostics is not None
+    symbol = result.collection_diagnostics.symbols[0]
+    if expected_reason is None:
+        assert symbol.reasons == ()
+        assert symbol.occurrence_at is None
+        assert symbol.observed_at is None
+    else:
+        assert expected_reason in symbol.reasons
+    if mode == "split-delisting":
+        assert symbol.occurrence_at == datetime(2026, 2, 24, 14, 30, tzinfo=UTC)
+        assert symbol.observed_at == datetime(2026, 2, 24, 22, tzinfo=UTC)
+
+
+def test_us_mixed_success_failure_reconciles_request_exclusions() -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(_MixedFailureUSTransport()).collect(
+            market="US",
+            start=date(2026, 2, 16),
+            end=date(2026, 3, 31),
+            sample_size=2,
+        )
+    )
+    assert result.collection_diagnostics is not None
+    diagnostics = result.collection_diagnostics
+    assert diagnostics.request_excluded_symbols == ("BBB",)
+    assert diagnostics.request_excluded_symbol_count == 1
+    assert diagnostics.reason_counts["unknown_request_exclusion"] == 1
+    excluded = next(item for item in diagnostics.symbols if item.symbol == "BBB")
+    assert excluded.request_excluded is True
+    assert "unknown_request_exclusion" in excluded.reasons
+    retained = next(item for item in diagnostics.symbols if item.symbol == "AAA")
+    assert retained.request_excluded is False
+    assert result.excluded_symbols == diagnostics.request_excluded_symbols
 
 
 def test_identity_mismatch_is_typed_and_all_failure_diagnostics_serialize() -> None:
@@ -1245,6 +1339,132 @@ def test_cli_serializes_typed_all_failure_diagnostics(
     payload = json.loads(capsys.readouterr().out)
     assert payload["collection_diagnostics"]["all_failed"] is True
     assert payload["collection_diagnostics"]["symbols"][0]["symbol"] == "AAA"
+
+
+def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from jusik import market_data_collector as collector_module
+
+    start = date(2026, 2, 16)
+    end = date(2026, 3, 31)
+    collected = asyncio.run(
+        FreeMarketDataCollector(_DiagnosticUSTransport("partial")).collect(
+            market="US", start=start, end=end, sample_size=1
+        )
+    )
+
+    async def prepared_collect(self: object, **_kwargs: object) -> object:
+        return collected
+
+    monkeypatch.setattr(
+        collector_module.FreeMarketDataCollector, "collect", prepared_collect
+    )
+    output = tmp_path / "prepared.json"
+    cache_dir = tmp_path / "cache"
+    settings = CollectorSettings(
+        alpha_vantage_api_key="configured",
+        fred_api_key="configured",
+        request_budget=5_000,
+    )
+    asyncio.run(
+        collect_market_data(
+            market="US",
+            start=start,
+            end=end,
+            output=output,
+            cache_dir=cache_dir,
+            settings=settings,
+            sample_size=1,
+            client=_RecordingHttpClient(),
+        )
+    )
+    round_tripped = ApproximateDataset.model_validate_json(output.read_bytes())
+    assert round_tripped.collection_diagnostics is not None
+    assert completed_collection_is_valid(
+        AtomicResponseCache(cache_dir),
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=output,
+    )
+    legacy_payload = json.loads(output.read_bytes())
+    legacy_payload.pop("collection_diagnostics", None)
+    legacy = ApproximateDataset.model_validate(legacy_payload)
+    assert legacy.collection_diagnostics is None
+
+
+def test_all_failure_collect_market_data_preserves_output_marker_and_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from jusik import market_data_collector as collector_module
+
+    start = date(2026, 2, 16)
+    end = date(2026, 3, 31)
+    try:
+        asyncio.run(
+            FreeMarketDataCollector(_DiagnosticUSTransport("identity")).collect(
+                market="US", start=start, end=end, sample_size=1
+            )
+        )
+    except CollectorPartialError as error:
+        diagnostics = error.diagnostics
+    else:
+        raise AssertionError("identity fixture must produce all-failure diagnostics")
+    assert diagnostics is not None
+
+    output = tmp_path / "prepared.json"
+    output_content = b'{"preserved":true}'
+    output.write_bytes(output_content)
+    cache = AtomicResponseCache(tmp_path / "cache")
+    cache.write_completed(
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=output,
+        content=output_content,
+    )
+    cache.put(
+        source="yahoo",
+        endpoint="https://example.test/chart",
+        request_key="existing",
+        body=b"existing raw",
+        status_code=200,
+        captured_at=datetime(2026, 3, 31, tzinfo=UTC),
+    )
+    before_manifest = cache.manifest_path.read_bytes()
+    before_completed = cache.completed_path.read_bytes()
+
+    async def fail_collect(self: object, **_kwargs: object) -> object:
+        raise CollectorPartialError(
+            "no sampled symbol has a valid history", diagnostics=diagnostics
+        )
+
+    monkeypatch.setattr(
+        collector_module.FreeMarketDataCollector, "collect", fail_collect
+    )
+    with pytest.raises(CollectorPartialError):
+        asyncio.run(
+            collect_market_data(
+                market="US",
+                start=start,
+                end=end,
+                output=output,
+                cache_dir=tmp_path / "cache",
+                settings=CollectorSettings(
+                    alpha_vantage_api_key="configured",
+                    fred_api_key="configured",
+                    request_budget=5_000,
+                ),
+                sample_size=1,
+                client=_RecordingHttpClient(),
+            )
+        )
+    assert output.read_bytes() == output_content
+    assert cache.completed_path.read_bytes() == before_completed
+    assert cache.manifest_path.read_bytes() == before_manifest
 
 
 class _ThreeCheckpointUSCheckpointTransport(_USCheckpointTransport):

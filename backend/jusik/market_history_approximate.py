@@ -59,6 +59,7 @@ CollectionDiagnosticReason = Literal[
     "null",
     "observed_delisting",
     "unknown",
+    "unknown_request_exclusion",
     "all_failure",
 ]
 
@@ -166,6 +167,7 @@ class CollectionSymbolDiagnostic(BaseModel):
     symbol: str = Field(min_length=1, max_length=20)
     reasons: tuple[CollectionDiagnosticReason, ...] = ()
     coverage: CollectionCoverage
+    request_excluded: bool = False
     occurrence_at: datetime | None = None
     observed_at: datetime | None = None
 
@@ -198,6 +200,8 @@ class CollectionDiagnostics(BaseModel):
     coverage: CollectionCoverage
     symbols: tuple[CollectionSymbolDiagnostic, ...] = ()
     reason_counts: dict[CollectionDiagnosticReason, int] = Field(default_factory=dict)
+    request_excluded_symbols: tuple[str, ...] = ()
+    request_excluded_symbol_count: int = Field(default=0, ge=0)
     all_failed: bool = False
 
     @model_validator(mode="after")
@@ -211,6 +215,20 @@ class CollectionDiagnostics(BaseModel):
             raise ValueError("diagnostic symbols must be sorted")
         if len({item.symbol for item in symbols}) != len(symbols):
             raise ValueError("diagnostic symbols must be unique")
+        excluded_symbols = tuple(sorted(self.request_excluded_symbols))
+        if excluded_symbols != self.request_excluded_symbols:
+            raise ValueError("diagnostic request exclusions must be sorted")
+        if len(set(excluded_symbols)) != len(excluded_symbols):
+            raise ValueError("diagnostic request exclusions must be unique")
+        expected_excluded = tuple(
+            item.symbol for item in symbols if item.request_excluded
+        )
+        if excluded_symbols != expected_excluded:
+            raise ValueError("diagnostic request exclusions do not match symbols")
+        if self.request_excluded_symbol_count != len(excluded_symbols):
+            raise ValueError(
+                "diagnostic request exclusion count does not match symbols"
+            )
         aggregate = _aggregate_coverage(item.coverage for item in symbols)
         if aggregate != self.coverage:
             raise ValueError("diagnostic aggregate coverage does not match symbols")
