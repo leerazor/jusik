@@ -528,6 +528,8 @@ def test_approximate_event_dedup_is_canonical_and_conflicts_are_reported() -> No
     )
     assert reversed_ordered == ordered
     assert reversed_contradictions == contradictions
+
+
 def test_fred_parser_rejects_empty_range_and_preserves_decimal_values() -> None:
     body = json.dumps(
         {

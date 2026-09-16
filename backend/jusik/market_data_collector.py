@@ -1085,11 +1085,13 @@ def parse_yahoo_chart(
         ):
             raise CollectorError("Yahoo event observation must include a timezone")
         supplied_observed_at = supplied_observed_at.astimezone(UTC)
-    events = tuple(sorted(
-        str(kind)
-        for kind, values in raw_events.items()
-        if isinstance(values, dict) and values
-    ))
+    events = tuple(
+        sorted(
+            str(kind)
+            for kind, values in raw_events.items()
+            if isinstance(values, dict) and values
+        )
+    )
     event_rows: list[ApproximateEvent] = []
     event_time_fields = {
         "occurrence_at",
@@ -1139,8 +1141,7 @@ def parse_yahoo_chart(
                 isinstance(event_key_value, (int, float))
                 or (
                     isinstance(event_key_value, str)
-                    and re.fullmatch(r"\d+(?:\.\d+)?", event_key_value)
-                    is not None
+                    and re.fullmatch(r"\d+(?:\.\d+)?", event_key_value) is not None
                 )
             ):
                 try:
@@ -1157,9 +1158,7 @@ def parse_yahoo_chart(
                 None,
             )
             try:
-                event_observed_at = _event_datetime(
-                    event_observed_value, "observation"
-                )
+                event_observed_at = _event_datetime(event_observed_value, "observation")
             except CollectorError:
                 event_observed_at = None
                 invalid_timing = True
@@ -1176,9 +1175,7 @@ def parse_yahoo_chart(
                 )
             )
     normalized_event_rows, _ = canonicalize_approximate_events(tuple(event_rows))
-    return YahooChart(
-        bars=tuple(bars), events=events, event_rows=normalized_event_rows
-    )
+    return YahooChart(bars=tuple(bars), events=events, event_rows=normalized_event_rows)
 
 
 def parse_fred_observations(

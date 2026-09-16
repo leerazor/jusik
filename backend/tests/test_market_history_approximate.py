@@ -1131,7 +1131,41 @@ def test_approximate_held_missing_bar_is_marked_as_estimated() -> None:
     )
     assert result.status == "approximate"
     assert result.metrics["missing_held_bars"] >= 1
-    assert any("추정값" in limitation for limitation in result.limitations)
+    expected_age = sum(
+        bar.session > first_buy.fill_session and bar.session <= missing.session
+        for bar in snapshot.bars
+        if bar.symbol == first_buy.symbol
+    )
+    expected_limitation = (
+        f"보유 종목 {first_buy.symbol}은 {expected_age}세션 전 마지막 가격으로 "
+        "평가합니다(추정값)."
+    )
+    assert expected_limitation in result.limitations
+    held_quantity = sum(
+        trade.quantity if trade.side == "buy" else -trade.quantity
+        for trade in result.trades
+        if trade.symbol == first_buy.symbol and trade.fill_session <= missing.session
+    )
+    assert held_quantity > 0
+    previous_mark = max(
+        (
+            bar
+            for bar in snapshot.bars
+            if bar.symbol == first_buy.symbol and bar.session < missing.session
+        ),
+        key=lambda bar: bar.session,
+    )
+    missing_point = next(
+        point for point in result.equity if point.session == missing.session
+    )
+    assert missing_point.invested_krw >= previous_mark.close * held_quantity
+    assert missing_point.nav_krw == missing_point.cash_krw + missing_point.invested_krw
+    assert not any(
+        trade.symbol == first_buy.symbol
+        and trade.side == "sell"
+        and trade.signal_session >= missing.session
+        for trade in result.trades
+    )
 
 
 def test_approximate_does_not_fill_after_membership_expires() -> None:

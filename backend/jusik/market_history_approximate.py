@@ -565,14 +565,10 @@ class ApproximateMarketHistorySource:
             request.market, request.start_date, request.end_date
         )
         dataset = response.dataset
-        is_causal_us = (
-            request.market == "US"
-            and dataset.normalization_version
-            in {
-                US_MEMBERSHIP_NORMALIZATION_VERSION,
-                US_EVENT_TIMING_NORMALIZATION_VERSION,
-            }
-        )
+        is_causal_us = request.market == "US" and dataset.normalization_version in {
+            US_MEMBERSHIP_NORMALIZATION_VERSION,
+            US_EVENT_TIMING_NORMALIZATION_VERSION,
+        }
         pool = (
             deterministic_pool(
                 dataset.universe, market=request.market, pool_end=request.end_date
@@ -585,8 +581,7 @@ class ApproximateMarketHistorySource:
             selected_rows = dataset.universe
             contract_hash = (
                 legacy_us_membership_contract_hash()
-                if dataset.normalization_version
-                == US_MEMBERSHIP_NORMALIZATION_VERSION
+                if dataset.normalization_version == US_MEMBERSHIP_NORMALIZATION_VERSION
                 else us_event_timing_contract_hash()
             )
         else:
@@ -595,8 +590,7 @@ class ApproximateMarketHistorySource:
             contract_hash = pool.contract_hash
         event_timing_enabled = (
             request.market == "US"
-            and dataset.normalization_version
-            == US_EVENT_TIMING_NORMALIZATION_VERSION
+            and dataset.normalization_version == US_EVENT_TIMING_NORMALIZATION_VERSION
         )
         normalized_events: tuple[ApproximateEvent, ...]
         if event_timing_enabled:
@@ -691,9 +685,8 @@ class ApproximateMarketHistorySource:
         for bar_row in dataset.bars:
             if bar_row.symbol not in selected_symbols:
                 continue
-            if (
-                event_timing_enabled
-                and bar_row.session >= event_cutoffs.get(bar_row.symbol, date.max)
+            if event_timing_enabled and bar_row.session >= event_cutoffs.get(
+                bar_row.symbol, date.max
             ):
                 continue
             market_session = _session(self.calendar, bar_row.exchange, bar_row.session)
@@ -750,8 +743,7 @@ class ApproximateMarketHistorySource:
                     event.occurrence_at is None
                     or event.invalid_timing
                     or (
-                        event.occurrence_at.astimezone(UTC).date()
-                        <= request.end_date
+                        event.occurrence_at.astimezone(UTC).date() <= request.end_date
                         and event.observed_at is None
                     )
                     or (
