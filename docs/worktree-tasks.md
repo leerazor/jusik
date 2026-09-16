@@ -13,9 +13,10 @@
 
 ## r2-market-cost-b8a5
 
-- 상태: 기술 복구 완료·main 통합 검증 완료. 전체 R2-02는 실제 자료 근거 부족으로 미완료이며 runner의 과거 blocked 시도는 보존합니다.
+- 상태: 통합 후 추가 독립 검토 P1 보완 중. CLI 출력이 원본 파일/별칭과 같은 경우 덮어쓰기 가능성을 확인했습니다. 자동 실행은 계속 paused입니다.
 - 변경: 저장 비용 불일치의 성공 처리·현지 체결일·시간 순서·독립 금액 기대값을 수정했습니다. 전략·가정 요율·시장 자료·PAPER/live·운영DB·성과 수치 변경 없음.
 - 담당: 전용 Luna 구현, Terra 독립 review, Astra 순차 통합. 구현 `6e7aab6`, 통합 `79e73c6`.
+- 후속 복구: 같은 cost_recovery_code Luna가 `/home/kwl/projects/jusik-r2-cost-output-guard`, branch `fix/r2-cost-output-guard`에서 원본/출력 별칭 사전 거절과 회귀 검사만 보완합니다. 이전 cleanup 이력은 유지합니다.
 - 검증: main focused pytest20·Ruff check/format·configured strict mypy2파일·diff check PASS. 실제 동결pilot은 복구에서1회 진단했고 소스 동일성 확인 후 통합 증거로 재사용했습니다.
 - 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery`의 PLAN·worker·integration.json·source. 과거 실패·범위 위반은 원래 audit와 개발 기록에 보존합니다.
 - 정리: 소스·패치·SHA 보관 후 해당 worktree `/home/kwl/projects/jusik-r2-market-cost-b8a5`와 `feat/r2-market-cost-b8a5` 정상 제거. 다른 미완료 worktree 보존.
