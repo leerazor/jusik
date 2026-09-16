@@ -34,6 +34,34 @@ const decimalStringsEqual = (left: string, right: string): boolean => {
     && leftCanonical.exponent === rightCanonical.exponent;
 };
 
+type EquityField = "nav_krw" | "drawdown_pct";
+
+export type MarketResearchCurvePoint = {
+  session: string;
+  value: number | null;
+};
+
+export type MarketResearchCurveMarker = {
+  x: number;
+  y: number;
+};
+
+export type MarketResearchCurve = {
+  status: "available" | "unavailable";
+  points: MarketResearchCurvePoint[];
+  segments: string[];
+  markers: MarketResearchCurveMarker[];
+  validPoints: number;
+  invalidPoints: number;
+  reason: string | null;
+};
+
+export type MarketResearchEquityCurves = {
+  nav: MarketResearchCurve;
+  drawdown: MarketResearchCurve;
+  krwReturn: MarketResearchCurve;
+};
+
 const capabilitySchema = z.object({
   name: z.enum(["credentials", "entitlement", "calendar", "membership", "bars", "actions", "fx", "policy"]),
   status: z.enum(["ready", "missing", "unsupported", "partial"]),
@@ -187,6 +215,170 @@ export type MarketResearchResult = NonNullable<MarketResearchRun["result"]>;
 
 type MarketResearchResultStatus = MarketResearchResult["status"];
 type MarketResearchCompleteness = MarketResearchResult["completeness"];
+
+const unknownCurve = (reason: string, points: MarketResearchCurvePoint[] = []): MarketResearchCurve => ({
+  status: "unavailable",
+  points,
+  segments: [],
+  markers: [],
+  validPoints: 0,
+  invalidPoints: points.filter((point) => point.value === null).length,
+  reason,
+});
+
+function isCalendarDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  return day <= daysInMonth;
+}
+
+function finiteDecimalNumber(value: string | null | undefined): number | null {
+  if (value === undefined || value === null || !decimalPattern.test(value)) return null;
+  const parsed = canonicalDecimal(value);
+  const number = Number(value);
+  if (parsed === null || !Number.isFinite(number)) return null;
+  if (parsed.coefficient !== 0n && number === 0) return null;
+  return number;
+}
+
+function validEquityDates(result: MarketResearchResult): boolean {
+  if (result.equity.length === 0) return false;
+  let previous = "";
+  return result.equity.every((item) => {
+    const valid = isCalendarDate(item.session)
+      && item.session >= result.request.start_date
+      && item.session <= result.request.end_date
+      && (previous === "" || item.session > previous);
+    previous = item.session;
+    return valid;
+  });
+}
+
+function curveFromPoints(
+  points: MarketResearchCurvePoint[],
+  invalidReason: string,
+): MarketResearchCurve {
+  const validPoints = points.filter((point) => point.value !== null).length;
+  const invalidPoints = points.length - validPoints;
+  if (validPoints === 0) return unknownCurve(
+    invalidPoints > 0 ? invalidReason : "유효한 숫자 평가점이 없어 확인할 수 없습니다.",
+    points,
+  );
+  const values = points.flatMap((point) => point.value === null ? [] : [point.value]);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const range = maximum - minimum;
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || !Number.isFinite(range)) {
+    return unknownCurve("곡선 좌표 계산이 유한하지 않아 확인할 수 없습니다.", points);
+  }
+  const coordinate = (index: number, value: number): MarketResearchCurveMarker | null => {
+    const x = points.length <= 1 ? 50 : (index / (points.length - 1)) * 100;
+    const y = range === 0 ? 22 : 38 - ((value - minimum) / range) * 34;
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+  };
+  const markers: MarketResearchCurveMarker[] = [];
+  const segments: string[] = [];
+  let current: string[] = [];
+  points.forEach((point, index) => {
+    if (point.value === null) {
+      if (current.length > 0) segments.push(current.join(" "));
+      current = [];
+      return;
+    }
+    const marker = coordinate(index, point.value);
+    if (marker === null) {
+      if (current.length > 0) segments.push(current.join(" "));
+      current = [];
+      return;
+    }
+    const position = `${marker.x},${marker.y}`;
+    current.push(position);
+    markers.push(marker);
+  });
+  if (current.length > 0) segments.push(current.join(" "));
+  return {
+    status: "available",
+    points,
+    segments: segments.filter((segment) => segment.split(" ").length >= 2),
+    markers,
+    validPoints,
+    invalidPoints,
+    reason: invalidPoints > 0 ? invalidReason : null,
+  };
+}
+
+function equityCurve(result: MarketResearchResult, field: EquityField): MarketResearchCurve {
+  if (!validEquityDates(result)) {
+    return unknownCurve("평가 시계열의 날짜가 유효하지 않거나 요청 기간 밖이거나 증가하지 않아 확인할 수 없습니다.");
+  }
+  const points = result.equity.map((item) => ({
+    session: item.session,
+    value: finiteDecimalNumber(item[field]),
+  }));
+  if (field === "drawdown_pct") {
+    for (const point of points) {
+      if (point.value !== null && point.value < 0) point.value = null;
+    }
+    return curveFromPoints(points, "유효하지 않은 낙폭 값은 선을 끊어 표시하지 않습니다.");
+  }
+  return curveFromPoints(points, "숫자를 확인할 수 없는 NAV 구간은 선을 끊어 표시하지 않습니다.");
+}
+
+function hasKrwReturnBasis(result: MarketResearchResult): boolean {
+  const account = result.account;
+  if (account === undefined || account === null || account.reporting_currency !== "KRW") return false;
+  if (!decimalStringsEqual(account.initial_cash_krw, result.request.initial_cash_krw)) return false;
+  if (finiteDecimalNumber(account.initial_cash_krw) === null) return false;
+  if (result.market === "KR" && account.native_currency !== "KRW") return false;
+  if (result.market === "US" && account.native_currency !== "USD") return false;
+  if (result.market === "KR" && account.initial_cash_conversion !== "identity") return false;
+  if (result.market === "US" && account.initial_cash_conversion !== "initial_krw_to_usd") return false;
+  if (result.market === "US" && finiteDecimalNumber(account.fx_krw_per_usd) === null) return false;
+  return result.equity.every((item) => {
+    const fx = finiteDecimalNumber(item.fx_krw_per_usd);
+    return result.market === "KR" ? fx !== null && decimalStringsEqual(item.fx_krw_per_usd, "1") : fx !== null && fx > 0;
+  });
+}
+
+function krwReturnCurve(result: MarketResearchResult, nav: MarketResearchCurve): MarketResearchCurve {
+  const unknownPoints = nav.points.map((point) => ({ session: point.session, value: null }));
+  if (nav.status === "unavailable" || !hasKrwReturnBasis(result)) {
+    return unknownCurve("초기 원화 자본·통화·환율 근거가 충분하지 않아 원화 수익률을 확인할 수 없습니다.", unknownPoints);
+  }
+  const initial = finiteDecimalNumber(result.account?.initial_cash_krw);
+  if (initial === null || initial <= 0) {
+    return unknownCurve("양의 유한 초기 원화 자본이 없어 수익률을 확인할 수 없습니다.", unknownPoints);
+  }
+  const points = nav.points.map((point) => {
+    if (point.value === null) return { session: point.session, value: null };
+    const value = (point.value / initial - 1) * 100;
+    return { session: point.session, value: Number.isFinite(value) ? value : null };
+  });
+  return curveFromPoints(points, "숫자를 확인할 수 없는 NAV 구간은 수익률도 확인할 수 없습니다.");
+}
+
+export function marketResearchEquityCurves(result: MarketResearchResult): MarketResearchEquityCurves {
+  const nav = equityCurve(result, "nav_krw");
+  return {
+    nav,
+    drawdown: equityCurve(result, "drawdown_pct"),
+    krwReturn: krwReturnCurve(result, nav),
+  };
+}
+
+export function marketResearchKrwReturn(result: MarketResearchResult): string {
+  const curve = marketResearchEquityCurves(result).krwReturn;
+  const final = curve.status === "available" ? curve.points.at(-1)?.value : null;
+  return final === undefined || final === null || !Number.isFinite(final)
+    ? "확인 불가"
+    : marketResearchMetric(String(final), "%");
+}
 
 export function marketResearchGradeLabel(grade: "strict" | "approximate"): string {
   return grade === "strict" ? "엄격한 PIT 등급" : "근사 등급";
