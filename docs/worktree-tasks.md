@@ -13,7 +13,7 @@
 - 계획/증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-04-44f7dba3/PLAN.md`.
 - 개발 기록: `docs/development-records/2026-09-16-r3-value-44f7.md`; handoff는 같은 audit의 `HANDOFF.md`에 저장합니다.
 - 검증: Luna 구현 `4157df3`, Terra 코드/UI review PASS, Astra 통합 `51aec7c`; main contract/lint/typecheck/build PASS; browser4화면×2뷰포트8건 PASS, 오류·외부 요청·overflow0. R3-04만 체크, R3 전체/경제적 성공 주장 없음.
-- 정리: 증거·SHA·handoff 보관 후 소유 worktree/branch 정상 제거 예정. 다른6개 미완료 worktree와 기존 루트 HANDOFF.md 보존.
+- 정리: 증거87개·SHA·handoff 선보관 및 재검증 후 소유 worktree/branch 정상 제거 완료(`cleanup.json`). 다른6개 미완료 worktree와 기존 루트 HANDOFF.md 보존.
 
 ## r2-nav-components-7284
 
