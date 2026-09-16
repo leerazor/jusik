@@ -1,4 +1,6 @@
-# R2-01 독립 손실 회계 진단 — 중단·미통합
+# R2-01 독립 손실 회계 진단 — 복구 완료와 이전 이력
+
+현재 상태: 기술 복구·독립 검토·local main 통합 검증 완료. 실제 자료 근거 부족으로 전체 로드맵 항목은 미완료입니다. 아래 최초 상태는 과거 시도 이력입니다.
 
 - 상태: 차단. 동일 실패 2회 중단 조건과 fixture 상한 위반이 확인되어 구현을 통합하지 않았습니다.
 - task/attempt: `roadmap-r2-01-v1` / `2760e570f1d745a9bb960a93575c6ed2`
@@ -83,6 +85,15 @@ CPU만 사용했습니다. 새 simulation/replay·GPU·네트워크 수집·PAPE
   평가는 `not-evaluated`로 유지됩니다. 두 결과 JSON과 명령별 원문
   wall/CPU 기록은 저장소 밖 audit에 보관합니다.
 
-- 이전 구현의 실패·fixture 초과 기록은 삭제하거나 재작성하지 않고 아래의
-  역사 기록으로 보존합니다.
+- 이전 구현의 실패·fixture 초과 기록은 삭제하거나 재작성하지 않고 앞부분의
+  감독 기록과 원래 audit에 보존합니다.
 
+
+## 감독 통합 검증
+
+- 현재 기술 상태: 복구 완료. 독립 Terra 최종 검토 `93a6211`에서 중요 지적 없음. 통합 전 `daf7ba5`, 통합 `20ee636`.
+- main focused pytest21·Ruff check/format·configured strict mypy2파일·diff check PASS. 검토한 제품/테스트/계약 소스와 main의 일치를 확인했습니다.
+- 최초 검토에서 structured currency/unit 누락과 CLI metadata 회귀, 실행 소스 연결 부족을 찾아 수정했습니다. 최종 `worker/final-source-manifest.json`은 커밋·module/test·pilot 입력/출력 SHA와 실행 전후 소스 불변을 연결합니다.
+- 저장pilot 진단은 복구 중 총3회입니다. 최초 출력, 통화 보완 후 출력, 최종 소스 고정 출력은 모두 보존하며 추가2회는 각각 실제 검토 지적의 검증을 위해 감독이 승인했습니다. 새 engine/replay/수집은 실행하지 않았고 main에서는 소스 일치로 증거를 재사용했습니다.
+- audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-loss-recovery/integration.json`, `integrated/`, `source/`. 소스·패치·SHA 보관 후 병합된 worktree와 branch를 정상 제거했습니다.
+- 원래 runner blocked 기록과 실제 자료 부족은 유지합니다. R2-01 전체 체크·성과 수치·전략·웹·PAPER/live·운영DB·원격push는 바꾸지 않았습니다.

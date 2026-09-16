@@ -13,10 +13,10 @@
 
 ## r2-market-cost-b8a5
 
-- 상태: 통합 후 추가 독립 검토 P1 보완 중. CLI 출력이 원본 파일/별칭과 같은 경우 덮어쓰기 가능성을 확인했습니다. 자동 실행은 계속 paused입니다.
+- 상태: 기술 복구와 원본 파일 보호 후속 보완까지 main 통합 검증 완료. 전체 R2-02는 실제 자료 근거 부족으로 미완료, 과거 blocked 시도 보존.
 - 변경: 저장 비용 불일치의 성공 처리·현지 체결일·시간 순서·독립 금액 기대값을 수정했습니다. 전략·가정 요율·시장 자료·PAPER/live·운영DB·성과 수치 변경 없음.
 - 담당: 전용 Luna 구현, Terra 독립 review, Astra 순차 통합. 구현 `6e7aab6`, 통합 `79e73c6`.
-- 후속 복구: 같은 cost_recovery_code Luna가 `/home/kwl/projects/jusik-r2-cost-output-guard`, branch `fix/r2-cost-output-guard`에서 원본/출력 별칭 사전 거절과 회귀 검사만 보완합니다. 이전 cleanup 이력은 유지합니다.
+- 후속 보완: CLI 원본/출력 별칭 거절 구현 `6831e49`, 최종 Terra PASS, 통합 `daf7ba5`, main pytest21·Ruff·mypy PASS. `output-guard/`에 소스와 증거 보관 후 후속 worktree/branch도 정상 제거했습니다.
 - 검증: main focused pytest20·Ruff check/format·configured strict mypy2파일·diff check PASS. 실제 동결pilot은 복구에서1회 진단했고 소스 동일성 확인 후 통합 증거로 재사용했습니다.
 - 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery`의 PLAN·worker·integration.json·source. 과거 실패·범위 위반은 원래 audit와 개발 기록에 보존합니다.
 - 정리: 소스·패치·SHA 보관 후 해당 worktree `/home/kwl/projects/jusik-r2-market-cost-b8a5`와 `feat/r2-market-cost-b8a5` 정상 제거. 다른 미완료 worktree 보존.
@@ -50,28 +50,13 @@
 
 ## r2-loss-accounting-2760
 
-- 상태: 수동 복구 조사·계획 진행. 2026-09-16 사용자 자율 진행 승인으로 기존 소유 worktree를 재사용합니다. 이전 실패·한도 위반 기록은 보존합니다.
-- task/attempt: roadmap-r2-01-v1 / 2760e570f1d745a9bb960a93575c6ed2
-- 복구: 별도 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-loss-recovery`; runner paused/service inactive. 기존 전략·실거래 조건 변경 없이 P1/P2 계산 결함과 회귀 검증을 복구합니다. 감독 main 통합·검증 후 자동 실행을 재개합니다.
-- 새 계획 확정: audit/PLAN.md. loss_recovery_code Luna가 기존4파일만 수정, named scenario≤64·검사 wall/CPU 각1800초·동일 원인 수정3회 이내·저장 pilot1회. 과거 실패 이력은 보존하며 이전16개 상한을 새 복구에 소급하지 않습니다.
-- 목표: 저장 거래·평가 자료의 가격손익·배당·FX·수수료·slippage·세금·현금 잔액을 독립 진단하고 각 항목의 계산 가능 여부와 재개 입력을 기록합니다.
-- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 검토
-- 워크트리·브랜치: /home/kwl/projects/jusik-r2-loss-accounting-2760 / feat/r2-loss-accounting-2760
-- 시작 main: 52ed4b74293bafbbe32ec014d31eddab04a26f8f; 통합 대상 local main
-- 입력: R0 완료 로드맵, 최신 mandate, 결과 모델, SHA 검증한 동결 manifest 및 artifact4개·raw84개
-- 허용 범위: 신규 독립 진단 모듈·오프라인 tests·한국어 설명·개발 기록. 기존 전략·collector·shared model은 읽기 전용입니다.
-- 자원: CPU만, seed0, fixture 최대16개·각8심볼/40세션, 저장 미국 파일럿1개·300세션/200거래 이하. simulation/replay/GPU0회, 검사 총900초, audit20MiB 이하
-- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-01-2760e570; 전용 worktree venv/cache, 포트·DB 없음
-- 경계: runner 배정 단일 작업; 다른 격리 작업 재개, 네트워크 수집, PAPER/live, 주문, 운영 원장·DB·서비스·설정, remote push 금지
-- 완료 조건: pytest/Ruff/configured mypy·독립 review·main 통합 검사·증거 SHA와 handoff 보관 후 소유 worktree 정리. 입력 hash 불일치 또는 같은 실패2회 시 중단합니다.
-- 경제 평가: not-evaluated; 자료 없는 항목은 unavailable이며 전체 체크는 변경하지 않습니다.
-- 개발 기록: docs/development-records/2026-09-16-r2-loss-accounting-2760.md
-- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-01-2760e570/HANDOFF.md
-
-- 구현 결과: d7ee8ca1092022519e38ec9cf6f9740b37f77217; local main 병합·통합 검사 미실행, integrated_commit 없음
-- 검사: 최종 pytest11/Ruff/configured mypy는 통과했으나 필수 경계 coverage 누락과 중단 조건 위반으로 전체 tests_passed=false, review_passed=false
-- 증거: audit의 final-review.md·worker-audit.md·verification-history.json·source-snapshot·manifest.json·HANDOFF.md
-- 정리: 미병합 worktree/branch 보존. 명시적 재개 승인과 새 검증 한도 아래 같은 소유 worktree 재사용; 다른 작업·root HANDOFF 보존
+- 상태: 기술 복구 완료·main 통합 검증 완료. 전체 R2-01은 실제 배당·완전체결·초기 포지션·기업행사 근거 부족으로 미완료. 과거 blocked 시도 유지.
+- 변경: 혼합 통화 거절, 구조화된 currency/unit, Decimal context 고정, 매수세금/배당 현금 반영, 의존 자료 availability, 날짜/중복/metadata 검증.
+- 담당: loss_recovery_code Luna, loss_recovery_review Terra, Astra 통합. 최종 구현 `93a6211`, 통합 `20ee636`.
+- 검증: main pytest21·Ruff check/format·configured strict mypy2파일·diff check PASS. 최종 소스/입출력 SHA 연결과 코드 동일성 확인. 독립 검토 중요 지적 해소.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-loss-recovery`의 PLAN·REVIEW-1·worker/final-source-manifest.json·integration.json·source. 복구pilot 진단 총3회(검토 지적에 따른 추가2회 승인), 이전 출력 모두 보존. engine/replay/수집 없음.
+- 정리: 소스/패치/SHA 보관 후 `/home/kwl/projects/jusik-r2-loss-accounting-2760` 및 `feat/r2-loss-accounting-2760` 정상 제거.
+- 개발 기록: `docs/development-records/2026-09-16-r2-loss-accounting-2760.md`. handoff: 루트 및 recovery audit/HANDOFF.md. 전략·웹·성과·PAPER/live·운영DB·원격push 변경 없음.
 
 ## r3-market-detail-coverage
 

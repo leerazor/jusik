@@ -1,5 +1,7 @@
 # R2-02 시장별 비용 진단 — 중단 이력과 복구
 
+현재 상태: 기술 복구·독립 검토·local main 통합 검증 완료. 실제 자료 근거 부족으로 전체 로드맵 항목은 미완료입니다. 아래 최초 상태는 과거 시도 이력입니다.
+
 - 상태: 차단·미통합. 기술 slice 미완료, 경제 평가 not-evaluated.
 - 기록 시각: 2026-09-16T07:43:27.955856+00:00
 - 작업 slug: `r2-market-cost-b8a5`
@@ -57,3 +59,11 @@ network·simulation/replay·GPU 실행0회입니다. PAPER/live 활성화·실�
 
 - 최신 독립 검토의 P1에 따라 CLI가 진단 전에 `--pilot`·`--output`의 resolve 및 existing `samefile` 별칭을 검사하도록 보완했습니다. 동일 경로·symlink·hardlink는 exit 2로 거부하며 pilot bytes를 보존합니다. 별도 output 경로의 정상 기록은 유지합니다.
 - 합성 fixture로 동일·symlink·hardlink·정상 별도 경로를 검증합니다. 실제 frozen pilot은 계산 변경이 없어 재실행하지 않습니다. 상세 명령·원문·시간·exit는 `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/output-guard/`에 보관합니다.
+
+## 원본 보존 후속 검증
+
+- 추가 독립 검토에서 CLI 입력과 출력의 동일/별칭 경로로 원본을 덮어쓸 수 있는 P1을 확인했습니다. 실제 원본 덮어쓰기는 실행하지 않았습니다.
+- 같은 Luna가 새 전용 worktree에서 `resolve`/`samefile` 사전 거절과 동일·symlink·hardlink 원본 보존 회귀를 구현했습니다. 구현 `6831e49`, Terra 재검토 PASS, 통합 `daf7ba5`.
+- main focused pytest21·Ruff check/format·configured strict mypy·diff check PASS. 비용 산술은 그대로이며 실제pilot 재실행 없이 합성 CLI 입력으로 경로 보호를 검증했습니다.
+- audit `20260916-cost-recovery/output-guard`의 checks·integration·source를 보존한 뒤 후속 worktree와 branch도 정상 제거했습니다.
+- 최초 재사용 review agent의 전체 native post 감사는 과거 turn_context 누락으로 실패했습니다. 이를 `20260916-loss-recovery/role-audit.json`에 보존하고, 현재 native reviewer로 재검토하여 원본 보호 결함 발견·해소와 최종 수용을 확인했습니다.
