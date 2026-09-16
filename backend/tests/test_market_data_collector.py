@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import traceback
 from dataclasses import replace
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
@@ -12,7 +13,11 @@ import pytest
 from jusik.market_data_collector import (
     AtomicResponseCache,
     CollectorAuthenticationError,
+    CollectorCoverageError,
     CollectorError,
+    CollectorNullError,
+    CollectorParseError,
+    CollectorQuotaError,
     CollectorSettings,
     FreeMarketDataCollector,
     HttpFetcher,
@@ -565,6 +570,270 @@ def test_atomic_cache_verifies_raw_hash_and_does_not_expose_request_secret(
     (tmp_path / "raw" / f"{entry.key}.bin").write_bytes(b"tampered")
     with pytest.raises(CollectorError, match="hash mismatch"):
         cache.get('{"source":"krx","apikey":"secret"}')
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    json.loads(
+        (Path(__file__).parent / "fixtures/provider_response_fixtures.json").read_text(
+            encoding="utf-8"
+        )
+    ),
+    ids=lambda item: item["name"],
+)
+def test_provider_response_fixtures_classify_known_outcomes(
+    tmp_path: Path,
+    fixture: dict[str, str],
+) -> None:
+    body = fixture["body"].encode()
+    source = fixture["source"]
+    kind = fixture["kind"]
+    expected: dict[str, type[CollectorError]] = {
+        "null": CollectorNullError,
+        "quota": CollectorQuotaError,
+        "auth": CollectorAuthenticationError,
+        "parse": CollectorParseError,
+        "coverage": CollectorCoverageError,
+    }
+
+    class FixtureClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            return httpx.Response(200, content=body)
+
+    settings = CollectorSettings(
+        krx_auth_key="fixture-key",
+        alpha_vantage_api_key="fixture-key",
+        fred_api_key="fixture-key",
+        max_retries=0,
+    )
+    transport = NetworkCollectorTransport(
+        HttpFetcher(
+            client=FixtureClient(),
+            cache=AtomicResponseCache(tmp_path),
+            settings=settings,
+        ),
+        settings,
+    )
+    if source == "krx":
+        request = transport.krx("STK", date(2026, 9, 14), date(2026, 9, 14))
+    elif source == "alpha_vantage":
+        request = transport.alpha_listing(date(2026, 9, 14))
+    elif source == "fred":
+        request = transport.fred(date(2026, 9, 14), date(2026, 9, 14))
+    else:
+        expected_exchange = fixture.get("expected_exchange")
+        expected_currency = fixture.get("expected_currency")
+        if expected_exchange is None and expected_currency is None:
+            request = transport.yahoo("AAA", date(2026, 9, 14), date(2026, 9, 14))
+        else:
+            request = transport.yahoo_with_identity(
+                "AAA",
+                date(2026, 9, 14),
+                date(2026, 9, 14),
+                expected_exchange=expected_exchange,
+                expected_currency=expected_currency,
+            )
+    if kind == "normal":
+        result = asyncio.run(request)
+        assert result == body
+        assert (tmp_path / "manifest.json").exists()
+    else:
+        with pytest.raises(expected[kind]):
+            asyncio.run(request)
+        assert not (tmp_path / "manifest.json").exists()
+
+
+def test_network_yahoo_identity_mismatch_rejects_fresh_and_resumed_cache(
+    tmp_path: Path,
+) -> None:
+    fixture = next(
+        fixture
+        for fixture in json.loads(
+            (
+                Path(__file__).parent / "fixtures/provider_response_fixtures.json"
+            ).read_text(encoding="utf-8")
+        )
+        if fixture["name"] == "yahoo-identity-mismatch"
+    )
+    body = fixture["body"].encode()
+    settings = CollectorSettings(max_retries=0)
+
+    class FixtureClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            return httpx.Response(200, content=body)
+
+    fresh_cache = AtomicResponseCache(tmp_path / "fresh")
+    fresh_transport = NetworkCollectorTransport(
+        HttpFetcher(client=FixtureClient(), cache=fresh_cache, settings=settings),
+        settings,
+    )
+    request = fresh_transport.yahoo_with_identity(
+        "AAA",
+        date(2026, 9, 14),
+        date(2026, 9, 14),
+        expected_exchange=fixture["expected_exchange"],
+        expected_currency=fixture["expected_currency"],
+    )
+    with pytest.raises(CollectorParseError, match="identity"):
+        asyncio.run(request)
+    assert not (fresh_cache.manifest_path).exists()
+
+    resumable_cache = AtomicResponseCache(tmp_path / "resumed")
+    resumable_transport = NetworkCollectorTransport(
+        HttpFetcher(client=FixtureClient(), cache=resumable_cache, settings=settings),
+        settings,
+    )
+    assert (
+        asyncio.run(
+            resumable_transport.yahoo("AAA", date(2026, 9, 14), date(2026, 9, 14))
+        )
+        == body
+    )
+
+    class UnexpectedNetworkClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            raise AssertionError("identity mismatch must reject resumed cache")
+
+    resumed_transport = NetworkCollectorTransport(
+        HttpFetcher(
+            client=UnexpectedNetworkClient(),
+            cache=resumable_cache,
+            settings=settings,
+        ),
+        settings,
+    )
+    with pytest.raises(CollectorParseError, match="identity"):
+        asyncio.run(
+            resumed_transport.yahoo_with_identity(
+                "AAA",
+                date(2026, 9, 14),
+                date(2026, 9, 14),
+                expected_exchange=fixture["expected_exchange"],
+                expected_currency=fixture["expected_currency"],
+            )
+        )
+
+
+def test_http_fetcher_validates_before_caching_and_sanitizes_parse_failure(
+    tmp_path: Path,
+) -> None:
+    sentinel = b"provider-secret-sentinel"
+
+    class InvalidResponseClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            return httpx.Response(200, content=b'{"observations":' + sentinel)
+
+    fetcher = HttpFetcher(
+        client=InvalidResponseClient(),
+        cache=AtomicResponseCache(tmp_path),
+        settings=CollectorSettings(request_budget=1),
+    )
+    with pytest.raises(CollectorParseError) as raised:
+        asyncio.run(
+            fetcher.get(
+                source="fred",
+                url="https://example.test/fred",
+                params={"series_id": "DEXKOUS"},
+                validator=lambda body: parse_fred_observations(
+                    body, start=date(2026, 9, 14), end=date(2026, 9, 14)
+                ),
+            )
+        )
+    assert sentinel.decode() not in str(raised.value)
+    assert sentinel.decode() not in "".join(traceback.format_exception(raised.value))
+    assert not (tmp_path / "manifest.json").exists()
+
+
+def test_http_fetcher_validates_resumed_response_before_returning(
+    tmp_path: Path,
+) -> None:
+    cache = AtomicResponseCache(tmp_path)
+    request_key = json.dumps(
+        {
+            "source": "fred",
+            "url": "https://example.test/fred",
+            "method": "GET",
+            "params": {"series_id": "DEXKOUS"},
+            "data": {},
+        },
+        sort_keys=True,
+    )
+    cache.put(
+        source="fred",
+        endpoint="https://example.test/fred",
+        request_key=request_key,
+        body=b'{"observations":[]}',
+        status_code=200,
+        captured_at=datetime(2026, 9, 14, tzinfo=UTC),
+    )
+
+    class UnexpectedNetworkClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            raise AssertionError("resume should validate the cached response first")
+
+    fetcher = HttpFetcher(
+        client=UnexpectedNetworkClient(),
+        cache=cache,
+        settings=CollectorSettings(request_budget=1),
+    )
+    with pytest.raises(CollectorNullError):
+        asyncio.run(
+            fetcher.get(
+                source="fred",
+                url="https://example.test/fred",
+                params={"series_id": "DEXKOUS"},
+                validator=lambda body: parse_fred_observations(
+                    body, start=date(2026, 9, 14), end=date(2026, 9, 14)
+                ),
+            )
+        )
+
+
+def test_cli_reports_coverage_as_insufficient_without_collecting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def unavailable_collection(**kwargs: object) -> object:
+        raise CollectorCoverageError("provider data does not cover the request")
+
+    monkeypatch.setenv("KRX_AUTH_KEY", "fixture-key")
+    monkeypatch.setattr(
+        "jusik.market_research_cli.collect_market_data", unavailable_collection
+    )
+    result = market_research_cli(
+        [
+            "collect",
+            "--market",
+            "KR",
+            "--start",
+            "2026-09-14",
+            "--end",
+            "2026-09-14",
+            "--output",
+            str(tmp_path / "prepared.json"),
+            "--cache",
+            str(tmp_path / "cache"),
+        ]
+    )
+    assert result == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "status": "insufficient",
+        "reason": "provider data does not cover the request",
+    }
+    assert not (tmp_path / "prepared.json").exists()
+    assert not (tmp_path / "cache").exists()
 
 
 class _FixtureTransport:
@@ -1630,6 +1899,31 @@ def test_http_fetcher_retries_429_and_counts_one_bounded_request(
     assert client.calls == 2
     assert fetcher.requests_used == 2
     assert "secret" not in (tmp_path / "manifest.json").read_text()
+
+
+def test_http_fetcher_exposes_final_429_as_quota_without_caching(
+    tmp_path: Path,
+) -> None:
+    class QuotaClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            return httpx.Response(429, content=b"provider quota sentinel")
+
+    fetcher = HttpFetcher(
+        client=QuotaClient(),
+        cache=AtomicResponseCache(tmp_path),
+        settings=CollectorSettings(request_budget=1, max_retries=0),
+    )
+    with pytest.raises(CollectorQuotaError):
+        asyncio.run(
+            fetcher.get(
+                source="alpha_vantage",
+                url="https://example.test/listing",
+                params={"function": "LISTING_STATUS"},
+            )
+        )
+    assert not (tmp_path / "manifest.json").exists()
 
 
 def test_http_fetcher_budget_blocks_retry_attempt(tmp_path: Path) -> None:

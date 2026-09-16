@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import functools
 import hashlib
 import io
 import json
 import os
 import re
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
@@ -66,6 +67,14 @@ class CollectorError(RuntimeError):
     """A collection cannot produce a trustworthy prepared dataset."""
 
 
+class CollectorParseError(CollectorError):
+    """A provider response is not parseable as the requested payload."""
+
+
+class CollectorQuotaError(CollectorError):
+    """A provider rejected a request because a quota or rate limit was reached."""
+
+
 class CollectorAuthenticationError(CollectorError):
     """A provider rejected authentication without a retryable response."""
 
@@ -74,8 +83,129 @@ class CollectorPartialError(CollectorError):
     """A bounded collection completed only partially."""
 
 
+class CollectorNullError(CollectorPartialError):
+    """A provider returned an explicit null or empty response envelope."""
+
+
+class CollectorCoverageError(CollectorPartialError):
+    """A valid provider response does not cover the requested range."""
+
+
+# Keep descriptive compatibility names available to callers that classify the
+# response before handling the legacy CollectorError hierarchy.
+CollectorNullResponseError = CollectorNullError
+
+
 class RequestBudgetExceeded(CollectorError):
     """The configured request budget was exhausted."""
+
+
+def _parse_boundary[**P, T](
+    function: Callable[P, T],
+) -> Callable[P, T]:
+    """Convert parser failures to fixed, provider-body-free exceptions."""
+
+    @functools.wraps(function)
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
+        try:
+            return function(*args, **kwargs)
+        except CollectorError as exc:
+            if type(exc) is CollectorError:
+                raise CollectorParseError(str(exc)) from None
+            raise
+
+    return wrapped
+
+
+def _provider_envelope_error(source: str, body: bytes) -> None:
+    """Raise a fixed exception for known provider error envelopes."""
+
+    stripped = body.strip()
+    if not stripped or stripped in {b"null", b"NULL"}:
+        raise CollectorNullError(f"{source} provider returned a null response")
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return
+    if payload is None:
+        raise CollectorNullError(f"{source} provider returned a null response")
+    if not isinstance(payload, Mapping):
+        return
+
+    def text_value(value: object) -> str:
+        return value.casefold() if isinstance(value, str) else ""
+
+    def classify_message(message: str, *, default: str) -> None:
+        if any(
+            marker in message
+            for marker in (
+                "quota",
+                "rate limit",
+                "request limit",
+                "too many",
+                "frequency",
+            )
+        ):
+            raise CollectorQuotaError(f"{source} provider quota was exceeded")
+        if any(
+            marker in message
+            for marker in (
+                "invalid api key",
+                "invalid apikey",
+                "api key is invalid",
+                "apikey is invalid",
+                "authentication",
+                "unauthorized",
+                "forbidden",
+                "access denied",
+            )
+        ):
+            raise CollectorAuthenticationError(f"{source} authentication was rejected")
+        raise CollectorParseError(default)
+
+    if source == "alpha_vantage":
+        for key in ("Note", "Information"):
+            value = payload.get(key)
+            if isinstance(value, str):
+                classify_message(
+                    text_value(value), default="Alpha Vantage provider error"
+                )
+        value = payload.get("Error Message")
+        if isinstance(value, str):
+            classify_message(text_value(value), default="Alpha Vantage provider error")
+    elif source == "fred":
+        if "error_code" in payload or "error_message" in payload:
+            value = payload.get("error_message")
+            classify_message(text_value(value), default="FRED provider error")
+    elif source == "yahoo":
+        chart = payload.get("chart")
+        if isinstance(chart, Mapping):
+            error = chart.get("error")
+            if isinstance(error, Mapping):
+                value = error.get("description") or error.get("code")
+                classify_message(text_value(value), default="Yahoo provider error")
+            if chart.get("result") is None and "result" in chart:
+                raise CollectorNullError("Yahoo provider returned a null response")
+    elif source == "krx":
+        if payload.get("OutBlock_1") is None and "OutBlock_1" in payload:
+            raise CollectorNullError("KRX provider returned a null response")
+        for key in ("errorCode", "error_code", "resultCode", "result_code"):
+            if key in payload:
+                code = text_value(payload.get(key))
+                if code in {"401", "403"}:
+                    raise CollectorAuthenticationError(
+                        "KRX authentication was rejected"
+                    )
+                if code == "429":
+                    raise CollectorQuotaError("KRX provider quota was exceeded")
+                value = (
+                    payload.get("errorMessage")
+                    or payload.get("error_message")
+                    or payload.get("resultMsg")
+                    or payload.get("result_message")
+                    or payload.get("message")
+                )
+                classify_message(text_value(value), default="KRX provider error")
 
 
 class CollectorSettings(BaseModel):
@@ -360,6 +490,7 @@ class HttpFetcher:
         checkpoint: str | None = None,
         method: Literal["GET", "POST"] = "GET",
         data: Mapping[str, str | int] | None = None,
+        validator: Callable[[bytes], object] | None = None,
     ) -> bytes:
         def cache_safe(values: Mapping[str, str | int]) -> dict[str, str | int]:
             return {
@@ -382,6 +513,15 @@ class HttpFetcher:
         )
         cached = self.cache.get(request_key) if self.resume else None
         if cached is not None:
+            if validator is not None:
+                try:
+                    validator(cached[1])
+                except CollectorError:
+                    raise
+                except Exception:
+                    raise CollectorParseError(
+                        f"{source} response validation failed"
+                    ) from None
             return cached[1]
         if self.requests_used >= self.settings.request_budget:
             raise RequestBudgetExceeded("collector request budget exhausted")
@@ -417,6 +557,10 @@ class HttpFetcher:
                 )
             if response.status_code == 429 or response.status_code >= 500:
                 if attempt >= self.settings.max_retries:
+                    if response.status_code == 429:
+                        raise CollectorQuotaError(
+                            f"{source} provider quota was exceeded"
+                        )
                     raise CollectorError(f"{source} request returned HTTP error")
                 retry_after = response.headers.get("Retry-After")
                 try:
@@ -434,6 +578,15 @@ class HttpFetcher:
             if response.status_code < 200 or response.status_code >= 300:
                 raise CollectorError(f"{source} request returned HTTP error")
             body = response.content
+            if validator is not None:
+                try:
+                    validator(body)
+                except CollectorError:
+                    raise
+                except Exception:
+                    raise CollectorParseError(
+                        f"{source} response validation failed"
+                    ) from None
             self.cache.put(
                 source=source,
                 endpoint=url,
@@ -518,6 +671,7 @@ class KRXDailyResponse:
     listed_shares: dict[str, Decimal | None]
 
 
+@_parse_boundary
 def parse_krx_daily_trade_response(
     body: bytes,
     *,
@@ -525,6 +679,7 @@ def parse_krx_daily_trade_response(
     market_board: Literal["STK", "KSQ"] = "STK",
     available_at: datetime | None = None,
 ) -> KRXDailyResponse:
+    _provider_envelope_error("krx", body)
     try:
         payload = json.loads(body)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -668,6 +823,7 @@ def parse_krx_daily_trade_response(
     )
 
 
+@_parse_boundary
 def parse_krx_daily_response(
     body: bytes,
     *,
@@ -799,9 +955,11 @@ _ALPHA_HEADERS = frozenset(
 )
 
 
+@_parse_boundary
 def parse_alpha_vantage_listing_status_detailed(
     body: bytes, *, as_of: date, available_at: datetime | None = None
 ) -> AlphaListingParseResult:
+    _provider_envelope_error("alpha_vantage", body)
     try:
         text = body.decode("utf-8-sig")
         reader = csv.DictReader(io.StringIO(text), strict=True)
@@ -902,6 +1060,7 @@ def parse_alpha_vantage_listing_status_detailed(
     )
 
 
+@_parse_boundary
 def parse_alpha_vantage_listing_status(
     body: bytes, *, as_of: date, available_at: datetime | None = None
 ) -> tuple[ApproximateUniverseRow, ...]:
@@ -956,17 +1115,19 @@ def _event_datetime(value: object, field: str) -> datetime | None:
     return result.astimezone(UTC)
 
 
+@_parse_boundary
 def parse_yahoo_chart(
     body: bytes,
     *,
     symbol: str,
-    exchange: str,
-    currency: Literal["KRW", "USD"],
+    exchange: str | None,
+    currency: Literal["KRW", "USD"] | None,
     start: date,
     end: date,
     available_at: datetime | None = None,
     observed_at: datetime | None = None,
 ) -> YahooChart:
+    _provider_envelope_error("yahoo", body)
     try:
         payload = json.loads(body)
         result = payload["chart"]["result"][0]
@@ -1000,11 +1161,19 @@ def parse_yahoo_chart(
     }
     if (
         expected_symbol != symbol
-        or expected_currency != currency
+        or (currency is not None and expected_currency != currency)
         or instrument_type != "EQUITY"
-        or venue not in venue_aliases.get(exchange, {exchange})
+        or not venue
+        or (
+            exchange is not None
+            and venue not in venue_aliases.get(exchange, {exchange})
+        )
     ):
         raise CollectorError("Yahoo chart identity does not match requested stock")
+    if expected_currency not in {"KRW", "USD"}:
+        raise CollectorError("Yahoo chart currency is invalid")
+    normalized_exchange = exchange or venue
+    normalized_currency = cast(Literal["KRW", "USD"], expected_currency)
     if not isinstance(timestamps, list):
         raise CollectorError("Yahoo chart timestamps are missing")
     fields = ("open", "high", "low", "close", "volume")
@@ -1058,19 +1227,19 @@ def parse_yahoo_chart(
             ApproximateBarRow(
                 session=session,
                 symbol=symbol,
-                exchange=exchange,
+                exchange=normalized_exchange,
                 open=_decimal(values["open"], "Yahoo open"),
                 high=_decimal(values["high"], "Yahoo high"),
                 low=_decimal(values["low"], "Yahoo low"),
                 close=_decimal(values["close"], "Yahoo close"),
                 volume=_decimal(values["volume"], "Yahoo volume", nonnegative=True),
-                currency=currency,
+                currency=normalized_currency,
                 available_at=available_at
                 or datetime.combine(session, time(18), tzinfo=UTC),
             )
         )
     if not bars:
-        raise CollectorError("Yahoo chart contains no requested sessions")
+        raise CollectorCoverageError("Yahoo chart contains no requested sessions")
     raw_events = result.get("events") or {}
     if not isinstance(raw_events, Mapping):
         raise CollectorError("Yahoo chart events are malformed")
@@ -1178,9 +1347,11 @@ def parse_yahoo_chart(
     return YahooChart(bars=tuple(bars), events=events, event_rows=normalized_event_rows)
 
 
+@_parse_boundary
 def parse_fred_observations(
     body: bytes, *, start: date, end: date, available_at: datetime | None = None
 ) -> tuple[ApproximateFXRow, ...]:
+    _provider_envelope_error("fred", body)
     try:
         payload = json.loads(body)
         raw_rows = payload["observations"]
@@ -1188,6 +1359,8 @@ def parse_fred_observations(
         raise CollectorError("FRED response is malformed") from exc
     if not isinstance(raw_rows, list):
         raise CollectorError("FRED observations are missing")
+    if not raw_rows:
+        raise CollectorNullError("FRED provider returned an empty observation set")
     result: list[ApproximateFXRow] = []
     for row in raw_rows:
         if not isinstance(row, dict) or row.get("value") in (None, "", "."):
@@ -1206,7 +1379,7 @@ def parse_fred_observations(
                 )
             )
     if not result:
-        raise CollectorError("FRED response contains no requested observations")
+        raise CollectorCoverageError("FRED response contains no requested observations")
     if len({item.session for item in result}) != len(result):
         raise CollectorError("FRED response contains duplicate observations")
     return tuple(result)
@@ -1246,6 +1419,21 @@ class NetworkCollectorTransport:
         )
         if endpoint is None:
             raise CollectorError("KRX market board is invalid")
+
+        def validate(body: bytes) -> None:
+            _provider_envelope_error("krx", body)
+            try:
+                payload = json.loads(body)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                payload = None
+            if isinstance(payload, dict) and payload.get("OutBlock_1") == []:
+                return
+            parse_krx_daily_trade_response(
+                body,
+                checkpoint=start,
+                market_board=cast(Literal["STK", "KSQ"], normalized_board),
+            )
+
         return await self.fetcher.get(
             source="krx",
             url=endpoint,
@@ -1256,12 +1444,18 @@ class NetworkCollectorTransport:
                 "AUTH_KEY": key.get_secret_value(),
             },
             checkpoint=f"krx:daily:{normalized_board}:{start}",
+            validator=validate,
         )
 
     async def alpha_listing(self, as_of: date) -> bytes:
         key = self.settings.alpha_vantage_api_key
         if key is None:
             raise CollectorError("ALPHA_VANTAGE_API_KEY is not configured")
+
+        def validate(body: bytes) -> None:
+            _provider_envelope_error("alpha_vantage", body)
+            parse_alpha_vantage_listing_status_detailed(body, as_of=as_of)
+
         return await self.fetcher.get(
             source="alpha_vantage",
             url=ALPHA_VANTAGE_URL,
@@ -1271,9 +1465,32 @@ class NetworkCollectorTransport:
                 "apikey": key.get_secret_value(),
             },
             checkpoint=f"alpha_vantage:{as_of}",
+            validator=validate,
         )
 
     async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
+        return await self.yahoo_with_identity(symbol, start, end)
+
+    async def yahoo_with_identity(
+        self,
+        symbol: str,
+        start: date,
+        end: date,
+        *,
+        expected_exchange: str | None = None,
+        expected_currency: Literal["KRW", "USD"] | None = None,
+    ) -> bytes:
+        def validate(body: bytes) -> None:
+            _provider_envelope_error("yahoo", body)
+            parse_yahoo_chart(
+                body,
+                symbol=symbol,
+                exchange=expected_exchange,
+                currency=expected_currency,
+                start=start,
+                end=end,
+            )
+
         return await self.fetcher.get(
             source="yahoo",
             url=f"{YAHOO_URL}/{quote(symbol, safe='.-')}",
@@ -1287,12 +1504,18 @@ class NetworkCollectorTransport:
                 "includeAdjustedClose": "true",
             },
             checkpoint=f"yahoo:{symbol}:{start}:{end}",
+            validator=validate,
         )
 
     async def fred(self, start: date, end: date) -> bytes:
         key = self.settings.fred_api_key
         if key is None:
             raise CollectorError("FRED_API_KEY is not configured")
+
+        def validate(body: bytes) -> None:
+            _provider_envelope_error("fred", body)
+            parse_fred_observations(body, start=start, end=end)
+
         return await self.fetcher.get(
             source="fred",
             url=FRED_URL,
@@ -1304,6 +1527,7 @@ class NetworkCollectorTransport:
                 "observation_end": end.isoformat(),
             },
             checkpoint=f"fred:{start}:{end}",
+            validator=validate,
         )
 
 
@@ -1714,8 +1938,23 @@ class FreeMarketDataCollector:
                     )
                 row = candidate_row
                 try:
+                    identity_transport = getattr(
+                        self.transport, "yahoo_with_identity", None
+                    )
+                    if callable(identity_transport):
+                        yahoo_body = await identity_transport(
+                            symbol,
+                            warmup_start,
+                            end,
+                            expected_exchange=row.exchange,
+                            expected_currency="USD",
+                        )
+                    else:
+                        yahoo_body = await self.transport.yahoo(
+                            symbol, warmup_start, end
+                        )
                     chart = parse_yahoo_chart(
-                        await self.transport.yahoo(symbol, warmup_start, end),
+                        yahoo_body,
                         symbol=symbol,
                         exchange=row.exchange,
                         currency="USD",
@@ -1952,8 +2191,13 @@ __all__ = [
     "CACHE_CONTRACT_VERSION",
     "COMPLETION_CONTRACT_VERSION",
     "CollectorAuthenticationError",
+    "CollectorCoverageError",
     "CollectorError",
+    "CollectorNullError",
+    "CollectorNullResponseError",
+    "CollectorParseError",
     "CollectorPartialError",
+    "CollectorQuotaError",
     "CompletedCollection",
     "CollectorSettings",
     "FreeMarketDataCollector",
