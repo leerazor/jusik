@@ -1,4 +1,4 @@
-# R2-02 시장별 비용 진단 중단 기록
+# R2-02 시장별 비용 진단 — 중단 이력과 복구
 
 - 상태: 차단·미통합. 기술 slice 미완료, 경제 평가 not-evaluated.
 - 기록 시각: 2026-09-16T07:43:27.955856+00:00
@@ -43,3 +43,12 @@ network·simulation/replay·GPU 실행0회입니다. PAPER/live 활성화·실�
 - 테스트는 실제 pilot 파일을 읽지 않고 monkeypatch한 SHA·개수의 작은 합성 JSON을 사용합니다. 16개 named scenario inventory 안에서 UTC 경계·US DST·KR 경계, 역순 session, equity/fill 경계와 malformed assumptions를 검증하고, KR/US 매수·매도 및 왕복 literal Decimal 기대값을 독립 대조합니다.
 - 확인: `PYTHONPATH=. .venv-r2/bin/python3.13 -m pytest tests/test_market_cost_diagnostics.py -q` — 20 passed. Ruff·strict mypy·diff·환경 버전과 실제 pilot 1회 결과의 원문·exit·wall·CPU는 `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/worker/recovery-checks.json` 및 `recovery-pilot-diagnostics.json`에 보관합니다.
 - 복구에서도 statutory tax types, jurisdiction, effective period, official rates, exchange holiday calendar, actual fill timestamp/order identity는 unavailable이며 R2-02 전체와 경제 평가는 blocked/not-evaluated입니다.
+
+## 감독 통합 검증
+
+- 현재 기술 상태: 복구 완료. 기존 blocked 시도는 runner 이력에 보존하며 전체 R2-02는 미완료입니다.
+- 독립 Terra review `6e7aab6`: P1/P2 없음. 병합 직전 main `d90757c`, 통합 `79e73c6`.
+- main focused pytest20·Ruff check/format·configured strict mypy2파일·diff check 통과. 제품/테스트/계약 소스가 검토한 worktree와 같음을 확인하여 pilot 증거를 재사용했습니다.
+- 개발 기록 충돌은 main의 실패 기록을 기준으로 복구 섹션을 덧붙여 해결했습니다. 과거 결과를 성공으로 바꾸지 않습니다.
+- audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/integration.json`, `integrated/`, `source/`. 소스·패치·SHA 보관 후 병합된 worktree와 branch를 정상 제거했습니다.
+- 웹·전략·실제 요율·공개 성과·PAPER/live·운영DB·원격push 변경 없음. 자동 개발은 세 복구의 통합 종료 후 재개합니다.
