@@ -2,7 +2,7 @@
 
 ## r1-us-collection-diagnostics
 
-- 상태: 조사 완료, 제한된 계획 검토 중
+- 상태: 진단 slice 완료; Terra 최종 검토 및 main 통합 pytest155/Ruff/configured mypy PASS. 전체 R1-05 acceptance는 실제 자료 부족으로 차단
 - task/attempt: roadmap-r1-05-v1 / eae146bd3ed54a61ae617fad1c425d53
 - 목표: 미국 CollectorError 제외 경로의 심볼별 안전한 원인과 coverage를 직렬화 후에도 보존합니다. R1-05 전체 체크는 보류하며 경제 평가는 not-evaluated입니다.
 - 담당: Astra 감독·계획, Luna 조사 및 단일 구현, Terra 독립 검토
@@ -16,6 +16,10 @@
 - 완료 조건: 독립 review, main 통합 검사, 증거·SHA·handoff 보관 후 해당 worktree 정리
 - 개발 기록: docs/development-records/2026-09-16-r1-us-collection-diagnostics.md
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-05-eae146bd/HANDOFF.md
+- 결과/통합: Luna 최종 동작 dbafd64, format-only7e23c8c; main6636fb6 및 212f236eafcc9d6930e6f39e0d994ca299db7a30. 병합 직전 d9ac948
+- 검토: Terra 초기 지적3건과 all-failure 대사 지적을 동일 Luna가 수정하고 최종 PASS. 마지막 format-only 수정은 Astra AST 동일성 검토 PASS
+- 증거: audit integration-verification.json·final-review.md·format-ast-review.json·manifest.json. 기존 format debt는 기준과 동일하며 전체 mypy는 전용 환경의 기존 torch 의존성 문제로 미완료, 변경3 source 검사는 통과
+- 정리: 증거40개·hash·handoff 보관·검증 후 해당 worktree/branch만 정상 제거했습니다. 기존 차단 worktree6개 및 루트 handoff는 보존했습니다.
 
 ## r1-provider-response-fixtures
 
