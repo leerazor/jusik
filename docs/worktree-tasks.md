@@ -2,9 +2,9 @@
 
 ## runner-exit-diagnostics
 
-- 상태: 준비; read-only 조사·제한 계획 완료
+- 상태: 통합 검증 보완 중; 3e16bc2에 진단 변경 병합. 실제 로드맵 완료 상태를 읽던 기존 테스트3건을 고정 fixture로 수정 중(80 passed/3 failed).
 - 목표: codex_exit의 numeric returncode/signal/완료 파일 존재 여부를 private sidecar에 기록하고 기존 작업 재사용을 안내합니다.
-- 담당: Astra 감독, Luna 단일 구현자, Terra 독립 검토
+- 담당: Astra 감독, routing_compat_code Luna 단일 구현자, routing_compat_review Terra 독립 검토
 - 워크트리·브랜치: /home/kwl/projects/jusik-runner-exit-diagnostics / fix/runner-exit-diagnostics
 - 기준: 등록 커밋; 통합 대상 local main
 - 허용 범위: development_runner.py, 해당 tests, docs/development-runner.md, 전용 개발 기록
