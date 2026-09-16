@@ -506,6 +506,21 @@ def _write_output(path: Path, payload: Mapping[str, object]) -> None:
     path.write_bytes(encoded + b"\n")
 
 
+def _validate_output_path(pilot_path: Path, output_path: Path) -> None:
+    try:
+        pilot_resolved = pilot_path.resolve(strict=True)
+        output_resolved = output_path.resolve(strict=False)
+    except OSError as exc:
+        raise ValueError(f"cannot resolve pilot/output paths: {exc}") from exc
+    if pilot_resolved == output_resolved:
+        raise ValueError("output path must differ from pilot path")
+    try:
+        if output_path.exists() and pilot_path.samefile(output_path):
+            raise ValueError("output path must not alias pilot path")
+    except OSError as exc:
+        raise ValueError(f"cannot compare pilot/output paths: {exc}") from exc
+
+
 def parser() -> argparse.ArgumentParser:
     command = argparse.ArgumentParser(
         description="Bounded independent Decimal market-cost diagnostic"
@@ -518,6 +533,7 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
+        _validate_output_path(args.pilot, args.output)
         result = diagnose_stored_pilot(args.pilot)
         _write_output(args.output, result)
     except (OSError, ValueError) as exc:

@@ -52,3 +52,8 @@ network·simulation/replay·GPU 실행0회입니다. PAPER/live 활성화·실�
 - 개발 기록 충돌은 main의 실패 기록을 기준으로 복구 섹션을 덧붙여 해결했습니다. 과거 결과를 성공으로 바꾸지 않습니다.
 - audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/integration.json`, `integrated/`, `source/`. 소스·패치·SHA 보관 후 병합된 worktree와 branch를 정상 제거했습니다.
 - 웹·전략·실제 요율·공개 성과·PAPER/live·운영DB·원격push 변경 없음. 자동 개발은 세 복구의 통합 종료 후 재개합니다.
+
+## Output 보존 보완
+
+- 최신 독립 검토의 P1에 따라 CLI가 진단 전에 `--pilot`·`--output`의 resolve 및 existing `samefile` 별칭을 검사하도록 보완했습니다. 동일 경로·symlink·hardlink는 exit 2로 거부하며 pilot bytes를 보존합니다. 별도 output 경로의 정상 기록은 유지합니다.
+- 합성 fixture로 동일·symlink·hardlink·정상 별도 경로를 검증합니다. 실제 frozen pilot은 계산 변경이 없어 재실행하지 않습니다. 상세 명령·원문·시간·exit는 `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/output-guard/`에 보관합니다.

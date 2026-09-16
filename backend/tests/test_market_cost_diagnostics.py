@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal, localcontext
@@ -349,3 +350,36 @@ def test_ambient_decimal_precision_does_not_change_results() -> None:
     assert row.fee == Decimal("0.14985")
     assert row.tax == Decimal("1.7982")
     assert row.cash_delta == Decimal("997.05195")
+
+
+def test_cli_preserves_pilot_for_aliases_and_writes_distinct_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pilot = _write_pilot(
+        tmp_path,
+        monkeypatch,
+        _pilot_payload(
+            [trade()], [{"session": "2025-01-02"}, {"session": "2025-01-03"}]
+        ),
+        count=1,
+        sessions=2,
+    )
+    source_bytes = pilot.read_bytes()
+
+    assert diagnostics.main(["--pilot", str(pilot), "--output", str(pilot)]) == 2
+    assert pilot.read_bytes() == source_bytes
+
+    symlink = tmp_path / "pilot-symlink.json"
+    symlink.symlink_to(pilot)
+    assert diagnostics.main(["--pilot", str(pilot), "--output", str(symlink)]) == 2
+    assert pilot.read_bytes() == source_bytes
+
+    hardlink = tmp_path / "pilot-hardlink.json"
+    os.link(pilot, hardlink)
+    assert diagnostics.main(["--pilot", str(pilot), "--output", str(hardlink)]) == 2
+    assert pilot.read_bytes() == source_bytes
+
+    output = tmp_path / "diagnostic.json"
+    assert diagnostics.main(["--pilot", str(pilot), "--output", str(output)]) == 0
+    assert json.loads(output.read_text())["status"] == "blocked"
+    assert pilot.read_bytes() == source_bytes
