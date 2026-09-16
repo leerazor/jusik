@@ -15,7 +15,8 @@
 
 ## r2-counterfactual-fe92
 
-- 상태: 이전 시도 차단 이력 유지; 감독이 기존 소유 worktree에 전용 backend/.venv와 잠금 의존성을 준비해 pytest/Ruff/mypy 실행을 확인했습니다. runner 수정 통합 후 같은 task를 명시적으로 재시도합니다. 기존 실패·worktree/branch는 보존합니다. task `roadmap-r2-06-v1`, 이전 attempt `fe9204931f0b446f8dfba0d21473f39d`. 최신 시도는 runner-autorecovery audit의 activation.json과 현재 runner 상태를 확인합니다.
+- 상태: 재시도 진행. task `roadmap-r2-06-v1`, attempt `474fb22d193c4302893e77e27f8d1b55`; 이전 환경 중단은 이력으로 보존합니다. 기존 소유 branch/worktree를 재사용하며 Python 3.13.15와 첨부 4개 SHA 일치를 새로 확인했습니다.
+- 현재 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-474fb22d/`; Luna 조사·단일 구현, Terra 독립 review, Astra main 통합을 순차 진행합니다.
 - 목표: 이미 준비된 기준 및 단일 가정 변경 결과를 오프라인 비교하고 비용·배당·FX의 비가산 차이를 별도 기록합니다. 전체 R2-06은 실제 acceptance 전 미체크 유지합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r2-counterfactual-fe92`, `feat/r2-counterfactual-fe92`; 요청 기준 `d0d029996ea993216036385962c9153968ea61fe`, 등록 커밋에서 분기하고 local main에 통합합니다.
