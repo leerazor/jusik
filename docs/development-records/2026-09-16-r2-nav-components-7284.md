@@ -35,7 +35,7 @@
 ## 복구 기록
 
 - 복구 범위: 원본 archive의 네 파일을 보존한 상태에서 JSON UTF-8 오류의 exit `2` 변환, 쓰기 전 입력·두 artifact 경로 별칭 검사, finite Decimal exponent의 strict typing, 경계값·artifact 계약 회귀 검사를 추가했습니다.
-- 과거 기록 보존: 이전 구현의 24개 fixture·동일 실패 이력·검증 전 완료 표현은 이 기록의 앞부분과 외부 audit에 그대로 보존합니다. 새 복구 검증은 bounds64 named scenario 및 누적 wall/CPU 1800초, 동일 원인 수정·재검증 최대 3회 조건을 적용합니다.
+- 과거 기록 보존: 이전 구현은 상한 24개 대비 실제 25개 입력을 사용했고 동일한 `RuffNotFound`가 2회 발생했습니다. 중단 이후 실행된 검사 결과는 acceptance 불인정으로 이 기록의 앞부분과 외부 audit에 보존합니다. 새 복구 검증은 bounds64 named scenario 및 누적 wall/CPU 1800초, 동일 원인 수정·재검증 최대 3회 조건을 적용합니다.
 - 완료 표현 정정: 앞서 기록된 `완료`는 검증 전 표현이므로 기술 acceptance 완료를 뜻하지 않는 historical source로 구분하고, 현재 상태를 복구 구현 완료·통합 대기로 표시합니다.
 - 검증 상태: 복구 focused pytest·Ruff·configured strict mypy가 통과했으며, Terra review·local main 통합 검증은 supervisor가 수행할 작업으로 남아 있습니다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-nav-recovery/worker/`에 inventory와 명령별 raw output·exit·wall·CPU를 보관합니다.
