@@ -38,3 +38,11 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-02-b8a573f2/worker`; manifest: 기존 동결 입력 검증 자료.
 - 남은 작업·차단 조건: 거래소 calendar, 체결 timestamp와 주문/부분체결 상태, 법정 세목·관할·유효기간·공식 요율 근거가 필요합니다. R2-02 전체 checkbox는 유지합니다.
 - 다음 시작: 저장 입력 SHA와 전용 검증 로그를 먼저 확인한 뒤 독립 review 및 local main 통합 검사를 수행합니다.
+
+## 승인된 복구 기록
+
+- 복구 계획: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/PLAN.md`; 과거 Ruff 중단 조건 위반과 실패 기록은 보존하고 이번 시도와 구분합니다.
+- `market_cost_diagnostics.py`는 저장값 mismatch·구조 오류를 `invalid`와 `stored_match=false`로 우선 처리하고, timezone-aware 체결 시각을 US `America/New_York`·KR `Asia/Seoul` 현지 날짜와 대조합니다. 거래 session 감소, equity session 중복·비증가, equity에 없는 fill session, 완전 동일 관측 중복을 fail-closed로 처리합니다.
+- 테스트는 실제 pilot 파일을 읽지 않고 monkeypatch한 SHA·개수의 작은 합성 JSON을 사용합니다. 16개 named scenario inventory 안에서 UTC 경계·US DST·KR 경계, 역순 session, equity/fill 경계와 malformed assumptions를 검증하고, KR/US 매수·매도 및 왕복 literal Decimal 기대값을 독립 대조합니다.
+- 확인: `PYTHONPATH=. .venv-r2/bin/python3.13 -m pytest tests/test_market_cost_diagnostics.py -q` — 20 passed. Ruff·strict mypy·diff·환경 버전과 실제 pilot 1회 결과의 원문·exit·wall·CPU는 `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/worker/recovery-checks.json` 및 `recovery-pilot-diagnostics.json`에 보관합니다.
+- 복구에서도 statutory tax types, jurisdiction, effective period, official rates, exchange holiday calendar, actual fill timestamp/order identity는 unavailable이며 R2-02 전체와 경제 평가는 blocked/not-evaluated입니다.

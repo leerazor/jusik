@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import hashlib
+import json
+from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal, localcontext
 from pathlib import Path
 
 import pytest
 
+import jusik.market_cost_diagnostics as diagnostics
 from jusik.market_cost_diagnostics import (
-    FROZEN_PILOT_SHA256,
     CostAssumptions,
     MarketCostDiagnostic,
     diagnose_stored_pilot,
@@ -28,7 +31,6 @@ END = date(2025, 1, 10)
 def trade(
     *,
     side: str = "buy",
-    market: str = "US",
     currency: str = "USD",
     session: str = "2025-01-03",
     signal_session: str | None = "2025-01-02",
@@ -106,6 +108,23 @@ def test_fixed_scenarios(scenario: str) -> None:
     elif scenario == "missing":
         rows = [trade()]
         del rows[0]["fee"]
+        for key, value in {
+            "fee_rate": "NaN",
+            "slippage_rate": "Infinity",
+            "sell_tax_rate": "bad",
+        }.items():
+            values = {"fee_rate": "0", "slippage_rate": "0", "sell_tax_rate": "0"}
+            values[key] = value
+            with pytest.raises(ValueError):
+                CostAssumptions.from_values(market="US", currency="USD", **values)
+        with pytest.raises(ValueError):
+            CostAssumptions.from_values(
+                market="US",
+                currency="KRW",
+                fee_rate="0",
+                slippage_rate="0",
+                sell_tax_rate="0",
+            )
     elif scenario == "duplicate":
         rows = [trade(), trade()]
     elif scenario == "rounding":
@@ -132,54 +151,201 @@ def test_fixed_scenarios(scenario: str) -> None:
     elif scenario in {"partial", "cancelled", "rejected"}:
         assert result.status == "blocked"
         assert result.unavailable[1].startswith("stored fill timestamp")
-    elif scenario == "stored mismatch":
-        assert result.status == "success"
+    elif scenario in {"missing", "stored mismatch"}:
+        assert result.status == "invalid"
         assert result.stored_match is False
-        assert result.mismatches == ("trade[0] stored fee mismatch",)
     else:
         assert result.status == "invalid"
 
-
-def test_literal_decimal_formula_and_cash_direction() -> None:
-    with localcontext() as context:
-        context.prec = 6
-        result = diagnose_trades([trade(side="sell")], assumptions=ASSUMPTIONS)
-    row = result.trades[0]
-    assert row.fill_price == Decimal("99.900")
-    assert row.notional == Decimal("999.000")
-    assert row.fee == Decimal("0.14985000")
-    assert row.tax == Decimal("1.7982000")
-    assert row.cash_delta == Decimal("997.05195000")
-
-
-def test_assumptions_reject_malformed_nonfinite_and_currency() -> None:
-    for key, value in {
-        "fee_rate": "NaN",
-        "slippage_rate": "Infinity",
-        "sell_tax_rate": "bad",
-    }.items():
-        values = {"fee_rate": "0", "slippage_rate": "0", "sell_tax_rate": "0"}
-        values[key] = value
-        with pytest.raises(ValueError):
-            CostAssumptions.from_values(market="US", currency="USD", **values)
-    with pytest.raises(ValueError):
-        CostAssumptions.from_values(
-            market="US",
+    if scenario == "timezone":
+        valid = trade()
+        valid["executed_at"] = "2025-01-03T05:00:00Z"
+        assert diagnose_trades([valid], assumptions=ASSUMPTIONS).status == "success"
+        dst_boundary = trade(session="2025-03-10", signal_session="2025-03-07")
+        dst_boundary["timestamp"] = "2025-03-10T04:00:00Z"
+        assert (
+            diagnose_trades([dst_boundary], assumptions=ASSUMPTIONS).status == "success"
+        )
+        kr_assumptions = CostAssumptions.from_values(
+            market="KR",
             currency="KRW",
-            fee_rate="0",
-            slippage_rate="0",
-            sell_tax_rate="0",
+            fee_rate="0.00015",
+            slippage_rate="0.001",
+            sell_tax_rate="0.0018",
+        )
+        kr_boundary = trade(
+            currency="KRW", session="2025-01-04", signal_session="2025-01-03"
+        )
+        kr_boundary["timestamp"] = "2025-01-03T15:00:00Z"
+        assert (
+            diagnose_trades([kr_boundary], assumptions=kr_assumptions).status
+            == "success"
+        )
+        bad_boundary = trade()
+        bad_boundary["timestamp"] = "2025-01-03T04:59:59Z"
+        assert (
+            diagnose_trades([bad_boundary], assumptions=ASSUMPTIONS).status == "invalid"
+        )
+
+    if scenario == "missing chronology":
+        reverse = [trade(session="2025-01-04"), trade(session="2025-01-03")]
+        assert diagnose_trades(reverse, assumptions=ASSUMPTIONS).status == "invalid"
+        fill_mismatch = trade()
+        fill_mismatch["fill_session"] = "2025-01-04"
+        assert (
+            diagnose_trades([fill_mismatch], assumptions=ASSUMPTIONS).status
+            == "invalid"
         )
 
 
-def test_stored_pilot_hash_and_counts() -> None:
-    path = Path(
-        "/home/kwl/.local/share/jusik/portfolio-audit/20260915-market-data-live-contract-fixes/us-web-pilot-run.json"
+def _literal_trade(*, side: str, currency: str) -> dict[str, object]:
+    values = {
+        "buy": ("100.1", "1001", "0.15015", "0"),
+        "sell": ("99.9", "999", "0.14985", "1.7982"),
+    }[side]
+    return {
+        "session": "2025-01-03",
+        "signal_session": "2025-01-02",
+        "fill_session": "2025-01-03",
+        "symbol": "LITERAL",
+        "side": side,
+        "quantity": 10,
+        "currency": currency,
+        "market_open": "100",
+        "fill_price": values[0],
+        "notional": values[1],
+        "fee": values[2],
+        "tax": values[3],
+    }
+
+
+def test_literal_decimal_formula_and_roundtrip_cash_direction() -> None:
+    expected = {
+        "buy": ("100.1", "1001", "0.15015", "0", "1", "-1001.15015"),
+        "sell": ("99.9", "999", "0.14985", "1.7982", "1", "997.05195"),
+    }
+    for market, currency in (("US", "USD"), ("KR", "KRW")):
+        assumptions = CostAssumptions.from_values(
+            market=market,
+            currency=currency,
+            fee_rate="0.00015",
+            slippage_rate="0.001",
+            sell_tax_rate="0.0018",
+        )
+        result = diagnose_trades(
+            [
+                _literal_trade(side="buy", currency=currency),
+                _literal_trade(side="sell", currency=currency),
+            ],
+            assumptions=assumptions,
+        )
+        assert result.status == "success"
+        assert result.totals["cash_delta"] == Decimal("-4.09820")
+        assert result.totals["slippage"] == Decimal("2")
+        for row in result.trades:
+            values = expected[row.side]
+            assert row.fill_price == Decimal(values[0])
+            assert row.notional == Decimal(values[1])
+            assert row.fee == Decimal(values[2])
+            assert row.tax == Decimal(values[3])
+            assert row.slippage_cost == Decimal(values[4])
+            assert row.cash_delta == Decimal(values[5])
+
+
+def _pilot_payload(
+    rows: Sequence[Mapping[str, object]], equity: Sequence[Mapping[str, object]]
+) -> dict[str, object]:
+    return {
+        "request": {
+            "market": "US",
+            "start_date": "2025-01-02",
+            "end_date": "2025-01-03",
+            "fee_rate": "0.00015",
+            "slippage_rate": "0.001",
+            "sell_tax_rate": "0.0018",
+        },
+        "result": {"market": "US", "trades": rows, "equity": equity},
+    }
+
+
+def _write_pilot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    payload: dict[str, object],
+    *,
+    count: int,
+    sessions: int,
+) -> Path:
+    raw = json.dumps(payload, sort_keys=True).encode()
+    path = tmp_path / "synthetic-pilot.json"
+    path.write_bytes(raw)
+    monkeypatch.setattr(
+        diagnostics, "FROZEN_PILOT_SHA256", hashlib.sha256(raw).hexdigest()
+    )
+    monkeypatch.setattr(diagnostics, "FROZEN_PILOT_TRADE_COUNT", count)
+    monkeypatch.setattr(diagnostics, "FROZEN_PILOT_SESSION_COUNT", sessions)
+    return path
+
+
+def test_stored_pilot_contract_uses_small_synthetic_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _write_pilot(
+        tmp_path,
+        monkeypatch,
+        _pilot_payload(
+            [trade()], [{"session": "2025-01-02"}, {"session": "2025-01-03"}]
+        ),
+        count=1,
+        sessions=2,
     )
     result = diagnose_stored_pilot(path)
     assert result["status"] == "blocked"
-    assert result["input_sha256"] == FROZEN_PILOT_SHA256
-    assert result["stored_trade_count"] == 106
-    assert result["stored_session_count"] == 252
+    assert result["diagnostic_status"] == "success"
+    assert result["stored_trade_count"] == 1
+    assert result["stored_session_count"] == 2
     assert result["stored_match"] is True
     assert result["statutory_validation"] == "unavailable"
+
+
+def test_synthetic_pilot_rejects_equity_and_fill_boundaries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for bad_equity in (
+        [{"session": "2025-01-03"}, {"session": "2025-01-02"}],
+        [{"session": "2025-01-02"}, {"session": "2025-01-02"}],
+    ):
+        path = _write_pilot(
+            tmp_path,
+            monkeypatch,
+            _pilot_payload([trade()], bad_equity),
+            count=1,
+            sessions=2,
+        )
+        with pytest.raises(ValueError, match="equity"):
+            diagnose_stored_pilot(path)
+    row = trade()
+    row["fill_session"] = "2025-01-04"
+    path = _write_pilot(
+        tmp_path,
+        monkeypatch,
+        _pilot_payload([row], [{"session": "2025-01-02"}, {"session": "2025-01-03"}]),
+        count=1,
+        sessions=2,
+    )
+    with pytest.raises(ValueError, match="fill session"):
+        diagnose_stored_pilot(path)
+
+
+def test_ambient_decimal_precision_does_not_change_results() -> None:
+    with localcontext() as context:
+        context.prec = 6
+        result = diagnose_trades(
+            [_literal_trade(side="sell", currency="USD")], assumptions=ASSUMPTIONS
+        )
+    row = result.trades[0]
+    assert row.fill_price == Decimal("99.9")
+    assert row.notional == Decimal("999")
+    assert row.fee == Decimal("0.14985")
+    assert row.tax == Decimal("1.7982")
+    assert row.cash_delta == Decimal("997.05195")

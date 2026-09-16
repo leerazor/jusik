@@ -16,6 +16,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 PRECISION = 28
 MAX_ARTIFACT_BYTES = 20 * 1024 * 1024
@@ -53,7 +54,7 @@ def _date(value: object, label: str) -> date:
         raise ValueError(f"{label} must be an ISO date") from exc
 
 
-def _aware_timestamp(value: object, label: str) -> None:
+def _aware_timestamp(value: object, label: str, *, market: str, session: date) -> None:
     if not isinstance(value, str):
         raise ValueError(f"{label} must be an aware ISO timestamp")
     try:
@@ -62,6 +63,9 @@ def _aware_timestamp(value: object, label: str) -> None:
         raise ValueError(f"{label} must be an aware ISO timestamp") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError(f"{label} must be an aware ISO timestamp")
+    timezone = ZoneInfo("America/New_York" if market == "US" else "Asia/Seoul")
+    if parsed.astimezone(timezone).date() != session:
+        raise ValueError(f"{label} local date does not match session")
 
 
 @dataclass(frozen=True)
@@ -174,8 +178,9 @@ def diagnose_trades(
     reasons: list[str] = []
     mismatches: list[str] = []
     parsed: list[tuple[int, date, str, Side, int, Decimal, Decimal, bool]] = []
-    seen: set[tuple[date, str, str, int]] = set()
+    seen: set[tuple[object, ...]] = set()
     unsupported = False
+    previous_session: date | None = None
     with localcontext() as context:
         context.prec = PRECISION
         for index, row in enumerate(rows):
@@ -185,6 +190,9 @@ def diagnose_trades(
                     raise ValueError(f"trade[{index}] is before request start")
                 if end_date is not None and session > end_date:
                     raise ValueError(f"trade[{index}] is after request end")
+                if previous_session is not None and session < previous_session:
+                    raise ValueError(f"trade[{index}] session chronology decreases")
+                previous_session = session
                 symbol = row.get("symbol")
                 if not isinstance(symbol, str) or not symbol:
                     raise ValueError(f"trade[{index}].symbol must be non-empty")
@@ -229,18 +237,16 @@ def diagnose_trades(
                         f"trade[{index}] {row_status} status is unavailable "
                         "in stored data"
                     )
-                    continue
-                if row_status not in {None, "filled", "executed"}:
+                elif row_status not in {None, "filled", "executed"}:
                     raise ValueError(f"trade[{index}] has unsupported status")
                 for timestamp_key in ("executed_at", "timestamp"):
                     if timestamp_key in row and row[timestamp_key] is not None:
                         _aware_timestamp(
-                            row[timestamp_key], f"trade[{index}].{timestamp_key}"
+                            row[timestamp_key],
+                            f"trade[{index}].{timestamp_key}",
+                            market=assumptions.market,
+                            session=session,
                         )
-                duplicate_key = (session, symbol, side, quantity)
-                if duplicate_key in seen:
-                    raise ValueError(f"trade[{index}] duplicate trade")
-                seen.add(duplicate_key)
                 fill_price = market_open * (
                     1 + assumptions.slippage_rate
                     if side == "buy"
@@ -272,6 +278,22 @@ def diagnose_trades(
                     row_match = row_match and matches
                     if mismatch is not None:
                         mismatches.append(mismatch)
+                duplicate_key = (
+                    session,
+                    symbol,
+                    side,
+                    quantity,
+                    assumptions.currency,
+                    market_open,
+                    *(
+                        str(row.get(key))
+                        for key in ("fill_price", "notional", "fee", "tax")
+                    ),
+                    *(str(row.get(key)) for key in ("executed_at", "timestamp")),
+                )
+                if duplicate_key in seen:
+                    raise ValueError(f"trade[{index}] duplicate trade observation")
+                seen.add(duplicate_key)
                 parsed.append(
                     (
                         index,
@@ -346,12 +368,13 @@ def diagnose_trades(
         reason
         for reason in reasons
         if reason != "stored execution values do not match independent Decimal results"
+        and " status is unavailable in stored data" not in reason
     )
     status: DiagnosticStatus
-    if unsupported:
-        status = "blocked"
-    elif structural_reasons or malformed_stored:
+    if structural_reasons or malformed_stored or mismatches:
         status = "invalid"
+    elif unsupported:
+        status = "blocked"
     else:
         status = "success"
     return MarketCostDiagnostic(
@@ -385,6 +408,30 @@ def _read_json(path: Path) -> tuple[bytes, object, str]:
     except json.JSONDecodeError as exc:
         raise ValueError("input is not valid JSON") from exc
     return raw, payload, digest
+
+
+def _validate_equity_sessions(
+    equity: list[object], rows: Sequence[Mapping[str, object]]
+) -> tuple[date, ...]:
+    sessions: list[date] = []
+    for index, row in enumerate(equity):
+        if not isinstance(row, dict):
+            raise ValueError(f"equity[{index}] must be an object")
+        session = _date(row.get("session"), f"equity[{index}].session")
+        if sessions and session <= sessions[-1]:
+            raise ValueError("stored pilot equity sessions must be strictly increasing")
+        sessions.append(session)
+    equity_sessions = set(sessions)
+    for index, row in enumerate(rows):
+        session = _date(row.get("session"), f"trade[{index}].session")
+        if session not in equity_sessions:
+            raise ValueError(f"trade[{index}] session is missing from equity")
+        fill_session = row.get("fill_session")
+        if fill_session is not None:
+            fill = _date(fill_session, f"trade[{index}].fill_session")
+            if fill not in equity_sessions:
+                raise ValueError(f"trade[{index}] fill session is missing from equity")
+    return tuple(sessions)
 
 
 def diagnose_stored_pilot(path: Path) -> dict[str, object]:
@@ -421,13 +468,7 @@ def diagnose_stored_pilot(path: Path) -> dict[str, object]:
     rows = [row for row in trades if isinstance(row, dict)]
     if len(rows) != len(trades):
         raise ValueError("stored pilot trade rows must be objects")
-    sessions: list[date] = []
-    for index, row in enumerate(equity):
-        if not isinstance(row, dict):
-            raise ValueError(f"equity[{index}] must be an object")
-        sessions.append(_date(row.get("session"), f"equity[{index}].session"))
-    if len(set(sessions)) != len(sessions):
-        raise ValueError("stored pilot equity has duplicate sessions")
+    _validate_equity_sessions(equity, rows)
     if len(trades) != FROZEN_PILOT_TRADE_COUNT:
         raise ValueError("stored pilot trade count does not match frozen run")
     if len(equity) != FROZEN_PILOT_SESSION_COUNT:
