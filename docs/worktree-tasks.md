@@ -2,8 +2,9 @@
 
 ## r2-nav-components-7284
 
-- 상태: 차단·미통합; fixture25개로 상한24개 초과, 동일 RuffNotFound2회, mypy6오류. tests_passed=false, review_passed=false
+- 상태: 새 수동 복구 계획 진행. 기존 미추적 구현4개를 원본 SHA와 함께 별도 보존하고 같은 소유 worktree를 재사용합니다.
 - task/attempt: roadmap-r2-05-v1 / 7284d0564f3f4dd9887d2560e503df0f
+- 복구 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-nav-recovery`. 사용자 자율 진행 승인. 기존 실패·상한 위반 이력은 보존하며 UTF-8/출력충돌/typecheck/산출물 검증을 복구합니다. runner paused/service inactive.
 - 목표: 날짜별 Decimal residual과 1 KRW 한도, 실패 날짜 및 coverage를 오프라인 artifact로 보존합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review
 - 워크트리·브랜치: /home/kwl/projects/jusik-r2-nav-components-7284 / feat/r2-nav-components-7284
