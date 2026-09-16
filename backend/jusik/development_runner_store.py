@@ -366,6 +366,17 @@ class RunnerStore:
             if prior is None or prior["status"] != "running":
                 db.rollback()
                 raise ValueError("planning attempt is not running")
+            task = db.execute(
+                "SELECT status,last_attempt_id FROM tasks WHERE id=?",
+                (task_id,),
+            ).fetchone()
+            if (
+                task is None
+                or task["status"] != "running"
+                or task["last_attempt_id"] != attempt_id
+            ):
+                db.rollback()
+                raise ValueError("planning task is not current")
             paused = db.execute(
                 "SELECT value FROM runner_meta WHERE key='paused'"
             ).fetchone()

@@ -343,6 +343,44 @@ def test_roadmap_finish_planning_cap_ignores_legacy_blocked_tasks(
     assert store.task("roadmap-next-v1") is not None
 
 
+def test_stale_planner_callback_cannot_overwrite_newer_attempt(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.enqueue("planner-task", PLANNING_AREA, "internal")
+    planner = store.task("planner-task")
+    assert planner is not None
+    store.claim(planner, "old-attempt", tmp_path / "old-out", tmp_path / "old-err")
+    store.recover_running()
+    assert store.retry("planner-task")
+    planner = store.task("planner-task")
+    assert planner is not None
+    store.claim(
+        planner,
+        "new-attempt",
+        tmp_path / "new-out",
+        tmp_path / "new-err",
+    )
+    with sqlite3.connect(tmp_path / "state" / "runner.db") as db:
+        db.execute("UPDATE attempts SET status='running' WHERE id='old-attempt'")
+        db.commit()
+
+    with pytest.raises(ValueError, match="planning task is not current"):
+        store.finish_planning(
+            "old-attempt",
+            "planner-task",
+            "proposed",
+            {"status": "proposed"},
+            hashlib.sha256(b"[]").hexdigest(),
+            [],
+            proposal=("must-not-enqueue", "portfolio-stress-robustness", "prompt"),
+        )
+    assert store.task("must-not-enqueue") is None
+    current = store.task("planner-task")
+    assert current is not None
+    assert current.status == "running" and current.last_attempt_id == "new-attempt"
+
+
 def test_planning_outbox_preserves_started_then_terminal_then_proposal(
     tmp_path: Path,
 ) -> None:
