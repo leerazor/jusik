@@ -33,17 +33,18 @@
 
 ## r3-market-ui-fixture
 
-- 상태: 차단 (구현 전 routing preflight 실패).
-- 목표: R3-03 시장 연구 목록·상세의 loading, empty, partial/insufficient, error 고정 fixture 검증.
-- 담당 Luna·worktree·branch: 미배정·미생성. 기준 main 95e12a657081f191dbbd3172b8465c4a89e24869.
-- 입력·범위: R0 완료, 최신 mandate JSON, 기존 frontend contract·격리 화면 근거. 이번 변경은 차단 기록만 포함합니다.
-- 포트·DB: 없음. 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r3-03-0530ece4.
-- 검증: routing preflight exit 1, missing explicit agent_type. npm·브라우저·review·구현 통합 미실행.
-- 결과·통합 commit: 구현 없음. R3-03 checkbox 미변경.
-- 재개: 필수 역할 routing 환경 확보 후 PLAN.md부터 진행합니다.
-- 개발 기록: docs/development-records/2026-09-15-r3-market-ui-fixture.md.
-- Handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260915-r3-03-0530ece4/HANDOFF.md.
-- 정리: 새 worktree 없음. 기존 worktree와 사용자 HANDOFF.md 보존.
+- 상태: 재개 준비; roleless model-only explore pre/post PASS, bounded plan 진행.
+- task/attempt: roadmap-r3-03-v1 / 67c55654c8b445a88b92a0b7b715a4d3; 이전 0530ece4 차단 이력 보존.
+- 목표: R0 계약 기반 목록·상세의 loading, empty, partial/insufficient, error 기술 검증. R3-03만 대상.
+- 담당: Astra 감독; r303_explore Luna, r303_plan Astra; 구현 r303_code Luna 한 명과 독립 Terra review 예정.
+- 워크트리·브랜치: /home/kwl/projects/jusik-r3-market-ui-fixture-67c5 / fix/r3-market-ui-fixture-67c5 (생성 예정).
+- 조사 기준: main 2c3f1662201b474bf3b9f0952d5a1213907efc89; 사용자 기준95e12a6 이후 frontend 변경 없음.
+- 범위: 시장 연구 frontend/lib/page·기존 contract 검사·합성 격리 harness·관련 문서. 다른 checklist와 backend 계약 보존.
+- 검증: 최대8개 고정 응답 묶음, desktop/mobile 각1회 및 수정 후1회; CPU30분 이내. npm contract/lint/typecheck/build 및 main 통합 검사.
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-03-67c55654; loopback ports8373/3373, DB 없음.
+- 안전: 수집·replay·후보탐색·GPU·PAPER/live·주문·운영 DB·서비스·설정·remote 변경 없음.
+- 개발 기록: docs/development-records/2026-09-15-r3-market-ui-fixture.md; 완료 시 갱신.
+- handoff: audit/HANDOFF.md 예정. 기존 root HANDOFF.md와 다른 worktree 보존.
 
 ## r2-dd-chronology
 
