@@ -2,11 +2,11 @@
 
 ## r1-provider-response-fixtures
 
-- 상태: 조사·계획; 이전 시도는 조사 준비 산출물만 있고 소유 worktree/branch 없음
+- 상태: 독립 review 지적2건 수정 중; 초기 구현9749765 보존, pytest140 통과. 이전 시도는 소유 worktree/branch 없음
 - task/attempt: roadmap-r1-06-v1 / 518dc0fb997d44c08dab07140154667a; 이전20160a6ae67744da916c84644ef4a484 보존
 - 목표: 합성 오프라인 fixture로 정상/null/quota/auth/parse/coverage 구분, 기존 예외 호환성 및 실패 캐시·비밀정보 차단 검증
-- 담당: Astra 감독·계획, Luna 조사 및 단일 구현, Terra 독립 review
-- 워크트리·브랜치: /home/kwl/projects/jusik-r1-provider-response-518d / fix/r1-provider-response-518d (계획 후 생성)
+- 담당: Astra 감독·계획, Luna 조사 및 단일 구현, Terra 독립 review. 최초 Luna receipt 오타로 감사 실패를 보존하고 r106_code_verified로 같은 worktree 소유권을 순차 인계
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-provider-response-518d / fix/r1-provider-response-518d (기준 b805841, 전용 venv 생성)
 - 시작 main: bfa3c47455e63822ee44d6f7070daaed9fe7b8dd; 통합 대상 local main
 - 입력: R0 통합 증거 SHA 일치, tracked mandate f097fde7874063314e21f8be884b19d2e8cea3e1272c47e5991300c546548a7d; 현재 collector/tests
 - 범위: market_data_collector.py, 관련 tests/고정 fixture, 계약 문서·개발 기록. 감독만 해당 checklist·등록부 관리
