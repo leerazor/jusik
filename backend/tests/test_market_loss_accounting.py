@@ -1,5 +1,8 @@
+import hashlib
+import json
 from datetime import date
 from decimal import ROUND_DOWN, Context, Decimal, getcontext, localcontext
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -16,6 +19,7 @@ from jusik.market_loss_accounting import (
     PositionLot,
     account_result,
     account_trades,
+    diagnose_saved_pilot,
     fx_decomposition,
     slippage_amount,
 )
@@ -67,6 +71,12 @@ def test_manual_decimal_accounting_matches_registered_example() -> None:
     assert report.raw_net_pnl.value == Decimal("23.59498")
     assert report.fill_net_pnl.value == Decimal("23.59498")
     assert report.cash_balance.value == Decimal("903.59498")
+    serialised = report.as_dict()
+    fees_payload = cast(dict[str, object], serialised["fees"])
+    cash_payload = cast(dict[str, object], serialised["cash_balance"])
+    assert fees_payload["currency"] == "KRW"
+    assert fees_payload["unit"] == "currency"
+    assert cash_payload["currency"] == "KRW"
 
 
 def test_slippage_is_side_aware_and_fill_net_does_not_charge_twice() -> None:
@@ -131,6 +141,9 @@ def test_fx_identity_assigns_cross_term_to_fx() -> None:
     assert decomposition.fx_effect == Decimal("2000")
     assert decomposition.cross_effect == Decimal("200")
     assert decomposition.total_change == Decimal("15200")
+    assert decomposition.native_currency is None
+    assert decomposition.local_currency == "KRW"
+    assert decomposition.rate_unit == "KRW_per_USD"
 
 
 def test_decimal_operations_ignore_caller_precision_rounding_and_traps() -> None:
@@ -288,6 +301,28 @@ def test_duplicate_key_includes_costs_and_currency() -> None:
         final_marks={"AAA": Decimal("100")},
     )
     assert report.trade_count == 2
+
+
+def test_empty_input_does_not_infer_currency_and_saved_units_are_structured() -> None:
+    empty = account_trades([], final_marks={})
+    assert empty.fees.currency is None
+    assert empty.fees.unit == "currency"
+    saved = account_result(_saved_result((_equity(date(2026, 1, 1)),)))
+    assert saved.fees.currency == "USD"
+    assert saved.slippage.currency == "USD"
+    assert saved.fx.currency == "KRW"
+    assert saved.cash_balance.currency == "KRW"
+    fx_payload = cast(dict[str, object], saved.as_dict()["fx"])
+    assert fx_payload["unit"] == "currency"
+
+
+def test_cli_rejects_order_or_timestamp_metadata(tmp_path: Path) -> None:
+    path = tmp_path / "unsupported.json"
+    payload = {"result": {}, "order_status": "rejected"}
+    body = json.dumps(payload).encode()
+    path.write_bytes(body)
+    with pytest.raises(ValueError, match="unsupported order or timestamp"):
+        diagnose_saved_pilot(path, expected_sha256=hashlib.sha256(body).hexdigest())
 
 
 def _equity(session: date) -> ResearchEquityPoint:

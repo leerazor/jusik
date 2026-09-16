@@ -27,6 +27,11 @@ collector, simulation, replay, broker를 호출하지 않습니다. 계산은 �
 - 공개 계산은 호출자의 Decimal precision·rounding·trap 설정과 독립적인
   `Context(prec=50, ROUND_HALF_EVEN)`에서 수행합니다. 독립 달력 근거가 없으므로
   equity 날짜 사이의 휴장일·간격을 결측으로 판정하지 않습니다.
+- 직렬화된 각 회계 component에는 `currency`와 `unit`이 포함됩니다. 명시적 US
+  거래의 PnL·fee·tax·slippage·배당은 native `USD`/`currency`, 저장 결과의
+  `fx`와 관측 `cash_balance`는 `KRW`/`currency`입니다. 빈 명시적 입력처럼 통화를
+  증명할 수 없는 경우 `currency`는 `null`로 남습니다. FX 분해는 native 통화,
+  local `KRW`, rate unit `KRW_per_USD`를 구조화해 보존합니다.
 
 ## 증거 등급
 

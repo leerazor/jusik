@@ -21,22 +21,28 @@
 - 저장 결과의 equity 날짜 중복·역순과 fill session 누락을 거부합니다. 별도
   주문 상태/timestamp를 체결로 추정하지 않으며 독립 달력 근거 없이 날짜 간격을
   결측으로 판정하지 않습니다.
+- 직렬화된 component에 `currency`와 `unit`을 추가했습니다. 명시적 거래 금액은
+  증명된 native 통화, 저장 결과의 FX/cash는 각각 KRW로 표시하며, 빈 입력의
+  통화는 `null`로 남깁니다. FX 분해에는 native 통화·local KRW·`KRW_per_USD`
+  rate unit을 보존합니다. CLI의 미지원 주문/timestamp metadata와 직렬화 계약도
+  회귀 테스트에 고정했습니다.
 
 ## 복구 검증
 
 - `backend/.venv/bin/python -m pytest tests/test_market_loss_accounting.py -q` —
-  PASS, 18 tests.
+  PASS, 20 tests.
 - `backend/.venv/bin/python -m ruff check jusik/market_loss_accounting.py
   tests/test_market_loss_accounting.py` — PASS.
 - `backend/.venv/bin/python -m ruff format --check
   jusik/market_loss_accounting.py tests/test_market_loss_accounting.py` — PASS.
 - `backend/.venv/bin/python -m mypy --strict jusik/market_loss_accounting.py
   tests/test_market_loss_accounting.py` — PASS, 2 source files.
-- 파일럿 진단은 원본 manifest의 source SHA가 일치함을 확인한 뒤 focused gate
-  완료 후 1회 실행했습니다. 252 sessions·106 trades이며 `blocked`이고, 완전한
-  realized/unrealized/dividend evidence가 없어 경제 평가는 `not-evaluated`로
-  유지됩니다. 결과 JSON과 명령별 원문 로그·wall/CPU 기록은 저장소 밖 audit에
-  보관합니다.
+- 원본 manifest의 source SHA가 일치함을 확인했습니다. 기존 구현 결과는
+  pre-unit-fix evidence로 보존하고, 구조화 단위 수정 후 승인된 추가 1회 진단을
+  별도 결과로 실행했습니다. 최신 결과는 252 sessions·106 trades이며
+  `blocked`이고, 완전한 realized/unrealized/dividend evidence가 없어 경제
+  평가는 `not-evaluated`로 유지됩니다. 두 결과 JSON과 명령별 원문
+  wall/CPU 기록은 저장소 밖 audit에 보관합니다.
 
 - 이전 구현의 실패·fixture 초과 기록은 삭제하거나 재작성하지 않고 아래의
   역사 기록으로 보존합니다.

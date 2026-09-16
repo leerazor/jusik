@@ -132,6 +132,8 @@ class AccountingComponent:
     evidence: tuple[str, ...] = ()
     resume_inputs: tuple[str, ...] = ()
     diagnostic_value: Decimal | None = None
+    currency: Currency | None = None
+    unit: Literal["currency"] = "currency"
 
     @property
     def available(self) -> bool:
@@ -187,6 +189,11 @@ class FXDecomposition:
     fx_effect: Decimal
     cross_effect: Decimal
     total_change: Decimal
+    native_currency: Currency | None = None
+    native_unit: Literal["currency"] = "currency"
+    local_currency: Literal["KRW"] = "KRW"
+    local_unit: Literal["currency"] = "currency"
+    rate_unit: Literal["KRW_per_USD"] = "KRW_per_USD"
 
 
 @dataclass(frozen=True)
@@ -251,6 +258,8 @@ def fx_decomposition(
     final_native: Decimal,
     initial_fx: Decimal,
     final_fx: Decimal,
+    *,
+    native_currency: Currency | None = None,
 ) -> FXDecomposition:
     """Decompose ``N1*F1 - N0*F0`` including the cross term."""
 
@@ -272,6 +281,7 @@ def fx_decomposition(
             fx_effect=fx,
             cross_effect=cross,
             total_change=local + fx + cross,
+            native_currency=native_currency,
         )
 
 
@@ -382,14 +392,27 @@ def _fifo(
     )
 
 
-def _available(value: Decimal, evidence: str) -> AccountingComponent:
-    return AccountingComponent("available", value, (evidence,))
+def _available(
+    value: Decimal, evidence: str, *, currency: Currency | None = None
+) -> AccountingComponent:
+    return AccountingComponent("available", value, (evidence,), currency=currency)
 
 
 def _unavailable(
-    *, diagnostic: Decimal | None = None, reason: str, resume: str
+    *,
+    diagnostic: Decimal | None = None,
+    reason: str,
+    resume: str,
+    currency: Currency | None = None,
 ) -> AccountingComponent:
-    return AccountingComponent("unavailable", None, (reason,), (resume,), diagnostic)
+    return AccountingComponent(
+        "unavailable",
+        None,
+        (reason,),
+        (resume,),
+        diagnostic,
+        currency,
+    )
 
 
 def account_trades(
@@ -427,7 +450,8 @@ def account_trades(
             and currencies != {expected_currency}
         ):
             raise ValueError("trade and position currencies do not match market")
-        currency_label = next(iter(currencies), expected_currency or "unspecified")
+        accounting_currency: Currency | None = next(iter(currencies), expected_currency)
+        currency_label = accounting_currency or "unknown"
         marks = {
             symbol: _decimal(value, f"final mark {symbol}")
             for symbol, value in final_marks.items()
@@ -467,25 +491,39 @@ def account_trades(
             else Decimal(0)
         )
         raw_realized = (
-            _available(fifo.raw_realized, "FIFO open-price basis")
+            _available(
+                fifo.raw_realized,
+                "FIFO open-price basis",
+                currency=accounting_currency,
+            )
             if complete_history
             else _unavailable(
                 diagnostic=fifo.raw_realized,
                 reason="complete trade history and initial positions are unproven",
                 resume="provide a complete, ordered fill ledger and opening positions",
+                currency=accounting_currency,
             )
         )
         fill_realized = (
-            _available(fifo.fill_realized, "FIFO fill-price basis")
+            _available(
+                fifo.fill_realized,
+                "FIFO fill-price basis",
+                currency=accounting_currency,
+            )
             if complete_history
             else _unavailable(
                 diagnostic=fifo.fill_realized,
                 reason="complete trade history and initial positions are unproven",
                 resume="provide a complete, ordered fill ledger and opening positions",
+                currency=accounting_currency,
             )
         )
         raw_unrealized = (
-            _available(fifo.raw_unrealized, "remaining FIFO lots and final marks")
+            _available(
+                fifo.raw_unrealized,
+                "remaining FIFO lots and final marks",
+                currency=accounting_currency,
+            )
             if complete_history and not fifo.missing_marks
             else _unavailable(
                 diagnostic=fifo.raw_unrealized,
@@ -501,10 +539,15 @@ def account_trades(
                         "provide opening positions and complete split/delisting records"
                     )
                 ),
+                currency=accounting_currency,
             )
         )
         fill_unrealized = (
-            _available(fifo.fill_unrealized, "remaining FIFO lots and final marks")
+            _available(
+                fifo.fill_unrealized,
+                "remaining FIFO lots and final marks",
+                currency=accounting_currency,
+            )
             if complete_history and not fifo.missing_marks
             else _unavailable(
                 diagnostic=fifo.fill_unrealized,
@@ -520,12 +563,14 @@ def account_trades(
                         "provide opening positions and complete split/delisting records"
                     )
                 ),
+                currency=accounting_currency,
             )
         )
         dividend_component = (
             _available(
                 dividends_value,
                 f"complete dividend evidence supplied in {currency_label}",
+                currency=accounting_currency,
             )
             if normalised_dividends is not None and dividend_evidence_complete
             else _unavailable(
@@ -533,13 +578,23 @@ def account_trades(
                     "dividend evidence is absent or incomplete; zero is not inferred"
                 ),
                 resume="provide complete ex-date, quantity, and cash dividend evidence",
+                currency=accounting_currency,
             )
         )
-        fees = _available(fifo.fees, f"stored trade fee values in {currency_label}")
-        taxes = _available(fifo.taxes, f"stored trade tax values in {currency_label}")
+        fees = _available(
+            fifo.fees,
+            f"stored trade fee values in {currency_label}",
+            currency=accounting_currency,
+        )
+        taxes = _available(
+            fifo.taxes,
+            f"stored trade tax values in {currency_label}",
+            currency=accounting_currency,
+        )
         slippage = _available(
             fifo.slippage,
             f"open and fill prices in each {currency_label} trade",
+            currency=accounting_currency,
         )
         raw_net = (
             fifo.raw_realized
@@ -554,6 +609,7 @@ def account_trades(
                 initial_cash_value + fifo.cash_delta + dividends_value,
                 f"initial cash and trade cashflows in {currency_label}, "
                 "plus complete dividends",
+                currency=accounting_currency,
             )
             if initial_cash_value is not None
             and normalised_dividends is not None
@@ -574,6 +630,7 @@ def account_trades(
                     if initial_cash_value is None
                     else "provide complete dividend cashflow evidence"
                 ),
+                currency=accounting_currency,
             )
         )
         raw_net_available = (
@@ -610,21 +667,31 @@ def account_trades(
             ),
             cash_balance=cash,
             raw_net_pnl=(
-                _available(raw_net + dividends_value, "FIFO price basis less costs")
+                _available(
+                    raw_net + dividends_value,
+                    "FIFO price basis less costs",
+                    currency=accounting_currency,
+                )
                 if raw_net_available
                 else _unavailable(
                     diagnostic=raw_net + dividends_value,
                     reason="net PnL depends on unavailable accounting components",
                     resume="resolve history, corporate actions, and dividends first",
+                    currency=accounting_currency,
                 )
             ),
             fill_net_pnl=(
-                _available(fill_net + dividends_value, "FIFO fill basis less costs")
+                _available(
+                    fill_net + dividends_value,
+                    "FIFO fill basis less costs",
+                    currency=accounting_currency,
+                )
                 if fill_net_available
                 else _unavailable(
                     diagnostic=fill_net + dividends_value,
                     reason="net PnL depends on unavailable accounting components",
                     resume="resolve history, corporate actions, and dividends first",
+                    currency=accounting_currency,
                 )
             ),
             trade_count=len(normalised_trades),
@@ -664,7 +731,11 @@ def account_result(
         initial_native = first.cash_native + first.invested_krw / first.fx_krw_per_usd
         final_native = last.cash_native + last.invested_krw / last.fx_krw_per_usd
         decomposition = fx_decomposition(
-            initial_native, final_native, first.fx_krw_per_usd, last.fx_krw_per_usd
+            initial_native,
+            final_native,
+            first.fx_krw_per_usd,
+            last.fx_krw_per_usd,
+            native_currency=expected_currency,
         )
         raw_diag = report.raw_realized_pnl.diagnostic_value or Decimal(0)
         limitations = tuple(result.limitations) + (
@@ -683,6 +754,7 @@ def account_result(
                     "saved result has no proof of complete fills and opening positions"
                 ),
                 resume="store a complete ordered fill ledger and opening positions",
+                currency=expected_currency,
             ),
             fill_realized_pnl=report.fill_realized_pnl,
             raw_unrealized_pnl=_unavailable(
@@ -694,6 +766,7 @@ def account_result(
                 resume=(
                     "provide symbol-level final marks and complete corporate actions"
                 ),
+                currency=expected_currency,
             ),
             fill_unrealized_pnl=report.fill_unrealized_pnl,
             dividends=_unavailable(
@@ -701,27 +774,33 @@ def account_result(
                     "dividend evidence is absent or incomplete; zero is not inferred"
                 ),
                 resume="provide complete dividend evidence",
+                currency=expected_currency,
             ),
             fees=_available(
                 fees,
                 f"stored ResearchTrade.fee values in native {expected_currency}",
+                currency=expected_currency,
             ),
             taxes=_available(
                 taxes,
                 f"stored ResearchTrade.tax values in native {expected_currency}",
+                currency=expected_currency,
             ),
             slippage=_available(
                 slippage,
                 "stored market_open and fill_price values in "
                 f"native {expected_currency}",
+                currency=expected_currency,
             ),
             fx=_available(
                 decomposition.fx_effect + decomposition.cross_effect,
                 "first and last saved equity FX observations",
+                currency="KRW",
             ),
             cash_balance=_available(
                 last.cash_krw,
                 "last saved equity cash_krw observation in KRW",
+                currency="KRW",
             ),
             raw_net_pnl=_unavailable(
                 diagnostic=raw_diag - slippage - fees - taxes,
@@ -732,6 +811,7 @@ def account_result(
                 resume=(
                     "resolve opening positions, marks, corporate actions, and dividends"
                 ),
+                currency=expected_currency,
             ),
             fill_net_pnl=_unavailable(
                 diagnostic=(report.fill_realized_pnl.diagnostic_value or Decimal(0))
@@ -744,6 +824,7 @@ def account_result(
                 resume=(
                     "resolve opening positions, marks, corporate actions, and dividends"
                 ),
+                currency=expected_currency,
             ),
             limitations=limitations,
             trade_count=len(result.trades),
