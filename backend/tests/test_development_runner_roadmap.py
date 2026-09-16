@@ -23,8 +23,31 @@ def _repo(tmp_path: Path) -> Path:
     docs = repo / "docs"
     docs.mkdir(parents=True)
     source = Path(__file__).parents[2] / "docs"
-    (docs / "investment-development-roadmap.md").write_bytes(
-        (source / "investment-development-roadmap.md").read_bytes()
+    roadmap_lines = (
+        (source / "investment-development-roadmap.md")
+        .read_text(encoding="utf-8")
+        .splitlines(keepends=True)
+    )
+    seed_indexes = [
+        index for index, line in enumerate(roadmap_lines) if "**R1-01**" in line
+    ]
+    if len(seed_indexes) != 1:
+        raise AssertionError("roadmap fixture must contain exactly one R1-01 item")
+    seed_index = seed_indexes[0]
+    seed_line = roadmap_lines[seed_index]
+    marker_index = seed_line.index("**R1-01**")
+    checkbox_prefix = seed_line[:marker_index]
+    if (
+        len(checkbox_prefix) < 5
+        or checkbox_prefix[:3] != "- ["
+        or checkbox_prefix[4] != "]"
+    ):
+        raise AssertionError("roadmap fixture R1-01 checkbox is malformed")
+    # Keep the live roadmap text and every operator checkmark except the seed's
+    # known state, so gate tests do not change when the tracked roadmap advances.
+    roadmap_lines[seed_index] = "- [ ]" + checkbox_prefix[5:] + seed_line[marker_index:]
+    (docs / "investment-development-roadmap.md").write_text(
+        "".join(roadmap_lines), encoding="utf-8"
     )
     (docs / "research-mandate.json").write_bytes(
         (source / "research-mandate.json").read_bytes()
@@ -52,6 +75,7 @@ def test_roadmap_areas_are_lowercase_and_gates_are_independent(tmp_path: Path) -
     roadmap = load_roadmap(_repo(tmp_path))
     areas = eligible_areas(roadmap)
 
+    assert roadmap.by_id["r1-01"].complete is False
     assert "r1-01" in areas
     assert "r2-01" in areas
     assert "r3-01" in areas
