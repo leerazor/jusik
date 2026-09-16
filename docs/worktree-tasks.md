@@ -1,5 +1,21 @@
 # 워크트리 작업 등록부
 
+## r1-us-event-timing
+
+- 상태: 준비; 읽기 전용 explore 완료, bounded plan 진행
+- task/attempt: roadmap-r1-02-v1 / c42012de115c4aed8c8d9348002a47ff
+- 목표: 미국 사건 발생일·관측 시점을 보존하고 미래 사건에 대한 과거 선택 불변성을 검증합니다.
+- 담당: Astra 감독, r102_explore Luna, r102_plan Astra, 구현 Luna 단일 소유자와 Terra 독립 검토 예정
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-event-timing-c420 / fix/r1-us-event-timing-c420 (생성 예정)
+- 조사 기준 main: 3cd2393c38106be0f24859f226e05cad26765b41; 통합 대상 local main
+- 범위: 미국 collector·approximate 사건 계약과 회귀 fixture, 관련 계약 문서·개발 기록. KR·전략·배당/분할 회계·R2-04·R3-03 제외
+- 입력: R0 완료 계약·동결 artifact4개 SHA 일치, R1-01 membership, 현재 mandate JSON
+- 검증: 오프라인 CPU, seed0, 신규 fixture24개 이하·각300세션·8심볼 이하, 전체 검증900초 이내. pytest/Ruff/configured mypy/frozen replay
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-02-c42012de; 전용 venv/cache, 서버·DB 없음
+- 경계: 네트워크 수집·새 pilot/final·GPU·PAPER/live·운영 원장/서비스/설정·remote 변경 금지
+- 완료 조건: 독립 review, local main 통합 검사, 영구 증거·handoff 보존 후 정리. 실제 관측 근거 부족은 blocked로 남기고 전체 R1-02 체크하지 않습니다.
+
+
 ## r1-us-product-types
 
 - 상태: 완료; R1-03만 체크, Terra 재검토 및 main 통합 검사 PASS
