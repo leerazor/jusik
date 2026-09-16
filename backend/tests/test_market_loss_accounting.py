@@ -316,9 +316,15 @@ def test_empty_input_does_not_infer_currency_and_saved_units_are_structured() ->
     assert fx_payload["unit"] == "currency"
 
 
-def test_cli_rejects_order_or_timestamp_metadata(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "metadata",
+    ({"order_status": "rejected"}, {"order_timestamp": "2026-01-01T00:00:00Z"}),
+)
+def test_cli_rejects_order_or_timestamp_metadata(
+    tmp_path: Path, metadata: dict[str, str]
+) -> None:
     path = tmp_path / "unsupported.json"
-    payload = {"result": {}, "order_status": "rejected"}
+    payload: dict[str, object] = {"result": {}, **metadata}
     body = json.dumps(payload).encode()
     path.write_bytes(body)
     with pytest.raises(ValueError, match="unsupported order or timestamp"):

@@ -30,7 +30,7 @@
 ## 복구 검증
 
 - `backend/.venv/bin/python -m pytest tests/test_market_loss_accounting.py -q` —
-  PASS, 20 tests.
+  PASS, 21 tests, including rejection of order status and timestamp metadata.
 - `backend/.venv/bin/python -m ruff check jusik/market_loss_accounting.py
   tests/test_market_loss_accounting.py` — PASS.
 - `backend/.venv/bin/python -m ruff format --check
