@@ -1,3 +1,31 @@
+# R2-06 제한 재시도 — fixture 상한 중단
+
+- 현재 상태: 차단. task `roadmap-r2-06-v1`, attempt `16e000f1b0cb4314b54eb2a5acbe50f0`, 이전 attempt `474fb22d193c4302893e77e27f8d1b55`.
+- 소유 worktree `/home/kwl/projects/jusik-r2-counterfactual-fe92`, branch `feat/r2-counterfactual-fe92`를 재사용했습니다. 구현 `f4070f24b11c8d9ec3817e833a3ef8991ae8d119`는 미병합이며 보존합니다.
+- 요청 기준 d0d029996ea993216036385962c9153968ea61fe가 main 조상임을 확인했고 원래 입력 4개 SHA, 이전 증거48개 SHA, R0 완료와 현재 mandate를 다시 확인했습니다. worktree/main Python3.13.15를 각각 검사 전 한 번 확인했습니다.
+
+## 변경과 검증
+
+Luna가 기존 네 파일 범위에서 container/scalar 및 mapping/list 교체를 거절하고, 실제 단일 leaf에서 canonical 경로와 전후 값을 기록하도록 수정했습니다. 최상위 scalar와 이전 fees/taxes→null 재현, 역방향·빈·중첩 container 경계를 보완했습니다. 한국어 계약 예시도 기준 가정에 맞췄습니다. 기존 회계 엔진은 수정하지 않았습니다.
+
+fresh focused pytest45개(비교24, 기존 회계21), Ruff check/format, configured strict mypy와 diff check는 통과했습니다. 초기 format 실패는 한 번 수정 후 통과했습니다. Terra는 이전 코드 결함 해소를 확인했고 감독의 cap 판정 전달 전에 기존 경계 테스트2개를 실행해 통과했습니다. 그러나 아래 상한 초과로 독립 review gate는 차단이며, 모든 통과 로그를 완료 판정으로 사용하지 않습니다. main 구현 병합·통합 검사는 실행하지 않았습니다.
+
+## 중단 근거
+
+기존 마지막 worker pytest 산출물에서 준비 wrapper49개, canonical JSON 기준 서로 다른 완전한 wrapper 최소25개를 읽기 전용으로 확인했습니다. fixture 최대24 조건을 초과했습니다. 파일 역할3개, report payload12개 또는 report 조합8개라는 수로 입력 metadata·assumptions 변형을 제외해 상한 준수를 주장하지 않습니다. 덮어쓴 중간 변형은 이 하한에 포함되지 않습니다. cap 확인 후 추가 검증·수정·병합·정리를 중단했습니다. 이 상한 중단은 자동 복구 label에 해당하지 않아 recovery_kind를 지정하지 않습니다.
+
+## 증거와 재개
+
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-16e000f1`.
+- `fixture-cap-evidence.json`과 `fixture-snapshot/`은25개 이상 입력과 원본 SHA의 근거입니다. `fixture-bounds-correction.md`는 기존 역할 수 집계의 한계를 정정합니다.
+- `review.md`, `logs/`, source snapshot, patch, `evidence-manifest.json`, `HANDOFF.md`를 worktree 밖에 보존합니다. 삭제는 수행하지 않았습니다.
+- model-only routing은 child receipt·모델·nonmessage 인자를 검증했습니다. 최초 explore/plan plaintext 모드와 실제 opaque transport 차이는 원본 manifest를 보존한 별도 감사로 기록했으며 원문 무결성을 주장하지 않습니다.
+- 다음 명시적 재개는 같은 소유 branch를 재사용하고, 검사 전에 입력 fixture 목록·전체 수와 검증 한도를 고정해야 합니다. 반복 파일 역할 수나 테스트 수만으로 상한을 입증하지 않습니다.
+- 기술 slice와 전체 R2-06은 미완료입니다. 실제 준비 자료·benchmark·미래 관찰 acceptance는 blocked, 경제 평가는 not-evaluated이며 체크박스는 변경하지 않았습니다.
+- network/provider/historical engine/replay/GPU 실행0회. PAPER/live·주문·운영 DB·원장·서비스·설정·remote 변경없음. 새 성과 비교가 없어 웹 catalog는 변경하지 않았습니다.
+
+## 이전 시도의 역사 기록
+
 # R2-06 오프라인 counterfactual 비교 — 재검토 중단
 
 - 현재 상태: 차단. 동일한 단일 가정 검증 결함이 독립 review에서 두 번째 확인되어 사용자 중단 조건을 적용했습니다.

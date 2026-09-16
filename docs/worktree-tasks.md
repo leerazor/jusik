@@ -15,21 +15,14 @@
 
 ## r2-counterfactual-fe92
 
-- 현재 재시도: attempt `16e000f1b0cb4314b54eb2a5acbe50f0`에서 기존 소유 branch/워크트리를 재사용합니다. 이전 중단은 역사 상태이며 현재 환경 Python 3.13.15와 이전 증거 48개 SHA 및 원래 입력 4개 SHA를 재확인했습니다. container 구조 교체 결함의 제한 수정, fresh 검사와 독립 review 후 통합합니다. audit `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-16e000f1`.
-
-- 상태: 재시도 차단. task `roadmap-r2-06-v1`, attempt `474fb22d193c4302893e77e27f8d1b55`; 기존 worktree를 재사용해 구현했으나 단일 가정 검증 결함이 독립 review에서 두 번째 발생하여 중단했습니다. 이전 환경 실패 이력은 보존합니다.
-- 현재 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-474fb22d/`; `review-final.md`, `stop-evidence.json`, `evidence-manifest.json`, `HANDOFF.md`에 근거·재개 입력을 저장합니다.
-- 결과: Luna 구현 `0bab5ad04ff03f4c9561a522e202586bc04e4ccc`; fresh pytest43·Ruff check/format·strict mypy 통과, Terra review 미통과. 구현 main 병합·통합 검사는 미실행. container→scalar 교체의 다중 leaf 제거를 막는 수정이 필요합니다. 분류 `implementation` / `actionable_review`.
-- 정리: 미병합 소유 worktree/branch와 snapshot/patch를 보존합니다. 실제 자료 acceptance 부재로 R2-06 미체크이며 기술 slice도 미완료입니다.
-- 목표: 이미 준비된 기준 및 단일 가정 변경 결과를 오프라인 비교하고 비용·배당·FX의 비가산 차이를 별도 기록합니다. 전체 R2-06은 실제 acceptance 전 미체크 유지합니다.
-- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-r2-counterfactual-fe92`, `feat/r2-counterfactual-fe92`; 요청 기준 `d0d029996ea993216036385962c9153968ea61fe`, 등록 커밋에서 분기하고 local main에 통합합니다.
-- 입력: R0 완료, 최신 mandate와 첨부 4개 SHA 일치. 기존 loss accounting availability 보존.
-- 범위: 새 비교 모듈·CLI, 관련 테스트, 한국어 계약·개발 기록. 감독은 이 기존 등록부만 관리합니다.
-- 격리: 별도 venv, 테스트 tmp/audit; 포트·DB 없음. CPU seed0, 합성 fixture 최대24개·각30세션/20거래, 기준1+단일변경3 이하, 검증1200초·산출물50MiB 상한.
-- 금지: network/provider/engine/replay/GPU 실행, PAPER/live·주문·운영원장/DB·서비스·설정·remote 변경, 다른 격리 작업 재개.
-- 검사: focused pytest·Ruff check/format·configured strict mypy, 독립 review, main 통합 검사. 같은 실패2회 또는 상한 도달 시 중단합니다.
-- 증거/계획/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-06-fe920493/`; 삭제 전 영구 증거·SHA·handoff 보존.
+- 상태: 차단. 현재 attempt `16e000f1b0cb4314b54eb2a5acbe50f0`, 이전 `474fb22d193c4302893e77e27f8d1b55`, task `roadmap-r2-06-v1`. fixture 상한24 대비 고유 prepared wrapper 최소25개가 확인돼 추가 검증·통합을 중단했습니다. 자동 복구 분류는 없습니다.
+- 담당: Astra 감독·계획, Luna 단일 구현, Terra 독립 review. 기존 branch/worktree를 재사용했습니다.
+- 소유 worktree/branch: `/home/kwl/projects/jusik-r2-counterfactual-fe92` / `feat/r2-counterfactual-fe92`. 요청 기준 `d0d029996ea993216036385962c9153968ea61fe`, 현재 구현 `f4070f24b11c8d9ec3817e833a3ef8991ae8d119` 미병합·보존. 이전 구현0bab5ad와 증거도 보존합니다.
+- 범위: 별도 prepared 비교 module·CLI, 관련 tests와 한국어 계약·기존 개발 기록. container 구조 교체 결함과 최상위 scalar 기록을 수정했습니다. 원본 SHA·availability·단일 변경·비가산 delta 경계 유지.
+- 검사: worktree Python3.13.15 확인; fresh pytest45, Ruff check/format, configured strict mypy 통과. 리뷰 경계2개 통과도 cap 판정 전 결과이며 acceptance로 사용하지 않습니다. review gate 차단, main 구현 통합·통합 검사 미실행.
+- 입력: 원래4개 SHA와 이전 증거48개 SHA, R0 완료·최신 mandate 재확인. 실제 자료 acceptance 부재로 기술 slice와 전체 R2-06 미완료·미체크입니다.
+- 제한: CPU seed0, 기준1+변경3 이하, 세션1/거래0의 비교 fixture; cap 초과 확인 후 중단. 검증1200초·산출물50MiB 상한. network/provider/engine/replay/GPU0회; PAPER/live·주문·운영원장/DB·서비스·설정·remote·타 격리 작업 변경없음.
+- 증거/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-16e000f1/`의 `fixture-cap-evidence.json`, `review.md`, `evidence-manifest.json`, `HANDOFF.md`. 재개 전에 실제 전체 fixture 목록·수를 고정해야 합니다. worktree 삭제없음.
 - 개발 기록: `docs/development-records/2026-09-16-r2-counterfactual-fe92.md`.
 
 ## r3-value-44f7
