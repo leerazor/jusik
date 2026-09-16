@@ -117,7 +117,110 @@ def _sha256(value: object, label: str) -> str:
 
 
 def _json_equal(left: object, right: object) -> bool:
-    return left == right
+    return _json_fingerprint(left) == _json_fingerprint(right)
+
+
+def _json_fingerprint(value: object) -> tuple[object, ...]:
+    """Return a recursive JSON fingerprint that keeps scalar types distinct."""
+
+    if value is None:
+        return ("null",)
+    if isinstance(value, bool):
+        return ("bool", value)
+    if isinstance(value, int):
+        return ("int", value)
+    if isinstance(value, float):
+        return ("float", repr(value))
+    if isinstance(value, str):
+        return ("string", value)
+    if isinstance(value, list):
+        return ("array", tuple(_json_fingerprint(item) for item in value))
+    if isinstance(value, Mapping):
+        entries = tuple(
+            sorted(
+                ((str(key), _json_fingerprint(item)) for key, item in value.items()),
+                key=lambda item: item[0],
+            )
+        )
+        return ("object", entries)
+    return (type(value).__name__, repr(value))
+
+
+def _leaf_differences(
+    left: object, right: object, path: tuple[str, ...] = ()
+) -> tuple[tuple[str, ...], ...]:
+    if _json_equal(left, right):
+        return ()
+    if isinstance(left, Mapping) and isinstance(right, Mapping):
+        keys = sorted(set(left) | set(right))
+        differences: list[tuple[str, ...]] = []
+        for key in keys:
+            if key not in left or key not in right:
+                present = left[key] if key in left else right[key]
+                differences.extend(_leaf_paths(present, path + (str(key),)))
+                continue
+            differences.extend(
+                _leaf_differences(left[key], right[key], path + (str(key),))
+            )
+        return tuple(differences)
+    if isinstance(left, list) and isinstance(right, list):
+        differences = []
+        for index in range(max(len(left), len(right))):
+            if index >= len(left) or index >= len(right):
+                present = left[index] if index < len(left) else right[index]
+                differences.extend(_leaf_paths(present, path + (str(index),)))
+                continue
+            left_item = left[index]
+            right_item = right[index]
+            differences.extend(
+                _leaf_differences(left_item, right_item, path + (str(index),))
+            )
+        return tuple(differences)
+    return (path,)
+
+
+def _leaf_paths(value: object, path: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
+    if isinstance(value, Mapping):
+        if not value:
+            return (path,)
+        return tuple(
+            leaf
+            for key, item in value.items()
+            for leaf in _leaf_paths(item, path + (str(key),))
+        )
+    if isinstance(value, list):
+        if not value:
+            return (path,)
+        return tuple(
+            leaf
+            for index, item in enumerate(value)
+            for leaf in _leaf_paths(item, path + (str(index),))
+        )
+    return (path,)
+
+
+def _validate_path_keys(value: object) -> None:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if "." in str(key):
+                raise ValueError("assumption keys must not contain dots")
+            _validate_path_keys(item)
+    elif isinstance(value, list):
+        for item in value:
+            _validate_path_keys(item)
+
+
+def _at_path(value: object, path: tuple[str, ...]) -> object:
+    current = value
+    for part in path:
+        if isinstance(current, Mapping):
+            current = current.get(part)
+        elif isinstance(current, list) and part.isdigit():
+            index = int(part)
+            current = current[index] if index < len(current) else None
+        else:
+            return None
+    return current
 
 
 @dataclass(frozen=True)
@@ -226,8 +329,8 @@ class ComparisonEnvelope:
         capital_currency = capital.get("currency")
         if capital_value <= 0:
             raise ValueError("initial_capital.value must be positive")
-        if capital_currency != currency:
-            raise ValueError("initial_capital currency does not match currency")
+        if capital_currency not in {"KRW", "USD"}:
+            raise ValueError("initial_capital currency must be KRW or USD")
         if capital.get("unit") != "currency":
             raise ValueError("initial_capital.unit must be currency")
         fixed = _object(data.get("fixed_assumptions"), "fixed_assumptions")
@@ -296,23 +399,73 @@ def _validate_assumptions(
     expected_keys = set(_ASSUMPTION_KINDS)
     if set(baseline.assumptions) != expected_keys:
         raise ValueError("baseline assumptions must contain cost, dividend, and fx")
+    _validate_path_keys(baseline.assumptions)
     for scenario in scenarios:
         if set(scenario.assumptions) != expected_keys:
             raise ValueError(
                 f"scenario {scenario.scenario_id} assumptions must contain "
                 "cost, dividend, and fx"
             )
-        changed = tuple(
-            key
+        _validate_path_keys(scenario.assumptions)
+        changed_leaves = tuple(
+            (key,) + leaf
             for key in _ASSUMPTION_KINDS
-            if not _json_equal(baseline.assumptions[key], scenario.assumptions[key])
+            for leaf in _leaf_differences(
+                baseline.assumptions[key], scenario.assumptions[key]
+            )
         )
         declared = scenario.change.get("kind")
-        if len(changed) != 1 or changed[0] != declared:
+        if declared not in _ASSUMPTION_KINDS:
+            raise ValueError(f"scenario {scenario.scenario_id} change.kind is invalid")
+        if len(changed_leaves) != 1 or changed_leaves[0][0] != declared:
             raise ValueError(
                 f"scenario {scenario.scenario_id} must change exactly one "
-                "declared assumption"
+                "atomic assumption leaf"
             )
+        changed_path = changed_leaves[0][1:]
+        declared_path = scenario.change.get("path")
+        if not isinstance(declared_path, str) or not declared_path:
+            raise ValueError(f"scenario {scenario.scenario_id} change.path is required")
+        if declared_path in {".".join(changed_path), ".".join(changed_leaves[0])}:
+            pass
+        else:
+            raise ValueError(
+                f"scenario {scenario.scenario_id} change.path does not match "
+                "the atomic assumption leaf"
+            )
+        before = _at_path(baseline.assumptions[declared], changed_path)
+        after = _at_path(scenario.assumptions[declared], changed_path)
+        if not _json_equal(scenario.change.get("before"), before) or not _json_equal(
+            scenario.change.get("after"), after
+        ):
+            raise ValueError(
+                f"scenario {scenario.scenario_id} change before/after mismatch"
+            )
+    fingerprints: set[tuple[object, ...]] = set()
+    for scenario in scenarios:
+        fingerprint = _json_fingerprint(scenario.assumptions)
+        if fingerprint in fingerprints:
+            raise ValueError("scenarios must be semantically distinct")
+        fingerprints.add(fingerprint)
+
+
+def _change_record(
+    baseline: ComparisonScenario, scenario: ComparisonScenario
+) -> dict[str, object]:
+    """Return the validated atomic change, deriving values from assumptions."""
+
+    kind = cast(str, scenario.change["kind"])
+    path = cast(str, scenario.change["path"])
+    if path.startswith(f"{kind}."):
+        path = path[len(kind) + 1 :]
+    relative_path = tuple(path.split("."))
+    before = _at_path(baseline.assumptions[kind], relative_path)
+    after = _at_path(scenario.assumptions[kind], relative_path)
+    record = copy.deepcopy(dict(scenario.change))
+    record["atomic_path"] = f"{kind}.{path}"
+    record["before"] = copy.deepcopy(before)
+    record["after"] = copy.deepcopy(after)
+    return record
 
 
 def _component(payload: Mapping[str, object], name: str) -> Mapping[str, object]:
@@ -335,8 +488,6 @@ def _component(payload: Mapping[str, object], name: str) -> Mapping[str, object]
         isinstance(item, str) for item in evidence
     ):
         raise ValueError(f"report.{name}.evidence must be an array of strings")
-    if name in {"dividends", "fx"} and availability == "available" and not evidence:
-        raise ValueError(f"report.{name} available value requires evidence")
     if not isinstance(resume, list) or not all(
         isinstance(item, str) for item in resume
     ):
@@ -391,7 +542,7 @@ def _validate_report_metadata(
         "currency": envelope.initial_capital_currency,
         "unit": "currency",
     }
-    if metadata.get("initial_capital") != expected_capital:
+    if not _json_equal(metadata.get("initial_capital"), expected_capital):
         raise ValueError("prepared report initial_capital does not match envelope")
     if metadata.get("research_grade") != envelope.research_grade:
         raise ValueError("prepared report research_grade does not match envelope")
@@ -399,9 +550,9 @@ def _validate_report_metadata(
         raise ValueError("prepared report data_contract does not match envelope")
     if metadata.get("policy_contract") != envelope.policy_contract:
         raise ValueError("prepared report policy_contract does not match envelope")
-    if metadata.get("fixed_assumptions") != envelope.fixed_assumptions:
+    if not _json_equal(metadata.get("fixed_assumptions"), envelope.fixed_assumptions):
         raise ValueError("prepared report fixed_assumptions does not match envelope")
-    if metadata.get("assumptions") != assumptions:
+    if not _json_equal(metadata.get("assumptions"), assumptions):
         raise ValueError("prepared report assumptions do not match scenario")
 
 
@@ -414,18 +565,39 @@ def _delta(
     scenario_currency = scenario.get("currency")
     base_unit = baseline.get("unit")
     scenario_unit = scenario.get("unit")
-    evidence = tuple(
-        str(item)
-        for item in list(cast(list[object], baseline["evidence"]))
-        + list(cast(list[object], scenario["evidence"]))
+    base_evidence = tuple(
+        str(item) for item in cast(list[object], baseline["evidence"])
     )
+    scenario_evidence = tuple(
+        str(item) for item in cast(list[object], scenario["evidence"])
+    )
+    evidence = base_evidence + scenario_evidence
     resume = tuple(
         str(item)
         for item in list(cast(list[object], baseline["resume_inputs"]))
         + list(cast(list[object], scenario["resume_inputs"]))
     )
+    required_evidence = {
+        "dividends": "provide complete dividend evidence for both reports",
+        "fx": "provide complete FX evidence for both reports",
+    }
     if base_availability != "available" or scenario_availability != "available":
+        if not resume or all(not item.strip() for item in resume):
+            resume = (f"resolve unavailable {name} evidence",)
         return ComparisonDelta("unavailable", None, evidence, resume, None, None)
+    if name in required_evidence and (
+        not base_evidence
+        or not scenario_evidence
+        or any(not item.strip() for item in evidence)
+    ):
+        return ComparisonDelta(
+            "unavailable",
+            None,
+            evidence,
+            resume + (required_evidence[name],),
+            None,
+            None,
+        )
     if (
         base_currency is None
         or scenario_currency is None
@@ -475,8 +647,8 @@ def _validate_envelope(envelope: ComparisonEnvelope) -> None:
         raise ValueError("sessions must be within period")
     if _decimal(envelope.initial_capital, "initial_capital.value") <= 0:
         raise ValueError("initial_capital.value must be positive")
-    if envelope.initial_capital_currency != envelope.currency:
-        raise ValueError("initial_capital currency does not match currency")
+    if envelope.initial_capital_currency not in {"KRW", "USD"}:
+        raise ValueError("initial_capital currency must be KRW or USD")
     _string(envelope.research_grade, "research_grade")
     _string(envelope.data_contract, "data_contract")
     _string(envelope.policy_contract, "policy_contract")
@@ -538,7 +710,7 @@ def compare_prepared_reports(envelope: ComparisonEnvelope) -> dict[str, object]:
                     "path": str(scenario.source.path),
                     "sha256": report.source_sha256,
                 },
-                "change": copy.deepcopy(dict(scenario.change)),
+                "change": _change_record(envelope.baseline, scenario),
                 "assumptions": copy.deepcopy(dict(scenario.assumptions)),
                 "metadata": copy.deepcopy(report.metadata),
                 "report": copy.deepcopy(report.payload),

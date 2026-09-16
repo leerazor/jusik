@@ -8,8 +8,8 @@
 
 ## 변경과 결정
 
-- `backend/jusik/market_counterfactual_comparison.py`: wrapper metadata와 envelope의 시장·기간·세션·통화·초기 자본·등급·자료/정책 계약·공통 고정 조건을 완전 비교하고, available이며 같은 통화·단위인 component만 Decimal 차감합니다.
-- `backend/tests/test_market_counterfactual_comparison.py`: 독립 Decimal, hash 선검증, 중복 key/ID/세션, 단일 assumption, metadata 불일치, unavailable diagnostic 보존, 배당·FX evidence, 비용·FX 비가산 delta, 0·음수·고정밀 수치, timezone·휴장 세션, partial/cancelled/rejected 상태, 출력 overwrite 경계를 합성 fixture로 고정했습니다. 합성 fixture는 22개 테스트와 2개 시나리오입니다.
+- `backend/jusik/market_counterfactual_comparison.py`: wrapper metadata와 envelope의 시장·기간·세션·report native 통화·초기 계좌 통화·등급·자료/정책 계약·공통 고정 조건을 type-preserving equality로 완전 비교하고, available이며 같은 통화·단위인 component만 Decimal 차감합니다. atomic leaf 하나만 변경하도록 before/after를 검증하고, 배당·FX 근거 부족은 원문 보존 blocked delta로 기록합니다.
+- `backend/tests/test_market_counterfactual_comparison.py`: 독립 Decimal, hash 선검증, 중복 key/ID/세션, type-preserving bool/int, 단일 atomic assumption, metadata 불일치, unavailable diagnostic 보존, 배당·FX evidence, 비용·FX·joint 비가산 delta, 0·음수·고정밀 수치, timezone·휴장 세션, partial/cancelled/rejected 상태, 출력 overwrite 경계를 합성 fixture로 고정했습니다. 합성 fixture는 22개 테스트와 최대 3개 시나리오입니다.
 - `docs/research/market-counterfactual-comparison.md`: 입력 wrapper, 결과 delta-only 계약과 운영 경계를 기록했습니다.
 
 ## 문서·계약 영향

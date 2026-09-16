@@ -2,7 +2,7 @@ import hashlib
 import json
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from decimal import ROUND_DOWN, Context, localcontext
+from decimal import ROUND_DOWN, Context, Decimal, localcontext
 from pathlib import Path
 
 import pytest
@@ -66,8 +66,8 @@ def _write_report(
         "sessions": ["2026-01-02"],
         "currency": "USD",
         "initial_capital": {
-            "value": "1000",
-            "currency": "USD",
+            "value": "100000000",
+            "currency": "KRW",
             "unit": "currency",
         },
         "research_grade": "fixture",
@@ -117,7 +117,11 @@ def _envelope(
         "period": {"start": "2026-01-02", "end": "2026-01-02"},
         "sessions": ["2026-01-02"],
         "currency": "USD",
-        "initial_capital": {"value": "1000", "currency": "USD", "unit": "currency"},
+        "initial_capital": {
+            "value": "100000000",
+            "currency": "KRW",
+            "unit": "currency",
+        },
         "research_grade": "fixture",
         "data_contract": "data-contract-v1",
         "policy_contract": "policy-v1",
@@ -131,7 +135,13 @@ def _envelope(
             {
                 "id": "cost-change",
                 "source": {"path": scenario_path.name, "sha256": scenario_hash},
-                "change": {"kind": "cost", "description": "fee change"},
+                "change": {
+                    "kind": "cost",
+                    "path": "fees",
+                    "before": "1",
+                    "after": "2",
+                    "description": "fee change",
+                },
                 "assumptions": scenario_assumptions,
             }
         ],
@@ -156,6 +166,7 @@ def test_compare_uses_independent_decimal_and_returns_component_delta(
     fees = _object(deltas["fees"])
     assert fees["value"] == "20"
     assert fees["availability"] == "available"
+    assert _object(result["initial_capital"])["currency"] == "KRW"
     assert _object(result["contract"])["aggregates"] is False
 
 
@@ -208,10 +219,17 @@ def test_available_dividend_or_fx_requires_evidence(
     baseline.write_text(json.dumps(prepared, sort_keys=True), encoding="utf-8")
     baseline_source = _object(_object(envelope_data["baseline"])["source"])
     baseline_source["sha256"] = hashlib.sha256(baseline.read_bytes()).hexdigest()
-    with pytest.raises(ValueError, match="requires evidence"):
-        compare_prepared_reports(
-            ComparisonEnvelope.from_mapping(envelope_data, base_dir=tmp_path)
-        )
+    result = compare_prepared_reports(
+        ComparisonEnvelope.from_mapping(envelope_data, base_dir=tmp_path)
+    )
+    comparison = _object(_array(result["comparisons"])[0])
+    delta = _object(_object(comparison["deltas"])[component])
+    assert delta["availability"] == "unavailable"
+    assert "provide complete" in " ".join(
+        str(item) for item in _array(delta["resume_inputs"])
+    )
+    baseline_result = _object(result["baseline"])
+    assert _object(_object(baseline_result["report"])[component])["evidence"] == []
 
 
 def test_cost_and_fx_deltas_remain_separate_and_are_not_added(
@@ -249,7 +267,13 @@ def test_cost_and_fx_deltas_remain_separate_and_are_not_added(
                 "path": fx_path.name,
                 "sha256": hashlib.sha256(fx_path.read_bytes()).hexdigest(),
             },
-            "change": {"kind": "fx", "description": "rate change"},
+            "change": {
+                "kind": "fx",
+                "path": "source",
+                "before": "prepared",
+                "after": "changed",
+                "description": "rate change",
+            },
             "assumptions": fx_assumptions,
         }
     )
@@ -260,8 +284,32 @@ def test_cost_and_fx_deltas_remain_separate_and_are_not_added(
     second = _object(comparisons[1])
     assert _object(_object(first["deltas"])["fill_net_pnl"])["value"] == "20"
     assert _object(_object(second["deltas"])["fill_net_pnl"])["value"] == "90"
+    assert Decimal("300") - Decimal("180") == Decimal("120")
+    assert Decimal("20") + Decimal("90") == Decimal("110")
     assert "total_delta" not in result
     assert "aggregate" not in result
+    scenarios.append(
+        {
+            "id": "joint-change",
+            "source": {
+                "path": "fx.json",
+                "sha256": _object(_object(scenarios[1])["source"])["sha256"],
+            },
+            "change": {
+                "kind": "cost",
+                "path": "fees",
+                "before": "1",
+                "after": "2",
+            },
+            "assumptions": {
+                "cost": {"fees": "2"},
+                "dividend": {"evidence": "complete"},
+                "fx": {"source": "changed"},
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="atomic assumption leaf"):
+        ComparisonEnvelope.from_mapping(envelope_data, base_dir=tmp_path)
 
 
 def test_zero_negative_and_high_precision_values_are_decimal_safe(
@@ -369,13 +417,13 @@ def test_report_metadata_must_match_envelope(tmp_path: Path, field: str) -> None
         prepared["metadata"][field] = ["2026-01-01"]
     elif field == "initial_capital":
         prepared["metadata"][field] = {
-            "value": "1001",
-            "currency": "USD",
+            "value": "100000001",
+            "currency": "KRW",
             "unit": "currency",
         }
     elif field == "fixed_assumptions":
         prepared["metadata"][field] = {
-            "cost": "other",
+            "cost": True,
             "dividend": "fixed",
             "fx": "fixed",
         }
@@ -418,7 +466,37 @@ def test_duplicate_ids_sessions_and_assumptions_are_rejected(tmp_path: Path) -> 
         "dividend": {"evidence": "changed"},
         "fx": {"source": "prepared"},
     }
-    with pytest.raises(ValueError, match="exactly one"):
+    with pytest.raises(ValueError, match="atomic assumption leaf"):
+        ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
+    envelope = _envelope(tmp_path)
+    scenario = _array(envelope["scenarios"])[0]
+    assert isinstance(scenario, dict)
+    scenario["assumptions"] = {
+        "cost": {"fees": "2", "taxes": "3"},
+        "dividend": {"evidence": "complete"},
+        "fx": {"source": "prepared"},
+    }
+    with pytest.raises(ValueError, match="atomic assumption leaf"):
+        ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
+    envelope = _envelope(tmp_path)
+    scenario = _array(envelope["scenarios"])[0]
+    assert isinstance(scenario, dict)
+    scenario["assumptions"]["dividend"] = {"evidence": 1}
+    scenario["assumptions"]["cost"] = {"fees": "1"}
+    scenario["change"] = {
+        "kind": "dividend",
+        "path": "evidence",
+        "before": "complete",
+        "after": 1,
+    }
+    typed = ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
+    assert typed.scenarios[0].assumptions["dividend"] == {"evidence": 1}
+    envelope = _envelope(tmp_path)
+    scenarios = _array(envelope["scenarios"])
+    duplicate = dict(_object(scenarios[0]))
+    duplicate["id"] = "same-assumptions"
+    scenarios.append(duplicate)
+    with pytest.raises(ValueError, match="semantically distinct"):
         ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
 
 
