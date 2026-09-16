@@ -623,7 +623,18 @@ def test_provider_response_fixtures_classify_known_outcomes(
     elif source == "fred":
         request = transport.fred(date(2026, 9, 14), date(2026, 9, 14))
     else:
-        request = transport.yahoo("AAA", date(2026, 9, 14), date(2026, 9, 14))
+        expected_exchange = fixture.get("expected_exchange")
+        expected_currency = fixture.get("expected_currency")
+        if expected_exchange is None and expected_currency is None:
+            request = transport.yahoo("AAA", date(2026, 9, 14), date(2026, 9, 14))
+        else:
+            request = transport.yahoo_with_identity(
+                "AAA",
+                date(2026, 9, 14),
+                date(2026, 9, 14),
+                expected_exchange=expected_exchange,
+                expected_currency=expected_currency,
+            )
     if kind == "normal":
         result = asyncio.run(request)
         assert result == body
@@ -632,6 +643,81 @@ def test_provider_response_fixtures_classify_known_outcomes(
         with pytest.raises(expected[kind]):
             asyncio.run(request)
         assert not (tmp_path / "manifest.json").exists()
+
+
+def test_network_yahoo_identity_mismatch_rejects_fresh_and_resumed_cache(
+    tmp_path: Path,
+) -> None:
+    fixture = next(
+        fixture
+        for fixture in json.loads(
+            (
+                Path(__file__).parent / "fixtures/provider_response_fixtures.json"
+            ).read_text(encoding="utf-8")
+        )
+        if fixture["name"] == "yahoo-identity-mismatch"
+    )
+    body = fixture["body"].encode()
+    settings = CollectorSettings(max_retries=0)
+
+    class FixtureClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            return httpx.Response(200, content=body)
+
+    fresh_cache = AtomicResponseCache(tmp_path / "fresh")
+    fresh_transport = NetworkCollectorTransport(
+        HttpFetcher(client=FixtureClient(), cache=fresh_cache, settings=settings),
+        settings,
+    )
+    request = fresh_transport.yahoo_with_identity(
+        "AAA",
+        date(2026, 9, 14),
+        date(2026, 9, 14),
+        expected_exchange=fixture["expected_exchange"],
+        expected_currency=fixture["expected_currency"],
+    )
+    with pytest.raises(CollectorParseError, match="identity"):
+        asyncio.run(request)
+    assert not (fresh_cache.manifest_path).exists()
+
+    resumable_cache = AtomicResponseCache(tmp_path / "resumed")
+    resumable_transport = NetworkCollectorTransport(
+        HttpFetcher(client=FixtureClient(), cache=resumable_cache, settings=settings),
+        settings,
+    )
+    assert (
+        asyncio.run(
+            resumable_transport.yahoo("AAA", date(2026, 9, 14), date(2026, 9, 14))
+        )
+        == body
+    )
+
+    class UnexpectedNetworkClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            raise AssertionError("identity mismatch must reject resumed cache")
+
+    resumed_transport = NetworkCollectorTransport(
+        HttpFetcher(
+            client=UnexpectedNetworkClient(),
+            cache=resumable_cache,
+            settings=settings,
+        ),
+        settings,
+    )
+    with pytest.raises(CollectorParseError, match="identity"):
+        asyncio.run(
+            resumed_transport.yahoo_with_identity(
+                "AAA",
+                date(2026, 9, 14),
+                date(2026, 9, 14),
+                expected_exchange=fixture["expected_exchange"],
+                expected_currency=fixture["expected_currency"],
+            )
+        )
 
 
 def test_http_fetcher_validates_before_caching_and_sanitizes_parse_failure(

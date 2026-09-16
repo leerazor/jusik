@@ -42,6 +42,12 @@
     "body": "{\"Note\":\"The standard API call frequency limit was reached.\"}"
   },
   {
+    "name": "alpha-daily-request-limit-note",
+    "source": "alpha_vantage",
+    "kind": "quota",
+    "body": "{\"Note\":\"The daily request limit has been reached.\"}"
+  },
+  {
     "name": "fred-quota-error",
     "source": "fred",
     "kind": "quota",
@@ -88,5 +94,13 @@
     "source": "yahoo",
     "kind": "coverage",
     "body": "{\"chart\":{\"result\":[{\"meta\":{\"symbol\":\"AAA\",\"currency\":\"USD\",\"instrumentType\":\"EQUITY\",\"exchangeName\":\"NMS\",\"exchangeTimezoneName\":\"America/New_York\"},\"timestamp\":[1451606400],\"indicators\":{\"quote\":[{\"open\":[\"1\"],\"high\":[\"1\"],\"low\":[\"1\"],\"close\":[\"1\"],\"volume\":[\"1\"]}]}}],\"error\":null}}"
+  },
+  {
+    "name": "yahoo-identity-mismatch",
+    "source": "yahoo",
+    "kind": "parse",
+    "expected_exchange": "NAS",
+    "expected_currency": "USD",
+    "body": "{\"chart\":{\"result\":[{\"meta\":{\"symbol\":\"AAA\",\"currency\":\"USD\",\"instrumentType\":\"EQUITY\",\"exchangeName\":\"NYS\",\"exchangeTimezoneName\":\"America/New_York\"},\"timestamp\":[1789416000],\"indicators\":{\"quote\":[{\"open\":[\"1\"],\"high\":[\"1\"],\"low\":[\"1\"],\"close\":[\"1\"],\"volume\":[\"1\"]}]}}],\"error\":null}}"
   }
 ]

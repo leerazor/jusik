@@ -138,7 +138,13 @@ def _provider_envelope_error(source: str, body: bytes) -> None:
     def classify_message(message: str, *, default: str) -> None:
         if any(
             marker in message
-            for marker in ("quota", "rate limit", "too many", "frequency")
+            for marker in (
+                "quota",
+                "rate limit",
+                "request limit",
+                "too many",
+                "frequency",
+            )
         ):
             raise CollectorQuotaError(f"{source} provider quota was exceeded")
         if any(
@@ -1463,13 +1469,24 @@ class NetworkCollectorTransport:
         )
 
     async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
+        return await self.yahoo_with_identity(symbol, start, end)
+
+    async def yahoo_with_identity(
+        self,
+        symbol: str,
+        start: date,
+        end: date,
+        *,
+        expected_exchange: str | None = None,
+        expected_currency: Literal["KRW", "USD"] | None = None,
+    ) -> bytes:
         def validate(body: bytes) -> None:
             _provider_envelope_error("yahoo", body)
             parse_yahoo_chart(
                 body,
                 symbol=symbol,
-                exchange=None,
-                currency=None,
+                exchange=expected_exchange,
+                currency=expected_currency,
                 start=start,
                 end=end,
             )
@@ -1921,8 +1938,23 @@ class FreeMarketDataCollector:
                     )
                 row = candidate_row
                 try:
+                    identity_transport = getattr(
+                        self.transport, "yahoo_with_identity", None
+                    )
+                    if callable(identity_transport):
+                        yahoo_body = await identity_transport(
+                            symbol,
+                            warmup_start,
+                            end,
+                            expected_exchange=row.exchange,
+                            expected_currency="USD",
+                        )
+                    else:
+                        yahoo_body = await self.transport.yahoo(
+                            symbol, warmup_start, end
+                        )
                     chart = parse_yahoo_chart(
-                        await self.transport.yahoo(symbol, warmup_start, end),
+                        yahoo_body,
                         symbol=symbol,
                         exchange=row.exchange,
                         currency="USD",
