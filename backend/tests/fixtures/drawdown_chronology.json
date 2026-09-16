@@ -1,0 +1,127 @@
+{
+  "cases": [
+    {
+      "name": "initial_loss",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "99"},
+        {"session": "2026-01-06", "nav_krw": "98"}
+      ],
+      "expected": {"peak": "100", "mdd": "2", "latch": null, "status": "success"}
+    },
+    {
+      "name": "new_high",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "110"},
+        {"session": "2026-01-06", "nav_krw": "99"}
+      ],
+      "expected": {"peak": "110", "mdd": "10", "latch": null, "status": "success"}
+    },
+    {
+      "name": "just_before_threshold",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "125"},
+        {"session": "2026-01-06", "nav_krw": "100.0000000001"}
+      ],
+      "expected": {"peak": "125", "mdd": "19.99999999992", "latch": null, "status": "success"}
+    },
+    {
+      "name": "exact_threshold",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "125"},
+        {"session": "2026-01-06", "nav_krw": "100"}
+      ],
+      "expected": {"peak": "125", "mdd": "20", "latch": "2026-01-06", "status": "success"}
+    },
+    {
+      "name": "exceeds_threshold",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "125"},
+        {"session": "2026-01-06", "nav_krw": "99"}
+      ],
+      "expected": {"peak": "125", "mdd": "20.8", "latch": "2026-01-06", "status": "success"}
+    },
+    {
+      "name": "recovery_cannot_reenter",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "125"},
+        {"session": "2026-01-06", "nav_krw": "100"},
+        {"session": "2026-01-07", "nav_krw": "115"}
+      ],
+      "trades": [
+        {"signal_session": "2026-01-02", "fill_session": "2026-01-05", "symbol": "AAA", "side": "buy", "quantity": 2},
+        {"signal_session": "2026-01-06", "fill_session": "2026-01-07", "symbol": "AAA", "side": "buy", "quantity": 1}
+      ],
+      "invalid": "buy after drawdown latch"
+    },
+    {
+      "name": "fx_only_change",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "100.00000000000000000001"},
+        {"session": "2026-01-06", "nav_krw": "99.99999999999999999999"}
+      ],
+      "expected": {"peak": "100.00000000000000000001", "mdd": "0.000000000000000000019999999999999999999998000000000000000000000200000", "latch": null, "status": "success"}
+    },
+    {
+      "name": "holiday_not_inferred_as_session",
+      "observations": [
+        {"session": "2026-01-16", "nav_krw": "100"},
+        {"session": "2026-01-20", "nav_krw": "80"}
+      ],
+      "expected": {"peak": "100", "mdd": "20", "latch": "2026-01-20", "status": "success"},
+      "expected_sessions": ["2026-01-16", "2026-01-20"]
+    },
+    {
+      "name": "missing_next_open_then_fill",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "100", "open_available_symbols": ["AAA"]},
+        {"session": "2026-01-06", "nav_krw": "80", "open_available_symbols": []},
+        {"session": "2026-01-07", "nav_krw": "80", "open_available_symbols": ["AAA"]}
+      ],
+      "trades": [
+        {"signal_session": "2026-01-02", "fill_session": "2026-01-05", "symbol": "AAA", "side": "buy", "quantity": 3},
+        {"signal_session": "2026-01-06", "fill_session": "2026-01-07", "symbol": "AAA", "side": "sell", "quantity": 3}
+      ],
+      "expected": {"peak": "100", "mdd": "20", "latch": "2026-01-06", "status": "success", "first_open": "2026-01-07"}
+    },
+    {
+      "name": "period_end_unfilled",
+      "observations": [
+        {"session": "2026-01-02", "nav_krw": "100"},
+        {"session": "2026-01-05", "nav_krw": "100", "open_available_symbols": ["AAA"]},
+        {"session": "2026-01-06", "nav_krw": "80"},
+        {"session": "2026-01-07", "nav_krw": "80", "open_available_symbols": []}
+      ],
+      "trades": [
+        {"signal_session": "2026-01-02", "fill_session": "2026-01-05", "symbol": "AAA", "side": "buy", "quantity": 3}
+      ],
+      "expected": {"peak": "100", "mdd": "20", "latch": "2026-01-06", "status": "blocked", "liquidation": "not_observed"}
+    },
+    {
+      "name": "invalid_duplicate_reversed_missing_nonfinite",
+      "invalid_variants": [
+        {"name": "duplicate", "observations": [{"session": "2026-01-02", "nav_krw": "100"}, {"session": "2026-01-02", "nav_krw": "99"}]},
+        {"name": "reversed", "observations": [{"session": "2026-01-05", "nav_krw": "99"}, {"session": "2026-01-02", "nav_krw": "100"}]},
+        {"name": "missing", "observations": [{"session": "2026-01-02", "nav_krw": "100"}, {"session": "2026-01-06", "nav_krw": "99"}], "expected_sessions": ["2026-01-02", "2026-01-05", "2026-01-06"]},
+        {"name": "nonfinite", "observations": [{"session": "2026-01-02", "nav_krw": "NaN"}]}
+      ]
+    },
+    {
+      "name": "zero_and_negative_nav",
+      "zero": {
+        "observations": [{"session": "2026-01-02", "nav_krw": "100"}, {"session": "2026-01-05", "nav_krw": "0"}],
+        "expected": {"peak": "100", "mdd": "100", "latch": "2026-01-05", "status": "success"}
+      },
+      "negative": {
+        "observations": [{"session": "2026-01-02", "nav_krw": "100"}, {"session": "2026-01-05", "nav_krw": "-1"}]
+      }
+    }
+  ]
+}
