@@ -73,8 +73,9 @@
 
 ## r2-loss-accounting-2760
 
-- 상태: 차단·미통합. 동일 Ruff 실패2회 중단 조건, fixture17개로 상한16개 초과, Terra P1 네 건으로 review FAIL.
+- 상태: 수동 복구 조사·계획 진행. 2026-09-16 사용자 자율 진행 승인으로 기존 소유 worktree를 재사용합니다. 이전 실패·한도 위반 기록은 보존합니다.
 - task/attempt: roadmap-r2-01-v1 / 2760e570f1d745a9bb960a93575c6ed2
+- 복구: 별도 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-loss-recovery`; runner paused/service inactive. 기존 전략·실거래 조건 변경 없이 P1/P2 계산 결함과 회귀 검증을 복구합니다. 감독 main 통합·검증 후 자동 실행을 재개합니다.
 - 목표: 저장 거래·평가 자료의 가격손익·배당·FX·수수료·slippage·세금·현금 잔액을 독립 진단하고 각 항목의 계산 가능 여부와 재개 입력을 기록합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 검토
 - 워크트리·브랜치: /home/kwl/projects/jusik-r2-loss-accounting-2760 / feat/r2-loss-accounting-2760
