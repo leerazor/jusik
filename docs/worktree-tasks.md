@@ -2,11 +2,11 @@
 
 ## r3-market-detail-coverage
 
-- 상태: 진행
+- 상태: 완료; R3-02 기술 acceptance·Terra review·main 통합 검사 PASS, 경제 not-evaluated
 - task/attempt: roadmap-r3-02-v1 / 981ad0a5f10e493da69b12377ece0917
 - 목표: R3-02 상세 coverage·자료 등급·잠정 상태·누락 원인의 수치 표시; 경제 평가 not-evaluated
 - 담당: Astra 감독·계획·통합, Luna 조사·단일 구현, Terra 독립 review
-- 워크트리·브랜치: /home/kwl/projects/jusik-r3-detail-981a / feat/r3-detail-981a
+- 워크트리·브랜치: /home/kwl/projects/jusik-r3-detail-981a / feat/r3-detail-981a — 증거·SHA·handoff 보관 후 정상 제거
 - 기준 main: cbc30512f5bb11ada96b1e48f4ca1cb23c4b6fde; 통합 대상 local main
 - 범위: frontend 상세 page·표시 helper·관련 검사, market-research-contract, 개발 기록
 - 검증: CPU, 정적 GET fixture≤8·각8심볼/30세션·seed0, desktop/mobile 각1회+수정 후1회 이하, wall1200초
@@ -15,6 +15,11 @@
 - 완료 조건: 독립 review·main 통합 검사·증거/SHA/handoff 보관 후 소유 worktree 정리
 - 개발 기록: docs/development-records/2026-09-16-r3-market-detail-coverage.md
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-02-981ad0a5/HANDOFF.md
+
+- 결과/통합: 최초8be5b7f, 순차 Luna 인계994aab9, grade 수정f57760a, mobile 수정2bb2df7; main `c8cb6e29b038d3724fd3b76d04788270e9221e0a`
+- 검증·증거: `integration-verification.json`, `final-review.md`, `browser-results-final.json`, `manifest.json`; 정적8개×desktop/mobile 최종16개 PASS, 초기 mobile 실패·수정 근거 보존
+- 라우팅: 초기 plaintext-mode 감사 실패 보존; opaque-mode Luna 소유권 인계와 Terra pre/post PASS. 원문 메시지 무결성은 주장하지 않음
+- 정리: 소유 서버3218/8918 종료, 해당 worktree·branch 정상 제거. 기존 worktree6개와 루트 HANDOFF.md 보존
 
 ## r1-us-collection-diagnostics
 

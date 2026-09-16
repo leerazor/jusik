@@ -1,9 +1,9 @@
 # R3-02 시장 연구 상세 coverage 표시
 
-- 상태: 구현 완료·독립 검토 전
+- 상태: 완료; R3-02 기술 acceptance 충족, 경제 평가 not-evaluated
 - 기록 시각: 2026-09-16T05:53:37Z
 - 작업 slug: `r3-market-detail-coverage`
-- 기준/통합: `c33178ec2229589a4aea63438506d3d93368b146` / 없음
+- 기준/통합: `c33178ec2229589a4aea63438506d3d93368b146` / `c8cb6e29b038d3724fd3b76d04788270e9221e0a`
 - 범위: 시장 연구 상세 화면과 표시 helper, 오프라인 계약 검사, 시장 연구 계약 문서
 
 ## 변경과 결정
@@ -43,3 +43,15 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-02-981ad0a5`; code-check 로그는 `code-checks/`에 보존했습니다.
 - 남은 작업·차단 조건: 독립 review, main 통합 검증, audit 증거와 handoff 보관은 감독 범위입니다.
 - 다음 시작: 계약 검사와 lint/typecheck/build 결과를 기록한 뒤 변경 diff를 독립 검토합니다.
+
+## Astra 최종 통합 검증과 정리
+
+- local main 통합: `c8cb6e29b038d3724fd3b76d04788270e9221e0a`. Terra 최종 검토는 `2bb2df73a5e02b36c9ac517a9909b4e6d44718ac` 전체에 대해 P1/P2 없음으로 통과했습니다.
+- main에서 contract, lint, typecheck, build를 다시 실행해 모두 통과했습니다. 실제 stdout은 audit `integrated-*.log`, 명령·wall 시간은 `integrated-checks.json`에 있습니다. 초기 code-checks와 mobile 수정 시간은 작업자 보고이며, 독립 stdout 증거는 owner/p2/integrated 로그가 기준입니다.
+- 정적 GET fixture8개, 각 최대2심볼·3세션, seed0. 최초 desktop/mobile16개는 모든 내용 검사가 통과했지만 mobile7개에서 기존 SHA 문단의 overflow가 발생했습니다. `.hashes` 재사용으로 수정하고 통합 main에서 허용된 재검증16개를 통과했습니다. 최종 overflow0·외부요청0, strict loading 두 화면 통과입니다.
+- 브라우저 시작 전 cache 권한·daemon 유지·스크립트 URL 오류는 별도 실패 파일에 보존했습니다. 화면 순회 전 실패이며 fixture 추가나 연구 실행은 없었습니다. 측정·보고된 검증 시간에 추가60초 여유를 포함한 보수적 합계는132초 이내로1200초 제한 안입니다.
+- 초기 model-only plaintext 감사 실패를 보존한 뒤 같은 워크트리의 구현 소유권을 Luna에 순차 인계했습니다. opaque-mode adapter pre/post와 Terra 감사는 통과했으며 원문 메시지 무결성·native role sandbox 적용을 주장하지 않습니다.
+- 증거115개·SHA와 handoff를 durable audit에 먼저 보관하고 검증한 뒤, 소유 loopback 서버를 종료하고 해당 worktree·branch를 정상 제거했습니다. 기존 worktree6개와 루트 HANDOFF.md는 보존했습니다.
+- R3-02 checkbox만 완료했습니다. R3 단계나 R3-03/04 등 다른 checklist는 변경하지 않았습니다. benchmark·미래 관측은 이 UI acceptance의 입력이 아니며 경제적 성공은 평가하지 않았습니다. 성과 catalog·웹 배포는 해당 없고 서비스·설정·DB·PAPER/live·주문·remote 변경은 없습니다.
+- 최종 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-02-981ad0a5/integration-verification.json`, SHA-256 `0fe76bcc80d5e141151c887ab23ffa84e8e22520b42183f9d907454f45cec550`. 전체 목록·hash는 `manifest.json`, 재개 정보는 `HANDOFF.md`입니다.
+- 남은 작업: 이 slice에는 없습니다. 후속 연구나 격리 작업은 별도 위임 조건에서 판단합니다.
