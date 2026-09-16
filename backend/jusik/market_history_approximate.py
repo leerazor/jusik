@@ -191,9 +191,7 @@ class CollectionDiagnostics(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    version: Literal["us-collection-diagnostics-v1"] = (
-        "us-collection-diagnostics-v1"
-    )
+    version: Literal["us-collection-diagnostics-v1"] = "us-collection-diagnostics-v1"
     requested_start: date
     requested_end: date
     warmup_start: date
@@ -216,8 +214,10 @@ class CollectionDiagnostics(BaseModel):
         aggregate = _aggregate_coverage(item.coverage for item in symbols)
         if aggregate != self.coverage:
             raise ValueError("diagnostic aggregate coverage does not match symbols")
-        if self.all_failed and symbols and not all(
-            item.coverage.actual_sessions == 0 for item in symbols
+        if (
+            self.all_failed
+            and symbols
+            and not all(item.coverage.actual_sessions == 0 for item in symbols)
         ):
             raise ValueError("all-failure diagnostics cannot retain actual sessions")
         expected_counts: dict[CollectionDiagnosticReason, int] = {}

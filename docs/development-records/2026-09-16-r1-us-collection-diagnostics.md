@@ -23,7 +23,9 @@
 
 - `backend/.venv/bin/python -m pytest -q tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 통과, 148건.
 - `backend/.venv/bin/python -m mypy --config-file pyproject.toml jusik/market_history_approximate.py jusik/market_data_collector.py jusik/market_research_cli.py` — 통과.
-- Ruff 실행은 전용 venv에 실행 binary가 없어 수행하지 못했습니다. 설치된 Python package가 binary 위치를 제공하지 않아 기존 format debt 비교도 별도 audit에 기록합니다.
+- `backend/.venv/bin/ruff check jusik/market_history_approximate.py jusik/market_data_collector.py jusik/market_research_cli.py tests/test_market_data_collector.py` — 통과.
+- `backend/.venv/bin/ruff format --diff ...` — 새 변경 hunk는 정리했으며, baseline 원본에도 존재하는 기존 format debt만 남아 있습니다.
+- 전체 mypy는 기존 `jusik/research_optimizer.py`의 `torch` import 누락으로 실행 결과가 차단되었고, 변경된 세 source 파일의 strict mypy는 통과했습니다.
 
 ## 안전·운영 상태
 

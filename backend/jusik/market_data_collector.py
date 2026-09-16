@@ -2175,8 +2175,7 @@ class FreeMarketDataCollector:
                     item.coverage.retained_sessions for item in diagnostic_symbols
                 ),
                 event_excluded_sessions=sum(
-                    item.coverage.event_excluded_sessions
-                    for item in diagnostic_symbols
+                    item.coverage.event_excluded_sessions for item in diagnostic_symbols
                 ),
             )
             collection_diagnostics = CollectionDiagnostics(

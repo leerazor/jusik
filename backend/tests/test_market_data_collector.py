@@ -17,8 +17,8 @@ from jusik.market_data_collector import (
     CollectorError,
     CollectorIdentityError,
     CollectorNullError,
-    CollectorPartialError,
     CollectorParseError,
+    CollectorPartialError,
     CollectorQuotaError,
     CollectorSettings,
     FreeMarketDataCollector,
@@ -1077,9 +1077,9 @@ class _DiagnosticUSTransport(_CausalUSCheckpointTransport):
             for key in ("timestamp",):
                 result[key] = result[key][:-1]
             for key in ("open", "high", "low", "close", "volume"):
-                result["indicators"]["quote"][0][key] = result[
-                    "indicators"
-                ]["quote"][0][key][:-1]
+                result["indicators"]["quote"][0][key] = result["indicators"]["quote"][
+                    0
+                ][key][:-1]
         elif self.mode == "delisting":
             result["events"] = {
                 "delisting": {
@@ -1177,9 +1177,12 @@ def test_identity_mismatch_is_typed_and_all_failure_diagnostics_serialize() -> N
     assert raised.value.diagnostics is not None
     assert raised.value.diagnostics.all_failed is True
     assert "all_failure" in raised.value.diagnostics.symbols[0].reasons
-    assert CollectionDiagnostics.model_validate_json(
-        raised.value.diagnostics.model_dump_json()
-    ) == raised.value.diagnostics
+    assert (
+        CollectionDiagnostics.model_validate_json(
+            raised.value.diagnostics.model_dump_json()
+        )
+        == raised.value.diagnostics
+    )
 
 
 def test_cli_serializes_typed_all_failure_diagnostics(
