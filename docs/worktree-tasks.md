@@ -2,7 +2,7 @@
 
 ## r2-counterfactual-fe92
 
-- 상태: 계획·구현 준비. task `roadmap-r2-06-v1`, attempt `fe9204931f0b446f8dfba0d21473f39d`; 최초 시도이며 기존 소유 branch/worktree가 없습니다.
+- 상태: 차단. uv 캐시 읽기 전용 오류가 환경 준비 두 명령에서 반복되어 중단 조건 적용. 구현·검사·review·구현 통합 없음. 소유 worktree/branch 보존. task `roadmap-r2-06-v1`, attempt `fe9204931f0b446f8dfba0d21473f39d`; 최초 시도이며 기존 소유 branch/worktree가 없습니다.
 - 목표: 이미 준비된 기준 및 단일 가정 변경 결과를 오프라인 비교하고 비용·배당·FX의 비가산 차이를 별도 기록합니다. 전체 R2-06은 실제 acceptance 전 미체크 유지합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r2-counterfactual-fe92`, `feat/r2-counterfactual-fe92`; 요청 기준 `d0d029996ea993216036385962c9153968ea61fe`, 등록 커밋에서 분기하고 local main에 통합합니다.
