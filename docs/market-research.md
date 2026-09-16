@@ -36,8 +36,8 @@
 identity·quota·auth·budget·parse·null·coverage·partial history·unknown과 전체 실패는
 고정 reason code로 기록하며 provider 원문이나 예외 문구는 진단에 복사하지 않는다.
 요청 자체에서 제외된 심볼은 `request_excluded`와 aggregate count로 별도 표시하며,
-그 원인을 알 수 없는 경우 event timing의 `unknown`과 구분되는
-`unknown_request_exclusion`을 사용한다.
+그 원인을 알 수 없는 경우에도 `unknown`을 사용한다. `request_excluded=true`가
+event timing의 `unknown`과 요청 제외를 구분한다.
 `observed_delisting`은 명시적인 delist 이벤트의 occurrence/observation 시각과 기존 cutoff가
 모두 유효할 때만 기록하고, 누락·미래·상충 자료로 추정하지 않는다. 진단은 전략 선택에
 사용하지 않으며 기존 준비 파일은 이 필드가 없어도 읽을 수 있다.

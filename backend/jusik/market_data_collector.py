@@ -1655,7 +1655,7 @@ def _diagnostic_reason_for_error(error: CollectorError) -> CollectionDiagnosticR
         return "null"
     if isinstance(error, CollectorParseError):
         return "parse"
-    return "unknown_request_exclusion"
+    return "unknown"
 
 
 def _observed_delisting_event(
@@ -2095,7 +2095,7 @@ class FreeMarketDataCollector:
                         event.occurrence_at.astimezone(UTC).date() <= end
                     ):
                         us_event_symbols_with_unknown_timing.add(event.symbol)
-            for symbol, cutoff in us_event_cutoffs.items():
+            for symbol in us_event_cutoffs:
                 observed = _observed_delisting_event(
                     tuple(us_events),
                     calendar=self.calendar,

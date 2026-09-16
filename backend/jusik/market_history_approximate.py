@@ -59,7 +59,6 @@ CollectionDiagnosticReason = Literal[
     "null",
     "observed_delisting",
     "unknown",
-    "unknown_request_exclusion",
     "all_failure",
 ]
 
