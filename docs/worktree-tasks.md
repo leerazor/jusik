@@ -2,7 +2,7 @@
 
 ## r2-loss-accounting-2760
 
-- 상태: 준비; 독립 진단 slice, 전체 R2-01 acceptance는 자료 부족으로 보류합니다.
+- 상태: 차단·미통합. 동일 Ruff 실패2회 중단 조건, fixture17개로 상한16개 초과, Terra P1 네 건으로 review FAIL.
 - task/attempt: roadmap-r2-01-v1 / 2760e570f1d745a9bb960a93575c6ed2
 - 목표: 저장 거래·평가 자료의 가격손익·배당·FX·수수료·slippage·세금·현금 잔액을 독립 진단하고 각 항목의 계산 가능 여부와 재개 입력을 기록합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 검토
@@ -17,6 +17,11 @@
 - 경제 평가: not-evaluated; 자료 없는 항목은 unavailable이며 전체 체크는 변경하지 않습니다.
 - 개발 기록: docs/development-records/2026-09-16-r2-loss-accounting-2760.md
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-01-2760e570/HANDOFF.md
+
+- 구현 결과: d7ee8ca1092022519e38ec9cf6f9740b37f77217; local main 병합·통합 검사 미실행, integrated_commit 없음
+- 검사: 최종 pytest11/Ruff/configured mypy는 통과했으나 필수 경계 coverage 누락과 중단 조건 위반으로 전체 tests_passed=false, review_passed=false
+- 증거: audit의 final-review.md·worker-audit.md·verification-history.json·source-snapshot·manifest.json·HANDOFF.md
+- 정리: 미병합 worktree/branch 보존. 명시적 재개 승인과 새 검증 한도 아래 같은 소유 worktree 재사용; 다른 작업·root HANDOFF 보존
 
 ## r3-market-detail-coverage
 
