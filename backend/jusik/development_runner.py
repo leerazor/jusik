@@ -95,7 +95,10 @@ RUNTIME_PROMPT_SUFFIX = (
     "the allowed roots. The completion JSON must reference only files that survive "
     "worktree cleanup. For role routing, read docs/agent-tooling.md and use the "
     "model-only adapter in backend/jusik/agent_routing.py when the actual spawn "
-    "tool has no role field; missing agent_type alone is not a halt condition."
+    "tool has no role field; missing agent_type alone is not a halt condition. "
+    "On retry, inspect the prior task registry, owned worktree, and artifacts, "
+    "then reuse a matching owned branch rather than duplicating, resetting, or "
+    "deleting it."
 )
 BACKLOG = (
     (
@@ -283,6 +286,20 @@ def _write_private(path: Path, content: bytes) -> None:
             output.write(content)
     finally:
         path.chmod(0o600)
+
+
+def _write_exit_diagnostics(
+    attempt_dir: Path, returncode: int, completion_path: Path
+) -> None:
+    payload = {
+        "returncode": returncode,
+        "signal_number": -returncode if returncode < 0 else None,
+        "completion_present": completion_path.exists(),
+    }
+    _write_private(
+        attempt_dir / "exit-diagnostics.json",
+        (json.dumps(payload, sort_keys=True) + "\n").encode(),
+    )
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> RunnerConfig:
@@ -1231,6 +1248,10 @@ def run_once(
             )
         if process.returncode != 0:
             store.finish(attempt_id, task.id, "failed", failure_code="codex_exit")
+            try:
+                _write_exit_diagnostics(attempt_dir, process.returncode, output_path)
+            except OSError:
+                pass
             _safe_history_flush(store, config)
             return RunResult("failed", task.id, attempt_id, "codex_exit")
         try:
