@@ -2,7 +2,7 @@
 
 ## r3-equity-97b2
 
-- 상태: 진행; 제한 표시 slice, 전체 R3-01은 benchmark 부재로 차단, 경제 not-evaluated
+- 상태: 표시 slice 통합·검증 완료; 전체 R3-01은 benchmark·USD 계약 부재로 차단, 경제 not-evaluated
 - task/attempt: roadmap-r3-01-v1 / 97b2a73338204452aec88b17ecb8edf1
 - 목표: 기존 KRW NAV·기록 낙폭과 근거 있는 KRW 수익률 표시; USD/benchmark 근거 부재 명시
 - 담당: Astra 조사 검토·계획·통합, Luna 단일 구현, Terra 독립 review
@@ -18,6 +18,12 @@
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-01-97b2a733/HANDOFF.md
 - 완료 조건: 독립 review·local main 통합 검사·증거 SHA/handoff 선보관·소유 worktree 정리. 전체 checkbox는 미체크 유지합니다.
 
+
+- 구현/수정/통합: `32a0cfb8c4c109ecb0ec68a8bae75b30bef64d23` / `8bf7534d772ca1545f031c615d73d587c92c774c` / `4bb932f3ee58d17060d91ee0f6aad7839e40931a`
+- 검토·검사: Terra P2 요청 기간 검증 수정 후 PASS; main contract/lint/typecheck/build PASS; 합성12개×desktop/mobile24개 PASS, 외부 요청·오류·overflow0
+- 증거: `integration-verification.json` SHA-256 `544025ab3474ded6baf90eb726fac1f081d6d6361f1a65937319669182ded41d`; 전체 목록은 audit `manifest.json`, 초기 실패와 수정 이력 보존
+- 정리: 증거117개·SHA·handoff 선보관 후 소유 서버 종료·worktree/branch 정상 제거. 다른 worktree7개·루트 HANDOFF.md 보존
+- 재개 입력: 같은 기간·통화·초기 자본·비용·거래일 기준 benchmark 계약/자료와 USD 초기 자본·평가 시계열 계약. 전체 checkbox는 미체크, 성과 공개·배포 없음
 
 ## r2-loss-accounting-2760
 
