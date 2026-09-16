@@ -242,6 +242,17 @@ export function marketResearchReadinessLabel(item: MarketReadiness): string {
   return `${marketResearchGradeLabel(item.research_grade)} · ${marketResearchSourceLabel(item.simulated)} · ${state}`;
 }
 
+export function marketResearchGradeIsConsistent(run: Pick<MarketResearchRun, "request" | "result">): boolean {
+  if (run.result === null) return true;
+  const grades = [
+    run.request.research_grade,
+    run.result.request.research_grade,
+    run.result.research_grade,
+    run.result.readiness.research_grade,
+  ];
+  return grades.every((grade) => grade === grades[0]);
+}
+
 export function marketResearchRunLabel(run: MarketResearchRun): string {
   if (run.result === null) return "자료 성격·실행 결과 확인 불가";
   return `${marketResearchGradeLabel(run.request.research_grade)} · ${marketResearchSourceLabel(run.result.readiness.simulated)} · 시뮬레이션 연구 실행 · PAPER 별도`;

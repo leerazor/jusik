@@ -3,6 +3,7 @@ import {
   marketResearchCompletenessLabel,
   marketResearchCounter,
   marketResearchCoverageLabel,
+  marketResearchGradeIsConsistent,
   marketResearchNullResultMessage,
   marketResearchProvisionalLabel,
   marketResearchReadinessLabel,
@@ -129,9 +130,25 @@ if (!marketResearchCoverageLabel("7", "6").includes("116.67%")) {
 if (marketResearchCounter("0", "건") !== "0건" || marketResearchCounter("bad", "건") !== "확인 불가") {
   throw new Error("counter zero/unknown labels missing");
 }
+if (!marketResearchGradeIsConsistent(current)) {
+  throw new Error("matching result grades must remain displayable");
+}
+for (const [label, mismatched] of [
+  ["run request", { ...current, request: { ...current.request, research_grade: "strict" as const } }],
+  ["result request", { ...current, result: { ...current.result, request: { ...current.result.request, research_grade: "strict" as const } } }],
+  ["result", { ...current, result: { ...current.result, research_grade: "strict" as const } }],
+  ["readiness", { ...current, result: { ...current.result, readiness: { ...current.result.readiness, research_grade: "strict" as const } } }],
+] as const) {
+  if (marketResearchGradeIsConsistent(mismatched)) {
+    throw new Error(`${label} grade mismatch must be unknown`);
+  }
+}
 
 const queued = { ...current, status: "queued" as const, result: null };
 marketResearchRunSchema.parse(queued);
+if (!marketResearchGradeIsConsistent(queued)) {
+  throw new Error("null result must preserve existing display flow");
+}
 if (marketResearchNullResultMessage(queued).heading !== "실행 대기 중") {
   throw new Error("queued null result must be queued");
 }

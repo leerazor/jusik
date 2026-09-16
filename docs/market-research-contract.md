@@ -87,6 +87,8 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 
 결과 `status`는 `ready`, `insufficient`, `approximate`이고 `completeness`는 `complete`, `incomplete`, `approximate`입니다. strict 결과의 평가 gate는 `completed` + `ready` + `complete`, approximate 결과의 gate는 `completed` + `approximate` + `approximate`입니다. `research_grade`는 request·readiness·result에서 같아야 하며, `simulated`는 자료의 실행 성격을 별도로 나타냅니다.
 
+상세 화면은 결과가 존재할 때 실행 request, 결과 request, 결과, readiness의 `research_grade`가 모두 같은지 먼저 확인합니다. 하나라도 다르면 등급·metrics·성공 상태를 표시하지 않고 `결과 확인 불가`로 표시합니다. `result=null`인 대기·실행 중·실패·legacy 흐름은 기존 상태별 안내를 유지합니다.
+
 `status=insufficient`인 결과는 `metrics`, `trades`, `equity`가 비어 있을 수 있으며 이를 0 수익이나 성공으로 해석하지 않습니다. `status=approximate`는 무료 근사 자료의 한계를 뜻하고 strict PIT 검증 또는 PAPER·실거래 승인으로 승격되지 않습니다.
 
 ## 호환성

@@ -7,6 +7,7 @@ import {
   marketResearchCompletenessLabel,
   marketResearchCounter,
   marketResearchCoverageLabel,
+  marketResearchGradeIsConsistent,
   marketResearchMetric,
   marketResearchNullResultMessage,
   marketResearchProvisionalLabel,
@@ -39,6 +40,9 @@ export default async function MarketResearchDetail({ params }: { params: Promise
     return <main><section className="notice" role="alert"><h2>시장 연구 결과를 불러오지 못했습니다</h2><p>연구 백엔드 연결을 확인한 뒤 다시 시도하세요.</p></section></main>;
   }
   const result = run.result;
+  if (result !== null && !marketResearchGradeIsConsistent(run)) {
+    return <main><section className="panel"><h2>결과 확인 불가</h2><p>연구 등급 정보가 일치하지 않아 결과를 표시할 수 없습니다.</p></section></main>;
+  }
   const approximate = run.request.research_grade === "approximate";
   const nullResultMessage = marketResearchNullResultMessage(run);
   return <main>
