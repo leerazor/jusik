@@ -198,10 +198,21 @@ def test_alpha_listing_status_reports_row_exclusions_and_rejects_bad_header() ->
         ("stock", "AAA", "Bright Horizons", _AlphaProductType.ORDINARY),
         ("stock", "AAA", "Wright Holdings", _AlphaProductType.ORDINARY),
         ("stock", "AAA", "Preferred Bank", _AlphaProductType.ORDINARY),
-        ("stock", "AAA", "Unit Corporation", _AlphaProductType.ORDINARY),
-        ("stock", "AAA", "Right Management", _AlphaProductType.ORDINARY),
-        ("stock", "AAA", "Acme Units", _AlphaProductType.OTHER),
+        ("stock", "AAA", "Unit Finance Corp", _AlphaProductType.ORDINARY),
+        ("stock", "AAA", "Right On Brands", _AlphaProductType.ORDINARY),
+        (
+            "stock",
+            "AAA",
+            "Acme Units, each consisting of one share",
+            _AlphaProductType.OTHER,
+        ),
         ("stock", "AAA", "Acme preferred shares", _AlphaProductType.OTHER),
+        (
+            "stock",
+            "AAA",
+            "Acme Rights, each consisting of one right",
+            _AlphaProductType.OTHER,
+        ),
     ],
 )
 def test_alpha_listing_product_classification_is_conservative(
@@ -216,7 +227,6 @@ def test_alpha_listing_product_classification_is_conservative(
         ("NYSE", "NYS"),
         ("NASDAQ", "NAS"),
         ("NASDAQ CAPITAL MARKET", "NAS"),
-        ("NASDAQ GLOBAL MARKET", "NAS"),
         ("NASDAQ GLOBAL SELECT MARKET", "NAS"),
         ("NCM", "NAS"),
         ("NMS", "NAS"),

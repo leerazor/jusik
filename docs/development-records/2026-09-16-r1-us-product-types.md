@@ -8,7 +8,7 @@
 
 ## 변경과 결정
 
-- `backend/jusik/market_data_collector.py`에 private `StrEnum`과 순수 분류 helper를 추가했습니다. `assetType` exact 값, 상품명 단어 경계, warrant 심볼 suffix를 결합하며 ordinary와 비대상 근거 충돌 및 서로 다른 비대상 충돌을 보수적으로 처리합니다.
+- `backend/jusik/market_data_collector.py`에 private `StrEnum`과 순수 분류 helper를 추가했습니다. `assetType` exact 값, 명확한 상품명 suffix·구문, warrant 심볼 suffix를 결합하며 ordinary와 비대상 근거 충돌 및 서로 다른 비대상 충돌을 보수적으로 처리합니다.
 - parser는 ordinary만 기존 stock row로 내보내고 security type 제외 집계·검사 순서·공개 row schema를 유지합니다.
 - Alpha 거래소 정규화는 상품 정보와 분리했으며 `NCM`·`NMS`·`NGM`을 `NAS`로 정규화합니다.
 - `backend/tests/test_market_data_collector.py`에 신규 고정 fixture 40건을 추가했습니다. ordinary·ETF·warrant·other·unknown, 공백·대소문자·충돌·회사명 오탐·NASDAQ alias를 포함합니다.
@@ -35,6 +35,6 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-03-9bd64c13`; manifest: `code-checks-final/results.json`, `boundary-verification-final2.json`, `baseline-format.log`
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-03-9bd64c13`; manifest: `code-checks-final/results.json`, `boundary-verification-committed-r2.json`, `baseline-format.log`
 - 남은 작업·차단 조건: 독립 review와 감독의 local main 통합 검증 대기
 - 다음 시작: 감독은 commit SHA와 diff를 review한 뒤 main 통합 전 동일 selector 및 boundary 검사를 재실행합니다.

@@ -729,15 +729,13 @@ _ALPHA_NAME_PRODUCT_PATTERNS: tuple[tuple[_AlphaProductType, re.Pattern[str]], .
     (
         _AlphaProductType.OTHER,
         re.compile(
-            r"\bunits?\b(?!\s+(?:corporation|corp(?:oration)?|company|co\.?|"
-            r"management|holdings?|inc\.?|ltd\.?|plc)\b)"
+            r"\bunits?(?:\s*[,;:.]?\s*$|\s*(?:[,;:]\s*)?(?:each|consisting\s+of)\b)"
         ),
     ),
     (
         _AlphaProductType.OTHER,
         re.compile(
-            r"\brights?\b(?!\s+(?:corporation|corp(?:oration)?|company|co\.?|"
-            r"management|holdings?|inc\.?|ltd\.?|plc)\b)"
+            r"\brights?(?:\s*[,;:.]?\s*$|\s*(?:[,;:]\s*)?(?:each|consisting\s+of)\b)"
         ),
     ),
     (_AlphaProductType.OTHER, re.compile(r"\betns?\b")),
