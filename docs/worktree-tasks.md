@@ -2,7 +2,7 @@
 
 ## r2-nav-components-7284
 
-- 상태: 계획; 저장 NAV 구성요소 진단 slice, 전체 R2-05 및 경제 평가 미완료
+- 상태: 차단·미통합; fixture25개로 상한24개 초과, 동일 RuffNotFound2회, mypy6오류. tests_passed=false, review_passed=false
 - task/attempt: roadmap-r2-05-v1 / 7284d0564f3f4dd9887d2560e503df0f
 - 목표: 날짜별 Decimal residual과 1 KRW 한도, 실패 날짜 및 coverage를 오프라인 artifact로 보존합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review
@@ -17,6 +17,9 @@
 - 개발 기록: docs/development-records/2026-09-16-r2-nav-components-7284.md
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-05-7284d056/HANDOFF.md
 - 완료 조건: 기술 slice 검증·local main 통합·증거/SHA/handoff 선보관·소유 worktree 정리. 전체 checkbox 미체크; calendar 근거 부재 unavailable, 경제 not-evaluated
+- 중단: Luna interrupt 후 추가 검사/진단/병합 없음. 구현4개 미추적 보존; integrated_commit=null. 증거와 소스 snapshot 선보관, worktree/branch 유지
+- 독립 review: Terra FAIL. 비 UTF-8 예외 처리·동일 출력 경로 덮어쓰기·mypy·artifact 검증 및 선기록 완료 표현 미해소
+- 재개: 명시적 retry·새 한도 필요. 동일 소유 branch 재사용; 실제 fixture 변형 수 및 Ruff 실행 파일 사전 확인
 
 ## r2-market-cost-b8a5
 
