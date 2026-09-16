@@ -18,6 +18,9 @@ from jusik.market_data_collector import (
     HttpFetcher,
     NetworkCollectorTransport,
     RequestBudgetExceeded,
+    _AlphaProductType,
+    _classify_alpha_product,
+    _normalize_alpha_exchange,
     collect_market_data,
     completed_collection_is_valid,
     estimate_network_requests,
@@ -168,6 +171,80 @@ def test_alpha_listing_status_reports_row_exclusions_and_rejects_bad_header() ->
         parse_alpha_vantage_listing_status(
             b"symbol,name\nAAA,Active\n", as_of=date(2026, 9, 14)
         )
+
+
+@pytest.mark.parametrize(
+    ("asset_type", "symbol", "name", "expected"),
+    [
+        (" Stock ", "AAA", "Acme", _AlphaProductType.ORDINARY),
+        ("common stock", "AAA", "Acme", _AlphaProductType.ORDINARY),
+        ("COMMON_STOCK", "AAA", "Acme", _AlphaProductType.ORDINARY),
+        ("ETF", "AAA", "Acme", _AlphaProductType.ETF),
+        ("warrants", "AAA", "Acme", _AlphaProductType.WARRANT),
+        ("rights", "AAA", "Acme", _AlphaProductType.OTHER),
+        ("units", "AAA", "Acme", _AlphaProductType.OTHER),
+        ("preferred stock", "AAA", "Acme", _AlphaProductType.OTHER),
+        ("ETN", "AAA", "Acme", _AlphaProductType.OTHER),
+        ("", "AAA", "Acme", _AlphaProductType.UNKNOWN),
+        ("NCM", "AAA", "Acme", _AlphaProductType.UNKNOWN),
+        ("", "AAA", "Acme ETF", _AlphaProductType.ETF),
+        ("", "AAA", "Acme Warrant", _AlphaProductType.WARRANT),
+        ("", "AAA-ws", "Acme", _AlphaProductType.WARRANT),
+        ("", "AAA.wt", "Acme", _AlphaProductType.WARRANT),
+        ("stock", "AAA", "Acme ETF", _AlphaProductType.ETF),
+        ("stock", "AAA", "Acme ETF Warrant", _AlphaProductType.UNKNOWN),
+        ("stock", "AAA", "United Therapeutics", _AlphaProductType.ORDINARY),
+        ("stock", "AAA", "Community Health", _AlphaProductType.ORDINARY),
+        ("stock", "AAA", "Bright Horizons", _AlphaProductType.ORDINARY),
+        ("stock", "AAA", "Wright Holdings", _AlphaProductType.ORDINARY),
+        ("stock", "AAA", "Preferred Bank", _AlphaProductType.ORDINARY),
+        ("stock", "AAA", "Unit Corporation", _AlphaProductType.ORDINARY),
+        ("stock", "AAA", "Right Management", _AlphaProductType.ORDINARY),
+        ("stock", "AAA", "Acme Units", _AlphaProductType.OTHER),
+        ("stock", "AAA", "Acme preferred shares", _AlphaProductType.OTHER),
+    ],
+)
+def test_alpha_listing_product_classification_is_conservative(
+    asset_type: str, symbol: str, name: str, expected: _AlphaProductType
+) -> None:
+    assert _classify_alpha_product(asset_type, symbol=symbol, name=name) is expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("NYSE", "NYS"),
+        ("NASDAQ", "NAS"),
+        ("NASDAQ CAPITAL MARKET", "NAS"),
+        ("NASDAQ GLOBAL MARKET", "NAS"),
+        ("NASDAQ GLOBAL SELECT MARKET", "NAS"),
+        ("NCM", "NAS"),
+        ("NMS", "NAS"),
+        ("NGM", "NAS"),
+        ("NYSE ARCA", "AMS"),
+        (" NYSEARCA ", "AMS"),
+    ],
+)
+def test_alpha_listing_exchange_aliases_are_product_independent(
+    raw: str, expected: str
+) -> None:
+    assert _normalize_alpha_exchange(raw) == expected
+
+
+def test_alpha_listing_exchange_aliases_do_not_classify_products() -> None:
+    body = (
+        b"symbol,name,exchange,assetType,ipoDate,delistingDate,status\n"
+        b"NCM1,Ordinary NCM,NCM,Stock,2020-01-01,null,Active\n"
+        b"NMS1,Ordinary NMS,NMS,Common Stock,2020-01-01,null,Active\n"
+        b"NGM1,Unknown NGM,NGM,Unknown,2020-01-01,null,Active\n"
+        b"ETF1,ETF NCM,NCM,ETF,2020-01-01,null,Active\n"
+    )
+    parsed = parse_alpha_vantage_listing_status_detailed(body, as_of=date(2026, 9, 14))
+    assert [(row.symbol, row.exchange) for row in parsed.rows] == [
+        ("NCM1", "NAS"),
+        ("NMS1", "NAS"),
+    ]
+    assert dict(parsed.excluded) == {"security_type": 2}
 
 
 def test_yahoo_parser_validates_identity_arrays_and_action_events() -> None:
