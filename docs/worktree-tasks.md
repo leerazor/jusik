@@ -1,5 +1,24 @@
 # 워크트리 작업 등록부
 
+## r3-equity-97b2
+
+- 상태: 진행; 제한 표시 slice, 전체 R3-01은 benchmark 부재로 차단, 경제 not-evaluated
+- task/attempt: roadmap-r3-01-v1 / 97b2a73338204452aec88b17ecb8edf1
+- 목표: 기존 KRW NAV·기록 낙폭과 근거 있는 KRW 수익률 표시; USD/benchmark 근거 부재 명시
+- 담당: Astra 조사 검토·계획·통합, Luna 단일 구현, Terra 독립 review
+- 워크트리·브랜치: /home/kwl/projects/jusik-r3-equity-97b2 / feat/r3-equity-97b2
+- 기준 main: 01bc282b885da3dc8bb327755435bded9104aa56; 통합 대상 local main
+- 입력: R0 완료 계약, 최신 mandate, marketResearch.ts, 상세 페이지, R3-02 기록
+- 범위: frontend 상세·표시 helper·fixture·계약 문서·개발 기록; backend 변경 없음
+- 검증: 오프라인 CPU seed0, 신규 scenario≤12·각2심볼/30세션, 전체 검사1200초; contract/lint/typecheck/build 및 desktop/mobile
+- 격리: loopback3221/8921, 전용 node_modules/.next, DB 없음
+- 경계: 연구 재실행·network 수집·GPU·PAPER/live·주문·운영 원장/서비스/설정·remote 변경 금지
+- 계획·증거: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-01-97b2a733/PLAN.md
+- 개발 기록: docs/development-records/2026-09-16-r3-equity-97b2.md
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-01-97b2a733/HANDOFF.md
+- 완료 조건: 독립 review·local main 통합 검사·증거 SHA/handoff 선보관·소유 worktree 정리. 전체 checkbox는 미체크 유지합니다.
+
+
 ## r2-loss-accounting-2760
 
 - 상태: 차단·미통합. 동일 Ruff 실패2회 중단 조건, fixture17개로 상한16개 초과, Terra P1 네 건으로 review FAIL.
