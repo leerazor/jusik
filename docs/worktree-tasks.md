@@ -2,53 +2,25 @@
 
 ## r2-nav-components-7284
 
-- 상태: 새 수동 복구 계획 진행. 기존 미추적 구현4개를 원본 SHA와 함께 별도 보존하고 같은 소유 worktree를 재사용합니다.
-- task/attempt: roadmap-r2-05-v1 / 7284d0564f3f4dd9887d2560e503df0f
-- 복구 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-nav-recovery`. 사용자 자율 진행 승인. 기존 실패·상한 위반 이력은 보존하며 UTF-8/출력충돌/typecheck/산출물 검증을 복구합니다. runner paused/service inactive.
-- 새 계획: 해당 recovery audit/PLAN.md, nav_recovery_code Luna 단일 구현. named scenario≤64, 검사 wall/CPU 각1800초·동일 원인 수정3회·저장pilot1회. 전용환경 실제 도구 실행을 검사 전에 확인합니다. 과거 한도 위반은 별도 이력으로 보존합니다.
-- 목표: 날짜별 Decimal residual과 1 KRW 한도, 실패 날짜 및 coverage를 오프라인 artifact로 보존합니다.
-- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review
-- 워크트리·브랜치: /home/kwl/projects/jusik-r2-nav-components-7284 / feat/r2-nav-components-7284
-- 시작 main: be8a85dd34c42e825638ac282a530880decdcec3; 통합 대상 local main
-- 입력: 첨부 evidence5개 및 R0 동결 artifact4개 SHA 검증 통과; US approximate 고유252세션
-- 허용 범위: 신규 오프라인 진단 모듈·테스트·한국어 계약·개발 기록. 다른 격리 작업 재개/재사용 금지
-- 격리/한도: 전용 Python 환경·cache, 포트/DB 없음. CPU seed0, 저장 run1개/300세션, fixture최대24개×2심볼/10세션, 검사1200초/artifact20MiB
-- 경계: network·simulation/replay·GPU·PAPER/live·주문·운영DB/원장·서비스/설정·remote 변경 금지
-- 검증: pytest·Ruff·configured mypy·Terra review·main 통합 검사. hash 불일치/상한 초과/동일 실패2회 즉시 중단
-- 계획·증거: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-05-7284d056/PLAN.md
-- 개발 기록: docs/development-records/2026-09-16-r2-nav-components-7284.md
-- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-05-7284d056/HANDOFF.md
-- 완료 조건: 기술 slice 검증·local main 통합·증거/SHA/handoff 선보관·소유 worktree 정리. 전체 checkbox 미체크; calendar 근거 부재 unavailable, 경제 not-evaluated
-- 중단: Luna interrupt 후 추가 검사/진단/병합 없음. 구현4개 미추적 보존; integrated_commit=null. 증거와 소스 snapshot 선보관, worktree/branch 유지
-- 독립 review: Terra FAIL. 비 UTF-8 예외 처리·동일 출력 경로 덮어쓰기·mypy·artifact 검증 및 선기록 완료 표현 미해소
-- 재개: 명시적 retry·새 한도 필요. 동일 소유 branch 재사용; 실제 fixture 변형 수 및 Ruff 실행 파일 사전 확인
+- 상태: 기술 복구 완료·main 통합 검증 완료. 전체 R2-05는 실제 자료 근거 부족으로 미완료이며 runner의 과거 blocked 시도는 보존합니다.
+- 변경: JSON UTF-8 오류·입출력 별칭 충돌·strict typing·잔차/산출물 검증을 수정했습니다. 전략·가정 요율·시장 자료·PAPER/live·운영DB·성과 수치 변경 없음.
+- 담당: 전용 Luna 구현, Terra 독립 review, Astra 순차 통합. 구현 `b0b57d7`, 통합 `be68400`.
+- 검증: main focused pytest27·Ruff check/format·configured strict mypy2파일·diff check PASS. 실제 동결pilot은 복구에서1회 진단했고 소스 동일성 확인 후 통합 증거로 재사용했습니다.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-nav-recovery`의 PLAN·worker·integration.json·source. 과거 실패·범위 위반은 원래 audit와 개발 기록에 보존합니다.
+- 정리: 소스·패치·SHA 보관 후 해당 worktree `/home/kwl/projects/jusik-r2-nav-components-7284`와 `feat/r2-nav-components-7284` 정상 제거. 다른 미완료 worktree 보존.
+- 개발 기록: `docs/development-records/2026-09-16-r2-nav-components-7284.md`. handoff: 루트 및 recovery audit/HANDOFF.md.
+- 다음 단계: 독립회계·calendar 근거를 별도 확보; 저장 구성요소 일관성을 완전한 회계 검증으로 해석하지 않습니다.
 
 ## r2-market-cost-b8a5
 
-- 상태: 새 수동 복구 계획 진행. 이전 동일 Ruff 실패·한도 위반·검토 실패 이력을 보존하고 같은 worktree를 재사용합니다.
-- task/attempt: roadmap-r2-02-v1 / b8a573f2cb564b6cb46ea646452071e5
-- 복구 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery`. 사용자 자율 진행 승인. 손실 계산과 다른 파일의 비용 대사·시간 순서·독립 기대값 검증만 복구합니다. runner paused/service inactive.
-- 새 계획: 해당 recovery audit/PLAN.md, cost_recovery_code Luna 단일 구현. named scenario≤48, 검사 wall/CPU 각1800초·동일 원인 수정3회·저장pilot1회. 전용환경 실제 도구 실행을 검사 전에 확인합니다. 과거 한도 위반은 별도 이력으로 보존합니다.
-- 목표: KR/US fee·slippage·sell_tax_rate 구현 가정과 저장 거래 적용식 독립 검산
-- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review
-- 워크트리·브랜치: /home/kwl/projects/jusik-r2-market-cost-b8a5 / feat/r2-market-cost-b8a5
-- 시작 main: baa192591a4ccf9a8cc9a21623ca075bacc8acc3; 통합 대상 local main
-- 입력: 첨부 evidence5개·R0 동결 artifact4개·raw84개 SHA 검증 통과, 최신 mandate
-- 허용 범위: 신규 독립 진단 모듈·테스트·한국어 계약·개발 기록; 기존 전략·shared model·고정 세율 읽기 전용
-- 격리/한도: 전용 Python 환경·cache, 포트·DB 없음; CPU seed0, fixture16개×최대2심볼/10세션, 저장 US pilot252세션/106거래, 검사900초/artifact20MiB
-- 경계: network·simulation/replay·GPU·PAPER/live·주문·운영DB/원장·서비스/설정·remote 변경 금지. 다른 격리 작업 재사용·재개 금지
-- 검증: 관련 pytest·Ruff·configured mypy·독립 review·main 통합 검사 예정; hash 불일치/상한 초과/동일 실패2회 중단
-- 계획·증거: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-02-b8a573f2/PLAN.md
-- 개발 기록: docs/development-records/2026-09-16-r2-market-cost-b8a5.md
-- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-02-b8a573f2/HANDOFF.md
-- 완료 조건: 기술 검증·local main 병합 후 증거/SHA/handoff 선보관과 소유 worktree 정리. 법정 세목·기간·출처 부족은 unavailable로 유지
-
-- 구현 commit: ed03e2c647bfec876eee4d9e5a1b23c4562e758e; local main 병합 없음, integrated_commit=null
-- 검증 결과: 입력 SHA와 감독 pilot 산술 일치. 후속 pytest19/Ruff/mypy 통과 기록은 중단 위반 후 결과로 acceptance 불인정; tests_passed=false, review_passed=false
-- 독립 지적: 저장 mismatch success, 매수 독립 기대값/이중차감 증명 누락, 시간대/chronology coverage 부족, fixture16개 외 assumptions4개
-- 정리: 미병합 worktree/branch 보존; source-snapshot·실패 로그·review·SHA·handoff durable 보관. 기존 HANDOFF와 다른 작업 보존
-- 재개: 명시적 retry와 새 한도 하에서 동일 소유 브랜치 재사용. 법정 세목·기간·출처 및 체결 이력 근거 별도 필요
-
+- 상태: 기술 복구 완료·main 통합 검증 완료. 전체 R2-02는 실제 자료 근거 부족으로 미완료이며 runner의 과거 blocked 시도는 보존합니다.
+- 변경: 저장 비용 불일치의 성공 처리·현지 체결일·시간 순서·독립 금액 기대값을 수정했습니다. 전략·가정 요율·시장 자료·PAPER/live·운영DB·성과 수치 변경 없음.
+- 담당: 전용 Luna 구현, Terra 독립 review, Astra 순차 통합. 구현 `6e7aab6`, 통합 `79e73c6`.
+- 검증: main focused pytest20·Ruff check/format·configured strict mypy2파일·diff check PASS. 실제 동결pilot은 복구에서1회 진단했고 소스 동일성 확인 후 통합 증거로 재사용했습니다.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery`의 PLAN·worker·integration.json·source. 과거 실패·범위 위반은 원래 audit와 개발 기록에 보존합니다.
+- 정리: 소스·패치·SHA 보관 후 해당 worktree `/home/kwl/projects/jusik-r2-market-cost-b8a5`와 `feat/r2-market-cost-b8a5` 정상 제거. 다른 미완료 worktree 보존.
+- 개발 기록: `docs/development-records/2026-09-16-r2-market-cost-b8a5.md`. handoff: 루트 및 recovery audit/HANDOFF.md.
+- 다음 단계: 법정 세목·요율·실제 체결시각/주문 식별 근거를 별도 확보; 기술 대사 성공을 법정 적정성으로 해석하지 않습니다.
 
 ## r3-equity-97b2
 
