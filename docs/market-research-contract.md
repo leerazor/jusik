@@ -51,6 +51,12 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 
 거래의 `trade.currency`는 체결 자산과 fee·tax·notional의 native 통화를 뜻합니다. `equity.cash_native`는 account native cash이고, `equity.cash_krw`, `equity.invested_krw`, `equity.nav_krw`는 reporting currency인 KRW입니다. `equity.fx_krw_per_usd`는 각 평가 session의 USD→KRW quote이며, KR 결과에서는 항상 `1`입니다. 이 metadata는 기존 Decimal 계산, fee·tax·FX 적용, snapshot/input/data/pool hash를 재계산하거나 변경하지 않습니다.
 
+## 상세 화면의 원화 곡선
+
+상세 화면은 `equity`에 저장된 `nav_krw`와 `drawdown_pct`를 평가 기간 안의 실제 `YYYY-MM-DD` session 순서 그대로 표시합니다. 날짜가 달력상 유효하지 않거나 요청 기간 밖이거나 엄격히 증가하지 않으면 해당 곡선 전체를 확인 불가로 두며, 행을 정렬하거나 복구하지 않습니다. 유한한 Decimal 숫자로 읽을 수 없는 값은 `null` 구간으로 남겨 선을 끊습니다. 빈 시계열은 확인 불가이고 유효한 점이 하나면 점으로 표시합니다. 0과 음수 NAV는 저장된 signed 값을 보존하며, 음수 낙폭은 잘못된 값으로 구분합니다. 100%를 넘는 유한 낙폭은 임의로 제한하지 않습니다. 좌표 계산의 overflow·비유한 값은 SVG에 전달하지 않습니다.
+
+저장 NAV와 기록 낙폭은 회계 재검산 또는 DD latch 검증 결과가 아닙니다. account의 양의 유한 `initial_cash_krw`가 request와 Decimal 의미로 일치하고 reporting currency·native currency·initial conversion 및 각 session의 FX 근거가 맞을 때만 저장 NAV별 원화 수익률을 계산해 표시합니다. US account에서 account 또는 개별 session FX가 없으면 저장 NAV·낙폭은 계속 표시할 수 있지만 원화 수익률은 확인 불가입니다. USD 초기 자본 계약과 benchmark 자료가 없으므로 USD 수익률과 benchmark 비교는 확인 불가로 표시합니다. account metadata가 없는 legacy 결과도 저장 곡선은 표시할 수 있으며 수익률은 확인 불가입니다.
+
 ## 시간 의미
 
 모든 timestamp는 UTC offset을 포함해야 하며, 날짜만 있는 `session`·`start_date`·`end_date`는 거래소 현지 거래일입니다.

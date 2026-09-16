@@ -8,6 +8,8 @@ import {
   marketResearchCounter,
   marketResearchCoverageLabel,
   marketResearchGradeIsConsistent,
+  marketResearchEquityCurves,
+  marketResearchKrwReturn,
   marketResearchMetric,
   marketResearchNullResultMessage,
   marketResearchProvisionalLabel,
@@ -15,6 +17,8 @@ import {
   marketResearchRunLabel,
   marketResearchSourceLabel,
   type MarketResearchRun,
+  type MarketResearchResult,
+  type MarketResearchCurve,
 } from "@/lib/marketResearch";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +33,43 @@ function counter(run: MarketResearchRun, key: string, suffix = ""): string {
 
 function stageLabel(stage: MarketResearchRun["stage"]): string {
   return { pilot: "1년 파일럿", final: "3년 최종", legacy: "기존 실행" }[stage];
+}
+
+function CurveChart({ curve, label, suffix }: { curve: MarketResearchCurve; label: string; suffix: string }) {
+  if (curve.status === "unavailable") {
+    return <p className="empty-inline">{curve.reason ?? "곡선을 확인할 수 없습니다."}</p>;
+  }
+  const values = curve.points.flatMap((point) => point.value === null ? [] : [point.value]);
+  const formatValue = (value: number): string => suffix === "KRW"
+    ? `${marketAmount(String(value))}원`
+    : marketResearchMetric(String(value), "%");
+  const range = `${formatValue(Math.min(...values))}–${formatValue(Math.max(...values))}`;
+  return <div className="portfolio-chart">
+    <svg viewBox="0 0 100 44" role="img" aria-label={label}>
+      {curve.segments.map((points, index) => <polyline key={`${label}-segment-${index}`} points={points} stroke="currentColor" />)}
+      {curve.markers.map((point, index) => <circle key={`${label}-point-${index}`} cx={point.x} cy={point.y} r="1.1" fill="currentColor" />)}
+    </svg>
+    <p>유효한 점 {curve.validPoints}개{curve.invalidPoints > 0 ? ` · 확인 불가 구간 ${curve.invalidPoints}개` : ""} · 단위 {suffix}</p>
+    <p>표시 기간 {curve.points[0]?.session}–{curve.points.at(-1)?.session} · 값 범위 {range}</p>
+    {curve.reason && <p>{curve.reason}</p>}
+  </div>;
+}
+
+function EquityDisplay({ result }: { result: MarketResearchResult }) {
+  const curves = marketResearchEquityCurves(result);
+  return <section className="panel research-section" aria-labelledby="equity-title">
+    <div className="section-title simple"><h2 id="equity-title">원화 NAV와 기록된 낙폭</h2><span className="muted">저장된 평가 시계열만 표시</span></div>
+    <div className="portfolio-metrics">
+      <div><span>계약 근거 원화 수익률</span><strong>{marketResearchKrwReturn(result)}</strong></div>
+      <div><span>미국 달러 수익률</span><strong>확인 불가</strong></div>
+      <div><span>Benchmark</span><strong>비교 불가</strong></div>
+    </div>
+    <div className="strategy-grid">
+      <article className="strategy-card"><h3>KRW NAV</h3><CurveChart curve={curves.nav} label="저장된 원화 순자산가치 흐름" suffix="KRW" /></article>
+      <article className="strategy-card"><h3>기록된 낙폭</h3><CurveChart curve={curves.drawdown} label="저장된 낙폭 흐름" suffix="%" /></article>
+    </div>
+    <p className="basis">낙폭은 저장된 기록을 그대로 표시하며 회계 재검산이나 DD latch 검증을 수행하지 않습니다. 수익률은 account의 초기 원화 자본과 각 저장 NAV에 근거할 때만 표시합니다. USD 초기 자본과 benchmark 계약·자료는 없어 비교하지 않습니다.</p>
+  </section>;
 }
 
 export default async function MarketResearchDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -49,6 +90,7 @@ export default async function MarketResearchDetail({ params }: { params: Promise
     <div className="result-local-actions"><Link className="secondary-button" href="/research/market">시장 연구 목록</Link><span className="badge">실전 주문과 분리된 연구</span></div>
     <section className="intro research-intro"><div><p className="eyebrow">{stageLabel(run.stage)} · RUN {run.id.slice(0, 8)}</p><h1>{run.request.market === "KR" ? "한국" : "미국"} {approximate ? "거래량 상위 근사 표본 연구" : "거래량 상위 PIT 연구"}</h1><p className="muted">{run.request.start_date}–{run.request.end_date} · 저장 시각 {run.created_at}{approximate ? " · 과거 날짜별 최대 100개 표본 · PIT 검증 아님" : ""}</p><p className="basis">{marketResearchRunLabel(run)}</p></div></section>
     {!result ? <section className="panel"><h2>{nullResultMessage.heading}</h2><p>{nullResultMessage.detail}</p></section> : <>
+      <EquityDisplay result={result} />
       {result.status === "insufficient" && <section className="notice" role="alert"><h2>검증 불충분</h2><p>{result.limitations.length > 0 ? result.limitations.join(" ") : "검증에 필요한 자료가 충분하지 않습니다."}</p></section>}
       {result.status === "approximate" && <section className="notice" role="status"><h2>무료 근사 자료 결과</h2><p>{result.limitations.length > 0 ? result.limitations.join(" ") : "근사 자료를 사용한 결과입니다."}</p></section>}
 
@@ -64,7 +106,7 @@ export default async function MarketResearchDetail({ params }: { params: Promise
         </dl>
       </section>
 
-      {result.status === "ready" && <section className="overview"><article className="hero-card"><span>최종 원화 평가액</span><strong>{metric(run, "final_nav_krw")}원</strong><small>{marketResearchSourceLabel(result.readiness.simulated)} · 시뮬레이션 연구 · PAPER 별도</small></article><article className="metric-card"><span>수익률</span><strong>{metric(run, "return_pct", "%")}</strong><small>비용·슬리피지 반영</small></article><article className="metric-card"><span>거래 수</span><strong>{counter(run, "trade_count", "건")}</strong><small>다음 거래일 시가 체결</small></article></section>}
+      {result.status === "ready" && <section className="overview"><article className="hero-card"><span>최종 원화 평가액</span><strong>{metric(run, "final_nav_krw")}원</strong><small>{marketResearchSourceLabel(result.readiness.simulated)} · 시뮬레이션 연구 · PAPER 별도</small></article><article className="metric-card"><span>계약 근거 원화 수익률</span><strong>{marketResearchKrwReturn(result)}</strong><small>저장 NAV·통화 근거 기반</small></article><article className="metric-card"><span>거래 수</span><strong>{counter(run, "trade_count", "건")}</strong><small>다음 거래일 시가 체결</small></article></section>}
       {result.status === "approximate" && <section className="overview"><article className="hero-card"><span>근사 원화 평가액</span><strong>{metric(run, "final_nav_krw")}원</strong><small>무료 표본 계산 · strict PIT 아님</small></article><article className="metric-card"><span>자료 거래일</span><strong>{counter(run, "coverage_sessions", "일")}</strong><small>확인된 표본 범위</small></article><article className="metric-card"><span>사용 가능 일봉</span><strong>{counter(run, "usable_candidate_bars")} / {counter(run, "expected_candidate_bars")}</strong><small>표본 내 후보 일봉</small></article><article className="metric-card"><span>제외된 후보 일봉</span><strong>{counter(run, "excluded_nonheld_bars", "건")}</strong><small>누락·시각 불충분</small></article><article className="metric-card"><span>누락 보유 일봉</span><strong>{counter(run, "missing_held_bars", "건")}</strong><small>마지막 가격·경과일은 한계에서 확인</small></article></section>}
 
       <section className="panel research-section" aria-labelledby="coverage-title">

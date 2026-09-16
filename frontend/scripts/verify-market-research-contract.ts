@@ -3,7 +3,9 @@ import {
   marketResearchCompletenessLabel,
   marketResearchCounter,
   marketResearchCoverageLabel,
+  marketResearchEquityCurves,
   marketResearchGradeIsConsistent,
+  marketResearchKrwReturn,
   marketResearchNullResultMessage,
   marketResearchProvisionalLabel,
   marketResearchReadinessLabel,
@@ -11,6 +13,7 @@ import {
   marketResearchRunLabel,
   marketResearchRunSchema,
 } from "../lib/marketResearch";
+import { marketResearchFixtureScenarios } from "./market-research-fixtures";
 
 const request = {
   market: "US" as const,
@@ -344,4 +347,55 @@ const precisionNearCapital = {
 };
 assertRejects(precisionNearCapital, "precision-near-but-distinct initial cash");
 
-console.log("grade/source labels, null-result states, and strict/approximate synthetic/non-synthetic legacy checks: PASS");
+if (marketResearchFixtureScenarios.length !== 12) {
+  throw new Error(`expected 12 bounded equity scenarios, got ${marketResearchFixtureScenarios.length}`);
+}
+const sameValues = (actual: Array<number | null>, expected: Array<number | null>): boolean =>
+  actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+for (const scenario of marketResearchFixtureScenarios) {
+  const parsed = marketResearchRunSchema.parse(scenario.run);
+  if (parsed.result === null) throw new Error(`${scenario.id} fixture result is unexpectedly null`);
+  const curves = marketResearchEquityCurves(parsed.result);
+  if (curves.nav.status !== scenario.expected.navStatus || curves.drawdown.status !== scenario.expected.drawdownStatus) {
+    throw new Error(`${scenario.id} curve status mismatch`);
+  }
+  if (curves.nav.status === "available" && !sameValues(curves.nav.points.map((point) => point.value), scenario.expected.navValues)) {
+    throw new Error(`${scenario.id} stored NAV values changed`);
+  }
+  if (curves.drawdown.status === "available" && !sameValues(curves.drawdown.points.map((point) => point.value), scenario.expected.drawdownValues)) {
+    throw new Error(`${scenario.id} stored drawdown values changed`);
+  }
+  if (marketResearchKrwReturn(parsed.result) !== scenario.expected.krwReturn) {
+    throw new Error(`${scenario.id} KRW return contract mismatch`);
+  }
+  if (!parsed.result.limitations.includes("화면 검사용 합성 fixture, 경제 not-evaluated")) {
+    throw new Error(`${scenario.id} synthetic fixture limitation missing`);
+  }
+  if (scenario.id === "single-point" && (curves.nav.markers.length !== 1 || curves.nav.segments.length !== 0)) {
+    throw new Error("single point must render as one marker");
+  }
+  if (scenario.id === "valid-kr" && !curves.krwReturn.points.map((point) => point.value).every((value, index) => value !== null && Math.abs(value - [0, 5, 2][index]) < 1e-9)) {
+    throw new Error("KRW return must be derived at every stored NAV");
+  }
+  if (scenario.id === "numeric-gaps" && (curves.nav.segments.length !== 1 || curves.drawdown.segments.length !== 1)) {
+    throw new Error("numeric gaps must break the curve into segments");
+  }
+  if (scenario.id === "invalid-calendar-date" && !curves.nav.reason?.includes("날짜")) {
+    throw new Error("calendar-invalid session must make the curve unknown");
+  }
+  if (scenario.id === "reverse-date" && !curves.nav.reason?.includes("증가하지 않아")) {
+    throw new Error("reverse session order must make the curve unknown");
+  }
+  if (["missing-us-fx", "legacy-no-metadata"].includes(scenario.id)
+    && (curves.nav.status !== "available" || curves.drawdown.status !== "available" || marketResearchKrwReturn(parsed.result) !== "확인 불가")) {
+    throw new Error(`${scenario.id} must preserve stored curves while hiding return`);
+  }
+  if (scenario.id === "status-error-preserved"
+    && (parsed.status !== "insufficient" || parsed.result.status !== "insufficient" || parsed.result.completeness !== "incomplete" || parsed.error !== "safe fixture error"
+      || parsed.request.start_date !== "2026-01-00" || parsed.request.end_date !== "2026-02-30"
+      || curves.nav.status !== "unavailable" || curves.drawdown.status !== "unavailable" || marketResearchKrwReturn(parsed.result) !== "확인 불가")) {
+    throw new Error("status, completeness, and safe error were not preserved");
+  }
+}
+
+console.log("grade/source labels, null-result states, strict/approximate legacy checks, and bounded equity curves: PASS");
