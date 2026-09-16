@@ -258,8 +258,10 @@ class CollectionDiagnostics(BaseModel):
                 expected_counts[reason] = expected_counts.get(reason, 0) + 1
         if not self.all_failed and expected_counts.get("all_failure", 0):
             raise ValueError("non-failure diagnostics cannot contain all_failure")
-        if self.all_failed and symbols and expected_counts.get("all_failure") != len(
-            symbols
+        if (
+            self.all_failed
+            and symbols
+            and expected_counts.get("all_failure") != len(symbols)
         ):
             raise ValueError(
                 "all-failure diagnostics require an aggregate all_failure reason"
