@@ -1,5 +1,21 @@
 # 워크트리 작업 등록부
 
+## r3-market-detail-coverage
+
+- 상태: 진행
+- task/attempt: roadmap-r3-02-v1 / 981ad0a5f10e493da69b12377ece0917
+- 목표: R3-02 상세 coverage·자료 등급·잠정 상태·누락 원인의 수치 표시; 경제 평가 not-evaluated
+- 담당: Astra 감독·계획·통합, Luna 조사·단일 구현, Terra 독립 review
+- 워크트리·브랜치: /home/kwl/projects/jusik-r3-detail-981a / feat/r3-detail-981a
+- 기준 main: cbc30512f5bb11ada96b1e48f4ca1cb23c4b6fde; 통합 대상 local main
+- 범위: frontend 상세 page·표시 helper·관련 검사, market-research-contract, 개발 기록
+- 검증: CPU, 정적 GET fixture≤8·각8심볼/30세션·seed0, desktop/mobile 각1회+수정 후1회 이하, wall1200초
+- 출력·계획: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-02-981ad0a5/PLAN.md; loopback3218/8918, 전용 node_modules/.next, DB 없음
+- 경계: runner 배정 작업; R3-03/04 재개·수집·engine·replay·GPU·PAPER/live·주문·운영 DB·서비스/설정·remote push 금지
+- 완료 조건: 독립 review·main 통합 검사·증거/SHA/handoff 보관 후 소유 worktree 정리
+- 개발 기록: docs/development-records/2026-09-16-r3-market-detail-coverage.md
+- handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-02-981ad0a5/HANDOFF.md
+
 ## r1-us-collection-diagnostics
 
 - 상태: 진단 slice 완료; Terra 최종 검토 및 main 통합 pytest155/Ruff/configured mypy PASS. 전체 R1-05 acceptance는 실제 자료 부족으로 차단
