@@ -1,7 +1,7 @@
 # Codex 종료 진단
 
 - 상태: 검증 대기
-- 기록 시각: 2026-09-16T03:22:01Z
+- 기록 시각: 2026-09-16T03:31:34Z
 - 작업 slug: `runner-exit-diagnostics`
 - 기준/통합: `ca493eb` / 없음
 - 범위: 연구 task의 nonzero `codex_exit` 시도에 private 진단 sidecar를 기록하고 재시도 prompt를 보강했습니다. 기존 상태·스키마·retry 정책과 비연구 경로는 보존했습니다.
@@ -11,6 +11,7 @@
 - `backend/jusik/development_runner.py`는 `attempt/exit-diagnostics.json`에 signed return code, 음수 코드에 대한 signal number, completion 파일 존재 여부만 기록합니다.
 - 상태를 먼저 `failed`/`codex_exit`로 저장한 뒤 sidecar를 best effort로 기록하므로 sidecar `OSError`가 실패 상태를 가리지 않습니다.
 - retry prompt는 이전 task registry, 소유 worktree, artifact를 확인하고 일치하는 소유 branch를 재사용하도록 안내합니다.
+- roadmap runner fixture는 live checklist 진행 상태와 무관하게 R0 완료·R1-R7 미완료 기준을 사용하며, 실제 tracked roadmap 문서의 내용과 checkmark는 변경하지 않습니다.
 
 ## 문서·계약 영향
 
@@ -20,10 +21,10 @@
 
 ## 검증
 
-- `backend/.venv/bin/pytest -q backend/tests/test_development_runner.py` — 통과 (50 passed).
-- `backend/.venv/bin/ruff format --check backend/jusik/development_runner.py backend/tests/test_development_runner.py` — 통과.
-- `backend/.venv/bin/ruff check backend/jusik/development_runner.py backend/tests/test_development_runner.py` — 통과.
-- `PYTHONPATH=backend backend/.venv/bin/python -m mypy --strict backend/jusik/development_runner.py` — 통과.
+- `backend/.venv/bin/pytest -q backend/tests/test_development_runner.py backend/tests/test_development_runner_planning.py backend/tests/test_development_runner_roadmap.py` — 통과 (84 passed).
+- `backend/.venv/bin/ruff format --check backend/jusik/development_runner.py backend/tests/test_development_runner.py backend/tests/test_development_runner_roadmap.py` — 통과.
+- `backend/.venv/bin/ruff check backend/jusik/development_runner.py backend/tests/test_development_runner.py backend/tests/test_development_runner_roadmap.py` — 통과.
+- `PYTHONPATH=backend backend/.venv/bin/python -m mypy --strict backend/jusik/development_runner.py backend/jusik/development_runner_roadmap.py` — 통과.
 - 실행하지 않은 검사: 전체 pytest, PAPER 실행, 실 CLI 실패 시뮬레이션은 범위 밖입니다.
 
 ## 안전·운영 상태

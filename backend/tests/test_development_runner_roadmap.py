@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,37 +18,32 @@ from jusik.development_runner_roadmap import (
 )
 from jusik.development_runner_store import RunnerStore
 
+_ROADMAP_CHECKBOX_RE = re.compile(r"(?m)^(- \[)[ xX](\] \*\*(R\d+-\d{2})\*\*)")
 
-def _repo(tmp_path: Path) -> Path:
+
+def _fixture_roadmap(content: str) -> str:
+    def normalize(match: re.Match[str]) -> str:
+        item_id = match.group(3)
+        phase = int(item_id[1 : item_id.index("-")])
+        return f"{match.group(1)}{'x' if phase == 0 else ' '}{match.group(2)}"
+
+    if _ROADMAP_CHECKBOX_RE.search(content) is None:
+        raise AssertionError("roadmap fixture must contain checklist items")
+    return _ROADMAP_CHECKBOX_RE.sub(normalize, content)
+
+
+def _repo(tmp_path: Path, roadmap_content: str | None = None) -> Path:
     repo = tmp_path / "repo"
     docs = repo / "docs"
     docs.mkdir(parents=True)
     source = Path(__file__).parents[2] / "docs"
-    roadmap_lines = (
-        (source / "investment-development-roadmap.md")
-        .read_text(encoding="utf-8")
-        .splitlines(keepends=True)
+    live_roadmap = (
+        roadmap_content
+        if roadmap_content is not None
+        else (source / "investment-development-roadmap.md").read_text(encoding="utf-8")
     )
-    seed_indexes = [
-        index for index, line in enumerate(roadmap_lines) if "**R1-01**" in line
-    ]
-    if len(seed_indexes) != 1:
-        raise AssertionError("roadmap fixture must contain exactly one R1-01 item")
-    seed_index = seed_indexes[0]
-    seed_line = roadmap_lines[seed_index]
-    marker_index = seed_line.index("**R1-01**")
-    checkbox_prefix = seed_line[:marker_index]
-    if (
-        len(checkbox_prefix) < 5
-        or checkbox_prefix[:3] != "- ["
-        or checkbox_prefix[4] != "]"
-    ):
-        raise AssertionError("roadmap fixture R1-01 checkbox is malformed")
-    # Keep the live roadmap text and every operator checkmark except the seed's
-    # known state, so gate tests do not change when the tracked roadmap advances.
-    roadmap_lines[seed_index] = "- [ ]" + checkbox_prefix[5:] + seed_line[marker_index:]
     (docs / "investment-development-roadmap.md").write_text(
-        "".join(roadmap_lines), encoding="utf-8"
+        _fixture_roadmap(live_roadmap), encoding="utf-8"
     )
     (docs / "research-mandate.json").write_bytes(
         (source / "research-mandate.json").read_bytes()
@@ -81,6 +77,22 @@ def test_roadmap_areas_are_lowercase_and_gates_are_independent(tmp_path: Path) -
     assert "r3-01" in areas
     assert "r4-01" not in areas
     assert all(area == area.lower() for area in areas)
+
+
+def test_roadmap_fixture_pins_baseline_when_live_items_are_all_checked(
+    tmp_path: Path,
+) -> None:
+    source = (
+        Path(__file__).parents[2] / "docs" / "investment-development-roadmap.md"
+    ).read_text(encoding="utf-8")
+    all_checked = _ROADMAP_CHECKBOX_RE.sub(
+        lambda match: f"{match.group(1)}x{match.group(2)}", source
+    )
+
+    roadmap = load_roadmap(_repo(tmp_path, all_checked))
+
+    assert all(item.complete for item in roadmap.items if item.phase == 0)
+    assert all(not item.complete for item in roadmap.items if 1 <= item.phase <= 7)
 
 
 def test_roadmap_enqueue_quarantines_used_area_and_complete_area(
