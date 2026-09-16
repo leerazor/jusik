@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -253,10 +253,29 @@ class RunnerStore:
         failure_code: str | None = None,
         evidence: dict[str, Any] | None = None,
         next_allowed_at: str | None = None,
+        automatic_retry: bool = False,
     ) -> None:
         now = utc_now()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            task = db.execute(
+                "SELECT status,attempt_count,last_attempt_id,previous_attempt_id "
+                "FROM tasks WHERE id=?",
+                (task_id,),
+            ).fetchone()
+            attempt = db.execute(
+                "SELECT status FROM attempts WHERE id=? AND task_id=?",
+                (attempt_id, task_id),
+            ).fetchone()
+            if (
+                attempt is None
+                or attempt["status"] != "running"
+                or task is None
+                or task["status"] != "running"
+                or task["last_attempt_id"] != attempt_id
+            ):
+                db.rollback()
+                return
             db.execute(
                 "UPDATE attempts SET status=?,ended_at=?,failure_code=?, "
                 "evidence_json=? WHERE id=?",
@@ -269,9 +288,27 @@ class RunnerStore:
                 ),
             )
             task_status = "completed" if status == "completed" else status
+            retry_at = next_allowed_at
+            retry_attempt = None
+            previous_attempt = None if task is None else task["previous_attempt_id"]
+            if (
+                automatic_retry
+                and status in {"failed", "blocked"}
+                and task is not None
+                and task["last_attempt_id"] == attempt_id
+                and 1 <= int(task["attempt_count"]) <= 2
+            ):
+                retry_at = (
+                    datetime.now(UTC)
+                    + timedelta(seconds=(60, 120)[int(task["attempt_count"]) - 1])
+                ).isoformat()
+                task_status = "queued"
+                retry_attempt = attempt_id
+                previous_attempt = attempt_id
             db.execute(
-                "UPDATE tasks SET status=?,updated_at=?,next_allowed_at=? WHERE id=?",
-                (task_status, now, next_allowed_at, task_id),
+                "UPDATE tasks SET status=?,updated_at=?,next_allowed_at=?,"
+                "previous_attempt_id=? WHERE id=?",
+                (task_status, now, retry_at, previous_attempt, task_id),
             )
             identity = f"development-runner:{task_id}:{attempt_id}:{status}"
             db.execute(
@@ -279,7 +316,29 @@ class RunnerStore:
                 "(id,task_id,attempt_id,outcome) VALUES(?,?,?,?)",
                 (identity, task_id, attempt_id, status),
             )
+            if retry_attempt is not None:
+                db.execute(
+                    "INSERT OR IGNORE INTO history_outbox "
+                    "(id,task_id,attempt_id,outcome) VALUES(?,?,?,?)",
+                    (
+                        f"development-runner:{task_id}:{attempt_id}:automatic_retry",
+                        task_id,
+                        attempt_id,
+                        "automatic_retry",
+                    ),
+                )
             db.commit()
+
+    def last_failure_code(self, task_id: str) -> str | None:
+        """Return the latest bounded failure label for planner feedback."""
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT failure_code FROM attempts "
+                "WHERE task_id=? AND failure_code IS NOT NULL "
+                "ORDER BY ended_at DESC, started_at DESC LIMIT 1",
+                (task_id,),
+            ).fetchone()
+        return None if row is None else str(row["failure_code"])
 
     def finish_planning(
         self,
@@ -291,6 +350,7 @@ class RunnerStore:
         expected_tasks: list[tuple[str, str, str | None]],
         current_fingerprint: str | None = None,
         proposal: tuple[str, str, str] | None = None,
+        scope: str = "research",
     ) -> bool:
         """Finish planner and enqueue proposal in one locked transaction."""
         now = utc_now()
@@ -306,6 +366,17 @@ class RunnerStore:
             if prior is None or prior["status"] != "running":
                 db.rollback()
                 raise ValueError("planning attempt is not running")
+            task = db.execute(
+                "SELECT status,last_attempt_id FROM tasks WHERE id=?",
+                (task_id,),
+            ).fetchone()
+            if (
+                task is None
+                or task["status"] != "running"
+                or task["last_attempt_id"] != attempt_id
+            ):
+                db.rollback()
+                raise ValueError("planning task is not current")
             paused = db.execute(
                 "SELECT value FROM runner_meta WHERE key='paused'"
             ).fetchone()
@@ -349,10 +420,18 @@ class RunnerStore:
                 db.commit()
                 return False
             if proposal is not None:
-                pending = db.execute(
-                    "SELECT COUNT(*) AS count FROM tasks WHERE area != '__planning__' "
-                    "AND status NOT IN ('completed','failed')"
-                ).fetchone()
+                if scope == "investment-roadmap":
+                    pending = db.execute(
+                        "SELECT COUNT(*) AS count FROM tasks "
+                        "WHERE area != '__planning__' "
+                        "AND status IN ('queued','running')"
+                    ).fetchone()
+                else:
+                    pending = db.execute(
+                        "SELECT COUNT(*) AS count FROM tasks "
+                        "WHERE area != '__planning__' "
+                        "AND status NOT IN ('completed','failed')"
+                    ).fetchone()
                 if int(pending["count"]) >= 8:
                     db.rollback()
                     raise ValueError("research queue is full")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from jusik.development_runner_planning import (
     fingerprint,
     validate_planning_result,
 )
+from jusik.development_runner_roadmap import ROADMAP_SCOPE
 from jusik.development_runner_store import RunnerStore
 
 
@@ -297,6 +299,86 @@ def test_finish_planning_is_atomic_and_exact_replay_is_idempotent(
     )
     assert store.outbox_pending() == before
     assert len([item for item in store.tasks() if item.area != PLANNING_AREA]) == 1
+
+
+def test_roadmap_finish_planning_cap_ignores_legacy_blocked_tasks(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    for index in range(8):
+        task_id = f"blocked-{index}"
+        store.enqueue(task_id, "r1-01", "blocked")
+        task = store.task(task_id)
+        assert task is not None
+        store.claim(
+            task,
+            f"attempt-{index}",
+            tmp_path / f"out-{index}",
+            tmp_path / f"err-{index}",
+        )
+        store.finish(f"attempt-{index}", task_id, "blocked")
+    store.enqueue("planner-task", PLANNING_AREA, "internal")
+    planner = store.task("planner-task")
+    assert planner is not None
+    store.claim(
+        planner,
+        "planner-attempt",
+        tmp_path / "planner-out",
+        tmp_path / "planner-err",
+    )
+    snapshot = [
+        (f"blocked-{index}", "blocked", f"attempt-{index}") for index in range(8)
+    ]
+
+    assert store.finish_planning(
+        "planner-attempt",
+        "planner-task",
+        "proposed",
+        {"status": "proposed"},
+        hashlib.sha256(json.dumps(sorted(snapshot)).encode()).hexdigest(),
+        snapshot,
+        proposal=("roadmap-next-v1", "r1-02", "prompt"),
+        scope=ROADMAP_SCOPE,
+    )
+    assert store.task("roadmap-next-v1") is not None
+
+
+def test_stale_planner_callback_cannot_overwrite_newer_attempt(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.enqueue("planner-task", PLANNING_AREA, "internal")
+    planner = store.task("planner-task")
+    assert planner is not None
+    store.claim(planner, "old-attempt", tmp_path / "old-out", tmp_path / "old-err")
+    store.recover_running()
+    assert store.retry("planner-task")
+    planner = store.task("planner-task")
+    assert planner is not None
+    store.claim(
+        planner,
+        "new-attempt",
+        tmp_path / "new-out",
+        tmp_path / "new-err",
+    )
+    with sqlite3.connect(tmp_path / "state" / "runner.db") as db:
+        db.execute("UPDATE attempts SET status='running' WHERE id='old-attempt'")
+        db.commit()
+
+    with pytest.raises(ValueError, match="planning task is not current"):
+        store.finish_planning(
+            "old-attempt",
+            "planner-task",
+            "proposed",
+            {"status": "proposed"},
+            hashlib.sha256(b"[]").hexdigest(),
+            [],
+            proposal=("must-not-enqueue", "portfolio-stress-robustness", "prompt"),
+        )
+    assert store.task("must-not-enqueue") is None
+    current = store.task("planner-task")
+    assert current is not None
+    assert current.status == "running" and current.last_attempt_id == "new-attempt"
 
 
 def test_planning_outbox_preserves_started_then_terminal_then_proposal(
