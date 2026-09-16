@@ -98,7 +98,20 @@ RUNTIME_PROMPT_SUFFIX = (
     "tool has no role field; missing agent_type alone is not a halt condition. "
     "On retry, inspect the prior task registry, owned worktree, and artifacts, "
     "then reuse a matching owned branch rather than duplicating, resetting, or "
-    "deleting it."
+    "deleting it. Automatic recovery is bounded: use recovery_kind=environment "
+    "only with one exact label from dependency_setup, cache_permission, "
+    "tool_unavailable, or recovery_kind=implementation only with "
+    "one exact blocked label from code_defect, test_defect, lint_defect, "
+    "type_defect, actionable_review. These labels cover known in-scope code, "
+    "test, lint, type, or actionable review defects only. Missing data, financial "
+    "policy choices, SHA or identity mismatch, unknown security issues, permission "
+    "expansion, raw Codex exits, interruption, and generic review failure are not "
+    "automatic recovery reasons. A retry must freshly pass the configured tests "
+    "and independent review; it never bypasses a gate or claims success. Repair an "
+    "owned virtual environment or attempt cache only as a routine local fix: run "
+    "the owned environment's python --version once before checks and stop the "
+    "attempt if setup fails instead of batching past the failed setup. A previous "
+    "attempt stop is historical state, not a permanent current block."
 )
 BACKLOG = (
     (
@@ -149,6 +162,7 @@ class RunnerConfig(BaseModel):
     daily_launches: int | None = Field(default=8, ge=1, le=24)
     cooldown_seconds: int = Field(default=60, ge=0, le=86400)
     planning_enabled: bool = False
+    automatic_recovery: bool = False
     scope: Literal["research", "investment-roadmap"] = "research"
 
 
@@ -177,6 +191,7 @@ class Completion(BaseModel):
     handoff_path: str | None = Field(default=None, min_length=1)
     blocked_reason: str | None = Field(default=None, min_length=1, max_length=2000)
     followup: Followup | None = None
+    recovery_kind: Literal["environment", "implementation"] | None = None
 
 
 COMPLETION_SCHEMA: dict[str, Any] = {
@@ -193,6 +208,7 @@ COMPLETION_SCHEMA: dict[str, Any] = {
         "handoff_path",
         "blocked_reason",
         "followup",
+        "recovery_kind",
     ],
     "properties": {
         "task_id": {"type": "string"},
@@ -228,6 +244,10 @@ COMPLETION_SCHEMA: dict[str, Any] = {
                 "area": {"type": "string", "enum": sorted(ALLOWED_AREAS)},
                 "prompt": {"type": "string", "minLength": 1, "maxLength": 2000},
             },
+        },
+        "recovery_kind": {
+            "type": ["string", "null"],
+            "enum": ["environment", "implementation", None],
         },
     },
 }
@@ -483,6 +503,8 @@ def validate_completion(
         if not completion.blocked_reason or completion.followup is not None:
             raise ValueError("blocked completion needs a reason and no followup")
         return completion
+    if completion.recovery_kind is not None:
+        raise ValueError("completed result cannot request recovery")
     if not completion.tests_passed or not completion.review_passed:
         raise ValueError("independent checks are not reported passed")
     if completion.integrated_commit is None or not completion.evidence:
@@ -659,7 +681,14 @@ def _planning_task(
         digest = roadmap_fingerprint(tasks, head, day, roadmap)
         existing = store.task(planner_task_id(digest))
         if existing is not None:
-            return (existing, digest, tasks) if existing.status == "queued" else None
+            ready = not existing.next_allowed_at or (
+                datetime.fromisoformat(existing.next_allowed_at) <= datetime.now(UTC)
+            )
+            return (
+                (existing, digest, tasks)
+                if existing.status == "queued" and ready
+                else None
+            )
         task_id = planner_task_id(digest)
         store.enqueue(
             task_id,
@@ -678,7 +707,12 @@ def _planning_task(
     digest = planning_fingerprint(tasks, head, day)
     existing = store.task(planner_task_id(digest))
     if existing is not None:
-        return (existing, digest, tasks) if existing.status == "queued" else None
+        ready = not existing.next_allowed_at or (
+            datetime.fromisoformat(existing.next_allowed_at) <= datetime.now(UTC)
+        )
+        return (
+            (existing, digest, tasks) if existing.status == "queued" and ready else None
+        )
     task_id = planner_task_id(digest)
     store.enqueue(
         task_id,
@@ -696,6 +730,69 @@ def _planning_task(
     )
     task = store.task(task_id)
     return (task, digest, tasks) if task is not None else None
+
+
+AUTO_RETRY_BACKOFF_SECONDS = (60, 120)
+AUTO_RETRYABLE_PLANNING_FAILURES = frozenset(
+    {"planning_output_invalid", "planning_schema_invalid", "planning_length_invalid"}
+)
+ENVIRONMENT_RECOVERY_LABELS = frozenset(
+    {"dependency_setup", "cache_permission", "tool_unavailable"}
+)
+IMPLEMENTATION_RECOVERY_LABELS = frozenset(
+    {
+        "code_defect",
+        "test_defect",
+        "lint_defect",
+        "type_defect",
+        "actionable_review",
+    }
+)
+
+
+def _planner_feedback(store: RunnerStore, task_id: str) -> str | None:
+    code = store.last_failure_code(task_id)
+    return code if code in AUTO_RETRYABLE_PLANNING_FAILURES else None
+
+
+def _planning_failure_code(error: BaseException) -> str:
+    if isinstance(error, (OSError, json.JSONDecodeError)):
+        return "planning_output_invalid"
+    message = str(error)
+    if message == "planning schema invalid":
+        return "planning_schema_invalid"
+    if message == "proposal prompt is not bounded":
+        return "planning_length_invalid"
+    if message == "planning identity mismatch":
+        return "planning_identity_invalid"
+    if "planning evidence" in message:
+        return "planning_evidence_invalid"
+    return "planning_invalid"
+
+
+def _attempt_environment(attempt_dir: Path) -> dict[str, str]:
+    cache_root = attempt_dir / "cache"
+    _secure_dir(cache_root)
+    environment = os.environ.copy()
+    for name in (
+        "XDG_CACHE_HOME",
+        "UV_CACHE_DIR",
+        "PIP_CACHE_DIR",
+        "RUFF_CACHE_DIR",
+        "MYPY_CACHE_DIR",
+    ):
+        path = cache_root / name.lower()
+        _secure_dir(path)
+        environment[name] = str(path)
+    return environment
+
+
+def _automatic_retry_requested(
+    config: RunnerConfig,
+    *,
+    eligible: bool,
+) -> bool:
+    return config.automatic_recovery and eligible
 
 
 def _run_planning(
@@ -738,11 +835,19 @@ def _run_planning(
     )
     planning_areas = ALLOWED_AREAS if allowed_areas is None else allowed_areas
     scope_context = "" if context is None else f"{context}\n"
+    feedback = _planner_feedback(store, task.id)
+    feedback_context = (
+        f"Previous planner failure label: {feedback}. Correct that bounded output "
+        "and preserve all identity, evidence, and repository gates.\n"
+        if feedback is not None
+        else ""
+    )
     prompt = (
         f"Task id: {task.id}\nAttempt id: {attempt_id}\nFingerprint: {digest}\n\n"
         f"{task.prompt}\nResearch snapshot: {json.dumps(snapshot, sort_keys=True)}\n"
         f"Current main HEAD: {main_head}\nAllowed areas: {sorted(planning_areas)}\n"
         f"{scope_context}"
+        f"{feedback_context}"
         f"{mandate_context}\n"
         f"Permitted evidence roots: "
         f"{[str(path.resolve()) for path in evidence_roots]}\n"
@@ -786,6 +891,7 @@ def _run_planning(
                 stdout=stdout,
                 stderr=stderr,
                 start_new_session=True,
+                env=_attempt_environment(attempt_dir),
             )
         except OSError:
             store.finish(attempt_id, task.id, "failed", failure_code="dispatch_error")
@@ -839,6 +945,17 @@ def _run_planning(
         )
     try:
         payload = json.loads(output_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        failure_code = "planning_output_invalid"
+        store.finish(
+            attempt_id,
+            task.id,
+            "failed",
+            failure_code=failure_code,
+            automatic_retry=_automatic_retry_requested(config, eligible=True),
+        )
+        return RunResult("failed", task.id, attempt_id, failure_code)
+    try:
         if store.is_paused() or (stop_requested is not None and stop_requested()):
             store.finish(
                 attempt_id,
@@ -881,9 +998,20 @@ def _run_planning(
                 snapshot, current_head, started_at.date().isoformat()
             )
         )
-    except (OSError, json.JSONDecodeError, ValueError, subprocess.CalledProcessError):
-        store.finish(attempt_id, task.id, "failed", failure_code="planning_invalid")
-        return RunResult("failed", task.id, attempt_id, "planning_invalid")
+    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+        failure_code = _planning_failure_code(exc)
+        if isinstance(exc, OSError):
+            failure_code = "planning_evidence_invalid"
+        store.finish(
+            attempt_id,
+            task.id,
+            "failed",
+            failure_code=failure_code,
+            automatic_retry=_automatic_retry_requested(
+                config, eligible=failure_code in AUTO_RETRYABLE_PLANNING_FAILURES
+            ),
+        )
+        return RunResult("failed", task.id, attempt_id, failure_code)
     proposal = (
         None
         if result.proposal is None
@@ -920,6 +1048,7 @@ def _run_planning(
             snapshot,
             current_digest,
             proposal,
+            scope=config.scope,
         )
     except RuntimeError:
         store.finish(
@@ -1188,6 +1317,7 @@ def run_once(
                     stdout=stdout,
                     stderr=stderr,
                     start_new_session=True,
+                    env=_attempt_environment(attempt_dir),
                 )
             except OSError:
                 store.finish(
@@ -1277,8 +1407,21 @@ def run_once(
             _safe_history_flush(store, config)
             return RunResult("failed", task.id, attempt_id, post_reason)
         if completion.status == "blocked":
+            recovery_eligible = (
+                completion.recovery_kind == "environment"
+                and completion.blocked_reason in ENVIRONMENT_RECOVERY_LABELS
+            ) or (
+                completion.recovery_kind == "implementation"
+                and completion.blocked_reason in IMPLEMENTATION_RECOVERY_LABELS
+            )
             store.finish(
-                attempt_id, task.id, "blocked", evidence=completion.model_dump()
+                attempt_id,
+                task.id,
+                "blocked",
+                evidence=completion.model_dump(),
+                automatic_retry=_automatic_retry_requested(
+                    config, eligible=recovery_eligible
+                ),
             )
             _safe_history_flush(store, config)
             return RunResult("blocked", task.id, attempt_id, completion.blocked_reason)
@@ -1288,7 +1431,11 @@ def run_once(
                 item
                 for item in store.tasks()
                 if item.area != PLANNING_AREA
-                if item.status not in {"completed", "failed"}
+                if (
+                    item.status in {"queued", "running"}
+                    if roadmap is not None
+                    else item.status not in {"completed", "failed"}
+                )
             ]
             if len(pending) < 8:
                 if roadmap is None:
