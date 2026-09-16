@@ -237,12 +237,33 @@ class CollectionDiagnostics(BaseModel):
             and not all(item.coverage.actual_sessions == 0 for item in symbols)
         ):
             raise ValueError("all-failure diagnostics cannot retain actual sessions")
+        if self.all_failed and symbols:
+            if not all(item.request_excluded for item in symbols):
+                raise ValueError(
+                    "all-failure diagnostics must exclude every requested symbol"
+                )
+            if excluded_symbols != tuple(item.symbol for item in symbols):
+                raise ValueError(
+                    "all-failure diagnostics must list every requested exclusion"
+                )
+            if any("all_failure" not in item.reasons for item in symbols):
+                raise ValueError(
+                    "all-failure diagnostics require an all_failure reason per symbol"
+                )
         expected_counts: dict[CollectionDiagnosticReason, int] = {}
         for item in symbols:
             if len(item.reasons) != len(set(item.reasons)):
                 raise ValueError("diagnostic reasons must be unique")
             for reason in item.reasons:
                 expected_counts[reason] = expected_counts.get(reason, 0) + 1
+        if not self.all_failed and expected_counts.get("all_failure", 0):
+            raise ValueError("non-failure diagnostics cannot contain all_failure")
+        if self.all_failed and symbols and expected_counts.get("all_failure") != len(
+            symbols
+        ):
+            raise ValueError(
+                "all-failure diagnostics require an aggregate all_failure reason"
+            )
         if any(value < 0 for value in self.reason_counts.values()):
             raise ValueError("diagnostic reason counts must be non-negative")
         if self.reason_counts != expected_counts:

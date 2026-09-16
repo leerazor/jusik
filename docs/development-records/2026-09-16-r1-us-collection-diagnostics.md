@@ -9,7 +9,7 @@
 ## 변경과 결정
 
 - `backend/jusik/market_history_approximate.py`에 `CollectionDiagnostics`와 심볼별 `CollectionCoverage` 계약을 추가했습니다. 요청 기간·warmup 시작·고정 reason code·expected/actual/missing/retained/event-excluded 대사를 보존하고, 기존 파일 입력에는 선택 필드로 호환됩니다.
-- `backend/jusik/market_data_collector.py`는 parser가 검증한 고유 Yahoo 행만 actual로 집계합니다. identity mismatch는 `CollectorIdentityError`로 구분하며, 명시적이고 시간 순서가 확인된 delisting만 observed_delisting으로 기록합니다. 원래 cutoff를 정하는 split 뒤의 유효한 후속 delisting도 별도 관측으로 보존하고, 장중 모호·미래·상충 자료는 unknown 또는 무원인 상태로 남깁니다. 요청 실패 심볼은 심볼별 `request_excluded`와 aggregate count를 갖고, 알 수 없는 요청 실패는 기존 `unknown` reason과 `request_excluded=true`로 event timing의 `unknown`과 구분합니다. 전체 Yahoo 실패에는 typed diagnostics를 `CollectorPartialError`에 첨부합니다.
+- `backend/jusik/market_data_collector.py`는 parser가 검증한 고유 Yahoo 행만 actual로 집계합니다. identity mismatch는 `CollectorIdentityError`로 구분하며, 명시적이고 시간 순서가 확인된 delisting만 observed_delisting으로 기록합니다. 원래 cutoff를 정하는 split 뒤의 유효한 후속 delisting도 별도 관측으로 보존하고, 장중 모호·미래·상충 자료는 unknown 또는 무원인 상태로 남깁니다. 요청 실패 심볼은 심볼별 `request_excluded`와 aggregate count를 갖고, 알 수 없는 요청 실패는 기존 `unknown` reason과 `request_excluded=true`로 event timing의 `unknown`과 구분합니다. 전체 Yahoo 실패는 모든 심볼의 요청 제외·actual=0·`all_failure` reason을 함께 검증한 typed diagnostics로 `CollectorPartialError`에 첨부합니다.
 - `backend/jusik/market_research_cli.py`는 전체 실패 JSON에 구조화 진단만 추가하고 종료 코드 2와 실패 cache 차단을 유지합니다.
 - `docs/market-research.md`에 진단 분모·대사·unknown·delisting 정책을 기록했습니다.
 
@@ -21,7 +21,7 @@
 
 ## 검증
 
-- `backend/.venv/bin/python -m pytest -q tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 통과, 154건, 2 warnings.
+- `backend/.venv/bin/python -m pytest -q tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 통과, 155건, 2 warnings.
 - `backend/.venv/bin/python -m mypy --config-file pyproject.toml jusik/market_history_approximate.py jusik/market_data_collector.py jusik/market_research_cli.py` — 통과.
 - `backend/.venv/bin/ruff check jusik/market_history_approximate.py jusik/market_data_collector.py jusik/market_research_cli.py tests/test_market_data_collector.py` — 통과.
 - `backend/.venv/bin/ruff format --diff ...` — 새 변경 hunk는 정리했으며, baseline 원본에도 존재하는 기존 format debt만 남아 있습니다.

@@ -1306,9 +1306,12 @@ def test_cli_serializes_typed_all_failure_diagnostics(
                     retained_sessions=0,
                     event_excluded_sessions=0,
                 ),
+                request_excluded=True,
             ),
         ),
         reason_counts={"identity_mismatch": 1, "all_failure": 1},
+        request_excluded_symbols=("AAA",),
+        request_excluded_symbol_count=1,
         all_failed=True,
     )
 
@@ -1339,6 +1342,52 @@ def test_cli_serializes_typed_all_failure_diagnostics(
     payload = json.loads(capsys.readouterr().out)
     assert payload["collection_diagnostics"]["all_failed"] is True
     assert payload["collection_diagnostics"]["symbols"][0]["symbol"] == "AAA"
+
+
+def test_collection_diagnostics_reject_inconsistent_all_failure() -> None:
+    coverage = CollectionCoverage(
+        expected_sessions=1,
+        actual_sessions=0,
+        missing_sessions=1,
+        retained_sessions=0,
+        event_excluded_sessions=0,
+    )
+    valid = CollectionDiagnostics(
+        requested_start=date(2025, 9, 14),
+        requested_end=date(2026, 9, 14),
+        warmup_start=date(2025, 8, 15),
+        coverage=coverage,
+        symbols=(
+            CollectionSymbolDiagnostic(
+                symbol="AAA",
+                reasons=("identity_mismatch", "all_failure"),
+                coverage=coverage,
+                request_excluded=True,
+            ),
+        ),
+        reason_counts={"identity_mismatch": 1, "all_failure": 1},
+        request_excluded_symbols=("AAA",),
+        request_excluded_symbol_count=1,
+        all_failed=True,
+    ).model_dump(mode="json")
+
+    missing_exclusion = json.loads(json.dumps(valid))
+    missing_exclusion["symbols"][0]["request_excluded"] = False
+    missing_exclusion["request_excluded_symbols"] = []
+    missing_exclusion["request_excluded_symbol_count"] = 0
+    with pytest.raises(ValueError, match="exclude every requested symbol"):
+        CollectionDiagnostics.model_validate(missing_exclusion)
+
+    missing_reason_per_symbol = json.loads(json.dumps(valid))
+    missing_reason_per_symbol["symbols"][0]["reasons"] = ["identity_mismatch"]
+    missing_reason_per_symbol["reason_counts"] = {"identity_mismatch": 1}
+    with pytest.raises(ValueError, match="require an all_failure reason per symbol"):
+        CollectionDiagnostics.model_validate(missing_reason_per_symbol)
+
+    missing_reason = json.loads(json.dumps(valid))
+    missing_reason["all_failed"] = False
+    with pytest.raises(ValueError, match="cannot contain all_failure"):
+        CollectionDiagnostics.model_validate(missing_reason)
 
 
 def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
