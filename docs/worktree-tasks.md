@@ -63,19 +63,17 @@
 
 ## r3-market-ui-fixture
 
-- 상태: 복구 검증 진행; 기존 실패 보존, ui_recovery_code Luna가 같은 worktree에서 정적 fixture·harness·로딩 증거를 복구. 새 audit 20260916-r3-03-recovery-manual, ports3213/8913, desktop/mobile 각1회·payload8개 이하·npm4검사. engine/DB/provider 실행 없음.
-- task/attempt: roadmap-r3-03-v1 / 67c55654c8b445a88b92a0b7b715a4d3; 이전0530ece4 routing 차단은 해소.
-- 목표: R0 기반 목록·상세 loading/empty/partial/error 기술 검증. R3-03 checkbox 미변경.
-- 담당: r303_explore Luna, r303_plan Astra, r303_code Luna, r303_review Terra; model-only pre/post PASS.
-- 워크트리·브랜치: /home/kwl/projects/jusik-r3-market-ui-fixture-67c5 / fix/r3-market-ui-fixture-67c5; 미병합 보존.
-- 기준/결과: 084746fee1c99f5127a37c13e0eb6943acdfba78 / 8d5a59073086269cda48980a6542ae8c03d35ca7. main 구현 통합·통합검사 없음.
-- 변경: readiness 부분 실패 보존, runs 오류/빈 상태 분리, queued/running·loading 안내, frontend contract 검사·문서.
-- 차단: insufficient 목록 assertion2건 실패, pending-loading 증거·harness 원본·CPU/원문 npm 로그 부재. npm4검사 PASS는 worker 보고이며 전체 tests_passed=false.
-- 일탈: 합성 엔진1회 실행 및 수정 후 추가 browser matrix. 더 실행하지 않고 실패와 한계 보존.
-- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-03-67c55654; 격리ports8373/3373, 임시 fixture DB. 종료 상태는 process-check.json.
-- 보존: backend·mandate·패키지198파일과 모든 checkbox·기존 root HANDOFF.md 동일. 운영 DB·PAPER/live·주문·서비스·설정·remote 변경 없음.
-- 개발 기록: docs/development-records/2026-09-15-r3-market-ui-fixture.md.
-- handoff: audit/HANDOFF.md. 재개 시 정적 fixture/harness·실행 한도를 먼저 고정한 후 부족한 증거를 확보. 경제 평가 not-evaluated.
+- 상태: 완료. R3-03 기술 acceptance 충족; 과거 runner blocked 시도는 변경하지 않습니다.
+- 목표: R0 기반 목록·상세 loading/empty/partial/error 검증. R3-03 checkbox 완료.
+- 담당: 기존 code Luna와 복구 ui_recovery_code Luna; 독립 Terra review P1/P2 없음.
+- 기준/구현/복구/통합: `084746f` / `8d5a590` / `6d6b5a2` / `42b75c0`; 병합 직전 main `0d25892`.
+- 변경: readiness 부분 실패 보존, runs 오류/빈 상태 분리, queued/running·loading 안내와 계약 문서.
+- 검증: 정적 GET fixture 8개×desktop/mobile=16개 PASS. main contract/lint/typecheck/build PASS. 소스 동일성 확인 후 브라우저 증거 재사용.
+- 실패와 복구: 기존 insufficient fixture 오류·증거 누락과 한도 일탈은 개발 기록에 보존. 새 복구는 engine/provider/DB 실행 없음. npm CPU 측정, browser/frontend CPU 미측정.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-03-recovery-manual`; 통합·소스 archive는 `20260916-roadmap-recovery/r3-integration.json`, `r3-source/`.
+- 정리: 소유 서버 종료, 전용 worktree `/home/kwl/projects/jusik-r3-market-ui-fixture-67c5`와 `fix/r3-market-ui-fixture-67c5` 정상 제거. 다른 미완료 worktree 보존.
+- 개발 기록: `docs/development-records/2026-09-15-r3-market-ui-fixture.md`. handoff: 루트 및 recovery audit의 `HANDOFF.md`.
+- 한계: 실제 provider·경제 성과 미검증. PAPER/live·주문·운영 DB·remote push 변경 없음. 웹 배포 미수행.
 
 ## r2-dd-chronology
 

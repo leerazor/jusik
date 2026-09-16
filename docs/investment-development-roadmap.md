@@ -157,7 +157,7 @@ R3는 R0 계약이 정한 기존 자료만 읽어 화면에 보여주는 작업�
 
 - [ ] **R3-01** asset curve에 NAV, USD/KRW return, MDD와 benchmark를 같은 기간·통화로 표시한다.
 - [ ] **R3-02** coverage, 자료 등급, provisional 상태, 누락·오류 원인을 수치와 함께 표시한다.
-- [ ] **R3-03** R0 API fixture contract로 loading, empty, partial, error 응답을 검증한다.
+- [x] **R3-03** R0 API fixture contract로 loading, empty, partial, error 응답을 검증한다.
 - [ ] **R3-04** 화면의 investor value analysis와 breakout/SMA20 전략 설명을 분리하고 미래 valuation 사용을 허용하지 않는다.
 
 화면에 curve가 생겨도 손실 결과가 개선된 것은 아니다. 기술 완료는 fixture와 build 및 독립 UI review로 판정한다.

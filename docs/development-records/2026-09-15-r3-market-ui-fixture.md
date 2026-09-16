@@ -1,4 +1,4 @@
-# R3-03 시장 연구 화면 fixture 검증 차단
+# R3-03 시장 연구 화면 fixture 검증
 
 - 상태: blocked. Task roadmap-r3-03-v1, attempt 0530ece4d12b4a24bfa8b19e1fe56d5e.
 - 기준 main: 95e12a657081f191dbbd3172b8465c4a89e24869.
@@ -35,3 +35,13 @@
 - 검증: `npm run verify:market-research-contract`, `npm run lint`, `npm run typecheck`, `npm run build`, `git diff --check`가 통과했습니다. npm 각 명령의 raw stdout/stderr, exit code, wall/user/system CPU는 audit에 보존했으며 browser/frontend CPU는 측정하지 않았습니다.
 - 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-03-recovery-manual/`; 통합 `browser-results.json`, `audit-sha-manifest.json`, `process-check.json`과 resume output을 포함합니다. benchmark·미래 관측·경제 평가는 여전히 미검증/not-evaluated입니다.
 - 안전: loopback fixture/frontend와 browser만 사용했으며 외부 수집, 연구 replay, DB, PAPER/live, 주문, 서비스, 설정, remote push 변경은 없습니다. 포트 3213·8913과 소유 process는 종료 확인했습니다.
+
+## 2026-09-16 main 통합 완료
+
+- 현재 상태: R3-03 기술 acceptance 완료. 이전 blocked 시도와 실패 증거는 위 이력과 runner DB에 보존합니다.
+- 독립 Terra 검토: `6d6b5a2` 기준 P1/P2 없음. main 병합 `42b75c0`, 병합 직전 `0d25892`. 개발 기록의 충돌은 두 시도의 이력을 모두 보존하여 해결했습니다.
+- 통합 검증: contract·lint·typecheck·build 모두 exit 0. 검토한 frontend와 계약 문서의 바이트 일치를 확인하여 desktop/mobile 16개 브라우저 증거를 재사용했습니다.
+- R3-03 checkbox만 완료 처리했습니다. R1-02와 R2 자료 제한은 해결한 것으로 표시하지 않습니다. 새로운 성과 수치·성과 catalog 변경은 없습니다.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-roadmap-recovery/r3-integration.json`, `r3-integrated/`, `r3-source/`. 소스·패치·해시 보관 후 병합된 전용 worktree와 branch를 정상 제거했습니다.
+- 사용자 계약 문서: `docs/market-research-contract.md`. 웹 서버 배포·원격 push는 수행하지 않았습니다. 자동 개발 재개는 별도 activation.json으로 확인합니다.
+- handoff: 루트 `HANDOFF.md` 및 recovery audit의 `HANDOFF.md`.
