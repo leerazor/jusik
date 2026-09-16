@@ -2,7 +2,7 @@
 
 ## r1-us-event-timing
 
-- 상태: 진행; explore·bounded plan 완료, Luna 단일 worktree 구현 중
+- 상태: 복구 검증; 기존 구현03b837f와 최종 focused pytest134 통과 기록 보존, 감독 검증·독립 검토 후 기술 slice 통합 예정. 원래 실행은 codex_exit으로 종료했습니다.
 - task/attempt: roadmap-r1-02-v1 / c42012de115c4aed8c8d9348002a47ff
 - 목표: 미국 사건 발생일·관측 시점을 보존하고 미래 사건에 대한 과거 선택 불변성을 검증합니다.
 - 담당: Astra 감독, r102_explore Luna, r102_plan Astra, r102_code Luna 단일 구현 소유자와 Terra 독립 검토 예정
