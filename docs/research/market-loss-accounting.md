@@ -1,0 +1,41 @@
+# 시장 손실 회계 독립 진단
+
+`backend/jusik/market_loss_accounting.py`는 저장된 `MarketResearchResult` 또는
+명시적인 거래 목록을 읽어 손실 회계 항목을 Decimal로 재계산합니다. 전략,
+collector, simulation, replay, broker를 호출하지 않으며 현금 잔액을 손익에
+합산하지 않습니다.
+
+## 계산 계약
+
+- FIFO 원시 가격손익은 매수 시가와 매도 시가로 계산합니다. 체결가 손익은
+  매수·매도 체결가를 사용합니다. 원시 손익에서 slippage를 한 번만 차감하며
+  체결가 손익에는 다시 차감하지 않습니다.
+- 매수 slippage는 `수량 × (체결가 - 시가)`, 매도 slippage는
+  `수량 × (시가 - 체결가)`입니다. 양수는 비용입니다.
+- 수수료와 세금은 저장된 거래 값의 합입니다. 수수료·세금 정책의 적정성을
+  판단하지 않습니다.
+- FX는 `Δ(NF)=F0ΔN+N0ΔF+ΔNΔF`로 분해하고 교차항을 FX 항목에 귀속합니다.
+- 배당 자료가 없으면 `unavailable`이며 실제 0으로 추정하지 않습니다. 완전한
+  배당 evidence를 명시한 경우에만 0도 입력할 수 있습니다.
+
+## 증거 등급
+
+수작업 입력에서 `complete_history=True`, 초기 포지션, 종목별 최종 mark와
+완전한 배당 evidence를 함께 제공하면 FIFO 검산값을 사용할 수 있습니다.
+저장 결과는 초기 포지션·완전한 체결 이력·기업행사 수량 보존을 증명하지
+않으므로 FIFO realized/unrealized와 순손익은 `unavailable`로 남고 진단용
+값만 별도 보존합니다. 저장된 현금, 수수료, 세금, slippage, 첫·마지막 FX
+관측은 각각의 evidence와 함께 기록됩니다.
+
+CLI는 이미 저장된 파일 하나의 SHA-256을 확인한 뒤 진단합니다.
+
+```bash
+PYTHONPATH=backend backend/.venv/bin/python -m jusik.market_loss_accounting \
+  --pilot /path/to/us-web-pilot-run.json \
+  --expected-sha256 <sha256> \
+  --output /path/to/loss-accounting.json
+```
+
+이는 기존 approximate pilot의 기술 진단이며 경제 평가나 R2-01 전체 완료를
+의미하지 않습니다. 필수 배당·초기 포지션·기업행사 자료가 없는 결과 상태는
+`blocked`로 남깁니다.
