@@ -35,3 +35,11 @@ network·simulation/replay·GPU 실행0회입니다. PAPER/live 활성화·실�
 - handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-02-b8a573f2/HANDOFF.md`.
 - 소유 워크트리 `/home/kwl/projects/jusik-r2-market-cost-b8a5`, 브랜치 `feat/r2-market-cost-b8a5`를 미병합 상태로 보존합니다. 정리 조건을 충족하지 않아 제거하지 않습니다.
 - 재개에는 명시적 retry와 새 계산/fixture 한도가 필요합니다. 같은 소유 브랜치를 재사용하고, 환경 executable 준비를 검사 전에 확인한 뒤 독립 review 지적을 고쳐야 합니다. 동일 attempt에서 추가 수정·검사를 하지 않습니다. 전체 R2-02 완료에는 시장별 공식 비용·세목·유효기간 근거가 추가로 필요합니다.
+
+## 승인된 복구 기록
+
+- 복구 계획: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/PLAN.md`; 과거 Ruff 중단 조건 위반과 실패 기록은 보존하고 이번 시도와 구분합니다.
+- `market_cost_diagnostics.py`는 저장값 mismatch·구조 오류를 `invalid`와 `stored_match=false`로 우선 처리하고, timezone-aware 체결 시각을 US `America/New_York`·KR `Asia/Seoul` 현지 날짜와 대조합니다. 거래 session 감소, equity session 중복·비증가, equity에 없는 fill session, 완전 동일 관측 중복을 fail-closed로 처리합니다.
+- 테스트는 실제 pilot 파일을 읽지 않고 monkeypatch한 SHA·개수의 작은 합성 JSON을 사용합니다. 16개 named scenario inventory 안에서 UTC 경계·US DST·KR 경계, 역순 session, equity/fill 경계와 malformed assumptions를 검증하고, KR/US 매수·매도 및 왕복 literal Decimal 기대값을 독립 대조합니다.
+- 확인: `PYTHONPATH=. .venv-r2/bin/python3.13 -m pytest tests/test_market_cost_diagnostics.py -q` — 20 passed. Ruff·strict mypy·diff·환경 버전과 실제 pilot 1회 결과의 원문·exit·wall·CPU는 `/home/kwl/.local/share/jusik/portfolio-audit/20260916-cost-recovery/worker/recovery-checks.json` 및 `recovery-pilot-diagnostics.json`에 보관합니다.
+- 복구에서도 statutory tax types, jurisdiction, effective period, official rates, exchange holiday calendar, actual fill timestamp/order identity는 unavailable이며 R2-02 전체와 경제 평가는 blocked/not-evaluated입니다.
