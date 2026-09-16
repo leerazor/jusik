@@ -63,7 +63,7 @@
 
 ## r3-market-ui-fixture
 
-- 상태: blocked; Terra 코드 검토 PASS / 전체 acceptance FAIL / 통합 HOLD.
+- 상태: 복구 검증 진행; 기존 실패 보존, ui_recovery_code Luna가 같은 worktree에서 정적 fixture·harness·로딩 증거를 복구. 새 audit 20260916-r3-03-recovery-manual, ports3213/8913, desktop/mobile 각1회·payload8개 이하·npm4검사. engine/DB/provider 실행 없음.
 - task/attempt: roadmap-r3-03-v1 / 67c55654c8b445a88b92a0b7b715a4d3; 이전0530ece4 routing 차단은 해소.
 - 목표: R0 기반 목록·상세 loading/empty/partial/error 기술 검증. R3-03 checkbox 미변경.
 - 담당: r303_explore Luna, r303_plan Astra, r303_code Luna, r303_review Terra; model-only pre/post PASS.
