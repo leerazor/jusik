@@ -41,3 +41,12 @@ Luna가 전용 worktree에 신규 오프라인 진단 모듈, 테스트, 한국�
 - 완료 표현 정정: 앞서 기록된 `완료`는 검증 전 표현이므로 기술 acceptance 완료를 뜻하지 않는 historical source로 구분하고, 현재 상태를 복구 구현 완료·통합 대기로 표시합니다.
 - 검증 상태: 복구 focused pytest·Ruff·configured strict mypy가 통과했으며, Terra review·local main 통합 검증은 supervisor가 수행할 작업으로 남아 있습니다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-nav-recovery/worker/`에 inventory와 명령별 raw output·exit·wall·CPU를 보관합니다.
+
+## 감독 통합 검증
+
+- 현재 기술 상태: 복구 완료. 기존 blocked runner 이력과 전체 R2-05 미완료를 유지합니다.
+- 독립 Terra review: 구현 `00b6a9a`에서 코드 결함 없음, 과거 실패 표기 P2는 `b0b57d7`에서 수정·재검토 PASS. 병합 직전 `290bd71`, 통합 `be68400`.
+- main focused pytest27·Ruff check/format·configured strict mypy2파일·diff check PASS. 제품/테스트/계약 소스 일치를 확인하여 저장pilot 증거를 재사용했습니다. 252행, 실패0, max residual5E-20 KRW입니다.
+- 개발 기록 충돌은 main의 실제25개/상한24개와 RuffNotFound2회 이력을 보존하고 복구 섹션을 붙여 해결했습니다.
+- audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-nav-recovery/integration.json`, `integrated/`, `source/`. 원래 미추적4파일은 `original-source/`에 별도 보존했습니다. 병합된 worktree/branch는 소스·패치·SHA 보관 후 정상 제거했습니다.
+- 독립회계/calendar 근거 부족을 유지하며 기존 구성요소의 일관성을 경제 성과나 완전한 회계 대사로 승격하지 않습니다. 웹/성과 수치/전략/PAPER/live/운영DB/원격push 변경 없음.
