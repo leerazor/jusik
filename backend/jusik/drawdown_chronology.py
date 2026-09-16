@@ -111,6 +111,7 @@ class LiquidationObservation:
     first_available_open: date | None
     filled_quantity: int
     fill_session: date | None
+    signal_session: date | None
     status: LiquidationStatus
 
 
@@ -171,6 +172,10 @@ class PilotDiagnostic:
     evidence: EvidenceState
     stored_maximum_drawdown_pct: Decimal | None
     stored_latch: bool | None
+    stored_drawdown_match: bool
+    stored_final_latch_match: bool
+    stored_latch_date_match: bool | None
+    stored_release_match: bool | None
     stored_match: bool
     reasons: tuple[str, ...] = field(default_factory=tuple)
 
@@ -186,6 +191,10 @@ class PilotDiagnostic:
                 else None
             ),
             "stored_latch": self.stored_latch,
+            "stored_drawdown_match": self.stored_drawdown_match,
+            "stored_final_latch_match": self.stored_final_latch_match,
+            "stored_latch_date_match": self.stored_latch_date_match,
+            "stored_release_match": self.stored_release_match,
             "stored_match": self.stored_match,
             "reasons": list(self.reasons),
         }
@@ -328,7 +337,7 @@ def analyze_chronology(
             if first_open is None:
                 liquidations.append(
                     LiquidationObservation(
-                        symbol, quantity, None, 0, None, "not_observed"
+                        symbol, quantity, None, 0, None, None, "not_observed"
                     )
                 )
                 continue
@@ -339,13 +348,23 @@ def analyze_chronology(
                 and trade.side == "sell"
                 and trade.fill_session >= first_open
             ]
-            first_sell_date = min((trade.fill_session for trade in sells), default=None)
+            first_sell = min(
+                sells,
+                key=lambda trade: (trade.fill_session, trade.signal_session),
+                default=None,
+            )
+            first_sell_date = first_sell.fill_session if first_sell else None
+            first_sell_signal = first_sell.signal_session if first_sell else None
             filled = sum(
                 trade.quantity for trade in sells if trade.fill_session == first_open
             )
             liquidation_status: LiquidationStatus = (
                 "observed"
-                if filled == quantity and first_sell_date == first_open
+                if filled == quantity
+                and first_sell_date == first_open
+                and first_sell_signal is not None
+                and latch_session is not None
+                and first_sell_signal <= latch_session
                 else "mismatch"
             )
             liquidations.append(
@@ -355,6 +374,7 @@ def analyze_chronology(
                     first_open,
                     filled,
                     first_sell_date,
+                    first_sell_signal,
                     liquidation_status,
                 )
             )
@@ -497,17 +517,30 @@ def diagnose_saved_pilot(
         )
         for session in stored_drawdowns
     )
-    stored_match = (
+    stored_drawdown_match = (
         stored_dd is not None
         and compare_percentage_points(stored_dd, chronology.maximum_drawdown_pct)
-        and stored_latch == (chronology.latch_session is not None)
         and session_match
     )
+    stored_final_latch_match = stored_latch == (chronology.latch_session is not None)
+    # The frozen pilot has only a final boolean.  It has no first-latch date or
+    # per-session release trace, so a full chronology match cannot be claimed.
+    stored_latch_date_match: bool | None = None
+    stored_release_match: bool | None = None
+    stored_match = (
+        stored_drawdown_match
+        and stored_final_latch_match
+        and stored_latch_date_match is True
+        and stored_release_match is True
+    )
     reasons = list(evidence.missing_required)
-    if not stored_match:
-        reasons.append(
-            "stored NAV drawdown or latch does not match independent chronology"
-        )
+    if not stored_drawdown_match:
+        reasons.append("stored NAV DD/MDD or per-session DD does not match")
+    if not stored_final_latch_match:
+        reasons.append("stored final latch boolean does not match")
+    reasons.extend(
+        ("stored latch date unavailable", "stored latch release chronology unavailable")
+    )
     status: Status = (
         "success" if not reasons and chronology.status == "success" else "blocked"
     )
@@ -518,6 +551,10 @@ def diagnose_saved_pilot(
         evidence=evidence,
         stored_maximum_drawdown_pct=stored_dd,
         stored_latch=stored_latch,
+        stored_drawdown_match=stored_drawdown_match,
+        stored_final_latch_match=stored_final_latch_match,
+        stored_latch_date_match=stored_latch_date_match,
+        stored_release_match=stored_release_match,
         stored_match=stored_match,
         reasons=tuple(reasons),
     )
@@ -551,8 +588,10 @@ def _main() -> int:
         "dataset_sha256": _sha256(args.dataset) if args.dataset else None,
     }
     output["checks"] = {
-        "stored_chronology_match": report.stored_match,
-        "no_later_buy_or_latch_release": True,
+        "stored_drawdown_match": report.stored_drawdown_match,
+        "stored_final_latch_match": report.stored_final_latch_match,
+        "stored_latch_date_match": report.stored_latch_date_match,
+        "stored_release_match": report.stored_release_match,
         "accounting_proof": False,
     }
     args.output.write_text(

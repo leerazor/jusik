@@ -39,9 +39,31 @@ def test_fixed_drawdown_cases() -> None:
             if variant is not None:
                 assert len(variant["observations"]) <= 300
         if "expected" not in case:
+            if "zero" in case:
+                zero = case["zero"]
+                zero_result = analyze_chronology(
+                    _observations(zero["observations"]),
+                    initial_cash_krw=Decimal("100"),
+                )
+                assert zero_result.maximum_drawdown_pct == Decimal("100")
+                assert zero_result.latch_session == date(2026, 1, 5)
             continue
+        rows = case["observations"]
+        if case["name"] == "fx_only_change":
+            rows = [
+                {
+                    "session": row["session"],
+                    "nav_krw": str(Decimal(native) * Decimal(fx)),
+                }
+                for row, native, fx in zip(
+                    rows,
+                    case["native_usd"],
+                    case["fx_krw_per_usd"],
+                    strict=True,
+                )
+            ]
         result = analyze_chronology(
-            _observations(case["observations"]),
+            _observations(rows),
             _trades(case.get("trades", [])),
             initial_cash_krw=Decimal("100"),
             expected_sessions=[
@@ -53,6 +75,8 @@ def test_fixed_drawdown_cases() -> None:
         assert result.status == expected["status"], case["name"]
         assert result.peak_nav_krw == Decimal(expected["peak"]), case["name"]
         assert result.maximum_drawdown_pct == Decimal(expected["mdd"]), case["name"]
+        if case["name"] == "initial_loss":
+            assert result.drawdown_by_session[0][1] == Decimal("1")
         latch = result.latch_session.isoformat() if result.latch_session else None
         assert latch == expected["latch"], case["name"]
         if "first_open" in expected:
@@ -88,9 +112,27 @@ def test_reentry_and_negative_nav_are_rejected() -> None:
     recovery = next(
         case for case in payload["cases"] if case["name"] == "recovery_cannot_reenter"
     )
+    valid = analyze_chronology(
+        _observations(recovery["observations"]),
+        _trades(recovery["trades"]),
+        initial_cash_krw=Decimal("100"),
+    )
+    assert valid.latch_session == date(2026, 1, 6)
+    assert valid.liquidation[0].status == "observed"
+    assert valid.drawdown_by_session[-1][0] == date(2026, 1, 7)
+    later_buy = dict(recovery["trades"][1])
+    later_buy["side"] = "buy"
     with pytest.raises(ValueError, match="buy after drawdown latch"):
         analyze_chronology(
-            _observations(recovery["observations"]), _trades(recovery["trades"])
+            _observations(recovery["observations"]),
+            _trades(recovery["trades"] + [later_buy]),
+            initial_cash_krw=Decimal("100"),
+        )
+    with pytest.raises(ValueError, match="duplicate fill"):
+        analyze_chronology(
+            _observations(recovery["observations"]),
+            _trades(recovery["trades"] + [dict(recovery["trades"][1])]),
+            initial_cash_krw=Decimal("100"),
         )
     negative = next(
         case for case in payload["cases"] if case["name"] == "zero_and_negative_nav"
@@ -99,50 +141,31 @@ def test_reentry_and_negative_nav_are_rejected() -> None:
         analyze_chronology(_observations(negative["observations"]))
 
 
-def test_latch_day_buy_is_allowed_and_duplicate_fills_are_rejected() -> None:
-    observations = _observations(
-        [
-            {"session": "2026-01-02", "nav_krw": "100"},
-            {"session": "2026-01-05", "nav_krw": "125"},
-            {"session": "2026-01-06", "nav_krw": "100"},
-            {
-                "session": "2026-01-07",
-                "nav_krw": "100",
-                "open_available_symbols": ["AAA"],
-            },
-        ]
+def test_late_liquidation_signal_is_a_mismatch() -> None:
+    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    case = next(
+        case
+        for case in payload["cases"]
+        if case["name"] == "missing_next_open_then_fill"
     )
-    trades = _trades(
-        [
-            {
-                "signal_session": "2026-01-05",
-                "fill_session": "2026-01-06",
-                "symbol": "AAA",
-                "side": "buy",
-                "quantity": 1,
-            },
-            {
-                "signal_session": "2026-01-06",
-                "fill_session": "2026-01-07",
-                "symbol": "AAA",
-                "side": "sell",
-                "quantity": 1,
-            },
-        ]
+    late_sell = dict(case["trades"][1])
+    late_sell["signal_session"] = "2026-01-07"
+    result = analyze_chronology(
+        _observations(case["observations"]),
+        _trades([case["trades"][0], late_sell]),
+        initial_cash_krw=Decimal("100"),
     )
-    result = analyze_chronology(observations, trades, initial_cash_krw=Decimal("100"))
-    assert result.status == "success"
-    assert result.held_quantities_at_latch == {"AAA": 1}
-    assert result.liquidation[0].status == "observed"
-    duplicate = trades + [
-        TradeObservation(date(2026, 1, 5), date(2026, 1, 7), "AAA", "sell", 1)
-    ]
-    with pytest.raises(ValueError, match="duplicate fill"):
-        analyze_chronology(observations, duplicate, initial_cash_krw=Decimal("100"))
+    assert result.status == "blocked"
+    assert result.liquidation[0].signal_session == date(2026, 1, 7)
+    assert result.liquidation[0].status == "mismatch"
 
 
 def test_non_positive_initial_cash_and_fixed_tolerance() -> None:
-    observations = _observations([{"session": "2026-01-02", "nav_krw": "100"}])
+    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    initial_loss = next(
+        case for case in payload["cases"] if case["name"] == "initial_loss"
+    )
+    observations = _observations(initial_loss["observations"])
     with pytest.raises(ValueError, match="initial_cash_krw"):
         analyze_chronology(observations, initial_cash_krw=Decimal("0"))
     assert compare_percentage_points(
@@ -177,8 +200,16 @@ def test_saved_approximate_pilot_is_blocked_without_required_evidence(
     report = diagnose_saved_pilot(path)
     assert report.status == "blocked"
     assert report.input_grade == "approximate"
-    assert report.stored_match is True
+    assert report.stored_drawdown_match is True
+    assert report.stored_final_latch_match is True
+    assert report.stored_match is False
     assert report.evidence.calendar == "unavailable"
     assert report.evidence.benchmark == "unavailable"
     assert report.evidence.future_observation == "unavailable"
-    assert set(report.reasons) == {"calendar", "benchmark", "future_observation"}
+    assert set(report.reasons) == {
+        "calendar",
+        "benchmark",
+        "future_observation",
+        "stored latch date unavailable",
+        "stored latch release chronology unavailable",
+    }
