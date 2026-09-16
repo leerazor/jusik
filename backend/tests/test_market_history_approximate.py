@@ -10,9 +10,11 @@ from fastapi.testclient import TestClient
 
 from jusik.fixture_app import app as fixture_app
 from jusik.market_history_approximate import (
+    US_EVENT_TIMING_NORMALIZATION_VERSION,
     US_MEMBERSHIP_NORMALIZATION_VERSION,
     ApproximateBarRow,
     ApproximateDataset,
+    ApproximateEvent,
     ApproximateFXRow,
     ApproximateMarketHistorySource,
     ApproximateProviderError,
@@ -111,6 +113,477 @@ def test_causal_us_source_keeps_preselected_rows_and_contract_is_policy_only(
         source_path.unlink(missing_ok=True)
     assert [item.symbol for item in snapshot.memberships] == ["AAA", "NEW"]
     assert snapshot.pool_contract_hash == us_membership_contract_hash()
+
+
+def test_causal_us_unknown_event_timing_is_explicitly_insufficient(
+    tmp_path: Path,
+) -> None:
+    session = date(2026, 9, 11)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+            ),
+        ),
+        bars=(
+            ApproximateBarRow(
+                session=session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            ),
+        ),
+        fx=(ApproximateFXRow(session=session, krw_per_usd=1400, spread_rate=0),),
+        events=(ApproximateEvent(symbol="AAA", kind="splits"),),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "unknown-event.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="US",
+        start_date=session,
+        end_date=session,
+        research_grade="approximate",
+    )
+    source = ApproximateMarketHistorySource(JsonApproximateProvider(source_path))
+    snapshot = asyncio.run(source.collect(request))
+    assert "us_event_timing:unknown:AAA" in snapshot.missing_ranges
+    result = run_approximate_market_research(
+        snapshot,
+        request,
+        source.readiness("US", datetime(2026, 9, 16, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert result.status == "insufficient"
+    assert result.trades == ()
+
+
+def test_causal_us_unknown_observation_for_future_event_keeps_prefix(
+    tmp_path: Path,
+) -> None:
+    session = date(2026, 9, 11)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+            ),
+        ),
+        bars=(
+            ApproximateBarRow(
+                session=session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            ),
+        ),
+        fx=(ApproximateFXRow(session=session, krw_per_usd=1400, spread_rate=0),),
+        events=(
+            ApproximateEvent(
+                symbol="AAA",
+                kind="splits",
+                occurrence_at=datetime(2027, 1, 5, 14, 30, tzinfo=UTC),
+            ),
+        ),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "future-unknown-event.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="US",
+        start_date=session,
+        end_date=session,
+        research_grade="approximate",
+    )
+    snapshot = asyncio.run(
+        ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            request
+        )
+    )
+    assert "us_event_timing:unknown:AAA" not in snapshot.missing_ranges
+    assert snapshot.memberships and snapshot.bars
+
+
+def test_causal_us_future_observation_keeps_requested_prefix(tmp_path: Path) -> None:
+    session = date(2026, 9, 11)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+            ),
+        ),
+        bars=(
+            ApproximateBarRow(
+                session=session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            ),
+        ),
+        fx=(ApproximateFXRow(session=session, krw_per_usd=1400, spread_rate=0),),
+        events=(
+            ApproximateEvent(
+                symbol="AAA",
+                kind="splits",
+                occurrence_at=datetime(2026, 9, 10, 15, tzinfo=UTC),
+                observed_at=datetime(2026, 9, 20, 15, tzinfo=UTC),
+            ),
+        ),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "future-observation.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    snapshot = asyncio.run(
+        ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            MarketResearchRequest(
+                market="US",
+                start_date=session,
+                end_date=date(2026, 9, 14),
+                research_grade="approximate",
+            )
+        )
+    )
+    assert "us_event_timing:unknown:AAA" not in snapshot.missing_ranges
+    assert snapshot.memberships and snapshot.bars
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        ApproximateEvent(
+            symbol="AAA",
+            kind="splits",
+            occurrence_at=None,
+            observed_at=datetime(2026, 9, 20, 15, tzinfo=UTC),
+        ),
+        ApproximateEvent(
+            symbol="AAA",
+            kind="splits",
+            occurrence_at=None,
+            observed_at=datetime(2026, 9, 20, 15, tzinfo=UTC),
+            invalid_timing=True,
+        ),
+    ],
+)
+def test_causal_us_unknown_occurrence_after_close_is_not_visible(
+    event: ApproximateEvent,
+    tmp_path: Path,
+) -> None:
+    session = date(2026, 9, 11)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+            ),
+        ),
+        bars=(
+            ApproximateBarRow(
+                session=session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            ),
+        ),
+        fx=(ApproximateFXRow(session=session, krw_per_usd=1400, spread_rate=0),),
+        events=(event,),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "future-unknown-occurrence.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    snapshot = asyncio.run(
+        ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            MarketResearchRequest(
+                market="US",
+                start_date=session,
+                end_date=date(2026, 9, 14),
+                research_grade="approximate",
+            )
+        )
+    )
+    assert "us_event_timing:unknown:AAA" not in snapshot.missing_ranges
+    assert snapshot.memberships and snapshot.bars
+
+
+def test_causal_us_contradictory_event_timings_are_insufficient(
+    tmp_path: Path,
+) -> None:
+    session = date(2026, 9, 11)
+    occurrence = datetime(2026, 9, 10, 15, tzinfo=UTC)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+            ),
+        ),
+        bars=(
+            ApproximateBarRow(
+                session=session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            ),
+        ),
+        fx=(ApproximateFXRow(session=session, krw_per_usd=1400, spread_rate=0),),
+        events=(
+            ApproximateEvent(
+                symbol="AAA",
+                kind="splits",
+                occurrence_at=occurrence,
+                observed_at=datetime(2026, 9, 10, 21, tzinfo=UTC),
+            ),
+            ApproximateEvent(
+                symbol="AAA",
+                kind="splits",
+                occurrence_at=occurrence,
+                observed_at=datetime(2026, 9, 11, 15, tzinfo=UTC),
+            ),
+        ),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "conflicting-event.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="US",
+        start_date=session,
+        end_date=date(2026, 9, 14),
+        research_grade="approximate",
+    )
+    source = ApproximateMarketHistorySource(JsonApproximateProvider(source_path))
+    snapshot = asyncio.run(source.collect(request))
+    assert "us_event_timing:unknown:AAA" in snapshot.missing_ranges
+    result = run_approximate_market_research(
+        snapshot,
+        request,
+        source.readiness("US", datetime(2026, 9, 16, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert result.status == "insufficient"
+    assert result.trades == ()
+
+
+def test_causal_us_future_only_conflict_is_not_visible(tmp_path: Path) -> None:
+    session = date(2026, 9, 11)
+    occurrence = datetime(2026, 9, 10, 15, tzinfo=UTC)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+            ),
+        ),
+        bars=(
+            ApproximateBarRow(
+                session=session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            ),
+        ),
+        fx=(ApproximateFXRow(session=session, krw_per_usd=1400, spread_rate=0),),
+        events=(
+            ApproximateEvent(
+                symbol="AAA",
+                kind="splits",
+                occurrence_at=occurrence,
+                observed_at=datetime(2026, 9, 20, 15, tzinfo=UTC),
+            ),
+            ApproximateEvent(
+                symbol="AAA",
+                kind="splits",
+                occurrence_at=occurrence,
+                observed_at=datetime(2026, 9, 21, 15, tzinfo=UTC),
+            ),
+        ),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "future-conflict.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    snapshot = asyncio.run(
+        ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            MarketResearchRequest(
+                market="US",
+                start_date=session,
+                end_date=date(2026, 9, 14),
+                research_grade="approximate",
+            )
+        )
+    )
+    assert "us_event_timing:unknown:AAA" not in snapshot.missing_ranges
+    assert snapshot.memberships and snapshot.bars
+
+
+def test_causal_us_intraday_event_is_unknown_without_a_guessed_cutoff(
+    tmp_path: Path,
+) -> None:
+    session = date(2026, 9, 11)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+            ),
+        ),
+        bars=(
+            ApproximateBarRow(
+                session=session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            ),
+        ),
+        fx=(ApproximateFXRow(session=session, krw_per_usd=1400, spread_rate=0),),
+        events=(
+            ApproximateEvent(
+                symbol="AAA",
+                kind="splits",
+                occurrence_at=datetime(2026, 9, 11, 15, tzinfo=UTC),
+                observed_at=datetime(2026, 9, 11, 15, tzinfo=UTC),
+            ),
+        ),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "intraday-event.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="US",
+        start_date=session,
+        end_date=date(2026, 9, 14),
+        research_grade="approximate",
+    )
+    source = ApproximateMarketHistorySource(JsonApproximateProvider(source_path))
+    snapshot = asyncio.run(source.collect(request))
+    assert snapshot.memberships and snapshot.bars
+    assert "us_event_timing:unknown:AAA" in snapshot.missing_ranges
+    result = run_approximate_market_research(
+        snapshot,
+        request,
+        source.readiness("US", datetime(2026, 9, 16, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert result.status == "insufficient"
+
+
+def test_causal_us_source_applies_cutoff_to_imported_rows(tmp_path: Path) -> None:
+    first = date(2026, 9, 10)
+    cutoff = date(2026, 9, 11)
+    dataset = ApproximateDataset(
+        market="US",
+        universe=tuple(
+            ApproximateUniverseRow(
+                session=session,
+                symbol="AAA",
+                name="Alpha",
+                exchange="NMS",
+                currency="USD",
+            )
+            for session in (first, cutoff)
+        ),
+        bars=tuple(
+            ApproximateBarRow(
+                session=session,
+                symbol="AAA",
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+            )
+            for session in (first, cutoff)
+        ),
+        fx=(ApproximateFXRow(session=first, krw_per_usd=1400, spread_rate=0),),
+        events=(
+            ApproximateEvent(
+                symbol="AAA",
+                kind="splits",
+                occurrence_at=datetime(2026, 9, 10, 12, tzinfo=UTC),
+                observed_at=datetime(2026, 9, 11, 12, tzinfo=UTC),
+            ),
+        ),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    source_path = tmp_path / "imported-cutoff.json"
+    source_path.write_bytes(dataset.model_dump_json().encode())
+    snapshot = asyncio.run(
+        ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            MarketResearchRequest(
+                market="US",
+                start_date=first,
+                end_date=date(2026, 9, 14),
+                research_grade="approximate",
+            )
+        )
+    )
+    assert [item.valid_from for item in snapshot.memberships] == [first]
+    assert [item.session for item in snapshot.bars] == [first]
 
 
 def test_causal_us_source_normalizes_membership_availability_to_utc(
@@ -658,7 +1131,41 @@ def test_approximate_held_missing_bar_is_marked_as_estimated() -> None:
     )
     assert result.status == "approximate"
     assert result.metrics["missing_held_bars"] >= 1
-    assert any("추정값" in limitation for limitation in result.limitations)
+    expected_age = sum(
+        bar.session > first_buy.fill_session and bar.session <= missing.session
+        for bar in snapshot.bars
+        if bar.symbol == first_buy.symbol
+    )
+    expected_limitation = (
+        f"보유 종목 {first_buy.symbol}은 {expected_age}세션 전 마지막 가격으로 "
+        "평가합니다(추정값)."
+    )
+    assert expected_limitation in result.limitations
+    held_quantity = sum(
+        trade.quantity if trade.side == "buy" else -trade.quantity
+        for trade in result.trades
+        if trade.symbol == first_buy.symbol and trade.fill_session <= missing.session
+    )
+    assert held_quantity > 0
+    previous_mark = max(
+        (
+            bar
+            for bar in snapshot.bars
+            if bar.symbol == first_buy.symbol and bar.session < missing.session
+        ),
+        key=lambda bar: bar.session,
+    )
+    missing_point = next(
+        point for point in result.equity if point.session == missing.session
+    )
+    assert missing_point.invested_krw >= previous_mark.close * held_quantity
+    assert missing_point.nav_krw == missing_point.cash_krw + missing_point.invested_krw
+    assert not any(
+        trade.symbol == first_buy.symbol
+        and trade.side == "sell"
+        and trade.signal_session >= missing.session
+        for trade in result.trades
+    )
 
 
 def test_approximate_does_not_fill_after_membership_expires() -> None:

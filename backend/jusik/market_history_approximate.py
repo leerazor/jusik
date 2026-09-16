@@ -15,7 +15,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from jusik.market_history_models import (
     CapabilityName,
@@ -40,7 +40,9 @@ from jusik.research_market_calendar import (
 MAX_SAMPLE_SYMBOLS = 100
 MAX_UNIQUE_SYMBOLS = 400
 US_MEMBERSHIP_NORMALIZATION_VERSION = "approx-us-r1-membership-v1"
+US_EVENT_TIMING_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v1"
 US_MEMBERSHIP_POOL_POLICY_VERSION = "approximate-us-membership-pool-v1"
+US_EVENT_TIMING_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v1"
 US_MEMBERSHIP_SEED = 20260914
 APPROX_LOOKBACK_SESSIONS = 20
 APPROX_TARGET_WEIGHT = Decimal("0.05")
@@ -87,6 +89,38 @@ class ApproximateFXRow(BaseModel):
     available_at: datetime | None = None
 
 
+class ApproximateEvent(BaseModel):
+    """Provider event metadata kept outside snapshot.actions.
+
+    The approximate strategy cannot account for corporate actions.  Keeping
+    these facts on the prepared dataset lets the source retain causal rows
+    while the wrapper fails closed when the timing is not usable.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    symbol: str = Field(min_length=1, max_length=20)
+    kind: str = Field(min_length=1, max_length=40)
+    occurrence_at: datetime | None = None
+    observed_at: datetime | None = None
+    invalid_timing: bool = False
+    source: SourceName = "yahoo"
+
+    @model_validator(mode="after")
+    def require_aware_timestamps(self) -> ApproximateEvent:
+        for value in (self.occurrence_at, self.observed_at):
+            if value is not None and (
+                value.tzinfo is None or value.utcoffset() is None
+            ):
+                raise ValueError("event timestamps must include a timezone")
+        return self
+
+    @property
+    def occurred_at(self) -> datetime | None:
+        """Compatibility spelling for consumers using the past-tense name."""
+        return self.occurrence_at
+
+
 class ApproximateDataset(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -94,6 +128,7 @@ class ApproximateDataset(BaseModel):
     universe: tuple[ApproximateUniverseRow, ...]
     bars: tuple[ApproximateBarRow, ...]
     fx: tuple[ApproximateFXRow, ...] = ()
+    events: tuple[ApproximateEvent, ...] = ()
     source: SourceName = "approximate_file"
     bar_source: Literal["krx", "yahoo"] = "yahoo"
     fx_source: Literal["fred"] = "fred"
@@ -276,12 +311,24 @@ def deterministic_pool(
     )
 
 
-def us_membership_contract_hash() -> str:
-    """Return the stable policy hash for causal US membership selections.
+def _us_contract_hash(*, policy_version: str, normalization_version: str) -> str:
+    return _hash(
+        {
+            "version": policy_version,
+            "normalization_version": normalization_version,
+            "seed": US_MEMBERSHIP_SEED,
+            "per_session_sample_size": MAX_SAMPLE_SYMBOLS,
+            "cumulative_unique_admissions": MAX_UNIQUE_SYMBOLS,
+            "admission": "initial-seeded-retain-incumbents-fill-vacancies",
+            "availability": "checkpoint-close-fallback-monotonic",
+            "gaps": "failed-checkpoint-unknown-until-recovery",
+            "event_timing": "occurrence-and-observation-required-before-cutoff",
+        }
+    )
 
-    Constituents and observations are deliberately excluded from this hash;
-    they are represented by the prepared input artifact hash instead.
-    """
+
+def us_membership_contract_hash() -> str:
+    """Return the stable R1-01 policy hash for causal US membership."""
     return _hash(
         {
             "version": US_MEMBERSHIP_POOL_POLICY_VERSION,
@@ -294,6 +341,19 @@ def us_membership_contract_hash() -> str:
             "gaps": "failed-checkpoint-unknown-until-recovery",
         }
     )
+
+
+def us_event_timing_contract_hash() -> str:
+    """Return the policy hash for causal US event timing selections."""
+    return _us_contract_hash(
+        policy_version=US_EVENT_TIMING_POOL_POLICY_VERSION,
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+
+
+def legacy_us_membership_contract_hash() -> str:
+    """Return the R1-01 hash so legacy prepared artifacts remain identifiable."""
+    return us_membership_contract_hash()
 
 
 def _validate_us_membership_rows(
@@ -324,6 +384,78 @@ def _validate_us_membership_rows(
         raise ApproximateProviderError(
             "US membership exceeds the cumulative admission bound"
         )
+
+
+def canonicalize_approximate_events(
+    events: tuple[ApproximateEvent, ...],
+) -> tuple[tuple[ApproximateEvent, ...], frozenset[str]]:
+    """Dedupe equivalent event records and identify contradictory timings."""
+    ordered = sorted(
+        events,
+        key=lambda event: (
+            event.symbol,
+            event.kind,
+            event.occurrence_at or datetime.min.replace(tzinfo=UTC),
+            event.observed_at or datetime.min.replace(tzinfo=UTC),
+            event.invalid_timing,
+            event.source,
+        ),
+    )
+    deduped: list[ApproximateEvent] = []
+    seen: set[tuple[object, ...]] = set()
+    timings: dict[tuple[str, str, datetime | None], set[datetime | None]] = {}
+    contradictory: set[str] = set()
+    for event in ordered:
+        identity = (
+            event.symbol,
+            event.kind,
+            event.occurrence_at,
+            event.observed_at,
+            event.invalid_timing,
+            event.source,
+        )
+        if identity not in seen:
+            seen.add(identity)
+            deduped.append(event)
+        timing_key = (event.symbol, event.kind, event.occurrence_at)
+        timings.setdefault(timing_key, set()).add(event.observed_at)
+    for (symbol, _kind, _occurrence), observations in timings.items():
+        if len(observations) > 1:
+            contradictory.add(symbol)
+    return tuple(deduped), frozenset(contradictory)
+
+
+def _event_cutoff_session(
+    calendar: MarketCalendar,
+    effective_at: datetime,
+    *,
+    start: date,
+    end: date,
+) -> tuple[date | None, bool]:
+    """Map an event instant to a daily-bar boundary without guessing intraday."""
+    cursor = start
+    while cursor <= end:
+        lookup = calendar.lookup("NMS", cursor)
+        if lookup.session is not None:
+            session = lookup.session
+            if effective_at <= session.open_at:
+                return session.local_date, False
+            if effective_at < session.close_at:
+                return None, True
+        cursor += timedelta(days=1)
+    return None, False
+
+
+def _last_session_close(
+    calendar: MarketCalendar, *, start: date, end: date
+) -> datetime | None:
+    cursor = end
+    while cursor >= start:
+        lookup = calendar.lookup("NMS", cursor)
+        if lookup.session is not None:
+            return lookup.session.close_at
+        cursor -= timedelta(days=1)
+    return None
 
 
 def _session(calendar: MarketCalendar, exchange: str, session: date) -> MarketSession:
@@ -433,11 +565,10 @@ class ApproximateMarketHistorySource:
             request.market, request.start_date, request.end_date
         )
         dataset = response.dataset
-        is_causal_us = (
-            request.market == "US"
-            and dataset.normalization_version
-            == US_MEMBERSHIP_NORMALIZATION_VERSION
-        )
+        is_causal_us = request.market == "US" and dataset.normalization_version in {
+            US_MEMBERSHIP_NORMALIZATION_VERSION,
+            US_EVENT_TIMING_NORMALIZATION_VERSION,
+        }
         pool = (
             deterministic_pool(
                 dataset.universe, market=request.market, pool_end=request.end_date
@@ -448,11 +579,70 @@ class ApproximateMarketHistorySource:
         if is_causal_us:
             _validate_us_membership_rows(dataset.universe, market=request.market)
             selected_rows = dataset.universe
-            contract_hash = us_membership_contract_hash()
+            contract_hash = (
+                legacy_us_membership_contract_hash()
+                if dataset.normalization_version == US_MEMBERSHIP_NORMALIZATION_VERSION
+                else us_event_timing_contract_hash()
+            )
         else:
             assert pool is not None
             selected_rows = pool.rows
             contract_hash = pool.contract_hash
+        event_timing_enabled = (
+            request.market == "US"
+            and dataset.normalization_version == US_EVENT_TIMING_NORMALIZATION_VERSION
+        )
+        normalized_events: tuple[ApproximateEvent, ...]
+        if event_timing_enabled:
+            normalized_events, _ = canonicalize_approximate_events(dataset.events)
+        else:
+            normalized_events = ()
+        final_session_close = _last_session_close(
+            self.calendar, start=request.start_date, end=request.end_date
+        )
+        visible_events = tuple(
+            event
+            for event in normalized_events
+            if final_session_close is None
+            or event.observed_at is None
+            or event.observed_at.astimezone(UTC) <= final_session_close
+        )
+        _, visible_contradictory_event_symbols = canonicalize_approximate_events(
+            visible_events
+        )
+        event_cutoffs: dict[str, date] = {}
+        ambiguous_event_symbols: set[str] = set()
+        if event_timing_enabled:
+            for event in normalized_events:
+                if (
+                    event.invalid_timing
+                    or event.occurrence_at is None
+                    or event.observed_at is None
+                ):
+                    continue
+                effective_at = max(
+                    event.occurrence_at.astimezone(UTC),
+                    event.observed_at.astimezone(UTC),
+                )
+                cutoff, ambiguous = _event_cutoff_session(
+                    self.calendar,
+                    effective_at,
+                    start=request.start_date,
+                    end=request.end_date,
+                )
+                if ambiguous:
+                    ambiguous_event_symbols.add(event.symbol)
+                    continue
+                if cutoff is None:
+                    continue
+                previous = event_cutoffs.get(event.symbol)
+                if previous is None or cutoff < previous:
+                    event_cutoffs[event.symbol] = cutoff
+            selected_rows = tuple(
+                row
+                for row in selected_rows
+                if row.session < event_cutoffs.get(row.symbol, date.max)
+            )
         if captured_at is None:
             captured = datetime.now(UTC)
         elif captured_at.tzinfo is None or captured_at.utcoffset() != timedelta(0):
@@ -494,6 +684,10 @@ class ApproximateMarketHistorySource:
         selected_symbols = {row.symbol for row in selected_rows}
         for bar_row in dataset.bars:
             if bar_row.symbol not in selected_symbols:
+                continue
+            if event_timing_enabled and bar_row.session >= event_cutoffs.get(
+                bar_row.symbol, date.max
+            ):
                 continue
             market_session = _session(self.calendar, bar_row.exchange, bar_row.session)
             bars.append(
@@ -540,6 +734,33 @@ class ApproximateMarketHistorySource:
             captured_at=captured,
             source=dataset.source,
         )
+        unknown_event_symbols = sorted(
+            {
+                event.symbol
+                for event in visible_events
+                if event_timing_enabled
+                and (
+                    event.occurrence_at is None
+                    or event.invalid_timing
+                    or (
+                        event.occurrence_at.astimezone(UTC).date() <= request.end_date
+                        and event.observed_at is None
+                    )
+                    or (
+                        event.symbol in visible_contradictory_event_symbols
+                        and (
+                            event.occurrence_at is None
+                            or event.occurrence_at.astimezone(UTC).date()
+                            <= request.end_date
+                        )
+                    )
+                    or event.symbol in ambiguous_event_symbols
+                )
+            }
+        )
+        event_missing_ranges = tuple(
+            f"us_event_timing:unknown:{symbol}" for symbol in unknown_event_symbols
+        )
         return MarketHistorySnapshot(
             market=request.market,
             requested_start=request.start_date,
@@ -552,7 +773,10 @@ class ApproximateMarketHistorySource:
             fx=fx,
             source_artifacts=(artifact,),
             completeness="incomplete",
-            missing_ranges=("corporate_actions:dividends_excluded",),
+            missing_ranges=(
+                "corporate_actions:dividends_excluded",
+                *event_missing_ranges,
+            ),
             normalization_version=dataset.normalization_version,
             evaluation_start=request.start_date,
             research_grade="approximate",
@@ -635,6 +859,36 @@ def run_approximate_market_research(
     policy_hash: str | None = None,
 ) -> MarketResearchResult:
     """Run the same trading core as strict research with approximate coverage."""
+    unknown_event_ranges = tuple(
+        item
+        for item in snapshot.missing_ranges
+        if item.startswith("us_event_timing:unknown:")
+    )
+    if unknown_event_ranges:
+        return MarketResearchResult(
+            market=request.market,
+            request=request,
+            readiness=readiness,
+            status="insufficient",
+            completeness="incomplete",
+            limitations=(
+                "미국 기업행동의 발생 또는 관측 시각이 확인되지 않아 "
+                "계산하지 않습니다.",
+                "불확실한 사건: "
+                + ", ".join(
+                    item.removeprefix("us_event_timing:unknown:")
+                    for item in unknown_event_ranges
+                ),
+            ),
+            input_hash=snapshot.input_hash,
+            policy_hash=policy_hash,
+            stage=request.stage,
+            pilot_run_id=request.pilot_run_id,
+            data_contract_hash=snapshot.data_contract_hash,
+            warmup_sessions=snapshot.warmup_sessions,
+            research_grade=request.research_grade,
+            pool_contract_hash=snapshot.pool_contract_hash,
+        )
     return run_market_research(
         snapshot,
         request,
