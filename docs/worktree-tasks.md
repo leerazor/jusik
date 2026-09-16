@@ -2,11 +2,11 @@
 
 ## r1-us-event-timing
 
-- 상태: 준비; 읽기 전용 explore 완료, bounded plan 진행
+- 상태: 진행; explore·bounded plan 완료, Luna 단일 worktree 구현 중
 - task/attempt: roadmap-r1-02-v1 / c42012de115c4aed8c8d9348002a47ff
 - 목표: 미국 사건 발생일·관측 시점을 보존하고 미래 사건에 대한 과거 선택 불변성을 검증합니다.
-- 담당: Astra 감독, r102_explore Luna, r102_plan Astra, 구현 Luna 단일 소유자와 Terra 독립 검토 예정
-- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-event-timing-c420 / fix/r1-us-event-timing-c420 (생성 예정)
+- 담당: Astra 감독, r102_explore Luna, r102_plan Astra, r102_code Luna 단일 구현 소유자와 Terra 독립 검토 예정
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-event-timing-c420 / fix/r1-us-event-timing-c420 (생성 완료, 작업 기준4385610)
 - 조사 기준 main: 3cd2393c38106be0f24859f226e05cad26765b41; 통합 대상 local main
 - 범위: 미국 collector·approximate 사건 계약과 회귀 fixture, 관련 계약 문서·개발 기록. KR·전략·배당/분할 회계·R2-04·R3-03 제외
 - 입력: R0 완료 계약·동결 artifact4개 SHA 일치, R1-01 membership, 현재 mandate JSON
