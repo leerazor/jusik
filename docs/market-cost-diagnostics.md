@@ -22,3 +22,5 @@ PYTHONPATH=backend backend/.venv/bin/python -m jusik.market_cost_diagnostics \
 ```
 
 CLI 결과는 독립 산술과 저장값 대조를 기록하지만 항상 `economic_evaluation=not-evaluated`로 남깁니다. 거래소 휴장일 달력 검증, 실제 체결 시각, 법정 세목·관할·유효기간·공식 세율 근거는 unavailable이며, 해당 입력이 확보되기 전에는 R2-02 전체 체크를 완료했다고 해석하지 않습니다.
+
+CLI는 진단 전에 `--pilot`과 `--output`이 동일 파일이거나 기존 symlink/hardlink 별칭인지 확인합니다. 별칭이면 exit 2로 거부하고 pilot 원본을 보존합니다. 별도 output 경로만 진단 JSON을 기록합니다.
