@@ -160,7 +160,7 @@ R3는 R0 계약이 정한 기존 자료만 읽어 화면에 보여주는 작업�
 - [x] **R3-02** coverage, 자료 등급, provisional 상태, 누락·오류 원인을 수치와 함께 표시한다.
   - 기술 `pass`, 경제 `not-evaluated`: main `c8cb6e29b038d3724fd3b76d04788270e9221e0a`; contract/lint/typecheck/build 및 desktop/mobile 16개 재검증·Terra review PASS. 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-02-981ad0a5/integration-verification.json` (SHA-256 `0fe76bcc80d5e141151c887ab23ffa84e8e22520b42183f9d907454f45cec550`). 기존 상태에서 도출한 잠정 UI이며 자료 확정성·승격을 추정하지 않습니다.
 - [x] **R3-03** R0 API fixture contract로 loading, empty, partial, error 응답을 검증한다.
-- [ ] **R3-04** 화면의 investor value analysis와 breakout/SMA20 전략 설명을 분리하고 미래 valuation 사용을 허용하지 않는다.
+- [x] **R3-04** 화면의 investor value analysis와 breakout/SMA20 전략 설명을 분리하고 미래 valuation 사용을 허용하지 않는다.
 
 화면에 curve가 생겨도 손실 결과가 개선된 것은 아니다. 기술 완료는 fixture와 build 및 독립 UI review로 판정한다.
 
