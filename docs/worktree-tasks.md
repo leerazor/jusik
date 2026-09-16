@@ -2,7 +2,7 @@
 
 ## r1-us-product-types
 
-- 상태: 통합 대기; Terra 재검토 PASS, 초기 지적 동일 Luna 수정 완료
+- 상태: 완료; R1-03만 체크, Terra 재검토 및 main 통합 검사 PASS
 - task/attempt: roadmap-r1-03-v1 / 9bd64c1361374e3f8414f0b131024715
 - 목표: collector 내부 구조화 상품 분류와 NASDAQ alias 정규화; 기존 공개 schema와 membership/사건 시점 보존
 - 담당: 감독 Astra; 구현 Luna r103_code, 독립 Terra r103_review
@@ -11,9 +11,10 @@
 - 범위: collector, 관련 fixture tests, docs/market-research.md, 개발 기록. 감독만 이 등록부와 해당 checklist 관리
 - 검증 한도: 고정 새 fixture 최대40개, CPU900초; 수집·backtest·GPU·PAPER/live·운영 DB·서비스·설정·remote 변경 없음
 - 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-03-9bd64c13; 서버·DB 없음, 작업별 venv/cache 사용
-- 결과·통합·정리: 미완료; 독립 review와 main 통합 검사 후 증거/handoff를 보존하고 해당 worktree만 정리
+- 결과: 0803241 및 6e4bd20; 병합 직전 main ce03cb2; 통합 dc59347261e41ca232f2b50dc41dabb0d08e6c63; 증거/handoff 91파일 SHA 검증 후 해당 worktree 및 병합 브랜치 정리 완료
 - 개발 기록: docs/development-records/2026-09-16-r1-us-product-types.md
-- handoff: audit/HANDOFF.md 예정; 기존 루트 HANDOFF.md 보존. 경제 평가 not-evaluated
+- 검증: main pytest63·Ruff·strict mypy·원문37검사 PASS; 기존 format 부채 동일성 검증. 신규 fixture40개
+- handoff: audit/HANDOFF.md 저장; 기존 루트 HANDOFF.md 보존. 경제 평가 not-evaluated
 
 ## runner-routing-compat
 

@@ -1,9 +1,9 @@
 # R1-03 미국 상품 유형 분류
 
-- 상태: 구현 완료; 독립 review·통합 대기
+- 상태: 완료; 독립 재검토와 main 통합 검증 통과
 - 기록 시각: 2026-09-16T00:09:40Z
 - 작업 slug: `r1-us-product-types`
-- 기준/통합: `f4a57e34125430ead35dea908343d659ca68cdea` / 없음 (감독 통합 대기)
+- 기준/통합: `f4a57e34125430ead35dea908343d659ca68cdea` / `dc59347261e41ca232f2b50dc41dabb0d08e6c63`
 - 범위: Alpha Vantage listing parser 내부 상품 분류와 거래소 alias 정규화, 고정 회귀 fixture, 관련 계약 문서
 
 ## 변경과 결정
@@ -38,3 +38,11 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-03-9bd64c13`; manifest: `code-checks-final/results.json`, `boundary-verification-committed-r2.json`, `baseline-format.log`
 - 남은 작업·차단 조건: 독립 review와 감독의 local main 통합 검증 대기
 - 다음 시작: 감독은 commit SHA와 diff를 review한 뒤 main 통합 전 동일 selector 및 boundary 검사를 재실행합니다.
+
+## 최종 통합 검증
+
+- 통합 commit: `dc59347261e41ca232f2b50dc41dabb0d08e6c63`, 병합 직전 `ce03cb2282061f22f272a5dc25b41fb011ec256c`. Terra가 초기 이름 오제외 및 증거 참조 지적의 수정을 재검토하여 PASS했습니다.
+- main 검사: parser40 + membership15 + contract8 = pytest63, Ruff, strict mypy, source 보존37개 및 diff check 통과. format은 실패하나 기준 commit과 요구 edit가 정확히 같음을 `format-baseline-comparison.json`으로 확인했습니다.
+- `integration-verification.json`에 통합 SHA·시간·검사 및 한계를 보존합니다. 신규 fixture40개. 경제 평가는 not-evaluated이며 기존 비측정 검사 일부의 정확한 CPU 총합은 주장하지 않습니다.
+- R1-03 checkbox만 완료했습니다. R1 전체와 다른 체크리스트는 변경하지 않았습니다. UI·성과 공개 변경이 없어 웹 게시/빌드는 해당하지 않습니다.
+- audit `HANDOFF.md`와 SHA-256 manifest의 91파일을 저장·검증한 뒤 해당 worktree와 병합 브랜치를 정리했습니다. 기존 루트 HANDOFF.md와 다른 worktree6개는 보존합니다.

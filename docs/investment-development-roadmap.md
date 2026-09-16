@@ -130,7 +130,8 @@ R1은 데이터가 당시 알 수 있었던 universe를 표현하는지 확인�
 - [x] **R1-01** 시작 시 historical listing에서 고정한 표본과 이후 membership을 구분하고, 이용 가능한 시점 기준으로 eligible universe를 반영한다.
   - 증거: 미국 `approx-us-r1-membership-v1`, 연간 관측·UTC·gap/복구·100/400 상한·event-free 후보 prefix 검증. 통합 `52ef32e7`, pytest111·Ruff·mypy·legacy replay 일치·독립 review 통과. [개발 기록](development-records/2026-09-15-r1-us-membership.md), audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-01-0406c82a`. 연간 carry-forward는 근사치이며 R1-02~06 및 R1 전체 완료를 뜻하지 않는다.
 - [ ] **R1-02** 기업행사·상장폐지·delisting·중단일을 관측 시점에 맞춰 처리하고 미래 사건을 추가해도 사건 전 선택이 불변인지 확인하는 회귀 fixture를 추가한다.
-- [ ] **R1-03** stock type을 구조화된 분류로 정규화해 보통주, ETF, warrant와 비대상 상품을 구분하고, `NCM`은 상품 종류가 아닌 거래소 alias로 별도 정규화한다.
+- [x] **R1-03** stock type을 구조화된 분류로 정규화해 보통주, ETF, warrant와 비대상 상품을 구분하고, `NCM`은 상품 종류가 아닌 거래소 alias로 별도 정규화한다.
+  - 증거: 내부 5분류·NASDAQ alias, 고정 신규 fixture40개, main pytest63·Ruff·strict mypy·보존37검사 및 Terra 재검토 통과. 통합 `dc59347261e41ca232f2b50dc41dabb0d08e6c63`; `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-03-9bd64c13/integration-verification.json` (SHA-256 `0f58bb5d1cc0939c90fd664c2bd4cbd63086d38bcee75328626641212d087c16`). 경제 평가는 `not-evaluated`; R1 전체 완료는 아닙니다.
 - [ ] **R1-04** split와 dividend actions를 가격·현금흐름 모델에 연결해 배당 중복 계상을 0으로 만들고 분할 전후 자산을 보존하며, 자료가 없을 때의 missing 정책을 결과에 남긴다.
 - [ ] **R1-05** 부분 이력·identity 불일치·상장폐지 심볼은 원인과 coverage로 기록하며 조용히 삭제하지 않는다.
 - [ ] **R1-06** safe provider response fixture로 정상, null, quota, auth, parse, coverage 실패를 서로 다른 오류로 회귀 검증한다.
