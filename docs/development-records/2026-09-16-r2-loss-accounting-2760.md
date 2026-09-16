@@ -1,5 +1,46 @@
 # R2-01 독립 손실 회계 진단
 
+## 2026-09-16 복구 기록
+
+- 상태: 복구 구현 완료, 독립 검토 대기 (R2-01 경제 평가는 계속 차단)
+- 기준/통합: `d7ee8ca` / 없음
+- 범위: 기존 네 대상 파일만 수정했습니다. 전략, collector, shared model,
+  registry, runner, DB, 서비스와 주문 계층은 읽기 전용으로 보존했습니다.
+
+## 복구 변경과 결정
+
+- 명시적 거래 입력은 side·currency·유한 수치·양수 수량/가격·비음수 비용과
+  ISO `YYYY-MM-DD` 체결일을 검증하고, KRW/USD 혼합과 시장 통화 불일치를
+  거부합니다. 중복 식별에는 fee·tax·currency를 포함합니다.
+- 모든 공개 계산은 호출자 Decimal context와 독립적인 precision 50,
+  `ROUND_HALF_EVEN` context에서 실행합니다. 순손익은 realized/unrealized/
+  dividend 등 실제 의존 항목이 모두 available일 때만 available입니다.
+- 매수 tax를 포함한 체결 비용과 완전한 배당 evidence가 있는 배당 현금흐름을
+  계산 현금에 반영합니다. 배당 evidence가 없거나 불완전한 현금은
+  `unavailable`로 유지하고 진단값과 관측 `cash_krw`를 구분합니다.
+- 저장 결과의 equity 날짜 중복·역순과 fill session 누락을 거부합니다. 별도
+  주문 상태/timestamp를 체결로 추정하지 않으며 독립 달력 근거 없이 날짜 간격을
+  결측으로 판정하지 않습니다.
+
+## 복구 검증
+
+- `backend/.venv/bin/python -m pytest tests/test_market_loss_accounting.py -q` —
+  PASS, 18 tests.
+- `backend/.venv/bin/python -m ruff check jusik/market_loss_accounting.py
+  tests/test_market_loss_accounting.py` — PASS.
+- `backend/.venv/bin/python -m ruff format --check
+  jusik/market_loss_accounting.py tests/test_market_loss_accounting.py` — PASS.
+- `backend/.venv/bin/python -m mypy --strict jusik/market_loss_accounting.py
+  tests/test_market_loss_accounting.py` — PASS, 2 source files.
+- 파일럿 진단은 원본 manifest의 source SHA가 일치함을 확인한 뒤 focused gate
+  완료 후 1회 실행했습니다. 252 sessions·106 trades이며 `blocked`이고, 완전한
+  realized/unrealized/dividend evidence가 없어 경제 평가는 `not-evaluated`로
+  유지됩니다. 결과 JSON과 명령별 원문 로그·wall/CPU 기록은 저장소 밖 audit에
+  보관합니다.
+
+- 이전 구현의 실패·fixture 초과 기록은 삭제하거나 재작성하지 않고 아래의
+  역사 기록으로 보존합니다.
+
 - 상태: 차단 (기술 slice 구현·검증 완료, 필수 회계 evidence 부족)
 - 기록 시각: 2026-09-16T06:23:38Z
 - 작업 slug: `r2-loss-accounting-2760`

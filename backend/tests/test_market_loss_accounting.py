@@ -1,10 +1,20 @@
-from decimal import Decimal
+from datetime import date
+from decimal import ROUND_DOWN, Context, Decimal, getcontext, localcontext
+from typing import cast
 
 import pytest
 
+from jusik.market_history_models import (
+    MarketReadiness,
+    MarketResearchRequest,
+    MarketResearchResult,
+    ResearchEquityPoint,
+    ResearchTrade,
+)
 from jusik.market_loss_accounting import (
     LossTrade,
     PositionLot,
+    account_result,
     account_trades,
     fx_decomposition,
     slippage_amount,
@@ -19,6 +29,7 @@ def _trade(
     fee: str = "0",
     tax: str = "0",
     session: str = "2026-01-01",
+    currency: str = "KRW",
 ) -> LossTrade:
     return LossTrade(
         symbol="AAA",
@@ -28,6 +39,7 @@ def _trade(
         fill_price=Decimal(fill_price),
         fee=Decimal(fee),
         tax=Decimal(tax),
+        currency=currency,  # type: ignore[arg-type]
         session=session,
     )
 
@@ -72,6 +84,19 @@ def test_slippage_is_side_aware_and_fill_net_does_not_charge_twice() -> None:
     assert report.raw_net_pnl.value == report.fill_net_pnl.value
 
 
+def test_missing_final_mark_blocks_net_pnl_even_with_complete_history() -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100")],
+        final_marks={},
+        complete_history=True,
+        dividends={},
+        dividend_evidence_complete=True,
+    )
+    assert report.status == "blocked"
+    assert not report.raw_unrealized_pnl.available
+    assert not report.raw_net_pnl.available
+
+
 @pytest.mark.parametrize(
     ("dividends", "complete", "available", "value"),
     [
@@ -106,6 +131,19 @@ def test_fx_identity_assigns_cross_term_to_fx() -> None:
     assert decomposition.fx_effect == Decimal("2000")
     assert decomposition.cross_effect == Decimal("200")
     assert decomposition.total_change == Decimal("15200")
+
+
+def test_decimal_operations_ignore_caller_precision_rounding_and_traps() -> None:
+    trade = _trade("buy", "3", "100", "100.123456789")
+    with localcontext(Context(prec=4, rounding=ROUND_DOWN, traps=[])):
+        assert slippage_amount(trade) == Decimal("0.370370367")
+        assert fx_decomposition(
+            Decimal("100.123456789"),
+            Decimal("100.123456790"),
+            Decimal("1300.123456789"),
+            Decimal("1300.123456790"),
+        ).total_change == Decimal("0.000001400246913579")
+    assert getcontext().prec == 28
 
 
 def test_unavailable_history_keeps_diagnostic_fifo_value() -> None:
@@ -154,6 +192,8 @@ def test_zero_negative_missing_duplicate_and_rounding_boundaries() -> None:
             [_trade("buy", "1", "-1", "100")],
             final_marks={},
         )
+    with pytest.raises(ValueError, match="final marks"):
+        account_trades([], final_marks={"AAA": Decimal("0")})
     with pytest.raises(ValueError, match="costs"):
         account_trades(
             [_trade("buy", "1", "100", "100", fee="-1")],
@@ -185,9 +225,50 @@ def test_zero_negative_missing_duplicate_and_rounding_boundaries() -> None:
     assert missing.raw_unrealized_pnl.value is None
 
 
-def test_initial_position_and_timezone_free_session_are_supported() -> None:
+def test_currency_side_and_iso_session_validation_is_explicit() -> None:
+    with pytest.raises(ValueError, match="side"):
+        account_trades([_trade("hold", "1", "100", "100")], final_marks={})
+    with pytest.raises(ValueError, match="ISO date"):
+        account_trades(
+            [_trade("buy", "1", "100", "100", session="2026/01/01")],
+            final_marks={},
+        )
+    with pytest.raises(ValueError, match="mixed"):
+        account_trades(
+            [
+                _trade("buy", "1", "100", "100", currency="KRW"),
+                _trade("buy", "1", "100", "100", currency="USD"),
+            ],
+            final_marks={},
+        )
+
+
+def test_buy_tax_and_complete_dividend_are_in_cash() -> None:
     report = account_trades(
-        [_trade("sell", "1", "110", "108.9")],
+        [_trade("buy", "1", "100", "100", tax="2")],
+        final_marks={"AAA": Decimal("100")},
+        complete_history=True,
+        dividends={"AAA": Decimal("3")},
+        dividend_evidence_complete=True,
+        initial_cash=Decimal("1000"),
+    )
+    assert report.cash_balance.value == Decimal("901")
+
+
+def test_cash_is_unavailable_when_dividend_evidence_is_incomplete() -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100")],
+        final_marks={"AAA": Decimal("100")},
+        initial_cash=Decimal("1000"),
+        dividends={"AAA": Decimal("3")},
+    )
+    assert not report.cash_balance.available
+    assert report.cash_balance.diagnostic_value == Decimal("900")
+
+
+def test_initial_position_with_iso_session_is_supported() -> None:
+    report = account_trades(
+        [_trade("sell", "1", "110", "108.9", session="2026-01-02")],
         final_marks={},
         initial_positions=[PositionLot("AAA", Decimal("1"), Decimal("100"))],
         complete_history=True,
@@ -196,3 +277,66 @@ def test_initial_position_and_timezone_free_session_are_supported() -> None:
     )
     assert report.raw_realized_pnl.value == Decimal("10")
     assert report.raw_unrealized_pnl.value == Decimal("0")
+
+
+def test_duplicate_key_includes_costs_and_currency() -> None:
+    report = account_trades(
+        [
+            _trade("buy", "1", "100", "100", fee="1"),
+            _trade("buy", "1", "100", "100", fee="2"),
+        ],
+        final_marks={"AAA": Decimal("100")},
+    )
+    assert report.trade_count == 2
+
+
+def _equity(session: date) -> ResearchEquityPoint:
+    return ResearchEquityPoint(
+        session=session,
+        cash_krw=Decimal("1000"),
+        cash_native=Decimal("1"),
+        invested_krw=Decimal("0"),
+        nav_krw=Decimal("1000"),
+        fx_krw_per_usd=Decimal("1000"),
+        drawdown_pct=Decimal("0"),
+    )
+
+
+def _saved_result(
+    equity: tuple[ResearchEquityPoint, ...],
+    trades: tuple[ResearchTrade, ...] = (),
+) -> MarketResearchResult:
+    return MarketResearchResult.model_construct(
+        market="US",
+        request=cast(MarketResearchRequest, object()),
+        readiness=cast(MarketReadiness, object()),
+        status="approximate",
+        completeness="approximate",
+        equity=equity,
+        trades=trades,
+        research_grade="strict",
+    )
+
+
+def test_saved_equity_is_unique_chronological_and_contains_fill_sessions() -> None:
+    with pytest.raises(ValueError, match="unique and chronological"):
+        account_result(
+            _saved_result((_equity(date(2026, 1, 2)), _equity(date(2026, 1, 2))))
+        )
+    trade = ResearchTrade(
+        session=date(2026, 1, 1),
+        signal_session=date(2026, 1, 1),
+        fill_session=date(2026, 1, 3),
+        symbol="AAA",
+        side="buy",
+        quantity=1,
+        currency="USD",
+        market_open=Decimal("100"),
+        fill_price=Decimal("100"),
+        notional=Decimal("100"),
+        fee=Decimal("0"),
+        tax=Decimal("0"),
+        rationale="fixture",
+    )
+    with pytest.raises(ValueError, match="absent from equity"):
+        account_result(_saved_result((_equity(date(2026, 1, 1)),), (trade,)))
