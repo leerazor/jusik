@@ -2,17 +2,20 @@
 
 ## runner-autorecovery
 
-- 상태: 구현 중. 사용자 자율재개 승인에 따라 roadmap queue cap과 환경/계획/범위 내 구현 오류의 명시적 bounded 자동 복구를 구현합니다.
+- 상태: 구현·독립 검토·local main 통합 완료. 사용자 자율재개 승인에 따라 roadmap queue cap과 환경/계획/범위 내 구현 오류의 명시적 bounded 자동 복구를 반영했습니다.
 - 담당: Astra 감독, loss_recovery_explore 조사·loss_recovery_plan 계획, cost_recovery_code Luna 단일 구현, Terra 독립 검토.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-runner-autorecovery` / `fix/runner-autorecovery`; 기준 main7658714 이후 이 등록커밋, 통합 localmain.
 - 범위: runner/store 및 필요시 planning/roadmap, 기존test3파일, 운영문서·새개발기록. 거래/전략/자료판정 불변. 자동runner paused/service inactive.
 - 검증: fakechild/임시DB focused tests, Ruff/format/strictmypy, 독립review와 main통합검사. 실제주문·자동Codex를 테스트로 실행하지 않습니다.
 - 계획·증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-runner-autorecovery/PLAN.md`. 기본off설정으로 호환성을 유지하고 설치roadmap만 감독이 활성화합니다.
 - 완료: 원자적cap/2회backoff복구/격리cache 검증, 증거/SHA/handoff저장·worktree정리 후 실제R2-06재개확인. 미복구자료부족은 자동성공처리하지 않습니다.
+- 결과: 구현 `14eb01f`, stale planner 보완 `2dc1c7d`, 병합 직전 main `2a3e431`, 통합 `360f6af0339df5abfcc83b31ee46caf20c7b5a59`. worker/main focused pytest 95개, Ruff check/format, strict mypy 통과. 독립 review 중요 지적 해소.
+- 정리: 소스·초기/최종 patch·환경·검증 로그와 SHA를 외부 audit에 보존한 뒤 이번 worktree와 branch만 정상 제거했습니다. 기존 R2-06 worktree는 보존했습니다.
+- 기록: `docs/development-records/2026-09-17-runner-autorecovery.md`, 루트 `HANDOFF.md`. 기록 저장 후 설치 roadmap 설정을 활성화하고 R2-06을 재시도합니다. 실제 실행 여부는 audit의 `activation.json`과 현재 상태를 확인합니다.
 
 ## r2-counterfactual-fe92
 
-- 상태: 이전 시도 차단 유지; 감독이 전용 backend/.venv와 잠금 의존성을 준비해 pytest/Ruff/mypy 실행을 확인했습니다. runner 수정 통합 후 같은task를 명시적으로 재시도합니다. 기존 실패·worktree/branch는 보존. task `roadmap-r2-06-v1`, attempt `fe9204931f0b446f8dfba0d21473f39d`; 최초 시도이며 기존 소유 branch/worktree가 없습니다.
+- 상태: 이전 시도 차단 이력 유지; 감독이 기존 소유 worktree에 전용 backend/.venv와 잠금 의존성을 준비해 pytest/Ruff/mypy 실행을 확인했습니다. runner 수정 통합 후 같은 task를 명시적으로 재시도합니다. 기존 실패·worktree/branch는 보존합니다. task `roadmap-r2-06-v1`, 이전 attempt `fe9204931f0b446f8dfba0d21473f39d`. 최신 시도는 runner-autorecovery audit의 activation.json과 현재 runner 상태를 확인합니다.
 - 목표: 이미 준비된 기준 및 단일 가정 변경 결과를 오프라인 비교하고 비용·배당·FX의 비가산 차이를 별도 기록합니다. 전체 R2-06은 실제 acceptance 전 미체크 유지합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r2-counterfactual-fe92`, `feat/r2-counterfactual-fe92`; 요청 기준 `d0d029996ea993216036385962c9153968ea61fe`, 등록 커밋에서 분기하고 local main에 통합합니다.
