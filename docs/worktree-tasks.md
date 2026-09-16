@@ -33,18 +33,19 @@
 
 ## r3-market-ui-fixture
 
-- 상태: 재개 준비; roleless model-only explore pre/post PASS, bounded plan 진행.
-- task/attempt: roadmap-r3-03-v1 / 67c55654c8b445a88b92a0b7b715a4d3; 이전 0530ece4 차단 이력 보존.
-- 목표: R0 계약 기반 목록·상세의 loading, empty, partial/insufficient, error 기술 검증. R3-03만 대상.
-- 담당: Astra 감독; r303_explore Luna, r303_plan Astra; 구현 r303_code Luna 한 명과 독립 Terra review 예정.
-- 워크트리·브랜치: /home/kwl/projects/jusik-r3-market-ui-fixture-67c5 / fix/r3-market-ui-fixture-67c5 (생성 예정).
-- 조사 기준: main 2c3f1662201b474bf3b9f0952d5a1213907efc89; 사용자 기준95e12a6 이후 frontend 변경 없음.
-- 범위: 시장 연구 frontend/lib/page·기존 contract 검사·합성 격리 harness·관련 문서. 다른 checklist와 backend 계약 보존.
-- 검증: 최대8개 고정 응답 묶음, desktop/mobile 각1회 및 수정 후1회; CPU30분 이내. npm contract/lint/typecheck/build 및 main 통합 검사.
-- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-03-67c55654; loopback ports8373/3373, DB 없음.
-- 안전: 수집·replay·후보탐색·GPU·PAPER/live·주문·운영 DB·서비스·설정·remote 변경 없음.
-- 개발 기록: docs/development-records/2026-09-15-r3-market-ui-fixture.md; 완료 시 갱신.
-- handoff: audit/HANDOFF.md 예정. 기존 root HANDOFF.md와 다른 worktree 보존.
+- 상태: blocked; Terra 코드 검토 PASS / 전체 acceptance FAIL / 통합 HOLD.
+- task/attempt: roadmap-r3-03-v1 / 67c55654c8b445a88b92a0b7b715a4d3; 이전0530ece4 routing 차단은 해소.
+- 목표: R0 기반 목록·상세 loading/empty/partial/error 기술 검증. R3-03 checkbox 미변경.
+- 담당: r303_explore Luna, r303_plan Astra, r303_code Luna, r303_review Terra; model-only pre/post PASS.
+- 워크트리·브랜치: /home/kwl/projects/jusik-r3-market-ui-fixture-67c5 / fix/r3-market-ui-fixture-67c5; 미병합 보존.
+- 기준/결과: 084746fee1c99f5127a37c13e0eb6943acdfba78 / 8d5a59073086269cda48980a6542ae8c03d35ca7. main 구현 통합·통합검사 없음.
+- 변경: readiness 부분 실패 보존, runs 오류/빈 상태 분리, queued/running·loading 안내, frontend contract 검사·문서.
+- 차단: insufficient 목록 assertion2건 실패, pending-loading 증거·harness 원본·CPU/원문 npm 로그 부재. npm4검사 PASS는 worker 보고이며 전체 tests_passed=false.
+- 일탈: 합성 엔진1회 실행 및 수정 후 추가 browser matrix. 더 실행하지 않고 실패와 한계 보존.
+- 출력: /home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-03-67c55654; 격리ports8373/3373, 임시 fixture DB. 종료 상태는 process-check.json.
+- 보존: backend·mandate·패키지198파일과 모든 checkbox·기존 root HANDOFF.md 동일. 운영 DB·PAPER/live·주문·서비스·설정·remote 변경 없음.
+- 개발 기록: docs/development-records/2026-09-15-r3-market-ui-fixture.md.
+- handoff: audit/HANDOFF.md. 재개 시 정적 fixture/harness·실행 한도를 먼저 고정한 후 부족한 증거를 확보. 경제 평가 not-evaluated.
 
 ## r2-dd-chronology
 
