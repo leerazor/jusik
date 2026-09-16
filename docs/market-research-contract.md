@@ -70,6 +70,10 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 
 `metrics.coverage_sessions`는 실제 평가에 사용된 거래 세션 수입니다. `metrics.expected_candidate_bars`, `usable_candidate_bars`, `excluded_nonheld_bars`, `missing_held_bars`는 후보·보유 bar coverage를 설명하는 계산 지표입니다. 원시 snapshot 행 수(universe, bars, fx)와 서로 대체할 수 없으며, 원시 행 수는 private audit 또는 source 상태에서 보존합니다. 결측·부분 자료·기업행동 제한은 `limitations`와 `missing_ranges`에 남기고 유리한 기간으로 바꾸지 않습니다.
 
+상세 화면은 이 다섯 metrics를 `ready`, `insufficient`, `approximate` 결과 모두에서 표시합니다. metric이 없거나 유한한 정수가 아니면 `확인 불가`로 표시하고, `usable_candidate_bars / expected_candidate_bars` 비율은 유효한 정수 분자와 양의 정수 분모가 있을 때만 계산합니다. 분모가 0이거나 값이 malformed이면 계산하지 않으며, 분자가 분모보다 크다고 해서 100%로 clamp하지 않습니다. 명시된 0은 0으로 표시합니다. `missing_held_bars`는 영향받은 세션·종목 수가 아니며, 마지막 가격의 시점·경과일은 `limitations`의 개별 문구에서만 해석합니다.
+
+상세 화면은 `result.status`, `result.completeness`, `readiness.ready`를 서로 다른 필드로 표시하고, `readiness.capabilities`의 각 `status`, `detail`, `missing_ranges`와 missing range 항목 수를 함께 보여 줍니다. range 항목 수는 배열의 길이이며 영향받은 세션·종목 수를 뜻하지 않습니다. capability가 비어 있으면 세부 상태를 확인 불가로 표시합니다. `research_grade`와 `readiness.simulated`는 각각 자료 등급과 자료 성격으로 독립 표시합니다. status·completeness·readiness에서 도출한 잠정 문구는 화면 설명용이며 자료 확정성이나 최종 승격 가능성을 추정하지 않습니다.
+
 ## 실행 상태와 오류
 
 | run 상태 | `result` | `error` | 의미 |
@@ -82,6 +86,8 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 상세 화면에서 `result=null`인 `queued`는 `실행 대기 중`, `running`은 `연구 실행 중`으로 구분하고, `failed`는 원시 오류를 노출하지 않는 `연구 실행 실패`, `completed`·`legacy`는 `결과 확인 불가`로 표시합니다. 저장된 결과가 없는 상태를 성공이나 검증 완료로 해석하지 않습니다.
 
 결과 `status`는 `ready`, `insufficient`, `approximate`이고 `completeness`는 `complete`, `incomplete`, `approximate`입니다. strict 결과의 평가 gate는 `completed` + `ready` + `complete`, approximate 결과의 gate는 `completed` + `approximate` + `approximate`입니다. `research_grade`는 request·readiness·result에서 같아야 하며, `simulated`는 자료의 실행 성격을 별도로 나타냅니다.
+
+상세 화면은 결과가 존재할 때 실행 request, 결과 request, 결과, readiness의 `research_grade`가 모두 같은지 먼저 확인합니다. 하나라도 다르면 등급·metrics·성공 상태를 표시하지 않고 `결과 확인 불가`로 표시합니다. `result=null`인 대기·실행 중·실패·legacy 흐름은 기존 상태별 안내를 유지합니다.
 
 `status=insufficient`인 결과는 `metrics`, `trades`, `equity`가 비어 있을 수 있으며 이를 0 수익이나 성공으로 해석하지 않습니다. `status=approximate`는 무료 근사 자료의 한계를 뜻하고 strict PIT 검증 또는 PAPER·실거래 승인으로 승격되지 않습니다.
 
