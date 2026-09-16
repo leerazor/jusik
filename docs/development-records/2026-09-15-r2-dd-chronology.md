@@ -2,7 +2,8 @@
 
 - 상태: 차단 (기술 slice 구현 완료, 필수 증거 부족)
 - Task/attempt: `roadmap-r2-04-v1` / `cb6b03f16c8f438cb4c55cfc551fe089`
-- 기준 main: `80cf90abb3fc01006c5ec758bc652e3e8089f967`; 구현 branch commit은 이 기록의 Git log를 기준으로 한다.
+- 조사 기준 main: `80cf90abb3fc01006c5ec758bc652e3e8089f967`; worktree 기준 `7d913183a8c04312a33b910319976a828795398e`.
+- 구현 최종: `a74bf7ebc41d15ccbadadc91cf5375603f696008`; Astra local main 통합: `274a48c22175287280c4113c9351de3f3b9d9c38`.
 
 ## 확인과 결정
 
@@ -24,7 +25,11 @@ R0 완료 체크와 근거 문서를 확인했습니다. 동결 manifest에 연�
 - `.venv-verify/bin/python -m mypy --strict jusik/drawdown_chronology.py tests/test_drawdown_chronology.py` from `backend/` — PASS.
 - 저장 파일럿 CLI 진단 — `blocked`; stored DD/MDD·세션별 DD·최종 latch boolean match, 전체 `stored_match=false`, 최초 latch 날짜/release chronology unavailable, 5/5 liquidation `observed`, calendar/benchmark/future evidence `unavailable`.
 - round2 exact commands/logs: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-04-cb6b03f1/verification-round2.txt` (task interpreter `backend/.venv-verify/bin/python`, package versions pytest 9.1.1 / mypy 1.20.2 / Ruff 0.16.6).
-- 전체 backend test suite, frontend 검사, 독립 Terra review, local main 통합 검사는 이 worktree 범위 밖으로 실행하지 않았습니다.
+- Terra 독립 검토: 1차 지적 수정 및 최종 PASS. 최종 pytest6·Ruff check/format·strict mypy와 main 통합 검사도 PASS입니다.
+- main에서 같은 저장 파일럿 CLI 결과를 다시 생성해 worktree 결과와 byte 일치를 확인했습니다. 원본 및 보존 입력8개 SHA, 전략/shared model/R1 collector/roadmap/root HANDOFF 무변경 확인도 PASS입니다.
+- 전체 backend suite는 신규 전략 실행 금지 및 독립 모듈 범위를 지키기 위해 실행하지 않았습니다. frontend 변경이 없어 frontend 검사는 해당 없습니다.
+- 1차 검증에서 추가 inline fixture가 실행되어 고정 fixture 한도 증명이 실패했습니다. 검토에서 발견 후 최종 테스트를 기존12개 fixture에서 파생하도록 수정했습니다. 이 초기 일탈은 `REVIEW-2.md`에 보존합니다.
+- 격리 환경 준비 중 offline cache 부족과 작업 디렉터리 경로 오류가 있었습니다. 기존 설치 도구를 별도 `.venv-verify`로 복사한 뒤 정확한 cwd에서 재검증했습니다. 최종 명령/로그는 `verification-round3.txt`, main 근거는 `integration-verification.json`입니다.
 
 ## 영향과 재개
 
@@ -32,4 +37,10 @@ R0 완료 체크와 근거 문서를 확인했습니다. 동결 manifest에 연�
 
 Audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-04-cb6b03f1`. 입력 manifest는 `input-verification.json`, 실행 결과는 `drawdown-chronology-pilot.json`, round2 명령·로그는 `verification-round2.txt`에 보존했습니다. 파일럿 CLI는 동결 dataset bars를 읽었고 새 자료를 수집하거나 실행을 생성하지 않았습니다.
 
-다음 시작은 독립 review에서 모듈·fixture·저장 report의 chronology와 blocked gate를 확인하는 것입니다. 이후 부모 agent가 branch commit SHA를 기록하고 review·main 통합·통합 검사를 별도로 수행합니다. 이 기록은 기술 slice의 구현을 뜻하지만 R2-04 경제적 성공·승격·완료를 뜻하지 않습니다.
+관측된 최초 latch는 2026-02-12, 보유5종목의 청산은 2026-02-13입니다. 원본 결과에는 보유 bar 결측이 없어 결측 이후 전략 pending 의도의 실제 지속성을 이 파일럿으로 증명할 수 없습니다. 독립 fixture가 기대 chronology를 검증하지만 전략 수정·실행 증명은 별도 판단으로 남깁니다.
+
+사용자 설명 문서는 `docs/drawdown-chronology.md`에 갱신했습니다. API/설정/운영 계약과 UI 변경은 없습니다. 기존 파일럿 진단이며 새 성과 비교가 아니므로 웹 성과 catalog 공개는 해당 없습니다. 원본 approximate 등급을 승격하지 않습니다.
+
+이 slice는 기술 산출물 통합·검사까지 마쳤지만 필수 증거 부족으로 task는 blocked이며 R2-04 checkbox는 변경하지 않습니다. 재개 시 audit/HANDOFF.md와 최종 보고서를 먼저 읽고 독립 달력·벤치마크·미래 관찰·저장 latch 시점/해제 이력의 확보 가능성을 판단해야 합니다. 신규 연구나 전략 변경은 이번 범위에서 수행하지 않습니다.
+
+증거64파일의 SHA와 handoff를 durable audit에 보존·검증한 뒤 이번 merged worktree와 branch만 정리했습니다. 기존 root HANDOFF.md와 다른 worktree는 보존합니다.
