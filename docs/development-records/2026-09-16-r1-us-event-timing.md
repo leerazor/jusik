@@ -22,7 +22,7 @@
 
 ## 검증
 
-- `backend/.venv/bin/python -m pytest -q tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 이전 focused 실행은 112개 통과였습니다. 부모의 `885a7bc` 검증은 130개 통과·1개 실패였고, delayed-event fixture의 후보 evidence가 비어 있던 문제를 이 후속 commit에서 보완했습니다. 현재 3개 fixture scenario를 추가하여 재검증 예상은 133개입니다. 신규 event fixture는 총 15개이며 모두 최대 300 sessions·8 symbols 범위 안의 결정적 입력입니다(난수 추출 없음, seed 0 계약).
+- `backend/.venv/bin/python -m pytest -q tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 이전 focused 실행은 112개 통과였습니다. 부모의 `bca348b` 검증은 130개 통과·1개 실패였고, delayed-event fixture의 후보 evidence가 비어 있던 문제를 후속 commit에서 보완했습니다. 현재 3개 fixture scenario를 추가하여 재검증 예상은 133개입니다. 신규 event fixture는 총 15개이며 모두 최대 300 sessions·8 symbols 범위 안의 결정적 입력입니다(난수 추출 없음, seed 0 계약).
 
 부모 실행 focused pytest 파일: `tests/test_market_data_collector.py`, `tests/test_market_history_approximate.py`, `tests/test_market_research.py`.
 

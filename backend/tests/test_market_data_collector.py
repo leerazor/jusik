@@ -767,14 +767,16 @@ class _USEventTransport(_CausalUSCheckpointTransport):
         occurrence: datetime,
         observed: object,
         symbols: tuple[str, ...] = ("AAA",),
+        include_event: bool = True,
     ) -> None:
         super().__init__(symbols, initial_symbols=symbols)
         self.occurrence = occurrence
         self.observed = observed
+        self.include_event = include_event
 
     async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
         payload = json.loads(await super().yahoo(symbol, start, end))
-        if symbol == "AAA":
+        if symbol == "AAA" and self.include_event:
             payload["chart"]["result"][0]["events"] = {
                 "splits": {
                     str(int(self.occurrence.timestamp())): {
@@ -1291,8 +1293,51 @@ def test_us_collector_delayed_event_isolates_rows_from_observed_date(
     assert result.dataset.events[0].observed_at == datetime(
         2026, 1, 5, 22, tzinfo=UTC
     )
-    assert all(row.session < date(2026, 1, 6) for row in result.dataset.universe)
-    assert all(row.session < date(2026, 1, 6) for row in result.dataset.bars)
+    assert all(
+        row.session < date(2026, 1, 6)
+        for row in result.dataset.universe
+        if row.symbol == "AAA"
+    )
+    assert all(
+        row.session < date(2026, 1, 6)
+        for row in result.dataset.bars
+        if row.symbol == "AAA"
+    )
+    assert any(
+        row.session >= date(2026, 1, 6)
+        for row in result.dataset.universe
+        if row.symbol == "BBB"
+    )
+    assert any(
+        row.session >= date(2026, 1, 6)
+        for row in result.dataset.bars
+        if row.symbol == "BBB"
+    )
+    baseline_collected = asyncio.run(
+        FreeMarketDataCollector(
+            _USEventTransport(
+                datetime(2026, 1, 5, 14, 30, tzinfo=UTC),
+                "2026-01-05T22:00:00+00:00",
+                symbols=("AAA", "BBB"),
+                include_event=False,
+            )
+        ).collect(
+            market="US",
+            start=date(2025, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=2,
+        )
+    )
+    cutoff = date(2026, 1, 6)
+    assert tuple(
+        (row.symbol, row.session)
+        for row in result.dataset.universe
+        if row.session < cutoff
+    ) == tuple(
+        (row.symbol, row.session)
+        for row in baseline_collected.dataset.universe
+        if row.session < cutoff
+    )
     prepared = tmp_path / "delayed-event.json"
     prepared.write_bytes(result.dataset.model_dump_json().encode())
     request = MarketResearchRequest(
@@ -1311,7 +1356,7 @@ def test_us_collector_delayed_event_isolates_rows_from_observed_date(
     )
     baseline_prepared = tmp_path / "delayed-event-baseline.json"
     baseline_prepared.write_bytes(
-        result.dataset.model_copy(update={"events": ()}).model_dump_json().encode()
+        baseline_collected.dataset.model_dump_json().encode()
     )
     baseline_source = ApproximateMarketHistorySource(
         JsonApproximateProvider(baseline_prepared)
