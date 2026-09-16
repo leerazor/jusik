@@ -1,9 +1,9 @@
 # 미국 사건 시점 보존
 
-- 상태: 차단
+- 상태: 기술 slice 통합·검증 완료; 실제 관측 시각 증거가 없어 R1-02 전체 체크는 보류
 - 기록 시각: 2026-09-16T03:00:00Z
 - 작업 slug: `r1-us-event-timing`
-- 기준/통합: `4385610` / 없음
+- 기준/통합: `4385610` / `bcf34c5b16889cc209f249173cc935cce39681a6`
 - 범위: 미국 approximate collector의 Yahoo 사건 시점과 준비 dataset 계약. 기존 R1-01 membership hash, KR collector, 전략과 `snapshot.actions`는 보존합니다.
 
 ## 변경과 결정
@@ -44,3 +44,9 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-02-c42012de`; manifest: `code-manifest.json`.
 - 남은 작업·차단 조건: 실제 Yahoo 관측 시각의 역사적 근거가 없어 R1-02 전체 checklist는 차단 상태입니다. 독립 review와 전체 검증이 필요합니다.
 - 다음 시작: 부모가 허용한 focused pytest 3개 파일, Ruff·mypy·frozen replay를 실행하고 독립 review를 진행합니다.
+
+## 중단 이후 복구 검증 (2026-09-16T03:20:35.446235+00:00)
+
+기존 clean worktree의 최종 구현 `03b837f`를 재사용했습니다. 새 독립 Terra 정적 검토는 P1/P2 없음이며, 감독이 지정한 collector/history/replay 세 파일만 검사했습니다. 병합 전과 main 통합 후 pytest134, 관련 Ruff, configured mypy2 source가 통과했습니다. 동결 R0 replay는 모든 비교 항목이 일치했습니다. broad suite와 PAPER/forward 검사는 재실행하지 않았으며 이전 경계 일탈 기록은 보존합니다.
+
+증거는 `/home/kwl/.local/share/jusik/portfolio-audit/20260916-roadmap-recovery/r102-premerge`와 `r102-integrated`에 있으며, 이전 자동 시도의 codex_exit 원인은 종료 코드가 저장되지 않아 확정하지 않았습니다. 기술 slice가 통합됐어도 실제 Yahoo 관측 시각의 과거 근거를 만들거나 R1-02 checkbox를 체크하지 않습니다. 다음 작업은 해당 자료 한계를 유지한 후속 데이터 품질 개발입니다.

@@ -15,11 +15,12 @@
 
 ## r1-us-event-timing
 
-- 상태: 복구 검증; 기존 구현03b837f와 최종 focused pytest134 통과 기록 보존, 감독 검증·독립 검토 후 기술 slice 통합 예정. 원래 실행은 codex_exit으로 종료했습니다.
+- 상태: 기술 slice 복구·통합 완료(bcf34c5); 실제 Yahoo 과거 관측 시각 근거가 없어 R1-02 checkbox는 보류. 이전 codex_exit 이력 보존.
 - task/attempt: roadmap-r1-02-v1 / c42012de115c4aed8c8d9348002a47ff
 - 목표: 미국 사건 발생일·관측 시점을 보존하고 미래 사건에 대한 과거 선택 불변성을 검증합니다.
+- 복구 검증: main pytest134·Ruff·configured mypy2 source·동결 replay all=true·Terra review PASS. 증거 /home/kwl/.local/share/jusik/portfolio-audit/20260916-roadmap-recovery/r102-integrated.
 - 담당: Astra 감독, r102_explore Luna, r102_plan Astra, r102_code Luna 단일 구현 소유자와 Terra 독립 검토 예정
-- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-event-timing-c420 / fix/r1-us-event-timing-c420 (생성 완료, 작업 기준4385610)
+- 워크트리·브랜치: /home/kwl/projects/jusik-r1-us-event-timing-c420 / fix/r1-us-event-timing-c420 (복구 통합·증거 보관 후 정리 완료, 작업 기준4385610)
 - 조사 기준 main: 3cd2393c38106be0f24859f226e05cad26765b41; 통합 대상 local main
 - 범위: 미국 collector·approximate 사건 계약과 회귀 fixture, 관련 계약 문서·개발 기록. KR·전략·배당/분할 회계·R2-04·R3-03 제외
 - 입력: R0 완료 계약·동결 artifact4개 SHA 일치, R1-01 membership, 현재 mandate JSON
