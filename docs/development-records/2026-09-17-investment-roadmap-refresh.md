@@ -1,6 +1,6 @@
 # 투자 개발 로드맵 갱신
 
-- 상태: 중단
+- 상태: 검증
 - 기록 시각: 2026-09-17T03:09:16Z
 - 작업 slug: `investment-roadmap-refresh`
 - 기준/통합: `995797a3faf0bd9a44321a93db2de3991d1d1144` / 없음 (main 통합 전)
@@ -22,6 +22,7 @@
 - `git diff --check` — 통과.
 - `PYTHONPATH=backend backend/.venv/bin/python -m pytest backend/tests/test_development_runner_roadmap.py` — 16 passed.
 - `PYTHONPATH=backend backend/.venv/bin/python`의 `load_roadmap` — 40개 항목 로드, pre/post ID·체크 상태 40개 일치.
+- `PYTHONPATH=backend backend/.venv/bin/python -m jusik.development_runner status --config /home/kwl/.config/jusik/roadmap-development-runner.json` — `paused=true`; `jusik-development-runner.service` `inactive`; timer `inactive`·`disabled` 확인.
 - Markdown 로컬 링크 검증 — 변경 파일 4개에서 8개 검사, 누락 0개.
 - 변경 파일 allowlist — 정확히 허용된 네 경로만 변경.
 - 실행하지 않은 검사: backend/frontend 코드 검사와 연구 실행은 문서 작업 범위 밖이며, live/PAPER 주문은 실행하지 않았습니다.
@@ -33,5 +34,5 @@
 ## 증거와 재개
 
 - audit: 없음; manifest: 없음; hash: 실행 JSON의 기존 문서 SHA만 보존.
-- 남은 작업·차단 조건: 운영자가 승인 설계를 JSON에 반영하고 이 문서의 SHA를 동기화하기 전까지 신규 research dispatch가 차단됩니다.
+- 남은 작업·차단 조건: main 통합 전 상태입니다. 운영자가 승인 설계를 JSON에 반영하고 SHA를 동기화하며 dispatcher fail-closed 구현·검증을 별도 완료하기 전까지 service/timer enable·resume 및 신규 research dispatch를 금지합니다. 최종 untouched OOS go/no-go 실패도 stress/PAPER 차단 조건입니다.
 - 다음 시작: JSON과 문서 SHA를 대조한 뒤 로드맵 parser·문서 링크·체크리스트 보존 검사를 다시 실행합니다.

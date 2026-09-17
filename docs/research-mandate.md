@@ -1,6 +1,6 @@
 # 현재 연구 운용 조건
 
-자동 연구는 함께 추적하는 `research-mandate.json`의 실행 범위를 따릅니다. 현재 JSON SHA-256은 `f097fde7874063314e21f8be884b19d2e8cea3e1272c47e5991300c546548a7d`입니다. 이 JSON에 기록된 조건은 기존 실행과 재생의 historical/current execution scope이며, 과거 실험이 고정한 원본과 계약은 해당 실험의 근거로 보존하고 새 조건을 적용했다고 과거 결과를 다시 해석하지 않습니다. 새 설계는 [투자 개발 로드맵](investment-development-roadmap.md)의 canonical execution plan에서 별도로 승인되며, 이 문서의 상태가 `일시 중지 — 운영자 보류`인 동안 신규 dispatch를 금지합니다. 새 연구를 dispatch하기 전 운영자는 승인 설계를 `research-mandate.json`에 반영하고 이 문서에 기록된 SHA-256을 다시 계산해 JSON과 문서가 일치하는지 확인해야 합니다. 불일치·누락·미확인은 dispatch 차단 사유입니다.
+자동 연구는 함께 추적하는 `research-mandate.json`의 실행 범위를 따릅니다. 현재 JSON SHA-256은 `f097fde7874063314e21f8be884b19d2e8cea3e1272c47e5991300c546548a7d`입니다. 이 JSON에 기록된 조건은 기존 실행과 재생의 historical/current execution scope이며, 과거 실험이 고정한 원본과 계약은 해당 실험의 근거로 보존하고 새 조건을 적용했다고 과거 결과를 다시 해석하지 않습니다. 새 설계는 [투자 개발 로드맵](investment-development-roadmap.md)의 canonical execution plan에서 별도로 승인되며, 이 문서만으로 dispatch가 기술적으로 차단되지는 않습니다. 현재 runner paused·service inactive·timer inactive/disabled 운영 게이트를 유지합니다. 새 연구를 dispatch하기 전 운영자는 승인 설계를 `research-mandate.json`에 반영하고 이 문서에 기록된 SHA-256을 다시 계산해 JSON과 문서가 일치하는지 확인해야 하며, dispatcher fail-closed 구현·검증도 별도로 완료해야 합니다. 그 전에는 operator가 enable/resume하지 않습니다. 불일치·누락·미확인은 dispatch 차단 사유입니다.
 
 - 초기 자본은1억원이며 중간 인출은 없습니다. 총 포트폴리오 평가액의 운용 중 최고점(초기 자본 포함) 대비 최대 낙폭 목표는20%입니다. 레버리지 상품 배분은20% 범위에서 연구합니다.
 - 불필요한 현금 대기를 줄이고 투자 비중을 높이는 후보를 비교합니다. 현금 비중만 낮추기 위해 낙폭·집중·레버리지 위험을 무시하지 않습니다. 구체적인 투자 비중과 변동성 목표는 사용자 고정값이 아니라 사전등록된 연구 후보입니다.
