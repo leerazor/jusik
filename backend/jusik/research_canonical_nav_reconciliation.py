@@ -14,15 +14,10 @@ import json
 import re
 import sys
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Final
 
 from .market_performance_cost_evidence import (
-    CANONICAL_CACHE_DIR,
-    CANONICAL_DATASET_PATH,
     CANONICAL_DATASET_SHA256,
-    CANONICAL_EVIDENCE_PATH,
-    CANONICAL_MANIFEST_PATH,
     CANONICAL_MANIFEST_SHA256,
     CANONICAL_RUN_PATH,
     CostEvidenceError,
@@ -49,11 +44,6 @@ from .research_nav_reconciliation import (
 
 SCHEMA: Final = "r2-canonical-nav-evidence-connection/v1"
 EXPECTED_TRADE_COUNT: Final = 106
-MAX_COST_MANIFEST_BYTES: Final = 1 * 1024 * 1024
-MAX_COST_DATASET_BYTES: Final = 10 * 1024 * 1024
-MAX_COST_EVIDENCE_BYTES: Final = 1 * 1024 * 1024
-MAX_COST_CACHE_MANIFEST_BYTES: Final = 2 * 1024 * 1024
-MAX_COST_CACHE_RAW_BYTES: Final = 2 * 1024 * 1024
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -89,57 +79,6 @@ def _read_canonical_run() -> tuple[bytes, str]:
     if actual != CANONICAL_RUN_SHA256:
         raise CanonicalNavError("source_sha_mismatch")
     return raw, actual
-
-
-def _bounded_artifact(path: object, limit: int, too_large_code: str) -> bytes:
-    if not isinstance(path, Path):
-        raise CanonicalNavError("artifact_path_invalid")
-    try:
-        with path.open("rb") as source:
-            raw = source.read(limit + 1)
-    except OSError:
-        raise CanonicalNavError("artifact_unavailable") from None
-    if len(raw) > limit:
-        raise CanonicalNavError(too_large_code)
-    return raw
-
-
-def _bound_cost_chain() -> None:
-    """Bound every file the legacy cost verifier can reach before its call."""
-
-    _bounded_artifact(
-        CANONICAL_MANIFEST_PATH,
-        MAX_COST_MANIFEST_BYTES,
-        "manifest_too_large",
-    )
-    _bounded_artifact(
-        CANONICAL_DATASET_PATH,
-        MAX_COST_DATASET_BYTES,
-        "dataset_too_large",
-    )
-    _bounded_artifact(
-        CANONICAL_EVIDENCE_PATH,
-        MAX_COST_EVIDENCE_BYTES,
-        "evidence_too_large",
-    )
-    _bounded_artifact(
-        CANONICAL_CACHE_DIR / "manifest.json",
-        MAX_COST_CACHE_MANIFEST_BYTES,
-        "cache_manifest_too_large",
-    )
-    _bounded_artifact(
-        CANONICAL_CACHE_DIR / "completed.json",
-        MAX_COST_CACHE_MANIFEST_BYTES,
-        "cache_completion_too_large",
-    )
-    try:
-        raw_paths = list((CANONICAL_CACHE_DIR / "raw").glob("*.bin"))
-    except OSError:
-        raise CanonicalNavError("cache_raw_unavailable") from None
-    if len(raw_paths) > 84:
-        raise CanonicalNavError("cache_raw_count_mismatch")
-    for path in raw_paths:
-        _bounded_artifact(path, MAX_COST_CACHE_RAW_BYTES, "cache_raw_too_large")
 
 
 def _mapping(value: object, code: str) -> Mapping[str, object]:
@@ -311,7 +250,6 @@ def reconcile_canonical_nav() -> dict[str, object]:
         session_facts = verify_canonical_session_evidence()
     except ReadinessInputError as exc:
         raise CanonicalNavError(exc.code) from None
-    _bound_cost_chain()
     try:
         cost_facts = verify_canonical_cost_evidence()
     except CostEvidenceError as exc:

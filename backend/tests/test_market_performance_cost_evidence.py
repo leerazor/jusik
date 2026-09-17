@@ -44,7 +44,11 @@ def _ledger_seam(
     dataset: dict[str, object],
 ) -> None:
     def fake_read(
-        path: Path, expected_sha: str, *, limit: int = evidence.MAX_SOURCE_BYTES
+        path: Path,
+        expected_sha: str,
+        *,
+        limit: int = evidence.MAX_SOURCE_BYTES,
+        too_large_code: str = "source_too_large",
     ) -> tuple[dict[str, object], bytes]:
         if path == evidence.CANONICAL_RUN_PATH:
             return run, b""
@@ -86,6 +90,68 @@ def test_evidence_bytes_and_verifier_source_are_mutually_pinned(
         evidence.verify_canonical_cost_evidence(evidence_path=copy)
 
 
+@pytest.mark.parametrize(
+    ("limit", "error"),
+    [
+        (evidence.MAX_MANIFEST_BYTES, "manifest_too_large"),
+        (evidence.MAX_DATASET_BYTES, "dataset_too_large"),
+        (evidence.MAX_EVIDENCE_BYTES, "evidence_too_large"),
+    ],
+)
+def test_cost_read_replacement_is_bounded_before_hash_and_parse(
+    tmp_path: Path, limit: int, error: str
+) -> None:
+    path = tmp_path / "replacement.json"
+    path.write_bytes(b"{}")
+    _ = path.stat()
+    path.write_bytes(b"x" * (limit + 1))
+    with pytest.raises(evidence.CostEvidenceError, match=error):
+        evidence._read(
+            path,
+            "0" * 64,
+            limit=limit,
+            too_large_code=error,
+        )
+
+
+def test_cost_verifier_bounds_replaced_manifest_before_parse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    replacement = tmp_path / "manifest.json"
+    replacement.write_bytes(b"{}")
+    _ = replacement.stat()
+    replacement.write_bytes(b"x" * (evidence.MAX_MANIFEST_BYTES + 1))
+    monkeypatch.setattr(evidence, "CANONICAL_MANIFEST_PATH", replacement)
+    with pytest.raises(evidence.CostEvidenceError, match="manifest_too_large"):
+        evidence.verify_canonical_cost_evidence(manifest_path=replacement)
+
+
+def test_cost_verifier_bounds_replaced_dataset_before_parse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    replacement = tmp_path / "dataset.json"
+    replacement.write_bytes(b"{}")
+    _ = replacement.stat()
+    replacement.write_bytes(b"x" * (evidence.MAX_DATASET_BYTES + 1))
+    monkeypatch.setattr(evidence, "CANONICAL_DATASET_PATH", replacement)
+    monkeypatch.setattr(evidence, "_verify_manifest", lambda *args: None)
+    monkeypatch.setattr(evidence, "_verify_cache", lambda *args: {})
+    with pytest.raises(evidence.CostEvidenceError, match="dataset_too_large"):
+        evidence.verify_canonical_cost_evidence(dataset_path=replacement)
+
+
+def test_cost_verifier_bounds_replaced_evidence_before_parse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    replacement = tmp_path / "evidence.json"
+    replacement.write_bytes(b"{}")
+    _ = replacement.stat()
+    replacement.write_bytes(b"x" * (evidence.MAX_EVIDENCE_BYTES + 1))
+    monkeypatch.setattr(evidence, "CANONICAL_EVIDENCE_PATH", replacement)
+    with pytest.raises(evidence.CostEvidenceError, match="evidence_too_large"):
+        evidence.verify_canonical_cost_evidence(evidence_path=replacement)
+
+
 def test_canonical_artifact_paths_reject_symlinked_run(tmp_path: Path) -> None:
     link = tmp_path / "run.json"
     link.symlink_to(evidence.CANONICAL_RUN_PATH)
@@ -122,7 +188,11 @@ def test_pure_ledger_guards_reach_fee_and_mark_reconciliation(
     run["result"]["trades"][0]["fee"] = "0"
 
     def fake_read(
-        path: Path, expected_sha: str, *, limit: int = evidence.MAX_SOURCE_BYTES
+        path: Path,
+        expected_sha: str,
+        *,
+        limit: int = evidence.MAX_SOURCE_BYTES,
+        too_large_code: str = "source_too_large",
     ):
         if path == evidence.CANONICAL_RUN_PATH:
             return run, b""
@@ -142,27 +212,26 @@ def test_pure_ledger_guards_reach_fee_and_mark_reconciliation(
     run = copy.deepcopy(run)
     run["result"]["trades"][0]["fee"] = "0.54049946193716521838790"
     run["result"]["equity"][0]["nav_krw"] = "1"
-    monkeypatch.setattr(
-        evidence,
-        "_read",
-        lambda path, expected_sha, *, limit=evidence.MAX_SOURCE_BYTES: (
+
+    def replacement_read(
+        path: Path,
+        expected_sha: str,
+        *,
+        limit: int = evidence.MAX_SOURCE_BYTES,
+        too_large_code: str = "source_too_large",
+    ) -> tuple[dict[str, object], bytes]:
+        return (
             run if path == evidence.CANONICAL_RUN_PATH else dataset,
             b"",
-        ),
-    )
+        )
+
+    monkeypatch.setattr(evidence, "_read", replacement_read)
     with pytest.raises(evidence.CostEvidenceError, match="nav_reconciliation_mismatch"):
         evidence.verify_canonical_cost_evidence()
 
     dataset = json.loads(evidence.CANONICAL_DATASET_PATH.read_text(encoding="utf-8"))
     dataset["fx"][0]["spread_rate"] = "0.01"
-    monkeypatch.setattr(
-        evidence,
-        "_read",
-        lambda path, expected_sha, *, limit=evidence.MAX_SOURCE_BYTES: (
-            run if path == evidence.CANONICAL_RUN_PATH else dataset,
-            b"",
-        ),
-    )
+    monkeypatch.setattr(evidence, "_read", replacement_read)
     with pytest.raises(evidence.CostEvidenceError, match="nav_reconciliation_mismatch"):
         evidence.verify_canonical_cost_evidence()
 
@@ -187,6 +256,18 @@ def test_cache_raw_size_and_hash_are_checked_after_path_validation(
     raw_file.write_bytes(raw_file.read_bytes() + b"tamper")
     monkeypatch.setattr(evidence, "CANONICAL_CACHE_DIR", cache_copy)
     with pytest.raises(evidence.CostEvidenceError, match="cache_raw_mismatch"):
+        evidence._verify_cache(cache_copy)
+
+
+def test_cache_raw_replacement_cannot_escape_bound(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache_copy = tmp_path / "cache"
+    shutil.copytree(evidence.CANONICAL_CACHE_DIR, cache_copy)
+    raw_file = next((cache_copy / "raw").iterdir())
+    raw_file.write_bytes(b"x" * (evidence.MAX_CACHE_RAW_BYTES + 1))
+    monkeypatch.setattr(evidence, "CANONICAL_CACHE_DIR", cache_copy)
+    with pytest.raises(evidence.CostEvidenceError, match="cache_raw_too_large"):
         evidence._verify_cache(cache_copy)
 
 

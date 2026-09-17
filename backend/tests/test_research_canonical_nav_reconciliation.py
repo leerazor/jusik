@@ -88,23 +88,6 @@ def test_session_verifier_rejects_symlink_and_hardlink_aliases(
 
 
 @pytest.mark.parametrize(
-    ("limit", "error"),
-    [
-        (adapter.MAX_COST_MANIFEST_BYTES, "manifest_too_large"),
-        (adapter.MAX_COST_DATASET_BYTES, "dataset_too_large"),
-        (adapter.MAX_COST_EVIDENCE_BYTES, "evidence_too_large"),
-    ],
-)
-def test_adapter_artifact_reads_are_bounded(
-    tmp_path: Path, limit: int, error: str
-) -> None:
-    path = tmp_path / "oversized.json"
-    path.write_bytes(b"x" * (limit + 1))
-    with pytest.raises(adapter.CanonicalNavError, match=error):
-        adapter._bounded_artifact(path, limit, error)
-
-
-@pytest.mark.parametrize(
     "mutation",
     [
         lambda facts: facts.__setitem__("run_sha256", "0" * 64),

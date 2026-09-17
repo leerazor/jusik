@@ -11,7 +11,8 @@
 - `market_performance_readiness.py`에 `verify_canonical_session_evidence()`를 추가했습니다. 고정 run/evidence/manifest/calendar와 기간을 기존 private schema·canonical·session validator로 검증하고 identity/session facts만 반환합니다. whole readiness, policy, cost verifier를 호출하지 않습니다.
 - `research_canonical_nav_reconciliation.py`는 고정 canonical run bytes를 bounded-read하고 `reconcile_json_bytes()`를 실행한 뒤 session verifier와 modeled-cost verifier를 각각 한 번 호출합니다. run·manifest·period·ordered 252 sessions·dataset SHA·106 trades·252 NAV를 fail-closed로 교차 결속합니다.
 - envelope의 `residual`은 기존 행·잔차·실패 날짜를 보존합니다. `canonical.coverage`에서만 calendar·independent modeled accounting·KRW NAV source를 verified로 표시하고, `projection.digest`와 `accounting.digest`를 분리해 기록합니다.
-- review 보완으로 session verifier의 symlink/path alias를 거부하고, readiness manifest/calendar와 adapter가 접근하는 cost-chain 파일을 artifact별 `limit+1` bounded-read로 선검사했습니다. 기존 self-pinned cost verifier와 canonical evidence bytes는 재작성하지 않았습니다.
+- review 보완으로 session verifier의 symlink/path alias를 거부하고, readiness manifest/calendar와 실제 cost verifier가 접근하는 파일을 artifact별 `limit+1` bounded-read로 검증합니다. self-pinned cost verifier source SHA와 cost evidence의 verifier-source/evidence SHA를 기존 chain 절차로 갱신했으며 canonical run/result bytes는 변경하지 않았습니다.
+- 갱신된 cost verifier source SHA는 `8aa7f94a8fce5b61a1c44642be7d0e6cd7f0c9475ac765a7dd1b2d3780ba73c7`, tracked cost evidence bytes SHA는 `865de8fe7273996d856d9b60e2c72a0e9dae20eb989e16cfe5495b31c66d945a`입니다. evidence의 run·dataset·manifest·cache artifact SHA와 accounting digest는 재계산 없이 보존했습니다.
 
 ## 문서·계약 영향
 
@@ -21,11 +22,13 @@
 
 ## 검증
 
-- `python -m py_compile backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py` — 통과.
-- `/tmp/jusik-r2-canonical-venv/bin/python -m pytest backend/tests/test_market_performance_readiness.py backend/tests/test_research_nav_reconciliation.py backend/tests/test_research_canonical_nav_reconciliation.py -q` — 71 passed.
-- `/tmp/jusik-r2-canonical-venv/bin/python -m ruff check backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py backend/tests/test_research_canonical_nav_reconciliation.py` 및 동일 경로 `ruff format --check` — 통과.
-- `/tmp/jusik-r2-canonical-venv/bin/python -m mypy --config-file backend/pyproject.toml backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py` — 통과.
+- `python -m py_compile backend/jusik/market_performance_cost_evidence.py backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py` — 통과.
+- `/tmp/jusik-r2-canonical-venv/bin/python -m pytest backend/tests/test_market_performance_cost_evidence.py backend/tests/test_market_performance_readiness.py backend/tests/test_research_nav_reconciliation.py backend/tests/test_research_canonical_nav_reconciliation.py -q` — 109 passed.
+- `/tmp/jusik-r2-canonical-venv/bin/python -m ruff check backend/jusik/market_performance_cost_evidence.py backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py backend/tests/test_market_performance_cost_evidence.py backend/tests/test_research_canonical_nav_reconciliation.py` 및 동일 경로 `ruff format --check` — 통과.
+- `/tmp/jusik-r2-canonical-venv/bin/python -m mypy --config-file backend/pyproject.toml backend/jusik/market_performance_cost_evidence.py backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py` — 통과.
+- `PYTHONPATH=backend /tmp/jusik-r2-canonical-venv/bin/python -m jusik.market_performance_cost_evidence --canonical` — exit 0, verified 106 trades / 252 sessions / zero residual.
 - `PYTHONPATH=backend /tmp/jusik-r2-canonical-venv/bin/python -m jusik.research_canonical_nav_reconciliation` — exit 0, 252 rows, 106 trades, residual failure 0.
+- `_canonical_source_hash()` 및 tracked evidence bytes가 각각 `VERIFIER_SOURCE_SHA256` / `CANONICAL_EVIDENCE_SHA256`와 일치 — 통과.
 - `git diff --check` — 통과.
 
 ## 안전·운영 상태
