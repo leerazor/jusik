@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -10,6 +11,8 @@ from typing import Any
 import pytest
 
 from jusik.research_mandate_governance import (
+    GOVERNANCE_MANDATE_HASH_KEY,
+    LEGACY_MANDATE_JSON_SHA256,
     MandateGovernanceError,
     validate_dispatch_gate,
     validate_mandate,
@@ -56,8 +59,8 @@ def _refresh_json_hash(repo: Path) -> None:
     lines = []
     for line in hashes.read_text(encoding="utf-8").splitlines():
         lines.append(
-            f"docs/research-mandate.json {digest}"
-            if line.startswith("docs/research-mandate.json ")
+            f"docs/research-mandate.json#governance {digest}"
+            if line.startswith("docs/research-mandate.json#governance ")
             else line
         )
     hashes.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -69,6 +72,11 @@ def test_validates_additive_governance_and_disabled_dispatch(tmp_path: Path) -> 
     result = validate_mandate(repo)
 
     assert result.dispatch_enabled is False
+    manifest = (repo / "docs" / "market-research-mandate.sha256").read_text(
+        encoding="utf-8"
+    )
+    assert f"docs/research-mandate.json {LEGACY_MANDATE_JSON_SHA256}" in manifest
+    assert f"{GOVERNANCE_MANDATE_HASH_KEY} {result.digest}" in manifest
     with pytest.raises(MandateGovernanceError, match="disabled"):
         validate_dispatch_gate(repo)
 
@@ -134,3 +142,46 @@ def test_rejects_non_regular_markdown_file(tmp_path: Path) -> None:
 
     with pytest.raises(MandateGovernanceError, match="invalid"):
         validate_mandate(repo)
+
+
+def test_rejects_parent_symlink(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    original_docs = repo / "docs"
+    moved_docs = repo / "docs-real"
+    original_docs.rename(moved_docs)
+    original_docs.symlink_to(moved_docs, target_is_directory=True)
+
+    with pytest.raises(MandateGovernanceError, match="invalid"):
+        validate_mandate(repo)
+
+
+def test_reads_original_inode_when_path_is_replaced_after_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path)
+    target = repo / "docs" / "research-mandate.json"
+    replacement = repo / "replacement.json"
+    replacement.write_bytes(
+        target.read_bytes().replace(b'"recorded_at"', b'"recorded_at_x"')
+    )
+    original_open = os.open
+    replaced = False
+
+    def open_and_replace(
+        path: str | bytes | os.PathLike[str],
+        flags: int,
+        mode: int = 0o777,
+        *,
+        dir_fd: int | None = None,
+    ) -> int:
+        nonlocal replaced
+        descriptor = original_open(path, flags, mode, dir_fd=dir_fd)
+        if path == "research-mandate.json" and dir_fd is not None and not replaced:
+            os.replace(replacement, target)
+            replaced = True
+        return descriptor
+
+    monkeypatch.setattr(os, "open", open_and_replace)
+
+    assert validate_mandate(repo).digest
+    assert replaced

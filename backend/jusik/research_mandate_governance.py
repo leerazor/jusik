@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import stat
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +16,10 @@ MANDATE_JSON = Path("docs/research-mandate.json")
 MANDATE_MARKDOWN = Path("docs/research-mandate.md")
 MANDATE_HASHES = Path("docs/market-research-mandate.sha256")
 ROADMAP_MARKDOWN = Path("docs/investment-development-roadmap.md")
+LEGACY_MANDATE_JSON_SHA256 = (
+    "f097fde7874063314e21f8be884b19d2e8cea3e1272c47e5991300c546548a7d"
+)
+GOVERNANCE_MANDATE_HASH_KEY = "docs/research-mandate.json#governance"
 
 GOVERNANCE_SCHEMA_VERSION = 1
 GOVERNANCE_POLICY_VERSION = "investment-roadmap-governance-v1"
@@ -74,24 +80,40 @@ def _invalid() -> MandateGovernanceError:
     return MandateGovernanceError("investment roadmap governance is invalid")
 
 
-def _regular_file(repo: Path, relative: Path) -> Path:
-    path = repo / relative
+def _read_regular_file(repo: Path, relative: Path) -> bytes:
+    """Read one tracked file through no-follow directory and file descriptors."""
+    parts = relative.parts
+    if relative.is_absolute() or not parts or ".." in parts:
+        raise _invalid()
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+    directory_flags = flags | os.O_DIRECTORY
+    directory_fd: int | None = None
+    file_fd: int | None = None
     try:
-        if path.is_symlink() or not path.is_file():
+        directory_fd = os.open(repo, directory_flags)
+        for component in parts[:-1]:
+            next_fd = os.open(component, directory_flags, dir_fd=directory_fd)
+            os.close(directory_fd)
+            directory_fd = next_fd
+        file_fd = os.open(parts[-1], flags, dir_fd=directory_fd)
+        if not stat.S_ISREG(os.fstat(file_fd).st_mode):
             raise _invalid()
-        path.stat()
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(file_fd, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks)
     except (OSError, ValueError) as exc:
         if isinstance(exc, MandateGovernanceError):
             raise
         raise _invalid() from exc
-    return path
-
-
-def _read(path: Path) -> bytes:
-    try:
-        return path.read_bytes()
-    except (OSError, ValueError) as exc:
-        raise _invalid() from exc
+    finally:
+        if file_fd is not None:
+            os.close(file_fd)
+        if directory_fd is not None:
+            os.close(directory_fd)
 
 
 def _strict_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -217,11 +239,10 @@ def _validate_governance(value: Any) -> ValidatedMandate:
 
 
 def _manifest(repo: Path) -> dict[str, str]:
-    path = _regular_file(repo, MANDATE_HASHES)
     entries: dict[str, str] = {}
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeError) as exc:
+        lines = _read_regular_file(repo, MANDATE_HASHES).decode("utf-8").splitlines()
+    except UnicodeError as exc:
         raise _invalid() from exc
     for line in lines:
         if not line:
@@ -240,27 +261,26 @@ def _document_digest(repo: Path, relative: Path, entries: Mapping[str, str]) -> 
     expected = entries.get(key)
     if expected is None:
         raise _invalid()
-    path = _regular_file(repo, relative)
-    if hashlib.sha256(_read(path)).hexdigest() != expected:
+    if hashlib.sha256(_read_regular_file(repo, relative)).hexdigest() != expected:
         raise _invalid()
 
 
 def validate_mandate(repo: Path) -> ValidatedMandate:
     """Validate all tracked governance inputs and return only safe metadata."""
-    mandate_path = _regular_file(repo, MANDATE_JSON)
-    raw = _read(mandate_path)
+    raw = _read_regular_file(repo, MANDATE_JSON)
     mandate = _json_object(raw)
     governance = _validate_governance(mandate.get("governance"))
 
     entries = _manifest(repo)
     digest = hashlib.sha256(raw).hexdigest()
-    if entries.get(MANDATE_JSON.as_posix()) != digest:
+    if entries.get(GOVERNANCE_MANDATE_HASH_KEY) != digest:
+        raise _invalid()
+    if entries.get(MANDATE_JSON.as_posix()) != LEGACY_MANDATE_JSON_SHA256:
         raise _invalid()
 
-    markdown_path = _regular_file(repo, MANDATE_MARKDOWN)
     try:
-        markdown = markdown_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
+        markdown = _read_regular_file(repo, MANDATE_MARKDOWN).decode("utf-8")
+    except UnicodeError as exc:
         raise _invalid() from exc
     markers = _MANDATE_MARKER_RE.findall(markdown)
     if len(markers) != 1 or markers[0] != digest:
@@ -268,10 +288,9 @@ def validate_mandate(repo: Path) -> ValidatedMandate:
     _document_digest(repo, MANDATE_MARKDOWN, entries)
     _document_digest(repo, Path("docs/market-research.md"), entries)
 
-    roadmap_path = _regular_file(repo, ROADMAP_MARKDOWN)
     try:
-        roadmap = roadmap_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as exc:
+        roadmap = _read_regular_file(repo, ROADMAP_MARKDOWN).decode("utf-8")
+    except UnicodeError as exc:
         raise _invalid() from exc
     policy_markers = _ROADMAP_POLICY_RE.findall(roadmap)
     if len(policy_markers) != 1 or policy_markers[0] != governance.policy_version:

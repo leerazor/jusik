@@ -86,7 +86,7 @@ planner dispatch는 별도 `jusik-planning` named profile을 사용합니다. pr
 
 ## 투자 개발 로드맵 전용 scope
 
-투자 로드맵 자동 실행은 기존 연구 실행기의 state와 큐를 공유하지 않는 `scope="investment-roadmap"` 전용 설정으로 초기화합니다. 기존 `~/.config/jusik/development-runner.json`과 state는 그대로 보존하며, 전용 설정 예시는 `roadmap-automation` audit에 남깁니다. 이 scope의 `run-once`와 `resume`은 versioned mandate governance, JSON·Markdown·checksum·canonical `policy_version`을 모두 검증하고, `dispatch_enabled=false`이거나 문서가 stale이면 SQLite claim·attempt·launch 전에 고정된 blocked 상태로 종료합니다. 일반 `research` scope의 기존 mandate 호환 경로는 변경하지 않습니다.
+투자 로드맵 자동 실행은 기존 연구 실행기의 state와 큐를 공유하지 않는 `scope="investment-roadmap"` 전용 설정으로 초기화합니다. 기존 `~/.config/jusik/development-runner.json`과 state는 그대로 보존하며, 전용 설정 예시는 `roadmap-automation` audit에 남깁니다. 이 scope의 `run-once`와 `resume`은 versioned mandate governance, JSON·Markdown·checksum·canonical `policy_version`을 모두 검증하고, `dispatch_enabled=false`이거나 문서가 stale이면 SQLite claim·attempt·launch 전에 고정된 blocked 상태로 종료합니다. historical execution identity는 기존 policy consumer가 계속 사용하고, roadmap dispatch만 `#governance` digest projection을 사용합니다. 일반 `research` scope의 기존 mandate 호환 경로는 변경하지 않습니다.
 
 ```bash
 cd /home/kwl/projects/jusik/backend

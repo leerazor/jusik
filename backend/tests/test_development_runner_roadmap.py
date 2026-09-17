@@ -7,7 +7,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from jusik.development_runner import RunnerConfig, _bind_scope, init_config, run_once
+from jusik.development_runner import (
+    RunnerConfig,
+    _bind_scope,
+    init_config,
+    main,
+    resume_runner,
+    run_once,
+    save_config,
+)
 from jusik.development_runner_roadmap import (
     ROADMAP_SCOPE,
     RoadmapError,
@@ -48,6 +56,12 @@ def _repo(tmp_path: Path, roadmap_content: str | None = None) -> Path:
     (docs / "research-mandate.json").write_bytes(
         (source / "research-mandate.json").read_bytes()
     )
+    for name in (
+        "research-mandate.md",
+        "market-research-mandate.sha256",
+        "market-research.md",
+    ):
+        (docs / name).write_bytes((source / name).read_bytes())
     return repo
 
 
@@ -258,3 +272,42 @@ def test_missing_or_malformed_roadmap_fails_closed(tmp_path: Path) -> None:
 def test_runner_config_keeps_research_default(tmp_path: Path) -> None:
     config = RunnerConfig(repo=tmp_path)
     assert config.scope == "research"
+
+
+def test_disabled_governance_blocks_run_resume_and_cli_without_state_mutation(
+    tmp_path: Path,
+) -> None:
+    repo = _tracked_repo(tmp_path)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+        planning_enabled=True,
+        cooldown_seconds=0,
+    )
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    store.enqueue("roadmap-r1-01-v1", "r1-01", "seed")
+    store.pause()
+    before_tasks = store.tasks()
+    before_attempt = store.active_attempt()
+    before_launches = store.launch_count("2099-01-01")
+    config_path = tmp_path / "config.json"
+    save_config(config, config_path)
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    assert result.reason == "investment roadmap governance is disabled"
+    assert store.tasks() == before_tasks
+    assert store.active_attempt() == before_attempt
+    assert store.launch_count("2099-01-01") == before_launches
+    assert not (config.state_dir / "attempts").exists()
+    with pytest.raises(ValueError, match="disabled"):
+        resume_runner(config)
+    assert store.is_paused()
+    assert main(["resume", "--config", str(config_path)]) == 2
+    assert store.is_paused()
