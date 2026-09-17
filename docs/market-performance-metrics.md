@@ -169,3 +169,18 @@ PYTHONPATH=backend python -m jusik.market_performance_readiness \
 근거가 없거나 SHA·기간·달력·관측 날짜가 바뀌면 fail-closed 오류가 발생한다. 이
 근거는 세션 날짜 완전성만 증명하며 strict point-in-time 자료, 가격·기업행사·FX·비용,
 NAV timestamp 또는 경제적 성과를 증명하지 않는다.
+
+## 독립 modeled accounting 입력 근거
+
+전진 time-evidence bundle을 metrics 입력으로 해석하기 전
+`research_portfolio_accounting_evidence.py`가 등록 manifest와 여섯 artifact를
+읽기 전용으로 검증하고, 고정된 171개 체결과 1,172개 NAV를 독립 원장으로
+재구성합니다. 원장은 초기 KRW 현금에서 시작해 공식 calendar/sidecar ordering,
+warmup raw bars, split/fractional cash-in-lieu, as-of FX, raw marks와 modeled
+fee/slippage/FX spread를 검증하고 stored cash/equity와 sidecar NAV를 행마다
+대조합니다. Decimal precision은 40이며 `1e-24 KRW`보다 큰 residual은 실패입니다.
+
+보고서는 `portfolio-modeled-accounting-evidence/v1`, `approximate`,
+`economic_evaluation=not-evaluated`를 유지합니다. 이 대사는 모델 비용의 기술적
+일관성만 다루며 법정 비용·세금·배당·실제 FX·입출금·PIT 자료와 경제적 성과를
+주장하지 않습니다. daily sampling, 지표 계산, readiness 승격은 별도 단계입니다.
