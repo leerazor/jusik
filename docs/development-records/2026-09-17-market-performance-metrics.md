@@ -22,11 +22,12 @@
 
 ## 검증
 
-- `backend/.venv/bin/python -m pytest backend/tests/test_market_performance_metrics.py -q` — 12 passed
+- `backend/.venv/bin/python -m pytest backend/tests/test_market_performance_metrics.py -q` — 20 passed
 - `backend/.venv/bin/python -m ruff check backend/jusik/market_performance_metrics.py backend/tests/test_market_performance_metrics.py` — 통과
 - `backend/.venv/bin/python -m ruff format --check backend/jusik/market_performance_metrics.py backend/tests/test_market_performance_metrics.py` — 통과
 - `backend/.venv/bin/python -m mypy backend/jusik/market_performance_metrics.py backend/tests/test_market_performance_metrics.py` — 통과
-- 기존 loss-accounting/counterfactual compatibility tests — 다음 통합 담당자가 main에서 실행할 검사로 남김
+- `backend/.venv/bin/python -m pytest backend/tests/test_market_loss_accounting.py backend/tests/test_market_counterfactual_comparison.py -q` — 52 passed
+- focused+compatibility pytest 합계 — 72 passed
 
 ## 안전·운영 상태
 
@@ -35,5 +36,5 @@
 ## 증거와 재개
 
 - audit: 없음; manifest: 없음; hash: 소스 envelope의 SHA 검증 테스트에 포함
-- 남은 작업·차단 조건: main 통합 전 기존 loss-accounting/counterfactual 회귀 검증 필요
+- 남은 작업·차단 조건: 없음. 부모 agent의 main 통합 및 최종 회귀 검증 대기
 - 다음 시작: 부모 agent가 변경을 검토하고 main 통합 전 전체 focused 회귀를 실행한다.

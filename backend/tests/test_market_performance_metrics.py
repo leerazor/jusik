@@ -76,6 +76,48 @@ def test_independent_oracle_for_positive_and_negative_metrics() -> None:
         assert abs(_required_value(report, "calmar") - oracle_calmar) < Decimal("1e-43")
 
 
+def test_sharpe_oracle_uses_daily_risk_free_sample_variance_and_annualization() -> None:
+    annual_risk_free = Decimal("0.252")
+    report = evaluate_performance(
+        _input(
+            nav=("102", "105", "103"),
+            days=(0, 1, 2),
+            risk_free=RiskFreeEvidence(annual_risk_free, ("policy",)),
+        )
+    )
+    with localcontext(Context(prec=50)):
+        daily_risk_free = (
+            (Decimal(1) + annual_risk_free).ln() / Decimal(252)
+        ).exp() - Decimal(1)
+        simple_returns = (
+            Decimal(102) / Decimal(100) - Decimal(1),
+            Decimal(105) / Decimal(102) - Decimal(1),
+            Decimal(103) / Decimal(105) - Decimal(1),
+        )
+        excess_returns = tuple(item - daily_risk_free for item in simple_returns)
+        mean_excess = sum(excess_returns, Decimal(0)) / Decimal(3)
+        sample_variance = sum(
+            (item - mean_excess) ** 2 for item in excess_returns
+        ) / Decimal(2)
+        oracle_sharpe = mean_excess / sample_variance.sqrt() * Decimal(252).sqrt()
+        assert abs(_required_value(report, "sharpe") - oracle_sharpe) < Decimal("1e-45")
+
+
+def test_cagr_oracle_uses_anchor_to_final_elapsed_days() -> None:
+    report = evaluate_performance(
+        _input(nav=("100", "105"), days=(0, 2), anchor_day=-2)
+    )
+    with localcontext(Context(prec=50)):
+        anchor_oracle = (
+            Decimal("1.05").ln() * Decimal(365) / Decimal(4)
+        ).exp() - Decimal(1)
+        first_nav_oracle = (
+            Decimal("1.05").ln() * Decimal(365) / Decimal(2)
+        ).exp() - Decimal(1)
+        assert abs(_required_value(report, "cagr") - anchor_oracle) < Decimal("1e-44")
+        assert abs(_required_value(report, "cagr") - first_nav_oracle) > Decimal("1")
+
+
 def test_initial_loss_is_included_in_drawdown_and_filter_boundary_is_exact() -> None:
     report = evaluate_performance(_input(nav=("80", "100"), days=(0, 1)))
     assert _value(report, "maximum_drawdown") == Decimal("0.2")
