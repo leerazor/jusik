@@ -11,6 +11,32 @@ import pytest
 
 import jusik.market_performance_cost_evidence as evidence
 
+_FORBIDDEN_COMPONENTS = ("strategy", "collector", "replay", "broker")
+
+
+def _assert_no_forbidden_dependencies(source: str) -> None:
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names = [alias.name for alias in node.names]
+            assert not any(
+                component in name
+                for name in names
+                for component in _FORBIDDEN_COMPONENTS
+            )
+        elif isinstance(node, ast.ImportFrom):
+            names = [node.module or ""] + [alias.name for alias in node.names]
+            assert not any(
+                component in name
+                for name in names
+                for component in _FORBIDDEN_COMPONENTS
+            )
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name):
+                assert node.func.id not in {"__import__", "eval", "exec"}
+            if isinstance(node.func, ast.Attribute):
+                assert node.func.attr not in {"import_module", "__import__"}
+
 
 def _ledger_seam(
     monkeypatch: pytest.MonkeyPatch,
@@ -293,12 +319,18 @@ def test_active_close_mark_mutation_reaches_nav_reconciliation(
         evidence.verify_canonical_cost_evidence()
 
 
+@pytest.mark.parametrize("mutation", ["tax_zero", "tax_double", "fee_double"])
 def test_sell_tax_omission_and_double_charge_residual_are_rejected(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, mutation: str
 ) -> None:
     run, dataset = _canonical_payloads()
     trade = next(item for item in run["result"]["trades"] if item["side"] == "sell")
-    trade["tax"] = "0"
+    if mutation == "tax_zero":
+        trade["tax"] = "0"
+    elif mutation == "tax_double":
+        trade["tax"] = str(Decimal(trade["tax"]) * 2)
+    else:
+        trade["fee"] = str(Decimal(trade["fee"]) * 2)
     _ledger_seam(monkeypatch, run, dataset)
     with pytest.raises(
         evidence.CostEvidenceError, match="trade_recomputation_mismatch"
@@ -306,24 +338,33 @@ def test_sell_tax_omission_and_double_charge_residual_are_rejected(
         evidence.verify_canonical_cost_evidence()
 
 
+def test_duplicate_trade_row_cannot_replace_identity_silently(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run, dataset = _canonical_payloads()
+    trades = run["result"]["trades"]
+    assert isinstance(trades, list)
+    trades.append(copy.deepcopy(trades[-1]))
+    _ledger_seam(monkeypatch, run, dataset)
+    with pytest.raises(evidence.CostEvidenceError, match="run_count_mismatch"):
+        evidence.verify_canonical_cost_evidence()
+
+
 def test_verifier_has_no_runtime_strategy_or_broker_imports() -> None:
     source = Path(evidence.__file__).read_text(encoding="utf-8")
-    forbidden = (
-        "market_research_strategy",
-        "market_data_collector",
-        "replay",
-        "broker",
-    )
-    tree = ast.parse(source)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            imported = [alias.name for alias in node.names]
-            assert not any(item in name for name in imported for item in forbidden)
-        elif isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            assert not any(item in module for item in forbidden)
-        elif isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name):
-                assert node.func.id not in {"__import__", "eval", "exec"}
-            if isinstance(node.func, ast.Attribute):
-                assert node.func.attr not in {"import_module", "__import__"}
+    _assert_no_forbidden_dependencies(source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from . import strategy",
+        "from .market_research_strategy import run",
+        "from package import market_data_collector as collector",
+        "import importlib\nimportlib.import_module('broker.execution')",
+        "__import__('replay.engine')",
+    ],
+)
+def test_dependency_detector_rejects_import_bypass_snippets(source: str) -> None:
+    with pytest.raises(AssertionError):
+        _assert_no_forbidden_dependencies(source)
