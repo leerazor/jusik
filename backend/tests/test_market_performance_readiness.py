@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
 from typing import cast
@@ -473,3 +474,235 @@ def test_manifest_bytes_and_calendar_bytes_are_independently_fail_closed(
     with pytest.raises(ReadinessInputError) as error:
         diagnose_canonical_run(CANONICAL_RUN_PATH, calendar_path=calendar_copy)
     assert error.value.code == "calendar_sha_mismatch"
+
+
+def _reverse_equity_rows(payload: dict[str, object]) -> None:
+    equity = cast(dict[str, object], payload["result"])["equity"]
+    rows = cast(list[object], equity)
+    rows[10], rows[11] = rows[11], rows[10]
+
+
+def _trusted_copies(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    mutate_run: Callable[[dict[str, object]], None] | None = None,
+    mutate_manifest: Callable[[dict[str, object]], None] | None = None,
+    mutate_calendar: Callable[[dict[str, object]], None] | None = None,
+) -> tuple[Path, Path, Path | None, Path | None]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    run_payload = json.loads(CANONICAL_RUN_PATH.read_bytes())
+    if mutate_run is not None:
+        mutate_run(run_payload)
+    run_copy = tmp_path / "run.json"
+    run_copy.write_text(
+        json.dumps(run_payload, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    run_sha = hashlib.sha256(run_copy.read_bytes()).hexdigest()
+
+    manifest_payload = json.loads(CANONICAL_MANIFEST_PATH.read_bytes())
+    manifest_payload["artifacts"]["run"]["path"] = str(run_copy)
+    manifest_payload["artifacts"]["run"]["sha256"] = run_sha
+    if mutate_manifest is not None:
+        mutate_manifest(manifest_payload)
+    manifest_copy = tmp_path / "manifest.json"
+    manifest_copy.write_text(
+        json.dumps(manifest_payload, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    manifest_sha = hashlib.sha256(manifest_copy.read_bytes()).hexdigest()
+
+    evidence_payload = json.loads(CANONICAL_EVIDENCE_PATH.read_bytes())
+    evidence_payload["manifest"]["sha256"] = manifest_sha
+    evidence_payload["manifest"]["run_sha256"] = run_sha
+    evidence_payload["run_sha256"] = run_sha
+
+    calendar_copy: Path | None = None
+    if mutate_calendar is not None:
+        calendar_payload = json.loads(readiness.TRACKED_CALENDAR_PATH.read_bytes())
+        mutate_calendar(calendar_payload)
+        calendar_copy = tmp_path / "calendar.json"
+        calendar_copy.write_text(
+            json.dumps(calendar_payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        calendar_bytes_sha = hashlib.sha256(calendar_copy.read_bytes()).hexdigest()
+        calendar_payload_sha = hashlib.sha256(
+            json.dumps(
+                calendar_payload["calendars"],
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+        evidence_payload["calendar"]["bytes_sha256"] = calendar_bytes_sha
+        evidence_payload["calendar"]["payload_sha256"] = calendar_payload_sha
+        monkeypatch.setattr(readiness, "CALENDAR_BYTES_SHA256", calendar_bytes_sha)
+        monkeypatch.setattr(readiness, "CALENDAR_PAYLOAD_SHA256", calendar_payload_sha)
+
+    evidence_copy = tmp_path / "evidence.json"
+    evidence_copy.write_text(
+        json.dumps(evidence_payload, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    evidence_sha = hashlib.sha256(evidence_copy.read_bytes()).hexdigest()
+    monkeypatch.setattr(readiness, "CANONICAL_RUN_SHA256", run_sha)
+    monkeypatch.setattr(readiness, "CANONICAL_MANIFEST_SHA256", manifest_sha)
+    monkeypatch.setattr(readiness, "CANONICAL_EVIDENCE_SHA256", evidence_sha)
+    return run_copy, evidence_copy, manifest_copy, calendar_copy
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        (
+            lambda payload: payload["artifacts"]["run"].__setitem__(
+                "path", "/tmp/wrong-canonical-run.json"
+            ),
+            "manifest_run_path_mismatch",
+        ),
+        (
+            lambda payload: payload["artifacts"]["run"].__setitem__("sha256", "0" * 64),
+            "manifest_run_sha_mismatch",
+        ),
+        (
+            lambda payload: payload["run"]["period"].__setitem__("start", "2025-09-10"),
+            "manifest_period_mismatch",
+        ),
+        (
+            lambda payload: payload["run"]["request"].__setitem__(
+                "end_date", "2026-09-10"
+            ),
+            "manifest_request_mismatch",
+        ),
+    ],
+)
+def test_trusted_manifest_internal_guards_are_reached(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: callable,
+    expected_code: str,
+) -> None:
+    run_copy, evidence_copy, manifest_copy, _ = _trusted_copies(
+        tmp_path, monkeypatch, mutate_manifest=mutation
+    )
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_canonical_run(
+            run_copy,
+            evidence_copy,
+            manifest_path=manifest_copy,
+        )
+    assert error.value.code == expected_code
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_code"),
+    [
+        (
+            lambda payload: payload["result"]["equity"].pop(10),
+            "session_evidence_mismatch",
+        ),
+        (
+            lambda payload: payload["result"]["equity"].insert(
+                2,
+                {
+                    **payload["result"]["equity"][2],
+                    "session": "2025-09-13",
+                },
+            ),
+            "session_evidence_mismatch",
+        ),
+        (
+            lambda payload: payload["result"]["equity"].__setitem__(
+                10, payload["result"]["equity"][9]
+            ),
+            "duplicate_session",
+        ),
+        (
+            lambda payload: _reverse_equity_rows(payload),
+            "reverse_session_order",
+        ),
+    ],
+)
+def test_trusted_run_date_reconciliation_is_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: Callable[[dict[str, object]], None],
+    expected_code: str,
+) -> None:
+    run_copy, evidence_copy, manifest_copy, _ = _trusted_copies(
+        tmp_path, monkeypatch, mutate_run=mutation
+    )
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_canonical_run(
+            run_copy,
+            evidence_copy,
+            manifest_path=manifest_copy,
+        )
+    assert error.value.code == expected_code
+
+
+def test_trusted_calendar_unavailable_and_clock_mutations_are_scoped(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def unavailable(payload: dict[str, object]) -> None:
+        calendars = cast(dict[str, object], payload["calendars"])
+        xnys = cast(list[dict[str, object]], calendars["XNYS"])
+        next(row for row in xnys if row["date"] == "2025-09-12")["state"] = (
+            "unavailable"
+        )
+        payload["calendars_sha256"] = hashlib.sha256(
+            json.dumps(
+                calendars,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+
+    run_copy, evidence_copy, manifest_copy, calendar_copy = _trusted_copies(
+        tmp_path, monkeypatch, mutate_calendar=unavailable
+    )
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_canonical_run(
+            run_copy,
+            evidence_copy,
+            manifest_path=manifest_copy,
+            calendar_path=calendar_copy,
+        )
+    assert error.value.code == "session_evidence_mismatch"
+
+    def clocks(payload: dict[str, object]) -> None:
+        calendars = cast(dict[str, object], payload["calendars"])
+        xnys = cast(list[dict[str, object]], calendars["XNYS"])
+        dst = next(row for row in xnys if row["date"] == "2025-11-03")
+        early_close = next(row for row in xnys if row["date"] == "2025-11-28")
+        dst["open_at"] = "2025-11-03T13:31:00Z"
+        early_close["close_at"] = "2025-11-28T17:59:00Z"
+        payload["calendars_sha256"] = hashlib.sha256(
+            json.dumps(
+                calendars,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+
+    run_copy, evidence_copy, manifest_copy, calendar_copy = _trusted_copies(
+        tmp_path / "clocks", monkeypatch, mutate_calendar=clocks
+    )
+    report = diagnose_canonical_run(
+        run_copy,
+        evidence_copy,
+        manifest_path=manifest_copy,
+        calendar_path=calendar_copy,
+    )
+    assert report["missing"] == [
+        "missing_initial_capital_at",
+        "missing_nav_timestamps",
+        "missing_cost_inclusion_evidence",
+        "missing_risk_free_evidence",
+        "missing_calculation_policy",
+    ]
