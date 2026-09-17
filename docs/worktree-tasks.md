@@ -2,11 +2,11 @@
 
 ## portfolio-calendar-aware-time-input
 
-- 상태: 진행. 조사·계획을 마쳤으며 optional 공식 calendar 시간 정책과 bounded lexical 한도를 구현합니다.
+- 상태: 완료. optional 공식 calendar 시간 정책과 bounded lexical 한도를 local `main`에 통합했습니다.
 - 목표와 완료 조건: 공식 calendar가 정의한 실제 session open/close를 engine event ordering에 사용하고, 고정 frozen input을 bounded하게 수용할 수 있는 근거 기반 JSON 자원 한도를 적용합니다. 신호·체결·NAV chronology와 기존 합성/일반 동작을 보존한 새 execution identity를 요구합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-portfolio-calendar-aware-time-input` / `feat/portfolio-calendar-aware-time-input`.
-- 기준/통합: 다음 준비 커밋 / local `main`.
+- 기준/통합: `0805c7a07b004d7a53a53b0946c21e7b8a8aa12e` / local `main` merge `81a7377a8a52568dc4d7d9b508138f1959595d76`.
 - 입력과 선행 작업: `forward-simulation-time-evidence-run`의 NO-GO 조사, `research_portfolio_engine.py`, `research_portfolio_time_evidence.py`, tracked calendar, fixed rebalance-band source manifest.
 - 수정 허용: engine/calendar injection seam, time-evidence adapter의 bounded input policy, 직접 관련 tests·계약 문서·개발 기록. 등록부와 handoff는 Astra만 수정합니다.
 - 금지: bar 삭제·시장 제외·날짜 이동·검증 완화, 전략/비용/리밸런싱 정책 변경, 기존 결과 재해석, 실제 simulation 실행, runner/network/KOFR/PAPER/live/주문/DB/service/config/remote 변경.
@@ -14,6 +14,9 @@
 - 검증: 지연 개폐장·일반장·다시장·warmup·DST/조기폐장, lexical/bytes/depth/row 한도 경계, event causality, 결정성, 기존 회귀, 독립 review를 요구합니다.
 - 계획: `calendar=None`은 legacy 결과를 exact 보존하고, official mode만 전체 bar session을 선검증해 engine event/known-bar/volatility/target 계산에 같은 시각을 주입합니다. 새 execution identity로 구분합니다.
 - 자원 계약: lexical token 상한만 `100,000`에서 `400,000`으로 올리고 기존 1/20/50MiB·depth64·object/list 한도와 사전거부를 유지합니다. fixed input은 parse/event-plan preflight까지만 허용합니다.
+- 결과: Luna 최종 `8d02c9638e9b464d1da58d3189355117a57e5999`, Terra review PASS(P1/P2 없음). main focused pytest 68개, Ruff check/format, strict mypy, diff 검사가 통과했습니다.
+- preflight: 16 instruments, 11,321 bars, 7,946 external observations, 20,303 events를 0.734초/105,628KiB에 검증했고 simulation은 0회입니다. audit manifest SHA는 `7a2ddb3488d1bc08d155411122e8727c84a67db9b1150a3df7ef504acf207af4`입니다.
+- 정리·기록: 통합 검증 후 전용 worktree와 branch를 제거합니다. 개발 기록은 `docs/development-records/2026-09-18-portfolio-calendar-aware-time-input.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## forward-simulation-time-evidence-run
 
@@ -27,7 +30,7 @@
 - 중단 조건: 승인된 고정 입력·공식 달력·정책 identity가 없거나 새 simulation이 기존 미래정보/자료등급 계약을 보존하지 못하면 실행하지 않고 필요한 입력을 기록합니다.
 - 검증: 입력 SHA·정책 identity·단일 simulate 호출·UTC 인과·manifest 전체 파일 SHA·결정성·no-overwrite·독립 review·main 영향 검사를 요구합니다.
 - 차단 근거: source manifest SHA `1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825`, calendar SHA `ba26619a27e066ca32b1aaaf3b7da2b99f0c6658f731a000c5095c057081c1d8`; frozen input 4,557,232 bytes/324,691 lexical tokens, 11,321 bars/7,946 external observations. bundle·request·simulation은 생성하지 않았습니다.
-- 재개 조건: `portfolio-calendar-aware-time-input` 선행 작업이 새 execution identity로 통합·검증된 뒤 같은 고정 입력에서 다시 사전검사합니다.
+- 재개 조건: 충족. `portfolio-calendar-aware-time-input`이 `81a7377a8a52568dc4d7d9b508138f1959595d76`에 통합되고 fixed input preflight가 통과했습니다. 다음 단계는 새 경로의 단일 generate입니다.
 
 ## market-research-mandate-digest-repair
 

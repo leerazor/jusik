@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-18T00:00:00Z
 - 작업 slug: `portfolio-calendar-aware-time-input`
-- 기준/통합: `0805c7a07b004d7a53a53b0946c21e7b8a8aa12e` / 통합 전
+- 기준/통합: `0805c7a07b004d7a53a53b0946c21e7b8a8aa12e` / `81a7377a8a52568dc4d7d9b508138f1959595d76`
 - 범위: portfolio engine의 opt-in 공식 session timing, time-evidence 실행 정책과 bounded lexical JSON 한도를 구현했습니다. legacy 결과·bundle shape와 일반/PAPER 호출은 보존했습니다.
 
 ## 변경과 결정
@@ -21,11 +21,12 @@
 
 ## 검증
 
-- `PYTHONPATH=. .venv/bin/python -m pytest tests/test_research_portfolio.py tests/test_research_portfolio_time_evidence.py tests/test_research_market_calendar.py tests/test_research_forward.py -q` — 64 passed.
+- `PYTHONPATH=. .venv/bin/python -m pytest tests/test_research_portfolio.py tests/test_research_portfolio_time_evidence.py tests/test_research_market_calendar.py tests/test_research_forward.py -q` — local `main`에서 68 passed, 기존 deprecation warning 2개.
 - 합성 source에서 legacy/official direct simulation equality 및 official bundle generate/verify round-trip — 통과.
 - `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-aware-time-input/run-tYFlwC/result` fixed input parser/event-plan preflight — 통과; simulation 호출 0회, 0.744887초, max RSS 105620 KiB.
 - `python -m py_compile` 대상 변경 모듈 — 통과.
-- Ruff/mypy는 초기 환경에 도구가 없어 preflight 전 실행하지 못했으며, 전용 `.venv` 의존성 설치 후 실행합니다.
+- local `main` Ruff check/format과 strict mypy, `git diff --check` — 통과.
+- Terra 독립 review — P1/P2 없음, PASS. verify calendar strict parser 누락을 같은 Luna가 보완한 뒤 path·identity·audit를 재검토했습니다.
 
 ## 안전·운영 상태
 
@@ -34,5 +35,5 @@
 ## 증거와 재개
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-aware-time-input/run-Wro0bO/result`; manifest SHA-256 `7a2ddb3488d1bc08d155411122e8727c84a67db9b1150a3df7ef504acf207af4`
-- 남은 작업·차단 조건: 이 워크트리 커밋과 Astra의 main 통합 검증이 남았습니다.
-- 다음 시작: 변경 파일 diff와 Ruff/strict mypy 결과를 확인한 뒤 이 작업 브랜치를 통합합니다.
+- 남은 작업·차단 조건: 이 선행 구현 범위에는 없음. historical input의 prospective/PIT 제한과 KOFR 부재는 유지합니다.
+- 다음 시작: 동일 고정 입력·공식 정책으로 `forward-simulation-time-evidence-run` 사전검사를 다시 수행한 뒤 새 audit bundle을 정확히 한 번 생성합니다.
