@@ -161,50 +161,32 @@ def _leaf_differences(
             "this is not an atomic assumption leaf"
         )
     if isinstance(left, Mapping) and isinstance(right, Mapping):
-        keys = sorted(set(left) | set(right))
+        if set(left) != set(right):
+            raise ValueError(
+                "assumption paths must exist on both sides; added or removed "
+                "keys are not atomic leaves"
+            )
+        keys = sorted(left)
         differences: list[tuple[str, ...]] = []
         for key in keys:
-            if key not in left or key not in right:
-                present = left[key] if key in left else right[key]
-                differences.extend(_leaf_paths(present, path + (str(key),)))
-                continue
             differences.extend(
                 _leaf_differences(left[key], right[key], path + (str(key),))
             )
         return tuple(differences)
     if isinstance(left, list) and isinstance(right, list):
+        if len(left) != len(right):
+            raise ValueError(
+                "assumption paths must exist on both sides; added or removed "
+                "list indexes are not atomic leaves"
+            )
         differences = []
-        for index in range(max(len(left), len(right))):
-            if index >= len(left) or index >= len(right):
-                present = left[index] if index < len(left) else right[index]
-                differences.extend(_leaf_paths(present, path + (str(index),)))
-                continue
+        for index in range(len(left)):
             left_item = left[index]
             right_item = right[index]
             differences.extend(
                 _leaf_differences(left_item, right_item, path + (str(index),))
             )
         return tuple(differences)
-    return (path,)
-
-
-def _leaf_paths(value: object, path: tuple[str, ...]) -> tuple[tuple[str, ...], ...]:
-    if isinstance(value, Mapping):
-        if not value:
-            return (path,)
-        return tuple(
-            leaf
-            for key, item in value.items()
-            for leaf in _leaf_paths(item, path + (str(key),))
-        )
-    if isinstance(value, list):
-        if not value:
-            return (path,)
-        return tuple(
-            leaf
-            for index, item in enumerate(value)
-            for leaf in _leaf_paths(item, path + (str(index),))
-        )
     return (path,)
 
 
@@ -223,12 +205,16 @@ def _at_path(value: object, path: tuple[str, ...]) -> object:
     current = value
     for part in path:
         if isinstance(current, Mapping):
-            current = current.get(part)
+            if part not in current:
+                raise ValueError("assumption path must exist on both sides")
+            current = current[part]
         elif isinstance(current, list) and part.isdigit():
             index = int(part)
-            current = current[index] if index < len(current) else None
+            if index >= len(current):
+                raise ValueError("assumption path must exist on both sides")
+            current = current[index]
         else:
-            return None
+            raise ValueError("assumption path must exist on both sides")
     return current
 
 
@@ -773,17 +759,26 @@ def load_comparison_envelope(path: Path) -> ComparisonEnvelope:
     )
 
 
+def _paths_alias(first: Path, second: Path) -> bool:
+    if first.resolve() == second.resolve():
+        return True
+    if not first.exists() or not second.exists():
+        return False
+    try:
+        return first.samefile(second)
+    except OSError:
+        return False
+
+
 def compare_saved_reports(envelope_path: Path, output_path: Path) -> dict[str, object]:
     """Compare reports referenced by ``envelope_path`` and write one result."""
 
     envelope = load_comparison_envelope(envelope_path)
-    output_resolved = output_path.resolve()
     sources = (envelope.baseline.source,) + tuple(
         scenario.source for scenario in envelope.scenarios
     )
-    if output_resolved == envelope_path.resolve() or any(
-        output_resolved == source.path.resolve() for source in sources
-    ):
+    input_paths = (envelope_path,) + tuple(source.path for source in sources)
+    if any(_paths_alias(output_path, input_path) for input_path in input_paths):
         raise ValueError("output path must not overwrite an input")
     result = compare_prepared_reports(envelope)
     output_path.write_text(

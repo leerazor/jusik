@@ -41,3 +41,10 @@
 - `_leaf_differences`에서 container/scalar 및 mapping/list 유형 교체를 atomic leaf 변경으로 허용하던 우회를 거절하도록 보완했습니다. `_change_record`는 검증된 실제 단일 leaf에서 `atomic_path`와 `before`·`after`를 파생해 최상위 scalar 변경도 `cost`처럼 정확히 기록합니다.
 - 관련 합성 회귀 검사를 추가하고 문서 입력 예시의 기준 `fee_rate`를 시나리오 변경과 일치시켰습니다. CPU seed 0, 준비된 오프라인 fixture만 사용하며 실제 acceptance·경제 평가는 여전히 미평가입니다.
 - 제한 재검증: comparison/loss accounting pytest 45개 통과, Ruff check·format 및 `pyproject.toml` strict mypy 통과, `git diff --check` 통과. 로그는 retry audit의 `logs/`에 보존했습니다.
+
+## Delivery recovery 보완 (2026-09-17)
+
+- `compare_saved_reports`는 envelope와 모든 prepared report 입력에 대해 기존 경로 비교와 `Path.samefile()`을 함께 사용합니다. 따라서 출력 hardlink가 envelope·baseline·scenario 중 어느 입력도 덮어쓰지 못합니다.
+- assumption 비교는 기준·시나리오 양쪽의 mapping key와 list index 구조가 같을 때만 atomic leaf를 찾습니다. key/index 추가·삭제와 absent↔explicit `null`은 값 변경으로 축약하지 않고 거절하며, 같은 경로가 양쪽에 있을 때만 `null`을 값으로 보존합니다.
+- envelope·baseline·scenario hardlink 및 mapping/list absent↔`null` 양방향 합성 회귀를 추가하고 계약 문서를 갱신했습니다. 실제 시장 자료·replay·engine·주문·DB는 사용하지 않았습니다.
+- 제한 재검증: comparison/loss accounting pytest 52개 통과, Ruff check·format 및 strict mypy를 별도 실행합니다. CLI smoke는 synthetic envelope만 사용하며 결과는 `economic_evaluation=not-evaluated`로 기록합니다.

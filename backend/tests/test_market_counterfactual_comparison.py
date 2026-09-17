@@ -209,6 +209,23 @@ def test_available_missing_currency_is_unavailable_and_output_cannot_overwrite(
     assert fees["value"] is None
 
 
+@pytest.mark.parametrize("role", ["envelope", "baseline", "scenario"])
+def test_output_hardlink_to_any_input_is_rejected(tmp_path: Path, role: str) -> None:
+    envelope_data = _envelope(tmp_path)
+    envelope_path = tmp_path / "envelope.json"
+    envelope_path.write_text(json.dumps(envelope_data), encoding="utf-8")
+    input_path = {
+        "envelope": envelope_path,
+        "baseline": tmp_path / "baseline.json",
+        "scenario": tmp_path / "scenario.json",
+    }[role]
+    output_path = tmp_path / f"{role}-hardlink.json"
+    output_path.hardlink_to(input_path)
+
+    with pytest.raises(ValueError, match="must not overwrite"):
+        compare_saved_reports(envelope_path, output_path)
+
+
 @pytest.mark.parametrize("component", ["dividends", "fx"])
 def test_available_dividend_or_fx_requires_evidence(
     tmp_path: Path, component: str
@@ -467,7 +484,7 @@ def test_duplicate_ids_sessions_and_assumptions_are_rejected(tmp_path: Path) -> 
         "dividend": {"evidence": "changed"},
         "fx": {"source": "prepared"},
     }
-    with pytest.raises(ValueError, match="atomic assumption leaf"):
+    with pytest.raises(ValueError, match="atomic assumption leaf|both sides"):
         ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
     envelope = _envelope(tmp_path)
     scenario = _array(envelope["scenarios"])[0]
@@ -477,7 +494,7 @@ def test_duplicate_ids_sessions_and_assumptions_are_rejected(tmp_path: Path) -> 
         "dividend": {"evidence": "complete"},
         "fx": {"source": "prepared"},
     }
-    with pytest.raises(ValueError, match="atomic assumption leaf"):
+    with pytest.raises(ValueError, match="atomic assumption leaf|both sides"):
         ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
     envelope = _envelope(tmp_path)
     scenario = _array(envelope["scenarios"])[0]
@@ -526,8 +543,30 @@ def test_assumption_container_replacements_are_rejected(tmp_path: Path) -> None:
         scenario = _object(_array(envelope["scenarios"])[0])
         scenario_assumptions = _object(scenario["assumptions"])
         scenario_assumptions["cost"] = scenario_cost
-        with pytest.raises(ValueError, match="container"):
+        with pytest.raises(ValueError, match="container|both sides"):
             ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("baseline_cost", "scenario_cost"),
+    [
+        ({}, {"fees": None}),
+        ({"fees": None}, {}),
+        (["1"], ["1", None]),
+        (["1", None], ["1"]),
+    ],
+)
+def test_assumption_paths_must_exist_on_both_sides(
+    tmp_path: Path, baseline_cost: object, scenario_cost: object
+) -> None:
+    envelope = _envelope(tmp_path)
+    baseline = _object(envelope["baseline"])
+    _object(baseline["assumptions"])["cost"] = baseline_cost
+    scenario = _object(_array(envelope["scenarios"])[0])
+    _object(scenario["assumptions"])["cost"] = scenario_cost
+
+    with pytest.raises(ValueError, match="both sides"):
+        ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
 
 
 def test_top_level_scalar_change_record_uses_actual_leaf(tmp_path: Path) -> None:
