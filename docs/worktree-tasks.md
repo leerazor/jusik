@@ -2,7 +2,7 @@
 
 ## investment-roadmap-refresh
 
-- 상태: 진행. 자동 실행기는 pause, service/timer는 inactive/disabled이며 신규 연구 dispatch를 금지합니다.
+- 상태: 완료. 자동 실행기는 pause, service/timer는 inactive/disabled이며 신규 연구 dispatch를 금지합니다.
 - 목표와 완료 조건: `docs/investment-development-roadmap.md`를 단일 실행 정본으로 유지하면서 최신 사용자 목표, 핵심 지표, 과적합 방지 검증 순서와 승격 중단 조건을 통합합니다. 기존 R0~R7 ID·체크 상태·완료 증거는 보존합니다.
 - 담당: Astra 감독·통합, Luna 단일 문서 구현, Terra 독립 검토.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-investment-roadmap-refresh` / `docs/investment-roadmap-refresh`.
@@ -11,6 +11,8 @@
 - 불변 범위: 코드, `research-mandate.json`, 기존 개발 기록과 역사 연구 문서, 로드맵 checklist ID·체크값, 운영 DB·설정·서비스·PAPER/live·주문·remote.
 - 검증: `git diff --check`, Markdown 링크, 로드맵 parser, 기존 checklist ID·체크값 보존 검사, 독립 review와 main 통합 재검사.
 - 중단 조건: 문서 간 정책 적용 범위가 불명확하거나 parser가 기존 checklist를 다르게 읽으면 통합하지 않습니다. 실행 JSON은 후속 연구 재개 전 별도 동기화 게이트로 남깁니다.
+- 결과: Luna 구현 `fbf2ebd`, Terra 최종 review PASS, local main 통합 `206d091`. main parser tests 16개, checklist 40/40 보존, 로컬 링크·diff 검사 통과.
+- 정리: 통합 검증 후 전용 worktree와 branch를 정상 제거합니다. 개발 기록은 `docs/development-records/2026-09-17-investment-roadmap-refresh.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## r1-artifact-db6987
 

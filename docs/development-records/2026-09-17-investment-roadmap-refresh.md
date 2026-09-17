@@ -1,9 +1,9 @@
 # 투자 개발 로드맵 갱신
 
-- 상태: 검증
+- 상태: 완료
 - 기록 시각: 2026-09-17T03:09:16Z
 - 작업 slug: `investment-roadmap-refresh`
-- 기준/통합: `995797a3faf0bd9a44321a93db2de3991d1d1144` / 없음 (main 통합 전)
+- 기준/구현/통합: `995797a3faf0bd9a44321a93db2de3991d1d1144` / `fbf2ebd1a59b5073f13ea574c7d8d355a28194cd` / `206d091`
 - 범위: canonical 실행 로드맵, 연구 운용 조건·backend reference 연결, 이 작업의 영구 기록만 갱신했습니다. 체크리스트 ID·체크 상태·완료 증거·의존성과 실행 JSON, 코드·설정·서비스·PAPER/live·주문은 보존했습니다.
 
 ## 변경과 결정
@@ -35,5 +35,5 @@
 ## 증거와 재개
 
 - audit: 없음; manifest: 없음; hash: 실행 JSON의 기존 문서 SHA만 보존.
-- 남은 작업·차단 조건: main 통합 전 상태입니다. 운영자가 승인 설계를 JSON에 반영하고 SHA를 동기화하며 dispatcher fail-closed 구현·검증을 별도 완료하기 전까지 service/timer enable·resume 및 신규 research dispatch를 금지합니다. 최종 untouched OOS go/no-go 실패도 stress/PAPER 차단 조건입니다.
+- 남은 작업·차단 조건: 문서 통합은 완료했습니다. 운영자가 승인 설계를 JSON에 반영하고 SHA를 동기화하며 dispatcher fail-closed 구현·검증을 별도 완료하기 전까지 service/timer enable·resume 및 신규 research dispatch를 금지합니다. 최종 untouched OOS go/no-go 실패도 stress/PAPER 차단 조건입니다.
 - 다음 시작: JSON과 문서 SHA를 대조한 뒤 로드맵 parser·문서 링크·체크리스트 보존 검사를 다시 실행합니다.
