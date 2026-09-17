@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-17T00:00:00Z
 - 작업 slug: `r0-us-session-evidence`
-- 기준/통합: `1151035` / 통합 전
+- 기준/구현/통합: `1151035` / `3d82d49` / `5e25aab`
 - 범위: canonical R0 미국 approximate run의 요청 기간 세션 날짜 대사와 readiness 진단만 변경했습니다. 성과 계산, 수집, 전략, runner, API, PAPER/live, 주문은 변경하지 않았습니다.
 
 ## 변경과 결정
@@ -20,9 +20,10 @@
 
 ## 검증
 
-- `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest backend/tests/test_market_performance_readiness.py -q` — 기존 및 신규 focused 테스트 통과.
+- main readiness/calendar/metrics pytest — 66 passed.
+- Ruff check/format, configured source mypy, `git diff --check 1151035..5e25aab` — 통과.
 - canonical local acceptance — 고정 run과 tracked XNYS 달력에서 252/252, 누락·초과·중복·unavailable 0, 나머지 5개 누락 순서 확인.
-- Ruff, mypy, 전체 관련 pytest는 최종 실행 결과를 통합 보고에 기록합니다.
+- Terra 최종 독립 review — PASS, P1/P2 없음.
 
 ## 안전·운영 상태
 
@@ -32,5 +33,5 @@
 ## 증거와 재개
 
 - tracked evidence: `backend/jusik/data/r0_us_session_evidence_v1.json`; evidence SHA-256은 코드에 고정되어 검증됩니다.
-- 남은 작업·차단 조건: main 통합 전 독립 review와 통합 검증.
-- 다음 시작: evidence/run/calendar SHA와 focused readiness 검사를 다시 실행한 뒤 통합합니다.
+- 남은 작업·차단 조건: `missing_initial_capital_at`, `missing_nav_timestamps`, `missing_cost_inclusion_evidence`, `missing_risk_free_evidence`, `missing_calculation_policy`의 실제 근거가 필요합니다.
+- 다음 시작: 남은 5개 중 기존 동결 자료와 명시적 계약으로 진실하게 해소 가능한 최소 항목을 다시 조사합니다.
