@@ -10,6 +10,7 @@
 
 - `research_portfolio_engine.py`는 keyword-only `calendar`를 public simulate과 내부 target/event/volatility 경로에 전달합니다. 공식 경로는 모든 bar와 warmup를 session 존재·coverage 기준으로 먼저 검증하고, 불변 `InstrumentData` session timing을 event와 causal history 계산에 공유합니다.
 - `research_portfolio_time_evidence.py`는 `legacy` 기본과 `official` 정책을 구분합니다. legacy config에서 새 필드를 직렬화하지 않고 기존 manifest 키를 보존하며, official manifest는 정책과 현재 engine source SHA-256을 고정합니다. 검증은 simulation을 호출하지 않습니다.
+- `verify_bundle()`도 calendar bytes를 동일한 strict JSON pre-parser로 통과시켜 lexical/depth/collection bounds 우회를 차단합니다.
 - lexical JSON 상한만 400,000으로 올리고 기존 bytes/total/depth/object/list/duplicate/nonfinite/regular-file 제한은 유지했습니다.
 
 ## 문서·계약 영향
@@ -32,6 +33,6 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-aware-time-input/run-tYFlwC/result`; manifest SHA-256 `5d6d9b5e395955a914ec6cd0626f7a3007a825262d5944c9bdc68c993badf64e`
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-aware-time-input/run-Wro0bO/result`; manifest SHA-256 `7a2ddb3488d1bc08d155411122e8727c84a67db9b1150a3df7ef504acf207af4`
 - 남은 작업·차단 조건: 이 워크트리 커밋과 Astra의 main 통합 검증이 남았습니다.
 - 다음 시작: 변경 파일 diff와 Ruff/strict mypy 결과를 확인한 뒤 이 작업 브랜치를 통합합니다.
