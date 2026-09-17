@@ -20,6 +20,11 @@ from pathlib import Path
 from typing import Final
 
 from .market_history_models import MarketResearchRun
+from .market_performance_policy import (
+    PolicyValidationError,
+    load_calculation_policy,
+    policy_facts,
+)
 
 SCHEMA: Final = "market-performance-readiness/v1"
 TARGET_SCHEMA: Final = "market-performance-metrics-input/v1"
@@ -1019,6 +1024,7 @@ def diagnose_run(
     request, result, readiness = _validate_run(payload)
     _validate_canonical_values(payload, request, result, readiness)
     evidence: dict[str, object] | None = None
+    calculation_policy: dict[str, object] | None = None
     if canonical and evidence_path is not None:
         evidence = _validate_session_evidence(
             evidence_path,
@@ -1030,6 +1036,10 @@ def diagnose_run(
             manifest_path,
             calendar_path,
         )
+        try:
+            calculation_policy = policy_facts(load_calculation_policy())
+        except PolicyValidationError as exc:
+            raise ReadinessInputError(exc.code) from None
     missing = list(MISSING_CODES)
     if evidence is not None:
         missing = [
@@ -1039,6 +1049,7 @@ def diagnose_run(
             not in {
                 "missing_calendar_evidence",
                 "missing_session_completeness_evidence",
+                "missing_calculation_policy",
             }
         ]
     return {
@@ -1051,6 +1062,11 @@ def diagnose_run(
         "missing": missing,
         "source": _source_facts(payload, request, result, readiness, source_sha256),
         **({"session_evidence": evidence} if evidence is not None else {}),
+        **(
+            {"calculation_policy": calculation_policy}
+            if calculation_policy is not None
+            else {}
+        ),
         "cost_assumptions": {
             "fee_rate": str(_decimal(_required(request, "fee_rate"))),
             "slippage_rate": str(_decimal(_required(request, "slippage_rate"))),

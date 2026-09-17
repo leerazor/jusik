@@ -18,12 +18,31 @@ import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import ROUND_HALF_EVEN, Context, Decimal, InvalidOperation, localcontext
+from decimal import (
+    ROUND_HALF_EVEN,
+    Context,
+    Decimal,
+    DivisionByZero,
+    InvalidOperation,
+    Overflow,
+    localcontext,
+)
 from pathlib import Path
 from typing import Literal, cast
 
+from .market_performance_policy import load_calculation_policy
+
 PRECISION = 50
-DECIMAL_CONTEXT = Context(prec=PRECISION, rounding=ROUND_HALF_EVEN)
+DECIMAL_CONTEXT = Context(
+    prec=PRECISION,
+    rounding=ROUND_HALF_EVEN,
+    Emin=-999999,
+    Emax=999999,
+    capitals=1,
+    clamp=0,
+    flags=[],
+    traps=[InvalidOperation, DivisionByZero, Overflow],
+)
 SESSIONS_PER_YEAR = 252
 SCHEMA = "market-performance-metrics-input/v1"
 ENVELOPE_SCHEMA = "market-performance-metrics-envelope/v1"
@@ -655,6 +674,7 @@ def load_performance_envelope(path: Path) -> PerformanceEnvelope:
 def evaluate_saved_performance(
     envelope_path: Path, output_path: Path
 ) -> dict[str, object]:
+    load_calculation_policy()
     envelope = load_performance_envelope(envelope_path)
     if _paths_alias(output_path, envelope_path) or _paths_alias(
         output_path, envelope.source.path

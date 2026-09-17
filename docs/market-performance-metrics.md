@@ -94,6 +94,21 @@ python -m jusik.market_performance_readiness \
 검증에서만 `--canonical`을 추가한다. 이 flag는 코드에 등록된 artifact SHA와 일치할
 때만 canonical 보고서를 만들며, 다른 파일이나 임의 SHA로 우회할 수 없다.
 
+## 전진 계산 정책
+
+`backend/jusik/data/market_performance_calculation_policy_v1.json`은 evaluator의
+수식·상수·Decimal Context를 고정하는 UTF-8 canonical artifact이다. loader는 고정된
+sibling 경로와 등록된 artifact 바이트 SHA-256을 확인한 뒤, 정책에 기록된 evaluator
+source SHA-256도 함께 확인한다. 중복 key·JSON float·비유한 값·지원하지 않는 필드와
+비정규 바이트는 fail-closed로 거부한다.
+
+정책의 scope는 `forward-only`이며 `historical_application_proven=false`이다. 즉 이
+정책은 앞으로 생성될 평가 입력의 해석 계약일 뿐, 과거 run에 정책을 적용했다거나
+과거 성과를 다시 계산했다는 근거가 아니다. canonical readiness가 정책 artifact와
+기존 run/session SHA chain을 모두 검증한 경우에만 `missing_calculation_policy`를
+제거한다. 보고서는 계속 `blocked`, `ready_for_metrics=false`,
+`economic_evaluation=not-evaluated`이며 나머지 근거 누락은 유지한다.
+
 ## canonical R0 세션 대사 근거
 
 등록된 canonical R0 미국 approximate run에는
