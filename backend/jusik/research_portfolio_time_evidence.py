@@ -62,6 +62,7 @@ MAX_TOTAL_INPUT_BYTES: Final[int] = 50 * 1024 * 1024
 MAX_JSON_DEPTH: Final[int] = 64
 MAX_JSON_OBJECT_KEYS: Final[int] = 2_000
 MAX_JSON_LIST_ITEMS: Final[int] = 20_000
+MAX_JSON_TOKENS: Final[int] = 100_000
 RENAME_NOREPLACE: Final[int] = 1
 AT_FDCWD: Final[int] = -100
 
@@ -127,6 +128,8 @@ def _strict_json(body: bytes, label: str) -> object:
         raise ValueError(f"{label} exceeds the JSON size limit")
 
     depth = 0
+    tokens = 0
+    stack: list[tuple[int, int]] = []
     in_string = False
     escaped = False
     for character in body:
@@ -142,12 +145,31 @@ def _strict_json(body: bytes, label: str) -> object:
             in_string = True
         elif character in (ord("{"), ord("[")):
             depth += 1
+            tokens += 1
             if depth > MAX_JSON_DEPTH:
                 raise ValueError(f"{label} JSON nesting is too deep")
+            stack.append((character, 0))
         elif character in (ord("}"), ord("]")):
             depth -= 1
+            tokens += 1
             if depth < 0:
                 raise ValueError(f"{label} JSON nesting is invalid")
+            if not stack:
+                raise ValueError(f"{label} JSON nesting is invalid")
+            stack.pop()
+        elif character == ord(","):
+            tokens += 1
+            if stack:
+                kind, commas = stack[-1]
+                commas += 1
+                if commas + 1 > MAX_JSON_LIST_ITEMS:
+                    collection = "array" if kind == ord("[") else "object"
+                    raise ValueError(f"{label} has too many {collection} entries")
+                stack[-1] = (kind, commas)
+        elif character not in b" \t\r\n:":
+            tokens += 1
+        if tokens > MAX_JSON_TOKENS:
+            raise ValueError(f"{label} has too many JSON tokens")
     if in_string or depth != 0:
         raise ValueError(f"{label} JSON nesting is invalid")
 
@@ -652,17 +674,26 @@ def _load_bundle_files(
         raise ValueError("manifest artifact set is not exact")
     files: dict[str, bytes] = {}
     total_bytes = len(manifest_body)
+    metadata: list[tuple[str, dict[str, object], str]] = []
     for name, row in artifacts.items():
         safe_name = _safe_artifact_name(name)
         if not isinstance(row, dict) or set(row) != {"path", "size", "sha256"}:
             raise ValueError("manifest artifact metadata is invalid")
-        if row["path"] != safe_name or not isinstance(row["size"], int):
+        if (
+            row["path"] != safe_name
+            or not isinstance(row["size"], int)
+            or row["size"] < 0
+        ):
             raise ValueError("manifest artifact path or size is invalid")
+        if row["size"] > MAX_ARTIFACT_BYTES:
+            raise ValueError("artifact exceeds the file size limit")
         digest = _digest(row["sha256"], f"artifact {safe_name} SHA-256")
-        body = _regular_file(bundle_dir / safe_name, safe_name)
-        total_bytes += len(body)
+        total_bytes += row["size"]
         if total_bytes > MAX_TOTAL_INPUT_BYTES:
             raise ValueError("bundle exceeds the total file size limit")
+        metadata.append((safe_name, row, digest))
+    for safe_name, row, digest in metadata:
+        body = _regular_file(bundle_dir / safe_name, safe_name)
         if len(body) != row["size"] or sha256_bytes(body) != digest:
             raise ValueError(f"artifact hash or size mismatch: {safe_name}")
         files[safe_name] = body

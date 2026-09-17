@@ -208,6 +208,43 @@ def _causal_pair_source() -> PortfolioInput:
     )
 
 
+def _xnys_time_source() -> PortfolioInput:
+    source = _source()
+    snapshot = source.instruments[0]
+    original_item = snapshot.instruments[0]
+    dates = [date(2024, 3, 8), date(2024, 3, 11), date(2024, 11, 29)]
+    bars = [
+        original_item.bars[index].model_copy(update={"date": day})
+        for index, day in enumerate(dates)
+    ]
+    instrument = ResearchInstrument(
+        symbol="USYNTH",
+        yahoo_symbol="USYNTH",
+        name="US time synthetic",
+        currency="USD",
+        exchange="NMS",
+        timezone="America/New_York",
+    )
+    item = original_item.model_copy(update={"instrument": instrument, "bars": bars})
+    filtered = snapshot.model_copy(
+        update={
+            "requested_start": dates[0],
+            "requested_end": dates[-1],
+            "evaluation_start": dates[0],
+            "instruments": [item],
+            "adjustment_factors": [
+                PriceAdjustmentFactor(date=day, raw_factor=Decimal(1)) for day in dates
+            ],
+        }
+    )
+    return source.model_copy(
+        update={
+            "stock_snapshot_ids": {"USYNTH": "synthetic"},
+            "instruments": [filtered],
+        }
+    )
+
+
 def test_initial_capital_is_an_engine_anchor_not_a_market_open() -> None:
     event = InitialCapitalEvent(
         initial_capital_krw=Decimal("100"),
@@ -453,7 +490,9 @@ def test_publish_race_is_rejected_without_replacing_destination(
     assert not list(tmp_path.glob(".bundle.staging-*"))
 
 
-def test_json_depth_and_file_size_limits_are_bounded(tmp_path: Path) -> None:
+def test_json_depth_and_file_size_limits_are_bounded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     nested = (
         "[" * (evidence.MAX_JSON_DEPTH + 1) + "0" + "]" * (evidence.MAX_JSON_DEPTH + 1)
     )
@@ -465,6 +504,55 @@ def test_json_depth_and_file_size_limits_are_bounded(tmp_path: Path) -> None:
         evidence._regular_file(
             oversized, "request", max_bytes=evidence.MAX_REQUEST_BYTES
         )
+    original_loads = json.loads
+
+    def should_not_materialize(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("json.loads must not materialize oversized collection")
+
+    monkeypatch.setattr(json, "loads", should_not_materialize)
+    tiny_list = b"[" + b"0," * evidence.MAX_JSON_LIST_ITEMS + b"0]"
+    with pytest.raises(ValueError, match="too many array"):
+        evidence._strict_json(tiny_list, "large-list")
+    tiny_object = b"{" + b'"x":0,' * evidence.MAX_JSON_LIST_ITEMS + b'"x":0}'
+    with pytest.raises(ValueError, match="too many object"):
+        evidence._strict_json(tiny_object, "large-object")
+    monkeypatch.setattr(json, "loads", original_loads)
+
+
+def test_manifest_declared_total_rejected_before_artifact_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source()
+    candidate, config, start, end = _config()
+    output = tmp_path / "bundle"
+    generate_bundle(
+        source,
+        candidate,
+        start,
+        end,
+        config,
+        DEFAULT_CALENDAR_PATH.read_bytes(),
+        output,
+        allow_new_simulation=True,
+    )
+    manifest = json.loads((output / "manifest.json").read_text())
+    for row in manifest["artifacts"].values():
+        row["size"] = 13 * 1024 * 1024
+    manifest_body = evidence._json_bytes(manifest)
+    (output / "manifest.json").write_bytes(manifest_body)
+    reads: list[Path] = []
+    original_regular_file = evidence._regular_file
+
+    def track_read(
+        path: Path, label: str, *, max_bytes: int = evidence.MAX_ARTIFACT_BYTES
+    ) -> bytes:
+        reads.append(path)
+        return original_regular_file(path, label, max_bytes=max_bytes)
+
+    monkeypatch.setattr(evidence, "_regular_file", track_read)
+    with pytest.raises(ValueError, match="total file size"):
+        verify_bundle(output, evidence.sha256_bytes(manifest_body))
+    assert reads == [output / "manifest.json"]
 
 
 def test_xnys_dst_and_early_close_are_distinct_session_evidence() -> None:
@@ -482,6 +570,45 @@ def test_xnys_dst_and_early_close_are_distinct_session_evidence() -> None:
         early.close_at.astimezone(ny).time() < after_dst.close_at.astimezone(ny).time()
     )
     assert early.close_at != after_dst.close_at
+
+
+def test_xnys_dst_and_early_close_survive_adapter_bundle_roundtrip(
+    tmp_path: Path,
+) -> None:
+    source = _xnys_time_source()
+    output = tmp_path / "xnys-bundle"
+    candidate = PortfolioCandidate(id="xnys-time", method="equal", gate="none")
+    config = PortfolioConfig(initial_cash_krw=Decimal("1000000"))
+    result = generate_bundle(
+        source,
+        candidate,
+        date(2024, 3, 8),
+        date(2024, 11, 29),
+        config,
+        DEFAULT_CALENDAR_PATH.read_bytes(),
+        output,
+        allow_new_simulation=True,
+    )
+    assert verify_bundle(output, result.manifest_sha256).nav_count == 3
+    sidecar = json.loads((output / "time-evidence.json").read_text())
+    rows = {
+        close["bar_date"]: (nav["evaluation_at"], close["session"])
+        for nav in sidecar["nav"]
+        for close in nav["triggering_close_group"]
+    }
+    assert set(rows) == {"2024-03-08", "2024-03-11", "2024-11-29"}
+    before_eval, before = rows["2024-03-08"]
+    after_eval, after = rows["2024-03-11"]
+    early_eval, early = rows["2024-11-29"]
+    assert before["calendar"] == after["calendar"] == early["calendar"] == "XNYS"
+    assert before["session_id"] == "XNYS:2024-03-08"
+    assert after["session_id"] == "XNYS:2024-03-11"
+    assert early["session_id"] == "XNYS:2024-11-29"
+    assert before["close_at"] != after["close_at"]
+    assert before_eval and before["close_at"]
+    assert after_eval and after["close_at"]
+    assert early["close_at"].endswith("18:00:00Z")
+    assert early_eval != early["close_at"]
 
 
 def test_xkrx_delayed_close_rejects_close_and_warmup_future_exposure() -> None:
