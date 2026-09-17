@@ -14,6 +14,7 @@ from jusik import research_portfolio_time_evidence as evidence
 from jusik.research_external_models import ExternalFeatureSnapshot
 from jusik.research_market_calendar import (
     DEFAULT_CALENDAR_PATH,
+    MarketCalendar,
     MarketSession,
     _Day,
     load_market_calendar,
@@ -517,6 +518,41 @@ def test_json_depth_and_file_size_limits_are_bounded(
     with pytest.raises(ValueError, match="too many object"):
         evidence._strict_json(tiny_object, "large-object")
     monkeypatch.setattr(json, "loads", original_loads)
+
+
+def test_public_generation_rejects_unbounded_calendar_before_parser(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source()
+    candidate, config, start, end = _config()
+    parser_called = False
+
+    def fail_parser(_body: bytes) -> object:
+        nonlocal parser_called
+        parser_called = True
+        raise AssertionError("calendar parser must not see rejected bytes")
+
+    monkeypatch.setattr(MarketCalendar, "from_bytes", fail_parser)
+    cases = (
+        b"0" * (evidence.MAX_ARTIFACT_BYTES + 1),
+        b"[" * (evidence.MAX_JSON_DEPTH + 1)
+        + b"0"
+        + b"]" * (evidence.MAX_JSON_DEPTH + 1),
+        b"[" + b"0," * evidence.MAX_JSON_LIST_ITEMS + b"0]",
+    )
+    for calendar_bytes in cases:
+        with pytest.raises(ValueError):
+            generate_bundle(
+                source,
+                candidate,
+                start,
+                end,
+                config,
+                calendar_bytes,
+                tmp_path / f"bundle-{len(calendar_bytes)}",
+                allow_new_simulation=True,
+            )
+    assert not parser_called
 
 
 def test_manifest_declared_total_rejected_before_artifact_reads(

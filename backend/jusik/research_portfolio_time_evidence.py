@@ -594,6 +594,11 @@ def generate_bundle(
 
     if not allow_new_simulation:
         raise ValueError("generation requires explicit allow_new_simulation")
+    # Public callers provide raw calendar bytes directly; enforce the same
+    # bounded lexical JSON contract before the calendar parser sees them.
+    if len(calendar_bytes) > MAX_ARTIFACT_BYTES:
+        raise ValueError("calendar exceeds the JSON size limit")
+    _strict_json(calendar_bytes, "calendar")
     calendar = MarketCalendar.from_bytes(calendar_bytes)
     fixed = TimeEvidenceConfig.from_values(candidate, start, end, config, policy)
     events, data = _event_plan(source, start, end, calendar)
