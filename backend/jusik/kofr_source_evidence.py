@@ -8,6 +8,7 @@ content-addressed XML artifact and a separately tracked JSON projection.
 from __future__ import annotations
 
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -257,11 +258,13 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     data_nodes = list(vector)
     if len(data_nodes) > MAX_ROWS:
         raise KofrEvidenceError("row_limit")
+    if vector.text and vector.text.strip():
+        raise KofrEvidenceError("malformed_vector")
     if any(_local_name(node.tag) != "data" for node in data_nodes):
         raise KofrEvidenceError("malformed_data")
     results: list[ET.Element] = []
     for data in data_nodes:
-        if data.attrib:
+        if data.attrib or (data.text and data.text.strip()):
             raise KofrEvidenceError("malformed_data")
         children = list(data)
         if len(children) != 1 or _local_name(children[0].tag) != "result":
@@ -272,7 +275,7 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     rows: list[dict[str, str]] = []
     seen_dates: set[str] = set()
     for result in results:
-        if result.attrib:
+        if result.attrib or (result.text and result.text.strip()):
             raise KofrEvidenceError("malformed_result")
         fields: dict[str, str] = {}
         children = list(result)
@@ -280,7 +283,13 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
             raise KofrEvidenceError("malformed_result")
         for field in children:
             name = _local_name(field.tag)
-            if name in fields or name not in FIELDS or set(field.attrib) != {"value"} or list(field):
+            if (
+                name in fields
+                or name not in FIELDS
+                or set(field.attrib) != {"value"}
+                or list(field)
+                or (field.text and field.text.strip())
+            ):
                 raise KofrEvidenceError("malformed_result")
             value = field.attrib["value"]
             if not value or len(value) > 512:
@@ -396,6 +405,8 @@ def _secure_read(path: Path, *, limit: int) -> bytes:
                 dir_fd=parent_fd,
             )
         except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                raise KofrEvidenceError("unsafe_path") from exc
             raise KofrEvidenceError("source_unavailable") from exc
         try:
             file_stat = os.fstat(fd)
@@ -418,15 +429,19 @@ def _secure_read(path: Path, *, limit: int) -> bytes:
 
 def _exclusive_write(path: Path, data: bytes) -> None:
     absolute = Path(os.path.abspath(path))
+    _assert_regular(absolute)
     parent_fd = _open_secure_directory(absolute.parent)
     temp_name = f".{absolute.name}.{os.getpid()}.tmp"
     try:
-        fd = os.open(
-            temp_name,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
-            0o600,
-            dir_fd=parent_fd,
-        )
+        try:
+            fd = os.open(
+                temp_name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                0o600,
+                dir_fd=parent_fd,
+            )
+        except FileExistsError as exc:
+            raise KofrEvidenceError("artifact_exists") from exc
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
             handle.flush()
@@ -504,7 +519,11 @@ def verify_evidence(evidence_path: Path, audit_root: Path = AUDIT_DIR) -> dict[s
     request_path = audit_root / "request.xml"
     try:
         request_bytes = _secure_read(request_path, limit=MAX_RESPONSE_BYTES)
-    except (KofrEvidenceError, OSError):
+    except KofrEvidenceError as exc:
+        if exc.code == "unsafe_path":
+            raise
+        raise KofrEvidenceError("request_unavailable") from None
+    except OSError:
         raise KofrEvidenceError("request_unavailable") from None
     if hashlib.sha256(request_bytes).hexdigest() != expected_request["request_sha256"] or request_bytes != request_xml():
         raise KofrEvidenceError("request_mismatch")
