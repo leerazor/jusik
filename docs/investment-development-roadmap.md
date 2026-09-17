@@ -75,7 +75,7 @@
 | --- | --- | --- | --- | --- | --- |
 | R0 | 완료 | 기준 실행·공통 결과/자료 계약·replay | not-evaluated | 없음 | main b950266; 테스트61개·두 checkpoint exact replay·독립 review 통과 |
 | R1 | 예정 | 미국 PIT universe와 기업행사 정책 교정 | 평가 불가 | R0 계약 | 고정 pool·미래 사건 제외·actions 결함 |
-| R2 | 예정 | 손실·비용·FX·DD 독립 계산과 NAV 대사 | 평가 불가 | R0 (기존 자료로 독립 착수) | R4에서 R1 보정 자료를 재대사; 비용·단위·세금 가정을 검증해야 함 |
+| R2 | 진행 | 손실·비용·FX·DD 독립 계산과 NAV 대사 | not-evaluated | R0 (기존 자료로 독립 착수) | R2-05만 canonical approximate 기술 pass; R2-01~04·06은 미완료이고 readiness는 blocked |
 | R3 | 예정 | 기존 자료의 결과 화면과 fixture API | 평가 불가 | R0 계약 | R1/R2와 독립적인 읽기 전용 UI 작업 |
 | R4 | 예정 | 고정 정책 미국 1년·조건부 3년 재실행 | 순수익·DD20·회전율 평가 | R1, R2와 독립 review | R3는 결과 게시·UX 검증에만 필요; 같은 정책·통화·비용·달력의 비교 |
 | R5 | 예정 | 사전등록 후보와 미래 held-out 검증 | 기준 충족 여부 평가 | R4 | 후보 최대 3개, 기준 선고정 |
@@ -157,7 +157,8 @@ R2는 전략 로직과 분리된 계산으로 가격손익, 배당, FX, 비용, 
 - [ ] **R2-02** fee, slippage, `sell_tax_rate`를 KR/US 시장별로 명시하고 매도세·거래세 등 세금 종류와 적용 시점을 검증한다.
 - [ ] **R2-03** 초기 환전, USD/KRW 단위, 원화 기준 NAV, 환율 시점과 반올림 규칙을 고정한다.
 - [ ] **R2-04** 초기 자본을 포함한 운용 중 최고 NAV를 갱신하고 그 고점 대비 하락률의 chronology로 DD latch와 해제 조건을 계산한다.
-- [ ] **R2-05** 모든 거래일의 NAV를 대사해 residual이 `1 KRW` 이하이거나 사전 문서화한 더 엄격한 정밀도인지 확인한다.
+- [x] **R2-05** 모든 거래일의 NAV를 대사해 residual이 `1 KRW` 이하이거나 사전 문서화한 더 엄격한 정밀도인지 확인한다.
+  - 증거 (기술 status: `pass`, 자료 grade: `approximate`, 경제 observed: `not-evaluated`): [canonical NAV reconciliation 계약](research-nav-reconciliation.md), [canonical evidence 연결 기록](development-records/2026-09-18-r2-canonical-nav-evidence-connection.md), [이번 결정 기록](development-records/2026-09-18-r2-canonical-nav-reconciliation-decision.md)에 고정한 동일 run/manifest/dataset/기간/session identity를 canonical adapter가 결속합니다. run SHA는 `cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275`, manifest SHA는 `03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205`, dataset SHA는 `e58e69fc19fd89589e5cd5d55a43259f1ad28c9b9f0a87c75dd7617f28906aea`, session evidence SHA는 `9348e2f3f6d2120e99460e34dd0a20e285bd14daf6c1f45f96df688b7bc1046a`입니다. `2025-09-11`~`2026-09-11` 양끝 포함 XNYS의 expected/observed ordered sessions는 `252/252`이고, component projection 최대 residual은 `5E-20 KRW`, independent modeled ledger residual은 `0 KRW`로 각각 `1 KRW` 이하입니다. 이 evidence-based decision은 R2-05만 canonical approximate 기술 pass로 기록하며, 배당·분할 완전성, 실제 비용·세금·FX, initial-capital/NAV timestamp, DD latch·counterfactual, benchmark·미래 검증은 평가하지 않습니다. 따라서 R2 전체는 미완료이고 readiness는 `blocked`/`ready_for_metrics=false`, 경제 평가는 `not-evaluated`로 유지합니다.
 - [ ] **R2-06** 비용·배당·환율 counterfactual은 별도 결과로 남기고 비가산적인 기여를 합산해 주장하지 않는다.
 
 현재 코드의 공통 `sell_tax_rate .0018`은 적정하다고 확정하지 않는다. 시장별 적용은 미확인 가설로 남기고 R2 사전 검증에서 근거를 확인한다. R2 기술 완료 뒤에야 R4의 순수익과 DD를 경제적으로 읽는다.
