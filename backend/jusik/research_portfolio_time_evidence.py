@@ -10,10 +10,13 @@ it never executes the simulation engine.
 from __future__ import annotations
 
 import argparse
+import ctypes
+import errno
 import hashlib
 import json
 import os
 import shutil
+import stat
 import tempfile
 from datetime import date, datetime
 from decimal import Decimal
@@ -53,6 +56,14 @@ ARTIFACT_NAMES: Final[tuple[str, ...]] = (
 MANIFEST_NAME: Final[str] = "manifest.json"
 ALL_ARTIFACT_NAMES: Final[tuple[str, ...]] = (*ARTIFACT_NAMES, MANIFEST_NAME)
 LiteralOne = Literal[1]
+MAX_REQUEST_BYTES: Final[int] = 1 * 1024 * 1024
+MAX_ARTIFACT_BYTES: Final[int] = 20 * 1024 * 1024
+MAX_TOTAL_INPUT_BYTES: Final[int] = 50 * 1024 * 1024
+MAX_JSON_DEPTH: Final[int] = 64
+MAX_JSON_OBJECT_KEYS: Final[int] = 2_000
+MAX_JSON_LIST_ITEMS: Final[int] = 20_000
+RENAME_NOREPLACE: Final[int] = 1
+AT_FDCWD: Final[int] = -100
 
 
 class TimeEvidenceConfig(BaseModel):
@@ -112,6 +123,34 @@ def sha256_bytes(body: bytes) -> str:
 
 
 def _strict_json(body: bytes, label: str) -> object:
+    if len(body) > MAX_ARTIFACT_BYTES:
+        raise ValueError(f"{label} exceeds the JSON size limit")
+
+    depth = 0
+    in_string = False
+    escaped = False
+    for character in body:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == ord("\\"):
+                escaped = True
+            elif character == ord('"'):
+                in_string = False
+            continue
+        if character == ord('"'):
+            in_string = True
+        elif character in (ord("{"), ord("[")):
+            depth += 1
+            if depth > MAX_JSON_DEPTH:
+                raise ValueError(f"{label} JSON nesting is too deep")
+        elif character in (ord("}"), ord("]")):
+            depth -= 1
+            if depth < 0:
+                raise ValueError(f"{label} JSON nesting is invalid")
+    if in_string or depth != 0:
+        raise ValueError(f"{label} JSON nesting is invalid")
+
     def parse_int(value: str) -> int:
         if len(value.lstrip("+-")) > 100:
             raise ValueError(f"integer is too large in {label}")
@@ -132,7 +171,7 @@ def _strict_json(body: bytes, label: str) -> object:
         return result
 
     try:
-        return json.loads(
+        parsed = json.loads(
             body.decode("utf-8"),
             parse_float=Decimal,
             parse_int=parse_int,
@@ -141,6 +180,25 @@ def _strict_json(body: bytes, label: str) -> object:
         )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ValueError(f"invalid JSON: {label}") from exc
+    _check_json_shape(parsed, label)
+    return parsed
+
+
+def _check_json_shape(value: object, label: str, depth: int = 0) -> None:
+    if depth > MAX_JSON_DEPTH:
+        raise ValueError(f"{label} JSON nesting is too deep")
+    if isinstance(value, dict):
+        if len(value) > MAX_JSON_OBJECT_KEYS:
+            raise ValueError(f"{label} has too many object keys")
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError(f"{label} has a non-string object key")
+            _check_json_shape(item, label, depth + 1)
+    elif isinstance(value, list):
+        if len(value) > MAX_JSON_LIST_ITEMS:
+            raise ValueError(f"{label} has too many list items")
+        for item in value:
+            _check_json_shape(item, label, depth + 1)
 
 
 def _json_bytes(value: object) -> bytes:
@@ -167,10 +225,38 @@ def _digest(value: object, label: str) -> str:
     return value
 
 
-def _regular_file(path: Path, label: str) -> bytes:
+def _regular_file(
+    path: Path, label: str, *, max_bytes: int = MAX_ARTIFACT_BYTES
+) -> bytes:
     if path.is_symlink() or not path.is_file():
         raise ValueError(f"{label} must be a regular file")
-    return path.read_bytes()
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise ValueError(f"{label} cannot be opened safely") from exc
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes:
+            raise ValueError(f"{label} exceeds the file size limit")
+        chunks: list[bytes] = []
+        remaining = before.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(1024 * 1024, remaining))
+            if not chunk:
+                raise ValueError(f"{label} changed while reading")
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        after = os.fstat(descriptor)
+        if (
+            before.st_size != after.st_size
+            or before.st_mtime_ns != after.st_mtime_ns
+            or before.st_ino != after.st_ino
+        ):
+            raise ValueError(f"{label} changed while reading")
+        return b"".join(chunks)
+    finally:
+        os.close(descriptor)
 
 
 def _load_model_bytes(body: bytes, model: type[BaseModel], label: str) -> BaseModel:
@@ -209,6 +295,47 @@ def _staging_dir(path: Path) -> Path:
     if path.is_symlink() or path.exists():
         raise ValueError("output directory must be new and not a symlink")
     return Path(tempfile.mkdtemp(prefix=f".{path.name}.staging-", dir=parent))
+
+
+def _rename_noreplace(staging: Path, destination: Path) -> None:
+    """Publish a directory atomically without replacing a concurrent target."""
+
+    parent = destination.parent
+    try:
+        directory_flag = os.O_DIRECTORY
+        descriptor = os.open(parent, os.O_RDONLY | directory_flag)
+    except (AttributeError, OSError) as exc:
+        raise ValueError("atomic no-overwrite publish is unsupported") from exc
+    try:
+        try:
+            libc = ctypes.CDLL(None, use_errno=True)
+        except OSError as exc:
+            raise ValueError("atomic no-overwrite publish is unsupported") from exc
+        renameat2 = getattr(libc, "renameat2", None)
+        if renameat2 is None:
+            raise ValueError("atomic no-overwrite publish is unsupported")
+        renameat2.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(
+            descriptor,
+            staging.name.encode("utf-8"),
+            descriptor,
+            destination.name.encode("utf-8"),
+            RENAME_NOREPLACE,
+        )
+        if result != 0:
+            error = ctypes.get_errno()
+            if error == errno.EEXIST:
+                raise ValueError("output directory appeared during publish")
+            raise OSError(error, os.strerror(error))
+    finally:
+        os.close(descriptor)
 
 
 def _safe_artifact_name(name: object) -> str:
@@ -475,7 +602,7 @@ def generate_bundle(
         # Manifest is deliberately written last after all immutable artifacts.
         _write_bytes_exclusive(staging_dir / MANIFEST_NAME, manifest_body)
         _fsync_directory(staging_dir)
-        os.rename(staging_dir, output_dir)
+        _rename_noreplace(staging_dir, output_dir)
         _fsync_directory(output_dir.parent)
     except BaseException:
         if staging_dir.exists() and not staging_dir.is_symlink():
@@ -496,7 +623,9 @@ def _load_bundle_files(
         raise ValueError("bundle directory must be a real directory")
     expected = _digest(expected_manifest_sha256, "expected manifest SHA-256")
     manifest_path = bundle_dir / MANIFEST_NAME
-    manifest_body = _regular_file(manifest_path, "manifest")
+    manifest_body = _regular_file(
+        manifest_path, "manifest", max_bytes=MAX_ARTIFACT_BYTES
+    )
     actual_manifest_sha = sha256_bytes(manifest_body)
     if actual_manifest_sha != expected:
         raise ValueError("manifest SHA-256 does not match explicit expectation")
@@ -522,6 +651,7 @@ def _load_bundle_files(
     if not isinstance(artifacts, dict) or set(artifacts) != set(ARTIFACT_NAMES):
         raise ValueError("manifest artifact set is not exact")
     files: dict[str, bytes] = {}
+    total_bytes = len(manifest_body)
     for name, row in artifacts.items():
         safe_name = _safe_artifact_name(name)
         if not isinstance(row, dict) or set(row) != {"path", "size", "sha256"}:
@@ -530,6 +660,9 @@ def _load_bundle_files(
             raise ValueError("manifest artifact path or size is invalid")
         digest = _digest(row["sha256"], f"artifact {safe_name} SHA-256")
         body = _regular_file(bundle_dir / safe_name, safe_name)
+        total_bytes += len(body)
+        if total_bytes > MAX_TOTAL_INPUT_BYTES:
+            raise ValueError("bundle exceeds the total file size limit")
         if len(body) != row["size"] or sha256_bytes(body) != digest:
             raise ValueError(f"artifact hash or size mismatch: {safe_name}")
         files[safe_name] = body
@@ -601,7 +734,9 @@ def verify_bundle(
 
 def _load_request(path: Path) -> GenerationRequest:
     model = _load_model_bytes(
-        _regular_file(path, "request"), GenerationRequest, "request"
+        _regular_file(path, "request", max_bytes=MAX_REQUEST_BYTES),
+        GenerationRequest,
+        "request",
     )
     assert isinstance(model, GenerationRequest)
     return model
@@ -620,6 +755,8 @@ def generate_from_request(
     input_body = _regular_file(input_path, "input")
     config_body = _regular_file(config_path, "config")
     calendar_body = _regular_file(calendar_path, "calendar")
+    if len(input_body) + len(config_body) + len(calendar_body) > MAX_TOTAL_INPUT_BYTES:
+        raise ValueError("input files exceed the total file size limit")
     for body, expected, label in (
         (input_body, request.input_sha256, "input"),
         (config_body, request.config_sha256, "config"),
@@ -686,6 +823,11 @@ def main(argv: list[str] | None = None) -> int:
             input_body = _regular_file(args.input, "input")
             config_body = _regular_file(args.config, "config")
             calendar_body = _regular_file(args.calendar, "calendar")
+            if (
+                len(input_body) + len(config_body) + len(calendar_body)
+                > MAX_TOTAL_INPUT_BYTES
+            ):
+                raise ValueError("input files exceed the total file size limit")
             source = _load_model_bytes(input_body, PortfolioInput, "input")
             fixed = _load_model_bytes(config_body, TimeEvidenceConfig, "config")
             assert isinstance(source, PortfolioInput)

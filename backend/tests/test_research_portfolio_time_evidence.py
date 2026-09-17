@@ -12,13 +12,19 @@ import pytest
 from jusik import research_portfolio_engine as engine
 from jusik import research_portfolio_time_evidence as evidence
 from jusik.research_external_models import ExternalFeatureSnapshot
-from jusik.research_market_calendar import DEFAULT_CALENDAR_PATH, load_market_calendar
+from jusik.research_market_calendar import (
+    DEFAULT_CALENDAR_PATH,
+    MarketSession,
+    _Day,
+    load_market_calendar,
+)
 from jusik.research_models import DailyBar
-from jusik.research_portfolio_engine import simulate
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
     PortfolioInput,
+    PortfolioPolicy,
+    PortfolioSimulation,
 )
 from jusik.research_portfolio_time_evidence import (
     generate_bundle,
@@ -104,6 +110,104 @@ def _config() -> tuple[PortfolioCandidate, PortfolioConfig, date, date]:
     )
 
 
+def _single_bar_source(day: date) -> PortfolioInput:
+    source = _source()
+    snapshot = source.instruments[0]
+    item = snapshot.instruments[0]
+    bar = next(value for value in item.bars if value.date == day)
+    filtered_item = item.model_copy(update={"bars": [bar]})
+    filtered_snapshot = snapshot.model_copy(
+        update={
+            "requested_start": day,
+            "requested_end": day,
+            "evaluation_start": day,
+            "instruments": [filtered_item],
+            "adjustment_factors": [
+                value for value in snapshot.adjustment_factors if value.date == day
+            ],
+        }
+    )
+    return source.model_copy(
+        update={
+            "stock_snapshot_ids": {"KRTEST": "synthetic"},
+            "instruments": [filtered_snapshot],
+        }
+    )
+
+
+def _causal_pair_source() -> PortfolioInput:
+    source = _source()
+    calendar = load_market_calendar()
+    snapshots = []
+    for snapshot in source.instruments:
+        item = snapshot.instruments[0]
+        bars = [
+            bar
+            for bar in item.bars
+            if (
+                (session := calendar.lookup(item.instrument.exchange, bar.date).session)
+                is not None
+                and engine._market_time(
+                    bar.date, item.instrument.timezone, opening=True
+                )
+                >= session.open_at
+                and engine._market_time(
+                    bar.date, item.instrument.timezone, opening=False
+                )
+                >= session.close_at
+            )
+        ]
+        days = {bar.date for bar in bars}
+        item = item.model_copy(update={"bars": bars})
+        snapshots.append(
+            snapshot.model_copy(
+                update={
+                    "instruments": [item],
+                    "adjustment_factors": [
+                        value
+                        for value in snapshot.adjustment_factors
+                        if value.date in days
+                    ],
+                }
+            )
+        )
+    us = snapshots[0].model_copy(deep=True)
+    us_item = us.instruments[0]
+    us_instrument = ResearchInstrument(
+        symbol="USYNTH",
+        yahoo_symbol="USYNTH",
+        name="US synthetic",
+        currency="USD",
+        exchange="NMS",
+        timezone="America/New_York",
+    )
+    us_days = [
+        bar.date
+        for bar in us_item.bars
+        if calendar.lookup("NMS", bar.date).session is not None
+    ]
+    us_bars = [bar for bar in us_item.bars if bar.date in us_days]
+    us = us.model_copy(
+        update={
+            "instruments": [
+                us_item.model_copy(
+                    update={"instrument": us_instrument, "bars": us_bars}
+                )
+            ],
+            "adjustment_factors": [
+                value for value in us.adjustment_factors if value.date in set(us_days)
+            ],
+        }
+    )
+    snapshots.append(us)
+    return source.model_copy(
+        update={
+            "stock_snapshot_ids": {"SYNTH": "synthetic", "USYNTH": "synthetic"},
+            "instruments": snapshots,
+        }
+    )
+
+
 def test_initial_capital_is_an_engine_anchor_not_a_market_open() -> None:
     event = InitialCapitalEvent(
         initial_capital_krw=Decimal("100"),
@@ -129,6 +233,29 @@ def test_generation_matches_direct_simulation_and_verify_does_not_simulate(
     source = _source()
     candidate, config, start, end = _config()
     output = tmp_path / "bundle"
+    original_simulate = engine.simulate
+    calls = 0
+
+    def counted_simulate(
+        source_value: PortfolioInput,
+        candidate_value: PortfolioCandidate,
+        start_value: date,
+        end_value: date,
+        config_value: PortfolioConfig,
+        policy_value: PortfolioPolicy = "corrected_control",
+    ) -> PortfolioSimulation:
+        nonlocal calls
+        calls += 1
+        return original_simulate(
+            source_value,
+            candidate_value,
+            start_value,
+            end_value,
+            config_value,
+            policy_value,
+        )
+
+    monkeypatch.setattr(engine, "simulate", counted_simulate)
     result = generate_bundle(
         source,
         candidate,
@@ -139,8 +266,9 @@ def test_generation_matches_direct_simulation_and_verify_does_not_simulate(
         output,
         allow_new_simulation=True,
     )
+    assert calls == 1
     payload = json.loads((output / "simulation.json").read_text())
-    direct = simulate(source, candidate, start, end, config)
+    direct = original_simulate(source, candidate, start, end, config)
     assert payload == direct.model_dump(mode="json")
     assert json.loads((output / "time-evidence.json").read_text())["nav"]
 
@@ -295,3 +423,112 @@ def test_verify_rejects_extra_directory_entry(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="unexpected or missing"):
         verify_bundle(output, result.manifest_sha256)
     shutil.rmtree(output / "unexpected")
+
+
+def test_publish_race_is_rejected_without_replacing_destination(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source()
+    candidate, config, start, end = _config()
+    output = tmp_path / "bundle"
+    original = evidence._rename_noreplace
+
+    def race(staging: Path, destination: Path) -> None:
+        destination.mkdir()
+        original(staging, destination)
+
+    monkeypatch.setattr(evidence, "_rename_noreplace", race)
+    with pytest.raises(ValueError, match="appeared during publish"):
+        generate_bundle(
+            source,
+            candidate,
+            start,
+            end,
+            config,
+            DEFAULT_CALENDAR_PATH.read_bytes(),
+            output,
+            allow_new_simulation=True,
+        )
+    assert output.is_dir()
+    assert not list(tmp_path.glob(".bundle.staging-*"))
+
+
+def test_json_depth_and_file_size_limits_are_bounded(tmp_path: Path) -> None:
+    nested = (
+        "[" * (evidence.MAX_JSON_DEPTH + 1) + "0" + "]" * (evidence.MAX_JSON_DEPTH + 1)
+    )
+    with pytest.raises(ValueError, match="nesting"):
+        evidence._strict_json(nested.encode(), "nested")
+    oversized = tmp_path / "oversized.json"
+    oversized.write_bytes(b"0" * (evidence.MAX_REQUEST_BYTES + 1))
+    with pytest.raises(ValueError, match="size limit"):
+        evidence._regular_file(
+            oversized, "request", max_bytes=evidence.MAX_REQUEST_BYTES
+        )
+
+
+def test_xnys_dst_and_early_close_are_distinct_session_evidence() -> None:
+    calendar = load_market_calendar()
+    before_dst = calendar.lookup("NMS", date(2024, 3, 8)).session
+    after_dst = calendar.lookup("NMS", date(2024, 3, 11)).session
+    early = calendar.lookup("NMS", date(2024, 11, 29)).session
+    assert before_dst is not None and after_dst is not None and early is not None
+    ny = ZoneInfo("America/New_York")
+    assert (
+        before_dst.close_at.astimezone(ny).utcoffset()
+        != after_dst.close_at.astimezone(ny).utcoffset()
+    )
+    assert (
+        early.close_at.astimezone(ny).time() < after_dst.close_at.astimezone(ny).time()
+    )
+    assert early.close_at != after_dst.close_at
+
+
+def test_xkrx_delayed_close_rejects_close_and_warmup_future_exposure() -> None:
+    delayed_day = date(2024, 1, 3)
+    source = _single_bar_source(delayed_day)
+    calendar = load_market_calendar()
+    calendar._days["XKRX"][delayed_day] = _Day(
+        "session",
+        MarketSession(
+            "XKRX",
+            delayed_day,
+            datetime(2024, 1, 3, 0, tzinfo=UTC),
+            datetime(2024, 1, 3, 7, 30, tzinfo=UTC),
+        ),
+    )
+    with pytest.raises(ValueError, match="official session close"):
+        evidence._event_plan(source, delayed_day, delayed_day, calendar)
+    with pytest.raises(ValueError, match="warmup bar"):
+        evidence._event_plan(source, date(2023, 11, 20), date(2023, 11, 20), calendar)
+
+
+def test_xkrx_and_xnys_close_groups_keep_market_times_separate(tmp_path: Path) -> None:
+    source = _causal_pair_source()
+    candidate = PortfolioCandidate(id="pair", method="equal", gate="none")
+    config = PortfolioConfig(initial_cash_krw=Decimal("1000000"))
+    start = source.instruments[0].requested_start
+    end = source.instruments[0].requested_end
+    output = tmp_path / "pair-bundle"
+    result = generate_bundle(
+        source,
+        candidate,
+        start,
+        end,
+        config,
+        DEFAULT_CALENDAR_PATH.read_bytes(),
+        output,
+        allow_new_simulation=True,
+    )
+    sidecar = json.loads((output / "time-evidence.json").read_text())
+    calendars = {
+        session["calendar"]
+        for nav in sidecar["nav"]
+        for close in nav["triggering_close_group"]
+        for session in [close["session"]]
+    }
+    assert calendars == {"XKRX", "XNYS"}
+    assert all(len(nav["triggering_close_group"]) == 1 for nav in sidecar["nav"])
+    assert verify_bundle(output, result.manifest_sha256).nav_count == len(
+        sidecar["nav"]
+    )
