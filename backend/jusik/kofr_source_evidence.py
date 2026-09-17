@@ -150,10 +150,6 @@ def request_xml() -> bytes:
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
-def _local_name(tag: str) -> str:
-    return tag.rsplit("}", 1)[-1]
-
-
 def _check_tree_bounds(root: ET.Element) -> None:
     def visit(node: ET.Element, depth: int) -> None:
         if depth > MAX_DEPTH:
@@ -247,7 +243,7 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     except (ET.ParseError, ValueError, RecursionError):
         raise KofrEvidenceError("malformed_xml") from None
     _check_tree_bounds(root)
-    if _local_name(root.tag) != "vector":
+    if root.tag != "vector":
         raise KofrEvidenceError("unexpected_xml_root")
     vector = root
     if set(vector.attrib) != {"result"}:
@@ -258,16 +254,16 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     data_nodes = list(vector)
     if len(data_nodes) > MAX_ROWS:
         raise KofrEvidenceError("row_limit")
-    if vector.text and vector.text.strip():
+    if (vector.text and vector.text.strip()) or (vector.tail and vector.tail.strip()):
         raise KofrEvidenceError("malformed_vector")
-    if any(_local_name(node.tag) != "data" for node in data_nodes):
+    if any(node.tag != "data" for node in data_nodes):
         raise KofrEvidenceError("malformed_data")
     results: list[ET.Element] = []
     for data in data_nodes:
-        if data.attrib or (data.text and data.text.strip()):
+        if data.attrib or (data.text and data.text.strip()) or (data.tail and data.tail.strip()):
             raise KofrEvidenceError("malformed_data")
         children = list(data)
-        if len(children) != 1 or _local_name(children[0].tag) != "result":
+        if len(children) != 1 or children[0].tag != "result":
             raise KofrEvidenceError("malformed_data")
         results.append(children[0])
     if int(declared) != len(results):
@@ -275,20 +271,21 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     rows: list[dict[str, str]] = []
     seen_dates: set[str] = set()
     for result in results:
-        if result.attrib or (result.text and result.text.strip()):
+        if result.attrib or (result.text and result.text.strip()) or (result.tail and result.tail.strip()):
             raise KofrEvidenceError("malformed_result")
         fields: dict[str, str] = {}
         children = list(result)
         if not children or len(children) > MAX_FIELDS:
             raise KofrEvidenceError("malformed_result")
         for field in children:
-            name = _local_name(field.tag)
+            name = field.tag
             if (
                 name in fields
                 or name not in FIELDS
                 or set(field.attrib) != {"value"}
                 or list(field)
                 or (field.text and field.text.strip())
+                or (field.tail and field.tail.strip())
             ):
                 raise KofrEvidenceError("malformed_result")
             value = field.attrib["value"]
@@ -549,11 +546,12 @@ def collect(
     if timeout != 30.0:
         raise KofrEvidenceError("timeout_override")
     request = request_xml()
+    audit_root = Path(os.path.abspath(audit_root))
     _assert_directory(audit_root)
-    audit_root = audit_root.resolve()
     if evidence_output is not None:
         _assert_regular(evidence_output)
-    audit_root.mkdir(parents=True, exist_ok=True)
+    audit_fd = _open_secure_directory(audit_root)
+    os.close(audit_fd)
     attempt_path = audit_root / "attempt.json"
     _exclusive_write(attempt_path, _json_bytes({"schema": "kofr-source-attempt/v1", "created_at_utc": _utc_now(), "endpoint": ENDPOINT, "request_sha256": hashlib.sha256(request).hexdigest()}))
     _exclusive_write(audit_root / "request.xml", request)

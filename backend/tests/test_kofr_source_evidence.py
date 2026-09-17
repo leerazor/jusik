@@ -110,6 +110,23 @@ def test_exact_xml_attributes_and_leaf_shape_are_required() -> None:
         parse_response(_xml().replace(b'<RFR_INDEX value="105.1234"/>', b'<RFR_INDEX value="105.1234"><child/></RFR_INDEX>'))
 
 
+def test_exact_no_namespace_tags_and_whitespace_only_text_tail() -> None:
+    namespaced = _xml().replace(b"<vector result=", b'<vector xmlns="urn:wrong" result=')
+    with pytest.raises(KofrEvidenceError, match="unexpected_xml_root"):
+        parse_response(namespaced)
+    namespaced_field = _xml().replace(
+        b'<RFR_INDEX value="105.1234"/>', b'<wrong:RFR_INDEX xmlns:wrong="urn:wrong" value="105.1234"/>'
+    )
+    with pytest.raises(KofrEvidenceError, match="malformed_result"):
+        parse_response(namespaced_field)
+    field_tail = _xml().replace(b'<RFR_INDEX value="105.1234"/>', b'<RFR_INDEX value="105.1234"/>unexpected')
+    with pytest.raises(KofrEvidenceError, match="malformed_result"):
+        parse_response(field_tail)
+    data_text = _xml().replace(b"<data>", b"<data>unexpected")
+    with pytest.raises(KofrEvidenceError, match="malformed_data"):
+        parse_response(data_text)
+
+
 def test_decimal_bounds_do_not_use_ambient_precision() -> None:
     rows, projection = parse_response(_xml(rate="123456789012345678901234567890.123456789"))
     assert rows[0]["RFR_PUBN_MR"].startswith("1234567890")
@@ -179,6 +196,17 @@ def test_verifier_rejects_raw_directory_symlink_and_request_mismatch(tmp_path: P
     (audit / "request.xml").write_bytes(b"<tampered/>")
     with pytest.raises(KofrEvidenceError, match="request_mismatch"):
         verify_evidence(output, audit)
+
+
+def test_audit_parent_symlink_is_rejected_before_transport(tmp_path: Path) -> None:
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    symlink_parent = tmp_path / "symlink-parent"
+    symlink_parent.symlink_to(real_parent, target_is_directory=True)
+    transport = FakeTransport(_xml())
+    with pytest.raises(KofrEvidenceError, match="unsafe_path"):
+        collect(transport, audit_root=symlink_parent / "audit")
+    assert transport.calls == 0
 
 
 @pytest.mark.parametrize(

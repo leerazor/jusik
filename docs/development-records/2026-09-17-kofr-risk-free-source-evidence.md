@@ -17,7 +17,8 @@
 - Decimal projection은 유효숫자·조정 지수·출력 길이를 bounded하게 검사하고
   tuple 기반으로 정규화해 ambient precision의 반올림과 exponent expansion을 막는다.
   audit 파일은 `O_NOFOLLOW` descriptor-relative read/write로 symlink escape를
-  차단하며, verifier는 request 원문·hash와 정확한 XML attribute shape도 대조한다.
+  차단하며, transport 전에 audit parent 전체를 preflight한다. verifier는 request
+  원문·hash와 namespace 없는 정확한 XML tag/attribute/text shape도 대조한다.
 - XML MIME/UTF-8, DTD/entity, 응답 크기·깊이·행·필드, 선언 행수, 날짜 범위·중복,
   유한 Decimal, `PUBN_DTTM` raw 형식을 fail-closed로 검증한다.
 - request와 attempt를 네트워크 전에 배타적으로 만들고, raw는 SHA-256 경로에
@@ -41,6 +42,8 @@
 - 표준 라이브러리 fake test harness — 위협·원문 고정·Decimal bounds·symlink·request
   hash·정확한 XML shape 포함 전체 함수 통과.
 - 차단 후보 hardening commits: `2eef27c`, `3d6c7b3`.
+- 추가 경계 수정은 transport 전 symlink parent 거부와 namespace/text-tail 회귀를
+  포함한다.
 - 실제 공식 수집 — production CLI를 정확히 1회 실행했으나 당시 parser 계약이
   `RECORD_COUNT` wrapper를 잘못 가정해 `invalid_record_count`로 차단했다. 실제
   관측 shape로 parser를 수리했지만 재요청은 금지되어 end-to-end 성공은 입증하지
