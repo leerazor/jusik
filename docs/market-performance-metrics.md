@@ -123,6 +123,13 @@ python -m jusik.market_performance_readiness \
 
 ## 전진 계산 정책
 
+새로 생성하는 simulation의 engine event 시각과 공식 거래소 session close를
+연결하는 독립 adapter 계약은
+[`docs/forward-simulation-time-evidence.md`](forward-simulation-time-evidence.md)를
+참조한다. 이 sidecar는 앞으로 생성한 bundle의 causal time evidence만 제공하며,
+기존 historical run의 초기자본·NAV 시각을 소급해서 채우거나 readiness를
+승격하지 않는다.
+
 `backend/jusik/data/market_performance_calculation_policy_v1.json`은 evaluator의
 수식·상수·Decimal Context를 고정하는 UTF-8 canonical artifact이다. loader는 고정된
 sibling 경로와 등록된 artifact 바이트 SHA-256을 확인한 뒤, 정책에 기록된 evaluator
