@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## r1-us-event-time-invariance
+
+- 상태: 준비. 로드맵 `R1-02`의 최소 선행 slice로, 미래 기업행사·상장폐지·중단일을 추가해도 사건 전 eligible universe가 불변인지 회귀 검증합니다.
+- 목표와 완료 조건: 기존 R1 PIT membership과 action/delisting 소비 경로를 조사해 관측시각 cutoff를 하나의 계약으로 고정하고, 미래 event 주입 전후의 사건 전 선택·분류·coverage가 exact equality임을 safe fixture로 증명합니다. 자료가 없는 event 종류는 지원된 것으로 가장하지 않고 명시적 missing/unsupported로 남깁니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: 조사·계획 후 `/home/kwl/projects/jusik-r1-us-event-time-invariance` / `feat/r1-us-event-time-invariance` 예정.
+- 입력과 선행 작업: R1-01 PIT membership, R1-03 structured security type, R1-06 provider failure fixture, market history action/delisting models와 현재 selection pipeline.
+- 수정 허용: 조사·계획에서 정한 좁은 cutoff helper 또는 adapter, safe synthetic fixture와 focused tests, R1 계약 문서·개발 기록. 등록부는 Astra만 수정합니다.
+- 금지: 실제 provider/network 수집, 과거 canonical artifact 수정, 실패 symbol 대체, 배당·분할 현금/가격 회계 구현, 전략·성과·후보 선택 변경, runner/PAPER/live/주문/운영 DB/service/config/remote 변경.
+- 중단 조건: 기존 selection 경로에서 event 관측시각을 구분할 근거가 없거나 fixture 통과를 위해 미래 event를 삭제·무시하는 방식이 필요하면 구현하지 않고 정확한 blocker를 기록합니다.
+- 검증·결과·개발 기록·handoff: 조사·계획 후 갱신합니다.
+
 ## forward-simulation-time-evidence
 
 - 상태: 완료. 기존 엔진·결과 schema를 바꾸지 않는 opt-in 신규 simulation bundle과 time-evidence sidecar를 local `main`에 통합했습니다.
