@@ -14,12 +14,13 @@
 ## r1-actions-bf7b
 
 - 현재 재시도: `33c9cb940ee7486cb40ba692842dc732`, task `roadmap-r1-04-v1`. 같은 worktree/branch와 미커밋 구현을 재사용합니다. 이전 시도 차단 기록은 아래에 역사로 보존합니다.
-- 현재 상태: 조사 완료·계획 중. 요청 기준 `5688c38`, 현재 main `d813f6e`. Astra 감독, Luna 단일 구현, Terra 독립 검토 후 local main 통합 검증 예정입니다.
+- 현재 상태: 첫 기술 slice 완료. Astra 감독·Luna 구현·Terra 독립 재검토 PASS. 구현 `5405f37`, main 통합 `c39242ec208d5bac9cdb3d3f2aa0076417e2af74`; worker/main 각각 pytest31·Ruff/format·strict mypy 통과. 전체 R1-04 미체크.
 - 이번 범위: 기존 회계 모듈의 전체 NAV·배당 지급 사실 대조·bool 검증 보완과 순수 회귀·계약 문서. 공유 모델·collector·universe·cutoff·전략·PAPER 계약은 불변입니다.
 - 검증 예산: 기존 fixture 재사용, 신규 fixture 최대20개·각4심볼/40세션, seed0, 단일 CPU 프로세스·관련 검사 합계900초·audit50MiB. focused 회계 테스트와 사전 검토한 순수 legacy node만 실행합니다. engine/pilot/final/network/GPU 실행은 0회입니다.
+- 현재 정리: 필요한 소스·증거·SHA·handoff 보존 후 해당 worktree/branch 정상 제거. 신규 변형13개/20개, 검사12.180초/900초. 개발 기록과 audit HANDOFF에 결과를 저장했습니다. 다른 격리 작업은 보존합니다.
 - 현재 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r1-04-33c9/`. 구현 소유자는 등록부를 수정하지 않습니다. 과거 agent 테스트 호출 횟수 제한은 현재 tracked delivery 정책으로 대체하며 과거 실패를 승인으로 바꾸지 않습니다.
 
-- 상태: 차단. task `roadmap-r1-04-v1`, attempt `bf7be9ff5dd64096848f7599f0c8265f`; 구현·전체 R1-04 미완료, checkbox 미체크.
+- 이전 시도 상태(역사): 차단. task `roadmap-r1-04-v1`, attempt `bf7be9ff5dd64096848f7599f0c8265f`; 구현·전체 R1-04 미완료, checkbox 미체크.
 - 담당: Astra 감독·계획, Luna 단일 구현, Terra 읽기 전용 독립 감사.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r1-actions-bf7b` / `feat/r1-actions-bf7b`; 요청 기준 `5688c38b1f8c091db5e52d495df5262f5d1ed749`, 등록 기준 `e84aa55`. 미커밋 구현 보존, main 구현 통합 없음.
 - 범위: 별도 연구용 split/dividend 회계 adapter·순수 Decimal 변환·fixture·문서 초안. 공통 history hash·collector·universe·사건 cutoff·전략·PAPER 계약 불변.
