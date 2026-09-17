@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## mandate-dispatch-gate
+
+- 상태: 준비. 자동 실행기는 pause, service/timer는 inactive/disabled이며 실제 저장소의 신규 governance는 `dispatch_enabled=false`로 유지합니다.
+- 목표와 완료 조건: 승인된 balanced 연구 정책을 기존 `research-mandate.json`에 호환 확장하고, JSON/Markdown/checksum/policy version 불일치나 비활성 상태를 investment-roadmap `resume`·queued task·빈 큐 planner의 claim/dispatch 전에 fail-closed 처리합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-mandate-dispatch-gate` / `feat/mandate-dispatch-gate`.
+- 기준 커밋/통합 대상: 등록 커밋 / local `main`.
+- 수정 허용: mandate governance validator와 runner/roadmap 연결, 직접 관련 tests, `docs/research-mandate.json`, checksum manifest, canonical roadmap marker, runner/research 운영 문서, 신규 개발 기록. 등록부는 Astra만 수정합니다.
+- 호환·rollback: 기존 mandate 역사 필드·PAPER10%·일반 research scope·DB schema·큐/attempt를 보존합니다. rollback은 governance `dispatch_enabled=false`로 유지해 이후 roadmap dispatch를 차단합니다.
+- 검증: governance 단위·runner roadmap/planning/resume 회귀, Ruff/format, configured strict mypy, JSON/MD/checksum/version·링크·checklist 보존, 독립 review와 main 통합 재검사.
+- 금지: 실제 runner resume/dispatch, 연구·수집·PAPER/live·주문, 운영 DB·서비스·user config·remote 변경. 임시 Git/DB와 fake child만 사용합니다.
+- 중단 조건: 기존 역사 필드 변경, 일반 research scope 회귀, claim/attempt/launch count 선행 변경, checksum 해석 모호성 또는 실제 운영 상태 변경이 필요하면 통합하지 않습니다.
+
 ## investment-roadmap-refresh
 
 - 상태: 완료. 자동 실행기는 pause, service/timer는 inactive/disabled이며 신규 연구 dispatch를 금지합니다.
