@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## delivery-recovery
+
+- 상태: 진행. 사용자 자율 개발 요청에 따라 R2-06 기술 구현을 실제 통합하고, 테스트 개수 제한으로 반복 중단되는 운영 지침을 바로잡습니다.
+- 감독 결정: 새로운 검증에서는 agent가 자체 생성한 단위 테스트 fixture 개수 제한을 종료 조건으로 쓰지 않습니다. 기존 실패 기록은 보존합니다. 사용자 명시 한도와 실제 금융 연구의 표본·기간·가정·계산 예산은 변경하지 않습니다.
+- 작업 A: 기존 `/home/kwl/projects/jusik-r2-counterfactual-fe92`, `feat/r2-counterfactual-fe92`를 재사용합니다. 기존 구현 `f4070f2`의 독립 검토·focused 검사·필요한 좁은 결함 수정 후 main 통합까지 수행합니다. 담당 Luna는 단일 소유자로 인계합니다.
+- 작업 B: `/home/kwl/projects/jusik-development-delivery-policy`, `fix/development-delivery-policy`. 기준은 main `2f8bb40` 이후 이 등록 커밋입니다. 별도 Luna가 runner의 runtime/planner/roadmap 지침과 운영 문서만 수정합니다. 투자·거래·상태 DB 계약은 그대로입니다.
+- 검증: R2 비교/회계 focused pytest·Ruff·strict mypy, runner 관련 focused 검사, 독립 review와 main 통합 검사. 검증 1200초·산출물 50MiB 내에서 수행하며 외부 시장 요청·연구 engine·PAPER/live 주문은 실행하지 않습니다.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-delivery-recovery/scope.md`. 자동 runner는 paused/service inactive로 두고 수동 작업 완료 후 R1-04 기존 소유 작업을 재개합니다.
+
 ## r1-actions-bf7b
 
 - 상태: 차단. task `roadmap-r1-04-v1`, attempt `bf7be9ff5dd64096848f7599f0c8265f`; 구현·전체 R1-04 미완료, checkbox 미체크.
