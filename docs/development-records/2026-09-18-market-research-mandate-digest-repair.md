@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-18T00:00:00Z
 - 작업 slug: `market-research-mandate-digest-repair`
-- 기준/통합: `c6d2bf9a2f01fa470fe9783a04dcc10133d690d9` / 구현 커밋 참조
+- 기준/통합: `c6d2bf9a2f01fa470fe9783a04dcc10133d690d9` / `36a7cff127e34137b5d36eba5918099902e9a887`
 - 범위: 합법적인 후속 `docs/market-research.md` 문서 갱신으로 생긴 digest drift만 매니페스트에서 수정하고, 거버넌스 정책·문서 내용·runner 상태는 보존했습니다.
 
 ## 변경과 결정
@@ -26,6 +26,8 @@
 - `PYTHONPATH=backend /tmp/jusik-r2-canonical-venv/bin/python -m pytest backend/tests/test_research_mandate_governance.py backend/tests/test_development_runner_roadmap.py -q` — 34 passed.
 - 세 핵심 회귀 테스트 직접 실행 — 3 passed; state mutation assertion 모두 통과.
 - 인접 runner/research 테스트 — 163 passed, 2 기존 deprecation warnings.
+- local `main`에서 governance+roadmap 34개와 인접 runner/planning/approximate 121개가 통과했습니다. 후자는 기존 deprecation warning 2개를 유지합니다.
+- Terra 독립 review — P1/P2 없음, PASS. manifest 전 항목·legacy/governance projection·policy marker와 disabled/no-mutation 분기를 재검증했습니다.
 - service/timer read-only 확인 — service `inactive`, timer `inactive`·`disabled`.
 - 실행하지 않은 검사: 실제 runner resume/dispatch, 외부 수집, PAPER/live, 주문, 운영 DB/config 변경, remote push.
 
