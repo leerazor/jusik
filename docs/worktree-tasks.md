@@ -2,7 +2,7 @@
 
 ## market-performance-calculation-policy
 
-- 상태: 준비. 기존 성과 evaluator 수식·상수·Decimal 문맥을 forward re-evaluation용 versioned 정책과 상호 SHA pin으로 고정합니다.
+- 상태: 완료. 기존 성과 evaluator 수식·상수·Decimal 문맥을 forward re-evaluation용 versioned 정책과 상호 SHA pin으로 고정했습니다.
 - 목표와 완료 조건: 정책 artifact bytes SHA와 evaluator 전체 source SHA를 양방향으로 검증하고, canonical readiness에서만 `missing_calculation_policy` 한 code를 제거합니다. 과거 run 적용은 `historical_application_proven=false`, 전체 상태는 blocked/metrics-disabled/not-evaluated, 나머지 4개 누락은 유지합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-market-performance-calculation-policy` / `feat/market-performance-calculation-policy`.
@@ -12,6 +12,8 @@
 - 검증: 정책/소스 정상 pin, 정책 누락·변조·schema/크기/중복 key, 내부 source SHA만 갱신한 우회, evaluator 소스 drift, 임의 경로 우회, ambient DefaultContext 불변, 독립 oracle·경계, generic 7개/canonical 4개, 기존 세션 SHA chain 회귀를 검사합니다.
 - 금지: 새 계산 DSL, 성과 수치 생성, 과거 정책 적용 주장, 기존 input/result 계약 파괴, 연구/network/PAPER/live/주문/운영 DB/service/config/remote 변경, 로드맵 checkbox 변경.
 - 중단 조건: 기존 수치가 변하거나 정책 pin을 자동 갱신해야 하거나 남은 4개 근거를 추정해야 하면 통합하지 않습니다.
+- 결과: Luna 최종 구현 `7361bf7`, Terra 최종 review PASS, local main 통합 `011e19b`. main에서 policy/metrics/readiness/calendar pytest 77개, Ruff/format, configured source mypy, diff 검사와 canonical CLI acceptance가 통과했습니다. canonical은 정책 근거 한 code만 제거해 남은 4개와 blocked 상태를 유지합니다.
+- 정리: 통합 검증 후 전용 worktree와 branch를 정상 제거합니다. 개발 기록은 `docs/development-records/2026-09-17-market-performance-calculation-policy.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## r0-us-session-evidence
 
