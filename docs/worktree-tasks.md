@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## r1-corporate-action-accounting-readiness
+
+- 상태: 준비. 로드맵 `R1-04`의 split/dividend 회계 연결 전에 현재 action 근거·missing 정책·기존 회계 adapter가 실제 지급/권리 수량을 어디까지 증명하는지 대조합니다.
+- 목표와 완료 조건: 외부 수집 없이 사용할 수 있는 고정 artifact와 코드 경계를 확인하고, 배당 중복계상 0·분할 전후 자산보존을 검증하기 위한 최소 입력 계약과 명시적 blocker를 확정합니다. 근거 없는 action 금액·지급일·수량은 합성하지 않습니다.
+- 담당: Astra 감독·계획·통합, 필요 시 Luna 단일 구현·Terra 독립 review.
+- 워크트리/브랜치: 조사·계획 후 확정 / `feat/r1-corporate-action-accounting-readiness` 예정.
+- 입력과 선행 작업: 기존 `r1-artifact-db6987` 기술 slice, market action models, approximate missing policy, independent accounting/cost ledger, frozen R0 artifacts.
+- 수정 허용: 조사·계획이 증명한 최소 adapter/verifier 또는 계약 문서/tests와 개발 기록. 등록부는 Astra만 수정합니다.
+- 금지: 실제 provider/network 수집, 배당·분할 추정, 기존 canonical run 수정·성과 재계산, 전략 후보 변경, runner/PAPER/live/주문/운영 DB/service/config/remote 변경.
+- 중단 조건: 지급일·권리수량·중복 방지 identity를 고정 artifact에서 증명할 수 없고 유용한 fail-closed 계약도 남지 않으면 구현하지 않고 차단 근거만 기록합니다.
+- 검증·결과·개발 기록·handoff: 조사·계획 후 갱신합니다.
+
 ## r1-us-coverage-retention
 
 - 상태: 완료. 기존 가격 진단에서 누락된 failed membership-checkpoint 구간을 당시 incumbent별 `membership_unknown`으로 보존하는 호환 확장을 통합했습니다. 실제 receipt가 없어 `R1-05` 전체 checkbox는 유지합니다.
