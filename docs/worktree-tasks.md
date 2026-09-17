@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## r0-us-session-evidence
+
+- 상태: 준비. canonical R0 미국 approximate pilot의 요청 기간 NAV 날짜를 tracked XNYS 달력과 SHA 체인으로 대사합니다.
+- 목표와 완료 조건: 요청 기간 `2025-09-11~2026-09-11` 양끝 포함 XNYS 예상 252세션과 canonical equity 252행의 날짜·순서가 일치한다는 불변 증거를 추가하고, 검증된 canonical 경로에서만 readiness의 `missing_calendar_evidence`·`missing_session_completeness_evidence` 두 code를 제거합니다. 전체 상태는 blocked, `ready_for_metrics=false`, 경제 평가는 not-evaluated, 나머지 5개 누락은 유지합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-r0-us-session-evidence` / `feat/r0-us-session-evidence`.
+- 기준 커밋/통합 대상: 이 등록 commit / local `main`.
+- 입력: R0 manifest SHA `03ff5a…1205`, canonical run SHA `cc9150…8275`, tracked calendar bytes SHA `ba2661…c1d8`·payload SHA `e9f86c…122d`; 실제 전체 값은 증거 파일과 검증 코드에 기록합니다.
+- 수정 허용: 신규 `backend/jusik/data/r0_us_session_evidence_v1.json`, `backend/jusik/market_performance_readiness.py`, 기존 readiness focused tests, `docs/market-performance-metrics.md`, 신규 개발 기록. 등록부는 Astra만 수정합니다.
+- 검증: 세 SHA 연결·달력 provider/version/기간·market/timezone·inclusive 날짜 의미·252/252·누락/초과0을 검증합니다. run/evidence/calendar 변조, 기간 변경, 세션 누락·중복·역순·휴장일·unavailable, 내부 hash만 재계산한 달력 변조, generic canonical 우회, 조기폐장/DST, 정확히 두 code 제거, 결정성·원본 불변을 검사합니다.
+- 금지: synthetic stress worktree 통합, 달력 close를 NAV timestamp/초기자본 anchor로 사용, strict PIT·가격/기업행사/FX 완전성 주장, evaluator/전략/collector/runner/API 변경, 연구·network·PAPER/live·주문·운영 DB/service/config/remote 변경, 로드맵 checkbox 변경.
+- 중단 조건: 고정 SHA나 252일 대사가 재현되지 않거나 두 code 외 준비 상태를 바꿔야 하면 통합하지 않습니다.
+
 ## market-performance-readiness
 
 - 상태: 완료. canonical R0 미국 approximate pilot을 성과 입력으로 승격하지 않고, 현재 평가 차단 근거를 결정적 JSON으로 진단합니다.
