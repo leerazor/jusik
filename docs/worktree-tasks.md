@@ -2,7 +2,7 @@
 
 ## forward-simulation-time-evidence
 
-- 상태: 진행. 조사·계획을 마쳤고, 기존 엔진·결과 schema를 바꾸지 않는 opt-in 신규 simulation bundle과 time-evidence sidecar를 구현합니다.
+- 상태: 완료. 기존 엔진·결과 schema를 바꾸지 않는 opt-in 신규 simulation bundle과 time-evidence sidecar를 local `main`에 통합했습니다.
 - 목표와 완료 조건: market calendar의 실제 session open/close UTC와 전략 평가 시점을 명시적으로 연결한 forward-only artifact contract를 추가하고, initial-capital event·per-NAV timestamp·생성 정책·source SHA를 재현 가능하게 검증합니다. 기존 canonical readiness는 바꾸지 않으며 새 run도 자동 canonical 승격하지 않습니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-forward-simulation-time-evidence` / `feat/forward-simulation-time-evidence`.
@@ -12,7 +12,9 @@
 - 중단 조건: 실제 NAV 평가 event와 timestamp 의미를 코드 흐름에서 일대일로 정의할 수 없거나 기존 run/replay 호환성을 깨야 하면 구현하지 않고 차단합니다.
 - 생성 계약: 초기자본은 earliest engine event와 같은 UTC instant의 `engine_event_anchor`이며 event 처리 전 논리 순서입니다. NAV는 기존 `evaluation_at`을 보존하고 실제 session open/close를 별도 근거로 연결하며 `close_at <= evaluation_at`을 fail-closed 검증합니다.
 - 출력·검증: 신규 디렉터리에 입력·설정·calendar bytes·기존 simulation 결과·time sidecar·manifest를 원자적으로 생성하며 덮어쓰지 않습니다. 합성 XNYS/XKRX·DST·조기/지연폐장·다종목 묶음과 변조·경로 공격을 검증합니다. 실제 연구 generation은 실행하지 않습니다.
-- 결과·개발 기록·handoff: 구현 후 갱신합니다.
+- 결과: Luna 최종 구현 `d83b204`는 opt-in bundle 생성·검증, strict time model, 달력 인과 검증, 원자적 no-overwrite 게시, bounded JSON·artifact 검증과 45개 worker 회귀를 포함합니다.
+- 검토·통합: Terra 최종 review PASS(P1/P2 없음), local main merge `de667503586b7cab025192a2f89b0e57be3b28fb`. main에서 time-evidence/portfolio/calendar/replay pytest 58개, Ruff check/format, focused configured mypy, diff 검사가 통과했습니다. full mypy의 기존 `research_optimizer.py` `torch` stub 부재는 작업 범위 밖입니다.
+- 정리·기록: 통합 검증 후 전용 worktree와 branch를 제거합니다. 개발 기록은 `docs/development-records/2026-09-17-forward-simulation-time-evidence.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## kofr-risk-free-source-evidence
 
