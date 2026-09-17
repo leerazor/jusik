@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-18T00:00:00Z
 - 작업 slug: `r2-canonical-nav-reconciliation-decision`
-- 기준/통합: `8ceaa8a3c02fc405a6522c274dc2e605aa846f44` / 통합 전
+- 기준/통합: `8ceaa8a3c02fc405a6522c274dc2e605aa846f44` / `c2a16e87800f8695c70b6b47b7c0bb2a26cc7417`
 - 범위: 고정 canonical approximate run의 R2-05 기술 조건만 문서화했습니다. generic reconciliation 계약, 다른 R2 항목, artifact와 코드는 변경하지 않았습니다.
 
 ## 결정
@@ -27,6 +27,8 @@
 - focused roadmap parser tests (`test_roadmap_areas_are_lowercase_and_gates_are_independent`, `test_roadmap_fixture_pins_baseline_when_live_items_are_all_checked`, `test_roadmap_enqueue_quarantines_used_area_and_complete_area`, `test_completed_partial_slice_can_enqueue_a_distinct_task_id`, `test_missing_or_malformed_roadmap_fails_closed`) — 5 passed.
 - `load_roadmap(Path('.'))` 직접 확인 — 변경 전 R2-05는 incomplete였고, 문서 변경 후 R2-05만 complete; R2-01~04·06과 R4-01~05는 incomplete.
 - `git diff --check` — 통과.
+- local `main`에서 focused reconciliation/readiness pytest 114개와 focused roadmap parser 2개, 두 canonical CLI, `load_roadmap()` 직접 판정, `git diff --check`가 통과했습니다.
+- Terra 독립 review — P1/P2 없음, PASS. 전체 roadmap test의 동일 3개 실패가 기준 커밋에서도 재현되어 이번 변경과 무관함을 확인했습니다.
 
 ## 안전
 
@@ -36,3 +38,4 @@
 
 - R2-01/02/03/04/06과 R2 전체는 미완료입니다. readiness는 `blocked`, `ready_for_metrics=false`, 경제 평가는 `not-evaluated`로 유지합니다.
 - initial-capital timestamp, NAV timestamps, risk-free evidence가 없고, dividend/split completeness, actual costs/taxes/FX validity, DD latch/counterfactual, benchmark/future claims는 평가하지 않았습니다.
+- 별도 기존 문제: `docs/market-research-mandate.sha256`의 `docs/market-research.md` digest drift 때문에 governance test 3개가 fail-closed합니다. 이번 R2-05 판정과 무관하며 별도 무결성 작업으로 처리해야 합니다.

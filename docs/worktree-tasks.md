@@ -2,17 +2,20 @@
 
 ## r2-canonical-nav-reconciliation-decision
 
-- 상태: 진행. 기존 canonical 증거가 `R2-05`의 정확한 기술 조건을 충족한다는 계획 판정을 문서에 반영합니다.
+- 상태: 완료. 기존 canonical 증거에 따라 `R2-05`만 고정 canonical approximate 범위의 기술 pass로 기록했습니다.
 - 목표와 완료 조건: 고정 XNYS 기간의 expected/observed 252/252 ordered sessions, 구성요소 projection 최대 residual `5E-20 KRW`, 독립 modeled ledger residual `0 KRW`를 재검증한 뒤 `R2-05`만 canonical approximate 기술 pass로 기록합니다.
 - 담당: Astra 감독·계획·통합, 필요 시 Luna 문서 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r2-canonical-nav-reconciliation-decision` / `docs/r2-canonical-nav-reconciliation-decision`.
-- 기준/통합: 다음 준비 커밋 / local `main`.
+- 기준/통합: `8ceaa8a3c02fc405a6522c274dc2e605aa846f44` / local `main` merge `c2a16e87800f8695c70b6b47b7c0bb2a26cc7417`.
 - 입력과 선행 작업: `r2-canonical-nav-evidence-connection`, R0 session/cost evidence, R2-05 정확한 roadmap 문구, generic/canonical NAV reconciliation 계약.
 - 수정 허용: roadmap의 R2-05 판정·증거 문구, NAV reconciliation 계약 문서, 신규 개발 기록과 focused contract/parser test가 필요할 때만 해당 테스트. 등록부와 handoff는 Astra만 수정합니다.
 - 금지: R2-01/02/03/04/06 또는 R2 전체 완료 주장, 배당·FX·실제 비용/세율·timestamp·risk-free·benchmark·미래 검증 추정, 성과 재계산, canonical artifact 변경, 연구/runner/PAPER/live/주문/DB/service/config/remote 변경.
 - 중단 조건: `모든 거래일`을 fixed XNYS expected sessions로 해석할 수 없거나 residual 근거가 저장된 구성요소 자기일관성 이상을 주장해야 하면 체크하지 않고 기존 제한을 유지합니다.
 - 검증 계약: canonical session/cost/NAV CLI, 관련 pytest와 roadmap parser를 실행하고 실제 `load_roadmap()`에서 `R2-05`만 새로 완료인지 확인합니다.
-- 검증·결과·개발 기록·handoff: 문서 구현·독립 review·main 통합 후 갱신합니다.
+- 결과: 문서 구현 `004eab545267958882ae42bccc64ccc3ddf56c95`; R2-05만 체크하고 다른 R2·전체 R2·readiness/economic 상태를 보존했습니다.
+- 검토·검증: Terra PASS(P1/P2 없음). main에서 focused pytest 114개+roadmap parser 2개, 두 canonical CLI, `load_roadmap()` 직접 판정과 diff 검사가 통과했습니다.
+- 기존 실패: 전체 roadmap test의 governance 3건은 기준 커밋에서도 동일하게 재현된 `market-research.md` digest drift이며 별도 작업입니다.
+- 정리·기록: 통합 검증 후 전용 worktree와 branch를 제거합니다. 개발 기록은 `docs/development-records/2026-09-18-r2-canonical-nav-reconciliation-decision.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## r2-canonical-nav-evidence-connection
 
