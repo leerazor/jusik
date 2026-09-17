@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-18T00:00:00Z
 - 작업 slug: `r2-canonical-nav-evidence-connection`
-- 기준/통합: `aa6f715d007e410d89189c953d21f05edbf57867` / 통합 전
+- 기준/통합: `aa6f715d007e410d89189c953d21f05edbf57867` / `3af356aca45361acf3c193f4c71405fd3210233c`
 - 범위: 고정 R0 미국 run의 NAV residual, session calendar evidence, modeled-cost evidence를 하나의 canonical-only envelope로 연결했습니다. 일반 reconciliation과 readiness의 unavailable·blocked 의미는 유지했습니다.
 
 ## 변경과 결정
@@ -31,6 +31,8 @@
 - `PYTHONPATH=backend /tmp/jusik-r2-canonical-venv/bin/python -m jusik.research_canonical_nav_reconciliation` — exit 0, 252 rows, 106 trades, residual failure 0.
 - `_canonical_source_hash()` 및 tracked evidence bytes가 각각 `VERIFIER_SOURCE_SHA256` / `CANONICAL_EVIDENCE_SHA256`와 일치 — 통과.
 - `git diff --check` — 통과.
+- local `main`에서 동일 focused pytest — 114 passed. Ruff check/format, strict mypy, 두 canonical CLI, `git diff --check`가 모두 통과했습니다.
+- Terra 독립 최종 review — P1/P2 없음, PASS. 경로 별칭, 실제 consumer bounded-read, self-pin, stable unavailable error code를 재검토했습니다.
 
 ## 안전·운영 상태
 
@@ -39,5 +41,5 @@
 ## 증거와 재개
 
 - audit: 없음; fixed run/evidence/manifest/dataset 경로와 SHA는 코드 상수 및 verifier chain으로 사용합니다.
-- 남은 작업·차단 조건: 통합 agent가 독립 review와 main 통합 후 최종 SHA·검증 결과를 기록해야 합니다.
-- 다음 시작: 통합 전용 검토에서 canonical acceptance, mismatch fail-closed, verifier call count와 generic regression을 재검증합니다.
+- 남은 작업·차단 조건: 이 연결 범위에는 없음. 배당 완전성·실제 비용 타당성·무위험률·실제 NAV timestamp·benchmark·미래 검증은 별도 근거가 필요합니다.
+- 다음 시작: roadmap/readiness에서 현재 남은 blocker를 다시 대조하고 외부 요청이나 연구 재실행 없이 가능한 다음 최소 작업을 선정합니다.

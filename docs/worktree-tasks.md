@@ -2,7 +2,7 @@
 
 ## r2-canonical-nav-evidence-connection
 
-- 상태: 진행. 조사·계획을 마쳤으며 canonical 전용 adapter와 좁은 session evidence verifier를 구현합니다.
+- 상태: 완료. canonical 전용 adapter와 좁은 session evidence verifier를 local `main`에 통합했습니다.
 - 목표와 완료 조건: 동일 run/dataset/기간/SHA임을 먼저 증명하고, canonical 경로에서만 calendar와 independent modeled-accounting availability를 검증된 사실로 바꿉니다. 일반 입력 판정과 residual·누락·경제 평가 의미는 보존합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r2-canonical-nav-evidence-connection` / `feat/r2-canonical-nav-evidence-connection`.
@@ -13,7 +13,9 @@
 - 중단 조건: 두 R0 evidence가 R2 대상과 동일 SHA·기간·NAV를 증명하지 못하거나 unavailable 항목을 검증 없이 제거해야 하면 통합하지 않습니다.
 - 검증 계약: 고정 run bytes를 한 번 대사하고 session/cost verifier를 각각 한 번 호출해 run·manifest·기간·ordered 252 sessions·dataset SHA·106 trades·252 NAV를 fail-closed로 연결합니다. 전체 readiness와 회계 수식을 재실행하지 않습니다.
 - 보존 계약: 일반 reconciliation의 calendar/accounting unavailable, residual, approximate, economic not-evaluated와 기존 checkbox를 그대로 유지합니다.
-- 검증·결과·개발 기록·handoff: 구현·독립 검토·main 통합 후 실제 결과로 갱신합니다.
+- 결과: Luna 구현 최종 `81ad631ee4e476827deda91a0496e3a311a2a278`. 실제 consumer bounded-read, path alias 거부, source/evidence self-pin과 stable error 분류를 포함합니다.
+- 검토·통합: Terra 최종 review PASS(P1/P2 없음), local main merge `3af356aca45361acf3c193f4c71405fd3210233c`. main focused pytest 114개, Ruff check/format, strict mypy, cost/canonical NAV CLI와 diff 검사가 통과했습니다.
+- 정리·기록: 통합 검증 후 전용 worktree와 branch를 제거합니다. 개발 기록은 `docs/development-records/2026-09-18-r2-canonical-nav-evidence-connection.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## r1-corporate-action-accounting-readiness
 
