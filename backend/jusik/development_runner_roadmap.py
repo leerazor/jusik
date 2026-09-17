@@ -99,6 +99,7 @@ def roadmap_fingerprint(
     main_head: str,
     utc_date: str,
     roadmap: Roadmap,
+    mandate_digest: str | None = None,
 ) -> str:
     value = {
         "scope": ROADMAP_SCOPE,
@@ -106,6 +107,7 @@ def roadmap_fingerprint(
         "main_head": main_head,
         "utc_date": utc_date,
         "roadmap_sha256": roadmap.digest,
+        "mandate_digest": mandate_digest,
     }
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()

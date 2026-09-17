@@ -21,6 +21,7 @@ from jusik.development_runner_planning import (
 )
 from jusik.development_runner_roadmap import ROADMAP_SCOPE
 from jusik.development_runner_store import RunnerStore
+from jusik.research_mandate_governance import validate_mandate
 
 
 def _config(tmp_path: Path) -> RunnerConfig:
@@ -58,6 +59,7 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     assert parsed_recorded_at.tzinfo == UTC
     staged_policy = mandate.pop("staged_market_research_policy")
     approximate_policy = mandate.pop("approximate_market_data_policy")
+    governance = mandate.pop("governance")
     assert approximate_policy == {
         "grade": (
             "approximate results are for personal investment judgment and never "
@@ -185,6 +187,10 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
         "exactly twenty completed sessions before evaluation; no warmup trades, "
         "equity, or positions"
     )
+    validated = validate_mandate(path.parents[1])
+    assert governance["schema_version"] == validated.schema_version
+    assert governance["policy_version"] == validated.policy_version
+    assert validated.dispatch_enabled is False
     assert _tracked_research_mandate(path.parents[1]) == raw_content
 
 
