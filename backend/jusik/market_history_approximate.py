@@ -58,6 +58,7 @@ CollectionDiagnosticReason = Literal[
     "parse",
     "null",
     "observed_delisting",
+    "membership_unknown",
     "unknown",
     "all_failure",
 ]
@@ -187,6 +188,43 @@ class CollectionSymbolDiagnostic(BaseModel):
         return self
 
 
+class MembershipGap(BaseModel):
+    """A failed Alpha Vantage membership checkpoint interval."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    checkpoint: date
+    start_session: date
+    end_session: date
+    session_count: int = Field(gt=0)
+    sessions: tuple[date, ...] = Field(min_length=1)
+    symbols: tuple[str, ...] = Field(min_length=1)
+    source: Literal["alpha_vantage"] = "alpha_vantage"
+    status: Literal["unknown"] = "unknown"
+
+    @model_validator(mode="after")
+    def validate_gap(self) -> MembershipGap:
+        if self.start_session > self.end_session:
+            raise ValueError("membership gap sessions are out of order")
+        sessions = self.sessions
+        if sessions != tuple(sorted(sessions)):
+            raise ValueError("membership gap sessions must be sorted")
+        if len(set(sessions)) != len(sessions):
+            raise ValueError("membership gap sessions must be unique")
+        if sessions[0] != self.start_session or sessions[-1] != self.end_session:
+            raise ValueError("membership gap session boundaries do not match")
+        if self.session_count != len(sessions):
+            raise ValueError("membership gap session count does not match sessions")
+        if self.checkpoint != self.start_session:
+            raise ValueError("membership gap checkpoint is outside its interval")
+        symbols = tuple(sorted(self.symbols))
+        if symbols != self.symbols:
+            raise ValueError("membership gap symbols must be sorted")
+        if len(set(symbols)) != len(symbols):
+            raise ValueError("membership gap symbols must be unique")
+        return self
+
+
 class CollectionDiagnostics(BaseModel):
     """Serializable US collection diagnostics, independent of strategy inputs."""
 
@@ -198,6 +236,9 @@ class CollectionDiagnostics(BaseModel):
     warmup_start: date
     coverage: CollectionCoverage
     symbols: tuple[CollectionSymbolDiagnostic, ...] = ()
+    membership_gaps: tuple[MembershipGap, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
     reason_counts: dict[CollectionDiagnosticReason, int] = Field(default_factory=dict)
     request_excluded_symbols: tuple[str, ...] = ()
     request_excluded_symbol_count: int = Field(default=0, ge=0)
@@ -209,6 +250,21 @@ class CollectionDiagnostics(BaseModel):
             raise ValueError("diagnostic requested period is invalid")
         if self.warmup_start > self.requested_start:
             raise ValueError("diagnostic warmup must not follow requested start")
+        gaps = tuple(sorted(self.membership_gaps, key=lambda item: item.start_session))
+        if gaps != self.membership_gaps:
+            raise ValueError("membership gaps must be sorted")
+        previous_end: date | None = None
+        gap_symbols: set[str] = set()
+        for gap in gaps:
+            if (
+                gap.start_session < self.warmup_start
+                or gap.end_session > self.requested_end
+            ):
+                raise ValueError("membership gap is outside diagnostic period")
+            if previous_end is not None and gap.start_session <= previous_end:
+                raise ValueError("membership gaps must not overlap")
+            previous_end = gap.end_session
+            gap_symbols.update(gap.symbols)
         symbols = tuple(sorted(self.symbols, key=lambda item: item.symbol))
         if symbols != self.symbols:
             raise ValueError("diagnostic symbols must be sorted")
@@ -270,6 +326,16 @@ class CollectionDiagnostics(BaseModel):
             raise ValueError("diagnostic reason counts must be non-negative")
         if self.reason_counts != expected_counts:
             raise ValueError("diagnostic reason counts do not match symbols")
+        known_symbols = {item.symbol for item in symbols}
+        if not gap_symbols <= known_symbols:
+            raise ValueError("membership gap contains an unknown diagnostic symbol")
+        reason_symbols = {
+            item.symbol for item in symbols if "membership_unknown" in item.reasons
+        }
+        if gap_symbols != reason_symbols:
+            raise ValueError(
+                "membership gap symbols do not match membership_unknown diagnostics"
+            )
         return self
 
 
