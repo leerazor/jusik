@@ -1,9 +1,9 @@
 # 미국 membership checkpoint coverage retention
 
-- 상태: 구현 완료
-- 기록 시각: 2026-09-18T00:00:00Z
+- 상태: 완료
+- 기록 시각: 2026-09-17T19:18:00Z
 - 작업 slug: `r1-us-coverage-retention`
-- 기준 커밋: `27d8246cd074999e0e11e3d495453d31e78486b8`
+- 기준/구현/통합: `27d8246cd074999e0e11e3d495453d31e78486b8` / `a47b1a85ff241afb96e31b049f64c387dbbb21e8` / `adb41e1e20c3e8aa92c9f4d939d7d794ab607106`
 - 범위: 기존 미국 근사 collector와 collection diagnostics에 실패한 후속 membership
   checkpoint 구간의 bounded unknown evidence를 추가했습니다.
 
@@ -29,10 +29,15 @@
 
 ## 검증
 
-- focused pytest/Ruff/mypy 결과는 통합 보고서에 기록합니다.
+- worker collector/approximate pytest — 169 passed.
+- main collector/approximate/replay pytest — 182 passed.
+- main Ruff check, configured mypy for changed production sources, `git diff --check` — 통과.
+- Terra 독립 최종 review — PASS, P1/P2 없음.
+- 전체 파일 Ruff format은 기존 범위 밖 formatting 차이 때문에 gate로 사용하지 않았습니다.
 - 실제 provider/network 수집, 연구 실행, PAPER/live 주문은 수행하지 않았습니다.
 
 ## 남은 제한
 
 - 실제 provider receipt와 실패 원인은 여전히 `unknown`이며, membership gap은 이를 합성하지
   않습니다. historical receipt·suspension·corporate-action 회계가 없는 기존 제한도 유지합니다.
+- 다음 시작: R1-04 corporate-action 회계에서 현재 확보된 action 근거와 missing 정책 중 외부 수집 없이 구현 가능한 최소 선행 계약을 다시 대조합니다.

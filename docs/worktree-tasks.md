@@ -2,7 +2,7 @@
 
 ## r1-us-coverage-retention
 
-- 상태: 진행. 기존 가격 진단에서 누락된 failed membership-checkpoint 구간을 당시 incumbent별 `membership_unknown`으로 보존하는 호환 확장을 구현합니다. `R1-05` 전체 checkbox는 유지합니다.
+- 상태: 완료. 기존 가격 진단에서 누락된 failed membership-checkpoint 구간을 당시 incumbent별 `membership_unknown`으로 보존하는 호환 확장을 통합했습니다. 실제 receipt가 없어 `R1-05` 전체 checkbox는 유지합니다.
 - 목표와 완료 조건: universe→수집→정규화→strategy candidate 흐름에서 제외·결측 symbol의 identity, 기간, 원인, 관측시각과 자료 등급이 끝까지 남는지 대사하고, silent drop을 fail-closed로 검출하는 최소 계약을 구현합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r1-us-coverage-retention` / `feat/r1-us-coverage-retention`.
@@ -13,7 +13,9 @@
 - 계약: gap은 실패 checkpoint·기존 달력의 비중첩 session 구간/count·그 시점 incumbent symbols·`alpha_vantage`·`unknown`만 보존합니다. 가격 coverage 수치에는 합산하지 않고, gap symbol union과 `membership_unknown` reason-bearing diagnostics를 exact 대사합니다.
 - 호환: 신규 필드 기본값은 빈 tuple이며 빈 값은 직렬화에서 생략해 legacy JSON/replay를 보존합니다. 첫 checkpoint 실패의 기존 중단과 이후 pool·전략 결과는 바꾸지 않습니다.
 - 제한: 실제 receipt·실패 원인·delisting/removal/replacement를 합성하지 않으며 자기일관적 진단 삭제는 별도 upstream receipt 없이 검출할 수 없습니다.
-- 결과·개발 기록·handoff: 구현 후 갱신합니다.
+- 결과: Luna 구현 `cd70ec6`, exact session tuple/count 무결성 보완 `a47b1a8`. 후속 checkpoint 실패의 비중첩 gap·incumbent·reason 대사와 legacy empty-field 호환을 추가했습니다.
+- 검토·통합: Terra 최종 review PASS(P1/P2 없음), local main merge `adb41e1e20c3e8aa92c9f4d939d7d794ab607106`. main에서 collector/approximate/replay pytest 182개, Ruff check, 관련 production mypy, diff 검사가 통과했습니다.
+- 정리·기록: 통합 검증 후 전용 worktree와 branch를 제거합니다. 개발 기록은 `docs/development-records/2026-09-18-r1-us-coverage-retention.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## r1-us-event-time-invariance
 
