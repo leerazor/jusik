@@ -1,0 +1,54 @@
+{
+  "schema": "r0-us-session-evidence/v1",
+  "manifest": {
+    "path": "20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json",
+    "sha256": "03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205",
+    "run_path": "20260915-market-data-live-contract-fixes/us-web-pilot-run.json",
+    "run_sha256": "cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275",
+    "request_period": {
+      "start_date": "2025-09-11",
+      "end_date": "2026-09-11"
+    }
+  },
+  "run_sha256": "cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275",
+  "calendar": {
+    "path": "backend/jusik/data/market_sessions_2023_2026.json",
+    "bytes_sha256": "ba26619a27e066ca32b1aaaf3b7da2b99f0c6658f731a000c5095c057081c1d8",
+    "payload_sha256": "e9f86c7e47c8d3cd6ee628e48be12c0379e428f12f9f66f04de52cc272cb122d",
+    "provider": "exchange_calendars",
+    "provider_version": "4.12",
+    "calendar": "XNYS",
+    "market": "US",
+    "timezone": "America/New_York"
+  },
+  "request": {
+    "start_date": "2025-09-11",
+    "end_date": "2026-09-11",
+    "inclusive": true,
+    "date_semantics": "XNYS local session dates in America/New_York; not UTC timestamps"
+  },
+  "sessions": {
+    "digest_encoding": "UTF-8 JSON array of ISO-8601 dates with sorted keys and compact separators",
+    "expected": {
+      "count": 252,
+      "sha256": "b317438d5a11c5ab63c4ae5aaf53fa792ff718b82a77e1c8475fc97e0e8748f2",
+      "first": "2025-09-11",
+      "last": "2026-09-11"
+    },
+    "observed": {
+      "count": 252,
+      "sha256": "b317438d5a11c5ab63c4ae5aaf53fa792ff718b82a77e1c8475fc97e0e8748f2",
+      "first": "2025-09-11",
+      "last": "2026-09-11"
+    },
+    "missing": [],
+    "extra": [],
+    "duplicates": [],
+    "unavailable": []
+  },
+  "limitations": [
+    "This proves only local-date session coverage and ordering for the canonical approximate run.",
+    "It does not prove strict point-in-time data, prices, corporate actions, FX, costs, NAV timestamps, or economic performance.",
+    "XNYS close times are not NAV timestamps or initial-capital anchors."
+  ]
+}

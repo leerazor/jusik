@@ -93,3 +93,30 @@ python -m jusik.market_performance_readiness \
 `canonical=false`를 유지한다. 등록된 frozen artifact의 acceptance가 필요한 local
 검증에서만 `--canonical`을 추가한다. 이 flag는 코드에 등록된 artifact SHA와 일치할
 때만 canonical 보고서를 만들며, 다른 파일이나 임의 SHA로 우회할 수 없다.
+
+## canonical R0 세션 대사 근거
+
+등록된 canonical R0 미국 approximate run에는
+`backend/jusik/data/r0_us_session_evidence_v1.json`이 별도 불변 근거로 연결된다.
+근거는 baseline manifest 자체를 `~/.local/share/jusik/portfolio-audit` 기준 상대 경로로
+해결해 manifest bytes SHA와 manifest가 지정한 run 절대 경로·SHA·요청 기간까지
+검증하고, tracked
+`backend/jusik/data/market_sessions_2023_2026.json`의 전체 바이트와 내부 달력
+payload SHA를 함께 고정하며, `exchange_calendars 4.12`의 XNYS·`America/New_York`
+현지 세션 날짜를 요청 기간 `2025-09-11~2026-09-11` 양끝 포함으로 해석한다. 달력에서
+재계산한 252개 날짜와 run의 252개 equity 날짜를 순서와 canonical digest까지 대조하고,
+누락·초과·중복·unavailable이 없어야 통과한다. 실제 달력의 close 시각은 NAV timestamp나
+초기자본 anchor로 사용하지 않는다.
+
+검증된 canonical 보고서만 다음 두 누락 code를 제거한다.
+
+```bash
+PYTHONPATH=backend python -m jusik.market_performance_readiness \
+  --run /path/to/us-web-pilot-run.json \
+  --expected-sha256 cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275 \
+  --canonical
+```
+
+근거가 없거나 SHA·기간·달력·관측 날짜가 바뀌면 fail-closed 오류가 발생한다. 이
+근거는 세션 날짜 완전성만 증명하며 strict point-in-time 자료, 가격·기업행사·FX·비용,
+NAV timestamp 또는 경제적 성과를 증명하지 않는다.
