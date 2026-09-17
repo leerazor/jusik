@@ -518,9 +518,9 @@ def _trusted_copies(
     evidence_payload["manifest"]["run_sha256"] = run_sha
     evidence_payload["run_sha256"] = run_sha
 
+    calendar_payload = json.loads(readiness.TRACKED_CALENDAR_PATH.read_bytes())
     calendar_copy: Path | None = None
     if mutate_calendar is not None:
-        calendar_payload = json.loads(readiness.TRACKED_CALENDAR_PATH.read_bytes())
         mutate_calendar(calendar_payload)
         calendar_copy = tmp_path / "calendar.json"
         calendar_copy.write_text(
@@ -541,6 +541,8 @@ def _trusted_copies(
         monkeypatch.setattr(readiness, "CALENDAR_BYTES_SHA256", calendar_bytes_sha)
         monkeypatch.setattr(readiness, "CALENDAR_PAYLOAD_SHA256", calendar_payload_sha)
 
+    _refresh_session_facts(evidence_payload, run_payload, calendar_payload)
+
     evidence_copy = tmp_path / "evidence.json"
     evidence_copy.write_text(
         json.dumps(evidence_payload, ensure_ascii=False, separators=(",", ":")),
@@ -551,6 +553,65 @@ def _trusted_copies(
     monkeypatch.setattr(readiness, "CANONICAL_MANIFEST_SHA256", manifest_sha)
     monkeypatch.setattr(readiness, "CANONICAL_EVIDENCE_SHA256", evidence_sha)
     return run_copy, evidence_copy, manifest_copy, calendar_copy
+
+
+def _refresh_session_facts(
+    evidence: dict[str, object],
+    run: dict[str, object],
+    calendar: dict[str, object],
+) -> None:
+    calendars = cast(dict[str, object], calendar["calendars"])
+    xnys = cast(list[dict[str, object]], calendars["XNYS"])
+    expected = [
+        cast(str, row["date"])
+        for row in xnys
+        if row["state"] == "session"
+        and "2025-09-11" <= cast(str, row["date"]) <= "2026-09-11"
+    ]
+    unavailable = [
+        cast(str, row["date"])
+        for row in xnys
+        if row["state"] == "unavailable"
+        and "2025-09-11" <= cast(str, row["date"]) <= "2026-09-11"
+    ]
+    result = cast(dict[str, object], run["result"])
+    equity = cast(list[dict[str, object]], result["equity"])
+    observed = [cast(str, row["session"]) for row in equity]
+
+    def digest(values: list[str]) -> str:
+        return hashlib.sha256(
+            json.dumps(
+                values,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+
+    sessions = cast(dict[str, object], evidence["sessions"])
+    for name, values in (("expected", expected), ("observed", observed)):
+        sessions[name] = {
+            "count": len(values),
+            "sha256": digest(values),
+            "first": values[0] if values else None,
+            "last": values[-1] if values else None,
+        }
+    sessions["missing"] = sorted(set(expected) - set(observed))
+    sessions["extra"] = sorted(set(observed) - set(expected))
+    sessions["duplicates"] = sorted(
+        {value for value in observed if observed.count(value) > 1}
+    )
+    sessions["unavailable"] = unavailable
+
+
+def _insert_us_holiday(payload: dict[str, object]) -> None:
+    equity = cast(dict[str, object], payload["result"])["equity"]
+    rows = cast(list[dict[str, object]], equity)
+    holiday = "2025-11-27"
+    index = next(
+        index for index, row in enumerate(rows) if cast(str, row["session"]) > holiday
+    )
+    rows.insert(index, {**rows[index], "session": holiday})
 
 
 @pytest.mark.parametrize(
@@ -581,7 +642,7 @@ def _trusted_copies(
 def test_trusted_manifest_internal_guards_are_reached(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    mutation: callable,
+    mutation: Callable[[dict[str, object]], None],
     expected_code: str,
 ) -> None:
     run_copy, evidence_copy, manifest_copy, _ = _trusted_copies(
@@ -604,13 +665,7 @@ def test_trusted_manifest_internal_guards_are_reached(
             "session_evidence_mismatch",
         ),
         (
-            lambda payload: payload["result"]["equity"].insert(
-                2,
-                {
-                    **payload["result"]["equity"][2],
-                    "session": "2025-09-13",
-                },
-            ),
+            _insert_us_holiday,
             "session_evidence_mismatch",
         ),
         (
