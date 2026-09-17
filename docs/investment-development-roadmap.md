@@ -1,10 +1,11 @@
 # 투자 개발 로드맵
 
-- 문서 상태: 실행 중 — R0 완료, R1 이후 예정
+- 문서 상태: 일시 중지 — 운영자 보류 (R0 완료, R1 이후 예정)
 - 기준 커밋: `c2ada5c`
 - 작성일: 2026-09-15
 - 적용 범위: 미국 손실 진단을 먼저 끝내고, 검증 가능한 경우에만 한국 확장과 PAPER 판단으로 넘어간다.
 - 이 문서는 미래 작업의 목표와 완료 조건을 기록한다. 이 커밋으로 어떤 단계도 완료되지 않는다.
+- 이 문서는 투자 개발의 canonical execution plan이다. 운영자 보류 동안에는 신규 연구 dispatch를 하지 않으며, `docs/research-mandate.json`과 이 문서의 승인 설계를 동기화하고 JSON SHA-256을 다시 기록한 뒤에만 재개한다.
 
 ## 목적과 우선순위
 
@@ -16,6 +17,14 @@
 4. 기존 자료로 화면과 손실 분석을 먼저 제공한다. 화면은 경제적 성공을 의미하지 않는다.
 5. 미국 기준과 데이터 계약이 통과한 뒤 한국 수집 실패를 별도 원인으로 해결한다.
 6. 사전등록한 후보만 미래 격리 시뮬레이션과 PAPER 검토로 보낸다.
+
+## 승인된 설계 기준과 검증 순서
+
+목표는 수익 하나를 최대화하는 것이 아니라 수익·위험·비용을 함께 보는 balanced objective다. 비용을 차감한 `CAGR`, `MDD`, `Sharpe`, `Calmar`를 primary metrics로 같은 조건에서 나란히 보고, 어느 하나의 단일 순위나 암묵적 가중치로 대체하지 않는다. 순수익, 거래 수·회전율, 수수료·FX 비용, coverage·결측·자료 등급과 stress 결과는 diagnostic metrics로 별도 표시한다. `MDD <= 20%`는 soft target이 아닌 hard filter다. 필터를 통과하지 못한 후보는 primary metric이 좋아도 다음 단계로 보내지 않는다.
+
+후보는 최대 3개만 사전등록한다. 후보 간 weighted aggregate, 자동 winner, 자동 승격은 만들지 않으며 사용자가 primary·diagnostic 표와 근거를 보고 선택한다. 같은 holdout을 본 뒤 파라미터나 후보를 retune하지 않는다. 무료 자료와 기존 cache를 먼저 사용하고, 그 자료를 audit한 뒤 부족한 부분에만 최소 수집 경로를 추가한다.
+
+검증은 bounded IS에서 후보·비용·자료 계약을 고정하고, 별도 validation의 hard MDD filter를 거친 뒤, 시간 순서 walk-forward를 수행한다. 최종 untouched OOS는 후보 선택·튜닝·판정에 사용하지 않은 채 한 번 평가한다. 이후 비용·자료 결측·gap·변동성 stress를 별도 diagnostic으로 기록하고, 조건을 통과한 후보만 격리 simulation과 기존 PAPER 계약 검토로 보낸다. live trading은 이 계획과 PAPER 결정에서 분리하며, 별도의 명시적 승인·권한·안전 검토 없이는 허용하지 않는다.
 
 ## 완료 판정과 경제적 목표
 
@@ -166,25 +175,25 @@ R3는 R0 계약이 정한 기존 자료만 읽어 화면에 보여주는 작업�
 
 ## R4 — 고정 정책 재실행과 미국 우선 평가
 
-R4는 R1·R2와 독립 review가 끝난 뒤 동일한 고정 정책으로 미국 1년을 다시 실행한다. R3 UI는 연구 계산의 선행 조건이 아니며 새 결과 게시와 UX 검증에 사용한다. 1년 자료 게이트는 등급을 보존해 판정한다. strict pilot은 `run.status=completed`, `result.status=ready`, `result.completeness=complete`가 필요하고, approximate pilot은 `run.status=completed`, `result.status=approximate`, `result.completeness=approximate`이면 같은 시장·등급의 final이 참조할 수 있다. 두 등급 모두 고정 실행 가정, 현재 policy hash와 data contract hash, 자료 공급원의 simulated·grade 일치를 확인한다. strict 완료를 모든 자료에 무조건 요구하지 않는다.
+R4는 R1·R2와 독립 review가 끝난 뒤 동일한 고정 정책으로 미국 1년을 다시 실행한다. 무료 자료·기존 cache를 먼저 audit하고, 자료가 부족할 때만 최소 수집을 추가한다. R3 UI는 연구 계산의 선행 조건이 아니며 새 결과 게시와 UX 검증에 사용한다. 1년 자료 게이트는 등급을 보존해 판정한다. strict pilot은 `run.status=completed`, `result.status=ready`, `result.completeness=complete`가 필요하고, approximate pilot은 `run.status=completed`, `result.status=approximate`, `result.completeness=approximate`이면 같은 시장·등급의 final이 참조할 수 있다. 두 등급 모두 고정 실행 가정, 현재 policy hash와 data contract hash, 자료 공급원의 simulated·grade 일치를 확인한다. strict 완료를 모든 자료에 무조건 요구하지 않는다. 이 단계의 pilot과 3년 final은 bounded 입력·비용·실행 예산을 사전에 고정하며, 최종 untouched OOS를 선택이나 튜닝에 사용하지 않는다.
 
-- [ ] **R4-01** 수정된 policy fingerprint로 정확히 1년 미국 pilot을 실행하고 기존 결과와 입력 차이를 기록한다.
+- [ ] **R4-01** 수정된 policy fingerprint로 정확히 1년 미국 pilot을 bounded 실행하고 기존 결과와 입력 차이를 기록하며, 무료 자료 우선·audit 후 최소 수집 순서를 증거로 남긴다.
 - [ ] **R4-02** strict pilot은 `run.status=completed`·`result.status=ready`·`result.completeness=complete`, approximate pilot은 `run.status=completed`·`result.status=approximate`·`result.completeness=approximate`인 gate를 기록하고, 후자는 same-market·same-grade final 참조를 허용한다. 고정 실행 가정, 현재 policy hash·data contract hash, 자료 공급원의 simulated·grade 일치도 확인한 뒤 신규 자료를 별도 수집해 3년을 실행하며 자료 부족이면 차단 사유를 남긴다.
 - [ ] **R4-03** 신규 3년 입력이 같은 policy hash, 시장, 자료 등급, 실행 가정, source simulated 조건과 canonical data/result contract 및 data contract hash를 쓰는지 확인하고 benchmark를 같은 통화, 비용, 거래일, 초기 자본 기준으로 계산한다.
-- [ ] **R4-04** 순수익 양수 여부, `DD <= 20%`, 거래 수·회전율·비용을 목표표에 관찰값으로 기록한다.
-- [ ] **R4-05** 3년은 1년 pilot과 기간이 겹친다는 점과 별도 수집 입력임을 표시하고, 기존 1년을 미사용 검증으로 재명명하거나 pilot에서 정책을 고른 뒤 최종 untouched 성과라고 주장하지 않는다.
+- [ ] **R4-04** 비용 차감 `CAGR`, `MDD`, `Sharpe`, `Calmar`를 primary metrics로 기록하고, `MDD <= 20%` hard filter를 적용하며, 순수익 양수 여부·거래 수·회전율·비용은 diagnostic metrics로 별도 기록한다.
+- [ ] **R4-05** 3년은 1년 pilot과 기간이 겹친다는 점과 별도 수집 입력임을 표시하고, 기존 1년을 미사용 검증으로 재명명하거나 pilot에서 정책을 고른 뒤 최종 untouched OOS 성과라고 주장하지 않는다.
 
 R4는 결과가 나쁘더라도 고정 정책 재현과 설명이 되면 기술적으로 완료될 수 있다. 양의 순수익이나 DD20을 맞추기 위해 정책을 뒤에서 바꾸지 않는다.
 
 ## R5 — 사전등록 후보와 held-out 검증
 
-R5는 R4 결과를 본 뒤 임의로 전략을 고르는 단계가 아니다. 다음 batch에서 검토할 후보 가설을 먼저 제한하고, 검증 날짜·비용·낙폭·회전율 기준을 실행 전에 동결한다.
+R5는 R4 결과를 본 뒤 임의로 전략을 고르는 단계가 아니다. 다음 batch에서 검토할 후보 가설을 최대 3개로 먼저 제한하고, bounded IS·validation·walk-forward와 최종 untouched OOS의 날짜·비용·자료·낙폭 기준을 실행 전에 동결한다. validation의 `MDD <= 20%` hard filter를 먼저 적용하며 primary metrics를 weighted aggregate로 합치거나 자동 winner를 고르지 않는다.
 
-- [ ] **R5-01** 다음 batch 후보를 최대 3개로 사전등록하고 각 후보의 신호·보유·청산·자료 조건을 적는다.
-- [ ] **R5-02** held-out 기간, 비용, DD20, 회전율, missing 정책과 benchmark를 실행 전에 freeze한다.
+- [ ] **R5-01** 다음 batch 후보를 최대 3개로 사전등록하고 각 후보의 신호·보유·청산·자료 조건과 bounded IS 범위를 적는다.
+- [ ] **R5-02** validation·walk-forward·최종 untouched OOS 기간, 비용, `MDD <= 20%` hard filter, 회전율, missing 정책과 benchmark를 실행 전에 freeze한다.
 - [ ] **R5-03** 당시 이용 가능한 fundamentals만 사용하고 오늘의 저평가 지표를 과거 관측에 넣지 않는다.
-- [ ] **R5-04** 후보별 양수 순수익·DD20·회전율 기준을 독립적으로 판정하고 negative outcome도 보고한다.
-- [ ] **R5-05** 실패 결과를 force-fit하거나 자동 승격하지 않고 사용자에게 선택 가능한 근거로 남긴다.
+- [ ] **R5-04** 후보별 비용 차감 `CAGR`, `MDD`, `Sharpe`, `Calmar`를 primary metrics로 독립 판정하고, 양수 순수익·회전율·비용·coverage와 stress 결과는 diagnostic으로 기록하며 negative outcome도 보고한다.
+- [ ] **R5-05** 실패 결과를 force-fit하거나 같은 holdout에 retune하거나 weighted aggregate·자동 winner·자동 승격으로 처리하지 않고 사용자에게 선택 가능한 근거로 남긴다.
 
 투자자 분석에서 얻은 가치 신호를 breakout/SMA20의 검증 결과로 바꾸어 쓰지 않는다. R5의 기술 완료와 경제적 후보 통과는 별도 상태다.
 
@@ -201,13 +210,13 @@ R6는 미국 우선 진단이 끝난 뒤 한국의 zero-OHLC 문제를 별도 �
 
 ## R7 — 격리 시뮬레이션과 PAPER 결정
 
-R7은 R5 후보가 prospective 기준을 통과한 뒤 실행한다. 한국 확장 후보는 R6의 자료 기준도 통과해야 한다. 기존 PAPER10% 계약과 관찰 결과는 그대로 유지한다.
+R7은 R5 후보가 prospective 기준과 stress 검토를 통과한 뒤 실행한다. 한국 확장 후보는 R6의 자료 기준도 통과해야 한다. 기존 PAPER10% 계약과 관찰 결과는 그대로 유지하며, PAPER는 live 승인과 별개의 결정이다.
 
 - [ ] **R7-01** 미래 격리 자료·설정·DB·artifact 경로를 만들고 과거 결과와 쓰기 상태를 분리한다.
-- [ ] **R7-02** 후보별 simulation을 실행해 신호, 주문 의도, 체결 가정, 비용, DD latch를 기록한다.
+- [ ] **R7-02** 후보별 격리 simulation과 비용·자료·gap·변동성 stress를 실행해 신호, 주문 의도, 체결 가정, 비용, DD latch와 primary/diagnostic 결과를 기록한다.
 - [ ] **R7-03** prospective 기준 통과 여부를 독립 reviewer가 확인하고 기존 PAPER와 결과를 혼합하지 않는다.
-- [ ] **R7-04** PAPER 승격 여부를 별도 결정 기록으로 남기며 후보를 자동으로 live 설정에 넣지 않는다.
-- [ ] **R7-05** 실제 주문은 이 로드맵에 포함하지 않고, 장기 live trading은 별도 설계·권한·안전 검토 뒤에만 논의한다.
+- [ ] **R7-04** PAPER 승격 여부를 별도 결정 기록으로 남기며 후보를 자동으로 live 설정에 넣지 않고, live는 별도 명시적 승인 없이는 논의하지 않는다.
+- [ ] **R7-05** 실제 주문은 이 로드맵에 포함하지 않고, 장기 live trading은 별도 설계·권한·안전 검토와 명시적 운영자 승인 뒤에만 논의한다.
 
 R7의 기술 완료는 격리·simulation·review 증거를 뜻한다. PAPER 결정도 수익 보장이 아니며 실주문 권한을 부여하지 않는다.
 
