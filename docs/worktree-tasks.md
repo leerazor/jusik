@@ -2,7 +2,7 @@
 
 ## kofr-risk-free-source-evidence
 
-- 상태: 준비. 공식 KOFR 공시의 인증 없는 일별 조회 계약을 재현했으며, 전용 워크트리에서 수집·정규화·불변 증거를 구현하기 전 조사와 계획을 수행합니다.
+- 상태: 진행. 조사·계획을 마쳤고 전용 워크트리에서 bounded 수집·정규화·불변 증거를 구현합니다.
 - 목표와 완료 조건: canonical NAV 통화인 KRW와 일치하는 KOFR 일별 금리의 공식 원문을 bounded하게 수집하고, 요청·응답·공표시각·원문 SHA·정규화 결과를 검증 가능한 evidence로 고정합니다. source evidence만 확정하며 `missing_risk_free_evidence` 제거, Sharpe 계산, readiness 승격은 하지 않습니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence` / `feat/kofr-risk-free-source-evidence`.
