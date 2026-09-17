@@ -1,5 +1,20 @@
 # 워크트리 작업 등록부
 
+## kofr-risk-free-source-evidence
+
+- 상태: 준비. 공식 KOFR 공시의 인증 없는 일별 조회 계약을 재현했으며, 전용 워크트리에서 수집·정규화·불변 증거를 구현하기 전 조사와 계획을 수행합니다.
+- 목표와 완료 조건: canonical NAV 통화인 KRW와 일치하는 KOFR 일별 금리의 공식 원문을 bounded하게 수집하고, 요청·응답·공표시각·원문 SHA·정규화 결과를 검증 가능한 evidence로 고정합니다. source evidence만 확정하며 `missing_risk_free_evidence` 제거, Sharpe 계산, readiness 승격은 하지 않습니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence` / `feat/kofr-risk-free-source-evidence`.
+- 기준 커밋/통합 대상: 이 등록 commit / local `main`.
+- 입력과 선행 작업: 한국은행의 KOFR 공식 정의·공표 절차, `https://www.kofr.kr/`의 KSD 공시 화면과 `getGridRateExcelList` 공식 응답, canonical 기간 `2025-09-11~2026-09-11`, 기존 blocked readiness와 계산정책.
+- 수정 허용: 신규 bounded KOFR collector/parser/verifier, content-addressed raw·정규화 evidence artifact, focused tests, 성과지표 계약 문서와 신규 개발 기록. 필요할 때 readiness에는 source evidence의 존재만 표시하되 누락 code와 blocked 상태는 보존합니다. 등록부는 Astra만 수정합니다.
+- 수집 경계: 공식 `kofr.kr` HTTPS 한 host·한 action만 허용하고, canonical 기간만 요청하며 timeout·응답 크기·MIME·XML entity/DTD·중복 날짜·비유한 값·공표시각을 fail-closed 검증합니다. 자동 재시도와 운영 DB 사용은 금지합니다.
+- 금지: 과거 NAV/초기자본 timestamp 합성, KOFR을 interval return에 연결, scalar 축약, CAGR/MDD/Sharpe/Calmar 계산, readiness 누락 제거·등급 승격, 기존 evaluator/전략/runner/API 변경, PAPER/live/주문/서비스/config/remote 변경.
+- 중단 조건: 공식 응답의 재현성·기간 완전성·공표 필드를 검증할 수 없거나 source evidence를 적용 근거로 오인하지 않고 분리할 수 없으면 통합하지 않습니다.
+- 포트·테스트 DB·출력 경로: 포트·DB 해당 없음. 테스트는 fake transport만 사용하고, 실제 bounded 수집은 작업 전용 audit 경로에 저장한 뒤 필요한 불변 artifact만 추적합니다.
+- 검증·결과·개발 기록·handoff: 구현 후 갱신합니다.
+
 ## r0-us-modeled-cost-evidence
 
 - 상태: 완료. canonical R0 미국 run·dataset·cache의 고정 SHA를 사용해 저장된 모형 fee/slippage/sell-tax가 NAV에 포함됐는지 독립 대사했습니다.
