@@ -14,6 +14,10 @@
 - 실제 관측된 KSD 응답 계약은 root `<vector result="N">`와 N개의 sibling
   `<data><result>...</result></data>`이다. wrapper root, `RECORD_COUNT`, 한 data
   아래 다중 result는 legacy/변조 shape로 거부한다.
+- Decimal projection은 유효숫자·조정 지수·출력 길이를 bounded하게 검사하고
+  tuple 기반으로 정규화해 ambient precision의 반올림과 exponent expansion을 막는다.
+  audit 파일은 `O_NOFOLLOW` descriptor-relative read/write로 symlink escape를
+  차단하며, verifier는 request 원문·hash와 정확한 XML attribute shape도 대조한다.
 - XML MIME/UTF-8, DTD/entity, 응답 크기·깊이·행·필드, 선언 행수, 날짜 범위·중복,
   유한 Decimal, `PUBN_DTTM` raw 형식을 fail-closed로 검증한다.
 - request와 attempt를 네트워크 전에 배타적으로 만들고, raw는 SHA-256 경로에
@@ -34,6 +38,8 @@
   backend `.venv`와 pytest가 없다(패키지 설치하지 않음).
 - `python -m py_compile jusik/kofr_source_evidence.py tests/test_kofr_source_evidence.py`
   — 통과.
+- 표준 라이브러리 fake test harness — 위협·원문 고정·Decimal bounds·symlink·request
+  hash·정확한 XML shape 포함 전체 함수 통과.
 - 실제 공식 수집 — production CLI를 정확히 1회 실행했으나 당시 parser 계약이
   `RECORD_COUNT` wrapper를 잘못 가정해 `invalid_record_count`로 차단했다. 실제
   관측 shape로 parser를 수리했지만 재요청은 금지되어 end-to-end 성공은 입증하지

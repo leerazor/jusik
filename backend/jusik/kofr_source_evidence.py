@@ -12,14 +12,15 @@ import hashlib
 import json
 import os
 import re
+import stat
 import sys
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, DecimalException
 from pathlib import Path
 from typing import Final, Protocol
 
@@ -37,6 +38,10 @@ MAX_ROWS: Final = 5_000
 MAX_FIELDS: Final = 64
 MAX_DEPTH: Final = 32
 MAX_JSON_BYTES: Final = 10 * 1024 * 1024
+MAX_DECIMAL_DIGITS: Final = 128
+MAX_DECIMAL_ADJUSTED_EXPONENT: Final = 128
+MAX_NORMALIZED_DECIMAL_LENGTH: Final = 256
+MAX_DECIMAL_TEXT_LENGTH: Final = 256
 XML_MIME: Final = frozenset({"application/xml", "text/xml"})
 DATE_RE: Final = re.compile(r"^(\d{4})([-./])(\d{2})\2(\d{2})$")
 PUBN_RE: Final = re.compile(
@@ -175,7 +180,7 @@ def _parse_date(raw: str) -> str:
 
 
 def _decimal_text(raw: str) -> str:
-    if not raw or len(raw) > 128:
+    if not raw or len(raw) > MAX_DECIMAL_TEXT_LENGTH:
         raise KofrEvidenceError("malformed_numeric")
     if raw.strip().lower() in {"nan", "+nan", "-nan", "infinity", "+infinity", "-infinity", "inf", "+inf", "-inf"}:
         raise KofrEvidenceError("nonfinite_value")
@@ -183,13 +188,39 @@ def _decimal_text(raw: str) -> str:
         raise KofrEvidenceError("malformed_numeric")
     try:
         value = Decimal(raw)
-    except InvalidOperation:
+    except (DecimalException, ValueError):
         raise KofrEvidenceError("malformed_numeric") from None
     if not value.is_finite():
         raise KofrEvidenceError("nonfinite_value")
-    if value == 0:
+    sign, digits, exponent = value.as_tuple()
+    if len(digits) > MAX_DECIMAL_DIGITS:
+        raise KofrEvidenceError("numeric_precision_limit")
+    if value != 0:
+        try:
+            adjusted = value.adjusted()
+        except DecimalException:
+            raise KofrEvidenceError("numeric_exponent_limit") from None
+        if abs(adjusted) > MAX_DECIMAL_ADJUSTED_EXPONENT:
+            raise KofrEvidenceError("numeric_exponent_limit")
+    while digits and digits[-1] == 0:
+        digits = digits[:-1]
+        exponent += 1
+    if not digits:
         return "0"
-    return format(value.normalize(), "f")
+    coefficient = "".join(str(digit) for digit in digits)
+    if exponent >= 0:
+        normalized = coefficient + ("0" * exponent)
+    else:
+        split = len(coefficient) + exponent
+        if split > 0:
+            normalized = coefficient[:split] + "." + coefficient[split:]
+        else:
+            normalized = "0." + ("0" * -split) + coefficient
+    if sign:
+        normalized = "-" + normalized
+    if len(normalized) > MAX_NORMALIZED_DECIMAL_LENGTH:
+        raise KofrEvidenceError("numeric_output_limit")
+    return normalized
 
 
 def _pubn_datetime(raw: str) -> None:
@@ -218,6 +249,8 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     if _local_name(root.tag) != "vector":
         raise KofrEvidenceError("unexpected_xml_root")
     vector = root
+    if set(vector.attrib) != {"result"}:
+        raise KofrEvidenceError("malformed_vector")
     declared = vector.attrib.get("result")
     if declared is None or not declared.isdecimal() or len(declared) > 6:
         raise KofrEvidenceError("invalid_record_count")
@@ -228,6 +261,8 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
         raise KofrEvidenceError("malformed_data")
     results: list[ET.Element] = []
     for data in data_nodes:
+        if data.attrib:
+            raise KofrEvidenceError("malformed_data")
         children = list(data)
         if len(children) != 1 or _local_name(children[0].tag) != "result":
             raise KofrEvidenceError("malformed_data")
@@ -237,13 +272,15 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     rows: list[dict[str, str]] = []
     seen_dates: set[str] = set()
     for result in results:
+        if result.attrib:
+            raise KofrEvidenceError("malformed_result")
         fields: dict[str, str] = {}
         children = list(result)
         if not children or len(children) > MAX_FIELDS:
             raise KofrEvidenceError("malformed_result")
         for field in children:
             name = _local_name(field.tag)
-            if name in fields or name not in FIELDS or set(field.attrib) != {"value"}:
+            if name in fields or name not in FIELDS or set(field.attrib) != {"value"} or list(field):
                 raise KofrEvidenceError("malformed_result")
             value = field.attrib["value"]
             if not value or len(value) > 512:
@@ -316,25 +353,94 @@ def _assert_directory(path: Path) -> None:
         raise KofrEvidenceError("unsafe_path")
 
 
-def _exclusive_write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _assert_regular(path)
-    temp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-    _assert_regular(temp)
+def _open_secure_directory(path: Path, *, create: bool = True) -> int:
+    """Open/create every directory component without following symlinks."""
+    absolute = Path(os.path.abspath(path))
+    fd = os.open(os.sep, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
     try:
-        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        for component in absolute.parts[1:]:
+            try:
+                next_fd = os.open(
+                    component,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                    dir_fd=fd,
+                )
+            except FileNotFoundError:
+                if not create:
+                    raise
+                try:
+                    os.mkdir(component, 0o700, dir_fd=fd)
+                except FileExistsError:
+                    pass
+                next_fd = os.open(
+                    component,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                    dir_fd=fd,
+                )
+            os.close(fd)
+            fd = next_fd
+        return fd
+    except (OSError, ValueError) as exc:
+        os.close(fd)
+        raise KofrEvidenceError("unsafe_path") from exc
+
+
+def _secure_read(path: Path, *, limit: int) -> bytes:
+    absolute = Path(os.path.abspath(path))
+    parent_fd = _open_secure_directory(absolute.parent, create=False)
+    try:
+        try:
+            fd = os.open(
+                absolute.name,
+                os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+                dir_fd=parent_fd,
+            )
+        except OSError as exc:
+            raise KofrEvidenceError("source_unavailable") from exc
+        try:
+            file_stat = os.fstat(fd)
+            if not stat.S_ISREG(file_stat.st_mode):
+                raise KofrEvidenceError("unsafe_path")
+            chunks: list[bytes] = []
+            remaining = limit + 1
+            while remaining:
+                chunk = os.read(fd, remaining)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            return b"".join(chunks)
+        finally:
+            os.close(fd)
+    finally:
+        os.close(parent_fd)
+
+
+def _exclusive_write(path: Path, data: bytes) -> None:
+    absolute = Path(os.path.abspath(path))
+    parent_fd = _open_secure_directory(absolute.parent)
+    temp_name = f".{absolute.name}.{os.getpid()}.tmp"
+    try:
+        fd = os.open(
+            temp_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            0o600,
+            dir_fd=parent_fd,
+        )
         with os.fdopen(fd, "wb") as handle:
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-        os.link(temp, path)
-    except FileExistsError as exc:
-        raise KofrEvidenceError("artifact_exists") from exc
+        try:
+            os.link(temp_name, absolute.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd, follow_symlinks=False)
+        except FileExistsError as exc:
+            raise KofrEvidenceError("artifact_exists") from exc
     finally:
         try:
-            temp.unlink()
+            os.unlink(temp_name, dir_fd=parent_fd)
         except FileNotFoundError:
             pass
+        os.close(parent_fd)
 
 
 def _json_bytes(value: object) -> bytes:
@@ -349,10 +455,12 @@ def verify_evidence(evidence_path: Path, audit_root: Path = AUDIT_DIR) -> dict[s
     """Verify tracked JSON, request, content-addressed raw XML and projection offline."""
     _assert_regular(evidence_path)
     try:
-        raw_evidence = evidence_path.read_bytes()
+        raw_evidence = _secure_read(evidence_path, limit=MAX_JSON_BYTES)
         if len(raw_evidence) > MAX_JSON_BYTES:
             raise KofrEvidenceError("evidence_too_large")
         evidence = json.loads(raw_evidence.decode("utf-8"), object_pairs_hook=_object_pairs)
+    except KofrEvidenceError:
+        raise
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError, _DuplicateKey):
         raise KofrEvidenceError("malformed_evidence") from None
     if not isinstance(evidence, dict) or evidence.get("schema") != "kofr-source-evidence/v1":
@@ -371,10 +479,11 @@ def verify_evidence(evidence_path: Path, audit_root: Path = AUDIT_DIR) -> dict[s
     if raw_rel.parent != Path("raw") or raw_rel.name != f"{sha}.xml":
         raise KofrEvidenceError("unsafe_path")
     raw_path = audit_root / raw_rel
+    _assert_directory(audit_root / "raw")
     try:
-        if raw_path.resolve().parent != (audit_root / "raw").resolve() or raw_path.is_symlink():
-            raise KofrEvidenceError("unsafe_path")
-        body = raw_path.read_bytes()
+        body = _secure_read(raw_path, limit=MAX_RESPONSE_BYTES)
+    except KofrEvidenceError:
+        raise
     except OSError:
         raise KofrEvidenceError("raw_unavailable") from None
     byte_count = raw_info.get("bytes")
@@ -391,6 +500,13 @@ def verify_evidence(evidence_path: Path, audit_root: Path = AUDIT_DIR) -> dict[s
         "request_sha256": hashlib.sha256(request_xml()).hexdigest(),
     }
     if request_info != expected_request:
+        raise KofrEvidenceError("request_mismatch")
+    request_path = audit_root / "request.xml"
+    try:
+        request_bytes = _secure_read(request_path, limit=MAX_RESPONSE_BYTES)
+    except (KofrEvidenceError, OSError):
+        raise KofrEvidenceError("request_unavailable") from None
+    if hashlib.sha256(request_bytes).hexdigest() != expected_request["request_sha256"] or request_bytes != request_xml():
         raise KofrEvidenceError("request_mismatch")
     rows, projection = parse_response(body)
     if evidence.get("rows") != rows or evidence.get("projection") != projection:

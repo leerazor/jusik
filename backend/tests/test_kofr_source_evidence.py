@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -98,6 +99,26 @@ def test_legacy_wrapper_and_record_count_shape_are_rejected() -> None:
         parse_response(legacy)
 
 
+def test_exact_xml_attributes_and_leaf_shape_are_required() -> None:
+    with pytest.raises(KofrEvidenceError, match="malformed_vector"):
+        parse_response(_xml().replace(b'<vector result="1">', b'<vector result="1" extra="x">'))
+    with pytest.raises(KofrEvidenceError, match="malformed_data"):
+        parse_response(_xml().replace(b"<data>", b'<data extra="x">'))
+    with pytest.raises(KofrEvidenceError, match="malformed_result"):
+        parse_response(_xml().replace(b"<result>", b'<result extra="x">'))
+    with pytest.raises(KofrEvidenceError, match="malformed_result"):
+        parse_response(_xml().replace(b'<RFR_INDEX value="105.1234"/>', b'<RFR_INDEX value="105.1234"><child/></RFR_INDEX>'))
+
+
+def test_decimal_bounds_do_not_use_ambient_precision() -> None:
+    rows, projection = parse_response(_xml(rate="123456789012345678901234567890.123456789"))
+    assert rows[0]["RFR_PUBN_MR"].startswith("1234567890")
+    assert projection[0]["rate_decimal"] == "123456789012345678901234567890.123456789"
+    for value, code in (("1e129", "numeric_exponent_limit"), ("1e-129", "numeric_exponent_limit"), ("9" * 129, "numeric_precision_limit")):
+        with pytest.raises(KofrEvidenceError, match=code):
+            parse_response(_xml(rate=value))
+
+
 def test_duplicate_date_and_missing_field_are_rejected() -> None:
     one = _xml().decode()
     fields = one.split("<result>", 1)[1].split("</result>", 1)[0]
@@ -135,6 +156,29 @@ def test_semantic_failure_freezes_bounded_raw_and_failure_metadata(tmp_path: Pat
     assert failure["code"] == "malformed_data"
     assert failure["raw"]["sha256"] == hashlib.sha256(raw_files[0].read_bytes()).hexdigest()
     assert transport.calls == 1
+
+
+def test_verifier_rejects_raw_directory_symlink_and_request_mismatch(tmp_path: Path) -> None:
+    audit = tmp_path / "audit"
+    output = tmp_path / "evidence.json"
+    collect(FakeTransport(_xml()), audit_root=audit, evidence_output=output)
+    evidence = json.loads(output.read_text())
+    original_raw = (audit / evidence["raw"]["path"]).read_bytes()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    shutil.rmtree(audit / "raw")
+    (audit / "raw").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(KofrEvidenceError, match="unsafe_path"):
+        verify_evidence(output, audit)
+
+    (audit / "raw").unlink()
+    raw_path = audit / "raw"
+    raw_path.mkdir()
+    raw_file = raw_path / Path(evidence["raw"]["path"]).name
+    raw_file.write_bytes(original_raw)
+    (audit / "request.xml").write_bytes(b"<tampered/>")
+    with pytest.raises(KofrEvidenceError, match="request_mismatch"):
+        verify_evidence(output, audit)
 
 
 @pytest.mark.parametrize(
