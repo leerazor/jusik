@@ -513,7 +513,7 @@ def test_json_depth_and_file_size_limits_are_bounded(
     tiny_list = b"[" + b"0," * evidence.MAX_JSON_LIST_ITEMS + b"0]"
     with pytest.raises(ValueError, match="too many array"):
         evidence._strict_json(tiny_list, "large-list")
-    tiny_object = b"{" + b'"x":0,' * evidence.MAX_JSON_LIST_ITEMS + b'"x":0}'
+    tiny_object = b"{" + b'"x":0,' * evidence.MAX_JSON_OBJECT_KEYS + b'"x":0}'
     with pytest.raises(ValueError, match="too many object"):
         evidence._strict_json(tiny_object, "large-object")
     monkeypatch.setattr(json, "loads", original_loads)

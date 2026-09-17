@@ -162,7 +162,10 @@ def _strict_json(body: bytes, label: str) -> object:
             if stack:
                 kind, commas = stack[-1]
                 commas += 1
-                if commas + 1 > MAX_JSON_LIST_ITEMS:
+                limit = (
+                    MAX_JSON_LIST_ITEMS if kind == ord("[") else MAX_JSON_OBJECT_KEYS
+                )
+                if commas + 1 > limit:
                     collection = "array" if kind == ord("[") else "object"
                     raise ValueError(f"{label} has too many {collection} entries")
                 stack[-1] = (kind, commas)
