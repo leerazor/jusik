@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## forward-simulation-time-evidence
+
+- 상태: 준비. 과거 canonical run에 시각을 사후 부여하지 않고, 새 simulation 산출물이 초기자본 event와 각 NAV의 UTC 시각을 원천적으로 보존하는 최소 계약을 조사·설계합니다.
+- 목표와 완료 조건: market calendar의 실제 session open/close UTC와 전략 평가 시점을 명시적으로 연결한 forward-only artifact contract를 추가하고, initial-capital event·per-NAV timestamp·생성 정책·source SHA를 재현 가능하게 검증합니다. 기존 canonical readiness는 바꾸지 않으며 새 run도 자동 canonical 승격하지 않습니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: 조사·계획 후 확정 / `feat/forward-simulation-time-evidence` 예정.
+- 입력과 선행 작업: `MarketSession.open_at/close_at`, 전략 loop의 close-mark NAV 생성 순서, `MarketResearchRun`/replay schema, 기존 session/cost/policy evidence와 blocked readiness.
+- 수정 허용: 조사·계획에서 정한 신규 forward artifact schema/adapter/verifier, 생성 경계의 최소 timestamp 보존, focused tests, 계약 문서·개발 기록. 등록부는 Astra만 수정합니다.
+- 금지: 기존 canonical run timestamp 합성·수정, 기존 readiness 누락 제거, 경제 성과 계산·승격, 전략 신호·체결·비용 수식 변경, 신규 연구 자동 실행, runner/PAPER/live/주문/운영 DB/service/config/remote 변경.
+- 중단 조건: 실제 NAV 평가 event와 timestamp 의미를 코드 흐름에서 일대일로 정의할 수 없거나 기존 run/replay 호환성을 깨야 하면 구현하지 않고 차단합니다.
+- 검증·결과·개발 기록·handoff: 조사·계획 후 갱신합니다.
+
 ## kofr-risk-free-source-evidence
 
 - 상태: 차단. bounded collector 후보와 fake-transport 검증은 완성했으나 첫 공식 요청에서 초기 파서가 실제 KSD XML 구조를 잘못 가정해 성공 evidence를 만들지 못했습니다. 재요청 금지 조건 때문에 end-to-end 근거가 없습니다.
