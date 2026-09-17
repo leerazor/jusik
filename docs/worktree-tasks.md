@@ -2,7 +2,7 @@
 
 ## kofr-risk-free-source-evidence
 
-- 상태: 진행. 조사·계획을 마쳤고 전용 워크트리에서 bounded 수집·정규화·불변 증거를 구현합니다.
+- 상태: 차단. bounded collector 후보와 fake-transport 검증은 완성했으나 첫 공식 요청에서 초기 파서가 실제 KSD XML 구조를 잘못 가정해 성공 evidence를 만들지 못했습니다. 재요청 금지 조건 때문에 end-to-end 근거가 없습니다.
 - 목표와 완료 조건: canonical NAV 통화인 KRW와 일치하는 KOFR 일별 금리의 공식 원문을 bounded하게 수집하고, 요청·응답·공표시각·원문 SHA·정규화 결과를 검증 가능한 evidence로 고정합니다. source evidence만 확정하며 `missing_risk_free_evidence` 제거, Sharpe 계산, readiness 승격은 하지 않습니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence` / `feat/kofr-risk-free-source-evidence`.
@@ -13,7 +13,8 @@
 - 금지: 과거 NAV/초기자본 timestamp 합성, KOFR을 interval return에 연결, scalar 축약, CAGR/MDD/Sharpe/Calmar 계산, readiness 누락 제거·등급 승격, 기존 evaluator/전략/runner/API 변경, PAPER/live/주문/서비스/config/remote 변경.
 - 중단 조건: 공식 단일 응답의 전체 수신·선언 행수·요청 범위·필수 공표 필드·재정규화를 검증할 수 없거나 source evidence를 적용 근거와 분리할 수 없으면 통합하지 않습니다. 별도 KOFR 영업일 달력이 없으므로 기대 영업일 완전성은 `unverified`로 고정하며 이를 완료 조건으로 주장하지 않습니다.
 - 포트·테스트 DB·출력 경로: 포트·DB 해당 없음. 테스트는 fake transport만 사용하고, 실제 bounded 수집은 작업 전용 audit 경로에 저장한 뒤 필요한 불변 artifact만 추적합니다.
-- 검증·결과·개발 기록·handoff: 구현 후 갱신합니다.
+- 검증·결과: 후보 commit `3fcb553`; Terra 최종 review PASS(P1/P2 없음). 표준 라이브러리 fake harness, py_compile/compileall, diff 검사는 통과했습니다. 전용 환경이 없어 pytest/Ruff/mypy는 실행하지 못했습니다. 공식 추가 요청은 0회이며 readiness·metrics·runner는 변경하지 않았습니다.
+- 보존·재개: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`와 `feat/kofr-risk-free-source-evidence`를 미병합 보존합니다. 새 audit attempt와 두 번째 공식 요청을 별도 승인·계획하기 전에는 통합하지 않습니다. 개발 기록은 `docs/development-records/2026-09-17-kofr-risk-free-source-evidence.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## r0-us-modeled-cost-evidence
 
