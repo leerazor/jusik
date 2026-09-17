@@ -3,6 +3,9 @@
 This module deliberately uses only the standard library.  It reads immutable
 JSON artifacts, validates their hash chain, and reconstructs the saved ledger;
 it never imports strategy, replay, collector, broker, or service code.
+Persisted trades have no unique identifiers; the verifier therefore proves
+ordered record count and accounting replacement checks, not identity beyond
+the serialized fields.
 """
 
 from __future__ import annotations
@@ -37,10 +40,10 @@ CANONICAL_COMPLETION_SHA256: Final = (
 # These are canonicalized hashes: the two registered hash literals are
 # replaced with zeroes before hashing this source, avoiding self-reference.
 VERIFIER_SOURCE_SHA256: Final = (
-    "84f0b5a191c9430149055df38dd74a386eb72f39806c76ff8687987815d6a0de"
+    "19ce8a4567beddda1808bc0da8658650aff2dcbc9fd9c684f1eea93e480c8a33"
 )
 CANONICAL_EVIDENCE_SHA256: Final = (
-    "fa1a5fcf78fd65b0650f24a994cad23177edcf99d634704f9dfda3b611c0acb3"
+    "46d895eb7d4333486fa9cddbd051a33b5a3b2a48508f496af6dbe3660334c967"
 )
 
 CANONICAL_AUDIT_ROOT: Final = (

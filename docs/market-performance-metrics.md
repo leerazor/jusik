@@ -88,6 +88,9 @@ dataset의 open으로 fill/notional/fee/sell-tax를 재계산하며 slippage는 
 각 세션은 close mark와 native/KRW cash, invested, NAV를 Decimal 문맥으로 재구성하고
 252개 행과 저장 equity를 비교한다.
 
+저장 체결에는 고유 식별자가 없으므로 대사는 직렬화된 필드의 순서·개수·회계 대체
+검사까지를 증명하며, 그 범위를 넘어 체결 identity의 진실을 주장하지 않는다.
+
 근거 JSON은 verifier source와 artifact SHA, Decimal 문맥, 106/252 개수, 세션별 회계
 digest, 최대 잔차 0과 최종 보유 0을 고정한다. 이 근거는 모형 fee/slippage/sell-tax가
 저장 NAV에 포함되었음을 보여 주는 기술 대사일 뿐 법정 요율·실제 전체 비용·기업행사나

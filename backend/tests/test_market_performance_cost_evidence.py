@@ -1,13 +1,42 @@
 from __future__ import annotations
 
+import ast
 import copy
 import json
 import shutil
+from decimal import Decimal, localcontext
 from pathlib import Path
 
 import pytest
 
 import jusik.market_performance_cost_evidence as evidence
+
+
+def _ledger_seam(
+    monkeypatch: pytest.MonkeyPatch,
+    run: dict[str, object],
+    dataset: dict[str, object],
+) -> None:
+    def fake_read(
+        path: Path, expected_sha: str, *, limit: int = evidence.MAX_SOURCE_BYTES
+    ) -> tuple[dict[str, object], bytes]:
+        if path == evidence.CANONICAL_RUN_PATH:
+            return run, b""
+        if path == evidence.CANONICAL_DATASET_PATH:
+            return dataset, b""
+        return {}, b""
+
+    monkeypatch.setattr(evidence, "_read", fake_read)
+    monkeypatch.setattr(evidence, "_verify_manifest", lambda *args: None)
+    monkeypatch.setattr(evidence, "_verify_cache", lambda *args: {})
+    monkeypatch.setattr(evidence, "_verify_evidence", lambda *args: None)
+
+
+def _canonical_payloads() -> tuple[dict[str, object], dict[str, object]]:
+    return (
+        json.loads(evidence.CANONICAL_RUN_PATH.read_text(encoding="utf-8")),
+        json.loads(evidence.CANONICAL_DATASET_PATH.read_text(encoding="utf-8")),
+    )
 
 
 def test_canonical_cost_ledger_reconciles_without_strategy_imports() -> None:
@@ -135,12 +164,166 @@ def test_cache_raw_size_and_hash_are_checked_after_path_validation(
         evidence._verify_cache(cache_copy)
 
 
+@pytest.mark.parametrize(
+    ("mutation", "error"),
+    [
+        ("trade_order", "trade_order_mismatch"),
+        ("trade_side_order", "trade_side_order_mismatch"),
+    ],
+)
+def test_serialized_trade_order_guards_reach_ledger(
+    monkeypatch: pytest.MonkeyPatch, mutation: str, error: str
+) -> None:
+    run, dataset = _canonical_payloads()
+    trades = run["result"]["trades"]
+    assert isinstance(trades, list)
+    if mutation == "trade_order":
+        trades[0], trades[1] = trades[1], trades[0]
+    else:
+        same_session = [
+            index
+            for index, item in enumerate(trades)
+            if item["session"] == "2025-10-23"
+        ]
+        trades[same_session[0]], trades[same_session[1]] = (
+            trades[same_session[1]],
+            trades[same_session[0]],
+        )
+    _ledger_seam(monkeypatch, run, dataset)
+    with pytest.raises(evidence.CostEvidenceError, match=error):
+        evidence.verify_canonical_cost_evidence()
+
+
+def test_oversell_guard_reaches_position_ledger(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run, dataset = _canonical_payloads()
+    trades = run["result"]["trades"]
+    assert isinstance(trades, list)
+    trade = next(item for item in trades if item["side"] == "sell")
+    trade["quantity"] = 10_000
+    with localcontext() as context:
+        context.prec = 28
+        bar = next(
+            item
+            for item in dataset["bars"]
+            if item["session"] == trade["session"] and item["symbol"] == trade["symbol"]
+        )
+        fill = Decimal(bar["open"]) * (
+            Decimal(1) - Decimal(run["request"]["slippage_rate"])
+        )
+        notional = fill * trade["quantity"]
+        trade["fill_price"] = str(fill)
+        trade["notional"] = str(notional)
+        trade["fee"] = str(notional * Decimal(run["request"]["fee_rate"]))
+        trade["tax"] = str(notional * Decimal(run["request"]["sell_tax_rate"]))
+    _ledger_seam(monkeypatch, run, dataset)
+    with pytest.raises(evidence.CostEvidenceError, match="oversell"):
+        evidence.verify_canonical_cost_evidence()
+
+
+def test_final_open_holding_guard_reaches_terminal_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run, dataset = _canonical_payloads()
+    trades = run["result"]["trades"]
+    assert isinstance(trades, list)
+    trade = trades[-1]
+    assert trade["side"] == "sell"
+    original_tax = Decimal(trade["tax"])
+    original_notional = Decimal(trade["notional"])
+    original_fee = Decimal(trade["fee"])
+    with localcontext() as context:
+        context.prec = 28
+        trade["side"] = "buy"
+        fill = Decimal(trade["market_open"]) * (
+            Decimal(1) + Decimal(run["request"]["slippage_rate"])
+        )
+        notional = fill * trade["quantity"]
+        fee = notional * Decimal(run["request"]["fee_rate"])
+        trade["fill_price"] = str(fill)
+        trade["notional"] = str(notional)
+        trade["fee"] = str(fee)
+        trade["tax"] = "0"
+        final_point = run["result"]["equity"][-1]
+        cash_before = (
+            Decimal(final_point["cash_native"])
+            - original_notional
+            + original_fee
+            + original_tax
+        )
+        cash = cash_before - notional - fee
+        pre_quantity = sum(
+            item["quantity"] if item["side"] == "buy" else -item["quantity"]
+            for item in trades[:-1]
+            if item["symbol"] == trade["symbol"]
+        )
+        for point in run["result"]["equity"]:
+            if point["session"] < trade["session"]:
+                continue
+            fx = Decimal(point["fx_krw_per_usd"])
+            close = next(
+                item
+                for item in dataset["bars"]
+                if item["session"] == point["session"]
+                and item["symbol"] == trade["symbol"]
+            )["close"]
+            invested_native = Decimal(close) * (pre_quantity + trade["quantity"])
+            point["cash_native"] = str(cash)
+            point["cash_krw"] = str(cash * fx)
+            point["invested_krw"] = str(invested_native * fx)
+            point["nav_krw"] = str((cash + invested_native) * fx)
+    _ledger_seam(monkeypatch, run, dataset)
+    with pytest.raises(evidence.CostEvidenceError, match="final_holdings_nonzero"):
+        evidence.verify_canonical_cost_evidence()
+
+
+def test_active_close_mark_mutation_reaches_nav_reconciliation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run, dataset = _canonical_payloads()
+    bar = next(
+        item
+        for item in dataset["bars"]
+        if item["session"] == "2025-10-10" and item["symbol"] == "VTGN"
+    )
+    bar["close"] = str(Decimal(bar["close"]) + Decimal("1"))
+    _ledger_seam(monkeypatch, run, dataset)
+    with pytest.raises(evidence.CostEvidenceError, match="nav_reconciliation_mismatch"):
+        evidence.verify_canonical_cost_evidence()
+
+
+def test_sell_tax_omission_and_double_charge_residual_are_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run, dataset = _canonical_payloads()
+    trade = next(item for item in run["result"]["trades"] if item["side"] == "sell")
+    trade["tax"] = "0"
+    _ledger_seam(monkeypatch, run, dataset)
+    with pytest.raises(
+        evidence.CostEvidenceError, match="trade_recomputation_mismatch"
+    ):
+        evidence.verify_canonical_cost_evidence()
+
+
 def test_verifier_has_no_runtime_strategy_or_broker_imports() -> None:
     source = Path(evidence.__file__).read_text(encoding="utf-8")
-    for forbidden in (
+    forbidden = (
         "market_research_strategy",
         "market_data_collector",
         "replay",
         "broker",
-    ):
-        assert f"import {forbidden}" not in source
+    )
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported = [alias.name for alias in node.names]
+            assert not any(item in name for name in imported for item in forbidden)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            assert not any(item in module for item in forbidden)
+        elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name):
+                assert node.func.id not in {"__import__", "eval", "exec"}
+            if isinstance(node.func, ast.Attribute):
+                assert node.func.attr not in {"import_module", "__import__"}
