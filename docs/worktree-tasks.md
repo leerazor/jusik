@@ -2,7 +2,7 @@
 
 ## r1-us-event-time-invariance
 
-- 상태: 진행. 조사·계획 결과 production 변경 없이 safe paired fixture와 계약 문서로 사건 전 불변성을 강화합니다. `R1-02` 전체 checkbox는 유지합니다.
+- 상태: 완료. production 변경 없이 safe paired fixture와 계약 문서로 사건 전 불변성을 강화했습니다. 실제 historical receipt가 없어 `R1-02` 전체 checkbox는 유지합니다.
 - 목표와 완료 조건: 기존 R1 PIT membership과 action/delisting 소비 경로를 조사해 관측시각 cutoff를 하나의 계약으로 고정하고, 미래 event 주입 전후의 사건 전 선택·분류·coverage가 exact equality임을 safe fixture로 증명합니다. 자료가 없는 event 종류는 지원된 것으로 가장하지 않고 명시적 missing/unsupported로 남깁니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r1-us-event-time-invariance` / `feat/r1-us-event-time-invariance`.
@@ -12,7 +12,9 @@
 - 중단 조건: 기존 selection 경로에서 event 관측시각을 구분할 근거가 없거나 fixture 통과를 위해 미래 event를 삭제·무시하는 방식이 필요하면 구현하지 않고 정확한 blocker를 기록합니다.
 - 검증 계약: 사건 전 동일 종료시각 요청은 universe/bars/membership/non-empty candidate evidence/classification/status/grade/missing/coverage/diagnostics exact equality입니다. 전체 기간은 cutoff 전 prefix equality와 cutoff 뒤 대상 종목만 제외되는 양성 대조를 분리하고, 전체 coverage equality는 요구하지 않습니다.
 - 제한: synthetic `observed_at`은 실제 historical receipt가 아니며 suspension·배당/분할 회계와 strict PIT는 미지원입니다.
-- 결과·개발 기록·handoff: 구현 후 갱신합니다.
+- 결과: Luna 구현 `a6f8d05`, 비공허 양성 대조 보완 `ea8e7ef`; 3 event kind × 2 timing case에서 사건 전 exact equality와 cutoff 뒤 target-only exclusion을 검증했습니다.
+- 검토·통합: Terra 최종 review PASS(P1/P2 없음), local main merge `91cb1bbe5c2290cb661bdb2c5ed04e9b352422d5`. main에서 두 테스트 파일 167개, Ruff check, 관련 production mypy, diff 검사가 통과했습니다. 파일 전체 Ruff format은 기존 범위 밖 차이 때문에 실행 결과를 gate로 사용하지 않았습니다.
+- 정리·기록: 통합 검증 후 전용 worktree와 branch를 제거합니다. 개발 기록은 `docs/development-records/2026-09-17-r1-us-event-time-invariance.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## forward-simulation-time-evidence
 

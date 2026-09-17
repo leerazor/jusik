@@ -1,9 +1,9 @@
 # 미국 사건 시각 불변성 계약
 
 - 상태: 완료
-- 기록 시각: 2026-09-17T00:00:00Z
+- 기록 시각: 2026-09-17T19:10:25Z
 - 작업 slug: `r1-us-event-time-invariance`
-- 기준/통합: `24e66987cba144fa026a7dccc825bd3a2ae6bd35` / 통합 전
+- 기준/구현/통합: `24e66987cba144fa026a7dccc825bd3a2ae6bd35` / `ea8e7ef455257551bb5b01bfc4c2f6dc21fb88a5` / `91cb1bbe5c2290cb661bdb2c5ed04e9b352422d5`
 - 범위: production pipeline은 변경하지 않고, 기존 `_USEventTransport`를 확장한 synthetic
   collector/source/strategy 계약 테스트와 시장 연구 문서만 갱신했습니다.
 
@@ -26,12 +26,13 @@
 
 ## 검증
 
-- `uv run --offline --project . python -m pytest tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 통과, 167개.
-- `uv run --offline ruff check tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 통과.
+- worker와 main의 두 테스트 파일 pytest — 통과, 167개.
+- main Ruff check — 통과.
 - `uv run --offline ruff format --check tests/test_market_data_collector.py tests/test_market_history_approximate.py` — 실패. 기존 변경 범위 밖 코드에 이미 존재한 formatting 차이가 남아 있어 파일 전체 자동 포맷은 수행하지 않았습니다.
-- `uv run --offline mypy jusik/market_data_collector.py jusik/market_history_approximate.py` — 통과.
+- main configured mypy `market_data_collector.py`, `market_history_approximate.py` — 통과.
 - `uv run --offline mypy jusik` — 실패. 기존 `research_optimizer.py`의 선택적 `torch` stub 부재이며 이번 변경과 무관합니다.
-- `python -m compileall -q backend/tests/test_market_data_collector.py backend/tests/test_market_history_approximate.py` 및 `git diff --check` — 통과.
+- worker compileall과 main `git diff --check` — 통과.
+- Terra 독립 최종 review — PASS, P1/P2 없음.
 
 ## 안전·운영 상태
 
@@ -42,5 +43,5 @@
 ## 증거와 재개
 
 - audit: 없음; manifest: 없음; hash: 없음
-- 남은 작업·차단 조건: 부모 agent의 diff 검토와 local `main` 통합 검증
-- 다음 시작: 부모 agent가 이 브랜치의 commit과 지정 두 테스트 파일 diff를 검토합니다.
+- 남은 작업·차단 조건: 실제 historical provider receipt, suspension coverage, 배당·분할 회계가 없어 R1-02 전체는 미완료입니다.
+- 다음 시작: 로드맵 `R1-05`의 부분 이력·identity 불일치·상장폐지 coverage가 조용히 삭제되지 않는지 기존 근거와 누락 계약을 조사합니다.
