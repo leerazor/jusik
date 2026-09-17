@@ -1,8 +1,20 @@
 # 워크트리 작업 등록부
 
+## portfolio-calendar-aware-time-input
+
+- 상태: 조사. forward bundle 생성 전 확인된 engine session-time 불일치와 실제 frozen input lexical budget을 책임 계층에서 해결합니다.
+- 목표와 완료 조건: 공식 calendar가 정의한 실제 session open/close를 engine event ordering에 사용하고, 고정 frozen input을 bounded하게 수용할 수 있는 근거 기반 JSON 자원 한도를 적용합니다. 신호·체결·NAV chronology와 기존 합성/일반 동작을 보존한 새 execution identity를 요구합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: 조사·계획 후 확정 / `feat/portfolio-calendar-aware-time-input` 예정.
+- 입력과 선행 작업: `forward-simulation-time-evidence-run`의 NO-GO 조사, `research_portfolio_engine.py`, `research_portfolio_time_evidence.py`, tracked calendar, fixed rebalance-band source manifest.
+- 수정 허용: engine/calendar injection seam, time-evidence adapter의 bounded input policy, 직접 관련 tests·계약 문서·개발 기록. 등록부와 handoff는 Astra만 수정합니다.
+- 금지: bar 삭제·시장 제외·날짜 이동·검증 완화, 전략/비용/리밸런싱 정책 변경, 기존 결과 재해석, 실제 simulation 실행, runner/network/KOFR/PAPER/live/주문/DB/service/config/remote 변경.
+- 중단 조건: calendar 시각이 event ordering에 결정적으로 주입되지 않거나 자원 한도가 근거 없이 무제한화되거나 기존 replay/result 호환성을 깨야 하면 구현하지 않습니다.
+- 검증: 지연 개폐장·일반장·다시장·warmup·DST/조기폐장, lexical/bytes/depth/row 한도 경계, event causality, 결정성, 기존 회귀, 독립 review를 요구합니다.
+
 ## forward-simulation-time-evidence-run
 
-- 상태: 조사. 사용자 재개 지시에 따라 신규 forward simulation bundle을 격리 생성해 initial-capital anchor와 per-NAV UTC time evidence를 확보합니다.
+- 상태: 선행 차단. 입력 `324,691` lexical token이 현재 `100,000` 한도를 넘고, 고정 KRX event 시각이 공식 지연 개폐장보다 이르게 처리되어 simulation 전 fail-closed합니다.
 - 목표와 완료 조건: 기존 승인된 입력·정책·달력만 사용한 bounded simulation을 정확히 한 번 실행하고, 새 audit 경로의 bundle/manifest/SHA를 검증합니다. 기존 canonical run은 수정하지 않으며 readiness 연결 여부는 별도 판정합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 실행/필요한 최소 구현, Terra 독립 review.
 - 워크트리/브랜치: 조사·계획 후 확정 / `feat/forward-simulation-time-evidence-run` 예정.
@@ -11,6 +23,8 @@
 - 금지: 기존 canonical run/artifact 수정, 자동 runner resume, 네트워크 수집, KOFR 재요청, PAPER/live/주문/운영 DB/service/config/remote 변경, 자동 성과 승격.
 - 중단 조건: 승인된 고정 입력·공식 달력·정책 identity가 없거나 새 simulation이 기존 미래정보/자료등급 계약을 보존하지 못하면 실행하지 않고 필요한 입력을 기록합니다.
 - 검증: 입력 SHA·정책 identity·단일 simulate 호출·UTC 인과·manifest 전체 파일 SHA·결정성·no-overwrite·독립 review·main 영향 검사를 요구합니다.
+- 차단 근거: source manifest SHA `1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825`, calendar SHA `ba26619a27e066ca32b1aaaf3b7da2b99f0c6658f731a000c5095c057081c1d8`; frozen input 4,557,232 bytes/324,691 lexical tokens, 11,321 bars/7,946 external observations. bundle·request·simulation은 생성하지 않았습니다.
+- 재개 조건: `portfolio-calendar-aware-time-input` 선행 작업이 새 execution identity로 통합·검증된 뒤 같은 고정 입력에서 다시 사전검사합니다.
 
 ## market-research-mandate-digest-repair
 
