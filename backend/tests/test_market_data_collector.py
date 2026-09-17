@@ -2296,6 +2296,22 @@ def test_us_event_time_invariance_is_safe_and_causal(
         for symbol, session in baseline_bar_keys
         if symbol == "AAA" and session >= cutoff
     }
+    assert any(
+        symbol == "AAA" and session < cutoff
+        for symbol, session in baseline_universe_keys
+    )
+    assert any(
+        symbol == "AAA" and session >= cutoff
+        for symbol, session in baseline_universe_keys
+    )
+    assert any(
+        symbol == "AAA" and session < cutoff for symbol, session in baseline_bar_keys
+    )
+    assert any(
+        symbol == "AAA" and session >= cutoff for symbol, session in baseline_bar_keys
+    )
+    assert expected_universe_removed
+    assert expected_bars_removed
     assert baseline_universe_keys - event_universe_keys == expected_universe_removed
     assert baseline_bar_keys - event_bar_keys == expected_bars_removed
     assert {key for key in event_universe_keys if key[0] == "BBB"} == {
