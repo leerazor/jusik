@@ -9,6 +9,8 @@ from typing import cast
 import pytest
 
 from jusik.market_performance_readiness import (
+    CANONICAL_EVIDENCE_PATH,
+    CANONICAL_EVIDENCE_SHA256,
     CANONICAL_RUN_SHA256,
     MISSING_CODES,
     ReadinessInputError,
@@ -16,6 +18,11 @@ from jusik.market_performance_readiness import (
     diagnose_run,
     main,
     render_report,
+)
+
+CANONICAL_RUN_PATH = Path(
+    "/home/kwl/.local/share/jusik/portfolio-audit/"
+    "20260915-market-data-live-contract-fixes/us-web-pilot-run.json"
 )
 
 
@@ -364,3 +371,57 @@ def test_size_limit_and_cli_are_read_only_and_deterministic(
     with pytest.raises(ReadinessInputError) as error:
         diagnose_run(huge, hashlib.sha256(huge.read_bytes()).hexdigest())
     assert error.value.code == "source_too_large"
+
+
+def test_canonical_session_evidence_removes_exactly_two_codes_and_is_deterministic(
+    tmp_path: Path,
+) -> None:
+    original_run = CANONICAL_RUN_PATH.read_bytes()
+    original_evidence = CANONICAL_EVIDENCE_PATH.read_bytes()
+    evidence_copy = tmp_path / "evidence.json"
+    evidence_copy.write_bytes(original_evidence)
+
+    first = diagnose_canonical_run(CANONICAL_RUN_PATH, evidence_copy)
+    second = diagnose_canonical_run(CANONICAL_RUN_PATH, evidence_copy)
+
+    assert first == second
+    assert first["missing"] == [
+        "missing_initial_capital_at",
+        "missing_nav_timestamps",
+        "missing_cost_inclusion_evidence",
+        "missing_risk_free_evidence",
+        "missing_calculation_policy",
+    ]
+    assert first["status"] == "blocked"
+    assert first["ready_for_metrics"] is False
+    assert first["economic_evaluation"] == "not-evaluated"
+    assert first["session_evidence"]["expected_count"] == 252
+    assert first["session_evidence"]["observed_count"] == 252
+    assert CANONICAL_RUN_PATH.read_bytes() == original_run
+    assert evidence_copy.read_bytes() == original_evidence
+    assert hashlib.sha256(original_evidence).hexdigest() == CANONICAL_EVIDENCE_SHA256
+
+
+def test_canonical_evidence_is_fail_closed_and_generic_never_consumes_it(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "absent-evidence.json"
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_canonical_run(CANONICAL_RUN_PATH, missing)
+    assert error.value.code == "evidence_unavailable"
+
+    evidence_copy = tmp_path / "tampered-evidence.json"
+    evidence_copy.write_bytes(CANONICAL_EVIDENCE_PATH.read_bytes() + b"\n")
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_canonical_run(CANONICAL_RUN_PATH, evidence_copy)
+    assert error.value.code == "evidence_sha_mismatch"
+
+    run_copy = tmp_path / "run.json"
+    run_copy.write_bytes(CANONICAL_RUN_PATH.read_bytes())
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_run(
+            run_copy,
+            CANONICAL_RUN_SHA256,
+            evidence_path=CANONICAL_EVIDENCE_PATH,
+        )
+    assert error.value.code == "canonical_evidence_requires_canonical"

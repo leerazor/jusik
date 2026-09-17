@@ -23,10 +23,30 @@ from .market_history_models import MarketResearchRun
 
 SCHEMA: Final = "market-performance-readiness/v1"
 TARGET_SCHEMA: Final = "market-performance-metrics-input/v1"
+EVIDENCE_SCHEMA: Final = "r0-us-session-evidence/v1"
+CANONICAL_MANIFEST_SHA256: Final = (
+    "03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205"
+)
 CANONICAL_RUN_SHA256: Final = (
     "cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275"
 )
+CANONICAL_EVIDENCE_SHA256: Final = (
+    "cb79ed6ec53d61047624c7d56481b1066e33096c16d4d53ae47a5897a879ea7b"
+)
+CALENDAR_BYTES_SHA256: Final = (
+    "ba26619a27e066ca32b1aaaf3b7da2b99f0c6658f731a000c5095c057081c1d8"
+)
+CALENDAR_PAYLOAD_SHA256: Final = (
+    "e9f86c7e47c8d3cd6ee628e48be12c0379e428f12f9f66f04de52cc272cb122d"
+)
+CANONICAL_EVIDENCE_PATH: Final = (
+    Path(__file__).with_name("data") / "r0_us_session_evidence_v1.json"
+)
+TRACKED_CALENDAR_PATH: Final = (
+    Path(__file__).with_name("data") / "market_sessions_2023_2026.json"
+)
 MAX_SOURCE_BYTES: Final = 10 * 1024 * 1024
+MAX_EVIDENCE_BYTES: Final = 1 * 1024 * 1024
 MAX_NAV_POINTS: Final = 5_000
 MISSING_CODES: Final = (
     "missing_initial_capital_at",
@@ -493,6 +513,235 @@ def _read_source(path: Path, expected_sha256: str) -> tuple[dict[str, object], s
     return _parse_json(raw), actual
 
 
+def _canonical_digest(value: object) -> str:
+    try:
+        raw = json.dumps(
+            value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        raise ReadinessInputError("malformed_input") from None
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _read_evidence(path: Path) -> tuple[dict[str, object], str]:
+    try:
+        with path.open("rb") as source:
+            raw = source.read(MAX_EVIDENCE_BYTES + 1)
+    except OSError:
+        raise ReadinessInputError("evidence_unavailable") from None
+    if len(raw) > MAX_EVIDENCE_BYTES:
+        raise ReadinessInputError("evidence_too_large")
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual != CANONICAL_EVIDENCE_SHA256:
+        raise ReadinessInputError("evidence_sha_mismatch")
+    try:
+        evidence = _parse_json(raw)
+    except ReadinessInputError:
+        raise ReadinessInputError("evidence_malformed") from None
+    return evidence, actual
+
+
+def _read_tracked_calendar() -> dict[str, object]:
+    try:
+        raw = TRACKED_CALENDAR_PATH.read_bytes()
+    except OSError:
+        raise ReadinessInputError("calendar_unavailable") from None
+    if hashlib.sha256(raw).hexdigest() != CALENDAR_BYTES_SHA256:
+        raise ReadinessInputError("calendar_sha_mismatch")
+    try:
+        payload = json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError):
+        raise ReadinessInputError("calendar_malformed") from None
+    if not isinstance(payload, dict):
+        raise ReadinessInputError("calendar_malformed")
+    if (
+        payload.get("provider") != "exchange_calendars"
+        or payload.get("provider_version") != "4.12"
+    ):
+        raise ReadinessInputError("calendar_metadata_mismatch")
+    calendars = payload.get("calendars")
+    if not isinstance(calendars, dict) or set(calendars) != {"XKRX", "XNYS"}:
+        raise ReadinessInputError("calendar_malformed")
+    payload_hash = hashlib.sha256(
+        json.dumps(
+            calendars, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
+    if payload.get("calendars_sha256") != CALENDAR_PAYLOAD_SHA256:
+        raise ReadinessInputError("calendar_payload_hash_mismatch")
+    if payload_hash != CALENDAR_PAYLOAD_SHA256:
+        raise ReadinessInputError("calendar_payload_hash_mismatch")
+    return payload
+
+
+def _validate_session_evidence(
+    evidence_path: Path,
+    payload: Mapping[str, object],
+    request: Mapping[str, object],
+    result: Mapping[str, object],
+    source_sha256: str,
+) -> dict[str, object]:
+    evidence, evidence_sha256 = _read_evidence(evidence_path)
+    expected_top = {
+        "schema",
+        "manifest_sha256",
+        "run_sha256",
+        "calendar",
+        "request",
+        "sessions",
+        "limitations",
+    }
+    if set(evidence) != expected_top or evidence.get("schema") != EVIDENCE_SCHEMA:
+        raise ReadinessInputError("evidence_schema_mismatch")
+    if evidence.get("manifest_sha256") != CANONICAL_MANIFEST_SHA256:
+        raise ReadinessInputError("evidence_chain_mismatch")
+    if evidence.get("run_sha256") != source_sha256:
+        raise ReadinessInputError("evidence_run_mismatch")
+    calendar = evidence.get("calendar")
+    if not isinstance(calendar, Mapping):
+        raise ReadinessInputError("evidence_schema_mismatch")
+    if set(calendar) != {
+        "path",
+        "bytes_sha256",
+        "payload_sha256",
+        "provider",
+        "provider_version",
+        "calendar",
+        "market",
+        "timezone",
+    }:
+        raise ReadinessInputError("evidence_schema_mismatch")
+    if calendar != {
+        "path": "backend/jusik/data/market_sessions_2023_2026.json",
+        "bytes_sha256": CALENDAR_BYTES_SHA256,
+        "payload_sha256": CALENDAR_PAYLOAD_SHA256,
+        "provider": "exchange_calendars",
+        "provider_version": "4.12",
+        "calendar": "XNYS",
+        "market": "US",
+        "timezone": "America/New_York",
+    }:
+        raise ReadinessInputError("evidence_calendar_mismatch")
+    evidence_request = evidence.get("request")
+    if evidence_request != {
+        "start_date": "2025-09-11",
+        "end_date": "2026-09-11",
+        "inclusive": True,
+        "date_semantics": (
+            "XNYS local session dates in America/New_York; not UTC timestamps"
+        ),
+    }:
+        raise ReadinessInputError("evidence_request_mismatch")
+    if request.get("market") != "US" or request.get("start_date") != "2025-09-11":
+        raise ReadinessInputError("evidence_request_mismatch")
+    if request.get("end_date") != "2026-09-11":
+        raise ReadinessInputError("evidence_request_mismatch")
+    limitations = evidence.get("limitations")
+    if (
+        not isinstance(limitations, list)
+        or not limitations
+        or not all(isinstance(item, str) and item for item in limitations)
+    ):
+        raise ReadinessInputError("evidence_schema_mismatch")
+
+    calendar_payload = _read_tracked_calendar()
+    calendars = calendar_payload["calendars"]
+    if not isinstance(calendars, Mapping) or not isinstance(calendars["XNYS"], list):
+        raise ReadinessInputError("calendar_malformed")
+    expected_sessions: list[str] = []
+    unavailable: list[str] = []
+    for row in calendars["XNYS"]:
+        if not isinstance(row, Mapping):
+            raise ReadinessInputError("calendar_malformed")
+        value = row.get("date")
+        state = row.get("state")
+        if not isinstance(value, str) or not isinstance(state, str):
+            raise ReadinessInputError("calendar_malformed")
+        try:
+            local_date = date.fromisoformat(value)
+        except ValueError:
+            raise ReadinessInputError("calendar_malformed") from None
+        if date(2025, 9, 11) <= local_date <= date(2026, 9, 11):
+            if state == "session":
+                expected_sessions.append(value)
+            elif state == "unavailable":
+                unavailable.append(value)
+            elif state != "closed":
+                raise ReadinessInputError("calendar_malformed")
+    observed_sessions = [
+        _string(_required(_mapping(row), "session"))
+        for row in _list(_required(result, "equity"))
+    ]
+    try:
+        observed_dates = [date.fromisoformat(value) for value in observed_sessions]
+    except ValueError:
+        raise ReadinessInputError("evidence_run_mismatch") from None
+    duplicates = sorted(
+        {value for value in observed_sessions if observed_sessions.count(value) > 1}
+    )
+    missing = sorted(set(expected_sessions) - set(observed_sessions))
+    extra = sorted(set(observed_sessions) - set(expected_sessions))
+    sessions = evidence.get("sessions")
+    if not isinstance(sessions, Mapping):
+        raise ReadinessInputError("evidence_schema_mismatch")
+    if set(sessions) != {
+        "digest_encoding",
+        "expected",
+        "observed",
+        "missing",
+        "extra",
+        "duplicates",
+        "unavailable",
+    }:
+        raise ReadinessInputError("evidence_schema_mismatch")
+    if sessions.get("digest_encoding") != (
+        "UTF-8 JSON array of ISO-8601 dates with sorted keys and compact separators"
+    ):
+        raise ReadinessInputError("evidence_schema_mismatch")
+    for name, values in (
+        ("expected", expected_sessions),
+        ("observed", observed_sessions),
+    ):
+        item = sessions.get(name)
+        if not isinstance(item, Mapping) or set(item) != {
+            "count",
+            "sha256",
+            "first",
+            "last",
+        }:
+            raise ReadinessInputError("evidence_schema_mismatch")
+        if (
+            item.get("count") != len(values)
+            or item.get("sha256") != _canonical_digest(values)
+            or item.get("first") != (values[0] if values else None)
+            or item.get("last") != (values[-1] if values else None)
+        ):
+            raise ReadinessInputError("session_evidence_mismatch")
+    if (
+        sessions.get("missing") != missing
+        or sessions.get("extra") != extra
+        or sessions.get("duplicates") != duplicates
+        or sessions.get("unavailable") != unavailable
+        or observed_dates != [date.fromisoformat(value) for value in expected_sessions]
+    ):
+        raise ReadinessInputError("session_evidence_mismatch")
+    return {
+        "sha256": evidence_sha256,
+        "manifest_sha256": CANONICAL_MANIFEST_SHA256,
+        "run_sha256": source_sha256,
+        "calendar_bytes_sha256": CALENDAR_BYTES_SHA256,
+        "calendar_payload_sha256": CALENDAR_PAYLOAD_SHA256,
+        "expected_count": len(expected_sessions),
+        "observed_count": len(observed_sessions),
+        "missing": missing,
+        "extra": extra,
+        "duplicates": duplicates,
+        "unavailable": unavailable,
+    }
+
+
 def _validate_run(
     payload: Mapping[str, object],
 ) -> tuple[Mapping[str, object], Mapping[str, object], Mapping[str, object]]:
@@ -654,7 +903,11 @@ def _source_facts(
 
 
 def diagnose_run(
-    path: Path, expected_sha256: str, *, canonical: bool = False
+    path: Path,
+    expected_sha256: str,
+    *,
+    canonical: bool = False,
+    evidence_path: Path | None = None,
 ) -> dict[str, object]:
     """Inspect a saved run using its caller-provided identity hash.
 
@@ -664,10 +917,28 @@ def diagnose_run(
 
     if canonical and expected_sha256 != CANONICAL_RUN_SHA256:
         raise ReadinessInputError("canonical_sha_required")
+    if evidence_path is not None and not canonical:
+        raise ReadinessInputError("canonical_evidence_requires_canonical")
 
     payload, source_sha256 = _read_source(path, expected_sha256)
     request, result, readiness = _validate_run(payload)
     _validate_canonical_values(payload, request, result, readiness)
+    evidence: dict[str, object] | None = None
+    if canonical and evidence_path is not None:
+        evidence = _validate_session_evidence(
+            evidence_path, payload, request, result, source_sha256
+        )
+    missing = list(MISSING_CODES)
+    if evidence is not None:
+        missing = [
+            code
+            for code in missing
+            if code
+            not in {
+                "missing_calendar_evidence",
+                "missing_session_completeness_evidence",
+            }
+        ]
     return {
         "schema": SCHEMA,
         "target": TARGET_SCHEMA,
@@ -675,8 +946,9 @@ def diagnose_run(
         "ready_for_metrics": False,
         "economic_evaluation": "not-evaluated",
         "canonical": canonical,
-        "missing": list(MISSING_CODES),
+        "missing": missing,
         "source": _source_facts(payload, request, result, readiness, source_sha256),
+        **({"session_evidence": evidence} if evidence is not None else {}),
         "cost_assumptions": {
             "fee_rate": str(_decimal(_required(request, "fee_rate"))),
             "slippage_rate": str(_decimal(_required(request, "slippage_rate"))),
@@ -692,10 +964,17 @@ def diagnose_run(
     }
 
 
-def diagnose_canonical_run(path: Path) -> dict[str, object]:
+def diagnose_canonical_run(
+    path: Path, evidence_path: Path = CANONICAL_EVIDENCE_PATH
+) -> dict[str, object]:
     """Accept only the registered frozen run identity as canonical input."""
 
-    return diagnose_run(path, CANONICAL_RUN_SHA256, canonical=True)
+    return diagnose_run(
+        path,
+        CANONICAL_RUN_SHA256,
+        canonical=True,
+        evidence_path=evidence_path,
+    )
 
 
 def _json_default(value: object) -> object:
@@ -723,13 +1002,27 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="require the registered canonical artifact SHA-256",
     )
+    command.add_argument(
+        "--canonical-evidence",
+        type=Path,
+        help="verify the registered canonical session evidence JSON",
+    )
     return command
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        report = diagnose_run(args.run, args.expected_sha256, canonical=args.canonical)
+        if args.canonical:
+            report = diagnose_canonical_run(
+                args.run, args.canonical_evidence or CANONICAL_EVIDENCE_PATH
+            )
+        else:
+            report = diagnose_run(
+                args.run,
+                args.expected_sha256,
+                evidence_path=args.canonical_evidence,
+            )
     except ReadinessInputError as exc:
         print(render_report({"error": {"code": exc.code}}))
         return 2
@@ -745,8 +1038,14 @@ __all__ = [
     "MISSING_CODES",
     "SCHEMA",
     "TARGET_SCHEMA",
+    "EVIDENCE_SCHEMA",
     "ReadinessInputError",
+    "CANONICAL_MANIFEST_SHA256",
     "CANONICAL_RUN_SHA256",
+    "CANONICAL_EVIDENCE_SHA256",
+    "CANONICAL_EVIDENCE_PATH",
+    "CALENDAR_BYTES_SHA256",
+    "CALENDAR_PAYLOAD_SHA256",
     "diagnose_run",
     "diagnose_canonical_run",
     "load_market_research_run",
