@@ -51,6 +51,8 @@ cd /home/kwl/projects/jusik/backend
 
 `automatic_recovery=true`인 설치에서는 completion의 명시적 `recovery_kind=environment`와 고정 label(`dependency_setup`, `cache_permission`, `tool_unavailable`), 또는 고정 label(`code_defect`, `test_defect`, `lint_defect`, `type_defect`, `actionable_review`)인 `implementation`일 때만 blocked attempt를 다시 예약합니다. 이전 attempt는 terminal history로 남고 같은 transaction 안에서 다음 시도의 `next_allowed_at`과 `previous_attempt_id`를 기록합니다. 자동 재시도는 task당 최대 2회이며 backoff는 60초와 120초입니다. marker가 없거나 label이 허용 목록 밖이면 blocked 상태를 유지하고, completion이 `completed`인데 recovery marker를 포함하면 검증에 실패합니다. 새 시도도 매번 tests와 독립 review를 통과해 completion 계약을 충족해야 합니다.
 
+개발 delivery에서 agent가 만든 unit regression fixture 개수나 일반 focused test 호출 횟수는 과학적 실험 상한이 아니며 기술 slice를 영구 차단하는 조건으로 쓰지 않습니다. 현재 감독자는 focused 파일, runtime, artifact budget을 사용하는 prospective replacement를 승인했으며 과거 위반 기록은 보존합니다. 사용자 명시 한도, 연구 표본·기간·가정·seed·실험 횟수, 금융 자료와 계산 예산은 그대로 엄격히 적용합니다. 현재 tracked 문서가 오래된 agent 생성 task의 test-count 제한보다 우선하며, 기술 slice 완료와 전체 금융·자료 acceptance를 구분합니다. identity, hash, review 등 완료 검증은 우회하지 않습니다. 소유한 environment/cache의 일상적 복구에는 새 사용자 승인을 요구하지 않습니다.
+
 연구 task가 Codex 종료 코드 0이 아닌 값으로 끝나면 해당 private attempt에 `exit-diagnostics.json`을 남깁니다. 파일에는 return code, 음수 종료 코드일 때만 계산한 signal number, completion 파일의 존재 여부만 기록하며 stderr·prompt·completion 내용은 복사하지 않습니다. 진단 파일을 쓰지 못해도 기존 `failed`/`codex_exit` 상태는 유지합니다.
 
 실행 기록의 history outbox는 고정된 한국어 상태 제목·요약과 task/attempt ID만 기록합니다. Codex 출력, 오류, 절대 경로는 history에 복사하지 않습니다. history DB가 일시적으로 실패하면 private outbox에 남아 다음 cycle에서 재시도합니다. 완료 결과는 허용된 연구 영역에서 구체적 후속 작업을 하나만 제안할 수 있으며, 미래 데이터가 준비되지 않은 작업은 blocked 근거로 종료해야 합니다.

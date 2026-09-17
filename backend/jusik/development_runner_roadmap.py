@@ -15,6 +15,19 @@ ROADMAP_PATH = Path("docs/investment-development-roadmap.md")
 ROADMAP_SEED_AREA = "r1-01"
 ROADMAP_SEED_TASK_ID = "roadmap-r1-01-v1"
 ROADMAP_PENDING_LIMIT = 8
+DEVELOPMENT_DELIVERY_POLICY = (
+    "Delivery policy: an agent-invented unit-regression fixture count or ordinary "
+    "focused-test call count is not a scientific experiment cap and must not "
+    "permanently block a technical slice. The current supervisor authorizes a "
+    "prospective replacement using focused files plus runtime and artifact budgets; "
+    "retain historical violations without retroactive approval. Keep user limits, "
+    "research sample/period/assumptions/seed/experiment counts, financial data, and "
+    "compute budgets strict. Honor current tracked docs over stale agent-generated "
+    "task test-count limits. Distinguish technical-slice completion from full "
+    "financial or data acceptance. Do not bypass identity, hash, review, or other "
+    "completion gates. Routine repair of the owned environment or cache needs no "
+    "fresh user permission."
+)
 
 _CHECKLIST_RE = re.compile(r"^- \[([ xX])\] \*\*(R[0-9]+-[0-9]{2})\*\*\s+(.+)$")
 _ID_RE = re.compile(r"^r[0-9]+-[0-9]{2}$")
@@ -208,6 +221,7 @@ def roadmap_prompt(area: str, item: ChecklistItem, mandate: str | None) -> str:
         "evidence, handoff, and cleanup. Do not activate PAPER or live trading, "
         "change an operating ledger, submit orders, push a remote, change services "
         "or configuration, or create a new task tracker/schema.\n"
+        f"{DEVELOPMENT_DELIVERY_POLICY}\n"
         f"Current tracked mandate:\n{mandate_text}"
     )
 
@@ -226,6 +240,7 @@ def roadmap_planner_context(
         f"Eligible areas: {sorted(eligible)}\n"
         f"Roadmap SHA-256: {roadmap.digest}\n"
         f"Research snapshot: {json.dumps(tasks, sort_keys=True)}\n"
+        f"{DEVELOPMENT_DELIVERY_POLICY}\n"
         "Do not activate PAPER/live trading, alter operating ledgers/services, push "
         "remotely, or claim success when benchmark/future data is missing. Return "
         "one bounded proposal or a waiting result."

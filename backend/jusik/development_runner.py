@@ -32,6 +32,7 @@ from jusik.development_runner_planning import (
     fingerprint as planning_fingerprint,
 )
 from jusik.development_runner_roadmap import (
+    DEVELOPMENT_DELIVERY_POLICY,
     ROADMAP_SCOPE,
     RoadmapError,
     eligible_areas,
@@ -112,6 +113,7 @@ RUNTIME_PROMPT_SUFFIX = (
     "the owned environment's python --version once before checks and stop the "
     "attempt if setup fails instead of batching past the failed setup. A previous "
     "attempt stop is historical state, not a permanent current block."
+    f" {DEVELOPMENT_DELIVERY_POLICY}"
 )
 BACKLOG = (
     (
@@ -726,6 +728,7 @@ def _planning_task(
         "docs/research-portfolio-gpu-stress.md and use only the on-demand "
         "research_portfolio_gpu_stress CLI when measured beneficial, with fixed "
         "inputs, seed, bounds, and CPU parity; never promote approximate results. "
+        f"{DEVELOPMENT_DELIVERY_POLICY} "
         "Return planning JSON.",
     )
     task = store.task(task_id)
