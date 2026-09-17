@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## forward-simulation-time-evidence-run
+
+- 상태: 조사. 사용자 재개 지시에 따라 신규 forward simulation bundle을 격리 생성해 initial-capital anchor와 per-NAV UTC time evidence를 확보합니다.
+- 목표와 완료 조건: 기존 승인된 입력·정책·달력만 사용한 bounded simulation을 정확히 한 번 실행하고, 새 audit 경로의 bundle/manifest/SHA를 검증합니다. 기존 canonical run은 수정하지 않으며 readiness 연결 여부는 별도 판정합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 실행/필요한 최소 구현, Terra 독립 review.
+- 워크트리/브랜치: 조사·계획 후 확정 / `feat/forward-simulation-time-evidence-run` 예정.
+- 입력과 선행 작업: `research_portfolio_time_evidence.py`, 현재 mandate/governance, 고정 `PortfolioInput`·simulation config·공식 calendar, 기존 time-evidence 계약.
+- 수정 허용: 실행 요청 artifact, 격리 audit bundle, 검증/연결에 필요한 최소 adapter·tests·계약 문서·개발 기록. 등록부와 handoff는 Astra만 수정합니다.
+- 금지: 기존 canonical run/artifact 수정, 자동 runner resume, 네트워크 수집, KOFR 재요청, PAPER/live/주문/운영 DB/service/config/remote 변경, 자동 성과 승격.
+- 중단 조건: 승인된 고정 입력·공식 달력·정책 identity가 없거나 새 simulation이 기존 미래정보/자료등급 계약을 보존하지 못하면 실행하지 않고 필요한 입력을 기록합니다.
+- 검증: 입력 SHA·정책 identity·단일 simulate 호출·UTC 인과·manifest 전체 파일 SHA·결정성·no-overwrite·독립 review·main 영향 검사를 요구합니다.
+
 ## market-research-mandate-digest-repair
 
 - 상태: 완료. 기준 커밋에서도 재현된 `docs/market-research.md`와 mandate hash manifest의 digest drift를 최소 수정했습니다.
