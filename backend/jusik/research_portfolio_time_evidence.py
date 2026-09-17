@@ -56,13 +56,14 @@ ARTIFACT_NAMES: Final[tuple[str, ...]] = (
 MANIFEST_NAME: Final[str] = "manifest.json"
 ALL_ARTIFACT_NAMES: Final[tuple[str, ...]] = (*ARTIFACT_NAMES, MANIFEST_NAME)
 LiteralOne = Literal[1]
+ExecutionTimePolicy = Literal["legacy", "official"]
 MAX_REQUEST_BYTES: Final[int] = 1 * 1024 * 1024
 MAX_ARTIFACT_BYTES: Final[int] = 20 * 1024 * 1024
 MAX_TOTAL_INPUT_BYTES: Final[int] = 50 * 1024 * 1024
 MAX_JSON_DEPTH: Final[int] = 64
 MAX_JSON_OBJECT_KEYS: Final[int] = 2_000
 MAX_JSON_LIST_ITEMS: Final[int] = 20_000
-MAX_JSON_TOKENS: Final[int] = 100_000
+MAX_JSON_TOKENS: Final[int] = 400_000
 RENAME_NOREPLACE: Final[int] = 1
 AT_FDCWD: Final[int] = -100
 
@@ -78,6 +79,7 @@ class TimeEvidenceConfig(BaseModel):
     period_end: date
     portfolio_config: PortfolioConfig
     policy: PortfolioPolicy = "corrected_control"
+    execution_time_policy: ExecutionTimePolicy = "legacy"
 
     @classmethod
     def from_values(
@@ -87,6 +89,7 @@ class TimeEvidenceConfig(BaseModel):
         end: date,
         config: PortfolioConfig,
         policy: PortfolioPolicy,
+        execution_time_policy: ExecutionTimePolicy = "legacy",
     ) -> TimeEvidenceConfig:
         return cls(
             candidate=candidate,
@@ -94,6 +97,7 @@ class TimeEvidenceConfig(BaseModel):
             period_end=end,
             portfolio_config=config,
             policy=policy,
+            execution_time_policy=execution_time_policy,
         )
 
 
@@ -401,11 +405,28 @@ def _event_plan(
     start: date,
     end: date,
     calendar: MarketCalendar,
+    *,
+    execution_time_policy: ExecutionTimePolicy = "legacy",
 ) -> tuple[list[engine.MarketEvent], dict[str, engine.InstrumentData]]:
     if not calendar.available:
         raise ValueError("supplied market calendar is unavailable")
-    data = engine._instrument_data(source)
-    events = engine._events(data, start, end)
+    if execution_time_policy not in {"legacy", "official"}:
+        raise ValueError("unsupported execution time policy")
+    # Build official timing first: this validates every bar, including warmup,
+    # before any strategy gate can return early.  Legacy events retain their
+    # historical wall-clock times while still carrying official sidecar data.
+    official_data = engine._instrument_data(source, calendar=calendar)
+    data = (
+        official_data
+        if execution_time_policy == "official"
+        else engine._instrument_data(source)
+    )
+    events = engine._events(
+        data,
+        start,
+        end,
+        calendar=calendar if execution_time_policy == "official" else None,
+    )
     previous: tuple[datetime, int, str, str] | None = None
     seen: set[tuple[datetime, str, str | None, date | None]] = set()
     order = {"rebalance": 0, "open": 1, "close": 2}
@@ -424,7 +445,7 @@ def _event_plan(
             continue
         if event.symbol is None or event.day is None:
             raise ValueError("price event is missing symbol or date")
-        item = data[event.symbol]
+        item = official_data[event.symbol]
         session = _session_for(
             calendar, item.instrument.exchange, event.day, event.symbol
         )
@@ -438,14 +459,15 @@ def _event_plan(
                 "source is not causal"
             )
 
-    # Warmup bars are also inputs to target_weights.  Validate their close
-    # availability, not merely the bars that happen to produce NAV points.
-    for symbol, item in data.items():
+    # Warmup bars are also inputs to target_weights.  Validate the timestamp
+    # that the selected engine policy would expose, not merely NAV bars.
+    policy_data = (
+        data if execution_time_policy == "official" else engine._instrument_data(source)
+    )
+    for symbol, item in policy_data.items():
         for bar in item.snapshot.instruments[0].bars:
             session = _session_for(calendar, item.instrument.exchange, bar.date, symbol)
-            engine_close = engine._market_time(
-                bar.date, item.instrument.timezone, opening=False
-            )
+            engine_close = engine._session_times(item, bar.date, opening=False)
             if engine_close < session.close_at:
                 raise ValueError(
                     f"warmup bar for {symbol} is available before official close"
@@ -541,7 +563,19 @@ def _build_sidecar(
 
 
 def _config_bytes(config: TimeEvidenceConfig) -> bytes:
-    return _json_bytes(config.model_dump(mode="json"))
+    payload = config.model_dump(mode="json")
+    # The legacy default deliberately keeps the pre-policy config bytes so
+    # existing bundles and replay identities remain unchanged.
+    if config.execution_time_policy == "legacy":
+        payload.pop("execution_time_policy", None)
+    return _json_bytes(payload)
+
+
+def _engine_source_sha256() -> str:
+    source_path = Path(engine.__file__ or "")
+    if source_path.suffix != ".py" or not source_path.is_file():
+        raise ValueError("engine source identity is unavailable")
+    return sha256_bytes(source_path.read_bytes())
 
 
 def _manifest(
@@ -575,6 +609,13 @@ def _manifest(
         },
         "artifacts": artifacts,
     }
+    if config.execution_time_policy == "official":
+        payload.update(
+            {
+                "execution_time_policy": "official",
+                "engine_source_sha256": _engine_source_sha256(),
+            }
+        )
     return _json_bytes(payload)
 
 
@@ -588,6 +629,7 @@ def generate_bundle(
     output_dir: Path,
     *,
     policy: PortfolioPolicy = "corrected_control",
+    execution_time_policy: ExecutionTimePolicy = "legacy",
     allow_new_simulation: bool = False,
 ) -> BundleVerification:
     """Generate one new bundle; refuse unless explicitly opted in."""
@@ -600,10 +642,28 @@ def generate_bundle(
         raise ValueError("calendar exceeds the JSON size limit")
     _strict_json(calendar_bytes, "calendar")
     calendar = MarketCalendar.from_bytes(calendar_bytes)
-    fixed = TimeEvidenceConfig.from_values(candidate, start, end, config, policy)
-    events, data = _event_plan(source, start, end, calendar)
+    fixed = TimeEvidenceConfig.from_values(
+        candidate,
+        start,
+        end,
+        config,
+        policy,
+        execution_time_policy,
+    )
+    events, data = _event_plan(
+        source,
+        start,
+        end,
+        calendar,
+        execution_time_policy=execution_time_policy,
+    )
     # This is the only engine simulation call in this module's generation path.
-    simulation = engine.simulate(source, candidate, start, end, config, policy)
+    if execution_time_policy == "official":
+        simulation = engine.simulate(
+            source, candidate, start, end, config, policy, calendar=calendar
+        )
+    else:
+        simulation = engine.simulate(source, candidate, start, end, config, policy)
     _simulation_contract(simulation, fixed)
     sidecar = _build_sidecar(source, fixed, events, data, calendar, simulation)
     input_body = _json_bytes(source.model_dump(mode="json"))
@@ -671,12 +731,20 @@ def _load_bundle_files(
         "simulation",
         "artifacts",
     }
-    if set(raw_manifest) != required:
+    manifest_keys = set(raw_manifest)
+    official_keys = {"execution_time_policy", "engine_source_sha256"}
+    if manifest_keys != required and manifest_keys != required | official_keys:
         raise ValueError("manifest fields are not exact")
     if raw_manifest["schema_version"] != SCHEMA_VERSION:
         raise ValueError("unsupported manifest schema")
     if raw_manifest["policy_version"] != POLICY_VERSION:
         raise ValueError("unsupported time-evidence policy")
+    manifest_is_official = manifest_keys == required | official_keys
+    if manifest_is_official:
+        if raw_manifest["execution_time_policy"] != "official":
+            raise ValueError("unsupported execution time policy")
+        if raw_manifest["engine_source_sha256"] != _engine_source_sha256():
+            raise ValueError("engine source identity mismatch")
     artifacts = raw_manifest["artifacts"]
     if not isinstance(artifacts, dict) or set(artifacts) != set(ARTIFACT_NAMES):
         raise ValueError("manifest artifact set is not exact")
@@ -722,6 +790,7 @@ def verify_bundle(
     source = _load_model_bytes(files["input.json"], PortfolioInput, "input.json")
     fixed = _load_model_bytes(files["config.json"], TimeEvidenceConfig, "config.json")
     calendar_body = files["calendar.json"]
+    _strict_json(calendar_body, "calendar")
     calendar = MarketCalendar.from_bytes(calendar_body)
     simulation = _load_model_bytes(
         files["simulation.json"], PortfolioSimulation, "simulation.json"
@@ -733,6 +802,11 @@ def verify_bundle(
     assert isinstance(fixed, TimeEvidenceConfig)
     assert isinstance(simulation, PortfolioSimulation)
     assert isinstance(sidecar, PortfolioTimeEvidence)
+    manifest_is_official = "execution_time_policy" in manifest
+    if fixed.execution_time_policy == "official" and not manifest_is_official:
+        raise ValueError("official execution identity is missing")
+    if fixed.execution_time_policy == "legacy" and manifest_is_official:
+        raise ValueError("legacy execution identity is invalid")
     if manifest["source_sha256"] != sha256_bytes(files["input.json"]):
         raise ValueError("source SHA-256 mismatch")
     event_plan_sha = _digest(manifest["event_plan_sha256"], "event plan SHA-256")
@@ -757,7 +831,13 @@ def verify_bundle(
     }:
         raise ValueError("simulation manifest metadata mismatch")
     _simulation_contract(simulation, fixed)
-    events, data = _event_plan(source, fixed.period_start, fixed.period_end, calendar)
+    events, data = _event_plan(
+        source,
+        fixed.period_start,
+        fixed.period_end,
+        calendar,
+        execution_time_policy=fixed.execution_time_policy,
+    )
     if event_plan_sha != sha256_bytes(_event_plan_bytes(events)):
         raise ValueError("event plan SHA-256 mismatch")
     expected_sidecar = _build_sidecar(source, fixed, events, data, calendar, simulation)
@@ -816,6 +896,7 @@ def generate_from_request(
         calendar_body,
         output_dir,
         policy=config_model.policy,
+        execution_time_policy=config_model.execution_time_policy,
         allow_new_simulation=allow_new_simulation,
     )
 
@@ -880,6 +961,7 @@ def main(argv: list[str] | None = None) -> int:
                 calendar_body,
                 args.output_dir,
                 policy=fixed.policy,
+                execution_time_policy=fixed.execution_time_policy,
                 allow_new_simulation=args.allow_new_simulation,
             )
         else:
