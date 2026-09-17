@@ -398,6 +398,10 @@ def _validate_holding(holding: Holding) -> None:
 def _validate_state(state: AccountingState) -> None:
     if not isinstance(state, AccountingState):
         raise AccountingError("state is invalid")
+    if state.coverage != "incomplete":
+        raise AccountingError("coverage must be incomplete")
+    if state.accounting_status != "not-evaluated":
+        raise AccountingError("accounting_status must be not-evaluated")
     cash = _decimal(state.cash, "cash")
     if cash < 0:
         raise AccountingError("cash must be non-negative")

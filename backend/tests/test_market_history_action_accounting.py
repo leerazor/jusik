@@ -5,7 +5,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 import pytest
 
@@ -524,3 +524,56 @@ def test_duplicate_holding_symbols_are_rejected_atomically() -> None:
     assert result.status == "rejected"
     assert result.reason == "duplicate holding symbol"
     assert result.state == duplicate
+
+
+def test_split_rejects_noncanonical_state_labels_atomically() -> None:
+    state = _state()
+    action = _split(action_id="split-invalid-labels")
+    invalid_states = (
+        replace(state, coverage=cast(Literal["incomplete"], "complete")),
+        replace(
+            state,
+            accounting_status=cast(Literal["not-evaluated"], "evaluated"),
+        ),
+    )
+    for invalid_state in invalid_states:
+        result = apply_split(invalid_state, action, at=action.effective_at)
+        assert result.status == "rejected"
+        assert result.state == invalid_state
+
+
+def test_accrue_rejects_noncanonical_state_labels_atomically() -> None:
+    state = _state()
+    action = _dividend(action_id="dividend-invalid-labels")
+    invalid_states = (
+        replace(state, coverage=cast(Literal["incomplete"], "complete")),
+        replace(
+            state,
+            accounting_status=cast(Literal["not-evaluated"], "evaluated"),
+        ),
+    )
+    for invalid_state in invalid_states:
+        result = accrue_dividend(invalid_state, action, at=action.effective_at)
+        assert result.status == "rejected"
+        assert result.state == invalid_state
+
+
+def test_pay_rejects_noncanonical_state_labels_atomically() -> None:
+    state = _state()
+    action = _dividend(action_id="dividend-invalid-payment-labels")
+    accrued = accrue_dividend(state, action, at=action.effective_at)
+    assert accrued.status == "applied"
+    invalid_states = (
+        replace(
+            accrued.state,
+            coverage=cast(Literal["incomplete"], "complete"),
+        ),
+        replace(
+            accrued.state,
+            accounting_status=cast(Literal["not-evaluated"], "evaluated"),
+        ),
+    )
+    for invalid_state in invalid_states:
+        result = pay_dividend(invalid_state, action, at=action.payment_at)
+        assert result.status == "rejected"
+        assert result.state == invalid_state
