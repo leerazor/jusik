@@ -2,11 +2,11 @@
 
 ## investment-roadmap-refresh
 
-- 상태: 준비. 자동 실행기는 pause, service/timer는 inactive/disabled이며 신규 연구 dispatch를 금지합니다.
+- 상태: 진행. 자동 실행기는 pause, service/timer는 inactive/disabled이며 신규 연구 dispatch를 금지합니다.
 - 목표와 완료 조건: `docs/investment-development-roadmap.md`를 단일 실행 정본으로 유지하면서 최신 사용자 목표, 핵심 지표, 과적합 방지 검증 순서와 승격 중단 조건을 통합합니다. 기존 R0~R7 ID·체크 상태·완료 증거는 보존합니다.
 - 담당: Astra 감독·통합, Luna 단일 문서 구현, Terra 독립 검토.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-investment-roadmap-refresh` / `docs/investment-roadmap-refresh`.
-- 기준 커밋/통합 대상: 등록 커밋 / local `main`.
+- 기준 커밋/통합 대상: `995797a` / local `main`.
 - 수정 허용: `docs/investment-development-roadmap.md`, `docs/research-mandate.md`, `docs/research.md`, 신규 `docs/development-records/2026-09-17-investment-roadmap-refresh.md`. 등록부는 Astra만 수정합니다.
 - 불변 범위: 코드, `research-mandate.json`, 기존 개발 기록과 역사 연구 문서, 로드맵 checklist ID·체크값, 운영 DB·설정·서비스·PAPER/live·주문·remote.
 - 검증: `git diff --check`, Markdown 링크, 로드맵 parser, 기존 checklist ID·체크값 보존 검사, 독립 review와 main 통합 재검사.
