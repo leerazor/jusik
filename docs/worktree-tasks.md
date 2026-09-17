@@ -2,15 +2,18 @@
 
 ## portfolio-calendar-aware-time-input
 
-- 상태: 조사. forward bundle 생성 전 확인된 engine session-time 불일치와 실제 frozen input lexical budget을 책임 계층에서 해결합니다.
+- 상태: 진행. 조사·계획을 마쳤으며 optional 공식 calendar 시간 정책과 bounded lexical 한도를 구현합니다.
 - 목표와 완료 조건: 공식 calendar가 정의한 실제 session open/close를 engine event ordering에 사용하고, 고정 frozen input을 bounded하게 수용할 수 있는 근거 기반 JSON 자원 한도를 적용합니다. 신호·체결·NAV chronology와 기존 합성/일반 동작을 보존한 새 execution identity를 요구합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
-- 워크트리/브랜치: 조사·계획 후 확정 / `feat/portfolio-calendar-aware-time-input` 예정.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-portfolio-calendar-aware-time-input` / `feat/portfolio-calendar-aware-time-input`.
+- 기준/통합: 다음 준비 커밋 / local `main`.
 - 입력과 선행 작업: `forward-simulation-time-evidence-run`의 NO-GO 조사, `research_portfolio_engine.py`, `research_portfolio_time_evidence.py`, tracked calendar, fixed rebalance-band source manifest.
 - 수정 허용: engine/calendar injection seam, time-evidence adapter의 bounded input policy, 직접 관련 tests·계약 문서·개발 기록. 등록부와 handoff는 Astra만 수정합니다.
 - 금지: bar 삭제·시장 제외·날짜 이동·검증 완화, 전략/비용/리밸런싱 정책 변경, 기존 결과 재해석, 실제 simulation 실행, runner/network/KOFR/PAPER/live/주문/DB/service/config/remote 변경.
 - 중단 조건: calendar 시각이 event ordering에 결정적으로 주입되지 않거나 자원 한도가 근거 없이 무제한화되거나 기존 replay/result 호환성을 깨야 하면 구현하지 않습니다.
 - 검증: 지연 개폐장·일반장·다시장·warmup·DST/조기폐장, lexical/bytes/depth/row 한도 경계, event causality, 결정성, 기존 회귀, 독립 review를 요구합니다.
+- 계획: `calendar=None`은 legacy 결과를 exact 보존하고, official mode만 전체 bar session을 선검증해 engine event/known-bar/volatility/target 계산에 같은 시각을 주입합니다. 새 execution identity로 구분합니다.
+- 자원 계약: lexical token 상한만 `100,000`에서 `400,000`으로 올리고 기존 1/20/50MiB·depth64·object/list 한도와 사전거부를 유지합니다. fixed input은 parse/event-plan preflight까지만 허용합니다.
 
 ## forward-simulation-time-evidence-run
 
