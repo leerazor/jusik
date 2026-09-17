@@ -2,16 +2,16 @@
 
 ## r1-artifact-db6987
 
-- 상태: 준비. task `roadmap-r1-04-accounting-artifact-v2`, attempt `db6987bf670142e2ab2c7e25f4bc1624`.
-- 목표: 기존 순수 기업행동 회계를 오프라인 JSON 진단 artifact에 연결하는 기술 slice 하나입니다. 전체 R1-04는 미체크를 유지합니다.
-- 담당: Astra 감독·계획, Luna 단일 구현, Terra 독립 review. 조사 결과와 bounded 계획을 audit에 보존합니다.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-r1-artifact-db6987` / `feat/r1-artifact-db6987`; 요청 기준 main `44863a65d07df7546fee4ec699b108e77c53e76b`. 등록 커밋을 작업 기준으로 사용하며 통합 대상은 local main입니다.
-- 입력: 원본 planner의 evidence5개 SHA, R0 동결 artifact4개 SHA, 첫 slice 완료 evidence6개 SHA와 선행 통합 ancestry를 확인했습니다. 기존 accounting fixture는 읽기 전용으로 재사용합니다.
-- 수정 허용: 신규 `backend/jusik/market_history_action_artifact.py`, 신규 focused tests, 별도 계약 문서. 공유 모델·collector·사건 cutoff·전략·운영 원장은 변경하지 않습니다.
-- 검증: 새 artifact와 기존 `test_market_history_action_accounting.py`만 pytest; 변경 Python 파일 Ruff/format·configured strict mypy; 독립 review와 main 통합 재검사. CPU1·seed0·입력1MiB·4심볼/40세션/80전이·focused 검사 합계900초·audit50MiB. fixture/검사 호출 수는 별도 상한이 아니며 과거 위반은 보존합니다.
-- 격리: worktree 전용 backend/.venv, attempt 전용 cache, audit 전용 로그/임시 파일. 포트·DB 사용 없음. engine/pilot/final·수집·GPU·PAPER/live·주문·운영 DB·서비스·설정·remote 변경 금지.
-- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r1-artifact-db6987`; coverage incomplete, economic not-evaluated. 소유 worktree 생성 전이며 미병합 상태입니다.
-- 개발 기록/handoff: 완료 또는 차단 시 해당 slug의 기록과 durable audit HANDOFF를 저장합니다.
+- 상태: 기술 slice 완료. task `roadmap-r1-04-accounting-artifact-v2`, attempt `db6987bf670142e2ab2c7e25f4bc1624`. 전체 R1-04는 미체크입니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review와 추가 실행 감사 PASS. model-only 라우팅 사후 검사 PASS.
+- 기준/구현/통합: 요청 `44863a65d07df7546fee4ec699b108e77c53e76b`, 등록 `69eba8e`, 최종 구현 `637198f`, local main 통합 `3cf549574d77527b208830c8583a82ba2dee5f8e`.
+- 범위: 신규 오프라인 JSON adapter/CLI, focused tests, 계약 문서3파일. 기존 순수 회계·fixture·공유 모델·collector·cutoff·전략·운영 원장은 그대로입니다.
+- 입력 검증: 첨부 evidence5개, 첫 slice evidence6개, R0 동결 artifact4개 SHA 및 선행 통합 ancestry를 확인했습니다. coverage incomplete, economic not-evaluated를 유지합니다.
+- 검증: 최종 worker/main 각각 pytest41·Ruff/format·configured strict mypy 통과. 초기 임시 경로/타입 오류, UTC overflow/검증 누락은 같은 Luna가 수정했습니다. 중간 실패와 review를 보존했습니다.
+- 예산: seed0·입력1MiB·4심볼/40 UTC날짜/80전이·focused900초·audit50MiB. harness8.084초, 누락 별도 검사까지 포함한 보수적 상한27.751초. 별도 검사는 순차·CPU affinity 미설정, 최종 worker/main harness는 단일 CPU affinity 적용. 호출 횟수 자체는 중단 조건이 아니며 과거 위반을 소급 승인하지 않습니다.
+- 정리: `/home/kwl/projects/jusik-r1-artifact-db6987`, `feat/r1-artifact-db6987`를 증거93개·SHA·handoff 보관 후 정상 제거했습니다. 다른 작업은 보존합니다.
+- 안전: 연구 engine/pilot/final·수집·GPU·PAPER/live·주문0회, 운영 DB/원장·서비스·설정·remote 변경 없음. 성과 비교가 없어 웹 성과 catalog는 변경하지 않았습니다.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r1-artifact-db6987`의 integration-final·supplemental-execution-audit·review·source·main-cli-proof·manifest·cleanup. 개발 기록 `docs/development-records/2026-09-17-r1-artifact-db6987.md`; handoff는 루트 `HANDOFF.md`와 audit `HANDOFF-final.md`입니다.
 
 ## delivery-recovery
 
