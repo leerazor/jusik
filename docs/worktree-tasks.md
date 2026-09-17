@@ -2,15 +2,18 @@
 
 ## portfolio-performance-input-readiness
 
-- 상태: 조사. 새 historical time-evidence bundle을 성과 입력으로 연결하기 전에 daily sampling policy와 독립 비용 포함 원장 가능성을 확정합니다.
+- 상태: 진행. 독립 원장은 구현 가능함을 확인해 먼저 수행하고, daily sampling policy는 금융 의미 선택이 필요해 분리 보류합니다.
 - 목표와 완료 조건: 전체 intraday NAV chronology는 MDD용으로 보존하면서 일일 수익률 표본을 사전 정의하고, 171 trades·cash·FX·fee/slippage를 독립 재구성해 1,172 stored NAV와 대사할 수 있는지 판정합니다. 두 근거가 모두 성립해야 후속 metrics adapter를 허용합니다.
 - 담당: Astra 감독·계획·통합, 필요 시 Luna 단일 구현, Terra 독립 review.
-- 워크트리/브랜치: 조사·계획 후 확정 / `feat/portfolio-performance-input-readiness` 예정.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-portfolio-performance-input-readiness` / `feat/portfolio-performance-input-readiness`.
+- 기준/통합: 다음 준비 커밋 / local `main`.
 - 입력과 선행 작업: bundle manifest `eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b`, engine/result/time sidecar, 기존 independent modeled-cost ledger와 metrics policy.
 - 수정 허용: sampling/accounting adapter·검증기, focused tests, 성과 계약 문서·개발 기록. 등록부와 handoff는 Astra만 수정합니다.
 - 금지: 저장 결과를 독립 근거로 자기인증, 임의 global close·UTC-date last 표본 선택, 배당/세금/FX 실제 타당성 주장, 성과 계산·승격, bundle/canonical 수정, runner/network/KOFR/PAPER/live/주문/DB/service/config/remote 변경.
 - 중단 조건: trades/result만으로 per-NAV cash/positions/cost를 독립 재구성할 수 없거나 daily cadence가 기존 정책·달력에서 유일하게 결정되지 않으면 구현하지 않고 필요한 새 계약을 기록합니다.
 - 검증: source/bundle SHA, 독립 Decimal 원장, per-NAV residual, 다시장 날짜 경계·DST·조기/지연 폐장, sampling 결정성·비중복, tamper fail-closed, 독립 review를 요구합니다.
+- 원장 계약: strategy/engine/replay를 호출하지 않고 persisted fills를 권위 입력으로 raw open·split·FX·fee/slippage·cash·positions·close marks를 Decimal precision 40으로 재구성합니다. 171 fills, 1,172 cash/NAV, terminal positions를 대사합니다.
+- sampling 조사: 614 UTC dates/1,172 NAV 중 558일은 두 시장 close가 있고 UTC/Asia-Seoul partition이 다릅니다. 기존 정책은 하나를 선택하지 않으므로 원장 완료 전까지 metrics 연결을 금지합니다.
 
 ## portfolio-calendar-aware-time-input
 
