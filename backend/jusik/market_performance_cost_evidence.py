@@ -37,10 +37,10 @@ CANONICAL_COMPLETION_SHA256: Final = (
 # These are canonicalized hashes: the two registered hash literals are
 # replaced with zeroes before hashing this source, avoiding self-reference.
 VERIFIER_SOURCE_SHA256: Final = (
-    "dcb0c634080e689cc3e014c26dafaaffd112b201c630a8dd9ca0cd65007437e5"
+    "84f0b5a191c9430149055df38dd74a386eb72f39806c76ff8687987815d6a0de"
 )
 CANONICAL_EVIDENCE_SHA256: Final = (
-    "fff29d75d17714ece12e078595de6721859014f90bb5d850eaf7d9c115614210"
+    "fa1a5fcf78fd65b0650f24a994cad23177edcf99d634704f9dfda3b611c0acb3"
 )
 
 CANONICAL_AUDIT_ROOT: Final = (
@@ -231,8 +231,7 @@ def _safe_expected(path: Path, expected: Path) -> None:
 def _verify_manifest(
     manifest_path: Path, run_path: Path, dataset_path: Path, cache_dir: Path
 ) -> None:
-    if manifest_path.is_symlink():
-        raise CostEvidenceError("unsafe_path")
+    _safe_expected(manifest_path, CANONICAL_MANIFEST_PATH)
     manifest, _ = _read(manifest_path, CANONICAL_MANIFEST_SHA256)
     artifacts = _mapping(_required(manifest, "artifacts"))
     expected = {
@@ -414,9 +413,9 @@ def verify_canonical_cost_evidence(
     evidence_path: Path = CANONICAL_EVIDENCE_PATH,
 ) -> dict[str, object]:
     """Verify the registered artifact chain and reconstruct the native ledger."""
-    for path in (run_path, dataset_path, cache_dir):
-        if path.is_symlink():
-            raise CostEvidenceError("unsafe_path")
+    _safe_expected(run_path, CANONICAL_RUN_PATH)
+    _safe_expected(dataset_path, CANONICAL_DATASET_PATH)
+    _safe_expected(cache_dir, CANONICAL_CACHE_DIR)
     _verify_manifest(manifest_path, run_path, dataset_path, cache_dir)
     cache_facts = _verify_cache(cache_dir)
     run, _ = _read(run_path, CANONICAL_RUN_SHA256)

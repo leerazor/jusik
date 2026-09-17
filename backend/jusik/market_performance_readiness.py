@@ -1071,17 +1071,14 @@ def diagnose_run(
                 raise ReadinessInputError(exc.code) from None
     missing = list(MISSING_CODES)
     if evidence is not None:
-        missing = [
-            code
-            for code in missing
-            if code
-            not in {
-                "missing_calendar_evidence",
-                "missing_session_completeness_evidence",
-                "missing_calculation_policy",
-                "missing_cost_inclusion_evidence",
-            }
-        ]
+        removable = {
+            "missing_calendar_evidence",
+            "missing_session_completeness_evidence",
+            "missing_calculation_policy",
+        }
+        if cost_evidence is not None and cost_evidence.get("status") == "verified":
+            removable.add("missing_cost_inclusion_evidence")
+        missing = [code for code in missing if code not in removable]
     return {
         "schema": SCHEMA,
         "target": TARGET_SCHEMA,
@@ -1108,7 +1105,12 @@ def diagnose_run(
                 "slippage_rate": "request.slippage_rate",
                 "sell_tax_rate": "request.sell_tax_rate",
             },
-            "nav_cost_inclusion": "unproven",
+            "nav_cost_inclusion": (
+                "verified_modeled_costs"
+                if cost_evidence is not None
+                and cost_evidence.get("status") == "verified"
+                else "unproven"
+            ),
         },
     }
 

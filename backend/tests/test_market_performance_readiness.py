@@ -400,6 +400,7 @@ def test_canonical_session_evidence_removes_exactly_four_codes_and_is_determinis
     assert first["status"] == "blocked"
     assert first["ready_for_metrics"] is False
     assert first["economic_evaluation"] == "not-evaluated"
+    assert first["cost_assumptions"]["nav_cost_inclusion"] == "verified_modeled_costs"
     assert first["calculation_policy"] == {
         "id": "market-performance-calculation-policy-v1",
         "artifact_sha256": readiness_policy.POLICY_SHA256,
@@ -765,5 +766,7 @@ def test_trusted_calendar_unavailable_and_clock_mutations_are_scoped(
     assert report["missing"] == [
         "missing_initial_capital_at",
         "missing_nav_timestamps",
+        "missing_cost_inclusion_evidence",
         "missing_risk_free_evidence",
     ]
+    assert report["cost_assumptions"]["nav_cost_inclusion"] == "unproven"
