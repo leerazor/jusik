@@ -321,6 +321,31 @@ def test_invalid_step_is_exit_zero_diagnostic_and_json_is_strict(
     diagnostic = json.loads(invalid_output.read_text(encoding="utf-8"))
     assert diagnostic["transitions"][0]["result"]["status"] == "rejected"
     assert diagnostic["transitions"][0]["input_at"] == invalid["at"]
+    assert (
+        diagnostic["transitions"][0]["state_before"]
+        == diagnostic["transitions"][0]["state_after"]
+    )
+    assert diagnostic["transitions"][0]["input_action"] == invalid["action"]
+
+    action_timestamp_variants = [
+        (_split(), "effective_at", "2026-01-01T00:00:00+00:00"),
+        (_dividend("payment"), "payment_at", "2026-01-03T00:00:00+00:00"),
+    ]
+    for index, (step, field, step_at) in enumerate(action_timestamp_variants):
+        step["at"] = step_at
+        action = cast(dict[str, object], step["action"])
+        action[field] = "0001-01-01T00:00:00+14:00"
+        variant_source = tmp_path / f"invalid-action-{index}.json"
+        variant_source.write_text(json.dumps(_payload(step)), encoding="utf-8")
+        variant_output = tmp_path / f"invalid-action-{index}-artifact.json"
+        assert (
+            main(["--input", str(variant_source), "--output", str(variant_output)]) == 0
+        )
+        variant = json.loads(variant_output.read_text(encoding="utf-8"))
+        transition = variant["transitions"][0]
+        assert transition["result"]["status"] == "rejected"
+        assert transition["state_before"] == transition["state_after"]
+        assert transition["input_action"] == action
 
     duplicate = tmp_path / "duplicate.json"
     duplicate.write_text('{"schema_version":1,"schema_version":1}', encoding="utf-8")
