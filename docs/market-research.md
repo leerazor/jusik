@@ -66,7 +66,15 @@ identity·quota·auth·budget·parse·null·coverage·partial history·unknown�
 event timing의 `unknown`과 요청 제외를 구분한다.
 `observed_delisting`은 명시적인 delist 이벤트의 occurrence/observation 시각과 기존 cutoff가
 모두 유효할 때만 기록하고, 누락·미래·상충 자료로 추정하지 않는다. 진단은 전략 선택에
-사용하지 않으며 기존 준비 파일은 이 필드가 없어도 읽을 수 있다.
+사용하지 않으며 기존 준비 파일은 이 필드가 없어도 읽을 수 있다. 이후 Alpha Vantage
+membership checkpoint가 실패하면 당시 incumbent 심볼만 `membership_gaps`에 보존한다.
+각 gap은 실패 checkpoint 날짜, 기존 거래일 달력의 비중첩 `start_session`·`end_session`과
+정확한 `sessions` tuple·`session_count`, `source=alpha_vantage`, `status=unknown`을 담고,
+`start_session`·`end_session`은 tuple의 첫·마지막 날짜와 일치해야 한다. gap의 심볼 union은
+심볼별 `membership_unknown` reason과 정확히 일치해야 한다. 회복 전까지의 gap은 미래 신규
+admission·누적 admission·이전에 제거된 심볼을 포함하지 않으며, 이 정보는 가격 coverage
+분모·actual/missing/retained/event counts를 변경하지 않는다. 빈 gap 필드는 직렬화에서
+생략되어 legacy prepared JSON/replay를 계속 읽는다.
 
 ## 미국 사건 시각 불변성 계약 (R1-02)
 

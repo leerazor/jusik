@@ -44,6 +44,7 @@ from jusik.market_history_approximate import (
     CollectionDiagnosticReason,
     CollectionDiagnostics,
     CollectionSymbolDiagnostic,
+    MembershipGap,
     _event_cutoff_session,
     canonicalize_approximate_events,
     deterministic_pool,
@@ -1785,6 +1786,7 @@ class FreeMarketDataCollector:
         else:
             checkpoint_rows: dict[date, tuple[ApproximateUniverseRow, ...] | None] = {}
             checkpoint_selected: dict[date, tuple[str, ...]] = {}
+            checkpoint_incumbents: dict[date, tuple[str, ...]] = {}
             admitted_symbols: set[str] = set()
             us_current_symbols: tuple[str, ...] = ()
             symbol_details = us_symbol_details
@@ -1805,6 +1807,9 @@ class FreeMarketDataCollector:
                     if checkpoint_index == 0:
                         raise
                     checkpoint_rows[listing_checkpoint] = None
+                    checkpoint_incumbents[listing_checkpoint] = tuple(
+                        us_current_symbols
+                    )
                     alpha_limitations.append(
                         "Alpha Vantage membership checkpoint unavailable: "
                         f"{listing_checkpoint}; current_selected=0; "
@@ -1891,6 +1896,39 @@ class FreeMarketDataCollector:
                 )
                 if effective_start is not None:
                     effective_starts[listing_checkpoint] = effective_start
+
+            membership_gaps: list[MembershipGap] = []
+            for checkpoint_index, listing_checkpoint in enumerate(listing_checkpoints):
+                incumbent_symbols = checkpoint_incumbents.get(listing_checkpoint)
+                if not incumbent_symbols:
+                    continue
+                next_boundary: date | None = None
+                for later_checkpoint in listing_checkpoints[checkpoint_index + 1 :]:
+                    next_boundary = effective_starts.get(later_checkpoint)
+                    if (
+                        next_boundary is None
+                        and checkpoint_rows.get(later_checkpoint) is None
+                    ):
+                        next_boundary = later_checkpoint
+                    break
+                gap_sessions = tuple(
+                    session
+                    for session in sessions
+                    if session >= listing_checkpoint
+                    and (next_boundary is None or session < next_boundary)
+                )
+                if not gap_sessions:
+                    continue
+                membership_gaps.append(
+                    MembershipGap(
+                        checkpoint=listing_checkpoint,
+                        start_session=gap_sessions[0],
+                        end_session=gap_sessions[-1],
+                        session_count=len(gap_sessions),
+                        sessions=gap_sessions,
+                        symbols=tuple(sorted(incumbent_symbols)),
+                    )
+                )
             for checkpoint_index, listing_checkpoint in enumerate(listing_checkpoints):
                 selected = checkpoint_selected.get(listing_checkpoint)
                 effective_start = effective_starts.get(listing_checkpoint)
@@ -1957,6 +1995,9 @@ class FreeMarketDataCollector:
         us_raw_bars: dict[str, tuple[ApproximateBarRow, ...]] = {}
         us_observed_delistings: dict[str, ApproximateEvent] = {}
         us_contradictory_event_symbols: frozenset[str] = frozenset()
+        us_membership_gaps: tuple[MembershipGap, ...] = ()
+        if market == "US":
+            us_membership_gaps = tuple(membership_gaps)
         if market == "KR":
             universe = tuple(row for row in raw_rows if row.symbol in selected_symbols)
             previous_details: dict[str, Decimal] = {}
@@ -2123,6 +2164,12 @@ class FreeMarketDataCollector:
                 failed_reason = us_failed_reasons.get(symbol)
                 if failed_reason is not None:
                     reasons.append(failed_reason)
+                if symbol in {
+                    gap_symbol
+                    for gap in us_membership_gaps
+                    for gap_symbol in gap.symbols
+                }:
+                    reasons.append("membership_unknown")
                 if symbol in us_raw_bars and actual_sessions < expected_sessions:
                     reasons.append("partial_history")
                 observed = us_observed_delistings.get(symbol)
@@ -2188,6 +2235,7 @@ class FreeMarketDataCollector:
                 warmup_start=warmup_start,
                 coverage=aggregate,
                 symbols=tuple(diagnostic_symbols),
+                membership_gaps=us_membership_gaps,
                 reason_counts=reason_counts,
                 request_excluded_symbols=tuple(sorted(excluded)),
                 request_excluded_symbol_count=len(excluded),

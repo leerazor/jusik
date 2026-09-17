@@ -2366,6 +2366,26 @@ def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap()
     assert any(
         "membership checkpoint unavailable" in item for item in failed.limitations
     )
+    assert failed.collection_diagnostics is not None
+    diagnostics = failed.collection_diagnostics
+    assert len(diagnostics.membership_gaps) == 1
+    gap = diagnostics.membership_gaps[0]
+    assert gap.checkpoint == gap.start_session == date(2026, 1, 2)
+    assert gap.sessions[0] == gap.start_session
+    assert gap.sessions[-1] == gap.end_session == date(2026, 9, 14)
+    assert gap.session_count == len(gap.sessions)
+    assert gap.symbols == ("AAA",)
+    assert diagnostics.symbols[0].reasons == ("membership_unknown",)
+    assert diagnostics.coverage == present.collection_diagnostics.coverage
+    assert (
+        diagnostics.symbols[0].coverage
+        == present.collection_diagnostics.symbols[0].coverage
+    )
+    assert "membership_gaps" in failed.dataset.model_dump()["collection_diagnostics"]
+    round_tripped = ApproximateDataset.model_validate_json(
+        failed.dataset.model_dump_json()
+    )
+    assert round_tripped.collection_diagnostics == diagnostics
 
 
 @pytest.mark.parametrize(

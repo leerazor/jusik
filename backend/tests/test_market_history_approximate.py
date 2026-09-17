@@ -19,9 +19,13 @@ from jusik.market_history_approximate import (
     ApproximateMarketHistorySource,
     ApproximateProviderError,
     ApproximateUniverseRow,
+    CollectionCoverage,
+    CollectionDiagnostics,
+    CollectionSymbolDiagnostic,
     FixtureApproximateMarketHistorySource,
     JsonApproximateProvider,
     KRXDateListProvider,
+    MembershipGap,
     deterministic_pool,
     run_approximate_market_research,
     us_membership_contract_hash,
@@ -34,6 +38,99 @@ from jusik.market_research_strategy import (
     market_research_policy_hash,
 )
 from jusik.research_market_calendar import default_market_calendar
+
+
+def test_membership_gap_round_trip_and_tamper_validation() -> None:
+    expected_sessions = (date(2026, 1, 2), date(2026, 1, 5), date(2026, 1, 6))
+    gap = MembershipGap(
+        checkpoint=expected_sessions[0],
+        start_session=expected_sessions[0],
+        end_session=expected_sessions[-1],
+        session_count=len(expected_sessions),
+        sessions=expected_sessions,
+        symbols=("AAA", "BBB"),
+    )
+    assert MembershipGap.model_validate_json(gap.model_dump_json()) == gap
+    for payload in (
+        gap.model_dump(mode="json") | {"session_count": 999},
+        gap.model_dump(mode="json") | {"sessions": ["2026-01-02", "2026-01-06"]},
+        gap.model_dump(mode="json")
+        | {"sessions": ["2026-01-02", "2026-01-05", "2026-01-05"]},
+        gap.model_dump(mode="json")
+        | {"sessions": ["2026-01-02", "2026-01-06", "2026-01-05"]},
+        gap.model_dump(mode="json")
+        | {"sessions": ["2026-01-02", "2026-01-07", "2026-01-06"]},
+    ):
+        with pytest.raises(ValueError):
+            MembershipGap.model_validate(payload)
+
+
+def test_membership_gap_diagnostics_union_and_legacy_omission() -> None:
+    coverage = CollectionCoverage(
+        expected_sessions=3,
+        actual_sessions=3,
+        missing_sessions=0,
+        retained_sessions=3,
+        event_excluded_sessions=0,
+    )
+    symbols = tuple(
+        CollectionSymbolDiagnostic(
+            symbol=symbol,
+            reasons=("membership_unknown",),
+            coverage=coverage,
+        )
+        for symbol in ("AAA", "BBB")
+    )
+    gap = MembershipGap(
+        checkpoint=date(2026, 1, 2),
+        start_session=date(2026, 1, 2),
+        end_session=date(2026, 1, 6),
+        session_count=3,
+        sessions=(date(2026, 1, 2), date(2026, 1, 5), date(2026, 1, 6)),
+        symbols=("AAA", "BBB"),
+    )
+    diagnostics = CollectionDiagnostics(
+        requested_start=date(2025, 9, 14),
+        requested_end=date(2026, 9, 14),
+        warmup_start=date(2025, 8, 15),
+        coverage=CollectionCoverage(
+            expected_sessions=6,
+            actual_sessions=6,
+            missing_sessions=0,
+            retained_sessions=6,
+            event_excluded_sessions=0,
+        ),
+        symbols=symbols,
+        membership_gaps=(gap,),
+        reason_counts={"membership_unknown": 2},
+    )
+    assert "membership_gaps" in diagnostics.model_dump()
+    round_tripped = CollectionDiagnostics.model_validate_json(
+        diagnostics.model_dump_json()
+    )
+    assert round_tripped == diagnostics
+    legacy = diagnostics.model_dump(mode="json")
+    legacy.pop("membership_gaps")
+    legacy_symbols = tuple(
+        CollectionSymbolDiagnostic(
+            symbol=symbol,
+            coverage=coverage,
+        )
+        for symbol in ("AAA", "BBB")
+    )
+    legacy["symbols"] = [item.model_dump(mode="json") for item in legacy_symbols]
+    legacy["reason_counts"] = {}
+    restored = CollectionDiagnostics.model_validate(legacy)
+    assert restored.membership_gaps == ()
+    assert "membership_gaps" not in restored.model_dump()
+    for mutation in (
+        lambda payload: payload["membership_gaps"][0].update(symbols=["AAA"]),
+        lambda payload: payload["membership_gaps"][0].update(symbols=["AAA", "CCC"]),
+    ):
+        tampered = diagnostics.model_dump(mode="json")
+        mutation(tampered)
+        with pytest.raises(ValueError):
+            CollectionDiagnostics.model_validate(tampered)
 
 
 def test_deterministic_pool_is_bounded_and_seeded() -> None:
