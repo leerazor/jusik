@@ -2,7 +2,7 @@
 
 ## mandate-dispatch-gate
 
-- 상태: 진행. 자동 실행기는 pause, service/timer는 inactive/disabled이며 실제 저장소의 신규 governance는 `dispatch_enabled=false`로 유지합니다.
+- 상태: 완료. 자동 실행기는 pause, service/timer는 inactive/disabled이며 실제 저장소의 신규 governance는 `dispatch_enabled=false`로 유지합니다.
 - 목표와 완료 조건: 승인된 balanced 연구 정책을 기존 `research-mandate.json`에 호환 확장하고, JSON/Markdown/checksum/policy version 불일치나 비활성 상태를 investment-roadmap `resume`·queued task·빈 큐 planner의 claim/dispatch 전에 fail-closed 처리합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-mandate-dispatch-gate` / `feat/mandate-dispatch-gate`.
@@ -12,6 +12,8 @@
 - 검증: governance 단위·runner roadmap/planning/resume 회귀, Ruff/format, configured strict mypy, JSON/MD/checksum/version·링크·checklist 보존, 독립 review와 main 통합 재검사.
 - 금지: 실제 runner resume/dispatch, 연구·수집·PAPER/live·주문, 운영 DB·서비스·user config·remote 변경. 임시 Git/DB와 fake child만 사용합니다.
 - 중단 조건: 기존 역사 필드 변경, 일반 research scope 회귀, claim/attempt/launch count 선행 변경, checksum 해석 모호성 또는 실제 운영 상태 변경이 필요하면 통합하지 않습니다.
+- 결과: Luna 구현 `3edeaa7`, Terra 최종 review PASS, local main 통합 `0200ff0`. worker 관련 검사 189개, main focused 검사 147개, Ruff/format, configured mypy 124 source, checksum/projection 검증 통과.
+- 정리: 통합 검증 후 전용 worktree와 branch를 정상 제거합니다. 개발 기록은 `docs/development-records/2026-09-17-mandate-dispatch-gate.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## investment-roadmap-refresh
 

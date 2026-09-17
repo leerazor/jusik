@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-17T00:00:00Z
 - 작업 slug: `mandate-dispatch-gate`
-- 기준/통합: `7da06b9` / 없음
+- 기준/구현/통합: `7da06b9` / `3edeaa7` / `0200ff0`
 - 범위: 기존 historical mandate 필드를 보존하면서 versioned governance를 추가하고, investment-roadmap runner의 dispatch·resume를 fail-closed 검증합니다. 일반 research scope, DB schema, PAPER10% 계약은 변경하지 않습니다.
 
 ## 변경과 결정
@@ -24,6 +24,7 @@
 - `backend/.venv/bin/ruff check ...` 및 `ruff format --check ...` — 통과.
 - `PYTHONPATH=. backend/.venv/bin/python -m mypy --strict ...` — 통과.
 - JSON/Markdown/checksum/policy marker 보존 검사와 `git diff --check` — 통과.
+- main 통합 후 focused pytest 147개, Ruff check/format, configured mypy 124개 production source, validator의 `dispatch_enabled=false` 확인이 통과했습니다. 테스트 파일을 직접 지정한 추가 mypy에서는 기준 commit에도 존재하는 기존 타입 오류 3건이 재현되어 이번 변경의 통과 근거로 사용하지 않았습니다.
 - 실행하지 않은 검사: 실제 runner resume/dispatch, 연구·수집·PAPER/live·주문, 운영 DB·서비스·remote 변경.
 
 ## 안전·운영 상태
@@ -33,5 +34,5 @@
 ## 증거와 재개
 
 - audit: 없음; manifest: 없음; hash: tracked checksum manifest를 최종 JSON·Markdown에 맞춰 갱신합니다.
-- 남은 작업·차단 조건: 독립 review 후 Astra가 local main에 통합해야 합니다.
-- 다음 시작: main 통합 전 validator·runner focused 검증을 재실행합니다.
+- 남은 작업·차단 조건: 구현·독립 review·local main 통합은 완료했습니다. `dispatch_enabled=false`와 운영 pause/inactive/disabled를 유지하므로 자동 연구는 재개되지 않습니다.
+- 다음 시작: canonical roadmap에서 다음 최소 작업을 선정하되 실제 자동 runner를 enable/resume하지 않습니다.
