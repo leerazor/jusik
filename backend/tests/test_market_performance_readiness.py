@@ -9,6 +9,7 @@ from typing import cast
 
 import pytest
 
+import jusik.market_performance_policy as readiness_policy
 import jusik.market_performance_readiness as readiness
 from jusik.market_performance_readiness import (
     CANONICAL_EVIDENCE_PATH,
@@ -379,7 +380,7 @@ def test_size_limit_and_cli_are_read_only_and_deterministic(
     assert error.value.code == "source_too_large"
 
 
-def test_canonical_session_evidence_removes_exactly_two_codes_and_is_deterministic(
+def test_canonical_session_evidence_removes_exactly_three_codes_and_is_deterministic(
     tmp_path: Path,
 ) -> None:
     original_run = CANONICAL_RUN_PATH.read_bytes()
@@ -396,11 +397,19 @@ def test_canonical_session_evidence_removes_exactly_two_codes_and_is_determinist
         "missing_nav_timestamps",
         "missing_cost_inclusion_evidence",
         "missing_risk_free_evidence",
-        "missing_calculation_policy",
     ]
     assert first["status"] == "blocked"
     assert first["ready_for_metrics"] is False
     assert first["economic_evaluation"] == "not-evaluated"
+    assert first["calculation_policy"] == {
+        "id": "market-performance-calculation-policy-v1",
+        "artifact_sha256": readiness_policy.POLICY_SHA256,
+        "evaluator_source_sha256": readiness_policy.load_calculation_policy()[
+            "implementation"
+        ]["evaluator_source_sha256"],
+        "scope": "forward-only",
+        "historical_application_proven": False,
+    }
     assert first["session_evidence"]["expected_count"] == 252
     assert first["session_evidence"]["observed_count"] == 252
     expected = [
@@ -759,5 +768,4 @@ def test_trusted_calendar_unavailable_and_clock_mutations_are_scoped(
         "missing_nav_timestamps",
         "missing_cost_inclusion_evidence",
         "missing_risk_free_evidence",
-        "missing_calculation_policy",
     ]
