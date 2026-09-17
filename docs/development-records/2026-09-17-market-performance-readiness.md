@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-17T00:00:00Z
 - 작업 slug: `market-performance-readiness`
-- 기준/구현/통합: `c549654` / worker branch HEAD / `<main 통합 전>`
+- 기준/구현/통합: `c549654` / `b170f36` / `6b9355e`
 - 범위: SHA 고정 canonical `MarketResearchRun`을 읽기 전용으로 점검하고, 성과
   계산에 필요한 근거 누락을 결정적 JSON으로 보고한다. 공유 모델·전략·collector·runner·API·
   설정·원본 artifact는 변경하지 않았다.
@@ -38,7 +38,10 @@
 - `backend/.venv/bin/python -m ruff check backend/jusik/market_performance_readiness.py backend/tests/test_market_performance_readiness.py` — 통과
 - `backend/.venv/bin/python -m ruff format --check backend/jusik/market_performance_readiness.py backend/tests/test_market_performance_readiness.py` — 통과
 - `backend/.venv/bin/python -m mypy --config-file backend/pyproject.toml backend/jusik/market_performance_readiness.py` — 통과
-- 실행하지 않은 검사: main 통합 전 전체 호환 pytest와 configured source mypy는 통합 agent가 실행한다.
+- main focused·호환 pytest — 96 passed
+- `git diff --check c549654..6b9355e` — 통과
+- 고정 SHA canonical CLI acceptance — exit 0, blocked, 관측 252개, 고정 missing code 7개
+- Terra 최종 독립 review — PASS, P1/P2 없음
 
 ## 안전·운영 상태
 
@@ -48,6 +51,7 @@
 ## 증거와 재개
 
 - audit: 없음; manifest: 없음; hash: 합성 CLI와 local canonical acceptance에서 입력 SHA를 확인했다.
-- 남은 작업·차단 조건: local main 병합과 독립 review·통합 검증이 남아 있다. 외부 근거가
-  추가되기 전까지 성과 계산 준비 상태는 blocked다.
-- 다음 시작: worker commit과 허용 파일 diff를 확인한 뒤 main 통합 검증을 수행한다.
+- 남은 작업·차단 조건: 외부 근거가 추가되기 전까지 성과 계산 준비 상태는 blocked다.
+  UTC anchor·NAV timestamp·세션 완전성·달력·비용 포함·무위험률·계산정책 근거가 필요하다.
+- 다음 시작: canonical readiness의 누락 목록과 로드맵 차단 항목을 대조해, 실제 근거 없이
+  진행 가능한 다음 최소 작업이 있는지 다시 조사한다.

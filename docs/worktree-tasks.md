@@ -2,7 +2,7 @@
 
 ## market-performance-readiness
 
-- 상태: 준비. canonical R0 미국 approximate pilot을 성과 입력으로 승격하지 않고, 현재 평가 차단 근거를 결정적 JSON으로 진단합니다.
+- 상태: 완료. canonical R0 미국 approximate pilot을 성과 입력으로 승격하지 않고, 현재 평가 차단 근거를 결정적 JSON으로 진단합니다.
 - 목표와 완료 조건: SHA 고정 `MarketResearchRun`의 schema·NAV·등급·비용 가정을 검증하고 UTC anchor·NAV timestamp·세션 완전성·달력·비용 포함·무위험률·계산정책 근거 누락을 고정 code로 보고합니다. 정상적인 blocked 진단은 exit 0이며 성과 숫자와 hard-filter 판정은 만들지 않습니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-market-performance-readiness` / `feat/market-performance-readiness`.
@@ -12,6 +12,8 @@
 - 검증: canonical-shaped 합성 입력의 누락 code·등급·비용 근거 보존, SHA/schema/raw field/중복 key/비유한 수/크기/NAV/session 검증, 입력 불변·결정성을 pytest/Ruff/format/configured source mypy로 확인하고 canonical local acceptance·독립 review·main 통합 재검사합니다.
 - 금지: timestamp/calendar/risk-free/cost-inclusion 합성, `ready=true` 경로, 성과 계산·필터 판정, 기존 evaluator/shared model/전략/collector/runner/API 변경, 연구·수집·PAPER/live·주문·운영 DB/service/config/remote 변경, 로드맵 checkbox 변경.
 - 중단 조건: 현재 원본을 ready로 만들거나 외부 근거 주입 체계·평가 실행이 필요하면 범위를 넓히지 않고 차단합니다.
+- 결과: Luna 최종 구현 `b170f36`, Terra 최종 review PASS, local main 통합 `6b9355e`. main에서 focused·호환 pytest 96개, Ruff/format, configured source mypy, diff 검사와 고정 SHA canonical CLI acceptance가 통과했습니다. canonical 결과는 blocked, 관측 252개, 고정 누락 근거 7개입니다.
+- 정리: 통합 검증 후 전용 worktree와 branch를 정상 제거합니다. 개발 기록은 `docs/development-records/2026-09-17-market-performance-readiness.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## market-performance-metrics
 
