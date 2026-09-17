@@ -40,6 +40,7 @@
   — 통과.
 - 표준 라이브러리 fake test harness — 위협·원문 고정·Decimal bounds·symlink·request
   hash·정확한 XML shape 포함 전체 함수 통과.
+- 차단 후보 hardening commits: `2eef27c`, `3d6c7b3`.
 - 실제 공식 수집 — production CLI를 정확히 1회 실행했으나 당시 parser 계약이
   `RECORD_COUNT` wrapper를 잘못 가정해 `invalid_record_count`로 차단했다. 실제
   관측 shape로 parser를 수리했지만 재요청은 금지되어 end-to-end 성공은 입증하지
