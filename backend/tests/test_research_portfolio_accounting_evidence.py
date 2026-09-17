@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import shutil
 from datetime import datetime
 from decimal import Context, Decimal, getcontext, setcontext
@@ -13,6 +14,9 @@ from jusik.research_portfolio_accounting_evidence import (
     MANIFEST_SHA256,
     AccountingEvidenceError,
     _asof_fx,
+    _read_engine_source,
+    _scan_artifact_paths,
+    _split_adjustment,
     verify_accounting_bundle,
 )
 
@@ -126,3 +130,105 @@ def test_verifier_has_no_non_stdlib_or_forbidden_imports() -> None:
     assert not any(
         name in imports for name in {"requests", "httpx", "sqlalchemy", "fastapi"}
     )
+
+
+def test_directory_scan_rejects_a_seventh_entry_before_collection(
+    tmp_path: Path,
+) -> None:
+    names = {
+        "manifest.json",
+        "calendar.json",
+        "config.json",
+        "input.json",
+        "simulation.json",
+        "time-evidence.json",
+    }
+    for name in names:
+        (tmp_path / name).write_bytes(b"{}")
+    (tmp_path / "hostile-extra").write_bytes(b"x")
+    with pytest.raises(AccountingEvidenceError) as error:
+        _scan_artifact_paths(tmp_path)
+    assert error.value.code == "artifact_set_mismatch"
+
+
+def test_local_loader_rejects_bundle_symlink(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    link = tmp_path / "bundle-link"
+    link.symlink_to(target, target_is_directory=True)
+    with pytest.raises(AccountingEvidenceError) as error:
+        verify_accounting_bundle(link, expected_manifest_sha256=MANIFEST_SHA256)
+    assert error.value.code == "unsafe_path"
+
+
+def test_engine_source_reader_rejects_symlink_and_oversize(tmp_path: Path) -> None:
+    target = tmp_path / "engine.py"
+    target.write_bytes(b"engine")
+    link = tmp_path / "engine-link.py"
+    link.symlink_to(target)
+    with pytest.raises(AccountingEvidenceError) as symlink_error:
+        _read_engine_source(link)
+    assert symlink_error.value.code == "unsafe_path"
+    oversized = tmp_path / "oversized.py"
+    with oversized.open("wb") as stream:
+        stream.truncate(20 * 1024 * 1024 + 1)
+    with pytest.raises(AccountingEvidenceError) as size_error:
+        _read_engine_source(oversized)
+    assert size_error.value.code == "file_too_large"
+
+
+def test_engine_source_reader_rejects_replacement_race(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "engine.py"
+    source.write_bytes(b"engine")
+    original_fstat = os.fstat
+    calls = 0
+
+    def replaced_fstat(descriptor: int) -> os.stat_result:
+        nonlocal calls
+        calls += 1
+        result = original_fstat(descriptor)
+        if calls == 2:
+            values = list(result)
+            values[1] += 1
+            return os.stat_result(values)
+        return result
+
+    monkeypatch.setattr(os, "fstat", replaced_fstat)
+    with pytest.raises(AccountingEvidenceError) as error:
+        _read_engine_source(source)
+    assert error.value.code == "file_replaced"
+
+
+def test_fractional_split_cash_in_lieu_is_decimal_safe() -> None:
+    whole, cash = _split_adjustment(
+        1, Decimal("1"), Decimal("2"), Decimal("100"), Decimal("2")
+    )
+    assert whole == 0
+    assert cash == Decimal("100")
+
+
+def test_asof_fx_rejects_stale_and_future_only_observations() -> None:
+    stale = [
+        (
+            datetime.fromisoformat("2024-01-01T00:00:00+00:00"),
+            "2023-12-01",
+            "a",
+            Decimal("1300"),
+        )
+    ]
+    with pytest.raises(AccountingEvidenceError) as stale_error:
+        _asof_fx(stale, datetime.fromisoformat("2024-01-15T00:00:00+00:00"))
+    assert stale_error.value.code == "stale_fx"
+    future = [
+        (
+            datetime.fromisoformat("2024-01-15T00:00:00+00:00"),
+            "2024-01-15",
+            "a",
+            Decimal("1300"),
+        )
+    ]
+    with pytest.raises(AccountingEvidenceError) as future_error:
+        _asof_fx(future, datetime.fromisoformat("2024-01-14T00:00:00+00:00"))
+    assert future_error.value.code == "missing_fx"

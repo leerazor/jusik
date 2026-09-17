@@ -28,7 +28,7 @@ ENGINE_SHA256: Final = (
     "2a91ef9621fcb96b52179fb8fd22df7f74d6aab385b798333dd354594e61f70c"
 )
 SOURCE_SHA256: Final = (
-    "0d0be289c8643342aef4bb666e160cc2202479b92f6dfc0b2b65db9373fc434f"
+    "35efe5f691f7161efd215616781832e71240d78faa8ca66a1a7727a6d49a7514"
 )
 EXPECTED_TRADES: Final = 171
 EXPECTED_NAV: Final = 1172
@@ -164,11 +164,15 @@ def _bounded_read(path: Path) -> bytes:
         before = path.lstat()
         if not path.is_file() or path.is_symlink():
             raise AccountingEvidenceError("unsafe_path")
+        if before.st_size > MAX_FILE_BYTES:
+            raise AccountingEvidenceError("file_too_large")
         descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         try:
             opened = os.fstat(descriptor)
             if not stat.S_ISREG(opened.st_mode):
                 raise AccountingEvidenceError("unsafe_path")
+            if opened.st_dev != before.st_dev or opened.st_ino != before.st_ino:
+                raise AccountingEvidenceError("file_replaced")
             raw = bytearray()
             while len(raw) <= MAX_FILE_BYTES:
                 chunk = os.read(
@@ -294,6 +298,59 @@ def _source_hash() -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+def _read_engine_source(path: Path) -> bytes:
+    """Read the pinned engine source through the same bounded descriptor guard."""
+    return _bounded_read(path)
+
+
+def _split_adjustment(
+    quantity: int,
+    numerator: Decimal,
+    denominator: Decimal,
+    raw_open: Decimal,
+    fx: Decimal,
+) -> tuple[int, Decimal]:
+    """Return post-split whole units and cash-in-lieu for a fractional unit."""
+    exact = Decimal(quantity) * numerator / denominator
+    whole = int(exact)
+    return whole, (exact - whole) * raw_open * fx
+
+
+_ARTIFACT_NAMES: Final = frozenset(
+    {
+        "manifest.json",
+        "calendar.json",
+        "config.json",
+        "input.json",
+        "simulation.json",
+        "time-evidence.json",
+    }
+)
+
+
+def _scan_artifact_paths(root: Path) -> dict[str, Path]:
+    """Incrementally scan exactly six regular files without unbounded allocation."""
+    found: dict[str, Path] = {}
+    try:
+        with os.scandir(root) as entries:
+            for index, entry in enumerate(entries, start=1):
+                if index > len(_ARTIFACT_NAMES):
+                    raise AccountingEvidenceError("artifact_set_mismatch")
+                if entry.name not in _ARTIFACT_NAMES or entry.name in found:
+                    raise AccountingEvidenceError("artifact_set_mismatch")
+                metadata = entry.stat(follow_symlinks=False)
+                if entry.is_symlink() or not stat.S_ISREG(metadata.st_mode):
+                    raise AccountingEvidenceError("unsafe_path")
+                found[entry.name] = root / entry.name
+    except AccountingEvidenceError:
+        raise
+    except OSError:
+        raise AccountingEvidenceError("source_unavailable") from None
+    if set(found) != _ARTIFACT_NAMES:
+        raise AccountingEvidenceError("artifact_set_mismatch")
+    return found
+
+
 def _read_bundle(
     bundle_dir: Path, expected_manifest_sha256: str
 ) -> dict[str, dict[str, object]]:
@@ -308,26 +365,14 @@ def _read_bundle(
         root = bundle_dir.resolve(strict=True)
         if not root.is_dir() or root.is_symlink():
             raise AccountingEvidenceError("unsafe_path")
-        entries = list(root.iterdir())
     except OSError:
         raise AccountingEvidenceError("source_unavailable") from None
-    names = {item.name for item in entries}
-    expected_names = {
-        "manifest.json",
-        "calendar.json",
-        "config.json",
-        "input.json",
-        "simulation.json",
-        "time-evidence.json",
-    }
-    if names != expected_names or any(
-        item.is_symlink() or not item.is_file() for item in entries
-    ):
-        raise AccountingEvidenceError("artifact_set_mismatch")
+    artifact_paths = _scan_artifact_paths(root)
+    expected_names = _ARTIFACT_NAMES
     total = 0
     loaded: dict[str, dict[str, object]] = {}
     for name in sorted(expected_names):
-        path = root / name
+        path = artifact_paths[name]
         raw = _bounded_read(path)
         total += len(raw)
         if total > MAX_TOTAL_BYTES:
@@ -370,7 +415,8 @@ def _read_bundle(
         raise AccountingEvidenceError("manifest_source_mismatch")
     engine_path = Path(__file__).with_name("research_portfolio_engine.py")
     try:
-        if hashlib.sha256(engine_path.read_bytes()).hexdigest() != ENGINE_SHA256:
+        engine_source = _read_engine_source(engine_path)
+        if hashlib.sha256(engine_source).hexdigest() != ENGINE_SHA256:
             raise AccountingEvidenceError("engine_source_mismatch")
     except OSError:
         raise AccountingEvidenceError("source_unavailable") from None
@@ -835,17 +881,19 @@ def _verify_ledger_inner(
                     split_done.add((symbol, day))
                 if action is not None and quantity > 0:
                     numerator, denominator = action
-                    exact = Decimal(quantity) * numerator / denominator
-                    whole = int(exact)
-                    fraction = exact - whole
                     fx = (
                         Decimal(1)
                         if currencies[symbol] == "KRW"
                         else _asof_fx(observations, at)
                     )
-                    cash += (
-                        fraction * _decimal(_required(bars[(symbol, day)], "open")) * fx
+                    whole, cash_in_lieu = _split_adjustment(
+                        quantity,
+                        numerator,
+                        denominator,
+                        _decimal(_required(bars[(symbol, day)], "open")),
+                        fx,
                     )
+                    cash += cash_in_lieu
                     holdings[symbol] = whole
             for trade in trade_by_time.get(at, []):
                 symbol, side, quantity = (
