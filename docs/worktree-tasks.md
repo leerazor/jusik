@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## market-performance-readiness
+
+- 상태: 준비. canonical R0 미국 approximate pilot을 성과 입력으로 승격하지 않고, 현재 평가 차단 근거를 결정적 JSON으로 진단합니다.
+- 목표와 완료 조건: SHA 고정 `MarketResearchRun`의 schema·NAV·등급·비용 가정을 검증하고 UTC anchor·NAV timestamp·세션 완전성·달력·비용 포함·무위험률·계산정책 근거 누락을 고정 code로 보고합니다. 정상적인 blocked 진단은 exit 0이며 성과 숫자와 hard-filter 판정은 만들지 않습니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-market-performance-readiness` / `feat/market-performance-readiness`.
+- 기준 커밋/통합 대상: 이 등록 commit / local `main`.
+- 입력: R0 manifest가 지정한 `us-web-pilot-run.json`, SHA-256 `cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275`; 외부 audit 파일은 읽기 전용 local acceptance에만 사용합니다.
+- 수정 허용: 신규 `backend/jusik/market_performance_readiness.py`, 신규 focused tests, `docs/market-performance-metrics.md`, 신규 개발 기록. 등록부는 Astra만 수정합니다.
+- 검증: canonical-shaped 합성 입력의 누락 code·등급·비용 근거 보존, SHA/schema/raw field/중복 key/비유한 수/크기/NAV/session 검증, 입력 불변·결정성을 pytest/Ruff/format/configured source mypy로 확인하고 canonical local acceptance·독립 review·main 통합 재검사합니다.
+- 금지: timestamp/calendar/risk-free/cost-inclusion 합성, `ready=true` 경로, 성과 계산·필터 판정, 기존 evaluator/shared model/전략/collector/runner/API 변경, 연구·수집·PAPER/live·주문·운영 DB/service/config/remote 변경, 로드맵 checkbox 변경.
+- 중단 조건: 현재 원본을 ready로 만들거나 외부 근거 주입 체계·평가 실행이 필요하면 범위를 넓히지 않고 차단합니다.
+
 ## market-performance-metrics
 
 - 상태: 완료. R1-04 실제 기업행사 연결은 지급일·권리수량·명시적 missing 근거 부족으로 계속 차단하며, 기존 동결 NAV 252개를 읽는 순수 평가 계약만 통합했습니다.
