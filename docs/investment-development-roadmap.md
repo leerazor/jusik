@@ -210,11 +210,11 @@ R6는 미국 우선 진단이 끝난 뒤 한국의 zero-OHLC 문제를 별도 �
 
 ## R7 — 격리 시뮬레이션과 PAPER 결정
 
-R7은 R5 후보가 사전등록한 최종 untouched OOS를 단회 pass하고 prospective 기준과 stress 검토를 통과한 뒤 실행한다. 한국 확장 후보는 R6의 자료 기준도 통과해야 한다. 기존 PAPER10% 계약과 관찰 결과는 그대로 유지하며, PAPER는 live 승인과 별개의 결정이다.
+R7은 R5 후보가 사전등록한 최종 untouched OOS를 단회 pass하고 필요한 자료 게이트를 통과한 뒤 시작한다. R7 내부 순서는 R7-01 격리, R7-02 simulation과 stress, R7-03 prospective·stress 독립 review다. 어느 단계라도 실패하면 PAPER로 진행하지 않는다. 한국 확장 후보는 R6의 자료 기준도 통과해야 한다. 기존 PAPER10% 계약과 관찰 결과는 그대로 유지하며, PAPER는 live 승인과 별개의 결정이다.
 
 - [ ] **R7-01** 미래 격리 자료·설정·DB·artifact 경로를 만들고 과거 결과와 쓰기 상태를 분리한다.
 - [ ] **R7-02** 후보별 격리 simulation과 비용·자료·gap·변동성 stress를 실행해 신호, 주문 의도, 체결 가정, 비용, DD latch와 primary/diagnostic 결과를 기록한다.
-- [ ] **R7-03** 최종 untouched OOS pass와 prospective 기준 통과 여부를 독립 reviewer가 확인하고, 어느 하나라도 실패하면 stress/PAPER로 진행하지 않으며 기존 PAPER와 결과를 혼합하지 않는다.
+- [ ] **R7-03** R7-02의 stress 결과와 prospective 기준 통과 여부를 독립 reviewer가 확인하고, 어느 하나라도 실패하면 PAPER로 진행하지 않으며 기존 PAPER와 결과를 혼합하지 않는다.
 - [ ] **R7-04** PAPER 승격 여부를 별도 결정 기록으로 남기며 후보를 자동으로 live 설정에 넣지 않고, live는 별도 명시적 승인 없이는 논의하지 않는다.
 - [ ] **R7-05** 실제 주문은 이 로드맵에 포함하지 않고, 장기 live trading은 별도 설계·권한·안전 검토와 명시적 운영자 승인 뒤에만 논의한다.
 

@@ -9,6 +9,7 @@
 ## 변경과 결정
 
 - 로드맵을 `일시 중지 — 운영자 보류`로 표시하고 balanced objective, 비용 차감 primary metrics, diagnostic metrics, `MDD <= 20%` hard filter, 무료 자료 우선·audit 후 최소 수집, 후보 최대 3개와 자동 선택 금지, bounded IS/validation/walk-forward/final untouched OOS/stress/PAPER/live 분리 순서를 명시했습니다.
+- R7 진입은 최종 untouched OOS pass와 필요한 자료 게이트 뒤로 두고, 내부 순서를 격리·simulation/stress·prospective/stress 독립 review로 고정했습니다. 단계 실패는 PAPER를 차단합니다.
 - 연구 운용 조건은 기존 JSON의 historical/current execution scope와 새 canonical 설계를 분리하고, 신규 dispatch 전 JSON/SHA 동기화를 요구하도록 명확히 했습니다. 연구 backend 문서는 canonical 링크와 적용 범위만 추가했습니다.
 
 ## 문서·계약 영향
