@@ -141,6 +141,10 @@ def test_replay_preserves_exact_decimal_state_and_provenance() -> None:
     transition = _transition(artifact, 0)
     assert _result(artifact, 0)["nav_before"] == "1000"
     assert _result(artifact, 0)["nav_after"] == "1000"
+    assert (
+        _result(artifact, 0)["identity_hash"]
+        == "45d453790b36896729efb0a66a102063f7fc9102d12e46c45db32800e4947efd"
+    )
     state_after = cast(dict[str, object], transition["state_after"])
     holding_after = cast(list[object], state_after["holdings"])[0]
     assert cast(dict[str, object], holding_after)["quantity"] == "20"
@@ -273,6 +277,101 @@ def test_cli_rejects_symlink_and_hardlink_aliases(tmp_path: Path) -> None:
     output_link.symlink_to(tmp_path / "new-target.json")
     assert main(["--input", str(payload_path), "--output", str(output_link)]) == 2
     assert output_link.is_symlink()
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    parent_link = tmp_path / "parent-link"
+    parent_link.symlink_to(real_parent, target_is_directory=True)
+    parent_input = real_parent / "input.json"
+    parent_input.write_bytes(payload_path.read_bytes())
+    assert (
+        main(
+            [
+                "--input",
+                str(parent_link / "input.json"),
+                "--output",
+                str(parent_link / "artifact.json"),
+            ]
+        )
+        == 2
+    )
+    assert (
+        main(
+            [
+                "--input",
+                str(payload_path),
+                "--output",
+                str(parent_link / "artifact-output.json"),
+            ]
+        )
+        == 2
+    )
+
+
+def test_invalid_step_is_exit_zero_diagnostic_and_json_is_strict(
+    tmp_path: Path,
+) -> None:
+    invalid = _split()
+    invalid["at"] = "0001-01-01T00:00:00+14:00"
+    invalid_payload = _payload(invalid)
+    invalid_source = tmp_path / "invalid.json"
+    invalid_source.write_text(json.dumps(invalid_payload), encoding="utf-8")
+    invalid_output = tmp_path / "invalid-artifact.json"
+    assert main(["--input", str(invalid_source), "--output", str(invalid_output)]) == 0
+    diagnostic = json.loads(invalid_output.read_text(encoding="utf-8"))
+    assert diagnostic["transitions"][0]["result"]["status"] == "rejected"
+    assert diagnostic["transitions"][0]["input_at"] == invalid["at"]
+
+    duplicate = tmp_path / "duplicate.json"
+    duplicate.write_text('{"schema_version":1,"schema_version":1}', encoding="utf-8")
+    assert (
+        main(
+            [
+                "--input",
+                str(duplicate),
+                "--output",
+                str(tmp_path / "duplicate-out.json"),
+            ]
+        )
+        == 2
+    )
+    nan = tmp_path / "nan.json"
+    nan.write_text(
+        '{"schema_version":1,"seed":0,"initial_state":NaN,"steps":[]}',
+        encoding="utf-8",
+    )
+    assert main(["--input", str(nan), "--output", str(tmp_path / "nan-out.json")]) == 2
+
+
+def test_equal_utc_boundaries_are_accepted() -> None:
+    step = _split()
+    step["at"] = "2026-01-01T00:00:00+00:00"
+    action = cast(dict[str, object], step["action"])
+    action["effective_at"] = "2026-01-01T09:00:00+09:00"
+    artifact = build_artifact(_payload(step))
+    assert _result(artifact, 0)["status"] == "applied"
+
+
+def test_cli_output_is_deterministic_and_preserves_decimal_strings(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "input.json"
+    source.write_text(
+        json.dumps(
+            _fixture_envelope(
+                "dividend_long_decimal_accrual_payment", ("accrual", "payment")
+            ),
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    assert main(["--input", str(source), "--output", str(first)]) == 0
+    assert main(["--input", str(source), "--output", str(second)]) == 0
+    assert first.read_bytes() == second.read_bytes()
+    result = json.loads(first.read_text(encoding="utf-8"))
+    assert result["final_state"]["cash"] == "2.234567890123456789012345678900"
 
 
 def test_caps_count_union_of_symbols_and_utc_dates() -> None:

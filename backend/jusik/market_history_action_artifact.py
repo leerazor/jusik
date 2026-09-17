@@ -128,9 +128,14 @@ def _timestamp(value: object, label: str) -> datetime:
             raise ArtifactError(f"{label} timestamp is invalid") from exc
     else:
         raise ArtifactError(f"{label} must be an ISO timestamp")
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        raise ArtifactError(f"{label} timestamp must be timezone-aware")
-    return parsed.astimezone(UTC)
+    try:
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise ArtifactError(f"{label} timestamp must be timezone-aware")
+        return parsed.astimezone(UTC)
+    except ArtifactError:
+        raise
+    except (OverflowError, ValueError) as exc:
+        raise ArtifactError(f"{label} timestamp is invalid") from exc
 
 
 def _action_payload(action: Action) -> dict[str, object]:
@@ -627,9 +632,7 @@ def write_artifact(input_path: Path, output_path: Path) -> None:
     raw = _read_input(input_absolute)
     decoded = _decode_json(raw)
     artifact = build_artifact(_mapping(decoded, "input"), input_bytes=raw)
-    data = json.dumps(
-        artifact, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    data = _canonical_json(artifact)
     _write_output(output_absolute, data)
 
 
