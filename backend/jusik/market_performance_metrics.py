@@ -12,7 +12,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -43,6 +45,8 @@ REASONS = (
     "unsupported_grade",
     "missing_data_source",
     "missing_calculation_policy",
+    "missing_initial_capital_at",
+    "first_nav_before_anchor",
     "missing_cost_inclusion_evidence",
     "missing_completeness_evidence",
     "missing_required_sessions",
@@ -71,6 +75,8 @@ Reason = Literal[
     "unsupported_grade",
     "missing_data_source",
     "missing_calculation_policy",
+    "missing_initial_capital_at",
+    "first_nav_before_anchor",
     "missing_cost_inclusion_evidence",
     "missing_completeness_evidence",
     "missing_required_sessions",
@@ -95,7 +101,7 @@ Reason = Literal[
 
 
 def _decimal(value: object, label: str) -> Decimal:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or isinstance(value, float):
         raise ValueError(f"{label} must be a finite decimal")
     try:
         result = Decimal(str(value))
@@ -147,12 +153,20 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]
 def _parse_json(body: bytes, label: str) -> dict[str, object]:
     try:
         parsed = json.loads(
-            body.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys
+            body.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_int=Decimal,
+            parse_float=Decimal,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError, _DuplicateKey) as exc:
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        RecursionError,
+        _DuplicateKey,
+    ) as exc:
         raise ValueError(f"{label} is invalid JSON") from exc
     if not isinstance(parsed, dict):
-        raise ValueError(f"{label} must contain an object")
+        raise ValueError(f"{label} is invalid JSON: must contain an object")
     return parsed
 
 
@@ -207,6 +221,7 @@ class RiskFreeEvidence:
 @dataclass(frozen=True)
 class PerformanceInput:
     initial_capital: Decimal
+    initial_capital_at: datetime
     nav_points: tuple[NAVPoint, ...]
     data_grade: Grade
     data_source: DataSource
@@ -227,6 +242,9 @@ class PerformanceInput:
         if capital_map is None or capital_map.get("unit") != "currency":
             raise ValueError("initial_capital must be a currency object")
         initial_capital = _decimal(capital_map.get("value"), "initial_capital.value")
+        initial_capital_at = _parse_utc(
+            value.get("initial_capital_at"), "initial_capital_at"
+        )
         nav_points: list[NAVPoint] = []
         raw_nav = value.get("nav", value.get("nav_points"))
         for index, item in enumerate(_list(raw_nav, "nav")):
@@ -290,8 +308,20 @@ class PerformanceInput:
         if rf_map is None:
             raise ValueError("risk_free must be an object")
         rf_evidence = _evidence(rf_map.get("evidence"), "risk_free.evidence")
+        raw_sessions_per_year = value.get("sessions_per_year", SESSIONS_PER_YEAR)
+        if isinstance(raw_sessions_per_year, Decimal):
+            if raw_sessions_per_year != raw_sessions_per_year.to_integral_value():
+                raise ValueError("sessions_per_year must be an integer")
+            sessions_per_year = int(raw_sessions_per_year)
+        elif isinstance(raw_sessions_per_year, int) and not isinstance(
+            raw_sessions_per_year, bool
+        ):
+            sessions_per_year = raw_sessions_per_year
+        else:
+            raise ValueError("sessions_per_year must be an integer")
         return cls(
             initial_capital=initial_capital,
+            initial_capital_at=initial_capital_at,
             nav_points=tuple(nav_points),
             data_grade=cast(Grade, grade),
             data_source=DataSource(source),
@@ -310,7 +340,7 @@ class PerformanceInput:
             calculation_policy=_string(
                 value.get("calculation_policy"), "calculation_policy"
             ),
-            sessions_per_year=value.get("sessions_per_year", SESSIONS_PER_YEAR),  # type: ignore[arg-type]
+            sessions_per_year=sessions_per_year,
         )
 
 
@@ -329,22 +359,38 @@ class MetricResult:
 
 
 @dataclass(frozen=True)
+class HardFilterResult:
+    availability: Availability
+    passed: bool | None = None
+    reason: Reason | None = None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "availability": self.availability,
+            "passed": self.passed,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
 class PerformanceReport:
     data_grade: Grade
     data_source: str
+    initial_capital_at: datetime
     calculation_policy: str
     total_net_return: MetricResult
     cagr: MetricResult
     maximum_drawdown: MetricResult
     sharpe: MetricResult
     calmar: MetricResult
-    hard_filter: MetricResult
+    hard_filter: HardFilterResult
 
     def as_dict(self) -> dict[str, object]:
         return {
             "schema": RESULT_SCHEMA,
             "data_grade": self.data_grade,
             "data_source": self.data_source,
+            "initial_capital_at": self.initial_capital_at.isoformat(),
             "calculation_policy": self.calculation_policy,
             "metrics": {
                 "total_net_return": self.total_net_return.as_dict(),
@@ -367,13 +413,14 @@ def _unavailable(input_value: PerformanceInput, reason: Reason) -> PerformanceRe
     return PerformanceReport(
         input_value.data_grade,
         input_value.data_source.identity,
+        input_value.initial_capital_at,
         input_value.calculation_policy,
         metric,
         metric,
         metric,
         metric,
         metric,
-        metric,
+        HardFilterResult("unavailable", reason=reason),
     )
 
 
@@ -390,6 +437,9 @@ def _validate_input(input_value: PerformanceInput) -> Reason | None:
         return "missing_data_source"
     if not input_value.calculation_policy.strip():
         return "missing_calculation_policy"
+    anchor = input_value.initial_capital_at
+    if anchor.tzinfo is None or anchor.utcoffset() is None:
+        return "invalid_utc_timestamp"
     if (
         not input_value.cost_inclusion.included
         or not input_value.cost_inclusion.evidence
@@ -406,15 +456,6 @@ def _validate_input(input_value: PerformanceInput) -> Reason | None:
         or any(not item.strip() for item in input_value.completeness.calendar_evidence)
     ):
         return "missing_completeness_evidence"
-    if not input_value.risk_free.evidence or any(
-        not item.strip() for item in input_value.risk_free.evidence
-    ):
-        return "missing_risk_free_evidence"
-    annual = input_value.risk_free.annual_rate
-    if not annual.is_finite():
-        return "non_finite_risk_free_rate"
-    if annual <= Decimal("-1"):
-        return "invalid_risk_free_rate"
     previous: datetime | None = None
     for point in input_value.nav_points:
         if not point.nav.is_finite():
@@ -433,10 +474,31 @@ def _validate_input(input_value: PerformanceInput) -> Reason | None:
             previous = current_utc
         else:
             previous = timestamp.astimezone(UTC)
+    if not input_value.nav_points:
+        return "period_non_positive"
+    first_timestamp = input_value.nav_points[0].timestamp.astimezone(UTC)
+    if first_timestamp < anchor.astimezone(UTC):
+        return "first_nav_before_anchor"
+    final_timestamp = input_value.nav_points[-1].timestamp.astimezone(UTC)
+    if final_timestamp.date() <= anchor.astimezone(UTC).date():
+        return "period_non_positive"
     if len(input_value.nav_points) > MAX_NAV_POINTS:
         return "too_many_nav_points"
+    return None
+
+
+def _validate_sharpe_input(input_value: PerformanceInput) -> Reason | None:
+    if not input_value.risk_free.evidence or any(
+        not item.strip() for item in input_value.risk_free.evidence
+    ):
+        return "missing_risk_free_evidence"
+    annual = input_value.risk_free.annual_rate
+    if not annual.is_finite():
+        return "non_finite_risk_free_rate"
+    if annual <= Decimal("-1"):
+        return "invalid_risk_free_rate"
     if len(input_value.nav_points) < 2:
-        return "period_non_positive"
+        return "insufficient_returns"
     return None
 
 
@@ -453,12 +515,11 @@ def evaluate_performance(input_value: PerformanceInput) -> PerformanceReport:
     if reason is not None:
         return _unavailable(input_value, reason)
     with localcontext(DECIMAL_CONTEXT):
-        first = input_value.nav_points[0]
         final = input_value.nav_points[-1]
         elapsed_days = Decimal(
             (
                 final.timestamp.astimezone(UTC).date()
-                - first.timestamp.astimezone(UTC).date()
+                - input_value.initial_capital_at.astimezone(UTC).date()
             ).days
         )
         if elapsed_days <= 0:
@@ -477,44 +538,50 @@ def evaluate_performance(input_value: PerformanceInput) -> PerformanceReport:
             if drawdown > maximum_drawdown:
                 maximum_drawdown = drawdown
 
-        returns = [
-            input_value.nav_points[0].nav / input_value.initial_capital - Decimal(1)
-        ]
-        returns.extend(
-            current.nav / previous.nav - Decimal(1)
-            for previous, current in zip(
-                input_value.nav_points, input_value.nav_points[1:]
-            )
-        )
-        if len(returns) < 2:
-            return _unavailable(input_value, "insufficient_returns")
-        daily_rf = _power(
-            Decimal(1) + input_value.risk_free.annual_rate,
-            Decimal(1) / Decimal(input_value.sessions_per_year),
-        ) - Decimal(1)
-        excess = [item - daily_rf for item in returns]
-        mean = sum(excess, Decimal(0)) / Decimal(len(excess))
-        variance = sum((item - mean) ** 2 for item in excess) / Decimal(len(excess) - 1)
-        if variance == 0:
-            sharpe = MetricResult("unavailable", reason="zero_variance")
+        sharpe_reason = _validate_sharpe_input(input_value)
+        if sharpe_reason is not None:
+            sharpe = MetricResult("unavailable", reason=sharpe_reason)
         else:
-            sharpe = MetricResult(
-                "available",
-                mean / variance.sqrt() * Decimal(input_value.sessions_per_year).sqrt(),
+            returns = [
+                input_value.nav_points[0].nav / input_value.initial_capital - Decimal(1)
+            ]
+            returns.extend(
+                current.nav / previous.nav - Decimal(1)
+                for previous, current in zip(
+                    input_value.nav_points, input_value.nav_points[1:]
+                )
             )
+            daily_rf = _power(
+                Decimal(1) + input_value.risk_free.annual_rate,
+                Decimal(1) / Decimal(input_value.sessions_per_year),
+            ) - Decimal(1)
+            excess = [item - daily_rf for item in returns]
+            mean = sum(excess, Decimal(0)) / Decimal(len(excess))
+            variance = sum((item - mean) ** 2 for item in excess) / Decimal(
+                len(excess) - 1
+            )
+            if variance == 0:
+                sharpe = MetricResult("unavailable", reason="zero_variance")
+            else:
+                sharpe = MetricResult(
+                    "available",
+                    mean
+                    / variance.sqrt()
+                    * Decimal(input_value.sessions_per_year).sqrt(),
+                )
         mdd = MetricResult("available", maximum_drawdown)
         calmar = (
             MetricResult("unavailable", reason="zero_drawdown")
             if maximum_drawdown == 0
             else MetricResult("available", cagr / maximum_drawdown)
         )
-        hard_filter = MetricResult(
-            "available",
-            Decimal(1) if maximum_drawdown <= Decimal("0.20") else Decimal(0),
+        hard_filter = HardFilterResult(
+            "available", passed=maximum_drawdown <= Decimal("0.20")
         )
         return PerformanceReport(
             input_value.data_grade,
             input_value.data_source.identity,
+            input_value.initial_capital_at,
             input_value.calculation_policy,
             MetricResult("available", total),
             MetricResult("available", cagr),
@@ -596,10 +663,27 @@ def evaluate_saved_performance(
     input_value, source_sha256 = _load_source(envelope.source)
     result = evaluate_performance(input_value).as_dict()
     result["source"] = {"path": str(envelope.source.path), "sha256": source_sha256}
-    output_path.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    payload = (
+        json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    temporary_path: Path | None = None
+    try:
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{output_path.name}.", suffix=".tmp", dir=output_path.parent
+        )
+        temporary_path = Path(temporary_name)
+        with os.fdopen(descriptor, "wb") as temporary:
+            temporary.write(payload)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.replace(temporary_path, output_path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
     return result
 
 
@@ -618,6 +702,7 @@ __all__ = [
     "CostInclusionEvidence",
     "DataSource",
     "FrozenSource",
+    "HardFilterResult",
     "MetricResult",
     "NAVPoint",
     "PerformanceEnvelope",

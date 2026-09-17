@@ -24,13 +24,17 @@ def _input(
     nav: tuple[str, ...] = ("100", "110", "105"),
     days: tuple[int, ...] = (0, 1, 2),
     *,
+    anchor_day: int = 0,
+    initial_capital: str = "100",
     completeness: CompletenessEvidence | None = None,
     costs: CostInclusionEvidence | None = None,
     risk_free: RiskFreeEvidence | None = None,
     grade: str = "fixture",
 ) -> PerformanceInput:
     return PerformanceInput(
-        initial_capital=Decimal("100"),
+        initial_capital=Decimal(initial_capital),
+        initial_capital_at=datetime(2024, 1, 1, tzinfo=UTC)
+        + timedelta(days=anchor_day),
         nav_points=tuple(
             NAVPoint(
                 datetime(2024, 1, 1, tzinfo=UTC) + timedelta(days=day), Decimal(value)
@@ -75,9 +79,10 @@ def test_independent_oracle_for_positive_and_negative_metrics() -> None:
 def test_initial_loss_is_included_in_drawdown_and_filter_boundary_is_exact() -> None:
     report = evaluate_performance(_input(nav=("80", "100"), days=(0, 1)))
     assert _value(report, "maximum_drawdown") == Decimal("0.2")
-    assert report.hard_filter.value == Decimal(1)
+    assert report.hard_filter.passed is True
+    assert report.as_dict()["hard_filter"]["passed"] is True  # type: ignore[index]
     report = evaluate_performance(_input(nav=("79.99", "100"), days=(0, 1)))
-    assert report.hard_filter.value == Decimal(0)
+    assert report.hard_filter.passed is False
 
 
 def test_leap_year_and_irregular_holiday_gap_use_actual_utc_calendar_days() -> None:
@@ -125,10 +130,13 @@ def test_missing_evidence_does_not_fabricate_zero_or_infinity() -> None:
         "missing_required_sessions",
         "missing_risk_free_evidence",
     )
-    for case, reason in zip(cases, reasons):
+    for case, reason in zip(cases[:3], reasons[:3]):
         report = evaluate_performance(case)
         assert report.cagr.value is None
         assert report.cagr.reason == reason
+    report = evaluate_performance(cases[3])
+    assert report.cagr.availability == "available"
+    assert report.sharpe.reason == "missing_risk_free_evidence"
 
 
 def test_zero_volatility_and_zero_drawdown_are_not_fabricated() -> None:
@@ -138,7 +146,37 @@ def test_zero_volatility_and_zero_drawdown_are_not_fabricated() -> None:
     assert report.maximum_drawdown.value == Decimal(0)
     assert report.calmar.value is None
     assert report.calmar.reason == "zero_drawdown"
-    assert report.hard_filter.value == Decimal(1)
+    assert report.hard_filter.passed is True
+
+
+def test_risk_free_and_sharpe_prerequisites_do_not_block_other_metrics() -> None:
+    report = evaluate_performance(
+        _input(risk_free=RiskFreeEvidence(Decimal("NaN"), ()))
+    )
+    assert report.total_net_return.availability == "available"
+    assert report.cagr.availability == "available"
+    assert report.maximum_drawdown.availability == "available"
+    assert report.calmar.availability == "available"
+    assert report.hard_filter.passed is True
+    assert report.sharpe.reason == "missing_risk_free_evidence"
+    report = evaluate_performance(
+        _input(risk_free=RiskFreeEvidence(Decimal("NaN"), ("policy",)))
+    )
+    assert report.cagr.availability == "available"
+    assert report.sharpe.reason == "non_finite_risk_free_rate"
+    report = evaluate_performance(_input(nav=("100",), days=(1,)))
+    assert report.total_net_return.availability == "available"
+    assert report.cagr.availability == "available"
+    assert report.sharpe.reason == "insufficient_returns"
+
+
+def test_anchor_is_explicit_and_controls_period_and_first_nav() -> None:
+    report = evaluate_performance(_input(anchor_day=0))
+    assert report.total_net_return.availability == "available"
+    report = evaluate_performance(_input(anchor_day=1))
+    assert report.total_net_return.reason == "first_nav_before_anchor"
+    report = evaluate_performance(_input(nav=("100",), days=(2,), anchor_day=2))
+    assert report.total_net_return.reason == "period_non_positive"
 
 
 def test_grade_and_input_are_preserved_without_mutation() -> None:
@@ -154,6 +192,7 @@ def _payload() -> dict[str, object]:
     return {
         "schema": SCHEMA,
         "initial_capital": {"value": "100", "unit": "currency"},
+        "initial_capital_at": "2023-12-31T00:00:00Z",
         "nav": [
             {"timestamp": "2024-01-01T00:00:00Z", "nav": "100"},
             {"timestamp": "2024-01-02T00:00:00Z", "nav": "105"},
@@ -212,3 +251,49 @@ def test_frozen_adapter_rejects_malformed_and_unsupported_json(tmp_path: Path) -
     envelope.write_bytes(b"not-json")
     with pytest.raises(ValueError, match="invalid JSON"):
         evaluate_saved_performance(envelope, tmp_path / "result.json")
+
+
+def test_frozen_adapter_preserves_inputs_when_target_is_swapped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    envelope, source = _write_envelope(tmp_path)
+    output = tmp_path / "result.json"
+    replacement = tmp_path / "replacement.json"
+
+    import jusik.market_performance_metrics as metrics
+
+    original_replace = metrics.os.replace
+
+    def swap_then_replace(
+        first: str | bytes | Path, second: str | bytes | Path
+    ) -> None:
+        output.write_text("attacker-link", encoding="utf-8")
+        original_replace(first, second)
+
+    monkeypatch.setattr(metrics.os, "replace", swap_then_replace)
+    evaluate_saved_performance(envelope, output)
+    assert (
+        json.loads(output.read_text(encoding="utf-8"))["source"]["sha256"]
+        == hashlib.sha256(source.read_bytes()).hexdigest()
+    )
+    assert replacement.exists() is False
+
+
+def test_json_long_fixed_point_literal_keeps_decimal_without_float_round_trip() -> None:
+    from jusik.market_performance_metrics import _parse_json
+
+    payload = json.dumps(_payload()).replace(
+        '"value": "100"',
+        '"value": 100.123456789012345678901234567890123456789',
+    )
+    parsed = PerformanceInput.from_mapping(_parse_json(payload.encode(), "literal"))
+    assert parsed.initial_capital == Decimal(
+        "100.123456789012345678901234567890123456789"
+    )
+
+
+def test_json_recursion_is_reported_as_malformed() -> None:
+    from jusik.market_performance_metrics import _parse_json
+
+    with pytest.raises(ValueError, match="invalid JSON"):
+        _parse_json(("[" * 2_000 + "]" * 2_000).encode(), "nested")

@@ -8,10 +8,11 @@
 
 ## 변경과 결정
 
-- `backend/jusik/market_performance_metrics.py`에 total return, actual UTC calendar-day CAGR, initial-capital-inclusive MDD, daily excess-return sample Sharpe, Calmar와 MDD 20% hard filter를 추가했다.
+- `backend/jusik/market_performance_metrics.py`에 명시적 `initial_capital_at` anchor 기반 total return, actual UTC calendar-day CAGR, initial-capital-inclusive MDD, daily excess-return sample Sharpe, Calmar와 MDD 20% hard filter를 추가했다.
 - UTC 날짜 간 irregular holiday gap은 명시적 calendar/completeness evidence가 있을 때만 허용한다. missing session은 추정하지 않는다.
 - NAV가 이미 비용을 포함하므로 비용을 다시 차감하지 않는다. strict/approximate/fixture 등급은 보존하며 승격하지 않는다.
 - `backend/tests/test_market_performance_metrics.py`에 양·음수, 초기 손실, 정확한 20%, 윤년/간격, invalid NAV/date, evidence 누락, zero variance/MDD, 입력 불변, SHA와 alias guard를 추가했다.
+- JSON Decimal 숫자 파싱, bounded nested JSON, metric별 Sharpe unavailable, anchor 경계와 원자적 output 교체 회귀를 추가했다.
 
 ## 문서·계약 영향
 
