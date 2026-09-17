@@ -6,12 +6,21 @@ simulation 결과와 시간 근거 sidecar를 함께 저장하는 opt-in adapter
 engine·run·replay·readiness 저장소는 읽기만 하며, 기존 run의 날짜나 시각을
 소급 보정하지 않습니다.
 
+실행 시간 정책은 `legacy`(기본값)와 `official` 두 가지입니다. `legacy`는 기존
+engine 시각과 기존 bundle config/manifest shape를 그대로 유지합니다. `official`은
+달력의 각 bar session open/close를 engine의 event, known-bar, target, volatility
+계산에 주입하고 모든 warmup bar도 session 존재·coverage·공식 close 인과성을 먼저
+검사합니다. official manifest는 `execution_time_policy`와 현재 engine source
+SHA-256을 함께 고정하며 검증 시 둘 중 하나라도 달라지면 fail-closed합니다.
+
 생성은 반드시 `--allow-new-simulation`을 지정해야 합니다. adapter는 engine의
 `_instrument_data`와 `_events`를 먼저 고정·검사하고 public `simulate`를 한 번만
 호출합니다. 생성 디렉터리는 새 경로여야 하며 `input.json`, `config.json`, 원본
 `calendar.json` 바이트, 기존 shape의 `simulation.json`, `time-evidence.json`,
 마지막 `manifest.json`을 원자적으로 기록합니다. manifest에는 각 파일의 크기와
 SHA-256, source/event-plan SHA, 달력 payload/provider/version을 저장합니다.
+입력 JSON은 lexical token 400,000개, 파일 20 MiB, 전체 50 MiB, depth 64,
+object key 2,000개, list item 20,000개의 기존 bounded 계약을 유지합니다.
 
 초기자본 시각은 첫 engine event와 같은 UTC instant의
 `timestamp_kind=engine_event_anchor`, `logical_order=before_first_event`입니다.

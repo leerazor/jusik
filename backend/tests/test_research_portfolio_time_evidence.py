@@ -317,6 +317,36 @@ def test_generation_matches_direct_simulation_and_verify_does_not_simulate(
     assert verify_bundle(output, result.manifest_sha256).nav_count > 0
 
 
+def test_official_policy_matches_direct_engine_and_binds_engine_identity(
+    tmp_path: Path,
+) -> None:
+    source = _source()
+    candidate, config, start, end = _config()
+    calendar = load_market_calendar()
+    direct = engine.simulate(source, candidate, start, end, config, calendar=calendar)
+    output = tmp_path / "official-bundle"
+    result = generate_bundle(
+        source,
+        candidate,
+        start,
+        end,
+        config,
+        DEFAULT_CALENDAR_PATH.read_bytes(),
+        output,
+        execution_time_policy="official",
+        allow_new_simulation=True,
+    )
+    assert json.loads((output / "simulation.json").read_text()) == direct.model_dump(
+        mode="json"
+    )
+    config_payload = json.loads((output / "config.json").read_text())
+    manifest_payload = json.loads((output / "manifest.json").read_text())
+    assert config_payload["execution_time_policy"] == "official"
+    assert manifest_payload["execution_time_policy"] == "official"
+    assert manifest_payload["engine_source_sha256"] == evidence._engine_source_sha256()
+    assert verify_bundle(output, result.manifest_sha256).nav_count > 0
+
+
 def test_generation_requires_opt_in_and_bundle_is_no_overwrite(tmp_path: Path) -> None:
     source = _source()
     candidate, config, start, end = _config()
@@ -520,6 +550,21 @@ def test_json_depth_and_file_size_limits_are_bounded(
     monkeypatch.setattr(json, "loads", original_loads)
 
 
+def test_lexical_json_token_boundary_is_checked_before_materialization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    accepted = b"0." + b"0" * (evidence.MAX_JSON_TOKENS - 2)
+    assert evidence._strict_json(accepted, "token-boundary") is not None
+    rejected = b"0." + b"0" * (evidence.MAX_JSON_TOKENS - 1)
+
+    def should_not_materialize(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("json.loads must not materialize lexical overflow")
+
+    monkeypatch.setattr(json, "loads", should_not_materialize)
+    with pytest.raises(ValueError, match="too many JSON tokens"):
+        evidence._strict_json(rejected, "token-overflow")
+
+
 def test_public_generation_rejects_unbounded_calendar_before_parser(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -664,6 +709,31 @@ def test_xkrx_delayed_close_rejects_close_and_warmup_future_exposure() -> None:
         evidence._event_plan(source, delayed_day, delayed_day, calendar)
     with pytest.raises(ValueError, match="warmup bar"):
         evidence._event_plan(source, date(2023, 11, 20), date(2023, 11, 20), calendar)
+
+
+def test_xkrx_delayed_close_is_used_by_official_event_plan() -> None:
+    delayed_day = date(2024, 1, 3)
+    source = _single_bar_source(delayed_day)
+    calendar = load_market_calendar()
+    delayed_close = datetime(2024, 1, 3, 7, 30, tzinfo=UTC)
+    calendar._days["XKRX"][delayed_day] = _Day(
+        "session",
+        MarketSession(
+            "XKRX",
+            delayed_day,
+            datetime(2024, 1, 3, tzinfo=UTC),
+            delayed_close,
+        ),
+    )
+    events, _data = evidence._event_plan(
+        source,
+        delayed_day,
+        delayed_day,
+        calendar,
+        execution_time_policy="official",
+    )
+    close = next(event for event in events if event.kind == "close")
+    assert close.at == delayed_close
 
 
 def test_xkrx_and_xnys_close_groups_keep_market_times_separate(tmp_path: Path) -> None:
