@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-17T00:00:00Z
 - 작업 slug: `market-performance-metrics`
-- 기준/통합: `487d84e` / 미통합
+- 기준/구현/통합: `487d84e` / `af3b2d9` / `0ce3bf7`
 - 범위: 동결·비용 포함 NAV의 순수 Decimal 성과 평가기, SHA 고정 JSON 어댑터, 독립 oracle 테스트와 계약 문서를 추가했다. 공유 모델·전략·collector·runner·서비스·DB·설정·로드맵은 변경하지 않았다.
 
 ## 변경과 결정
@@ -25,9 +25,11 @@
 - `backend/.venv/bin/python -m pytest backend/tests/test_market_performance_metrics.py -q` — 20 passed
 - `backend/.venv/bin/python -m ruff check backend/jusik/market_performance_metrics.py backend/tests/test_market_performance_metrics.py` — 통과
 - `backend/.venv/bin/python -m ruff format --check backend/jusik/market_performance_metrics.py backend/tests/test_market_performance_metrics.py` — 통과
-- `backend/.venv/bin/python -m mypy backend/jusik/market_performance_metrics.py backend/tests/test_market_performance_metrics.py` — 통과
+- `backend/.venv/bin/python -m mypy --config-file backend/pyproject.toml backend/jusik/market_performance_metrics.py` — 통과
 - `backend/.venv/bin/python -m pytest backend/tests/test_market_loss_accounting.py backend/tests/test_market_counterfactual_comparison.py -q` — 52 passed
-- focused+compatibility pytest 합계 — 72 passed
+- main focused+compatibility pytest 합계 — 72 passed
+- `git diff --check d36df90..0ce3bf7` — 통과
+- 참고: 테스트 파일까지 직접 지정한 비표준 mypy 실행은 테스트 helper/export 접근 5건을 보고했다. production source의 configured mypy와 실행 회귀는 통과했다.
 
 ## 안전·운영 상태
 
@@ -36,5 +38,5 @@
 ## 증거와 재개
 
 - audit: 없음; manifest: 없음; hash: 소스 envelope의 SHA 검증 테스트에 포함
-- 남은 작업·차단 조건: 없음. 부모 agent의 main 통합 및 최종 회귀 검증 대기
-- 다음 시작: 부모 agent가 변경을 검토하고 main 통합 전 전체 focused 회귀를 실행한다.
+- 남은 작업·차단 조건: R1-04의 실제 기업행사 연결에는 지급일·권리수량·명시적 missing·재사용 권리 근거가 여전히 필요하다.
+- 다음 시작: 로드맵의 미완료 항목과 현재 증거를 다시 대조해, 외부 근거 없이 안전하게 진행 가능한 다음 최소 작업을 고른다.
