@@ -152,6 +152,15 @@ def test_cost_verifier_bounds_replaced_evidence_before_parse(
         evidence.verify_canonical_cost_evidence(evidence_path=replacement)
 
 
+def test_cost_verifier_reports_absent_verifier_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    missing_source = tmp_path / "missing-verifier.py"
+    monkeypatch.setattr(evidence, "__file__", str(missing_source))
+    with pytest.raises(evidence.CostEvidenceError, match="verifier_unavailable"):
+        evidence._canonical_source_hash()
+
+
 def test_canonical_artifact_paths_reject_symlinked_run(tmp_path: Path) -> None:
     link = tmp_path / "run.json"
     link.symlink_to(evidence.CANONICAL_RUN_PATH)
@@ -268,6 +277,18 @@ def test_cache_raw_replacement_cannot_escape_bound(
     raw_file.write_bytes(b"x" * (evidence.MAX_CACHE_RAW_BYTES + 1))
     monkeypatch.setattr(evidence, "CANONICAL_CACHE_DIR", cache_copy)
     with pytest.raises(evidence.CostEvidenceError, match="cache_raw_too_large"):
+        evidence._verify_cache(cache_copy)
+
+
+def test_cache_raw_absence_is_reported_by_production_consumer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache_copy = tmp_path / "cache"
+    shutil.copytree(evidence.CANONICAL_CACHE_DIR, cache_copy)
+    raw_file = next((cache_copy / "raw").iterdir())
+    raw_file.unlink()
+    monkeypatch.setattr(evidence, "CANONICAL_CACHE_DIR", cache_copy)
+    with pytest.raises(evidence.CostEvidenceError, match="cache_raw_unavailable"):
         evidence._verify_cache(cache_copy)
 
 

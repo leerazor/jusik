@@ -40,10 +40,10 @@ CANONICAL_COMPLETION_SHA256: Final = (
 # These are canonicalized hashes: the two registered hash literals are
 # replaced with zeroes before hashing this source, avoiding self-reference.
 VERIFIER_SOURCE_SHA256: Final = (
-    "8aa7f94a8fce5b61a1c44642be7d0e6cd7f0c9475ac765a7dd1b2d3780ba73c7"
+    "df05cdd4d9cbbc5620549357d043ff4d0a146c73de03f6decb7ecb676ae5c652"
 )
 CANONICAL_EVIDENCE_SHA256: Final = (
-    "865de8fe7273996d856d9b60e2c72a0e9dae20eb989e16cfe5495b31c66d945a"
+    "6f53848cefc0935f7112fa2c518606aa6e41485404456910272ef3a9511484d6"
 )
 
 CANONICAL_AUDIT_ROOT: Final = (
@@ -195,12 +195,18 @@ def _date(value: object) -> str:
     return value
 
 
-def _bounded_bytes(path: Path, limit: int, too_large_code: str) -> bytes:
+def _bounded_bytes(
+    path: Path,
+    limit: int,
+    too_large_code: str,
+    *,
+    unavailable_code: str = "source_unavailable",
+) -> bytes:
     try:
         with path.open("rb") as source:
             raw = source.read(limit + 1)
     except OSError:
-        raise CostEvidenceError("source_unavailable") from None
+        raise CostEvidenceError(unavailable_code) from None
     if len(raw) > limit:
         raise CostEvidenceError(too_large_code)
     return raw
@@ -231,7 +237,10 @@ def _digest(value: object) -> str:
 
 def _canonical_source_hash() -> str:
     raw = _bounded_bytes(
-        Path(__file__), MAX_VERIFIER_SOURCE_BYTES, "verifier_too_large"
+        Path(__file__),
+        MAX_VERIFIER_SOURCE_BYTES,
+        "verifier_too_large",
+        unavailable_code="verifier_unavailable",
     )
     text = raw.decode("utf-8")
     for literal in (VERIFIER_SOURCE_SHA256, CANONICAL_EVIDENCE_SHA256):
@@ -324,7 +333,12 @@ def _verify_cache(cache_dir: Path) -> dict[str, object]:
                 raise CostEvidenceError("unsafe_path")
             if size > MAX_CACHE_RAW_BYTES:
                 raise CostEvidenceError("cache_raw_too_large")
-            raw = _bounded_bytes(raw_path, MAX_CACHE_RAW_BYTES, "cache_raw_too_large")
+            raw = _bounded_bytes(
+                raw_path,
+                MAX_CACHE_RAW_BYTES,
+                "cache_raw_too_large",
+                unavailable_code="cache_raw_unavailable",
+            )
         except OSError:
             raise CostEvidenceError("cache_raw_unavailable") from None
         if len(raw) != size or hashlib.sha256(raw).hexdigest() != content_sha:

@@ -26,7 +26,9 @@ adapter 출력은 `r2-canonical-nav-evidence-connection/v1` 결정적 envelope�
 
 adapter가 호출하는 session/cost verifier는 run, manifest, calendar, dataset, evidence, cache 파일을 모두 `limit+1` bounded read로 확인한 뒤 해시·구조 검증을 진행합니다. 초과 시 `manifest_too_large`, `calendar_too_large`, `dataset_too_large`, `evidence_too_large`, `cache_*_too_large`로 fail-closed 합니다. 기존 cost verifier의 self-pinned source/evidence chain은 새 source/evidence SHA로 갱신해 실제 consumer에서 비용 chain을 bounded하게 검사합니다.
 
-현재 cost verifier source SHA는 `8aa7f94a8fce5b61a1c44642be7d0e6cd7f0c9475ac765a7dd1b2d3780ba73c7`, tracked cost evidence bytes SHA는 `865de8fe7273996d856d9b60e2c72a0e9dae20eb989e16cfe5495b31c66d945a`입니다. evidence 안의 run·dataset·manifest·cache artifact SHA와 106 trade/252 session accounting digest는 그대로 유지됩니다.
+검증기 source 부재는 `verifier_unavailable`, cache raw chain member 부재는 `cache_raw_unavailable`로 구분해 fail-closed 합니다.
+
+현재 cost verifier source SHA는 `df05cdd4d9cbbc5620549357d043ff4d0a146c73de03f6decb7ecb676ae5c652`, tracked cost evidence bytes SHA는 `6f53848cefc0935f7112fa2c518606aa6e41485404456910272ef3a9511484d6`입니다. evidence 안의 run·dataset·manifest·cache artifact SHA와 106 trade/252 session accounting digest는 그대로 유지됩니다.
 
 CLI는 다음처럼 실행하며 성공은 0, 잔차 실패는 1, 고정 근거·구조·identity 검증 실패는 2입니다.
 
