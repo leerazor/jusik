@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-18T00:00:00Z
 - 작업 slug: `forward-simulation-time-evidence-run`
-- 기준/통합: `818120c92aea5aa929a77c1329a96c827d89c1c7` / 통합 전
+- 기준/통합: `818120c92aea5aa929a77c1329a96c827d89c1c7` / `d34f1ad381c32f1981a5d0f757ebbee9dcbec993`
 - 범위: 고정 historical input과 tracked official calendar로 새 offline time-evidence bundle 하나를 생성·검증했습니다. 기존 canonical run과 readiness는 변경하지 않았습니다.
 
 ## 변경과 결정
@@ -28,6 +28,8 @@
 - `backend/.venv/bin/ruff format --check backend/jusik/research_portfolio_time_evidence.py backend/jusik/research_portfolio_time_models.py backend/tests/test_research_portfolio_time_evidence.py` — 3 files already formatted.
 - `PYTHONPATH=. backend/.venv/bin/python -m mypy --strict backend/jusik/research_portfolio_time_evidence.py backend/jusik/research_portfolio_time_models.py` — Success, no issues found in 2 source files.
 - `git diff --check` — 통과.
+- local `main`에서 pinned manifest verify와 time-evidence pytest 20개, `git diff --check`가 통과했습니다.
+- Terra 독립 review — P1/P2 없음, PASS. source/config/request derivation, artifact set/hash/size, 단일 generation, verify 무실행, UTC 인과와 제한 표기를 재검토했습니다.
 
 ## 안전·운영 상태
 
@@ -38,4 +40,4 @@
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/forward-simulation-time-evidence-run/run-gr68c4`; bundle manifest SHA-256 `eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b`; 독립 검증 SHA는 audit `independent-validation.json`에 보존했습니다.
 - 남은 작업·차단 조건: 이 실행 범위에는 없음. 자료의 historical/PIT 한계와 economic evidence·readiness 미연결은 유지합니다.
-- 다음 시작: 별도 승인과 별도 source evidence 없이는 이 bundle을 prospective 또는 canonical 근거로 재해석하지 않습니다.
+- 다음 시작: 이 bundle의 timestamp/NAV/cost identity를 성과 입력 계약에 연결할 수 있는지 조사하되, KOFR 부재 시 Sharpe는 unavailable로 유지하고 prospective/canonical 승격은 금지합니다.

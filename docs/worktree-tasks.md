@@ -20,11 +20,11 @@
 
 ## forward-simulation-time-evidence-run
 
-- 상태: 진행. 선행 calendar-aware timing과 bounded input 지원이 통합되어 동일 고정 입력의 단일 bundle 생성을 준비합니다.
+- 상태: 완료. 동일 고정 입력과 official timing으로 새 historical time-evidence bundle을 정확히 한 번 생성·검증했습니다.
 - 목표와 완료 조건: 기존 승인된 입력·정책·달력만 사용한 bounded simulation을 정확히 한 번 실행하고, 새 audit 경로의 bundle/manifest/SHA를 검증합니다. 기존 canonical run은 수정하지 않으며 readiness 연결 여부는 별도 판정합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 실행/필요한 최소 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-forward-simulation-time-evidence-run` / `feat/forward-simulation-time-evidence-run`.
-- 기준/통합: 다음 준비 커밋 / local `main`.
+- 기준/통합: `818120c92aea5aa929a77c1329a96c827d89c1c7` / local `main` merge `d34f1ad381c32f1981a5d0f757ebbee9dcbec993`.
 - 입력과 선행 작업: `research_portfolio_time_evidence.py`, 현재 mandate/governance, 고정 `PortfolioInput`·simulation config·공식 calendar, 기존 time-evidence 계약.
 - 수정 허용: 실행 요청 artifact, 격리 audit bundle, 검증/연결에 필요한 최소 adapter·tests·계약 문서·개발 기록. 등록부와 handoff는 Astra만 수정합니다.
 - 금지: 기존 canonical run/artifact 수정, 자동 runner resume, 네트워크 수집, KOFR 재요청, PAPER/live/주문/운영 DB/service/config/remote 변경, 자동 성과 승격.
@@ -32,6 +32,10 @@
 - 검증: 입력 SHA·정책 identity·단일 simulate 호출·UTC 인과·manifest 전체 파일 SHA·결정성·no-overwrite·독립 review·main 영향 검사를 요구합니다.
 - 차단 근거: source manifest SHA `1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825`, calendar SHA `ba26619a27e066ca32b1aaaf3b7da2b99f0c6658f731a000c5095c057081c1d8`; frozen input 4,557,232 bytes/324,691 lexical tokens, 11,321 bars/7,946 external observations. bundle·request·simulation은 생성하지 않았습니다.
 - 재개 조건: 충족. `portfolio-calendar-aware-time-input`이 `81a7377a8a52568dc4d7d9b508138f1959595d76`에 통합되고 fixed input preflight가 통과했습니다. 다음 단계는 새 경로의 단일 generate입니다.
+- 결과: Luna 문서 커밋 `d1dd68b2928c00bec0f94bab76316061ce6fca60`, Terra review PASS(P1/P2 없음). bundle manifest SHA는 `eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b`입니다.
+- 실행: generation 1회/exit0/2.75초/132,416KiB, verify 1회/exit0/simulation0회. event 16,824, NAV 1,172, trade 171이며 official UTC 인과가 통과했습니다.
+- 제한: historical/approximate technical evidence입니다. prospective/PIT/canonical/R4 경제 근거, 성과 계산, readiness 승격이 아닙니다.
+- 정리·기록: 통합 검증 후 전용 worktree와 branch를 제거합니다. 개발 기록은 `docs/development-records/2026-09-18-forward-simulation-time-evidence-run.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## market-research-mandate-digest-repair
 
