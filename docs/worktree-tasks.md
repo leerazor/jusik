@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## r2-canonical-nav-reconciliation-decision
+
+- 상태: 계획. 기존 canonical 증거가 `R2-05`의 정확한 기술 조건을 충족하는지 판정하고 roadmap·계약·개발 기록의 의미를 일치시킵니다.
+- 목표와 완료 조건: 고정 XNYS 기간의 expected/observed 252/252 ordered sessions와 각 세션 NAV residual 0 KRW를 기존 evidence chain으로 재검증한 뒤, `R2-05`만 canonical approximate 기술 pass로 기록할 수 있는지 결정합니다.
+- 담당: Astra 감독·계획·통합, 필요 시 Luna 문서 구현, Terra 독립 review.
+- 워크트리/브랜치: 계획 후 확정 / `docs/r2-canonical-nav-reconciliation-decision` 예정.
+- 입력과 선행 작업: `r2-canonical-nav-evidence-connection`, R0 session/cost evidence, R2-05 정확한 roadmap 문구, generic/canonical NAV reconciliation 계약.
+- 수정 허용: roadmap의 R2-05 판정·증거 문구, NAV reconciliation 계약 문서, 신규 개발 기록과 focused contract/parser test가 필요할 때만 해당 테스트. 등록부와 handoff는 Astra만 수정합니다.
+- 금지: R2-01/02/03/04/06 또는 R2 전체 완료 주장, 배당·FX·실제 비용/세율·timestamp·risk-free·benchmark·미래 검증 추정, 성과 재계산, canonical artifact 변경, 연구/runner/PAPER/live/주문/DB/service/config/remote 변경.
+- 중단 조건: `모든 거래일`을 fixed XNYS expected sessions로 해석할 수 없거나 residual 근거가 저장된 구성요소 자기일관성 이상을 주장해야 하면 체크하지 않고 기존 제한을 유지합니다.
+- 검증·결과·개발 기록·handoff: 계획·독립 판정 후 갱신합니다.
+
 ## r2-canonical-nav-evidence-connection
 
 - 상태: 완료. canonical 전용 adapter와 좁은 session evidence verifier를 local `main`에 통합했습니다.
