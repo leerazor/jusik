@@ -11,6 +11,7 @@
 - `market_performance_readiness.py`에 `verify_canonical_session_evidence()`를 추가했습니다. 고정 run/evidence/manifest/calendar와 기간을 기존 private schema·canonical·session validator로 검증하고 identity/session facts만 반환합니다. whole readiness, policy, cost verifier를 호출하지 않습니다.
 - `research_canonical_nav_reconciliation.py`는 고정 canonical run bytes를 bounded-read하고 `reconcile_json_bytes()`를 실행한 뒤 session verifier와 modeled-cost verifier를 각각 한 번 호출합니다. run·manifest·period·ordered 252 sessions·dataset SHA·106 trades·252 NAV를 fail-closed로 교차 결속합니다.
 - envelope의 `residual`은 기존 행·잔차·실패 날짜를 보존합니다. `canonical.coverage`에서만 calendar·independent modeled accounting·KRW NAV source를 verified로 표시하고, `projection.digest`와 `accounting.digest`를 분리해 기록합니다.
+- review 보완으로 session verifier의 symlink/path alias를 거부하고, readiness manifest/calendar와 adapter가 접근하는 cost-chain 파일을 artifact별 `limit+1` bounded-read로 선검사했습니다. 기존 self-pinned cost verifier와 canonical evidence bytes는 재작성하지 않았습니다.
 
 ## 문서·계약 영향
 

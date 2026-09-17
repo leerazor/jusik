@@ -380,6 +380,31 @@ def test_size_limit_and_cli_are_read_only_and_deterministic(
     assert error.value.code == "source_too_large"
 
 
+@pytest.mark.parametrize(
+    ("reader", "limit", "code"),
+    [
+        ("manifest", readiness.MAX_MANIFEST_BYTES, "manifest_too_large"),
+        ("calendar", readiness.MAX_CALENDAR_BYTES, "calendar_too_large"),
+    ],
+)
+def test_canonical_artifact_reads_are_bounded(
+    tmp_path: Path, reader: str, limit: int, code: str
+) -> None:
+    path = tmp_path / f"{reader}.json"
+    path.write_bytes(b"x" * (limit + 1))
+    with pytest.raises(ReadinessInputError) as error:
+        if reader == "manifest":
+            readiness._read_manifest(
+                path,
+                CANONICAL_RUN_PATH,
+                CANONICAL_RUN_SHA256,
+                ("2025-09-11", "2026-09-11"),
+            )
+        else:
+            readiness._read_tracked_calendar(path)
+    assert error.value.code == code
+
+
 def test_canonical_session_evidence_removes_exactly_four_codes_and_is_deterministic(
     tmp_path: Path,
 ) -> None:

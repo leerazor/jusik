@@ -65,6 +65,8 @@ TRACKED_CALENDAR_PATH: Final = (
 )
 MAX_SOURCE_BYTES: Final = 10 * 1024 * 1024
 MAX_EVIDENCE_BYTES: Final = 1 * 1024 * 1024
+MAX_MANIFEST_BYTES: Final = 1 * 1024 * 1024
+MAX_CALENDAR_BYTES: Final = 4 * 1024 * 1024
 MAX_NAV_POINTS: Final = 5_000
 MISSING_CODES: Final = (
     "missing_initial_capital_at",
@@ -568,9 +570,12 @@ def _read_manifest(
     expected_period: tuple[str, str],
 ) -> str:
     try:
-        raw = path.read_bytes()
+        with path.open("rb") as source:
+            raw = source.read(MAX_MANIFEST_BYTES + 1)
     except OSError:
         raise ReadinessInputError("manifest_unavailable") from None
+    if len(raw) > MAX_MANIFEST_BYTES:
+        raise ReadinessInputError("manifest_too_large")
     actual = hashlib.sha256(raw).hexdigest()
     if actual != CANONICAL_MANIFEST_SHA256:
         raise ReadinessInputError("manifest_sha_mismatch")
@@ -611,9 +616,12 @@ def _read_manifest(
 def _read_tracked_calendar(path: Path | None = None) -> dict[str, object]:
     calendar_path = path or TRACKED_CALENDAR_PATH
     try:
-        raw = calendar_path.read_bytes()
+        with calendar_path.open("rb") as source:
+            raw = source.read(MAX_CALENDAR_BYTES + 1)
     except OSError:
         raise ReadinessInputError("calendar_unavailable") from None
+    if len(raw) > MAX_CALENDAR_BYTES:
+        raise ReadinessInputError("calendar_too_large")
     if hashlib.sha256(raw).hexdigest() != CALENDAR_BYTES_SHA256:
         raise ReadinessInputError("calendar_sha_mismatch")
     try:
@@ -1146,7 +1154,7 @@ def verify_canonical_session_evidence(
     canonical NAV adapter; generic readiness semantics remain unchanged.
     """
 
-    if run_path.resolve() != CANONICAL_RUN_PATH.resolve():
+    if run_path.is_symlink() or run_path.resolve() != CANONICAL_RUN_PATH.resolve():
         raise ReadinessInputError("canonical_run_path_required")
     payload, source_sha256 = _read_source(run_path, CANONICAL_RUN_SHA256)
     request, result, readiness = _validate_run(payload)
