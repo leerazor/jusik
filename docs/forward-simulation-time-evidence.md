@@ -63,3 +63,26 @@ manifest SHA-256은
 point-in-time·prospective·canonical 또는 R4 economic evidence가 아닙니다.
 성과 지표·readiness·PAPER/live 설정을 만들거나 승격하지 않으며, 원자료의
 시각·완전성·배당·생존자 편향 한계도 해결하지 않습니다.
+
+## 독립 modeled accounting contract
+
+`backend/jusik/research_portfolio_accounting_evidence.py`는 위 bundle의 여섯
+파일을 읽기 전용으로 검증하고 strategy·engine·replay·broker·collector·DB·network
+없이 초기 KRW 현금과 0 보유에서 원장을 재구성합니다. 공식 sidecar의 모든 close
+group과 calendar session을 독립적으로 결속하고 warmup raw bars도 세션 존재를
+확인합니다. open split action과 fractional cash-in-lieu를 먼저 적용한 뒤 저장
+체결을 매도·symbol 순·매수·symbol 순으로 적용하고 as-of USD/KRW와 raw marks로
+각 stored cash/equity와 sidecar NAV를 대조합니다.
+
+고정 v1은 manifest SHA, 171 trades, 1,172 NAV, official timing과 current engine
+source SHA를 요구합니다. Decimal precision 40에서 open/slippage, notional, fee,
+FX spread/cost, oversell·cash·terminal positions/marks를 검증하며 잔차 허용치는
+`1e-24 KRW`입니다. manifest/artifact SHA·size, 중복 key, 비유한 수, JSON depth/
+collection/lexical/byte 한도, symlink·path escape·file replacement는 fail-closed로
+처리합니다. 성공 보고서는 `portfolio-modeled-accounting-evidence/v1`,
+`grade=approximate`, `economic_evaluation=not-evaluated`를 유지합니다.
+
+이는 modeled transaction fee/slippage/FX spread의 기술적 대사일 뿐 법정 원가·세금·
+배당·실제 FX·입출금·체결 의도·point-in-time 자료·경제적 성과를 증명하지 않습니다.
+intraday chronology는 보존하지만 daily sampling, metrics 계산 또는 readiness 승격은
+수행하지 않습니다.
