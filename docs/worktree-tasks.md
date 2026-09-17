@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## r2-canonical-nav-evidence-connection
+
+- 상태: 준비. 이후 추가된 canonical 252/252 session evidence와 106체결·252 NAV modeled-cost ledger를 기존 R2 NAV reconciliation 진단에 연결합니다.
+- 목표와 완료 조건: 동일 run/dataset/기간/SHA임을 먼저 증명하고, canonical 경로에서만 calendar와 independent modeled-accounting availability를 검증된 사실로 바꿉니다. 일반 입력 판정과 residual·누락·경제 평가 의미는 보존합니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: 조사·계획 후 확정 / `feat/r2-canonical-nav-evidence-connection` 예정.
+- 입력과 선행 작업: `research_nav_reconciliation.py`, R0 session evidence, R0 modeled-cost evidence, frozen canonical manifest/run, 기존 drawdown chronology 진단.
+- 수정 허용: 조사·계획에서 정한 canonical evidence adapter/검증 연결, focused tests, R2 계약 문서·개발 기록. 등록부는 Astra만 수정합니다.
+- 금지: 배당 완전성·실제 비용/세율 타당성 주장, latch/release·benchmark·미래 관찰 합성, 기존 canonical 수정·성과 재계산, strategy/runner/PAPER/live/주문/운영 DB/service/config/remote 변경.
+- 중단 조건: 두 R0 evidence가 R2 대상과 동일 SHA·기간·NAV를 증명하지 못하거나 unavailable 항목을 검증 없이 제거해야 하면 통합하지 않습니다.
+- 검증·결과·개발 기록·handoff: 조사·계획 후 갱신합니다.
+
 ## r1-corporate-action-accounting-readiness
 
 - 상태: 차단. 현재 고정 자료는 배당 유효·지급 경계와 확정 권리수량을 증명하지 못하며, 기존 회계 엔진·artifact adapter가 누락·중복·실패 상태를 이미 fail-closed로 보존하므로 중복 구현하지 않습니다.
