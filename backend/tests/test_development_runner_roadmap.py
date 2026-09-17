@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -79,6 +81,46 @@ def _tracked_repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "add", "."], cwd=repo, check=True)
     subprocess.run(["git", "commit", "-qm", "initial"], cwd=repo, check=True)
     return repo
+
+
+def _make_self_consistent_governance_swap(repo: Path, enabled: bool) -> None:
+    mandate = repo / "docs" / "research-mandate.json"
+    current = b"true" if enabled is False else b"false"
+    raw = mandate.read_bytes().replace(
+        b'"dispatch_enabled": ' + current,
+        b'"dispatch_enabled": ' + (b"true" if enabled else b"false"),
+    )
+    mandate.write_bytes(raw)
+    full_digest = hashlib.sha256(raw).hexdigest()
+    governance = json.loads(raw)["governance"]
+    governance_digest = hashlib.sha256(
+        json.dumps(
+            governance, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
+    marker = repo / "docs" / "research-mandate.md"
+    marker.write_text(
+        re.sub(
+            r"(?<=SHA-256은 `)[0-9a-f]{64}",
+            full_digest,
+            marker.read_text(encoding="utf-8"),
+            count=1,
+        ),
+        encoding="utf-8",
+    )
+    hashes = repo / "docs" / "market-research-mandate.sha256"
+    lines: list[str] = []
+    for line in hashes.read_text(encoding="utf-8").splitlines():
+        path = line.split()[0]
+        if path == "docs/research-mandate.json":
+            lines.append(f"{path} {full_digest}")
+        elif path == "docs/research-mandate.json#governance-object":
+            lines.append(f"{path} {governance_digest}")
+        elif path == "docs/research-mandate.md":
+            lines.append(f"{path} {hashlib.sha256(marker.read_bytes()).hexdigest()}")
+        else:
+            lines.append(line)
+    hashes.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def test_roadmap_areas_are_lowercase_and_gates_are_independent(tmp_path: Path) -> None:
@@ -311,3 +353,91 @@ def test_disabled_governance_blocks_run_resume_and_cli_without_state_mutation(
     assert store.is_paused()
     assert main(["resume", "--config", str(config_path)]) == 2
     assert store.is_paused()
+
+
+def test_dirty_governance_swap_blocks_queued_task_before_claim(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from jusik import development_runner
+
+    repo = _tracked_repo(tmp_path)
+    _make_self_consistent_governance_swap(repo, True)
+    subprocess.run(["git", "add", "docs"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "enable governance"], cwd=repo, check=True)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+        cooldown_seconds=0,
+    )
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    store.enqueue("roadmap-r1-01-v1", "r1-01", "seed")
+    before_tasks = store.tasks()
+    original_ready = development_runner._git_ready
+    calls = 0
+
+    def swap_after_initial_gate(repo_path: Path) -> tuple[bool, str]:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            _make_self_consistent_governance_swap(repo_path, False)
+        return original_ready(repo_path)
+
+    monkeypatch.setattr(development_runner, "_git_ready", swap_after_initial_gate)
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    assert result.reason == "investment roadmap worktree is not ready"
+    assert store.tasks() == before_tasks
+    assert store.active_attempt() is None
+    assert store.launch_count("2099-01-01") == 0
+    assert not (config.state_dir / "attempts").exists()
+
+
+def test_dirty_governance_swap_blocks_planner_before_enqueue(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from jusik import development_runner
+
+    repo = _tracked_repo(tmp_path)
+    _make_self_consistent_governance_swap(repo, True)
+    subprocess.run(["git", "add", "docs"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "enable governance"], cwd=repo, check=True)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+        planning_enabled=True,
+        cooldown_seconds=0,
+    )
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    before_tasks = store.tasks()
+    original_ready = development_runner._git_ready
+    calls = 0
+
+    def swap_after_initial_gate(repo_path: Path) -> tuple[bool, str]:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            _make_self_consistent_governance_swap(repo_path, False)
+        return original_ready(repo_path)
+
+    monkeypatch.setattr(development_runner, "_git_ready", swap_after_initial_gate)
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    assert result.reason == "investment roadmap worktree is not ready"
+    assert store.tasks() == before_tasks
+    assert store.active_attempt() is None
+    assert store.launch_count("2099-01-01") == 0
+    assert not (config.state_dir / "attempts").exists()

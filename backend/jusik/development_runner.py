@@ -612,13 +612,21 @@ def _research_snapshot(store: RunnerStore) -> list[tuple[str, str, str | None]]:
     )
 
 
-def _tracked_research_mandate(repo: Path) -> str | None:
+def _tracked_research_mandate(
+    repo: Path, expected_digest: str | None = None
+) -> str | None:
     """Read the current tracked mandate for planner context."""
     path = repo / "docs" / "research-mandate.json"
     if not path.is_file() or path.is_symlink():
         return None
     try:
-        content = path.read_text(encoding="utf-8")
+        raw = path.read_bytes()
+        if (
+            expected_digest is not None
+            and hashlib.sha256(raw).hexdigest() != expected_digest
+        ):
+            return None
+        content = raw.decode("utf-8")
         mandate = json.loads(content)
         if not isinstance(
             mandate, dict
@@ -629,6 +637,18 @@ def _tracked_research_mandate(repo: Path) -> str | None:
         return None
     except json.JSONDecodeError:
         return None
+
+
+def _roadmap_dispatch_gate(
+    repo: Path, expected_digest: str | None = None
+) -> ValidatedMandate:
+    ready, _ = _git_ready(repo)
+    if not ready:
+        raise MandateGovernanceError("investment roadmap worktree is not ready")
+    current = validate_dispatch_gate(repo)
+    if expected_digest is not None and current.digest != expected_digest:
+        raise MandateGovernanceError("mandate governance changed")
+    return current
 
 
 def _roadmap_documents_ready(repo: Path) -> tuple[bool, str]:
@@ -698,6 +718,8 @@ def _planning_task(
                 else None
             )
         task_id = planner_task_id(digest)
+        if mandate_digest is not None:
+            _roadmap_dispatch_gate(repo, mandate_digest)
         store.enqueue(
             task_id,
             PLANNING_AREA,
@@ -821,19 +843,17 @@ def _run_planning(
     task, digest, snapshot = candidate
     if config.scope == ROADMAP_SCOPE:
         try:
-            current_mandate = validate_dispatch_gate(config.repo)
+            _roadmap_dispatch_gate(config.repo, mandate_digest)
         except MandateGovernanceError as exc:
             return RunResult("blocked", task.id, reason=str(exc))
-        if mandate_digest != current_mandate.digest:
-            return RunResult("blocked", task.id, reason="mandate governance changed")
     attempt_id = uuid.uuid4().hex
-    attempt_dir = config.state_dir / "attempts" / attempt_id
-    _secure_dir(attempt_dir)
-    output_path = attempt_dir / "planning.json"
-    stderr_path = attempt_dir / "stderr.log"
-    stdout_path = attempt_dir / "stdout.jsonl"
     main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
-    mandate = _tracked_research_mandate(config.repo)
+    mandate = _tracked_research_mandate(
+        config.repo,
+        mandate_digest if config.scope == ROADMAP_SCOPE else None,
+    )
+    if config.scope == ROADMAP_SCOPE and mandate is None:
+        return RunResult("blocked", task.id, reason="mandate governance changed")
     mandate_context = (
         "Current tracked mandate (docs/research-mandate.json) supersedes all older "
         "mandate text in this queued task and prompt:\n"
@@ -879,13 +899,21 @@ def _run_planning(
         "must remain on-demand, fixed-input/seed/bounds with CPU parity and no "
         "promotion of approximate results."
     )
+    if config.scope == ROADMAP_SCOPE:
+        try:
+            _roadmap_dispatch_gate(config.repo, mandate_digest)
+        except MandateGovernanceError as exc:
+            return RunResult("blocked", task.id, reason=str(exc))
+    attempt_dir = config.state_dir / "attempts" / attempt_id
+    _secure_dir(attempt_dir)
+    output_path = attempt_dir / "planning.json"
+    stderr_path = attempt_dir / "stderr.log"
+    stdout_path = attempt_dir / "stdout.jsonl"
     _write_private(attempt_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     try:
         if config.scope == ROADMAP_SCOPE:
-            current_mandate = validate_dispatch_gate(config.repo)
-            if mandate_digest != current_mandate.digest:
-                raise MandateGovernanceError("mandate governance changed")
+            _roadmap_dispatch_gate(config.repo, mandate_digest)
         store.claim(
             task,
             attempt_id,
@@ -896,6 +924,9 @@ def _run_planning(
         )
         _safe_history_flush(store, config)
     except MandateGovernanceError as exc:
+        for path in attempt_dir.iterdir():
+            path.unlink()
+        attempt_dir.rmdir()
         return RunResult("blocked", task.id, reason=str(exc))
     except ValueError:
         return RunResult("idle")
@@ -1276,9 +1307,12 @@ def run_once(
                     return RunResult("blocked", reason=str(exc))
                 if current_governance.digest != governance.digest:
                     return RunResult("blocked", reason="mandate governance changed")
-                candidate = _planning_task(
-                    store, config.repo, config.scope, governance.digest
-                )
+                try:
+                    candidate = _planning_task(
+                        store, config.repo, config.scope, governance.digest
+                    )
+                except MandateGovernanceError as exc:
+                    return RunResult("blocked", reason=str(exc))
             else:
                 candidate = _planning_task(store, config.repo, config.scope)
             if candidate is None:
@@ -1320,6 +1354,18 @@ def run_once(
         roadmap_prompt_text = ""
         if roadmap is not None:
             try:
+                if governance is None:
+                    return RunResult(
+                        "blocked", task.id, reason="mandate governance is unavailable"
+                    )
+                _roadmap_dispatch_gate(config.repo, governance.digest)
+                mandate_snapshot = _tracked_research_mandate(
+                    config.repo, governance.digest
+                )
+                if mandate_snapshot is None:
+                    return RunResult(
+                        "blocked", task.id, reason="mandate governance changed"
+                    )
                 if task.area.lower() not in roadmap.by_id:
                     raise RoadmapError("queued roadmap area is not tracked")
                 if roadmap.by_id[task.area.lower()].complete:
@@ -1327,9 +1373,9 @@ def run_once(
                 roadmap_prompt_text = roadmap_prompt(
                     task.area.lower(),
                     roadmap.by_id[task.area.lower()],
-                    _tracked_research_mandate(config.repo),
+                    mandate_snapshot,
                 )
-            except RoadmapError as exc:
+            except (MandateGovernanceError, RoadmapError) as exc:
                 return RunResult("blocked", task.id, reason=str(exc))
         try:
             if config.scope == ROADMAP_SCOPE:
@@ -1348,11 +1394,6 @@ def run_once(
                 "blocked", task.id, reason="artifact directory unavailable"
             )
         attempt_id = uuid.uuid4().hex
-        attempt_dir = config.state_dir / "attempts" / attempt_id
-        _secure_dir(attempt_dir)
-        output_path = attempt_dir / "completion.json"
-        stderr_path = attempt_dir / "stderr.log"
-        stdout_path = attempt_dir / "stdout.jsonl"
         previous = task.last_attempt_id or "none"
         prompt = (
             f"Task id: {task.id}\nAttempt id: {attempt_id}\n"
@@ -1364,9 +1405,31 @@ def run_once(
             "and report tests_passed, review_passed, integrated_commit, and "
             f"handoff_path.\n\n{RUNTIME_PROMPT_SUFFIX}"
         )
+        if roadmap is not None:
+            try:
+                _roadmap_dispatch_gate(
+                    config.repo, governance.digest if governance else None
+                )
+            except MandateGovernanceError as exc:
+                return RunResult("blocked", task.id, reason=str(exc))
+        attempt_dir = config.state_dir / "attempts" / attempt_id
+        _secure_dir(attempt_dir)
+        output_path = attempt_dir / "completion.json"
+        stderr_path = attempt_dir / "stderr.log"
+        stdout_path = attempt_dir / "stdout.jsonl"
         _write_private(attempt_dir / "prompt.txt", prompt.encode())
         _write_private(stdout_path, b"")
-        store.claim(task, attempt_id, output_path, stderr_path, now.isoformat())
+        try:
+            if roadmap is not None:
+                _roadmap_dispatch_gate(
+                    config.repo, governance.digest if governance else None
+                )
+            store.claim(task, attempt_id, output_path, stderr_path, now.isoformat())
+        except MandateGovernanceError as exc:
+            for path in attempt_dir.iterdir():
+                path.unlink()
+            attempt_dir.rmdir()
+            return RunResult("blocked", task.id, reason=str(exc))
         _safe_history_flush(store, config)
         schema_path = attempt_dir / "completion.schema.json"
         _write_private(
@@ -1514,15 +1577,10 @@ def run_once(
                         "mandate governance is unavailable",
                     )
                 try:
-                    current_governance = validate_dispatch_gate(config.repo)
+                    _roadmap_dispatch_gate(config.repo, governance.digest)
                 except MandateGovernanceError as exc:
                     _safe_history_flush(store, config)
                     return RunResult("blocked", task.id, attempt_id, str(exc))
-                if current_governance.digest != governance.digest:
-                    _safe_history_flush(store, config)
-                    return RunResult(
-                        "blocked", task.id, attempt_id, "mandate governance changed"
-                    )
             pending = [
                 item
                 for item in store.tasks()
@@ -1552,11 +1610,29 @@ def run_once(
                     except RoadmapError:
                         area = None
                     if area is not None:
+                        mandate_snapshot = _tracked_research_mandate(
+                            config.repo, governance.digest if governance else None
+                        )
+                        if mandate_snapshot is None:
+                            _safe_history_flush(store, config)
+                            return RunResult(
+                                "blocked",
+                                task.id,
+                                attempt_id,
+                                "mandate governance changed",
+                            )
                         followup_prompt = roadmap_prompt(
                             area,
                             current_roadmap.by_id[area],
-                            _tracked_research_mandate(config.repo),
+                            mandate_snapshot,
                         )
+                        try:
+                            _roadmap_dispatch_gate(
+                                config.repo, governance.digest if governance else None
+                            )
+                        except MandateGovernanceError as exc:
+                            _safe_history_flush(store, config)
+                            return RunResult("blocked", task.id, attempt_id, str(exc))
                         store.enqueue(
                             completion.followup.id,
                             area,

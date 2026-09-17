@@ -8,7 +8,7 @@
 
 ## 변경과 결정
 
-- `backend/jusik/research_mandate_governance.py`가 중복 key, strict type, descriptor 기반 regular-file, JSON·Markdown·manifest hash, 정책 version 및 roadmap marker를 검증합니다. 기존 historical JSON hash는 유지하고 `docs/research-mandate.json#governance` projection을 별도 검증합니다.
+- `backend/jusik/research_mandate_governance.py`가 중복 key, strict type, descriptor 기반 regular-file, 현재 JSON 전체 bytes hash, immutable legacy execution projection, canonical governance-object projection, JSON·Markdown hash, 정책 version 및 roadmap marker를 검증합니다. 기존 historical JSON hash는 market-research consumer와 별도 identity로 유지합니다.
 - `dispatch_enabled=false`인 tracked governance를 유지해 실제 자동 실행은 비활성 상태입니다. roadmap planner fingerprint에는 검증된 mandate digest를 포함하고 enqueue 직전에 재검증합니다.
 - 전체 roadmap SHA는 JSON governance에 복사하지 않습니다.
 
@@ -20,7 +20,7 @@
 
 ## 검증
 
-- `PYTHONPATH=. backend/.venv/bin/python -m pytest backend/tests/test_research_mandate_governance.py backend/tests/test_development_runner.py backend/tests/test_development_runner_planning.py backend/tests/test_development_runner_roadmap.py backend/tests/test_market_history_approximate.py backend/tests/test_market_research.py backend/tests/test_market_research_replay.py -q` — 183 passed.
+- `PYTHONPATH=. backend/.venv/bin/python -m pytest backend/tests/test_research_mandate_governance.py backend/tests/test_development_runner.py backend/tests/test_development_runner_planning.py backend/tests/test_development_runner_roadmap.py backend/tests/test_market_history_approximate.py backend/tests/test_market_research.py backend/tests/test_market_research_replay.py -q` — 189 passed.
 - `backend/.venv/bin/ruff check ...` 및 `ruff format --check ...` — 통과.
 - `PYTHONPATH=. backend/.venv/bin/python -m mypy --strict ...` — 통과.
 - JSON/Markdown/checksum/policy marker 보존 검사와 `git diff --check` — 통과.

@@ -11,7 +11,8 @@ from typing import Any
 import pytest
 
 from jusik.research_mandate_governance import (
-    GOVERNANCE_MANDATE_HASH_KEY,
+    GOVERNANCE_PROJECTION_HASH_KEY,
+    LEGACY_EXECUTION_HASH_KEY,
     LEGACY_MANDATE_JSON_SHA256,
     MandateGovernanceError,
     validate_dispatch_gate,
@@ -48,7 +49,14 @@ def _rewrite_json(repo: Path, mutate: Callable[[dict[str, Any]], None]) -> None:
 
 def _refresh_json_hash(repo: Path) -> None:
     path = repo / "docs" / "research-mandate.json"
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    governance = json.loads(raw)["governance"]
+    governance_digest = hashlib.sha256(
+        json.dumps(
+            governance, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
     marker = repo / "docs" / "research-mandate.md"
     text = marker.read_text(encoding="utf-8")
     import re
@@ -59,9 +67,13 @@ def _refresh_json_hash(repo: Path) -> None:
     lines = []
     for line in hashes.read_text(encoding="utf-8").splitlines():
         lines.append(
-            f"docs/research-mandate.json#governance {digest}"
-            if line.startswith("docs/research-mandate.json#governance ")
-            else line
+            f"docs/research-mandate.json {digest}"
+            if line.startswith("docs/research-mandate.json ")
+            else (
+                f"{GOVERNANCE_PROJECTION_HASH_KEY} {governance_digest}"
+                if line.startswith(f"{GOVERNANCE_PROJECTION_HASH_KEY} ")
+                else line
+            )
         )
     hashes.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -75,8 +87,17 @@ def test_validates_additive_governance_and_disabled_dispatch(tmp_path: Path) -> 
     manifest = (repo / "docs" / "market-research-mandate.sha256").read_text(
         encoding="utf-8"
     )
-    assert f"docs/research-mandate.json {LEGACY_MANDATE_JSON_SHA256}" in manifest
-    assert f"{GOVERNANCE_MANDATE_HASH_KEY} {result.digest}" in manifest
+    assert f"docs/research-mandate.json {result.digest}" in manifest
+    assert f"{LEGACY_EXECUTION_HASH_KEY} {LEGACY_MANDATE_JSON_SHA256}" in manifest
+    governance = json.loads(
+        (repo / "docs" / "research-mandate.json").read_text(encoding="utf-8")
+    )["governance"]
+    governance_digest = hashlib.sha256(
+        json.dumps(
+            governance, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
+    assert f"{GOVERNANCE_PROJECTION_HASH_KEY} {governance_digest}" in manifest
     with pytest.raises(MandateGovernanceError, match="disabled"):
         validate_dispatch_gate(repo)
 
@@ -130,6 +151,59 @@ def test_rejects_stale_digest_and_roadmap_policy_marker(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    with pytest.raises(MandateGovernanceError, match="invalid"):
+        validate_mandate(repo)
+
+
+def test_rejects_legacy_field_mutation_even_with_manifest_updates(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    path = repo / "docs" / "research-mandate.json"
+    raw = path.read_bytes().replace(b'"capital_krw": 100000000', b'"capital_krw": 1')
+    path.write_bytes(raw)
+    _refresh_json_hash(repo)
+
+    with pytest.raises(MandateGovernanceError, match="invalid"):
+        validate_mandate(repo)
+
+
+def test_rejects_governance_mutation_with_stale_projection(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    path = repo / "docs" / "research-mandate.json"
+    path.write_bytes(
+        path.read_bytes().replace(
+            b'"dispatch_enabled": false', b'"dispatch_enabled": true'
+        )
+    )
+    _refresh_json_hash(repo)
+    hashes = repo / "docs" / "market-research-mandate.sha256"
+    assert "#governance-object" in hashes.read_text(encoding="utf-8")
+
+    with pytest.raises(MandateGovernanceError, match="invalid"):
+        validate_mandate(repo)
+
+
+def test_rejects_full_file_only_mutation(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    path = repo / "docs" / "research-mandate.json"
+    path.write_bytes(path.read_bytes() + b"\n")
+
+    with pytest.raises(MandateGovernanceError, match="invalid"):
+        validate_mandate(repo)
+
+
+def test_rejects_manifest_projection_key_swaps(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    hashes = repo / "docs" / "market-research-mandate.sha256"
+    lines = hashes.read_text(encoding="utf-8").splitlines()
+    values = [line.split()[1] for line in lines[:3]]
+    swapped = [
+        f"{line.split()[0]} {values[(index + 1) % 3]}"
+        for index, line in enumerate(lines[:3])
+    ]
+    hashes.write_text("\n".join(swapped + lines[3:]) + "\n", encoding="utf-8")
+
     with pytest.raises(MandateGovernanceError, match="invalid"):
         validate_mandate(repo)
 

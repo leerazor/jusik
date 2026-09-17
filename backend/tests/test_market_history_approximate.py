@@ -1278,7 +1278,10 @@ def test_approximate_policy_tracks_the_maintained_mandate_checksum() -> None:
     checksum_file = (
         Path(__file__).parents[2] / "docs/market-research-mandate.sha256"
     ).read_text(encoding="utf-8")
-    assert f"docs/research-mandate.json {RESEARCH_MANDATE_JSON_SHA256}" in checksum_file
+    assert (
+        "docs/research-mandate.json#legacy-execution-identity "
+        f"{RESEARCH_MANDATE_JSON_SHA256}"
+    ) in checksum_file
     assert market_research_policy_hash() != market_research_policy_hash(
         market_research_policy_for_grade("approximate")
     )

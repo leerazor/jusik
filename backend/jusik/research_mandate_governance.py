@@ -19,7 +19,8 @@ ROADMAP_MARKDOWN = Path("docs/investment-development-roadmap.md")
 LEGACY_MANDATE_JSON_SHA256 = (
     "f097fde7874063314e21f8be884b19d2e8cea3e1272c47e5991300c546548a7d"
 )
-GOVERNANCE_MANDATE_HASH_KEY = "docs/research-mandate.json#governance"
+LEGACY_EXECUTION_HASH_KEY = "docs/research-mandate.json#legacy-execution-identity"
+GOVERNANCE_PROJECTION_HASH_KEY = "docs/research-mandate.json#governance-object"
 
 GOVERNANCE_SCHEMA_VERSION = 1
 GOVERNANCE_POLICY_VERSION = "investment-roadmap-governance-v1"
@@ -133,6 +134,28 @@ def _json_object(raw: bytes) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise _invalid()
     return value
+
+
+def _legacy_execution_projection(raw: bytes) -> bytes:
+    """Project the exact frozen document before the additive governance member."""
+    marker = b',\n  "governance":'
+    start = raw.find(marker)
+    if start < 0 or start != raw.rfind(marker):
+        raise _invalid()
+    projection = raw[:start] + b"\n}\n"
+    projected = _json_object(projection)
+    if "governance" in projected:
+        raise _invalid()
+    return projection
+
+
+def _governance_projection(governance: Mapping[str, Any]) -> bytes:
+    return json.dumps(
+        governance,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
 
 
 def _strict_bool(value: Any) -> bool:
@@ -272,10 +295,19 @@ def validate_mandate(repo: Path) -> ValidatedMandate:
     governance = _validate_governance(mandate.get("governance"))
 
     entries = _manifest(repo)
-    digest = hashlib.sha256(raw).hexdigest()
-    if entries.get(GOVERNANCE_MANDATE_HASH_KEY) != digest:
+    full_digest = hashlib.sha256(raw).hexdigest()
+    if entries.get(MANDATE_JSON.as_posix()) != full_digest:
         raise _invalid()
-    if entries.get(MANDATE_JSON.as_posix()) != LEGACY_MANDATE_JSON_SHA256:
+    legacy_digest = hashlib.sha256(_legacy_execution_projection(raw)).hexdigest()
+    if (
+        entries.get(LEGACY_EXECUTION_HASH_KEY) != legacy_digest
+        or legacy_digest != LEGACY_MANDATE_JSON_SHA256
+    ):
+        raise _invalid()
+    governance_digest = hashlib.sha256(
+        _governance_projection(mandate["governance"])
+    ).hexdigest()
+    if entries.get(GOVERNANCE_PROJECTION_HASH_KEY) != governance_digest:
         raise _invalid()
 
     try:
@@ -283,7 +315,7 @@ def validate_mandate(repo: Path) -> ValidatedMandate:
     except UnicodeError as exc:
         raise _invalid() from exc
     markers = _MANDATE_MARKER_RE.findall(markdown)
-    if len(markers) != 1 or markers[0] != digest:
+    if len(markers) != 1 or markers[0] != full_digest:
         raise _invalid()
     _document_digest(repo, MANDATE_MARKDOWN, entries)
     _document_digest(repo, Path("docs/market-research.md"), entries)
@@ -296,7 +328,7 @@ def validate_mandate(repo: Path) -> ValidatedMandate:
     if len(policy_markers) != 1 or policy_markers[0] != governance.policy_version:
         raise _invalid()
     return ValidatedMandate(
-        digest,
+        full_digest,
         governance.schema_version,
         governance.policy_version,
         governance.dispatch_enabled,
