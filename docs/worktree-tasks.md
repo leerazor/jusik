@@ -2,7 +2,7 @@
 
 ## r0-us-modeled-cost-evidence
 
-- 상태: 준비. canonical R0 미국 run·dataset·cache의 고정 SHA를 사용해 저장된 모형 fee/slippage/sell-tax가 NAV에 포함됐는지 독립 대사합니다.
+- 상태: 완료. canonical R0 미국 run·dataset·cache의 고정 SHA를 사용해 저장된 모형 fee/slippage/sell-tax가 NAV에 포함됐는지 독립 대사했습니다.
 - 목표와 완료 조건: strategy/replay 코드를 호출하지 않는 Decimal 회계로 106개 체결과 252개 세션의 native cash·KRW cash·invested·NAV를 잔차0으로 재구성하고, 검증된 canonical readiness에서만 `missing_cost_inclusion_evidence` 한 code를 제거합니다. 전체 상태는 blocked/metrics-disabled/not-evaluated, approximate 등급과 나머지 3개 누락은 유지합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r0-us-modeled-cost-evidence` / `feat/r0-us-modeled-cost-evidence`.
@@ -12,6 +12,8 @@
 - 검증: manifest→run/dataset/cache/completion/raw84 SHA·경로·크기, 거래/세션/FX/mark/비용/수량/NAV 변조, 누락·중복차감·순서·초과매도·미청산, 환전 spread, Decimal context, evidence/verifier hash 우회, strategy/replay/broker 호출 금지를 검사합니다.
 - 금지: 법정 요율·실제 전체 비용·배당/분할·생성 작업트리·체결시각 완전성 주장, 기업행사 추정, 연구/network/PAPER/live/주문/운영 DB/service/config/remote 변경, 로드맵 checkbox 변경.
 - 중단 조건: canonical 잔차0이 재현되지 않거나 비용 포함 외 누락 code를 제거해야 하거나 금지 모듈을 재사용해야 하면 통합하지 않습니다.
+- 결과: Luna 최종 구현 `ed3a494`, Terra 최종 review PASS, local main 통합 `40336c4`. main에서 cost/readiness/policy/metrics pytest 92개, Ruff/format, configured source mypy, diff 검사와 canonical CLI acceptance가 통과했습니다. 106개 체결·252개 세션 잔차0, 최종 보유0이며 비용 누락 한 code만 제거해 3개가 남았습니다.
+- 정리: 통합 검증 후 전용 worktree와 branch를 정상 제거합니다. 개발 기록은 `docs/development-records/2026-09-17-r0-modeled-cost-evidence.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## market-performance-calculation-policy
 

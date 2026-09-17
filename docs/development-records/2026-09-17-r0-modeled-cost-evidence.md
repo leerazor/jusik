@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-17T00:00:00Z
 - 작업 slug: `r0-us-modeled-cost-evidence`
-- 기준/구현: `a2f1972` / `<현재 커밋>`
+- 기준/구현/통합: `a2f1972` / `ed3a494` / `40336c4`
 - 범위: 고정 R0 미국 산출물의 모형 fee/slippage/sell-tax 포함 여부를 독립 대사하고 canonical readiness에 한 누락 code만 연결했습니다.
 
 ## 변경과 결정
@@ -20,9 +20,10 @@
 
 ## 검증
 
-- `pytest` focused readiness/cost tests — 40 passed.
-- `ruff check`, `ruff format --check` — 통과.
+- main cost/readiness/policy/metrics pytest — 92 passed.
+- `ruff check`, `ruff format --check`, configured source mypy, `git diff --check a2f1972..40336c4` — 통과.
 - canonical cost CLI와 readiness acceptance — 106 trades, 252 sessions, max residual 0, final holdings 0; missing은 초기자본 anchor·NAV timestamp·무위험률 3개로 유지.
+- Terra 최종 독립 review — PASS, P1/P2 없음.
 
 ## 안전·운영 상태
 
@@ -33,4 +34,4 @@
 
 - tracked evidence: `backend/jusik/data/r0_us_cost_inclusion_evidence_v1.json`; canonical report의 artifact/accounting digest는 검증기에서 재계산됩니다.
 - 남은 작업·차단 조건: 세션 대사 외 초기자본 anchor, NAV timestamp, 무위험률 근거가 없어 전체 성과 평가는 차단됩니다.
-- 다음 시작: 통합 시 canonical acceptance와 main diff를 재검증하고, 이 기록의 구현/통합 SHA를 확정합니다.
+- 다음 시작: 초기자본 UTC anchor와 NAV UTC timestamp를 기존 실행 의미에서 고정할 수 있는지 조사하고, 날짜를 임의 시각으로 승격하지 않습니다.
