@@ -27,6 +27,29 @@
 웹 요청은 준비된 cache를 읽기만 한다. CLI의 `import-file`은 공급자가 별도로 준비한 응답 파일을 운영 loader와 같은 provenance·기간 검증으로 검사하고 복사한다. CLI의 `collect`만 고정된 KRX·Alpha Vantage·Yahoo·FRED 공식 endpoint에서 제한된 범위의 응답을 받아 secret-free cache와 checkpoint를 만들고, 그 결과를 검증된 prepared file로 저장한다. KRX는 `data-dbg.krx.co.kr`의 `stk_bydd_trd`·`ksq_bydd_trd` GET API에 `basDd`와 `AUTH_KEY` header를 사용하며 이전 웹 화면 POST endpoint로 대체하지 않는다. 한국 일별 시세는 KRX KOSPI·KOSDAQ 거래 응답의 OHLCV를 사용하며 Yahoo로 대체하지 않는다. KRX EOD 행은 공식 장 마감 시각에 이용 가능하다고 모델링하고 다음 거래일 시가에서만 실행한다. 날짜별 거래 응답의 상장주식수 변화, 거래행 누락, 종목 소멸은 해당 시점 이후 안전하게 제외하고 원인과 원문 hash를 cache에 남긴다. 명시적 KRX `OutBlock_1: []`는 정상적인 no-trade 관측으로 보존한다. Alpha Vantage 목록은 전체 헤더를 검증하고 행별로 상품·비정상 이름·거래소·날짜 오류를 제외하며 입력·허용·제외 사유를 checkpoint별로 기록한다. 상품 분류는 collector 내부의 private `ordinary`·`etf`·`warrant`·`other`·`unknown` 값으로만 구조화하고, `ordinary`만 기존 stock row로 출력한다. `assetType`은 trim·casefold 후 exact 값만 사용하며 이름은 명확한 상품 suffix와 preferred stock/shares 구문을 상품 단어 경계로 검사하고 이름만으로 ordinary를 추정하지 않는다. 이름에 단독 상품 단어가 회사명으로 쓰인 경우까지 보수적으로 제외할 수 있다는 한계가 있다. `NCM`·`NMS`·`NGM`은 상품 정보와 무관하게 NAS 거래소 alias로 정규화한다. 공급자 응답은 cache 저장·재사용 전에 요청별 parser로 검증하며, 실패 응답은 cache에 저장하지 않는다. 명시적 null·요청 범위 밖 자료·quota·인증·구문 오류는 각각 부분 응답·coverage·quota·auth·parse 예외로 고정 분류하고 원문과 예외 원인을 노출하지 않는다. 키가 없거나 응답이 부분적·손상되었거나 기업행동을 해석할 수 없으면 성공 결과를 만들지 않는다. `collect`·`status`·`collect-status`의 dotenv 파일은 `--env-file`로 명시하고 보간하지 않으며 process standard → file standard → process alias → file alias 순서로 선택한다. `--resume`도 요청별 hash가 계획과 일치하는지 확인하기 전에는 전체 호출량을 예산으로 잡아 과소계상하지 않는다. 파일 원문과 hash, 표본 계약, coverage와 제외 건수를 함께 보존하고 pilot과 final의 source·pool·정규화·누락·기업행동·환율 계약이 다르면 결합하지 않는다.
 `collect-status`는 `--start`, `--end`, `--sample-size`, `--output`을 함께 지정해야 해당 범위의 검증 완료 marker와 출력 hash를 확인해 ready를 표시한다. raw cache만 있거나 부분 수집된 상태는 ready가 아니다.
 
+## 기업행동 회계 입력 계약 (R1-04 첫 slice)
+
+`backend/jusik/market_history_action_accounting.py`는 공유
+`CorporateAction` 모델의 JSON을 변경하지 않고 연구용 회계 입력으로 변환한다.
+레거시 split은 명시적인 timezone-aware `effective_at`과 `price_basis="raw"`를
+받아야 하며, `adjusted`·`unknown` basis와 split 이외의 action은 지원하지 않는다.
+변환된 action ID는 명시적으로 주어지지 않으면 시장·종목·세션·kind·유효 경계로
+고정되므로 같은 사건의 수정 payload가 새 사건으로 우회되지 않는다.
+
+split 적용은 호출 시점 `at`이 유효 경계 이후여야 하고 raw before/after mark를 모두
+제시해야 한다. 수량과 가격은 `quantity * ratio`, `price / ratio`로 변환하며
+분수 수량·소수 금액을 보존하고 대상 보유분의 NAV와 총원가가 같은지 확인한다.
+전이 결과의 NAV는 모든 보유분·receivable·cash를 포함한다. 고정 Decimal
+context에서 inexact/rounding이 발생하면 상태를 바꾸지 않고 거절한다.
+
+배당은 확인된 entitlement를 ex 경계 이후에 receivable로 먼저 고정하고, 명시적인
+payment 경계 이후에 그 고정 금액만 cash로 옮긴다. 이후 보유 수량이 바뀌어도 지급
+금액은 바뀌지 않는다. payment 전에는 action의 kind·경계·가격 basis·entitlement·금액·통화
+의미와 frozen receivable를 다시 대조한다. `entitlement_confirmed`는 직접 dataclass와
+payload 모두 엄격한 boolean이어야 한다. action ID 재실행은 의미 전체를 포함한 정규화
+hash로 비교하며, 동일 재실행은 보존하고 의미 충돌은 원자적으로 거절한다. 이 모듈의 결과 coverage는 항상 `incomplete`, accounting status는
+`not-evaluated`이며 실제 자료 수집·전략·PAPER·주문을 수행하지 않는다.
+
 미국 근사 수집 결과에는 선택적인 `collection_diagnostics`가 함께 저장될 수 있다. 이
 진단의 분모는 각 Yahoo 요청의 실제 거래소 거래일이며 warmup 시작일부터 요청 종료일까지
 고정한다. 심볼별 `expected_sessions`, `actual_sessions`, `missing_sessions`,
