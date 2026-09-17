@@ -292,8 +292,22 @@ def test_json_long_fixed_point_literal_keeps_decimal_without_float_round_trip() 
     )
 
 
-def test_json_recursion_is_reported_as_malformed() -> None:
-    from jusik.market_performance_metrics import _parse_json
+def test_json_recursion_is_reported_as_malformed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import jusik.market_performance_metrics as metrics
 
+    def raise_recursion(*args: object, **kwargs: object) -> object:
+        raise RecursionError("nested")
+
+    monkeypatch.setattr(metrics.json, "loads", raise_recursion)
     with pytest.raises(ValueError, match="invalid JSON"):
-        _parse_json(("[" * 2_000 + "]" * 2_000).encode(), "nested")
+        metrics._parse_json(b"{}", "nested")
+
+
+def test_json_nested_non_object_is_rejected_with_bounded_parser() -> None:
+    import jusik.market_performance_metrics as metrics
+
+    nested = ("[" * 2_000 + "]" * 2_000).encode()
+    with pytest.raises(ValueError, match="invalid JSON"):
+        metrics._parse_json(nested, "nested")
