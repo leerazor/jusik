@@ -55,3 +55,41 @@ python -m jusik.market_performance_metrics \
 
 이 기능은 경제적 결과를 승격하거나 후보를 선택하지 않는다. 근거가 부족한 동결
 결과는 계산하지 않고 계속 unavailable로 남긴다.
+
+## 성과 입력 준비 진단
+
+`backend/jusik/market_performance_readiness.py`는 저장된
+`MarketResearchRun`을 읽기 전용으로 검사한다. 입력 파일은 최대 10MiB이고 호출자는
+반드시 소문자 SHA-256을 함께 제공해야 한다. JSON 중복 key·비유한 수·지원하지 않는
+구조, request/result 불일치, 5,000개 초과 NAV, 중복·역순·기간 밖 세션과 0 이하 NAV는
+안전한 오류 code로 거부한다. 원본 파일에는 쓰지 않는다.
+
+현재 승격 대상은 완료된 미국 `approximate` pilot/result뿐이다. 유효한 canonical run은
+항상 `status=blocked`, `ready_for_metrics=false`, `economic_evaluation=not-evaluated`로
+보고하며, 다음 누락 code를 정해진 순서로 반환한다.
+
+```text
+missing_initial_capital_at
+missing_nav_timestamps
+missing_session_completeness_evidence
+missing_calendar_evidence
+missing_cost_inclusion_evidence
+missing_risk_free_evidence
+missing_calculation_policy
+```
+
+실행 시각, readiness의 `calendar=ready`, 기록된 fee/slippage/sell-tax 요율은 독립
+근거를 만들지 않는다. 결과에는 원래 `approximate` 등급, `simulated` 여부, provenance와
+hash source facts, request의 비용 가정 pointer만 보존한다. 이 진단기는 성과 evaluator,
+전략, 수집기, 네트워크를 호출하지 않으며 성과 수치나 hard-filter를 계산하지 않는다.
+
+```bash
+python -m jusik.market_performance_readiness \
+  --run /path/to/us-web-pilot-run.json \
+  --expected-sha256 <sha256>
+```
+
+위 명령은 caller-provided SHA를 확인하는 generic inspection이며 보고서의
+`canonical=false`를 유지한다. 등록된 frozen artifact의 acceptance가 필요한 local
+검증에서만 `--canonical`을 추가한다. 이 flag는 코드에 등록된 artifact SHA와 일치할
+때만 canonical 보고서를 만들며, 다른 파일이나 임의 SHA로 우회할 수 없다.
