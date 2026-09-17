@@ -1,3 +1,18 @@
+# R2-06 기술 구현 통합 — 개발 완료 복구
+
+- 상태: 독립 검토 통과, local main 통합 검사 진행.
+- 작업 slug: `r2-counterfactual-fe92`; 구현 `8fc46d44df56e3db3b6165fe349080b91d924b70`.
+- 사용자 자율 개발 요청에 따른 감독 결정으로 새 검증에서는 agent 자체 단위 테스트 fixture 개수 상한을 종료 조건으로 쓰지 않습니다. 아래 과거 실패 기록은 소급 변경하지 않습니다. 사용자 명시 한도와 실제 금융 연구 조건은 유지합니다.
+- 이미 준비된 회계 결과의 비용·배당·환율 단일 가정 비교 모듈과 CLI를 통합합니다. 하나의 기존 leaf 값만 변경할 수 있으며, 자료 부족을 0으로 만들거나 기여를 합산하지 않습니다.
+- 새 검토에서 입력 hardlink 별칭 덮어쓰기와 없는 경로/null 혼동을 수정했습니다. 입력 원본·SHA와 unavailable 상태를 보존합니다.
+- worker: 비교/손실 회계 focused pytest52, Ruff check/format, configured strict mypy, diff check PASS. 독립 Terra review의 P1/P2 해소 후 최종 material finding 없음.
+- 합성 CLI smoke exit0, 배당/FX unavailable 보존, economic_evaluation=not-evaluated. 실제 시장 결과나 수익 개선 검증으로 해석하지 않습니다.
+- 문서·계약: `docs/research/market-counterfactual-comparison.md` 갱신. 기존 회계/전략/투자 정책/API/UI 변경 없음. 실제 provider·engine·PAPER/live·운영DB·원격push 실행 없음.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-delivery-recovery`; `r2-worker/smoke-02/manifest.json`, 검사 로그, `r2-source/`가 새 소스·증거입니다. main 통합 결과와 정리는 최종 절에 기록합니다.
+- 전체 R2-06 실제 자료 acceptance와 수익률 평가는 계속 미완료입니다. 기술 모듈 완료와 구분하며 기존 runner blocked 시도를 성공으로 바꾸지 않습니다.
+
+## 과거 시도 기록 보존
+
 # R2-06 제한 재시도 — fixture 상한 중단
 
 - 현재 상태: 차단. task `roadmap-r2-06-v1`, attempt `16e000f1b0cb4314b54eb2a5acbe50f0`, 이전 attempt `474fb22d193c4302893e77e27f8d1b55`.
