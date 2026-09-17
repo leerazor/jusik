@@ -600,6 +600,50 @@ def test_public_generation_rejects_unbounded_calendar_before_parser(
     assert not parser_called
 
 
+def test_verify_rejects_calendar_json_bounds_before_calendar_parser(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source()
+    candidate, config, start, end = _config()
+    original_calendar = DEFAULT_CALENDAR_PATH.read_bytes()
+    cases = (
+        b"0." + b"0" * (evidence.MAX_JSON_TOKENS - 1),
+        b"[" * (evidence.MAX_JSON_DEPTH + 1)
+        + b"0"
+        + b"]" * (evidence.MAX_JSON_DEPTH + 1),
+        b"[" + b"0," * evidence.MAX_JSON_LIST_ITEMS + b"0]",
+    )
+
+    def fail_parser(_body: bytes) -> object:
+        raise AssertionError("calendar parser must not see rejected verify bytes")
+
+    for index, calendar_body in enumerate(cases):
+        output = tmp_path / f"verify-calendar-{index}"
+        generate_bundle(
+            source,
+            candidate,
+            start,
+            end,
+            config,
+            original_calendar,
+            output,
+            allow_new_simulation=True,
+        )
+        (output / "calendar.json").write_bytes(calendar_body)
+        manifest = json.loads((output / "manifest.json").read_text())
+        digest = evidence.sha256_bytes(calendar_body)
+        manifest["artifacts"]["calendar.json"].update(
+            {"size": len(calendar_body), "sha256": digest}
+        )
+        manifest["calendar"]["bytes_sha256"] = digest
+        manifest_body = evidence._json_bytes(manifest)
+        (output / "manifest.json").write_bytes(manifest_body)
+        with monkeypatch.context() as context:
+            context.setattr(MarketCalendar, "from_bytes", fail_parser)
+            with pytest.raises(ValueError):
+                verify_bundle(output, evidence.sha256_bytes(manifest_body))
+
+
 def test_manifest_declared_total_rejected_before_artifact_reads(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

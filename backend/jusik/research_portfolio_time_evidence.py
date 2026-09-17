@@ -790,6 +790,7 @@ def verify_bundle(
     source = _load_model_bytes(files["input.json"], PortfolioInput, "input.json")
     fixed = _load_model_bytes(files["config.json"], TimeEvidenceConfig, "config.json")
     calendar_body = files["calendar.json"]
+    _strict_json(calendar_body, "calendar")
     calendar = MarketCalendar.from_bytes(calendar_body)
     simulation = _load_model_bytes(
         files["simulation.json"], PortfolioSimulation, "simulation.json"
