@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-18T00:00:00Z
 - 작업 slug: `portfolio-performance-input-readiness`
-- 기준/통합: `deae4acd0bef8b3f2d64a7d445f8f3f922ec7d1f` / `6b35720` 기반 review 보완 커밋
+- 기준/통합: `deae4acd0bef8b3f2d64a7d445f8f3f922ec7d1f` / `901ac636f93f37ff2b3ab2c6c03ae0bf640572f1`
 - 범위: 고정 historical time-evidence bundle에 독립 modeled accounting
   loader/ledger/CLI와 집중 테스트·계약 문서를 추가했습니다. daily sampling,
   metrics 계산/readiness 승격과 bundle 원본 변경은 제외했습니다.
@@ -45,6 +45,11 @@
   통과했고 source self-pin은 `8a5444639ef754f6f88223f3f84623a403db7cf35dab570b78aee0e707474c8a`입니다.
 - 최종 audit report SHA-256 `7390e79432319f834ff92f029833b9afd74839944909c711a60fee888037bad1`;
   runtime 1.48s, max RSS 61,980 KiB.
+- local `main`에서 accounting/time-evidence/metrics pytest 53개, Ruff check/format,
+  strict mypy, fixed bundle CLI와 `git diff --check`가 통과했습니다. CLI 출력 SHA는
+  최종 audit report SHA와 같습니다.
+- Terra 독립 review — P1/P2 없음, PASS. resource/path race, same-time close ordering,
+  terminal tamper와 원장 독립성을 재검토했습니다.
 
 ## 안전·운영 상태
 
@@ -56,5 +61,5 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-performance-input-readiness/review3-YE6rGl/`
 - manifest: `eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b`
 - 남은 작업·차단 조건: daily sampling policy와 metrics 연결은 별도 작업입니다.
-- 다음 시작: 최종 커밋 SHA와 audit report SHA를 확인한 뒤 local main 통합 검증을
-  수행합니다.
+- 다음 시작: 전체 intraday NAV는 MDD용으로 보존하고 daily-return sampling의
+  평가 timezone·시장 휴장 의미·단일 표본 선택을 사용자 승인 후 versioned policy로 고정합니다.
