@@ -5,6 +5,7 @@
 - 작성일: 2026-09-15
 - 적용 범위: 미국 손실 진단을 먼저 끝내고, 검증 가능한 경우에만 한국 확장과 PAPER 판단으로 넘어간다.
 - 이 문서는 미래 작업의 목표와 완료 조건을 기록한다. 이 커밋으로 어떤 단계도 완료되지 않는다.
+- canonical policy_version: `investment-roadmap-governance-v1`
 - 이 문서는 투자 개발의 canonical execution plan이다. 문서 자체는 dispatch를 기술적으로 차단하지 않는다. 현재 운영 게이트는 roadmap runner `paused=true`, `jusik-development-runner.service` `inactive`, `jusik-development-runner.timer` `inactive`·`disabled`다. 운영자는 승인 설계를 `docs/research-mandate.json`에 반영하고 JSON SHA-256을 다시 기록한 뒤, dispatcher의 fail-closed 구현·검증을 별도 완료하기 전까지 service/timer를 enable·resume하지 않는다.
 
 ## 목적과 우선순위

@@ -67,5 +67,53 @@
     "web": "web reads prepared bounded cache only; import-file validates a prepared response; network collection is CLI-only",
     "network_collection": "CLI collect may fetch bounded KRX official daily GET, Alpha Vantage, Yahoo, and FRED responses into secret-free resumable cache; missing keys, partial responses, malformed responses, and unresolved actions remain insufficient",
     "credentials": "missing KRX or Alpha Vantage credentials remain explicitly unavailable"
+  },
+  "governance": {
+    "schema_version": 1,
+    "policy_version": "investment-roadmap-governance-v1",
+    "dispatch_enabled": false,
+    "objective": {
+      "kind": "balanced",
+      "cost_adjusted": true,
+      "primary_metrics": ["CAGR", "MDD", "Sharpe", "Calmar"],
+      "diagnostic_metrics": [
+        "net_return",
+        "trade_count",
+        "turnover",
+        "transaction_cost",
+        "fx_cost",
+        "coverage",
+        "missing_data",
+        "stress"
+      ],
+      "hard_filters": {"MDD": "0.20"}
+    },
+    "candidate_policy": {
+      "max_preregistered_candidates": 3,
+      "weighted_aggregate": false,
+      "automatic_winner": false,
+      "automatic_promotion": false,
+      "retune_same_holdout": false
+    },
+    "data_policy": {"free_cache_audit_before_bounded_gaps": true},
+    "validation_sequence": [
+      "bounded_is",
+      "separate_validation",
+      "chronological_walk_forward",
+      "one_time_untouched_oos_go_no_go",
+      "stress",
+      "isolated_simulation",
+      "paper_review",
+      "separate_live_approval"
+    ],
+    "preregistration": {
+      "budget": "bounded compute, data, and artifact budgets fixed before execution",
+      "period": "bounded IS, separate validation, chronological walk-forward, and one untouched OOS period fixed before execution",
+      "required_return": "candidate-specific required return fixed before execution; failure blocks stress and PAPER"
+    },
+    "promotion": {
+      "paper_contract": "unchanged;10% drawdown",
+      "live_approval": "separate_explicit_approval"
+    }
   }
 }

@@ -1,0 +1,297 @@
+"""Fail-closed validation for the tracked investment-roadmap mandate."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+MANDATE_JSON = Path("docs/research-mandate.json")
+MANDATE_MARKDOWN = Path("docs/research-mandate.md")
+MANDATE_HASHES = Path("docs/market-research-mandate.sha256")
+ROADMAP_MARKDOWN = Path("docs/investment-development-roadmap.md")
+
+GOVERNANCE_SCHEMA_VERSION = 1
+GOVERNANCE_POLICY_VERSION = "investment-roadmap-governance-v1"
+SUPPORTED_SCHEMA_VERSION = GOVERNANCE_SCHEMA_VERSION
+SUPPORTED_POLICY_VERSION = GOVERNANCE_POLICY_VERSION
+ROADMAP_POLICY_VERSION = GOVERNANCE_POLICY_VERSION
+PRIMARY_METRICS = ("CAGR", "MDD", "Sharpe", "Calmar")
+DIAGNOSTIC_METRICS = (
+    "net_return",
+    "trade_count",
+    "turnover",
+    "transaction_cost",
+    "fx_cost",
+    "coverage",
+    "missing_data",
+    "stress",
+)
+MAX_PREREGISTERED_CANDIDATES = 3
+MAXIMUM_DRAWDOWN_FRACTION = "0.20"
+PAPER_CONTRACT = "unchanged;10% drawdown"
+PREREGISTRATION_BUDGET = (
+    "bounded compute, data, and artifact budgets fixed before execution"
+)
+PREREGISTRATION_PERIOD = (
+    "bounded IS, separate validation, chronological walk-forward, and one "
+    "untouched OOS period fixed before execution"
+)
+PREREGISTRATION_REQUIRED_RETURN = (
+    "candidate-specific required return fixed before execution; failure blocks "
+    "stress and PAPER"
+)
+
+_HASH_LINE_RE = re.compile(r"^(?P<path>\S+)\s+(?P<digest>[0-9a-f]{64})$")
+_MANDATE_MARKER_RE = re.compile(
+    r"research-mandate\.json.*?SHA-256은\s+`?(?P<digest>[0-9a-f]{64})"
+)
+_ROADMAP_POLICY_RE = re.compile(
+    r"^\s*-\s+canonical\s+policy_version:\s+`?(?P<version>[A-Za-z0-9._-]+)`?\s*$",
+    re.MULTILINE,
+)
+
+
+class MandateGovernanceError(ValueError):
+    """A tracked governance document cannot safely authorize dispatch."""
+
+
+@dataclass(frozen=True)
+class ValidatedMandate:
+    """Validated mandate metadata without exposing document contents."""
+
+    digest: str
+    schema_version: int
+    policy_version: str
+    dispatch_enabled: bool
+
+
+def _invalid() -> MandateGovernanceError:
+    return MandateGovernanceError("investment roadmap governance is invalid")
+
+
+def _regular_file(repo: Path, relative: Path) -> Path:
+    path = repo / relative
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise _invalid()
+        path.stat()
+    except (OSError, ValueError) as exc:
+        if isinstance(exc, MandateGovernanceError):
+            raise
+        raise _invalid() from exc
+    return path
+
+
+def _read(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except (OSError, ValueError) as exc:
+        raise _invalid() from exc
+
+
+def _strict_object_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _invalid()
+        result[key] = value
+    return result
+
+
+def _json_object(raw: bytes) -> dict[str, Any]:
+    try:
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_object_pairs)
+    except (UnicodeError, json.JSONDecodeError, MandateGovernanceError) as exc:
+        raise _invalid() from exc
+    if not isinstance(value, dict):
+        raise _invalid()
+    return value
+
+
+def _strict_bool(value: Any) -> bool:
+    if type(value) is not bool:
+        raise _invalid()
+    return value
+
+
+def _strict_int(value: Any) -> int:
+    if type(value) is not int:
+        raise _invalid()
+    return value
+
+
+def _strict_string(value: Any) -> str:
+    if type(value) is not str:
+        raise _invalid()
+    return value
+
+
+def _validate_governance(value: Any) -> ValidatedMandate:
+    if not isinstance(value, dict):
+        raise _invalid()
+    schema_version = _strict_int(value.get("schema_version"))
+    policy_version = _strict_string(value.get("policy_version"))
+    if schema_version != GOVERNANCE_SCHEMA_VERSION:
+        raise _invalid()
+    if policy_version != GOVERNANCE_POLICY_VERSION:
+        raise _invalid()
+    dispatch_enabled = _strict_bool(value.get("dispatch_enabled"))
+
+    objective = value.get("objective")
+    if not isinstance(objective, dict):
+        raise _invalid()
+    if objective.get("kind") != "balanced":
+        raise _invalid()
+    if objective.get("cost_adjusted") is not True:
+        raise _invalid()
+    if objective.get("primary_metrics") != list(PRIMARY_METRICS):
+        raise _invalid()
+    diagnostics = objective.get("diagnostic_metrics")
+    if diagnostics != list(DIAGNOSTIC_METRICS):
+        raise _invalid()
+    hard_filters = objective.get("hard_filters")
+    if (
+        not isinstance(hard_filters, dict)
+        or hard_filters.get("MDD") != MAXIMUM_DRAWDOWN_FRACTION
+    ):
+        raise _invalid()
+
+    candidates = value.get("candidate_policy")
+    if not isinstance(candidates, dict):
+        raise _invalid()
+    if (
+        _strict_int(candidates.get("max_preregistered_candidates"))
+        != MAX_PREREGISTERED_CANDIDATES
+    ):
+        raise _invalid()
+    for key in ("weighted_aggregate", "automatic_winner", "automatic_promotion"):
+        if _strict_bool(candidates.get(key)) is not False:
+            raise _invalid()
+    if _strict_bool(candidates.get("retune_same_holdout")) is not False:
+        raise _invalid()
+
+    data_policy = value.get("data_policy")
+    if not isinstance(data_policy, dict):
+        raise _invalid()
+    if (
+        _strict_bool(data_policy.get("free_cache_audit_before_bounded_gaps"))
+        is not True
+    ):
+        raise _invalid()
+
+    sequence = value.get("validation_sequence")
+    if sequence != [
+        "bounded_is",
+        "separate_validation",
+        "chronological_walk_forward",
+        "one_time_untouched_oos_go_no_go",
+        "stress",
+        "isolated_simulation",
+        "paper_review",
+        "separate_live_approval",
+    ]:
+        raise _invalid()
+
+    preregistration = value.get("preregistration")
+    if not isinstance(preregistration, dict):
+        raise _invalid()
+    if preregistration != {
+        "budget": PREREGISTRATION_BUDGET,
+        "period": PREREGISTRATION_PERIOD,
+        "required_return": PREREGISTRATION_REQUIRED_RETURN,
+    }:
+        raise _invalid()
+    promotion = value.get("promotion")
+    if not isinstance(promotion, dict):
+        raise _invalid()
+    if promotion.get("paper_contract") != PAPER_CONTRACT:
+        raise _invalid()
+    if promotion.get("live_approval") != "separate_explicit_approval":
+        raise _invalid()
+    return ValidatedMandate("", schema_version, policy_version, dispatch_enabled)
+
+
+def _manifest(repo: Path) -> dict[str, str]:
+    path = _regular_file(repo, MANDATE_HASHES)
+    entries: dict[str, str] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise _invalid() from exc
+    for line in lines:
+        if not line:
+            continue
+        match = _HASH_LINE_RE.fullmatch(line)
+        if match is None or match.group("path") in entries:
+            raise _invalid()
+        entries[match.group("path")] = match.group("digest")
+    if not entries:
+        raise _invalid()
+    return entries
+
+
+def _document_digest(repo: Path, relative: Path, entries: Mapping[str, str]) -> None:
+    key = relative.as_posix()
+    expected = entries.get(key)
+    if expected is None:
+        raise _invalid()
+    path = _regular_file(repo, relative)
+    if hashlib.sha256(_read(path)).hexdigest() != expected:
+        raise _invalid()
+
+
+def validate_mandate(repo: Path) -> ValidatedMandate:
+    """Validate all tracked governance inputs and return only safe metadata."""
+    mandate_path = _regular_file(repo, MANDATE_JSON)
+    raw = _read(mandate_path)
+    mandate = _json_object(raw)
+    governance = _validate_governance(mandate.get("governance"))
+
+    entries = _manifest(repo)
+    digest = hashlib.sha256(raw).hexdigest()
+    if entries.get(MANDATE_JSON.as_posix()) != digest:
+        raise _invalid()
+
+    markdown_path = _regular_file(repo, MANDATE_MARKDOWN)
+    try:
+        markdown = markdown_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise _invalid() from exc
+    markers = _MANDATE_MARKER_RE.findall(markdown)
+    if len(markers) != 1 or markers[0] != digest:
+        raise _invalid()
+    _document_digest(repo, MANDATE_MARKDOWN, entries)
+    _document_digest(repo, Path("docs/market-research.md"), entries)
+
+    roadmap_path = _regular_file(repo, ROADMAP_MARKDOWN)
+    try:
+        roadmap = roadmap_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise _invalid() from exc
+    policy_markers = _ROADMAP_POLICY_RE.findall(roadmap)
+    if len(policy_markers) != 1 or policy_markers[0] != governance.policy_version:
+        raise _invalid()
+    return ValidatedMandate(
+        digest,
+        governance.schema_version,
+        governance.policy_version,
+        governance.dispatch_enabled,
+    )
+
+
+def validate_dispatch_gate(repo: Path) -> ValidatedMandate:
+    """Validate governance and require explicit roadmap dispatch enablement."""
+    result = validate_mandate(repo)
+    if not result.dispatch_enabled:
+        raise MandateGovernanceError("investment roadmap governance is disabled")
+    return result
+
+
+# Descriptive aliases keep the validator easy to discover for callers and tests.
+load_validated_mandate = validate_mandate
+require_dispatch_enabled = validate_dispatch_gate

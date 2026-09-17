@@ -47,6 +47,11 @@ from jusik.development_runner_roadmap import (
 )
 from jusik.development_runner_store import RunnerStore, RunnerTask
 from jusik.research_history import HistoryRepository
+from jusik.research_mandate_governance import (
+    MandateGovernanceError,
+    ValidatedMandate,
+    validate_dispatch_gate,
+)
 
 DEFAULT_CONFIG = Path.home() / ".config/jusik/development-runner.json"
 DEFAULT_STATE = Path.home() / ".local/share/jusik/development-runner"
@@ -651,6 +656,7 @@ def _planning_task(
     store: RunnerStore,
     repo: Path,
     scope: Literal["research", "investment-roadmap"] = "research",
+    mandate_digest: str | None = None,
 ) -> tuple[RunnerTask, str, list[tuple[str, str, str | None]]] | None:
     if scope == ROADMAP_SCOPE:
         documents_ready, _ = _roadmap_documents_ready(repo)
@@ -680,7 +686,7 @@ def _planning_task(
             return None
         head = _git(repo, "rev-parse", "main").stdout.strip()
         day = datetime.now(UTC).date().isoformat()
-        digest = roadmap_fingerprint(tasks, head, day, roadmap)
+        digest = roadmap_fingerprint(tasks, head, day, roadmap, mandate_digest)
         existing = store.task(planner_task_id(digest))
         if existing is not None:
             ready = not existing.next_allowed_at or (
@@ -810,8 +816,16 @@ def _run_planning(
     context: str | None = None,
     fingerprint_factory: Callable[[list[tuple[str, str, str | None]], str, str], str]
     | None = None,
+    mandate_digest: str | None = None,
 ) -> RunResult:
     task, digest, snapshot = candidate
+    if config.scope == ROADMAP_SCOPE:
+        try:
+            current_mandate = validate_dispatch_gate(config.repo)
+        except MandateGovernanceError as exc:
+            return RunResult("blocked", task.id, reason=str(exc))
+        if mandate_digest != current_mandate.digest:
+            return RunResult("blocked", task.id, reason="mandate governance changed")
     attempt_id = uuid.uuid4().hex
     attempt_dir = config.state_dir / "attempts" / attempt_id
     _secure_dir(attempt_dir)
@@ -868,6 +882,10 @@ def _run_planning(
     _write_private(attempt_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     try:
+        if config.scope == ROADMAP_SCOPE:
+            current_mandate = validate_dispatch_gate(config.repo)
+            if mandate_digest != current_mandate.digest:
+                raise MandateGovernanceError("mandate governance changed")
         store.claim(
             task,
             attempt_id,
@@ -877,6 +895,8 @@ def _run_planning(
             history_outcome="planning_started",
         )
         _safe_history_flush(store, config)
+    except MandateGovernanceError as exc:
+        return RunResult("blocked", task.id, reason=str(exc))
     except ValueError:
         return RunResult("idle")
     schema_path = attempt_dir / "planning.schema.json"
@@ -1042,6 +1062,10 @@ def _run_planning(
             "paused" if store.is_paused() else "interrupted", task.id, attempt_id
         )
     try:
+        if config.scope == ROADMAP_SCOPE:
+            current_mandate = validate_dispatch_gate(config.repo)
+            if mandate_digest != current_mandate.digest:
+                raise MandateGovernanceError("mandate governance changed")
         committed = store.finish_planning(
             attempt_id,
             task.id,
@@ -1053,6 +1077,9 @@ def _run_planning(
             proposal,
             scope=config.scope,
         )
+    except MandateGovernanceError as exc:
+        store.finish(attempt_id, task.id, "blocked", failure_code="mandate_stale")
+        return RunResult("blocked", task.id, attempt_id, str(exc))
     except RuntimeError:
         store.finish(
             attempt_id,
@@ -1162,6 +1189,8 @@ def pause_runner(config: RunnerConfig) -> None:
 
 
 def resume_runner(config: RunnerConfig) -> None:
+    if config.scope == ROADMAP_SCOPE:
+        validate_dispatch_gate(config.repo)
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
     store.resume()
     _record_control_event(store, config, "resumed")
@@ -1170,10 +1199,19 @@ def resume_runner(config: RunnerConfig) -> None:
 def run_once(
     config: RunnerConfig, stop_requested: Callable[[], bool] | None = None
 ) -> RunResult:
+    governance: ValidatedMandate | None = None
     try:
         common = _git_common(config.repo)
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return RunResult("blocked", reason="invalid repository")
+    if config.scope == ROADMAP_SCOPE:
+        documents_ready, documents_reason = _roadmap_documents_ready(config.repo)
+        if not documents_ready:
+            return RunResult("blocked", reason=documents_reason)
+        try:
+            governance = validate_dispatch_gate(config.repo)
+        except MandateGovernanceError as exc:
+            return RunResult("blocked", reason=str(exc))
     lock_path = common / "development-runner.lock"
     with lock_path.open("a+") as lock:
         lock_path.chmod(0o600)
@@ -1227,7 +1265,22 @@ def run_once(
         if task is None:
             if not config.planning_enabled:
                 return RunResult("idle")
-            candidate = _planning_task(store, config.repo, config.scope)
+            if config.scope == ROADMAP_SCOPE:
+                if governance is None:
+                    return RunResult(
+                        "blocked", reason="mandate governance is unavailable"
+                    )
+                try:
+                    current_governance = validate_dispatch_gate(config.repo)
+                except MandateGovernanceError as exc:
+                    return RunResult("blocked", reason=str(exc))
+                if current_governance.digest != governance.digest:
+                    return RunResult("blocked", reason="mandate governance changed")
+                candidate = _planning_task(
+                    store, config.repo, config.scope, governance.digest
+                )
+            else:
+                candidate = _planning_task(store, config.repo, config.scope)
             if candidate is None:
                 return RunResult("idle")
             try:
@@ -1245,11 +1298,22 @@ def run_once(
                     "allowed_areas": eligible,
                     "context": roadmap_planner_context(roadmap, candidate[2], eligible),
                     "fingerprint_factory": lambda tasks, head, day: roadmap_fingerprint(
-                        tasks, head, day, load_roadmap(config.repo)
+                        tasks,
+                        head,
+                        day,
+                        load_roadmap(config.repo),
+                        governance.digest if governance is not None else None,
                     ),
                 }
             result = _run_planning(
-                config, common, store, candidate, stop_requested, now, **planning_kwargs
+                config,
+                common,
+                store,
+                candidate,
+                stop_requested,
+                now,
+                mandate_digest=(governance.digest if governance is not None else None),
+                **planning_kwargs,
             )
             _safe_history_flush(store, config)
             return result
@@ -1268,6 +1332,16 @@ def run_once(
             except RoadmapError as exc:
                 return RunResult("blocked", task.id, reason=str(exc))
         try:
+            if config.scope == ROADMAP_SCOPE:
+                if governance is None:
+                    return RunResult(
+                        "blocked", task.id, reason="mandate governance is unavailable"
+                    )
+                current_governance = validate_dispatch_gate(config.repo)
+                if current_governance.digest != governance.digest:
+                    return RunResult(
+                        "blocked", task.id, reason="mandate governance changed"
+                    )
             _prepare_artifact_dir(config.artifact_dir)
         except OSError:
             return RunResult(
@@ -1430,6 +1504,25 @@ def run_once(
             return RunResult("blocked", task.id, attempt_id, completion.blocked_reason)
         store.finish(attempt_id, task.id, "completed", evidence=completion.model_dump())
         if completion.followup is not None:
+            if config.scope == ROADMAP_SCOPE:
+                if governance is None:
+                    _safe_history_flush(store, config)
+                    return RunResult(
+                        "blocked",
+                        task.id,
+                        attempt_id,
+                        "mandate governance is unavailable",
+                    )
+                try:
+                    current_governance = validate_dispatch_gate(config.repo)
+                except MandateGovernanceError as exc:
+                    _safe_history_flush(store, config)
+                    return RunResult("blocked", task.id, attempt_id, str(exc))
+                if current_governance.digest != governance.digest:
+                    _safe_history_flush(store, config)
+                    return RunResult(
+                        "blocked", task.id, attempt_id, "mandate governance changed"
+                    )
             pending = [
                 item
                 for item in store.tasks()
@@ -1525,6 +1618,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     config = load_config(args.config)
+    if args.command == "resume" and config.scope == ROADMAP_SCOPE:
+        try:
+            validate_dispatch_gate(config.repo)
+        except MandateGovernanceError as exc:
+            print(json.dumps({"status": "blocked", "reason": str(exc)}))
+            return 2
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
     scope_ready, scope_reason = _bind_scope(store, config.scope)
     if not scope_ready:
@@ -1569,7 +1668,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"status": "paused"}, ensure_ascii=False))
         return 0
     if args.command == "resume":
-        resume_runner(config)
+        try:
+            resume_runner(config)
+        except MandateGovernanceError as exc:
+            print(json.dumps({"status": "blocked", "reason": str(exc)}))
+            return 2
         print(json.dumps({"status": "resumed"}, ensure_ascii=False))
         return 0
     stop_event = threading.Event()
