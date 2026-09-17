@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## market-research-mandate-digest-repair
+
+- 상태: 준비. 기준 커밋에서도 재현되는 `docs/market-research.md`와 mandate hash manifest의 digest drift를 최소 수정합니다.
+- 목표와 완료 조건: 현재 tracked 문서 bytes의 SHA-256을 manifest에 정확히 반영하고, governance가 invalid가 아닌 원래 disabled/not-ready fail-closed 분기로 돌아가며 관련 전체 테스트가 통과해야 합니다.
+- 담당: Astra 감독·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: 준비 후 확정 / `fix/market-research-mandate-digest-repair` 예정.
+- 수정 허용: `docs/market-research-mandate.sha256`, 신규 개발 기록, 필요한 경우 digest 회귀 test만. 등록부와 handoff는 Astra만 수정합니다.
+- 금지: mandate/roadmap 정책·문서 내용 변경, runner enable/resume, queue/DB/service/config/연구/PAPER/live/주문/remote 변경.
+- 중단 조건: drift가 단순 tracked document update가 아니거나 새 digest가 다른 manifest entry·policy identity를 무효화하면 hash만 덮지 않고 원인을 기록합니다.
+- 검증: governance와 roadmap 전체 관련 test, manifest 직접 SHA 대사, runner 중지 상태, diff 검사.
+
 ## r2-canonical-nav-reconciliation-decision
 
 - 상태: 완료. 기존 canonical 증거에 따라 `R2-05`만 고정 canonical approximate 범위의 기술 pass로 기록했습니다.
