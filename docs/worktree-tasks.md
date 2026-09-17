@@ -20,10 +20,11 @@
 
 ## forward-simulation-time-evidence-run
 
-- 상태: 선행 차단. 입력 `324,691` lexical token이 현재 `100,000` 한도를 넘고, 고정 KRX event 시각이 공식 지연 개폐장보다 이르게 처리되어 simulation 전 fail-closed합니다.
+- 상태: 진행. 선행 calendar-aware timing과 bounded input 지원이 통합되어 동일 고정 입력의 단일 bundle 생성을 준비합니다.
 - 목표와 완료 조건: 기존 승인된 입력·정책·달력만 사용한 bounded simulation을 정확히 한 번 실행하고, 새 audit 경로의 bundle/manifest/SHA를 검증합니다. 기존 canonical run은 수정하지 않으며 readiness 연결 여부는 별도 판정합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 실행/필요한 최소 구현, Terra 독립 review.
-- 워크트리/브랜치: 조사·계획 후 확정 / `feat/forward-simulation-time-evidence-run` 예정.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-forward-simulation-time-evidence-run` / `feat/forward-simulation-time-evidence-run`.
+- 기준/통합: 다음 준비 커밋 / local `main`.
 - 입력과 선행 작업: `research_portfolio_time_evidence.py`, 현재 mandate/governance, 고정 `PortfolioInput`·simulation config·공식 calendar, 기존 time-evidence 계약.
 - 수정 허용: 실행 요청 artifact, 격리 audit bundle, 검증/연결에 필요한 최소 adapter·tests·계약 문서·개발 기록. 등록부와 handoff는 Astra만 수정합니다.
 - 금지: 기존 canonical run/artifact 수정, 자동 runner resume, 네트워크 수집, KOFR 재요청, PAPER/live/주문/운영 DB/service/config/remote 변경, 자동 성과 승격.
