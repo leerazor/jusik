@@ -13,10 +13,12 @@ import pytest
 from jusik.research_portfolio_accounting_evidence import (
     MANIFEST_SHA256,
     AccountingEvidenceError,
+    _apply_close_marks,
     _asof_fx,
     _read_engine_source,
     _scan_artifact_paths,
     _split_adjustment,
+    _validate_terminal_positions,
     verify_accounting_bundle,
 )
 
@@ -182,20 +184,19 @@ def test_engine_source_reader_rejects_replacement_race(
 ) -> None:
     source = tmp_path / "engine.py"
     source.write_bytes(b"engine")
-    original_fstat = os.fstat
-    calls = 0
+    original_open = os.open
 
-    def replaced_fstat(descriptor: int) -> os.stat_result:
-        nonlocal calls
-        calls += 1
-        result = original_fstat(descriptor)
-        if calls == 2:
-            values = list(result)
-            values[1] += 1
-            return os.stat_result(values)
-        return result
+    def replacing_open(
+        path: str | os.PathLike[str], flags: int, mode: int = 0o777
+    ) -> int:
+        if Path(path) == source:
+            replacement = tmp_path / "replacement.py"
+            replacement.write_bytes(b"replacement")
+            source.unlink()
+            replacement.rename(source)
+        return original_open(path, flags, mode)
 
-    monkeypatch.setattr(os, "fstat", replaced_fstat)
+    monkeypatch.setattr(os, "open", replacing_open)
     with pytest.raises(AccountingEvidenceError) as error:
         _read_engine_source(source)
     assert error.value.code == "file_replaced"
@@ -232,3 +233,51 @@ def test_asof_fx_rejects_stale_and_future_only_observations() -> None:
     with pytest.raises(AccountingEvidenceError) as future_error:
         _asof_fx(future, datetime.fromisoformat("2024-01-14T00:00:00+00:00"))
     assert future_error.value.code == "missing_fx"
+
+
+def test_same_time_close_group_is_applied_before_nav() -> None:
+    bars = {
+        ("KR", "2024-01-02"): {"close": "105"},
+        ("US", "2024-01-02"): {"close": "205"},
+    }
+    latest: dict[str, Decimal] = {}
+    _apply_close_marks([("US", "2024-01-02"), ("KR", "2024-01-02")], bars, latest)
+    # This is the NAV boundary: both same-time marks must be present first.
+    assert Decimal("2") * latest["KR"] + Decimal("3") * latest["US"] == Decimal("825")
+
+
+def test_terminal_quantity_mark_and_value_tampering_is_rejected() -> None:
+    observations: list[tuple[datetime, str, str, Decimal]] = []
+    final_at = datetime.fromisoformat("2024-01-02T20:00:00+00:00")
+    positions: list[object] = [
+        {
+            "symbol": "KR",
+            "quantity": 2,
+            "local_close": "105",
+            "fx_rate": "1",
+            "value_krw": "210",
+            "valued_at": "2024-01-02T20:00:00Z",
+        }
+    ]
+    assert (
+        _validate_terminal_positions(
+            positions,
+            {"KR": 2},
+            {"KR": Decimal("105")},
+            {"KR": "KRW"},
+            observations,
+            final_at,
+        )["KR"]["quantity"]
+        == 2
+    )
+    for field, value in (("quantity", 3), ("local_close", "106"), ("value_krw", "211")):
+        tampered = [dict(positions[0], **{field: value})]
+        with pytest.raises(AccountingEvidenceError):
+            _validate_terminal_positions(
+                tampered,
+                {"KR": 2},
+                {"KR": Decimal("105")},
+                {"KR": "KRW"},
+                observations,
+                final_at,
+            )

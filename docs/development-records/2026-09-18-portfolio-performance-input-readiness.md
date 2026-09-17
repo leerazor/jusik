@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-18T00:00:00Z
 - 작업 slug: `portfolio-performance-input-readiness`
-- 기준/통합: `deae4acd0bef8b3f2d64a7d445f8f3f922ec7d1f` / `b475f5f` 기반 review 보완 커밋
+- 기준/통합: `deae4acd0bef8b3f2d64a7d445f8f3f922ec7d1f` / `6b35720` 기반 review 보완 커밋
 - 범위: 고정 historical time-evidence bundle에 독립 modeled accounting
   loader/ledger/CLI와 집중 테스트·계약 문서를 추가했습니다. daily sampling,
   metrics 계산/readiness 승격과 bundle 원본 변경은 제외했습니다.
@@ -40,6 +40,11 @@
   max residual `0 KRW`; source self-pin `35efe5f691f7161efd215616781832e71240d78faa8ca66a1a7727a6d49a7514`.
 - review audit report SHA-256 `a90fde0e8a2f9e0ddaa36630cc91617f1da46c9346832ce9156a85a8588527ed`;
   runtime 1.40s, max RSS 61,808 KiB.
+- 최종 review에서 실제 pathname 교체 race, same-time close-before-NAV 및 terminal
+  quantity/mark/value tamper synthetic 경계를 추가 검증했습니다. 13개 테스트가
+  통과했고 source self-pin은 `8a5444639ef754f6f88223f3f84623a403db7cf35dab570b78aee0e707474c8a`입니다.
+- 최종 audit report SHA-256 `7390e79432319f834ff92f029833b9afd74839944909c711a60fee888037bad1`;
+  runtime 1.48s, max RSS 61,980 KiB.
 
 ## 안전·운영 상태
 
@@ -48,7 +53,7 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-performance-input-readiness/review2-KNr0IE/`
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-performance-input-readiness/review3-YE6rGl/`
 - manifest: `eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b`
 - 남은 작업·차단 조건: daily sampling policy와 metrics 연결은 별도 작업입니다.
 - 다음 시작: 최종 커밋 SHA와 audit report SHA를 확인한 뒤 local main 통합 검증을

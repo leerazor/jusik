@@ -28,7 +28,7 @@ ENGINE_SHA256: Final = (
     "2a91ef9621fcb96b52179fb8fd22df7f74d6aab385b798333dd354594e61f70c"
 )
 SOURCE_SHA256: Final = (
-    "35efe5f691f7161efd215616781832e71240d78faa8ca66a1a7727a6d49a7514"
+    "8a5444639ef754f6f88223f3f84623a403db7cf35dab570b78aee0e707474c8a"
 )
 EXPECTED_TRADES: Final = 171
 EXPECTED_NAV: Final = 1172
@@ -648,6 +648,65 @@ def _asof_fx(
     return selected[3]
 
 
+def _apply_close_marks(
+    close_keys: list[tuple[str, str]],
+    bars: Mapping[tuple[str, str], Mapping[str, object]],
+    latest: dict[str, Decimal],
+) -> None:
+    """Apply every close in a same-time group before its NAV is valued."""
+    for symbol, day in sorted(close_keys):
+        bar = bars.get((symbol, day))
+        if bar is None:
+            raise AccountingEvidenceError("missing_close_mark")
+        latest[symbol] = _decimal(_required(bar, "close"))
+
+
+def _validate_terminal_positions(
+    positions: list[object],
+    holdings: Mapping[str, int],
+    latest: Mapping[str, Decimal],
+    currencies: Mapping[str, str],
+    observations: list[tuple[datetime, str, str, Decimal]],
+    final_at: datetime,
+) -> dict[str, dict[str, object]]:
+    """Validate terminal quantity and marks against the reconstructed ledger."""
+    terminal: dict[str, dict[str, object]] = {}
+    for raw_position in positions:
+        position = _mapping(raw_position)
+        symbol = _text(_required(position, "symbol"))
+        quantity = _integer(_required(position, "quantity"))
+        if (
+            symbol in terminal
+            or quantity <= 0
+            or symbol not in holdings
+            or holdings[symbol] != quantity
+            or symbol not in latest
+        ):
+            raise AccountingEvidenceError("terminal_position_mismatch")
+        fx = (
+            Decimal(1)
+            if currencies[symbol] == "KRW"
+            else _asof_fx(observations, final_at)
+        )
+        value = Decimal(quantity) * latest[symbol] * fx
+        if (
+            _decimal(_required(position, "local_close")) != latest[symbol]
+            or _decimal(_required(position, "fx_rate")) != fx
+            or _decimal(_required(position, "value_krw")) != value
+            or _time(_required(position, "valued_at")) != final_at
+        ):
+            raise AccountingEvidenceError("terminal_mark_mismatch")
+        terminal[symbol] = {
+            "quantity": quantity,
+            "local_close": str(latest[symbol]),
+            "fx_rate": str(fx),
+            "value_krw": str(value),
+        }
+    if set(terminal) != set(holdings):
+        raise AccountingEvidenceError("terminal_position_mismatch")
+    return terminal
+
+
 def _verify_ledger_inner(
     loaded: dict[str, dict[str, object]], expected_manifest_sha256: str
 ) -> dict[str, object]:
@@ -921,8 +980,7 @@ def _verify_ledger_inner(
                     holdings[symbol] = holdings.get(symbol, 0) + quantity
                 if holdings.get(symbol) == 0:
                     holdings.pop(symbol, None)
-            for symbol, day in sorted(close_events.get(at, [])):
-                latest[symbol] = _decimal(_required(bars[(symbol, day)], "close"))
+            _apply_close_marks(close_events.get(at, []), bars, latest)
             if at not in nav_by_time:
                 continue
             nav, point = nav_by_time[at]
@@ -960,42 +1018,12 @@ def _verify_ledger_inner(
             consumed += 1
     if consumed != EXPECTED_NAV or len(split_done) != 2:
         raise AccountingEvidenceError("consumption_mismatch")
-    terminal: dict[str, dict[str, object]] = {}
     final_at = previous_nav_time
     if final_at is None:
         raise AccountingEvidenceError("missing_nav")
-    for raw_position in positions:
-        position = _mapping(raw_position)
-        symbol = _text(_required(position, "symbol"))
-        quantity = _integer(_required(position, "quantity"))
-        if (
-            symbol in terminal
-            or quantity <= 0
-            or symbol not in holdings
-            or holdings[symbol] != quantity
-        ):
-            raise AccountingEvidenceError("terminal_position_mismatch")
-        fx = (
-            Decimal(1)
-            if currencies[symbol] == "KRW"
-            else _asof_fx(observations, final_at)
-        )
-        value = Decimal(quantity) * latest[symbol] * fx
-        if (
-            _decimal(_required(position, "local_close")) != latest[symbol]
-            or _decimal(_required(position, "fx_rate")) != fx
-            or _decimal(_required(position, "value_krw")) != value
-            or _time(_required(position, "valued_at")) != final_at
-        ):
-            raise AccountingEvidenceError("terminal_mark_mismatch")
-        terminal[symbol] = {
-            "quantity": quantity,
-            "local_close": str(latest[symbol]),
-            "fx_rate": str(fx),
-            "value_krw": str(value),
-        }
-    if set(terminal) != set(holdings):
-        raise AccountingEvidenceError("terminal_position_mismatch")
+    terminal = _validate_terminal_positions(
+        positions, holdings, latest, currencies, observations, final_at
+    )
     return {
         "schema": SCHEMA,
         "status": "verified",
