@@ -2,12 +2,14 @@
 
 ## delivery-recovery
 
-- 상태: 진행. 사용자 자율 개발 요청에 따라 R2-06 기술 구현을 실제 통합하고, 테스트 개수 제한으로 반복 중단되는 운영 지침을 바로잡습니다.
+- 상태: 완료. R2-06 비교 모듈·CLI와 개발 지침을 main에 통합하고 각각 통합 검증을 통과했습니다.
 - 감독 결정: 새로운 검증에서는 agent가 자체 생성한 단위 테스트 fixture 개수 제한을 종료 조건으로 쓰지 않습니다. 기존 실패 기록은 보존합니다. 사용자 명시 한도와 실제 금융 연구의 표본·기간·가정·계산 예산은 변경하지 않습니다.
 - 작업 A: 기존 `/home/kwl/projects/jusik-r2-counterfactual-fe92`, `feat/r2-counterfactual-fe92`를 재사용합니다. 기존 구현 `f4070f2`의 독립 검토·focused 검사·필요한 좁은 결함 수정 후 main 통합까지 수행합니다. 담당 Luna는 단일 소유자로 인계합니다.
 - 작업 B: `/home/kwl/projects/jusik-development-delivery-policy`, `fix/development-delivery-policy`. 기준은 main `2f8bb40` 이후 이 등록 커밋입니다. 별도 Luna가 runner의 runtime/planner/roadmap 지침과 운영 문서만 수정합니다. 투자·거래·상태 DB 계약은 그대로입니다.
 - 검증: R2 비교/회계 focused pytest·Ruff·strict mypy, runner 관련 focused 검사, 독립 review와 main 통합 검사. 검증 1200초·산출물 50MiB 내에서 수행하며 외부 시장 요청·연구 engine·PAPER/live 주문은 실행하지 않습니다.
-- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-delivery-recovery/scope.md`. 자동 runner는 paused/service inactive로 두고 수동 작업 완료 후 R1-04 기존 소유 작업을 재개합니다.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-delivery-recovery`의 scope·review·integration·main-cli-proof. 정책 구현3a0eb04/통합6ebfabe, R2 구현8fc46d4/통합5ec8f2f. main 정책95개+R2 52개 테스트, Ruff/format/strict mypy 통과. CLI 결과·원본 SHA 보존 확인.
+- 정리: 두 작업 소스·patch·환경·로그 보관 후 해당 worktree/branch 정상 제거. 다른 미완료 작업은 보존합니다. 문서 기록 후 R1-04를 명시적으로 retry하고 실제 재개 증거를 audit/activation.json에 기록합니다.
+- 개발 기록: `docs/development-records/2026-09-17-delivery-recovery.md`, 기존 R2 기록과 policy 기록 갱신. handoff: 루트 `HANDOFF.md` 및 audit 복사본.
 
 ## r1-actions-bf7b
 
@@ -36,15 +38,13 @@
 
 ## r2-counterfactual-fe92
 
-- 상태: 차단. 현재 attempt `16e000f1b0cb4314b54eb2a5acbe50f0`, 이전 `474fb22d193c4302893e77e27f8d1b55`, task `roadmap-r2-06-v1`. fixture 상한24 대비 고유 prepared wrapper 최소25개가 확인돼 추가 검증·통합을 중단했습니다. 자동 복구 분류는 없습니다.
-- 담당: Astra 감독·계획, Luna 단일 구현, Terra 독립 review. 기존 branch/worktree를 재사용했습니다.
-- 소유 worktree/branch: `/home/kwl/projects/jusik-r2-counterfactual-fe92` / `feat/r2-counterfactual-fe92`. 요청 기준 `d0d029996ea993216036385962c9153968ea61fe`, 현재 구현 `f4070f24b11c8d9ec3817e833a3ef8991ae8d119` 미병합·보존. 이전 구현0bab5ad와 증거도 보존합니다.
-- 범위: 별도 prepared 비교 module·CLI, 관련 tests와 한국어 계약·기존 개발 기록. container 구조 교체 결함과 최상위 scalar 기록을 수정했습니다. 원본 SHA·availability·단일 변경·비가산 delta 경계 유지.
-- 검사: worktree Python3.13.15 확인; fresh pytest45, Ruff check/format, configured strict mypy 통과. 리뷰 경계2개 통과도 cap 판정 전 결과이며 acceptance로 사용하지 않습니다. review gate 차단, main 구현 통합·통합 검사 미실행.
-- 입력: 원래4개 SHA와 이전 증거48개 SHA, R0 완료·최신 mandate 재확인. 실제 자료 acceptance 부재로 기술 slice와 전체 R2-06 미완료·미체크입니다.
-- 제한: CPU seed0, 기준1+변경3 이하, 세션1/거래0의 비교 fixture; cap 초과 확인 후 중단. 검증1200초·산출물50MiB 상한. network/provider/engine/replay/GPU0회; PAPER/live·주문·운영원장/DB·서비스·설정·remote·타 격리 작업 변경없음.
-- 증거/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-r2-06-16e000f1/`의 `fixture-cap-evidence.json`, `review.md`, `evidence-manifest.json`, `HANDOFF.md`. 재개 전에 실제 전체 fixture 목록·수를 고정해야 합니다. worktree 삭제없음.
-- 개발 기록: `docs/development-records/2026-09-16-r2-counterfactual-fe92.md`.
+- 상태: 기술 모듈·CLI 완료, main 통합·검증 완료. 실제 비용/배당/환율 준비 결과의 자료 acceptance와 전체 R2-06은 미완료이며 checkbox는 그대로입니다.
+- 구현: 기존 f4070f2를 재사용해 hardlink 원본 보호와 없는 경로/null 혼동을8fc46d4에서 수정했습니다. 독립 Terra review 중요 지적 해소. main 통합5ec8f2f.
+- 검증: worker/main focused pytest52개, Ruff check/format·configured strict mypy·diff check PASS. 합성 CLI 결과 동일, input SHA 보존, unavailable dividend/FX 및 economic not-evaluated 유지.
+- 감독 결정: 새 검증에서 agent 자체 unit fixture 개수 제한을 제거했습니다. 과거25>24 중단과 모든 이전 실패 기록은 보존하고 소급 성공 처리하지 않습니다. 실제 투자 연구 조건과 사용자 명시 한도는 그대로입니다.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-delivery-recovery/r2-source`, r2-worker 및 main-cli-proof.json. 이전 audit도 보존합니다.
+- 정리: 기존 `/home/kwl/projects/jusik-r2-counterfactual-fe92`와 `feat/r2-counterfactual-fe92`는 통합·검증·자료 보관 후 정상 제거했습니다. 과거 runner task의 blocked 이력은 변경하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-16-r2-counterfactual-fe92.md`; 사용 계약: `docs/research/market-counterfactual-comparison.md`.
 
 ## r3-value-44f7
 
