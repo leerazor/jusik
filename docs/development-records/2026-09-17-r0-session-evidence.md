@@ -9,7 +9,7 @@
 ## 변경과 결정
 
 - `backend/jusik/data/r0_us_session_evidence_v1.json`에 baseline manifest·run·tracked XNYS 달력의 전체 SHA 체인, provider/version, 현지 날짜 의미, 252/252 canonical digest와 제한사항을 고정했습니다.
-- `backend/jusik/market_performance_readiness.py`는 canonical 경로에서만 증거 파일·달력 바이트·달력 payload 내부 hash·run 요청 기간·실제 equity 날짜를 재검증합니다. 검증 성공 시 `missing_calendar_evidence`와 `missing_session_completeness_evidence`만 제거하며, 상태는 계속 `blocked`/`ready_for_metrics=false`/`not-evaluated`입니다.
+- `backend/jusik/market_performance_readiness.py`는 canonical 경로에서만 증거 파일·manifest bytes와 내부 run 경로/SHA/기간·달력 바이트·달력 payload 내부 hash·run 요청 기간·실제 equity 날짜를 재검증합니다. 검증 성공 시 `missing_calendar_evidence`와 `missing_session_completeness_evidence`만 제거하며, 상태는 계속 `blocked`/`ready_for_metrics=false`/`not-evaluated`입니다.
 - generic 진단과 canonical identity 경계를 유지하고, 증거 부재·변조·SHA/기간/세션 불일치에는 fail-closed 오류를 반환합니다.
 
 ## 문서·계약 영향

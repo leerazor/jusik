@@ -98,7 +98,9 @@ python -m jusik.market_performance_readiness \
 
 등록된 canonical R0 미국 approximate run에는
 `backend/jusik/data/r0_us_session_evidence_v1.json`이 별도 불변 근거로 연결된다.
-근거는 baseline manifest, run, tracked
+근거는 baseline manifest 자체를 `~/.local/share/jusik/portfolio-audit` 기준 상대 경로로
+해결해 manifest bytes SHA와 manifest가 지정한 run 절대 경로·SHA·요청 기간까지
+검증하고, tracked
 `backend/jusik/data/market_sessions_2023_2026.json`의 전체 바이트와 내부 달력
 payload SHA를 함께 고정하며, `exchange_calendars 4.12`의 XNYS·`America/New_York`
 현지 세션 날짜를 요청 기간 `2025-09-11~2026-09-11` 양끝 포함으로 해석한다. 달력에서

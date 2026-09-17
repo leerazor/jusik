@@ -8,6 +8,7 @@ from typing import cast
 
 import pytest
 
+import jusik.market_performance_readiness as readiness
 from jusik.market_performance_readiness import (
     CANONICAL_EVIDENCE_PATH,
     CANONICAL_EVIDENCE_SHA256,
@@ -23,6 +24,10 @@ from jusik.market_performance_readiness import (
 CANONICAL_RUN_PATH = Path(
     "/home/kwl/.local/share/jusik/portfolio-audit/"
     "20260915-market-data-live-contract-fixes/us-web-pilot-run.json"
+)
+CANONICAL_MANIFEST_PATH = Path(
+    "/home/kwl/.local/share/jusik/portfolio-audit/"
+    "20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json"
 )
 
 
@@ -397,6 +402,17 @@ def test_canonical_session_evidence_removes_exactly_two_codes_and_is_determinist
     assert first["economic_evaluation"] == "not-evaluated"
     assert first["session_evidence"]["expected_count"] == 252
     assert first["session_evidence"]["observed_count"] == 252
+    expected = [
+        row["date"]
+        for row in json.loads(readiness.TRACKED_CALENDAR_PATH.read_bytes())[
+            "calendars"
+        ]["XNYS"]
+        if row["state"] == "session" and "2025-09-11" <= row["date"] <= "2026-09-11"
+    ]
+    observed = [row["session"] for row in json.loads(original_run)["result"]["equity"]]
+    assert first["session_evidence"]["expected_sessions"] == expected
+    assert first["session_evidence"]["observed_sessions"] == observed
+    assert expected == observed
     assert CANONICAL_RUN_PATH.read_bytes() == original_run
     assert evidence_copy.read_bytes() == original_evidence
     assert hashlib.sha256(original_evidence).hexdigest() == CANONICAL_EVIDENCE_SHA256
@@ -425,3 +441,35 @@ def test_canonical_evidence_is_fail_closed_and_generic_never_consumes_it(
             evidence_path=CANONICAL_EVIDENCE_PATH,
         )
     assert error.value.code == "canonical_evidence_requires_canonical"
+
+
+def test_manifest_bytes_and_calendar_bytes_are_independently_fail_closed(
+    tmp_path: Path,
+) -> None:
+    manifest_copy = tmp_path / "manifest.json"
+    manifest_copy.write_bytes(CANONICAL_MANIFEST_PATH.read_bytes() + b"\n")
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_canonical_run(
+            CANONICAL_RUN_PATH,
+            manifest_path=manifest_copy,
+        )
+    assert error.value.code == "manifest_sha_mismatch"
+
+    calendar_payload = json.loads(readiness.TRACKED_CALENDAR_PATH.read_bytes())
+    calendar_payload["calendars"]["XNYS"][0]["state"] = "session"
+    calendar_payload["calendars_sha256"] = hashlib.sha256(
+        json.dumps(
+            calendar_payload["calendars"],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    calendar_copy = tmp_path / "calendar.json"
+    calendar_copy.write_text(
+        json.dumps(calendar_payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_canonical_run(CANONICAL_RUN_PATH, calendar_path=calendar_copy)
+    assert error.value.code == "calendar_sha_mismatch"

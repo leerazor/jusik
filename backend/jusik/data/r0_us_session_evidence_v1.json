@@ -1,6 +1,15 @@
 {
   "schema": "r0-us-session-evidence/v1",
-  "manifest_sha256": "03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205",
+  "manifest": {
+    "path": "20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json",
+    "sha256": "03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205",
+    "run_path": "20260915-market-data-live-contract-fixes/us-web-pilot-run.json",
+    "run_sha256": "cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275",
+    "request_period": {
+      "start_date": "2025-09-11",
+      "end_date": "2026-09-11"
+    }
+  },
   "run_sha256": "cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275",
   "calendar": {
     "path": "backend/jusik/data/market_sessions_2023_2026.json",

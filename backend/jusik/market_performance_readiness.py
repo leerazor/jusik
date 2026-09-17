@@ -31,7 +31,7 @@ CANONICAL_RUN_SHA256: Final = (
     "cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275"
 )
 CANONICAL_EVIDENCE_SHA256: Final = (
-    "cb79ed6ec53d61047624c7d56481b1066e33096c16d4d53ae47a5897a879ea7b"
+    "9348e2f3f6d2120e99460e34dd0a20e285bd14daf6c1f45f96df688b7bc1046a"
 )
 CALENDAR_BYTES_SHA256: Final = (
     "ba26619a27e066ca32b1aaaf3b7da2b99f0c6658f731a000c5095c057081c1d8"
@@ -41,6 +41,9 @@ CALENDAR_PAYLOAD_SHA256: Final = (
 )
 CANONICAL_EVIDENCE_PATH: Final = (
     Path(__file__).with_name("data") / "r0_us_session_evidence_v1.json"
+)
+CANONICAL_AUDIT_ROOT: Final = (
+    Path.home() / ".local" / "share" / "jusik" / "portfolio-audit"
 )
 TRACKED_CALENDAR_PATH: Final = (
     Path(__file__).with_name("data") / "market_sessions_2023_2026.json"
@@ -541,9 +544,57 @@ def _read_evidence(path: Path) -> tuple[dict[str, object], str]:
     return evidence, actual
 
 
-def _read_tracked_calendar() -> dict[str, object]:
+def _read_manifest(
+    path: Path,
+    run_path: Path,
+    expected_run_sha256: str,
+    expected_period: tuple[str, str],
+) -> str:
     try:
-        raw = TRACKED_CALENDAR_PATH.read_bytes()
+        raw = path.read_bytes()
+    except OSError:
+        raise ReadinessInputError("manifest_unavailable") from None
+    actual = hashlib.sha256(raw).hexdigest()
+    if actual != CANONICAL_MANIFEST_SHA256:
+        raise ReadinessInputError("manifest_sha_mismatch")
+    try:
+        manifest = _parse_json(raw)
+    except ReadinessInputError:
+        raise ReadinessInputError("manifest_malformed") from None
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, Mapping):
+        raise ReadinessInputError("manifest_chain_mismatch")
+    run_artifact = artifacts.get("run")
+    if not isinstance(run_artifact, Mapping):
+        raise ReadinessInputError("manifest_chain_mismatch")
+    linked_path = run_artifact.get("path")
+    if not isinstance(linked_path, str) or Path(linked_path).resolve() != (
+        run_path.resolve()
+    ):
+        raise ReadinessInputError("manifest_run_path_mismatch")
+    if run_artifact.get("sha256") != expected_run_sha256:
+        raise ReadinessInputError("manifest_run_sha_mismatch")
+    run_fact = manifest.get("run")
+    if not isinstance(run_fact, Mapping):
+        raise ReadinessInputError("manifest_chain_mismatch")
+    period = run_fact.get("period")
+    request = run_fact.get("request")
+    if period != {"start": expected_period[0], "end": expected_period[1]}:
+        raise ReadinessInputError("manifest_period_mismatch")
+    if not isinstance(request, Mapping):
+        raise ReadinessInputError("manifest_request_mismatch")
+    if (
+        request.get("start_date") != expected_period[0]
+        or request.get("end_date") != expected_period[1]
+    ):
+        raise ReadinessInputError("manifest_request_mismatch")
+    return actual
+
+
+def _read_tracked_calendar(path: Path | None = None) -> dict[str, object]:
+    calendar_path = path or TRACKED_CALENDAR_PATH
+    try:
+        raw = calendar_path.read_bytes()
     except OSError:
         raise ReadinessInputError("calendar_unavailable") from None
     if hashlib.sha256(raw).hexdigest() != CALENDAR_BYTES_SHA256:
@@ -578,15 +629,18 @@ def _read_tracked_calendar() -> dict[str, object]:
 
 def _validate_session_evidence(
     evidence_path: Path,
+    run_path: Path,
     payload: Mapping[str, object],
     request: Mapping[str, object],
     result: Mapping[str, object],
     source_sha256: str,
+    manifest_path: Path | None = None,
+    calendar_path: Path | None = None,
 ) -> dict[str, object]:
     evidence, evidence_sha256 = _read_evidence(evidence_path)
     expected_top = {
         "schema",
-        "manifest_sha256",
+        "manifest",
         "run_sha256",
         "calendar",
         "request",
@@ -595,10 +649,47 @@ def _validate_session_evidence(
     }
     if set(evidence) != expected_top or evidence.get("schema") != EVIDENCE_SCHEMA:
         raise ReadinessInputError("evidence_schema_mismatch")
-    if evidence.get("manifest_sha256") != CANONICAL_MANIFEST_SHA256:
-        raise ReadinessInputError("evidence_chain_mismatch")
+    manifest_identity = evidence.get("manifest")
+    if not isinstance(manifest_identity, Mapping):
+        raise ReadinessInputError("evidence_schema_mismatch")
+    if set(manifest_identity) != {
+        "path",
+        "sha256",
+        "run_path",
+        "run_sha256",
+        "request_period",
+    }:
+        raise ReadinessInputError("evidence_schema_mismatch")
+    manifest_relative_path = manifest_identity.get("path")
+    if (
+        not isinstance(manifest_relative_path, str)
+        or Path(manifest_relative_path).is_absolute()
+    ):
+        raise ReadinessInputError("evidence_manifest_mismatch")
     if evidence.get("run_sha256") != source_sha256:
         raise ReadinessInputError("evidence_run_mismatch")
+    if manifest_identity.get("sha256") != CANONICAL_MANIFEST_SHA256:
+        raise ReadinessInputError("evidence_manifest_mismatch")
+    if manifest_identity.get("run_sha256") != source_sha256:
+        raise ReadinessInputError("evidence_manifest_run_mismatch")
+    if manifest_identity.get("run_path") != (
+        "20260915-market-data-live-contract-fixes/us-web-pilot-run.json"
+    ):
+        raise ReadinessInputError("evidence_manifest_mismatch")
+    if manifest_identity.get("request_period") != {
+        "start_date": "2025-09-11",
+        "end_date": "2026-09-11",
+    }:
+        raise ReadinessInputError("evidence_manifest_mismatch")
+    resolved_manifest_path = manifest_path or (
+        CANONICAL_AUDIT_ROOT / manifest_relative_path
+    )
+    manifest_sha256 = _read_manifest(
+        resolved_manifest_path,
+        run_path,
+        source_sha256,
+        ("2025-09-11", "2026-09-11"),
+    )
     calendar = evidence.get("calendar")
     if not isinstance(calendar, Mapping):
         raise ReadinessInputError("evidence_schema_mismatch")
@@ -646,7 +737,7 @@ def _validate_session_evidence(
     ):
         raise ReadinessInputError("evidence_schema_mismatch")
 
-    calendar_payload = _read_tracked_calendar()
+    calendar_payload = _read_tracked_calendar(calendar_path)
     calendars = calendar_payload["calendars"]
     if not isinstance(calendars, Mapping) or not isinstance(calendars["XNYS"], list):
         raise ReadinessInputError("calendar_malformed")
@@ -729,12 +820,14 @@ def _validate_session_evidence(
         raise ReadinessInputError("session_evidence_mismatch")
     return {
         "sha256": evidence_sha256,
-        "manifest_sha256": CANONICAL_MANIFEST_SHA256,
+        "manifest_sha256": manifest_sha256,
         "run_sha256": source_sha256,
         "calendar_bytes_sha256": CALENDAR_BYTES_SHA256,
         "calendar_payload_sha256": CALENDAR_PAYLOAD_SHA256,
         "expected_count": len(expected_sessions),
         "observed_count": len(observed_sessions),
+        "expected_sessions": expected_sessions,
+        "observed_sessions": observed_sessions,
         "missing": missing,
         "extra": extra,
         "duplicates": duplicates,
@@ -908,6 +1001,8 @@ def diagnose_run(
     *,
     canonical: bool = False,
     evidence_path: Path | None = None,
+    manifest_path: Path | None = None,
+    calendar_path: Path | None = None,
 ) -> dict[str, object]:
     """Inspect a saved run using its caller-provided identity hash.
 
@@ -926,7 +1021,14 @@ def diagnose_run(
     evidence: dict[str, object] | None = None
     if canonical and evidence_path is not None:
         evidence = _validate_session_evidence(
-            evidence_path, payload, request, result, source_sha256
+            evidence_path,
+            path,
+            payload,
+            request,
+            result,
+            source_sha256,
+            manifest_path,
+            calendar_path,
         )
     missing = list(MISSING_CODES)
     if evidence is not None:
@@ -965,7 +1067,10 @@ def diagnose_run(
 
 
 def diagnose_canonical_run(
-    path: Path, evidence_path: Path = CANONICAL_EVIDENCE_PATH
+    path: Path,
+    evidence_path: Path = CANONICAL_EVIDENCE_PATH,
+    manifest_path: Path | None = None,
+    calendar_path: Path | None = None,
 ) -> dict[str, object]:
     """Accept only the registered frozen run identity as canonical input."""
 
@@ -974,6 +1079,8 @@ def diagnose_canonical_run(
         CANONICAL_RUN_SHA256,
         canonical=True,
         evidence_path=evidence_path,
+        manifest_path=manifest_path,
+        calendar_path=calendar_path,
     )
 
 
