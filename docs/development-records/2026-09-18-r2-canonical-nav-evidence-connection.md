@@ -23,7 +23,7 @@
 ## 검증
 
 - `python -m py_compile backend/jusik/market_performance_cost_evidence.py backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py` — 통과.
-- `/tmp/jusik-r2-canonical-venv/bin/python -m pytest backend/tests/test_market_performance_cost_evidence.py backend/tests/test_market_performance_readiness.py backend/tests/test_research_nav_reconciliation.py backend/tests/test_research_canonical_nav_reconciliation.py -q` — 109 passed.
+- `/tmp/jusik-r2-canonical-venv/bin/python -m pytest backend/tests/test_market_performance_cost_evidence.py backend/tests/test_market_performance_readiness.py backend/tests/test_research_nav_reconciliation.py backend/tests/test_research_canonical_nav_reconciliation.py -q` — 112 passed.
 - `/tmp/jusik-r2-canonical-venv/bin/python -m ruff check backend/jusik/market_performance_cost_evidence.py backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py backend/tests/test_market_performance_cost_evidence.py backend/tests/test_research_canonical_nav_reconciliation.py` 및 동일 경로 `ruff format --check` — 통과.
 - `/tmp/jusik-r2-canonical-venv/bin/python -m mypy --config-file backend/pyproject.toml backend/jusik/market_performance_cost_evidence.py backend/jusik/market_performance_readiness.py backend/jusik/research_canonical_nav_reconciliation.py` — 통과.
 - `PYTHONPATH=backend /tmp/jusik-r2-canonical-venv/bin/python -m jusik.market_performance_cost_evidence --canonical` — exit 0, verified 106 trades / 252 sessions / zero residual.
