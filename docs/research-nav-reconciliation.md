@@ -17,3 +17,15 @@ backend/.venv/bin/python -m jusik.research_nav_reconciliation \
 JSON의 null, bool, 비수치, 비유한 값, 음수, 중복 키, 빈 equity, 잘못된 구조를 거부합니다. Decimal 연산은 ambient context의 precision에 의존하지 않도록 행별 필요한 precision을 계산한 local context에서 수행합니다.
 
 이 진단은 저장 NAV 구성요소 일관성만 확인합니다. 독립 calendar와 독립 수량·가격·현금흐름 회계는 `unavailable`, 경제 평가는 `not-evaluated`, benchmark와 future 평가는 `blocked`로 기록합니다. 관측 세션을 모든 실제 거래일로 해석하지 않으며 전체 R2-05 checkbox는 변경하지 않습니다.
+
+## 고정 canonical 연결 adapter
+
+`jusik.research_canonical_nav_reconciliation`은 입력 인자를 받지 않고 등록된 R0 미국 run만 읽습니다. 고정 run bytes를 먼저 `reconcile_json_bytes()`로 대사한 뒤, 좁은 `verify_canonical_session_evidence()`와 기존 `verify_canonical_cost_evidence()`를 각각 한 번 호출해 동일한 run SHA·manifest SHA·`2025-09-11`~`2026-09-11` 기간을 연결합니다. 두 근거가 함께 증명하는 것은 순서가 보존된 정확히 252개 session, 106개 modeled trade, 252개 NAV와 고정 dataset SHA뿐입니다.
+
+adapter 출력은 `r2-canonical-nav-evidence-connection/v1` 결정적 envelope입니다. `residual`에는 위 일반 대사의 행·잔차·실패 날짜를 그대로 보존하고, `canonical.coverage`에서만 calendar·독립 modeled-accounting·KRW NAV source를 `verified`로 표시합니다. `canonical.provenance`는 run/manifest/dataset/session-evidence/calendar SHA와 기간·session 목록을 보존하며, `projection.digest`와 `accounting.digest`는 각각 residual projection과 기존 비용 verifier의 digest로 명확히 구분합니다. 일반 reconciliation의 `unavailable`, `not-evaluated`, `blocked` 의미와 전체 R2-05 checkbox는 바뀌지 않습니다.
+
+CLI는 다음처럼 실행하며 성공은 0, 잔차 실패는 1, 고정 근거·구조·identity 검증 실패는 2입니다.
+
+```text
+PYTHONPATH=backend python -m jusik.research_canonical_nav_reconciliation
+```
