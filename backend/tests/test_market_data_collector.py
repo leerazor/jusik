@@ -1045,17 +1045,19 @@ class _USEventTransport(_CausalUSCheckpointTransport):
         observed: object,
         symbols: tuple[str, ...] = ("AAA",),
         include_event: bool = True,
+        event_kind: str = "splits",
     ) -> None:
         super().__init__(symbols, initial_symbols=symbols)
         self.occurrence = occurrence
         self.observed = observed
         self.include_event = include_event
+        self.event_kind = event_kind
 
     async def yahoo(self, symbol: str, start: date, end: date) -> bytes:
         payload = json.loads(await super().yahoo(symbol, start, end))
         if symbol == "AAA" and self.include_event:
             payload["chart"]["result"][0]["events"] = {
-                "splits": {
+                self.event_kind: {
                     str(int(self.occurrence.timestamp())): {
                         "observed_at": self.observed,
                     }
@@ -2122,6 +2124,225 @@ def test_us_collector_delayed_event_isolates_rows_from_observed_date(
     assert not any(trade.side == "sell" for trade in research.trades)
     assert research.metrics["missing_held_bars"] >= 1
     assert any("추정값" in item for item in research.limitations)
+
+
+@pytest.mark.parametrize("event_kind", ["splits", "dividends", "delisting"])
+@pytest.mark.parametrize(
+    ("timing", "occurrence", "observed", "cutoff"),
+    [
+        (
+            "observed-now-effective-future",
+            datetime(2026, 1, 6, 14, 30, tzinfo=UTC),
+            "2026-01-05T22:00:00+00:00",
+            date(2026, 1, 6),
+        ),
+        (
+            "effective-now-observed-later",
+            datetime(2026, 1, 5, 14, 30, tzinfo=UTC),
+            "2026-01-06T22:00:00+00:00",
+            date(2026, 1, 7),
+        ),
+    ],
+)
+def test_us_event_time_invariance_is_safe_and_causal(
+    event_kind: str,
+    timing: str,
+    occurrence: datetime,
+    observed: str,
+    cutoff: date,
+    tmp_path: Path,
+) -> None:
+    """A future event cannot rewrite the prepared pre-event history."""
+
+    start = date(2025, 9, 14)
+    pre_event_end = date(2026, 1, 2)
+    full_end = date(2026, 9, 14)
+    captured_at = datetime(2026, 9, 16, 12, tzinfo=UTC)
+
+    def collect_and_import(end: date, *, include_event: bool, suffix: str):
+        collected = asyncio.run(
+            FreeMarketDataCollector(
+                _USEventTransport(
+                    occurrence,
+                    observed,
+                    symbols=("AAA", "BBB"),
+                    include_event=include_event,
+                    event_kind=event_kind,
+                )
+            ).collect(
+                market="US",
+                start=start,
+                end=end,
+                sample_size=2,
+            )
+        )
+        prepared = tmp_path / f"{event_kind}-{timing}-{suffix}.json"
+        prepared.write_bytes(collected.dataset.model_dump_json().encode())
+        assert ApproximateDataset.model_validate_json(prepared.read_bytes()) == (
+            collected.dataset
+        )
+        request = MarketResearchRequest(
+            market="US",
+            start_date=start,
+            end_date=end,
+            research_grade="approximate",
+        )
+        source = ApproximateMarketHistorySource(JsonApproximateProvider(prepared))
+        snapshot = asyncio.run(source.collect(request, captured_at=captured_at))
+        readiness = source.readiness("US", captured_at)
+        research = run_approximate_market_research(
+            snapshot,
+            request,
+            readiness,
+            default_market_calendar(),
+        )
+        return collected, snapshot, research
+
+    baseline_pre, baseline_pre_snapshot, baseline_pre_research = collect_and_import(
+        pre_event_end, include_event=False, suffix="baseline-pre"
+    )
+    event_pre, event_pre_snapshot, event_pre_research = collect_and_import(
+        pre_event_end, include_event=True, suffix="event-pre"
+    )
+
+    # The same endpoint period and captured_at produce exact pre-event output,
+    # including typed membership classification and non-empty candidate evidence.
+    assert event_pre.dataset.universe == baseline_pre.dataset.universe
+    assert event_pre.dataset.bars == baseline_pre.dataset.bars
+    assert event_pre.dataset.fx == baseline_pre.dataset.fx
+    assert event_pre.collection_diagnostics == baseline_pre.collection_diagnostics
+    assert event_pre.collection_diagnostics is not None
+    assert baseline_pre.collection_diagnostics is not None
+    assert (
+        event_pre.collection_diagnostics.coverage
+        == baseline_pre.collection_diagnostics.coverage
+    )
+    assert (
+        event_pre.collection_diagnostics.symbols
+        == baseline_pre.collection_diagnostics.symbols
+    )
+    assert event_pre_snapshot.memberships == baseline_pre_snapshot.memberships
+    assert event_pre_snapshot.bars == baseline_pre_snapshot.bars
+    assert event_pre_snapshot.actions == baseline_pre_snapshot.actions == ()
+    assert event_pre_snapshot.actions_complete is False
+    assert baseline_pre_snapshot.actions_complete is False
+    assert event_pre_snapshot.missing_ranges == baseline_pre_snapshot.missing_ranges
+    assert all(
+        item.instrument_type == "stock" for item in event_pre_snapshot.memberships
+    )
+    assert event_pre_research.candidate_evidence == (
+        baseline_pre_research.candidate_evidence
+    )
+    assert event_pre_research.candidate_evidence
+    assert event_pre_research.status == baseline_pre_research.status == "approximate"
+    assert (
+        event_pre_research.completeness
+        == baseline_pre_research.completeness
+        == "approximate"
+    )
+    assert (
+        event_pre_research.research_grade
+        == baseline_pre_research.research_grade
+        == "approximate"
+    )
+
+    baseline_full, baseline_full_snapshot, baseline_full_research = collect_and_import(
+        full_end, include_event=False, suffix="baseline-full"
+    )
+    event_full, event_full_snapshot, event_full_research = collect_and_import(
+        full_end, include_event=True, suffix="event-full"
+    )
+
+    # Prefix equality is the contract for a full-range request; the expected
+    # event session is fixed independently of the production cutoff helper.
+    assert tuple(
+        row for row in event_full.dataset.universe if row.session < cutoff
+    ) == tuple(row for row in baseline_full.dataset.universe if row.session < cutoff)
+    assert tuple(
+        row for row in event_full.dataset.bars if row.session < cutoff
+    ) == tuple(row for row in baseline_full.dataset.bars if row.session < cutoff)
+    assert tuple(
+        row for row in event_full_snapshot.memberships if row.valid_from < cutoff
+    ) == tuple(
+        row for row in baseline_full_snapshot.memberships if row.valid_from < cutoff
+    )
+    assert tuple(
+        row for row in event_full_snapshot.bars if row.session < cutoff
+    ) == tuple(row for row in baseline_full_snapshot.bars if row.session < cutoff)
+    assert tuple(
+        row for row in event_full_research.candidate_evidence if row.session < cutoff
+    ) == tuple(
+        row for row in baseline_full_research.candidate_evidence if row.session < cutoff
+    )
+    assert event_full_research.candidate_evidence
+
+    baseline_universe_keys = {
+        (row.symbol, row.session) for row in baseline_full.dataset.universe
+    }
+    event_universe_keys = {
+        (row.symbol, row.session) for row in event_full.dataset.universe
+    }
+    baseline_bar_keys = {
+        (row.symbol, row.session) for row in baseline_full.dataset.bars
+    }
+    event_bar_keys = {(row.symbol, row.session) for row in event_full.dataset.bars}
+    expected_universe_removed = {
+        (symbol, session)
+        for symbol, session in baseline_universe_keys
+        if symbol == "AAA" and session >= cutoff
+    }
+    expected_bars_removed = {
+        (symbol, session)
+        for symbol, session in baseline_bar_keys
+        if symbol == "AAA" and session >= cutoff
+    }
+    assert any(
+        symbol == "AAA" and session < cutoff
+        for symbol, session in baseline_universe_keys
+    )
+    assert any(
+        symbol == "AAA" and session >= cutoff
+        for symbol, session in baseline_universe_keys
+    )
+    assert any(
+        symbol == "AAA" and session < cutoff for symbol, session in baseline_bar_keys
+    )
+    assert any(
+        symbol == "AAA" and session >= cutoff for symbol, session in baseline_bar_keys
+    )
+    assert expected_universe_removed
+    assert expected_bars_removed
+    assert baseline_universe_keys - event_universe_keys == expected_universe_removed
+    assert baseline_bar_keys - event_bar_keys == expected_bars_removed
+    assert {key for key in event_universe_keys if key[0] == "BBB"} == {
+        key for key in baseline_universe_keys if key[0] == "BBB"
+    }
+    assert {key for key in event_bar_keys if key[0] == "BBB"} == {
+        key for key in baseline_bar_keys if key[0] == "BBB"
+    }
+    assert event_full.collection_diagnostics is not None
+    target_diagnostic = next(
+        item
+        for item in event_full.collection_diagnostics.symbols
+        if item.symbol == "AAA"
+    )
+    assert target_diagnostic.coverage.event_excluded_sessions == len(
+        expected_bars_removed
+    )
+    if event_kind == "delisting":
+        assert "observed_delisting" in target_diagnostic.reasons
+
+    # The event remains in the prepared JSON with its complete timing identity.
+    prepared_event = next(
+        item for item in event_full.dataset.events if item.symbol == "AAA"
+    )
+    assert (
+        prepared_event.kind,
+        prepared_event.symbol,
+        prepared_event.occurrence_at,
+        prepared_event.observed_at,
+        prepared_event.source,
+    ) == (event_kind, "AAA", occurrence, datetime.fromisoformat(observed), "yahoo")
 
 
 def test_alpha_later_checkpoint_failure_preserves_initial_pool_and_reports_gap() -> (

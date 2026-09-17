@@ -115,6 +115,117 @@ def test_causal_us_source_keeps_preselected_rows_and_contract_is_policy_only(
     assert snapshot.pool_contract_hash == us_membership_contract_hash()
 
 
+@pytest.mark.parametrize("kind", ["splits", "dividends", "delisting"])
+@pytest.mark.parametrize(
+    ("occurrence", "observed"),
+    [
+        (
+            datetime(2026, 1, 6, 14, 30, tzinfo=UTC),
+            datetime(2026, 1, 5, 22, tzinfo=UTC),
+        ),
+        (
+            datetime(2026, 1, 5, 14, 30, tzinfo=UTC),
+            datetime(2026, 1, 6, 22, tzinfo=UTC),
+        ),
+    ],
+)
+def test_causal_us_event_import_preserves_safe_pre_event_contract(
+    kind: str,
+    occurrence: datetime,
+    observed: datetime,
+    tmp_path: Path,
+) -> None:
+    session = date(2026, 1, 2)
+    captured_at = datetime(2026, 9, 16, 12, tzinfo=UTC)
+    common = {
+        "market": "US",
+        "universe": tuple(
+            ApproximateUniverseRow(
+                session=session,
+                symbol=symbol,
+                name=f"Sample {symbol}",
+                exchange="NMS",
+                instrument_type="stock",
+                currency="USD",
+                available_at=datetime(2026, 1, 2, 21, tzinfo=UTC),
+            )
+            for symbol in ("AAA", "BBB")
+        ),
+        "bars": tuple(
+            ApproximateBarRow(
+                session=session,
+                symbol=symbol,
+                exchange="NMS",
+                open=10,
+                high=11,
+                low=9,
+                close=10,
+                volume=100,
+                currency="USD",
+                available_at=datetime(2026, 1, 2, 21, tzinfo=UTC),
+            )
+            for symbol in ("AAA", "BBB")
+        ),
+        "fx": (
+            ApproximateFXRow(
+                session=session,
+                krw_per_usd=1400,
+                spread_rate=0,
+                available_at=datetime(2026, 1, 2, 14, tzinfo=UTC),
+            ),
+        ),
+        "normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION,
+    }
+    baseline = ApproximateDataset(**common)
+    with_event = ApproximateDataset(
+        **common,
+        events=(
+            ApproximateEvent(
+                symbol="AAA",
+                kind=kind,
+                occurrence_at=occurrence,
+                observed_at=observed,
+            ),
+        ),
+    )
+    baseline_path = tmp_path / f"{kind}-baseline.json"
+    event_path = tmp_path / f"{kind}-event.json"
+    baseline_path.write_bytes(baseline.model_dump_json().encode())
+    event_path.write_bytes(with_event.model_dump_json().encode())
+    request = MarketResearchRequest(
+        market="US",
+        start_date=session,
+        end_date=session,
+        research_grade="approximate",
+    )
+    baseline_source = ApproximateMarketHistorySource(
+        JsonApproximateProvider(baseline_path)
+    )
+    event_source = ApproximateMarketHistorySource(JsonApproximateProvider(event_path))
+    baseline_snapshot = asyncio.run(
+        baseline_source.collect(request, captured_at=captured_at)
+    )
+    event_snapshot = asyncio.run(event_source.collect(request, captured_at=captured_at))
+    assert event_snapshot.memberships == baseline_snapshot.memberships
+    assert event_snapshot.bars == baseline_snapshot.bars
+    assert event_snapshot.fx == baseline_snapshot.fx
+    assert event_snapshot.actions == baseline_snapshot.actions == ()
+    assert event_snapshot.actions_complete is False
+    assert baseline_snapshot.actions_complete is False
+    assert event_snapshot.missing_ranges == baseline_snapshot.missing_ranges
+    assert all(item.instrument_type == "stock" for item in event_snapshot.memberships)
+    prepared_event = ApproximateDataset.model_validate_json(
+        event_path.read_bytes()
+    ).events[0]
+    assert (
+        prepared_event.symbol,
+        prepared_event.kind,
+        prepared_event.occurrence_at,
+        prepared_event.observed_at,
+        prepared_event.source,
+    ) == ("AAA", kind, occurrence, observed, "yahoo")
+
+
 def test_causal_us_unknown_event_timing_is_explicitly_insufficient(
     tmp_path: Path,
 ) -> None:
