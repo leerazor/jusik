@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -9,6 +10,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from jusik import research_portfolio_engine as engine
+from jusik import research_portfolio_time_evidence as evidence
 from jusik.research_external_models import ExternalFeatureSnapshot
 from jusik.research_market_calendar import DEFAULT_CALENDAR_PATH, load_market_calendar
 from jusik.research_models import DailyBar
@@ -205,3 +207,91 @@ def test_manifest_sha_and_artifact_tamper_are_fail_closed(tmp_path: Path) -> Non
     )
     with pytest.raises(ValueError, match="hash or size"):
         verify_bundle(output, result.manifest_sha256)
+
+
+def test_strict_json_keeps_long_decimal_exact() -> None:
+    raw = evidence._strict_json(
+        b'{"value":1234567890.123456789012345678901234567890}', "test"
+    )
+    assert raw == {"value": Decimal("1234567890.123456789012345678901234567890")}
+
+
+def test_verify_uses_verified_bytes_after_path_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source()
+    candidate, config, start, end = _config()
+    output = tmp_path / "bundle"
+    result = generate_bundle(
+        source,
+        candidate,
+        start,
+        end,
+        config,
+        DEFAULT_CALENDAR_PATH.read_bytes(),
+        output,
+        allow_new_simulation=True,
+    )
+    original = evidence._load_bundle_files
+
+    def swap_after_loading(
+        bundle_dir: Path, expected_manifest_sha256: str
+    ) -> tuple[dict[str, bytes], dict[str, object], str]:
+        loaded = original(bundle_dir, expected_manifest_sha256)
+        (output / "simulation.json").write_text("not the verified simulation")
+        return loaded
+
+    monkeypatch.setattr(evidence, "_load_bundle_files", swap_after_loading)
+    assert verify_bundle(output, result.manifest_sha256).nav_count > 0
+
+
+def test_failed_generation_cleans_staging_and_never_leaves_partial_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source()
+    candidate, config, start, end = _config()
+    output = tmp_path / "bundle"
+    original = evidence._write_bytes_exclusive
+    calls = 0
+
+    def fail_after_first(path: Path, body: bytes) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("controlled write failure")
+        original(path, body)
+
+    monkeypatch.setattr(evidence, "_write_bytes_exclusive", fail_after_first)
+    with pytest.raises(OSError, match="controlled"):
+        generate_bundle(
+            source,
+            candidate,
+            start,
+            end,
+            config,
+            DEFAULT_CALENDAR_PATH.read_bytes(),
+            output,
+            allow_new_simulation=True,
+        )
+    assert not output.exists()
+    assert not list(tmp_path.glob(".bundle.staging-*"))
+
+
+def test_verify_rejects_extra_directory_entry(tmp_path: Path) -> None:
+    source = _source()
+    candidate, config, start, end = _config()
+    output = tmp_path / "bundle"
+    result = generate_bundle(
+        source,
+        candidate,
+        start,
+        end,
+        config,
+        DEFAULT_CALENDAR_PATH.read_bytes(),
+        output,
+        allow_new_simulation=True,
+    )
+    (output / "unexpected").mkdir()
+    with pytest.raises(ValueError, match="unexpected or missing"):
+        verify_bundle(output, result.manifest_sha256)
+    shutil.rmtree(output / "unexpected")

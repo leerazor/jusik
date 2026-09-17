@@ -13,7 +13,10 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
+import tempfile
 from datetime import date, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Final, Literal
 
@@ -109,6 +112,14 @@ def sha256_bytes(body: bytes) -> str:
 
 
 def _strict_json(body: bytes, label: str) -> object:
+    def parse_int(value: str) -> int:
+        if len(value.lstrip("+-")) > 100:
+            raise ValueError(f"integer is too large in {label}")
+        parsed = int(value)
+        if abs(parsed) > 10**100:
+            raise ValueError(f"integer is too large in {label}")
+        return parsed
+
     def reject_constant(value: str) -> object:
         raise ValueError(f"non-finite JSON constant in {label}: {value}")
 
@@ -123,6 +134,8 @@ def _strict_json(body: bytes, label: str) -> object:
     try:
         return json.loads(
             body.decode("utf-8"),
+            parse_float=Decimal,
+            parse_int=parse_int,
             parse_constant=reject_constant,
             object_pairs_hook=reject_duplicates,
         )
@@ -160,9 +173,9 @@ def _regular_file(path: Path, label: str) -> bytes:
     return path.read_bytes()
 
 
-def _load_model(path: Path, model: type[BaseModel], label: str) -> BaseModel:
+def _load_model_bytes(body: bytes, model: type[BaseModel], label: str) -> BaseModel:
     try:
-        return model.model_validate(_strict_json(_regular_file(path, label), label))
+        return model.model_validate(_strict_json(body, label))
     except (ValidationError, ValueError) as exc:
         raise ValueError(f"invalid {label}") from exc
 
@@ -181,10 +194,21 @@ def _write_bytes_exclusive(path: Path, body: bytes) -> None:
         raise
 
 
-def _new_output_dir(path: Path) -> None:
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _staging_dir(path: Path) -> Path:
+    parent = path.parent
+    if parent.is_symlink() or not parent.is_dir():
+        raise ValueError("output parent must be a real directory")
     if path.is_symlink() or path.exists():
         raise ValueError("output directory must be new and not a symlink")
-    path.mkdir(parents=True)
+    return Path(tempfile.mkdtemp(prefix=f".{path.name}.staging-", dir=parent))
 
 
 def _safe_artifact_name(name: object) -> str:
@@ -444,13 +468,18 @@ def generate_bundle(
         config=fixed,
         calendar=calendar,
     )
-    _new_output_dir(output_dir)
+    staging_dir = _staging_dir(output_dir)
     try:
         for name in ARTIFACT_NAMES:
-            _write_bytes_exclusive(output_dir / name, bodies[name])
+            _write_bytes_exclusive(staging_dir / name, bodies[name])
         # Manifest is deliberately written last after all immutable artifacts.
-        _write_bytes_exclusive(output_dir / MANIFEST_NAME, manifest_body)
+        _write_bytes_exclusive(staging_dir / MANIFEST_NAME, manifest_body)
+        _fsync_directory(staging_dir)
+        os.rename(staging_dir, output_dir)
+        _fsync_directory(output_dir.parent)
     except BaseException:
+        if staging_dir.exists() and not staging_dir.is_symlink():
+            shutil.rmtree(staging_dir)
         raise
     return BundleVerification(
         manifest_sha256=sha256_bytes(manifest_body),
@@ -504,11 +533,7 @@ def _load_bundle_files(
         if len(body) != row["size"] or sha256_bytes(body) != digest:
             raise ValueError(f"artifact hash or size mismatch: {safe_name}")
         files[safe_name] = body
-    actual = {
-        path.name
-        for path in bundle_dir.iterdir()
-        if not path.is_dir() or path.is_symlink()
-    }
+    actual = {path.name for path in bundle_dir.iterdir()}
     if actual != set(ALL_ARTIFACT_NAMES):
         raise ValueError("bundle contains unexpected or missing files")
     return files, raw_manifest, actual_manifest_sha
@@ -522,15 +547,15 @@ def verify_bundle(
     files, manifest, manifest_sha = _load_bundle_files(
         bundle_dir, expected_manifest_sha256
     )
-    source = _load_model(bundle_dir / "input.json", PortfolioInput, "input.json")
-    fixed = _load_model(bundle_dir / "config.json", TimeEvidenceConfig, "config.json")
+    source = _load_model_bytes(files["input.json"], PortfolioInput, "input.json")
+    fixed = _load_model_bytes(files["config.json"], TimeEvidenceConfig, "config.json")
     calendar_body = files["calendar.json"]
     calendar = MarketCalendar.from_bytes(calendar_body)
-    simulation = _load_model(
-        bundle_dir / "simulation.json", PortfolioSimulation, "simulation.json"
+    simulation = _load_model_bytes(
+        files["simulation.json"], PortfolioSimulation, "simulation.json"
     )
-    sidecar = _load_model(
-        bundle_dir / "time-evidence.json", PortfolioTimeEvidence, "time-evidence.json"
+    sidecar = _load_model_bytes(
+        files["time-evidence.json"], PortfolioTimeEvidence, "time-evidence.json"
     )
     assert isinstance(source, PortfolioInput)
     assert isinstance(fixed, TimeEvidenceConfig)
@@ -575,7 +600,9 @@ def verify_bundle(
 
 
 def _load_request(path: Path) -> GenerationRequest:
-    model = _load_model(path, GenerationRequest, "request")
+    model = _load_model_bytes(
+        _regular_file(path, "request"), GenerationRequest, "request"
+    )
     assert isinstance(model, GenerationRequest)
     return model
 
@@ -600,8 +627,8 @@ def generate_from_request(
     ):
         if expected is not None and sha256_bytes(body) != _digest(expected, label):
             raise ValueError(f"{label} SHA-256 mismatch")
-    source = _load_model(input_path, PortfolioInput, "input")
-    config_model = _load_model(config_path, TimeEvidenceConfig, "config")
+    source = _load_model_bytes(input_body, PortfolioInput, "input")
+    config_model = _load_model_bytes(config_body, TimeEvidenceConfig, "config")
     assert isinstance(source, PortfolioInput)
     assert isinstance(config_model, TimeEvidenceConfig)
     return generate_bundle(
@@ -656,9 +683,11 @@ def main(argv: list[str] | None = None) -> int:
             and args.calendar is not None
         ):
             # Direct paths still go through the same fixed-file loader.
-            source = _load_model(args.input, PortfolioInput, "input")
-            fixed = _load_model(args.config, TimeEvidenceConfig, "config")
+            input_body = _regular_file(args.input, "input")
+            config_body = _regular_file(args.config, "config")
             calendar_body = _regular_file(args.calendar, "calendar")
+            source = _load_model_bytes(input_body, PortfolioInput, "input")
+            fixed = _load_model_bytes(config_body, TimeEvidenceConfig, "config")
             assert isinstance(source, PortfolioInput)
             assert isinstance(fixed, TimeEvidenceConfig)
             result = generate_bundle(
