@@ -68,4 +68,19 @@ event timing의 `unknown`과 요청 제외를 구분한다.
 모두 유효할 때만 기록하고, 누락·미래·상충 자료로 추정하지 않는다. 진단은 전략 선택에
 사용하지 않으며 기존 준비 파일은 이 필드가 없어도 읽을 수 있다.
 
+## 미국 사건 시각 불변성 계약 (R1-02)
+
+미국 근사 준비 자료의 `splits`·`dividends`·명시적 `delisting` event는
+`occurrence_at`과 공급자 `observed_at`을 모두 보존한다. 사건의 자료 적용 경계는 두 시각 중
+늦은 시각으로 정하며, 장중에 걸리면 거래일을 추정하지 않고 해당 종목을
+`us_event_timing:unknown:<symbol>`으로 보류한다. 배당·분할 회계는 수행하지 않고
+`actions=()`·`actions_complete=false`와 기존 `dividends_excluded` 누락 정책을 유지한다.
+
+사건 관측이 요청 종료시각 뒤라면 사건 전 요청의 universe, OHLCV, typed membership,
+candidate evidence, 상태·완전성·등급·누락 범위와 수집 coverage/diagnostics는 사건이 없는
+동일 fixture와 같아야 한다. 전체 기간에서는 독립적으로 고정한 유효 거래일부터 대상
+종목의 행만 제외하며, 준비 JSON round-trip에는 event의 kind·symbol·occurrence·observed·source를
+그대로 남긴다. 이 synthetic 계약은 인과적 행 격리를 검증할 뿐 실제 historical receipt나
+strict PIT 증거를 주장하지 않으며 `R1-02` readiness checkbox를 승격하지 않는다.
+
 Alpha의 명시적 일일 요청 한도 문구는 quota로 분류하고 API key 언급만으로 quota·auth로 분류하지 않는다. Yahoo는 상위 admission row의 기대 거래소·USD 통화를 fresh 저장 전과 resume 반환 전에 검증한다.
