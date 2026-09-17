@@ -20,6 +20,14 @@ from pathlib import Path
 from typing import Final
 
 from .market_history_models import MarketResearchRun
+from .market_performance_cost_evidence import (
+    CANONICAL_EVIDENCE_PATH as CANONICAL_COST_EVIDENCE_PATH,
+)
+from .market_performance_cost_evidence import (
+    CANONICAL_RUN_PATH,
+    CostEvidenceError,
+    verify_canonical_cost_evidence,
+)
 from .market_performance_policy import (
     PolicyValidationError,
     load_calculation_policy,
@@ -29,6 +37,7 @@ from .market_performance_policy import (
 SCHEMA: Final = "market-performance-readiness/v1"
 TARGET_SCHEMA: Final = "market-performance-metrics-input/v1"
 EVIDENCE_SCHEMA: Final = "r0-us-session-evidence/v1"
+COST_EVIDENCE_SCHEMA: Final = "r0-us-modeled-cost-evidence/v1"
 CANONICAL_MANIFEST_SHA256: Final = (
     "03ff5a140138277d2161a0896c7c8aefd64abe0545de7cc33ed9270882481205"
 )
@@ -1025,6 +1034,7 @@ def diagnose_run(
     _validate_canonical_values(payload, request, result, readiness)
     evidence: dict[str, object] | None = None
     calculation_policy: dict[str, object] | None = None
+    cost_evidence: dict[str, object] | None = None
     if canonical and evidence_path is not None:
         evidence = _validate_session_evidence(
             evidence_path,
@@ -1040,6 +1050,25 @@ def diagnose_run(
             calculation_policy = policy_facts(load_calculation_policy())
         except PolicyValidationError as exc:
             raise ReadinessInputError(exc.code) from None
+        # A copied or test-substituted run is not the registered canonical
+        # chain, even when its caller temporarily pins a different SHA.
+        if path.resolve() == CANONICAL_RUN_PATH.resolve() and (
+            manifest_path is None
+            or manifest_path.resolve()
+            == CANONICAL_AUDIT_ROOT
+            / "20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json"
+        ):
+            try:
+                cost_evidence = verify_canonical_cost_evidence(
+                    path,
+                    evidence_path=CANONICAL_COST_EVIDENCE_PATH,
+                    manifest_path=manifest_path
+                    if manifest_path is not None
+                    else CANONICAL_AUDIT_ROOT
+                    / "20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json",
+                )
+            except CostEvidenceError as exc:
+                raise ReadinessInputError(exc.code) from None
     missing = list(MISSING_CODES)
     if evidence is not None:
         missing = [
@@ -1050,6 +1079,7 @@ def diagnose_run(
                 "missing_calendar_evidence",
                 "missing_session_completeness_evidence",
                 "missing_calculation_policy",
+                "missing_cost_inclusion_evidence",
             }
         ]
     return {
@@ -1067,6 +1097,7 @@ def diagnose_run(
             if calculation_policy is not None
             else {}
         ),
+        **({"cost_evidence": cost_evidence} if cost_evidence is not None else {}),
         "cost_assumptions": {
             "fee_rate": str(_decimal(_required(request, "fee_rate"))),
             "slippage_rate": str(_decimal(_required(request, "slippage_rate"))),

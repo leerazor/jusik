@@ -380,7 +380,7 @@ def test_size_limit_and_cli_are_read_only_and_deterministic(
     assert error.value.code == "source_too_large"
 
 
-def test_canonical_session_evidence_removes_exactly_three_codes_and_is_deterministic(
+def test_canonical_session_evidence_removes_exactly_four_codes_and_is_deterministic(
     tmp_path: Path,
 ) -> None:
     original_run = CANONICAL_RUN_PATH.read_bytes()
@@ -395,7 +395,6 @@ def test_canonical_session_evidence_removes_exactly_three_codes_and_is_determini
     assert first["missing"] == [
         "missing_initial_capital_at",
         "missing_nav_timestamps",
-        "missing_cost_inclusion_evidence",
         "missing_risk_free_evidence",
     ]
     assert first["status"] == "blocked"
@@ -766,6 +765,5 @@ def test_trusted_calendar_unavailable_and_clock_mutations_are_scoped(
     assert report["missing"] == [
         "missing_initial_capital_at",
         "missing_nav_timestamps",
-        "missing_cost_inclusion_evidence",
         "missing_risk_free_evidence",
     ]

@@ -78,6 +78,30 @@ missing_risk_free_evidence
 missing_calculation_policy
 ```
 
+## canonical R0 모형 비용 포함 대사
+
+`backend/jusik/market_performance_cost_evidence.py`는 전략·replay·수집기·broker를
+호출하지 않는 표준 라이브러리 검증기다. 고정 baseline manifest에서 run, dataset,
+cache manifest/completion과 raw 84개 파일의 경로·SHA·바이트 수를 재검증한 뒤, 첫 FX와
+spread로 초기 KRW를 USD로 바꾸고 저장된 106개 체결을 매도 후 매수 순서로 대사한다.
+dataset의 open으로 fill/notional/fee/sell-tax를 재계산하며 slippage는 fill에만 포함한다.
+각 세션은 close mark와 native/KRW cash, invested, NAV를 Decimal 문맥으로 재구성하고
+252개 행과 저장 equity를 비교한다.
+
+근거 JSON은 verifier source와 artifact SHA, Decimal 문맥, 106/252 개수, 세션별 회계
+digest, 최대 잔차 0과 최종 보유 0을 고정한다. 이 근거는 모형 fee/slippage/sell-tax가
+저장 NAV에 포함되었음을 보여 주는 기술 대사일 뿐 법정 요율·실제 전체 비용·기업행사나
+배당/분할 완전성·체결시각/원본 생성 트리의 진실을 주장하지 않는다. 원본 equity는
+비교 대상이며 approximate 등급과 경제 평가 `not-evaluated`를 유지한다.
+
+```bash
+PYTHONPATH=backend python -m jusik.market_performance_cost_evidence --canonical
+```
+
+canonical readiness가 이 대사를 통과할 때만 `missing_cost_inclusion_evidence` 한
+code를 제거한다. 전체 readiness는 계속 `blocked`/`ready_for_metrics=false`이고,
+초기자본 anchor·NAV timestamp·무위험률 근거 누락은 유지된다.
+
 실행 시각, readiness의 `calendar=ready`, 기록된 fee/slippage/sell-tax 요율은 독립
 근거를 만들지 않는다. 결과에는 원래 `approximate` 등급, `simulated` 여부, provenance와
 hash source facts, request의 비용 가정 pointer만 보존한다. 이 진단기는 성과 evaluator,
