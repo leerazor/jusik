@@ -40,10 +40,10 @@ CANONICAL_COMPLETION_SHA256: Final = (
 # These are canonicalized hashes: the two registered hash literals are
 # replaced with zeroes before hashing this source, avoiding self-reference.
 VERIFIER_SOURCE_SHA256: Final = (
-    "19ce8a4567beddda1808bc0da8658650aff2dcbc9fd9c684f1eea93e480c8a33"
+    "df05cdd4d9cbbc5620549357d043ff4d0a146c73de03f6decb7ecb676ae5c652"
 )
 CANONICAL_EVIDENCE_SHA256: Final = (
-    "46d895eb7d4333486fa9cddbd051a33b5a3b2a48508f496af6dbe3660334c967"
+    "6f53848cefc0935f7112fa2c518606aa6e41485404456910272ef3a9511484d6"
 )
 
 CANONICAL_AUDIT_ROOT: Final = (
@@ -84,6 +84,11 @@ EXPECTED_SESSION_COUNT: Final = 252
 EXPECTED_CACHE_ENTRY_COUNT: Final = 84
 MAX_SOURCE_BYTES: Final = 12 * 1024 * 1024
 MAX_CACHE_BYTES: Final = 2 * 1024 * 1024
+MAX_MANIFEST_BYTES: Final = 1 * 1024 * 1024
+MAX_DATASET_BYTES: Final = 10 * 1024 * 1024
+MAX_EVIDENCE_BYTES: Final = 1 * 1024 * 1024
+MAX_CACHE_RAW_BYTES: Final = 2 * 1024 * 1024
+MAX_VERIFIER_SOURCE_BYTES: Final = 1 * 1024 * 1024
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _KEY = re.compile(r"^[0-9a-f]{64}$")
 
@@ -190,13 +195,31 @@ def _date(value: object) -> str:
     return value
 
 
-def _read(
-    path: Path, expected_sha: str, *, limit: int = MAX_SOURCE_BYTES
-) -> tuple[dict[str, object], bytes]:
+def _bounded_bytes(
+    path: Path,
+    limit: int,
+    too_large_code: str,
+    *,
+    unavailable_code: str = "source_unavailable",
+) -> bytes:
     try:
-        raw = path.read_bytes()
+        with path.open("rb") as source:
+            raw = source.read(limit + 1)
     except OSError:
-        raise CostEvidenceError("source_unavailable") from None
+        raise CostEvidenceError(unavailable_code) from None
+    if len(raw) > limit:
+        raise CostEvidenceError(too_large_code)
+    return raw
+
+
+def _read(
+    path: Path,
+    expected_sha: str,
+    *,
+    limit: int = MAX_SOURCE_BYTES,
+    too_large_code: str = "source_too_large",
+) -> tuple[dict[str, object], bytes]:
+    raw = _bounded_bytes(path, limit, too_large_code)
     if hashlib.sha256(raw).hexdigest() != expected_sha:
         raise CostEvidenceError("source_sha_mismatch")
     return _json(raw, limit=limit), raw
@@ -213,10 +236,12 @@ def _digest(value: object) -> str:
 
 
 def _canonical_source_hash() -> str:
-    try:
-        raw = Path(__file__).read_bytes()
-    except OSError:
-        raise CostEvidenceError("verifier_unavailable") from None
+    raw = _bounded_bytes(
+        Path(__file__),
+        MAX_VERIFIER_SOURCE_BYTES,
+        "verifier_too_large",
+        unavailable_code="verifier_unavailable",
+    )
     text = raw.decode("utf-8")
     for literal in (VERIFIER_SOURCE_SHA256, CANONICAL_EVIDENCE_SHA256):
         text = text.replace(literal, "0" * 64)
@@ -235,7 +260,12 @@ def _verify_manifest(
     manifest_path: Path, run_path: Path, dataset_path: Path, cache_dir: Path
 ) -> None:
     _safe_expected(manifest_path, CANONICAL_MANIFEST_PATH)
-    manifest, _ = _read(manifest_path, CANONICAL_MANIFEST_SHA256)
+    manifest, _ = _read(
+        manifest_path,
+        CANONICAL_MANIFEST_SHA256,
+        limit=MAX_MANIFEST_BYTES,
+        too_large_code="manifest_too_large",
+    )
     artifacts = _mapping(_required(manifest, "artifacts"))
     expected = {
         "dataset": (dataset_path, CANONICAL_DATASET_SHA256),
@@ -271,7 +301,10 @@ def _verify_cache(cache_dir: Path) -> dict[str, object]:
     _safe_expected(manifest_path, CANONICAL_CACHE_DIR / "manifest.json")
     _safe_expected(completion_path, CANONICAL_CACHE_DIR / "completed.json")
     manifest, _ = _read(
-        manifest_path, CANONICAL_CACHE_MANIFEST_SHA256, limit=MAX_CACHE_BYTES
+        manifest_path,
+        CANONICAL_CACHE_MANIFEST_SHA256,
+        limit=MAX_CACHE_BYTES,
+        too_large_code="cache_manifest_too_large",
     )
     if manifest.get("version") != "collector-cache-v2":
         raise CostEvidenceError("cache_schema_mismatch")
@@ -298,7 +331,14 @@ def _verify_cache(cache_dir: Path) -> dict[str, object]:
                 or raw_path.is_symlink()
             ):
                 raise CostEvidenceError("unsafe_path")
-            raw = raw_path.read_bytes()
+            if size > MAX_CACHE_RAW_BYTES:
+                raise CostEvidenceError("cache_raw_too_large")
+            raw = _bounded_bytes(
+                raw_path,
+                MAX_CACHE_RAW_BYTES,
+                "cache_raw_too_large",
+                unavailable_code="cache_raw_unavailable",
+            )
         except OSError:
             raise CostEvidenceError("cache_raw_unavailable") from None
         if len(raw) != size or hashlib.sha256(raw).hexdigest() != content_sha:
@@ -306,7 +346,10 @@ def _verify_cache(cache_dir: Path) -> dict[str, object]:
         raw_total += size
         raw_digests.append({"key": key, "sha256": content_sha, "byte_count": size})
     completion, _ = _read(
-        completion_path, CANONICAL_COMPLETION_SHA256, limit=MAX_CACHE_BYTES
+        completion_path,
+        CANONICAL_COMPLETION_SHA256,
+        limit=MAX_CACHE_BYTES,
+        too_large_code="cache_completion_too_large",
     )
     if (
         completion.get("version") != "collector-completed-v2"
@@ -367,7 +410,10 @@ def _verify_evidence(
     if evidence_path.is_symlink():
         raise CostEvidenceError("unsafe_path")
     evidence, raw = _read(
-        evidence_path, CANONICAL_EVIDENCE_SHA256, limit=MAX_CACHE_BYTES
+        evidence_path,
+        CANONICAL_EVIDENCE_SHA256,
+        limit=MAX_EVIDENCE_BYTES,
+        too_large_code="evidence_too_large",
     )
     if (
         evidence.get("schema") != SCHEMA
@@ -421,8 +467,13 @@ def verify_canonical_cost_evidence(
     _safe_expected(cache_dir, CANONICAL_CACHE_DIR)
     _verify_manifest(manifest_path, run_path, dataset_path, cache_dir)
     cache_facts = _verify_cache(cache_dir)
-    run, _ = _read(run_path, CANONICAL_RUN_SHA256)
-    dataset, _ = _read(dataset_path, CANONICAL_DATASET_SHA256)
+    run, _ = _read(run_path, CANONICAL_RUN_SHA256, too_large_code="run_too_large")
+    dataset, _ = _read(
+        dataset_path,
+        CANONICAL_DATASET_SHA256,
+        limit=MAX_DATASET_BYTES,
+        too_large_code="dataset_too_large",
+    )
     bar_map, fx_map = _validate_dataset(dataset)
     request = _mapping(_required(run, "request"))
     result = _mapping(_required(run, "result"))

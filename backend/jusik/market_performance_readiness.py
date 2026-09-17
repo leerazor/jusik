@@ -24,6 +24,7 @@ from .market_performance_cost_evidence import (
     CANONICAL_EVIDENCE_PATH as CANONICAL_COST_EVIDENCE_PATH,
 )
 from .market_performance_cost_evidence import (
+    CANONICAL_MANIFEST_PATH,
     CANONICAL_RUN_PATH,
     CostEvidenceError,
     verify_canonical_cost_evidence,
@@ -64,6 +65,8 @@ TRACKED_CALENDAR_PATH: Final = (
 )
 MAX_SOURCE_BYTES: Final = 10 * 1024 * 1024
 MAX_EVIDENCE_BYTES: Final = 1 * 1024 * 1024
+MAX_MANIFEST_BYTES: Final = 1 * 1024 * 1024
+MAX_CALENDAR_BYTES: Final = 4 * 1024 * 1024
 MAX_NAV_POINTS: Final = 5_000
 MISSING_CODES: Final = (
     "missing_initial_capital_at",
@@ -74,6 +77,8 @@ MISSING_CODES: Final = (
     "missing_risk_free_evidence",
     "missing_calculation_policy",
 )
+CANONICAL_PERIOD: Final = ("2025-09-11", "2026-09-11")
+CANONICAL_SESSION_COUNT: Final = 252
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _ALLOWED_INPUT_SCHEMAS = frozenset(("MarketResearchRun", "market-research-run/v1"))
 _SOURCE_NAMES = frozenset(
@@ -565,9 +570,12 @@ def _read_manifest(
     expected_period: tuple[str, str],
 ) -> str:
     try:
-        raw = path.read_bytes()
+        with path.open("rb") as source:
+            raw = source.read(MAX_MANIFEST_BYTES + 1)
     except OSError:
         raise ReadinessInputError("manifest_unavailable") from None
+    if len(raw) > MAX_MANIFEST_BYTES:
+        raise ReadinessInputError("manifest_too_large")
     actual = hashlib.sha256(raw).hexdigest()
     if actual != CANONICAL_MANIFEST_SHA256:
         raise ReadinessInputError("manifest_sha_mismatch")
@@ -608,9 +616,12 @@ def _read_manifest(
 def _read_tracked_calendar(path: Path | None = None) -> dict[str, object]:
     calendar_path = path or TRACKED_CALENDAR_PATH
     try:
-        raw = calendar_path.read_bytes()
+        with calendar_path.open("rb") as source:
+            raw = source.read(MAX_CALENDAR_BYTES + 1)
     except OSError:
         raise ReadinessInputError("calendar_unavailable") from None
+    if len(raw) > MAX_CALENDAR_BYTES:
+        raise ReadinessInputError("calendar_too_large")
     if hashlib.sha256(raw).hexdigest() != CALENDAR_BYTES_SHA256:
         raise ReadinessInputError("calendar_sha_mismatch")
     try:
@@ -1133,6 +1144,59 @@ def diagnose_canonical_run(
     )
 
 
+def verify_canonical_session_evidence(
+    run_path: Path = CANONICAL_RUN_PATH,
+) -> dict[str, object]:
+    """Verify only the registered run/session evidence identity chain.
+
+    This deliberately does not call :func:`diagnose_run`, policy validation,
+    or the modeled-cost verifier.  It is the narrow evidence seam used by the
+    canonical NAV adapter; generic readiness semantics remain unchanged.
+    """
+
+    if run_path.is_symlink() or run_path.resolve() != CANONICAL_RUN_PATH.resolve():
+        raise ReadinessInputError("canonical_run_path_required")
+    payload, source_sha256 = _read_source(run_path, CANONICAL_RUN_SHA256)
+    request, result, readiness = _validate_run(payload)
+    _validate_canonical_values(payload, request, result, readiness)
+    facts = _validate_session_evidence(
+        CANONICAL_EVIDENCE_PATH,
+        run_path,
+        payload,
+        request,
+        result,
+        source_sha256,
+        manifest_path=CANONICAL_MANIFEST_PATH,
+        calendar_path=TRACKED_CALENDAR_PATH,
+    )
+    if facts["expected_count"] != CANONICAL_SESSION_COUNT:
+        raise ReadinessInputError("canonical_session_count_mismatch")
+    if facts["observed_count"] != CANONICAL_SESSION_COUNT:
+        raise ReadinessInputError("canonical_session_count_mismatch")
+    if facts["expected_sessions"] != facts["observed_sessions"]:
+        raise ReadinessInputError("session_evidence_mismatch")
+    return {
+        "schema": EVIDENCE_SCHEMA,
+        "run_sha256": facts["run_sha256"],
+        "manifest_sha256": facts["manifest_sha256"],
+        "evidence_sha256": facts["sha256"],
+        "period": {
+            "start_date": CANONICAL_PERIOD[0],
+            "end_date": CANONICAL_PERIOD[1],
+        },
+        "calendar_bytes_sha256": facts["calendar_bytes_sha256"],
+        "calendar_payload_sha256": facts["calendar_payload_sha256"],
+        "expected_sessions": facts["expected_sessions"],
+        "observed_sessions": facts["observed_sessions"],
+        "expected_count": facts["expected_count"],
+        "observed_count": facts["observed_count"],
+        "missing": facts["missing"],
+        "extra": facts["extra"],
+        "duplicates": facts["duplicates"],
+        "unavailable": facts["unavailable"],
+    }
+
+
 def _json_default(value: object) -> object:
     if isinstance(value, Decimal):
         return str(value)
@@ -1200,10 +1264,13 @@ __all__ = [
     "CANONICAL_RUN_SHA256",
     "CANONICAL_EVIDENCE_SHA256",
     "CANONICAL_EVIDENCE_PATH",
+    "CANONICAL_PERIOD",
+    "CANONICAL_SESSION_COUNT",
     "CALENDAR_BYTES_SHA256",
     "CALENDAR_PAYLOAD_SHA256",
     "diagnose_run",
     "diagnose_canonical_run",
+    "verify_canonical_session_evidence",
     "load_market_research_run",
     "main",
     "render_report",
