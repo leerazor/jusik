@@ -47,3 +47,19 @@ PYTHONPATH=backend python -m jusik.research_portfolio_time_evidence \
 
 이 artifact는 기존 성과 지표를 계산하거나 readiness를 승격하지 않으며, 실제
 broker 주문·PAPER/live 실행·network·DB/API pointer를 사용하지 않습니다.
+
+## 역사적 bundle 예시
+
+2026-09-18에 고정된 rebalance-band source manifest와 tracked market-session
+calendar만 사용해 continuous 기간 `2024-04-24..2026-09-08`의 historical
+approximate bundle을 생성했습니다. audit 경로는
+`/home/kwl/.local/share/jusik/portfolio-audit/forward-simulation-time-evidence-run/run-gr68c4/bundle-continuous-official`이고
+manifest SHA-256은
+`eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b`입니다.
+공식 execution-time policy에서 event 16,824개, NAV 1,172개, trade 171개를
+보존했으며, 생성과 manifest 고정 SHA 검증은 각각 한 번 수행했습니다.
+
+이 bundle은 재사용한 historical 자료에 대한 기술적 시간 순서 근거일 뿐이며,
+point-in-time·prospective·canonical 또는 R4 economic evidence가 아닙니다.
+성과 지표·readiness·PAPER/live 설정을 만들거나 승격하지 않으며, 원자료의
+시각·완전성·배당·생존자 편향 한계도 해결하지 않습니다.
