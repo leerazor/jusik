@@ -11,7 +11,7 @@
 - 수정 허용: 신규 bounded KOFR collector/parser/verifier, content-addressed raw·정규화 evidence artifact, focused tests, 성과지표 계약 문서와 신규 개발 기록. 필요할 때 readiness에는 source evidence의 존재만 표시하되 누락 code와 blocked 상태는 보존합니다. 등록부는 Astra만 수정합니다.
 - 수집 경계: 공식 `kofr.kr` HTTPS 한 host·한 action만 허용하고, canonical 기간만 요청하며 timeout·응답 크기·MIME·XML entity/DTD·중복 날짜·비유한 값·공표시각을 fail-closed 검증합니다. 자동 재시도와 운영 DB 사용은 금지합니다.
 - 금지: 과거 NAV/초기자본 timestamp 합성, KOFR을 interval return에 연결, scalar 축약, CAGR/MDD/Sharpe/Calmar 계산, readiness 누락 제거·등급 승격, 기존 evaluator/전략/runner/API 변경, PAPER/live/주문/서비스/config/remote 변경.
-- 중단 조건: 공식 응답의 재현성·기간 완전성·공표 필드를 검증할 수 없거나 source evidence를 적용 근거로 오인하지 않고 분리할 수 없으면 통합하지 않습니다.
+- 중단 조건: 공식 단일 응답의 전체 수신·선언 행수·요청 범위·필수 공표 필드·재정규화를 검증할 수 없거나 source evidence를 적용 근거와 분리할 수 없으면 통합하지 않습니다. 별도 KOFR 영업일 달력이 없으므로 기대 영업일 완전성은 `unverified`로 고정하며 이를 완료 조건으로 주장하지 않습니다.
 - 포트·테스트 DB·출력 경로: 포트·DB 해당 없음. 테스트는 fake transport만 사용하고, 실제 bounded 수집은 작업 전용 audit 경로에 저장한 뒤 필요한 불변 artifact만 추적합니다.
 - 검증·결과·개발 기록·handoff: 구현 후 갱신합니다.
 
