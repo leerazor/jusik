@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## market-performance-metrics
+
+- 상태: 준비. R1-04 실제 기업행사 연결은 지급일·권리수량·명시적 missing 근거 부족으로 차단하며, 기존 동결 NAV 252개를 읽는 순수 평가 계약만 개발합니다.
+- 목표와 완료 조건: 비용 반영 상태를 보존한 frozen NAV에서 CAGR·MDD·Sharpe·Calmar를 Decimal로 결정적으로 계산하고, 입력 근거가 부족한 지표는 0/무한대 대신 unavailable과 이유로 반환합니다. `MDD <= 20%` hard filter만 판정하며 자동 후보 선택·승격은 하지 않습니다.
+- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-market-performance-metrics` / `feat/market-performance-metrics`.
+- 기준 커밋/통합 대상: 등록 커밋 / local `main`.
+- 수정 허용: 신규 `backend/jusik/market_performance_metrics.py`, 신규 focused tests, `docs/market-performance-metrics.md`, 관련 계약 링크와 신규 개발 기록. 공유 모델·전략·collector·runner·로드맵 checkbox는 변경하지 않습니다.
+- 계산 계약: CAGR은 실제 UTC 경과일/365, Sharpe는 명시적 무위험률 입력과 일별 단순 초과수익률 표본 표준편차·연252, MDD는 초기 자본 포함 최고 NAV, Calmar는 CAGR/MDD. 첫 NAV 수익도 초기 자본 기준이며 NAV에 반영된 비용을 재차 차감하지 않습니다.
+- 검증: 양·음수 수익, 초기 손실, 20% 경계, 윤년·휴장일, 누락·중복·역순, 0·비유한 NAV, 변동성0, MDD0, SHA 불일치, 입력 불변·결정성을 focused pytest/Ruff/format/configured mypy로 검사하고 독립 review/main 통합 재검사합니다.
+- 금지: R1-04/R4 완료 표시, 새 연구/수집/network, 후보 탐색, strategy/PAPER/live/주문, 운영 DB·서비스·config·remote 변경.
+- 중단 조건: 무위험률·비용 포함·세션 완전성·자료 등급을 입력에서 증명할 수 없으면 해당 지표를 unavailable로 유지합니다. 기존 approximate NAV를 strict 경제 성과로 승격하지 않습니다.
+
 ## mandate-dispatch-gate
 
 - 상태: 완료. 자동 실행기는 pause, service/timer는 inactive/disabled이며 실제 저장소의 신규 governance는 `dispatch_enabled=false`로 유지합니다.
