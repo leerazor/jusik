@@ -7,7 +7,8 @@
 - 동기화: `docs/research-mandate.json` dispatch enabled, 전체 JSON SHA-256 `ceca2ee1d3e86cf79822b6b4a1606ac6699405f93eaf302fcf3842247f5de7ac`, governance projection SHA `624599f24864201fce981ed2e1407db3cf53eb3ad2da306bf3e7cc0b25031adb`.
 - 전용 설정: `~/.config/jusik/roadmap-development-runner.json`의 `planning_enabled=true`, `scope=investment-roadmap`, `automatic_recovery=false`; user timer는 승인 검증 후 활성화합니다.
 - 안전 범위: runner는 git clean·mandate SHA·dispatch gate를 확인하고 roadmap slice만 다룹니다. 실제 주문, PAPER/live 승격, network collection, remote push는 자동화하지 않습니다.
-- 보류 해소: 2026-09-17 drain 후 생성된 operator hold는 승인 전 재개 금지 기록이므로 원문을 보존한 채 archive로 이동하고, 재개 후 service/timer 상태와 planner 결과를 확인합니다.
+- 보류 해소: 2026-09-17 drain 후 생성된 operator hold는 승인 전 재개 금지 기록이므로 원문과 runner DB 백업을 archive로 보존했습니다. DB의 `operator_hold_no_new_tasks`·`operator_hold_no_requeue` trigger도 승인된 재개 시점에만 제거했고, timer/service와 planner 결과를 확인했습니다.
+- 현재 판정: planner attempt `0065eefe2e294823975e75c1e3947349`는 `waiting`입니다. R1-04/R1-05의 실제 원문 SHA·관측시각·권리/가격 근거가 없으므로 성공·retry task를 만들지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-18-roadmap-governance-activation.md`
 
 ## portfolio-prospective-oos-gate
