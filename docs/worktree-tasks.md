@@ -2,7 +2,7 @@
 
 ## roadmap-governance-activation
 
-- 상태: 진행·승인된 investment-roadmap 전용 runner 자동 실행 준비 완료. 일반 research scope와 PAPER/live·주문 경로는 계속 비활성입니다.
+- 상태: 진행·승인된 investment-roadmap 전용 runner와 timer 활성. 첫 cycle은 `idle`/exit 0이며, 신규 큐가 없어 실패·차단 항목은 명시적 retry 전 격리 중입니다. 일반 research scope와 PAPER/live·주문 경로는 계속 비활성입니다.
 - 목표: 승인된 경제 목표에 맞춰 governance와 전용 runner를 동기화하고, fail-closed 검증을 통과한 뒤 다음 미완료 roadmap slice를 자동 계획·실행합니다.
 - 동기화: `docs/research-mandate.json` dispatch enabled, 전체 JSON SHA-256 `ceca2ee1d3e86cf79822b6b4a1606ac6699405f93eaf302fcf3842247f5de7ac`, governance projection SHA `624599f24864201fce981ed2e1407db3cf53eb3ad2da306bf3e7cc0b25031adb`.
 - 전용 설정: `~/.config/jusik/roadmap-development-runner.json`의 `planning_enabled=true`, `scope=investment-roadmap`, `automatic_recovery=false`; user timer는 승인 검증 후 활성화합니다.

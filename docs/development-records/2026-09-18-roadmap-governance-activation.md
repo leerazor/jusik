@@ -19,4 +19,4 @@ user timer는 전용 설정으로만 활성화한다. runner는 clean worktree, 
 
 ## 다음 단계
 
-hold 해제 후 user service와 timer를 확인한다. planner가 선택하는 첫 작업은 현재 등록부의 미완료 roadmap slice 하나로 제한하며, 실행 결과·attempt identity·검증 로그를 확인한 뒤 다음 slice를 진행한다. runner가 조건을 만족하지 못하면 작업을 시작하지 않고 fail-closed 상태를 유지한다.
+hold 해제 후 user service와 timer를 확인했다. 첫 cycle은 `status=idle`, exit 0으로 종료했고 timer는 활성 대기 중이다. 현재 큐에는 신규 실행 task가 없으며, 실패·차단 항목은 명시적 retry 전 격리하는 정책을 지켰다. 따라서 임의의 차단 연구를 재실행하지 않고, 다음 재개 대상의 근거와 retry 조건을 확정한 뒤 하나씩 넣는다. runner가 조건을 만족하지 못하면 작업을 시작하지 않고 fail-closed 상태를 유지한다.
