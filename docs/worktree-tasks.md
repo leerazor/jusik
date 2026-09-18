@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## portfolio-stress-corrected-calendar
+
+- 상태: 완료. corrected simulation NAV에 고정 block-bootstrap stress를 1회 수행했습니다.
+- 입력/설정: `simulation.json` SHA chain, seed `20260918`, block length 20 observations, horizon 1,171, CPU 512 scenarios.
+- 결과: loss frequency `0.015625`, drawdown-20% frequency `0.0`, joint frequency `0.0`.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-2026-krx-holiday-correction/stress-run-v1`; request SHA `1f0f707fe51ac8d2643873c9be53a88f0c021c64ba551fb53158247e3a57f7d6`, indices SHA `6bfee9901e80cb1e6ff09799b2568074d916ed4116f23f3600e7343799e690a7`.
+- 제한: historical NAV block-bootstrap 기술통계이며 미래 확률·위험 실행·후보 승격·투자 권고가 아닙니다. PAPER/live·주문·runner는 실행하지 않았습니다.
+
 ## portfolio-performance-metrics-secondary
 
 - 상태: 완료. corrected bundle의 simulation SHA를 검증한 뒤 거래 횟수·MDD 회복 기간을 추가하고, 거래별 realized P&L/하방 목표 근거가 없는 Profit Factor·최대 연속 손실·Sortino는 unavailable로 명시했습니다.
