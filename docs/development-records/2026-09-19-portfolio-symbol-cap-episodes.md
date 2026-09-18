@@ -2,7 +2,7 @@
 
 - 상태: 완료
 - 작업 slug: `portfolio-symbol-cap-episodes-0e01`
-- 기준/통합: `b27126b40cfdadf9b52cc1bd3406bdefc684f7b8` / main 통합 전 검증 중
+- 기준/통합: `b27126b40cfdadf9b52cc1bd3406bdefc684f7b8` / `2b88c92`
 - 범위: 고정 volatility15 cadence/cost archive의 32개 저장 cell과 351개 초과 관측을 종목별 13개 episode로 재구성했습니다. 저장 observer만 읽었으며 전략·시뮬레이션·수집·PAPER/live·주문 경로는 호출하지 않았습니다.
 
 ## 변경과 결정
@@ -27,5 +27,4 @@
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-episodes-v1-20260919`.
 - 이전 mandate pin mismatch audit은 `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-breach-episodes-v1-0e018f57a6b14e3587dc5dfca65985d8`에 보존했습니다.
-- 다음 시작: main 통합 커밋 후 등록부·handoff·worktree cleanup SHA를 갱신하고, 외부 receipt 자료가 없으면 경제 acceptance를 승격하지 않습니다.
-
+- 다음 시작: 외부 receipt 자료가 없으면 경제 acceptance를 승격하지 않습니다. 다음 세션은 runner·mandate SHA와 남은 worktree를 다시 확인합니다.
