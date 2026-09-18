@@ -20,6 +20,7 @@ def _synthetic_nav() -> dict[str, object]:
     rows = (
         ("2024-01-01T06:30:00Z", "100"),
         ("2024-01-01T20:00:00Z", "110"),
+        ("2024-01-02T01:00:00Z", "130"),
         ("2024-01-02T06:30:00Z", "99"),
         ("2024-01-03T06:30:00Z", "121"),
     )
@@ -32,8 +33,8 @@ def _synthetic_nav() -> dict[str, object]:
 
 
 def test_synthetic_projection_uses_last_utc_row_without_forward_fill() -> None:
-    projection = adapter.project_nav(_synthetic_nav(), expected_count=4)
-    assert len(projection.full) == 4
+    projection = adapter.project_nav(_synthetic_nav(), expected_count=5)
+    assert len(projection.full) == 5
     assert len(projection.daily) == 3
     assert [point.nav for point in projection.daily] == [
         Decimal("110"),
@@ -44,7 +45,7 @@ def test_synthetic_projection_uses_last_utc_row_without_forward_fill() -> None:
 
 
 def test_synthetic_metrics_preserve_anchor_first_return_and_full_drawdown() -> None:
-    projection = adapter.project_nav(_synthetic_nav(), expected_count=4)
+    projection = adapter.project_nav(_synthetic_nav(), expected_count=5)
     report = adapter.combine_projection_metrics(
         projection,
         initial=Decimal("100"),
@@ -53,7 +54,11 @@ def test_synthetic_metrics_preserve_anchor_first_return_and_full_drawdown() -> N
     )
     assert isinstance(report, PerformanceReport)
     assert report.total_net_return.value == Decimal("0.21")
-    assert report.maximum_drawdown.value == Decimal(11) / Decimal(110)
+    assert report.maximum_drawdown.value == Decimal(
+        "0.23846153846153846153846153846153846153846153846154"
+    )
+    daily_drawdown = (Decimal(110) - Decimal(99)) / Decimal(110)
+    assert report.maximum_drawdown.value != daily_drawdown
     assert report.sharpe.value is None
     assert report.sharpe.reason == "missing_risk_free_evidence"
     assert report.calmar.value is not None
