@@ -2,17 +2,16 @@
 
 ## r1-receipt-429bc04a
 
-- 상태: 진행. task `roadmap-r1-04-receipt-preflight-v1`, retry attempt `0c28fbb501444741a1fa43554e1933af` (previous `20ce2a6e43b0486f9b47102077ae8cab`). 명시적으로 승인된 legacy-v1 원본 보존 provenance 계약을 구현합니다. 기존 소유 브랜치와 워크트리를 재사용합니다. R1-04 전체 checkbox는 미체크로 유지합니다.
-- 목표: 고정 action DB 두 개의 receipt·공식 review를 기존 회계 artifact 계약에 연결하는 읽기 전용 preflight와 결정적 누락 진단을 추가합니다.
-- 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-r1-receipt-429bc04a`, `feat/r1-receipt-429bc04a`; 요청 기준 `ab8f366`, 통합 대상 local `main`.
-- 입력/선행: receipt DB 감사 문서의 두 SHA 고정 DB; R0와 accounting artifact 통합 ancestry 확인, 선행 evidence100개 SHA 통과. audit의 `input-manifest.json`에 크기·action 테이블 건수를 실행 전 고정했습니다.
-- 수정 허용: 신규 receipt preflight, focused 테스트, 기존 artifact 계약 문서. 등록부·개발 기록은 감독 소유입니다.
-- 검증: adapter/preflight/순수 회계 pytest, Ruff, configured strict mypy, 고정 DB 전후 SHA와 결정성, 독립 review 및 main 통합 검사.
-- 예산/격리: 단일 CPU, seed0, 누적 실행·검증900초, 신규 artifact50MiB. 전용 환경·cache·출력만 사용하며 금융 실험·network·GPU·PAPER/live·주문·운영 원장/DB·서비스·설정·remote 변경은 없습니다.
-- 증거: 이전 `/home/kwl/.local/share/jusik/portfolio-audit/r1-receipt-429bc04a`, 현재 `/home/kwl/.local/share/jusik/portfolio-audit/r1-receipt-cdfb8804`; 필수 identity/SHA 실패 시 중단하며 누락 자료를 합성하지 않습니다. 과거 test-count 위반은 보존하고 현재 focused/runtime/artifact 계약을 적용합니다.
-- 현재 재검증: `/home/kwl/.local/share/jusik/portfolio-audit/r1-receipt-20ce2a6e`에서 두 입력 SHA·크기·행 수·열과 전후 SHA 불변을 확인했습니다. 현재 comparator에서도 공식 review 두 건의 provenance 불일치가 재현되어 중단했습니다. 새 구현·테스트·독립 승인·통합은 수행하지 않았고 같은 소유 워크트리를 보존합니다. 현재 handoff는 이 audit의 `HANDOFF.md`입니다.
-- 완료/검토/통합/정리: 공식 NVDA dividend review 2건의 comparable_share_basis.source_value 저장값과 canonical 비교값 불일치로 중단. 우회 정규화 산출물은 배제하고 엄격 비교를 복구했습니다. 구현 미병합·미검증으로 worktree와 초안을 보존합니다. 개발 기록 `docs/development-records/2026-09-18-r1-receipt-429bc04a.md`; handoff는 현재 audit의 `HANDOFF.md`에 보존합니다.
+- 상태: 기술 slice 완료. task `roadmap-r1-04-receipt-preflight-v1`, attempt `0c28fbb501444741a1fa43554e1933af`. R1-04 전체 checkbox는 미체크이며 금융/data acceptance는 차단입니다.
+- 목표/변경: 고정 DB 두 개의 읽기 전용 receipt preflight, 원문 문자열·SHA와 canonical 표현을 분리한 명시적 legacy-v1 provenance, 회계 artifact 누락 진단.
+- 담당: Astra 감독·통합, Luna 단일 구현, Terra 독립 재검토 PASS.
+- 워크트리/브랜치: 기존 `/home/kwl/projects/jusik-r1-receipt-429bc04a`, `feat/r1-receipt-429bc04a` 재사용. 구현 `4605358`·수정 `0088260`, 통합 전 main `89a337d`, 통합 `15d2efb435e9ae4981a04e8c7da7063031848149`.
+- 검증: main pytest50·Ruff·configured strict mypy4파일·고정 DB 출력 결정성·원본 전후 SHA 불변 PASS. 공개 SHA override와 SQLite 테스트 누락을 수정한 뒤 재검토했습니다.
+- 예산/격리: 단일CPU·seed0·누적 342.263/900초·artifact50MiB 이내. 금융 실험/network/GPU/PAPER/live/주문/원본DB·원장/서비스/설정/remote 변경0.
+- 증거/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/r1-receipt-0c28fbb5`; `integration-verification.json`, `evidence-manifest.json`, `HANDOFF.md`. 과거 차단과 위반 기록은 이전 audit·개발 기록에 보존합니다.
+- 정리: 소스·패치·검증 로그·기존 미추적 개발 초안과 SHA를 archive한 뒤 소유 worktree만 제거합니다. 최종 정리 상태는 audit `cleanup.json`입니다. 다른 격리 작업은 재개하지 않았습니다.
+- 남은 조건: coverage·가격·권리·effective UTC 경계가 없어 linkage false, strict PIT·경제 acceptance·승격 보류. 성과가 없는 기술 slice로 웹 publication 해당 없음.
+- 개발 기록: `docs/development-records/2026-09-18-r1-receipt-429bc04a.md`.
 
 ## roadmap-governance-activation
 
