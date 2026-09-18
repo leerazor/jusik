@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
@@ -13,6 +13,8 @@ from jusik.research_portfolio_held_band_experiment import _copy_engine, _load_co
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
+    PortfolioMetrics,
+    PortfolioPolicyEvent,
     PortfolioSimulation,
 )
 from jusik.research_portfolio_rebalance_cadence_cost_stress import (
@@ -149,11 +151,35 @@ def _synthetic_contract() -> tuple[
 
 
 def _synthetic_simulation(
-    policy_events: list[SimpleNamespace], period_end: date
+    policy_events: list[PortfolioPolicyEvent], period_end: date
 ) -> PortfolioSimulation:
-    return cast(
-        PortfolioSimulation,
-        SimpleNamespace(policy_events=policy_events, period_end=period_end),
+    return PortfolioSimulation(
+        candidate=PortfolioCandidate(id="synthetic", method="equal", gate="none"),
+        period_start=period_end,
+        period_end=period_end,
+        metrics=PortfolioMetrics(
+            initial_equity_krw=Decimal("1"),
+            final_equity_krw=Decimal("1"),
+            total_return_pct=Decimal("0"),
+            max_drawdown_pct=Decimal("0"),
+            trade_count=0,
+            transaction_cost_krw=Decimal("0"),
+            fx_cost_krw=Decimal("0"),
+            turnover_pct=Decimal("0"),
+        ),
+        complete=True,
+        incomplete_reasons=[],
+        drawdown_latched=False,
+        drawdown_latched_at=None,
+        equity=[],
+        trades=[],
+        weekly_targets=[],
+        positions=[],
+        contributions_krw={},
+        split_cash_in_lieu_krw={},
+        overlap_diagnostics={},
+        policy="low_turnover_combined",
+        policy_events=policy_events,
     )
 
 
@@ -242,11 +268,19 @@ def test_frozen_cost3_inputs_preflight() -> None:
 def test_reentry_ready_delay_and_censored_episode_are_preserved() -> None:
     start = datetime(2025, 1, 6, tzinfo=UTC)
     events = [
-        SimpleNamespace(kind="risk_exit", at=start),
-        SimpleNamespace(kind="reentry_ready", at=start + timedelta(days=35)),
-        SimpleNamespace(kind="recovery_reset", at=start + timedelta(days=60)),
-        SimpleNamespace(kind="reentry_ready", at=start + timedelta(days=90)),
-        SimpleNamespace(kind="reentry", at=start + timedelta(days=97)),
+        PortfolioPolicyEvent(kind="risk_exit", at=start, detail="synthetic"),
+        PortfolioPolicyEvent(
+            kind="reentry_ready", at=start + timedelta(days=35), detail="synthetic"
+        ),
+        PortfolioPolicyEvent(
+            kind="recovery_reset", at=start + timedelta(days=60), detail="synthetic"
+        ),
+        PortfolioPolicyEvent(
+            kind="reentry_ready", at=start + timedelta(days=90), detail="synthetic"
+        ),
+        PortfolioPolicyEvent(
+            kind="reentry", at=start + timedelta(days=97), detail="synthetic"
+        ),
     ]
     result = _reentry_summary(
         _synthetic_simulation(events, start.date() + timedelta(days=100))
@@ -273,7 +307,7 @@ def test_never_ready_risk_episode_is_censored() -> None:
     start = datetime(2025, 1, 6, tzinfo=UTC)
     result = _reentry_summary(
         _synthetic_simulation(
-            [SimpleNamespace(kind="risk_exit", at=start)],
+            [PortfolioPolicyEvent(kind="risk_exit", at=start, detail="synthetic")],
             start.date() + timedelta(days=10),
         )
     )
