@@ -36,3 +36,4 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-2026-krx-holiday-correction/run-v3`; 기존 manifest SHA chain을 재사용한다.
 - 남은 작업·차단 조건: realized trade P&L 및 downside target 정책 근거가 추가되기 전까지 해당 secondary metrics는 unavailable이다.
 - 다음 시작: 부모 agent가 diff와 통합 검증을 확인한다.
+- 정리: main에 `2681caa`가 포함되고 미커밋 변경이 없음을 확인한 뒤 보존 이유가 없어진 전용 worktree를 정상 제거했다.
