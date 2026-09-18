@@ -2124,7 +2124,7 @@
 
 ## portfolio-kofr-offline-quality-repair-v1
 
-- 상태: 기술 slice 완료. attempt `65f6765444cd46c3866ae6c2eaa4dca2`. 입력 identity와 SHA 검증을 통과했습니다.
+- 상태: 예산 초과로 차단. attempt `65f6765444cd46c3866ae6c2eaa4dca2`. 입력 identity와 SHA 검증을 통과했습니다.
 - 목표: 기존 후보 두 파일의 Ruff/format/strict mypy 결함을 오프라인으로 수정하고 계약 보존을 검증합니다.
 - 담당: Astra 감독·계획, Luna 단일 구현, Terra 독립 검토 PASS.
 - 소유 워크트리/브랜치: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`, `feat/kofr-risk-free-source-evidence` 재사용. 기준 `3fcb553a22ba652071503bead96cf43425118a78`.
@@ -2135,3 +2135,5 @@
 
 - 결과: 후보 `a7c283603415d57da93ff95ac62e96f23da67002`, pytest21/Ruff check·format/configured strict mypy PASS, routing4단계 PASS. collector 미병합·소유 worktree 보존.
 - 기록: `docs/development-records/2026-09-18-portfolio-kofr-offline-quality-repair-v1.md`; audit `HANDOFF.md`, `integration-verification.json`, `evidence-manifest.json`.
+
+최종 정정: 검사와 독립 검토는 통과했으나 최종 기록 단계의 누적 실측이 917.630초로 900초를 초과했습니다. 기술 slice 완료를 철회하고 차단으로 기록합니다. 자동 복구 대상이 아니며 새 예산의 명시적 재시도에서 지정 검사·독립 검토·identity gate를 다시 통과해야 합니다. 초과 이후에는 이 차단 정정과 증거 보존만 수행했습니다.

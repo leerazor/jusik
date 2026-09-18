@@ -1,6 +1,6 @@
 # KOFR 오프라인 품질 수정
 
-- 상태: 기술 slice 완료. 지정 검사와 Terra 독립 검토를 통과했습니다.
+- 상태: 예산 초과로 차단. 지정 검사와 Terra 독립 검토를 통과했습니다.
 - 작업: `portfolio-kofr-offline-quality-repair-v1`; attempt `65f6765444cd46c3866ae6c2eaa4dca2`.
 - 기준 main: `e815eea`; 소유 후보: `3fcb553a22ba652071503bead96cf43425118a78`.
 - 범위: 기존 소유 워크트리의 collector와 focused test 두 파일만 수정합니다. collector를 main에 병합하지 않습니다.
@@ -36,3 +36,5 @@ Astra의 `supervisor-after.json`은 두 수정 파일의 전후 SHA, 비코드 �
 ## 최종 판정
 
 Terra 독립 검토 PASS, explore/plan/code/review routing gate PASS입니다. 기록만 local main에 통합하며 collector는 미병합 보존합니다. 최종 예산·통합 identity·manifest·handoff는 같은 영구 audit에 저장합니다. 금융/data acceptance는 계속 차단입니다.
+
+최종 정정: 검사와 독립 검토는 통과했으나 최종 기록 단계의 누적 실측이 917.630초로 900초를 초과했습니다. 기술 slice 완료를 철회하고 차단으로 기록합니다. 자동 복구 대상이 아니며 새 예산의 명시적 재시도에서 지정 검사·독립 검토·identity gate를 다시 통과해야 합니다. 초과 이후에는 이 차단 정정과 증거 보존만 수행했습니다.
