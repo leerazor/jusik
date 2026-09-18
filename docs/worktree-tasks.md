@@ -2,7 +2,7 @@
 
 ## r1-receipt-429bc04a
 
-- 상태: 준비. task `roadmap-r1-04-receipt-preflight-v1`, attempt `429bc04af4fa450f9b03455f13b0a2ef`. R1-04 전체 checkbox는 미체크로 유지합니다.
+- 상태: 진행. task `roadmap-r1-04-receipt-preflight-v1`, retry attempt `cdfb88049027478f943474462c6b0185` (previous `429bc04af4fa450f9b03455f13b0a2ef`). 기존 소유 브랜치와 워크트리를 재사용합니다. R1-04 전체 checkbox는 미체크로 유지합니다.
 - 목표: 고정 action DB 두 개의 receipt·공식 review를 기존 회계 artifact 계약에 연결하는 읽기 전용 preflight와 결정적 누락 진단을 추가합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r1-receipt-429bc04a`, `feat/r1-receipt-429bc04a`; 요청 기준 `ab8f366`, 통합 대상 local `main`.
@@ -10,7 +10,7 @@
 - 수정 허용: 신규 receipt preflight, focused 테스트, 기존 artifact 계약 문서. 등록부·개발 기록은 감독 소유입니다.
 - 검증: adapter/preflight/순수 회계 pytest, Ruff, configured strict mypy, 고정 DB 전후 SHA와 결정성, 독립 review 및 main 통합 검사.
 - 예산/격리: 단일 CPU, seed0, 누적 실행·검증900초, 신규 artifact50MiB. 전용 환경·cache·출력만 사용하며 금융 실험·network·GPU·PAPER/live·주문·운영 원장/DB·서비스·설정·remote 변경은 없습니다.
-- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/r1-receipt-429bc04a`; 필수 identity/SHA 실패 시 중단하며 누락 자료를 합성하지 않습니다. 과거 test-count 위반은 보존하고 현재 focused/runtime/artifact 계약을 적용합니다.
+- 증거: 이전 `/home/kwl/.local/share/jusik/portfolio-audit/r1-receipt-429bc04a`, 현재 `/home/kwl/.local/share/jusik/portfolio-audit/r1-receipt-cdfb8804`; 필수 identity/SHA 실패 시 중단하며 누락 자료를 합성하지 않습니다. 과거 test-count 위반은 보존하고 현재 focused/runtime/artifact 계약을 적용합니다.
 - 완료/검토/통합/정리: 대기. 개발 기록 `docs/development-records/2026-09-18-r1-receipt-429bc04a.md`; handoff는 audit에 보존 예정입니다.
 
 ## roadmap-governance-activation
