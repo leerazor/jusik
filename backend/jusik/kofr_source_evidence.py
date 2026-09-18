@@ -764,12 +764,119 @@ def collect(
     return evidence
 
 
+def replay_raw(
+    audit_root: Path,
+    raw_path: Path,
+    *,
+    evidence_output: Path | None = None,
+) -> dict[str, object]:
+    """Build evidence from an already captured raw response without network I/O."""
+    audit_root = Path(os.path.abspath(audit_root))
+    request_path = audit_root / "request.xml"
+    attempt_path = audit_root / "attempt.json"
+    _assert_directory(audit_root)
+    request = _secure_read(request_path, limit=MAX_JSON_BYTES)
+    raw_path = Path(raw_path)
+    if raw_path.is_absolute():
+        raw_absolute = Path(os.path.abspath(raw_path))
+    else:
+        raw_absolute = Path(os.path.abspath(audit_root / raw_path))
+    try:
+        raw_relative = raw_absolute.relative_to(audit_root)
+    except ValueError as exc:
+        raise KofrEvidenceError("unsafe_path") from exc
+    if raw_relative.parent != Path("raw") or raw_relative.suffix != ".xml":
+        raise KofrEvidenceError("raw_path")
+    body = _secure_read(raw_absolute, limit=MAX_RESPONSE_BYTES)
+    raw_sha = hashlib.sha256(body).hexdigest()
+    if raw_relative.name != f"{raw_sha}.xml":
+        raise KofrEvidenceError("raw_sha_mismatch")
+    try:
+        attempt = json.loads(
+            _secure_read(attempt_path, limit=MAX_JSON_BYTES).decode("utf-8"),
+            object_pairs_hook=_object_pairs,
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, _DuplicateKey):
+        raise KofrEvidenceError("malformed_attempt") from None
+    if (
+        not isinstance(attempt, dict)
+        or attempt.get("request_sha256") != hashlib.sha256(request).hexdigest()
+    ):
+        raise KofrEvidenceError("request_sha_mismatch")
+    rows, projection = parse_response(body)
+    evidence: dict[str, object] = {
+        "schema": "kofr-source-evidence/v1",
+        "request": {
+            "endpoint": ENDPOINT,
+            "task": TASK,
+            "action": ACTION,
+            "lang": LANG,
+            "start_date": START_ISO,
+            "end_date": END_ISO,
+            "request_sha256": hashlib.sha256(request).hexdigest(),
+        },
+        "rows": rows,
+        "projection": projection,
+        "observed": {
+            "count": len(rows),
+            "range": [projection[0]["observed_on"], projection[-1]["observed_on"]]
+            if projection
+            else [None, None],
+        },
+        "raw": {"path": raw_relative.as_posix(), "sha256": raw_sha, "bytes": len(body)},
+        "collected_at_utc": attempt.get("created_at_utc", _utc_now()),
+        "limitations": [
+            (
+                "PUBN_DTTM is preserved as raw source text; "
+                "timezone and instant are unverified."
+            ),
+            (
+                "Expected KOFR business-date completeness is unverified; "
+                "no rows are synthesized."
+            ),
+            (
+                "This source evidence is not applied to NAV, returns, Sharpe, "
+                "readiness, or strategy."
+            ),
+        ],
+    }
+    evidence_bytes = _json_bytes(evidence)
+    _exclusive_write(audit_root / "evidence.json", evidence_bytes)
+    if evidence_output is not None:
+        _exclusive_write(evidence_output, evidence_bytes)
+    verification = {
+        "schema": "kofr-source-verification/v1",
+        "verified_at_utc": _utc_now(),
+        "evidence_sha256": hashlib.sha256(evidence_bytes).hexdigest(),
+        "result": verify_evidence(audit_root / "evidence.json", audit_root),
+    }
+    _exclusive_write(audit_root / "verification.json", _json_bytes(verification))
+    _exclusive_write(
+        audit_root / "manifest.json",
+        _json_bytes(
+            {
+                "schema": "kofr-source-manifest/v1",
+                "request": "request.xml",
+                "raw": raw_relative.as_posix(),
+                "evidence": "evidence.json",
+                "verification": "verification.json",
+            }
+        ),
+    )
+    return evidence
+
+
 def _cli() -> int:
     parser = argparse.ArgumentParser(
         description="Collect or verify the fixed KOFR source evidence."
     )
     parser.add_argument("--audit-root", type=Path, default=AUDIT_DIR)
     parser.add_argument("--evidence-output", type=Path)
+    parser.add_argument(
+        "--replay-raw",
+        type=Path,
+        help="build evidence from a captured raw XML response",
+    )
     parser.add_argument(
         "--verify", type=Path, help="verify an existing tracked evidence JSON offline"
     )
@@ -779,6 +886,15 @@ def _cli() -> int:
             print(
                 json.dumps(
                     verify_evidence(args.verify, args.audit_root), sort_keys=True
+                )
+            )
+        elif args.replay_raw is not None:
+            result = replay_raw(
+                args.audit_root, args.replay_raw, evidence_output=args.evidence_output
+            )
+            print(
+                json.dumps(
+                    {"rows": len(result["rows"]), "replayed": True}, sort_keys=True
                 )
             )
         else:

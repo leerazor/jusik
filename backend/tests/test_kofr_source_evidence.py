@@ -22,6 +22,7 @@ from jusik.kofr_source_evidence import (
     KofrEvidenceError,
     collect,
     parse_response,
+    replay_raw,
     request_xml,
     verify_evidence,
 )
@@ -98,6 +99,31 @@ def test_collection_uses_websquare_request_context(tmp_path: Path) -> None:
     headers = {key.lower(): value for key, value in transport.seen[3].items()}
     assert headers["submissionid"] == SUBMISSION_ID
     assert headers["referer"] == REFERER
+
+
+def test_replay_raw_builds_verified_evidence_without_transport(tmp_path: Path) -> None:
+    audit = tmp_path / "audit"
+    audit.mkdir()
+    request = request_xml()
+    (audit / "request.xml").write_bytes(request)
+    (audit / "attempt.json").write_text(
+        json.dumps(
+            {
+                "schema": "kofr-source-attempt/v1",
+                "created_at_utc": "2026-09-18T17:00:00Z",
+                "request_sha256": hashlib.sha256(request).hexdigest(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    raw = _xml()
+    raw_dir = audit / "raw"
+    raw_dir.mkdir()
+    raw_path = raw_dir / f"{hashlib.sha256(raw).hexdigest()}.xml"
+    raw_path.write_bytes(raw)
+    evidence = replay_raw(audit, raw_path)
+    assert evidence["observed"] == {"count": 1, "range": ["2025-09-11", "2025-09-11"]}
+    assert (audit / "verification.json").is_file()
 
 
 @pytest.mark.parametrize(
