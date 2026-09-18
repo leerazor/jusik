@@ -184,3 +184,19 @@ fee/slippage/FX spread를 검증하고 stored cash/equity와 sidecar NAV를 행�
 `economic_evaluation=not-evaluated`를 유지합니다. 이 대사는 모델 비용의 기술적
 일관성만 다루며 법정 비용·세금·배당·실제 FX·입출금·PIT 자료와 경제적 성과를
 주장하지 않습니다. daily sampling, 지표 계산, readiness 승격은 별도 단계입니다.
+
+## corrected portfolio bundle adapter
+
+`backend/jusik/research_portfolio_performance_metrics.py`는 등록된 corrected
+calendar bundle을 읽기 전용으로 회계 근거와 연결합니다. manifest·artifact·회계
+보고서 SHA chain을 bounded하게 확인하고 독립 accounting verifier를 한 번 호출한
+뒤에만 성과 evaluator를 실행합니다. 저장된 1,172개 UTC NAV는 날짜별 마지막 causal
+row 614개로 투영합니다. total return·CAGR·Sharpe는 daily 표본을 사용하고 MDD·Calmar는
+전체 chronology를 사용합니다. 휴장일을 forward fill하거나 0 수익률을 삽입하지 않으며
+초기자본 anchor에서 첫 NAV까지의 return 의미를 유지합니다.
+
+KOFR 근거가 없으므로 adapter 결과의 Sharpe는
+`missing_risk_free_evidence` unavailable로 남고, approximate grade와
+`economic_evaluation=not-evaluated`를 승격하지 않습니다. 결과 envelope는
+`portfolio-performance-metrics-envelope/v1`로 결정적 JSON 직렬화를 제공하며 기존
+canonical/old bundle과 evaluator/policy artifact는 수정하지 않습니다.
