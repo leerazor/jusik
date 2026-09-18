@@ -2169,3 +2169,10 @@
 - 파일럿: approximate pilot은 `insufficient/incomplete`, `readiness.ready=false`, trades/equity/metrics 0입니다. PIT 기업행사·배당·상폐·관측 시각 근거가 없어 경제 성과·strict/PAPER 승격을 금지합니다.
 - 개발 기록: `docs/development-records/2026-09-19-r6-krx-smoke.md`; audit `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r6-krx-smoke`.
 - 검증: `backend/.venv/bin/python -m pytest -q backend/tests/test_market_data_collector.py` — 128 passed. 실주문·브로커 API·PAPER 설정·운영 DB·원격 push 없음.
+
+## timestamp-provenance-path-fix
+
+- 상태: 완료. sanitized provenance의 `source/jusik/...` 경로를 승인 hash 대사에 정확히 연결했습니다.
+- 변경: `research_signal_timestamp_forensics.py`가 마지막 `jusik/` 기준으로 경로를 잘못 정규화하던 문제를 `source/jusik` 쌍 기준으로 고쳤습니다. 다른 경로 형식은 계속 fail-closed입니다.
+- 검증: timestamp forensics pytest 8개, Ruff check/format 통과. 현재 달력 source hash가 과거 frozen archive 승인 hash와 달라 외부 replay 실패는 의도적으로 유지됩니다.
+- 개발 기록: `docs/development-records/2026-09-19-timestamp-provenance-path-fix.md`.

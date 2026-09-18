@@ -285,13 +285,15 @@ def _validate_archive(
         if not isinstance(item, dict) or "path" not in item or "sha256" not in item:
             continue
         path_parts = Path(str(item["path"])).parts
-        jusik_indices = [
-            index for index, part in enumerate(path_parts) if part == "jusik"
+        source_jusik_indices = [
+            index
+            for index in range(len(path_parts) - 1)
+            if path_parts[index : index + 2] == ("source", "jusik")
         ]
-        if not jusik_indices:
+        if not source_jusik_indices:
             continue
-        jusik_index = jusik_indices[-1]
-        expected_code["/".join(path_parts[jusik_index:])] = str(item["sha256"])
+        source_index = source_jusik_indices[-1]
+        expected_code["/".join(path_parts[source_index:])] = str(item["sha256"])
     for code_relative in CODE_RELATIVES:
         key = code_relative.as_posix()
         code_hash = expected_code.get(key) or APPROVED_CODE_SHA256.get(key)
