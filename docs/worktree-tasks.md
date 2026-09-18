@@ -286,6 +286,13 @@
 - 후속 조사 정정: 공식 `rate/rate.jsp`와 `/js/common.js`에서 화면의 짧은 `rate.process.RatePTask`가 `_doTask`의 `ksd.rfr.user.` prefix로 전송됨을 확인했습니다. 따라서 기존 전체 task는 유효하며 시험 교정 `720f6dc`는 `4b6490f`에서 복구했습니다. 두 번째 bounded 요청은 XML 선언만 반환되어 `malformed_xml`로 fail-closed했고, audit `/home/kwl/.local/share/jusik/portfolio-audit/20260919-kofr-task-correction`에 raw/failure를 보존했습니다. 이후 읽기 전용 브라우저 요청에서 `submissionid`와 `Referer`가 실제 응답을 받는 필수 컨텍스트임을 확인해 후보에 반영했습니다. 조건을 넣은 공식 요청은 245행을 반환했으나 parser 제한으로 `malformed_vector`가 발생했고 raw SHA `cd22f321c16bd95b939c88f141465417cd9f86ba67df8cc538bc1e56be835184`를 보존했습니다. 최종 후보 `8dc93fc`의 offline replay로 evidence SHA `995f963074aa9fe2b83236b27d67f152ec4697780d851ba4ef14e9b3ed180337`를 생성했고 추가 네트워크 요청은 중단합니다.
 - 보존·재개: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`와 `feat/kofr-risk-free-source-evidence`를 보존하며 main 통합은 `d96c609`입니다. source evidence의 application evidence는 별도 작업으로 등록하기 전 자동 성과 계산에 연결하지 않습니다. 개발 기록은 `docs/development-records/2026-09-17-kofr-risk-free-source-evidence.md`, handoff는 루트 `HANDOFF.md`입니다.
 
+## kofr-application-evidence-contract
+
+- 상태: 기술 slice 완료·실제 적용 자료 대기. source evidence와 application evidence를 분리하는 fail-closed manifest 검증을 main에 추가했습니다.
+- 구현: `backend/jusik/kofr_application_evidence.py`, 테스트 5개, 개발 기록 `docs/development-records/2026-09-19-kofr-application-evidence-contract.md`.
+- 계약: source SHA pin, `Asia/Seoul` local publication time, provider business-date completeness 명시, interval source value 일치, publication-before-interval-start를 요구합니다. 달력·평일 추정, 자동 carry-forward, Sharpe/readiness 연결은 하지 않습니다.
+- 검증: focused pytest 5개, Ruff check/format, strict mypy 통과. 실제 KOFR source completeness가 아직 `unverified`이므로 application manifest·성과 계산·`missing_risk_free_evidence` 제거는 보류합니다.
+
 ## r0-us-modeled-cost-evidence
 
 - 상태: 완료. canonical R0 미국 run·dataset·cache의 고정 SHA를 사용해 저장된 모형 fee/slippage/sell-tax가 NAV에 포함됐는지 독립 대사했습니다.
