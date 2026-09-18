@@ -213,6 +213,13 @@ row 614개로 투영합니다. total return·CAGR·Sharpe는 daily 표본을 사
 전체 chronology를 사용합니다. 휴장일을 forward fill하거나 0 수익률을 삽입하지 않으며
 초기자본 anchor에서 첫 NAV까지의 return 의미를 유지합니다.
 
+현재 corrected bundle의 KOFR 적용 대사에서 `2025-09-11~2026-09-08` NAV daily
+255개 중 KOFR 직접 일치일은 242개이고, 나머지 13개는 `XNYS` only close입니다.
+이 날짜에는 `XKRX` session이 없으므로 provider 누락으로 단정하지 않지만, combined
+KRW NAV Sharpe를 계산하려면 risk-free carry-forward 또는 표본 calendar를 별도
+application contract로 명시해야 합니다. 해당 계약 전에는 XNYS-only return 삭제,
+암묵적 carry-forward, 0 대체를 모두 금지하고 Sharpe를 unavailable로 유지합니다.
+
 KOFR 근거가 없으므로 adapter 결과의 Sharpe는
 `missing_risk_free_evidence` unavailable로 남고, approximate grade와
 `economic_evaluation=not-evaluated`를 승격하지 않습니다. 결과 envelope는
