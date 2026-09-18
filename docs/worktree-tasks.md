@@ -1372,7 +1372,7 @@
 - 결과 커밋 SHA: `d499309`, `ee4a0f8`. 통합 커밋: `2f729585b3aec107cb28f309a2bac9620e4d1fab`.
 - 게시: `/research/history` 항목 `small-entry-draft-provenance-audit-v1-484028675d0647a0a0b47f86c46a5ca5`; 기존 seed 보존. artifact SHA는 `3c610ff4063722f7bfc278e3203c62b467be06ce73b1fa5dd5ac4fb26e313bb8`, `4e37b3ab706d1c7eb2f90954c4c0fb9a8baef9afca7e9a4e96b66d26e983765b`, `a7077e91aef71d4e4bec46c93f1140272bcfc424b510e31b35661f06185eb4bc`입니다.
 - 개발 기록: `docs/development-records/2026-09-19-small-entry-draft-provenance.md`. audit `/home/kwl/.local/share/jusik/portfolio-audit/small-entry-draft-provenance-audit-v1-484028675d0647a0a0b47f86c46a5ca5`.
-- 워크트리 정리: 통합 후 소유 worktree는 보존 상태이며, 다음 정리 절차에서 audit·handoff SHA 확인 후 제거합니다. 루트 `HANDOFF.md`는 보존합니다.
+- 워크트리 정리: audit·handoff SHA 확인 후 `/home/kwl/projects/jusik-small-entry-draft-provenance-4840` worktree를 정상 제거했습니다. 루트 `HANDOFF.md`는 보존합니다.
 
 ## future-observation-revision-9773
 
