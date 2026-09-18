@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## portfolio-performance-metrics-secondary
+
+- 상태: 완료. corrected bundle의 simulation SHA를 검증한 뒤 거래 횟수·MDD 회복 기간을 추가하고, 거래별 realized P&L/하방 목표 근거가 없는 Profit Factor·최대 연속 손실·Sortino는 unavailable로 명시했습니다.
+- 구현: `backend/jusik/research_portfolio_performance_metrics.py`, 테스트 `backend/tests/test_research_portfolio_performance_metrics.py`, commit `a03e6ba7bf4010875270ca417025b403a8ef76da` / main `2681caa`.
+- 결과: trade count `171`, 최대 MDD 회복 기간 `23,707,800` UTC seconds (`P274DT9H30M0S`).
+- 검증: focused regression pytest 54개, Ruff, strict mypy, diff 검사 통과. 기존 우선 지표와 envelope 호환성을 유지했습니다.
+- 제한: Profit Factor·거래 기준 최대 연속 손실은 `missing_realized_trade_pnl`, Sortino는 `missing_downside_target_policy`입니다.
+
 ## portfolio-calendar-2026-krx-holiday-correction
 
 - 상태: 완료. `exchange_calendars==4.12`의 2026년 KRX 임시·복원 공휴일 누락을 versioned XKRX closure override로 교정했습니다.
