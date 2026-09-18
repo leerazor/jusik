@@ -219,6 +219,8 @@ row 614개로 투영합니다. total return·CAGR·Sharpe는 daily 표본을 사
 KRW NAV Sharpe를 계산하려면 risk-free carry-forward 또는 표본 calendar를 별도
 application contract로 명시해야 합니다. 해당 계약 전에는 XNYS-only return 삭제,
 암묵적 carry-forward, 0 대체를 모두 금지하고 Sharpe를 unavailable로 유지합니다.
+공식 KOFR 설명서가 언급하는 직전 영업일 대체금리는 산출업무 중단 비상계획에
+한정되므로, 일반적인 XNYS-only 날짜의 carry-forward 근거로 사용하지 않습니다.
 
 KOFR 근거가 없으므로 adapter 결과의 Sharpe는
 `missing_risk_free_evidence` unavailable로 남고, approximate grade와

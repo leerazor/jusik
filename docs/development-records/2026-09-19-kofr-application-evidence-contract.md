@@ -62,3 +62,7 @@ carry-forward나 XNYS-only 수익률 삭제는 application evidence로 인정하
 설명하지만, 이 자료 자체에는 이 artifact에 필요한 provider business-date 전체 목록과
 `PUBN_DTTM` timezone 계약이 없습니다. [공식 설명서](https://open.krx.co.kr/contents/OPN/01/01040505/%ED%91%9C%EC%A4%80_%ED%95%9C%EA%B5%AD%EB%AC%B4%EC%9C%84%ED%97%98%EC%A7%80%ED%91%9C%EA%B8%88%EB%A6%AC%5BKOFR%5D_%EC%84%A4%EB%AA%85%EC%84%9C.pdf)
 와 원문을 함께 보존할 별도 자료 수집 계획이 필요합니다.
+
+동 설명서의 직전 영업일 KOFR 대체금리 절차는 산출업무 중단 비상계획에 한정되어
+있습니다. 이를 일반적인 `XNYS` only 날짜의 carry-forward 근거로 확장하지 않으며,
+현재 application contract의 exact-date fail-closed 결정을 유지합니다.

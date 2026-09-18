@@ -304,6 +304,7 @@
 - 추가 범위 진단: corrected NAV의 614개 UTC daily date는 `2024-04-24~2026-09-08`인데 현재 KOFR source는 `2025-09-11~2026-09-11`뿐이라 앞쪽 359개 날짜가 없습니다. 기간 축소·0 대체·자동 carry-forward 없이, 전체 기간 source를 별도 bounded 수집하거나 사전등록한 부분기간 평가를 선택해야 합니다.
 - 추가 날짜 대사: 겹침 구간 `2025-09-11~2026-09-08`의 NAV daily 255개 중 KOFR 직접 일치일은 242개, 13개는 NAV에만 존재합니다. source 누락과 시장별 휴장 차이를 구분할 근거가 없으므로 Sharpe 표본을 조용히 삭제하거나 carry-forward하지 않고 별도 calendar/application 정책을 요구합니다.
 - 원인 분류: 13개 NAV-only 날짜의 triggering close group은 모두 `XNYS` only이며 `XKRX` session은 없습니다. provider 결손으로 단정하지 않되, combined KRW NAV Sharpe에는 미국-only 날짜의 명시적 risk-free 적용 정책과 근거가 추가로 필요합니다.
+- 공식자료 판정: KRX 표준 KOFR 설명서의 직전 영업일 대체금리는 산출업무 중단 비상계획 문맥입니다. 일반 XNYS-only 날짜 carry-forward 근거로 확장하지 않고 exact-date fail-closed를 유지합니다.
 
 ## r0-us-modeled-cost-evidence
 
