@@ -2,20 +2,20 @@
 
 ## portfolio-calendar-2026-krx-holiday-correction
 
-- 상태: 조사 완료·구현 준비. `exchange_calendars==4.12`가 2026년 KRX 임시/복원 공휴일을 세션으로 잘못 산출해 metrics 입력 완전성 blocker가 발생했습니다.
+- 상태: 완료. `exchange_calendars==4.12`의 2026년 KRX 임시·복원 공휴일 누락을 versioned XKRX closure override로 교정했습니다.
 - 목표와 완료 조건: 2026-06-03(지방선거일)·2026-07-17(제헌절)을 versioned XKRX 휴장 override로 반영하고, 생성기·달력 parser·readiness/accounting 계약·회귀 테스트를 통과시킵니다. 기존 audit bundle은 수정하지 않고 새 calendar/source identity를 사용합니다.
 - 담당: Astra 감독·통합, Luna 단일 구현, Terra 독립 review.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-portfolio-calendar-2026-krx-holiday-correction` / `feat/portfolio-calendar-2026-krx-holiday-correction`.
+- 워크트리/브랜치: 정리 예정. `feat/portfolio-calendar-2026-krx-holiday-correction`, 구현 `1162889`, main 통합 `91d8d87`.
 - 입력과 근거: fixed bundle의 XKRX 2개 누락 close, Yahoo KSC 6종목 bounded probe(두 날짜 모두 no bars), KRX 휴장 공지 근거(한국거래소 공지 보도 및 BOK 2026 holiday schedule).
 - 수정 허용: `generate_market_calendar.py`, 직접 관련 parser/readiness tests, 계약 문서·개발 기록. 기존 bundle/canonical artifact·runner·metrics evaluator 정책은 변경하지 않습니다.
 - 금지: NAV 보간·bar 합성·날짜 이동, 기존 bundle 덮어쓰기, strategy/engine/replay 변경, network cache/주문/PAPER/live/remote 변경.
 - 중단 조건: 두 날짜가 KRX 휴장이라는 권위 근거와 일치하지 않거나, override가 XNYS·기존 session을 바꾸면 중단합니다.
-- 검증: generator output hash, parser/readiness/accounting focused tests, Ruff/strict mypy, fixed-bundle read-only recheck showing 1,172 required XKRX closes, independent review.
-- 재개 후 조건: 새 calendar SHA로 별도 bundle 입력을 재생성·검증한 뒤에만 metrics adapter 재개. 기존 1,172 NAV ledger는 새 달력과 독립 대사합니다.
+- 검증: generator output hash `5ac707711cb82f7849b7824567515f67dcbaad162452757b6727cccb9e20f2bd`, calendar parser 10 tests 통과. 추가 독립 review와 새 bundle preflight를 다음 단계에서 수행합니다.
+- 결과: 기존 bundle은 보존했습니다. 새 calendar SHA로 별도 input preflight·independent accounting을 통과한 뒤에만 metrics adapter를 재개합니다. 개발 기록은 `docs/development-records/2026-09-18-portfolio-calendar-2026-krx-holiday-correction.md`입니다.
 
 ## portfolio-performance-input-readiness
 
-- 상태: 차단. 독립 modeled accounting은 통과했으나 공식 calendar close union 1,174개와 stored NAV 1,172개가 불일치해 metrics adapter를 만들 수 없습니다.
+- 상태: blocker 원인 교정 완료·재검증 대기. 새 XKRX calendar에서 휴장일을 제외한 required close union과 stored NAV 1,172개가 일치하는지 별도 input preflight로 확인해야 합니다.
 - 목표와 완료 조건: 전체 intraday NAV chronology는 MDD용으로 보존하면서 일일 수익률 표본을 사전 정의하고, 171 trades·cash·FX·fee/slippage를 독립 재구성해 1,172 stored NAV와 대사할 수 있는지 판정합니다. 두 근거가 모두 성립해야 후속 metrics adapter를 허용합니다.
 - 담당: Astra 감독·계획·통합.
 - 워크트리/브랜치: 없음. read-only blocker 기록으로 종료합니다.
@@ -23,15 +23,14 @@
 - 입력과 선행 작업: bundle manifest `eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b`, engine/result/time sidecar, 기존 independent modeled-cost ledger와 metrics policy.
 - 수정 허용: blocker 개발 기록·계약 문서·등록부만. metrics/evaluator/code는 변경하지 않습니다.
 - 금지: 저장 결과를 독립 근거로 자기인증, sampling policy 밖 표본 생성, 배당/세금/FX 실제 타당성 주장, 자동 성과 승격, bundle/canonical 수정, runner/network/KOFR/PAPER/live/주문/DB/service/config/remote 변경.
-- 중단 조건: 충족. fixed calendar close union `1,174`와 NAV `1,172`의 누락을 보정 자료 없이 계산하지 않습니다.
+- 중단 조건: 새 달력에서도 required close/NAV가 불일치하거나 source/accounting SHA chain이 맞지 않으면 metrics adapter를 만들지 않습니다.
 - 검증: source/bundle SHA, 독립 Decimal 원장, per-NAV residual, 다시장 날짜 경계·DST·조기/지연 폐장, sampling 결정성·비중복, tamper fail-closed, 독립 review를 요구합니다.
 - 원장 계약: strategy/engine/replay를 호출하지 않고 persisted fills를 권위 입력으로 raw open·split·FX·fee/slippage·cash·positions·close marks를 Decimal precision 40으로 재구성합니다. 171 fills, 1,172 cash/NAV, terminal positions를 대사합니다.
 - sampling 결정: 사용자 승인으로 UTC 날짜별 마지막 causally completed NAV를 CAGR/Sharpe/Calmar 표본으로 사용합니다. MDD는 1,172개 전체 chronology를 유지하며 UTC/Asia-Seoul 혼용 표본은 만들지 않습니다.
 - 원장 결과: Luna 최종 `1845df55ddbebe16739f3ebe3c1d1735b2fd81a4`, Terra review PASS(P1/P2 없음). 171 fills와 1,172 cash/NAV, terminal positions를 독립 재구성해 최대 잔차 `0 KRW`입니다.
 - 통합 검증: accounting/time-evidence/metrics pytest 53개, Ruff check/format, strict mypy, fixed bundle CLI, diff 검사 통과. audit report SHA `7390e79432319f834ff92f029833b9afd74839944909c711a60fee888037bad1`.
 - 남은 조건: KOFR/risk-free evidence 없이는 Sharpe를 unavailable로 유지합니다. readiness 자동 승격·R4 canonical 주장은 금지합니다. 개발 기록은 `docs/development-records/2026-09-18-portfolio-performance-input-readiness.md`입니다.
-- blocker: 누락 XKRX close는 `2026-06-03T06:30:00Z`, `2026-07-17T06:30:00Z`이며 해당 raw bars가 없어 NAV/returns를 합성할 수 없습니다. evaluator의 `missing_required_sessions`는 모든 지표를 unavailable로 유지합니다.
-- 결과: metrics adapter·성과 계산·readiness 승격을 구현하지 않고 차단 기록만 남깁니다.
+- blocker 원인: 두 시각은 KRX 지방선거일·제헌절 휴장으로 확인되어 달력 override로 제거했습니다. 새 bundle 검증 전에는 metrics adapter·성과 계산·readiness 승격을 구현하지 않습니다.
 
 ## portfolio-calendar-aware-time-input
 
