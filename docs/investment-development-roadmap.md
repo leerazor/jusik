@@ -21,7 +21,7 @@
 
 ## 승인된 설계 기준과 검증 순서
 
-목표는 수익 하나를 최대화하는 것이 아니라 수익·위험·비용을 함께 보는 balanced objective다. 비용을 차감한 `CAGR`, `MDD`, `Sharpe`, `Calmar`를 primary metrics로 같은 조건에서 나란히 보고, 어느 하나의 단일 순위나 암묵적 가중치로 대체하지 않는다. 순수익, 거래 수·회전율, 수수료·FX 비용, coverage·결측·자료 등급과 stress 결과는 diagnostic metrics로 별도 표시한다. `MDD <= 20%`는 soft target이 아닌 hard filter다. 필터를 통과하지 못한 후보는 primary metric이 좋아도 다음 단계로 보내지 않는다.
+목표는 수익 하나를 최대화하는 것이 아니라 수익·위험·비용을 함께 보는 balanced objective다. 비용을 차감한 `CAGR`, `MDD`, `Sharpe`, `Calmar`를 primary metrics로 같은 조건에서 나란히 보고, 어느 하나의 단일 순위나 암묵적 가중치로 대체하지 않는다. 순수익, 거래 수·회전율, 수수료·FX 비용, `Sortino`, `Profit Factor`, MDD 회복 기간, 최대 연속 손실, coverage·결측·자료 등급과 stress 결과는 diagnostic metrics로 별도 표시한다. `MDD <= 20%`는 soft target이 아닌 hard filter다. 필터를 통과하지 못한 후보는 primary metric이 좋아도 다음 단계로 보내지 않는다.
 
 후보는 최대 3개만 사전등록한다. 후보 간 weighted aggregate, 자동 winner, 자동 승격은 만들지 않으며 사용자가 primary·diagnostic 표와 근거를 보고 선택한다. 같은 holdout을 본 뒤 파라미터나 후보를 retune하지 않는다. 무료 자료와 기존 cache를 먼저 사용하고, 그 자료를 audit한 뒤 부족한 부분에만 최소 수집 경로를 추가한다.
 

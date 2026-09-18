@@ -37,6 +37,10 @@ DIAGNOSTIC_METRICS = (
     "coverage",
     "missing_data",
     "stress",
+    "sortino",
+    "profit_factor",
+    "maximum_mdd_recovery_duration",
+    "max_consecutive_loss",
 )
 MAX_PREREGISTERED_CANDIDATES = 3
 MAXIMUM_DRAWDOWN_FRACTION = "0.20"

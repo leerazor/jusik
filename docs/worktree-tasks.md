@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## metric-diagnostic-contract
+
+- 상태: 완료. primary `CAGR/MDD/Sharpe/Calmar`를 유지하고 `Sortino`, `Profit Factor`, MDD 회복 기간, 최대 연속 손실을 diagnostic metrics로 mandate·roadmap에 명시했습니다.
+- 동기화: `docs/research-mandate.json` 전체 SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`, governance projection과 Markdown/checksum을 함께 갱신했습니다.
+- 검증: mandate governance/planning pytest 35개, `git diff --check` 통과. 계산 실행·후보 승자 선택·자동 PAPER/live 승격은 하지 않았습니다.
+- 다음 의존성: KOFR 전체 기간 business-date·publication timezone 근거가 확보되기 전까지 경제 성과 계산은 차단합니다.
+
 ## r1-receipt-429bc04a
 
 - 상태: 기술 slice 완료. task `roadmap-r1-04-receipt-preflight-v1`, attempt `0c28fbb501444741a1fa43554e1933af`. R1-04 전체 checkbox는 미체크이며 금융/data acceptance는 차단입니다.

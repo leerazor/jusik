@@ -84,7 +84,11 @@
         "fx_cost",
         "coverage",
         "missing_data",
-        "stress"
+        "stress",
+        "sortino",
+        "profit_factor",
+        "maximum_mdd_recovery_duration",
+        "max_consecutive_loss"
       ],
       "hard_filters": {"MDD": "0.20"}
     },
