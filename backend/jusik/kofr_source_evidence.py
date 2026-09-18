@@ -22,8 +22,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal, DecimalException
+from http.client import HTTPMessage
 from pathlib import Path
-from typing import Final, Protocol
+from typing import Final, Protocol, cast
 
 ENDPOINT: Final = "https://www.kofr.kr/websquare/engine/proworks/callServletService.jsp"
 TASK: Final = "ksd.rfr.user.rate.process.RatePTask"
@@ -33,7 +34,9 @@ START_DATE: Final = "20250911"
 END_DATE: Final = "20260911"
 START_ISO: Final = "2025-09-11"
 END_ISO: Final = "2026-09-11"
-AUDIT_DIR: Final = Path("/home/kwl/.local/share/jusik/portfolio-audit/20260917-kofr-risk-free-source-evidence")
+AUDIT_DIR: Final = Path(
+    "/home/kwl/.local/share/jusik/portfolio-audit/20260917-kofr-risk-free-source-evidence"
+)
 MAX_RESPONSE_BYTES: Final = 5 * 1024 * 1024
 MAX_ROWS: Final = 5_000
 MAX_FIELDS: Final = 64
@@ -104,7 +107,15 @@ class HttpTransport(Protocol):
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req: urllib.request.Request, fp: object, code: int, msg: str, headers: Mapping[str, str], new: str) -> None:  # type: ignore[override]
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: object,
+        code: int,
+        msg: str,
+        headers: HTTPMessage,
+        new: str,
+    ) -> None:
         raise KofrEvidenceError("redirect_blocked")
 
 
@@ -124,7 +135,9 @@ class StdlibTransport:
         )
         try:
             with opener.open(request, timeout=timeout) as response:
-                headers_out = {str(k).lower(): str(v) for k, v in response.headers.items()}
+                headers_out = {
+                    str(k).lower(): str(v) for k, v in response.headers.items()
+                }
                 body_out = response.read(MAX_RESPONSE_BYTES + 1)
                 return HttpResponse(response.status, headers_out, body_out)
         except KofrEvidenceError:
@@ -147,7 +160,7 @@ def request_xml() -> bytes:
         ("SEARCH_END_DATE", END_DATE),
     ):
         ET.SubElement(root, name, {"value": value})
-    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+    return cast(bytes, ET.tostring(root, encoding="utf-8", xml_declaration=True))
 
 
 def _check_tree_bounds(root: ET.Element) -> None:
@@ -179,7 +192,17 @@ def _parse_date(raw: str) -> str:
 def _decimal_text(raw: str) -> str:
     if not raw or len(raw) > MAX_DECIMAL_TEXT_LENGTH:
         raise KofrEvidenceError("malformed_numeric")
-    if raw.strip().lower() in {"nan", "+nan", "-nan", "infinity", "+infinity", "-infinity", "inf", "+inf", "-inf"}:
+    if raw.strip().lower() in {
+        "nan",
+        "+nan",
+        "-nan",
+        "infinity",
+        "+infinity",
+        "-infinity",
+        "inf",
+        "+inf",
+        "-inf",
+    }:
         raise KofrEvidenceError("nonfinite_value")
     if not re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", raw):
         raise KofrEvidenceError("malformed_numeric")
@@ -192,6 +215,8 @@ def _decimal_text(raw: str) -> str:
     sign, digits, exponent = value.as_tuple()
     if len(digits) > MAX_DECIMAL_DIGITS:
         raise KofrEvidenceError("numeric_precision_limit")
+    if not isinstance(exponent, int):
+        raise KofrEvidenceError("numeric_exponent_limit")
     if value != 0:
         try:
             adjusted = value.adjusted()
@@ -226,7 +251,12 @@ def _pubn_datetime(raw: str) -> None:
         raise KofrEvidenceError("invalid_pubn_dttm")
     try:
         datetime(
-            int(match[1]), int(match[3]), int(match[4]), int(match[5]), int(match[6]), int(match[7] or 0)
+            int(match[1]),
+            int(match[3]),
+            int(match[4]),
+            int(match[5]),
+            int(match[6]),
+            int(match[7] or 0),
         )
     except ValueError:
         raise KofrEvidenceError("invalid_pubn_dttm") from None
@@ -260,7 +290,11 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
         raise KofrEvidenceError("malformed_data")
     results: list[ET.Element] = []
     for data in data_nodes:
-        if data.attrib or (data.text and data.text.strip()) or (data.tail and data.tail.strip()):
+        if (
+            data.attrib
+            or (data.text and data.text.strip())
+            or (data.tail and data.tail.strip())
+        ):
             raise KofrEvidenceError("malformed_data")
         children = list(data)
         if len(children) != 1 or children[0].tag != "result":
@@ -271,7 +305,11 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     rows: list[dict[str, str]] = []
     seen_dates: set[str] = set()
     for result in results:
-        if result.attrib or (result.text and result.text.strip()) or (result.tail and result.tail.strip()):
+        if (
+            result.attrib
+            or (result.text and result.text.strip())
+            or (result.tail and result.tail.strip())
+        ):
             raise KofrEvidenceError("malformed_result")
         fields: dict[str, str] = {}
         children = list(result)
@@ -303,7 +341,7 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
         _pubn_datetime(fields["PUBN_DTTM"])
         rows.append(fields)
     rows.sort(key=lambda row: _parse_date(row["RFR_PUBN_DT"]))
-    projection = [
+    projection: list[dict[str, object]] = [
         {
             "observed_on": _parse_date(row["RFR_PUBN_DT"]),
             "rate_text": row["RFR_PUBN_MR"],
@@ -334,12 +372,21 @@ def _check_response(response: HttpResponse) -> None:
     if parts[0].lower() not in XML_MIME:
         raise KofrEvidenceError("xml_mime")
     for part in parts[1:]:
-        if part.lower().startswith("charset=") and part.split("=", 1)[1].strip().lower() != "utf-8":
+        if (
+            part.lower().startswith("charset=")
+            and part.split("=", 1)[1].strip().lower() != "utf-8"
+        ):
             raise KofrEvidenceError("xml_encoding")
     encoding = _header(response.headers, "content-encoding")
     if encoding and encoding.lower() not in {"identity", ""}:
         raise KofrEvidenceError("compression_blocked")
-    if _header(response.headers, "location") or response.status in {301, 302, 303, 307, 308}:
+    if _header(response.headers, "location") or response.status in {
+        301,
+        302,
+        303,
+        307,
+        308,
+    }:
         raise KofrEvidenceError("redirect_blocked")
     if response.status in {401, 407}:
         raise KofrEvidenceError("auth_blocked")
@@ -444,7 +491,13 @@ def _exclusive_write(path: Path, data: bytes) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         try:
-            os.link(temp_name, absolute.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd, follow_symlinks=False)
+            os.link(
+                temp_name,
+                absolute.name,
+                src_dir_fd=parent_fd,
+                dst_dir_fd=parent_fd,
+                follow_symlinks=False,
+            )
         except FileExistsError as exc:
             raise KofrEvidenceError("artifact_exists") from exc
     finally:
@@ -456,29 +509,49 @@ def _exclusive_write(path: Path, data: bytes) -> None:
 
 
 def _json_bytes(value: object) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    return (
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\n"
+    ).encode("utf-8")
 
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-def verify_evidence(evidence_path: Path, audit_root: Path = AUDIT_DIR) -> dict[str, object]:
-    """Verify tracked JSON, request, content-addressed raw XML and projection offline."""
+def verify_evidence(
+    evidence_path: Path, audit_root: Path = AUDIT_DIR
+) -> dict[str, object]:
+    """Verify tracked JSON, request, raw XML, and projection offline."""
     _assert_regular(evidence_path)
     try:
         raw_evidence = _secure_read(evidence_path, limit=MAX_JSON_BYTES)
         if len(raw_evidence) > MAX_JSON_BYTES:
             raise KofrEvidenceError("evidence_too_large")
-        evidence = json.loads(raw_evidence.decode("utf-8"), object_pairs_hook=_object_pairs)
+        evidence = json.loads(
+            raw_evidence.decode("utf-8"), object_pairs_hook=_object_pairs
+        )
     except KofrEvidenceError:
         raise
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError, _DuplicateKey):
+    except (
+        OSError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        RecursionError,
+        _DuplicateKey,
+    ):
         raise KofrEvidenceError("malformed_evidence") from None
-    if not isinstance(evidence, dict) or evidence.get("schema") != "kofr-source-evidence/v1":
+    if (
+        not isinstance(evidence, dict)
+        or evidence.get("schema") != "kofr-source-evidence/v1"
+    ):
         raise KofrEvidenceError("malformed_evidence")
     raw_info = evidence.get("raw")
-    if not isinstance(raw_info, dict) or not isinstance(raw_info.get("path"), str) or not isinstance(raw_info.get("sha256"), str):
+    if (
+        not isinstance(raw_info, dict)
+        or not isinstance(raw_info.get("path"), str)
+        or not isinstance(raw_info.get("sha256"), str)
+    ):
         raise KofrEvidenceError("malformed_evidence")
     sha_value = raw_info.get("sha256")
     path_value = raw_info.get("path")
@@ -499,7 +572,12 @@ def verify_evidence(evidence_path: Path, audit_root: Path = AUDIT_DIR) -> dict[s
     except OSError:
         raise KofrEvidenceError("raw_unavailable") from None
     byte_count = raw_info.get("bytes")
-    if not isinstance(byte_count, int) or isinstance(byte_count, bool) or len(body) != byte_count or hashlib.sha256(body).hexdigest() != sha:
+    if (
+        not isinstance(byte_count, int)
+        or isinstance(byte_count, bool)
+        or len(body) != byte_count
+        or hashlib.sha256(body).hexdigest() != sha
+    ):
         raise KofrEvidenceError("raw_sha_mismatch")
     request_info = evidence.get("request")
     expected_request = {
@@ -522,7 +600,10 @@ def verify_evidence(evidence_path: Path, audit_root: Path = AUDIT_DIR) -> dict[s
         raise KofrEvidenceError("request_unavailable") from None
     except OSError:
         raise KofrEvidenceError("request_unavailable") from None
-    if hashlib.sha256(request_bytes).hexdigest() != expected_request["request_sha256"] or request_bytes != request_xml():
+    if (
+        hashlib.sha256(request_bytes).hexdigest() != expected_request["request_sha256"]
+        or request_bytes != request_xml()
+    ):
         raise KofrEvidenceError("request_mismatch")
     rows, projection = parse_response(body)
     if evidence.get("rows") != rows or evidence.get("projection") != projection:
@@ -530,7 +611,11 @@ def verify_evidence(evidence_path: Path, audit_root: Path = AUDIT_DIR) -> dict[s
     observed = evidence.get("observed")
     if not isinstance(observed, dict) or observed.get("count") != len(rows):
         raise KofrEvidenceError("observed_mismatch")
-    expected_range = [projection[0]["observed_on"], projection[-1]["observed_on"]] if projection else [None, None]
+    expected_range = (
+        [projection[0]["observed_on"], projection[-1]["observed_on"]]
+        if projection
+        else [None, None]
+    )
     if observed.get("range") != expected_range:
         raise KofrEvidenceError("observed_mismatch")
     return {"verified": True, "rows": len(rows), "raw_sha256": sha}
@@ -553,13 +638,27 @@ def collect(
     audit_fd = _open_secure_directory(audit_root)
     os.close(audit_fd)
     attempt_path = audit_root / "attempt.json"
-    _exclusive_write(attempt_path, _json_bytes({"schema": "kofr-source-attempt/v1", "created_at_utc": _utc_now(), "endpoint": ENDPOINT, "request_sha256": hashlib.sha256(request).hexdigest()}))
+    _exclusive_write(
+        attempt_path,
+        _json_bytes(
+            {
+                "schema": "kofr-source-attempt/v1",
+                "created_at_utc": _utc_now(),
+                "endpoint": ENDPOINT,
+                "request_sha256": hashlib.sha256(request).hexdigest(),
+            }
+        ),
+    )
     _exclusive_write(audit_root / "request.xml", request)
     response = transport.post(
         ENDPOINT,
         request,
         timeout=30.0,
-        headers={"Content-Type": "application/xml; charset=utf-8", "Accept": "application/xml", "Accept-Encoding": "identity"},
+        headers={
+            "Content-Type": "application/xml; charset=utf-8",
+            "Accept": "application/xml",
+            "Accept-Encoding": "identity",
+        },
     )
     _check_response(response)
     raw_sha = hashlib.sha256(response.body).hexdigest()
@@ -574,7 +673,11 @@ def collect(
                 {
                     "schema": "kofr-source-failure/v1",
                     "code": exc.code,
-                    "raw": {"path": raw_rel.as_posix(), "sha256": raw_sha, "bytes": len(response.body)},
+                    "raw": {
+                        "path": raw_rel.as_posix(),
+                        "sha256": raw_sha,
+                        "bytes": len(response.body),
+                    },
                     "recorded_at_utc": _utc_now(),
                 }
             ),
@@ -583,35 +686,87 @@ def collect(
     collection_time = _utc_now()
     evidence: dict[str, object] = {
         "schema": "kofr-source-evidence/v1",
-        "request": {"endpoint": ENDPOINT, "task": TASK, "action": ACTION, "lang": LANG, "start_date": START_ISO, "end_date": END_ISO, "request_sha256": hashlib.sha256(request).hexdigest()},
+        "request": {
+            "endpoint": ENDPOINT,
+            "task": TASK,
+            "action": ACTION,
+            "lang": LANG,
+            "start_date": START_ISO,
+            "end_date": END_ISO,
+            "request_sha256": hashlib.sha256(request).hexdigest(),
+        },
         "rows": rows,
         "projection": projection,
-        "observed": {"count": len(rows), "range": [projection[0]["observed_on"], projection[-1]["observed_on"]] if projection else [None, None]},
-        "raw": {"path": raw_rel.as_posix(), "sha256": raw_sha, "bytes": len(response.body)},
+        "observed": {
+            "count": len(rows),
+            "range": [projection[0]["observed_on"], projection[-1]["observed_on"]]
+            if projection
+            else [None, None],
+        },
+        "raw": {
+            "path": raw_rel.as_posix(),
+            "sha256": raw_sha,
+            "bytes": len(response.body),
+        },
         "collected_at_utc": collection_time,
-        "limitations": ["PUBN_DTTM is preserved as raw source text; timezone and instant are unverified.", "Expected KOFR business-date completeness is unverified; no rows are synthesized.", "This source evidence is not applied to NAV, returns, Sharpe, readiness, or strategy."],
+        "limitations": [
+            "PUBN_DTTM is preserved as raw source text; "
+            "timezone and instant are unverified.",
+            "Expected KOFR business-date completeness is unverified; "
+            "no rows are synthesized.",
+            "This source evidence is not applied to NAV, returns, Sharpe, "
+            "readiness, or strategy.",
+        ],
     }
     evidence_bytes = _json_bytes(evidence)
     _exclusive_write(audit_root / "evidence.json", evidence_bytes)
     if evidence_output is not None:
         _exclusive_write(evidence_output, evidence_bytes)
-    verification = {"schema": "kofr-source-verification/v1", "verified_at_utc": _utc_now(), "evidence_sha256": hashlib.sha256(evidence_bytes).hexdigest(), "result": verify_evidence(audit_root / "evidence.json", audit_root)}
+    verification = {
+        "schema": "kofr-source-verification/v1",
+        "verified_at_utc": _utc_now(),
+        "evidence_sha256": hashlib.sha256(evidence_bytes).hexdigest(),
+        "result": verify_evidence(audit_root / "evidence.json", audit_root),
+    }
     _exclusive_write(audit_root / "verification.json", _json_bytes(verification))
-    _exclusive_write(audit_root / "manifest.json", _json_bytes({"schema": "kofr-source-manifest/v1", "request": "request.xml", "raw": raw_rel.as_posix(), "evidence": "evidence.json", "verification": "verification.json"}))
+    _exclusive_write(
+        audit_root / "manifest.json",
+        _json_bytes(
+            {
+                "schema": "kofr-source-manifest/v1",
+                "request": "request.xml",
+                "raw": raw_rel.as_posix(),
+                "evidence": "evidence.json",
+                "verification": "verification.json",
+            }
+        ),
+    )
     return evidence
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="Collect or verify the fixed KOFR source evidence.")
+    parser = argparse.ArgumentParser(
+        description="Collect or verify the fixed KOFR source evidence."
+    )
     parser.add_argument("--audit-root", type=Path, default=AUDIT_DIR)
     parser.add_argument("--evidence-output", type=Path)
-    parser.add_argument("--verify", type=Path, help="verify an existing tracked evidence JSON offline")
+    parser.add_argument(
+        "--verify", type=Path, help="verify an existing tracked evidence JSON offline"
+    )
     args = parser.parse_args()
     try:
         if args.verify is not None:
-            print(json.dumps(verify_evidence(args.verify, args.audit_root), sort_keys=True))
+            print(
+                json.dumps(
+                    verify_evidence(args.verify, args.audit_root), sort_keys=True
+                )
+            )
         else:
-            collect(StdlibTransport(), audit_root=args.audit_root, evidence_output=args.evidence_output)
+            collect(
+                StdlibTransport(),
+                audit_root=args.audit_root,
+                evidence_output=args.evidence_output,
+            )
             result = verify_evidence(args.audit_root / "evidence.json", args.audit_root)
             print(json.dumps(result, sort_keys=True))
     except KofrEvidenceError as exc:

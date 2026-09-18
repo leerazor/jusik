@@ -10,8 +10,8 @@ import pytest
 
 from jusik.kofr_source_evidence import (
     ACTION,
-    ENDPOINT,
     END_DATE,
+    ENDPOINT,
     FIELDS,
     LANG,
     START_DATE,
@@ -25,7 +25,13 @@ from jusik.kofr_source_evidence import (
 )
 
 
-def _xml(*, count: int = 1, date_text: str = "2025.09.11", rate: str = "3.5000", extra: str = "") -> bytes:
+def _xml(
+    *,
+    count: int = 1,
+    date_text: str = "2025.09.11",
+    rate: str = "3.5000",
+    extra: str = "",
+) -> bytes:
     values = {
         "RFR_PUBN_DT": date_text,
         "RFR_PUBN_ISSN": "KOFR",
@@ -41,18 +47,25 @@ def _xml(*, count: int = 1, date_text: str = "2025.09.11", rate: str = "3.5000",
         "LAST_MODF_DTTM": "2025.09.12 09:00:00",
     }
     fields = "".join(f'<{key} value="{value}"/>' for key, value in values.items())
-    return f'<vector result="{count}"><data><result>{fields}{extra}</result></data></vector>'.encode()
+    return (
+        f'<vector result="{count}"><data><result>{fields}{extra}</result>'
+        "</data></vector>"
+    ).encode()
 
 
 class FakeTransport:
-    def __init__(self, body: bytes, *, status: int = 200, headers: dict[str, str] | None = None) -> None:
+    def __init__(
+        self, body: bytes, *, status: int = 200, headers: dict[str, str] | None = None
+    ) -> None:
         self.body = body
         self.status = status
         self.headers = headers or {"Content-Type": "application/xml; charset=utf-8"}
         self.calls = 0
         self.seen: tuple[str, bytes, float, dict[str, str]] | None = None
 
-    def post(self, url: str, body: bytes, *, timeout: float, headers: Mapping[str, str]) -> HttpResponse:
+    def post(
+        self, url: str, body: bytes, *, timeout: float, headers: Mapping[str, str]
+    ) -> HttpResponse:
         self.calls += 1
         self.seen = (url, body, timeout, dict(headers))
         return HttpResponse(self.status, self.headers, self.body)
@@ -82,7 +95,7 @@ def test_request_is_fixed_and_parser_preserves_decimal_text() -> None:
         (_xml(date_text="2024.12.31"), "date_out_of_range"),
         (_xml(rate="NaN"), "nonfinite_value"),
         (_xml(rate="Infinity"), "nonfinite_value"),
-        (_xml(extra="<BROKEN value=\"x\"/>"), "malformed_result"),
+        (_xml(extra='<BROKEN value="x"/>'), "malformed_result"),
         (b"<!DOCTYPE response><response/>", "xml_dtd_or_entity"),
     ],
 )
@@ -92,8 +105,10 @@ def test_parser_rejects_threats(body: bytes, code: str) -> None:
 
 
 def test_legacy_wrapper_and_record_count_shape_are_rejected() -> None:
-    legacy = _xml().replace(b'<vector result="1">', b'<response><vector RECORD_COUNT="1">').replace(
-        b"</vector>", b"</vector></response>"
+    legacy = (
+        _xml()
+        .replace(b'<vector result="1">', b'<response><vector RECORD_COUNT="1">')
+        .replace(b"</vector>", b"</vector></response>")
     )
     with pytest.raises(KofrEvidenceError, match="unexpected_xml_root"):
         parse_response(legacy)
@@ -101,25 +116,37 @@ def test_legacy_wrapper_and_record_count_shape_are_rejected() -> None:
 
 def test_exact_xml_attributes_and_leaf_shape_are_required() -> None:
     with pytest.raises(KofrEvidenceError, match="malformed_vector"):
-        parse_response(_xml().replace(b'<vector result="1">', b'<vector result="1" extra="x">'))
+        parse_response(
+            _xml().replace(b'<vector result="1">', b'<vector result="1" extra="x">')
+        )
     with pytest.raises(KofrEvidenceError, match="malformed_data"):
         parse_response(_xml().replace(b"<data>", b'<data extra="x">'))
     with pytest.raises(KofrEvidenceError, match="malformed_result"):
         parse_response(_xml().replace(b"<result>", b'<result extra="x">'))
     with pytest.raises(KofrEvidenceError, match="malformed_result"):
-        parse_response(_xml().replace(b'<RFR_INDEX value="105.1234"/>', b'<RFR_INDEX value="105.1234"><child/></RFR_INDEX>'))
+        parse_response(
+            _xml().replace(
+                b'<RFR_INDEX value="105.1234"/>',
+                b'<RFR_INDEX value="105.1234"><child/></RFR_INDEX>',
+            )
+        )
 
 
 def test_exact_no_namespace_tags_and_whitespace_only_text_tail() -> None:
-    namespaced = _xml().replace(b"<vector result=", b'<vector xmlns="urn:wrong" result=')
+    namespaced = _xml().replace(
+        b"<vector result=", b'<vector xmlns="urn:wrong" result='
+    )
     with pytest.raises(KofrEvidenceError, match="unexpected_xml_root"):
         parse_response(namespaced)
     namespaced_field = _xml().replace(
-        b'<RFR_INDEX value="105.1234"/>', b'<wrong:RFR_INDEX xmlns:wrong="urn:wrong" value="105.1234"/>'
+        b'<RFR_INDEX value="105.1234"/>',
+        b'<wrong:RFR_INDEX xmlns:wrong="urn:wrong" value="105.1234"/>',
     )
     with pytest.raises(KofrEvidenceError, match="malformed_result"):
         parse_response(namespaced_field)
-    field_tail = _xml().replace(b'<RFR_INDEX value="105.1234"/>', b'<RFR_INDEX value="105.1234"/>unexpected')
+    field_tail = _xml().replace(
+        b'<RFR_INDEX value="105.1234"/>', b'<RFR_INDEX value="105.1234"/>unexpected'
+    )
     with pytest.raises(KofrEvidenceError, match="malformed_result"):
         parse_response(field_tail)
     data_text = _xml().replace(b"<data>", b"<data>unexpected")
@@ -128,10 +155,16 @@ def test_exact_no_namespace_tags_and_whitespace_only_text_tail() -> None:
 
 
 def test_decimal_bounds_do_not_use_ambient_precision() -> None:
-    rows, projection = parse_response(_xml(rate="123456789012345678901234567890.123456789"))
+    rows, projection = parse_response(
+        _xml(rate="123456789012345678901234567890.123456789")
+    )
     assert rows[0]["RFR_PUBN_MR"].startswith("1234567890")
     assert projection[0]["rate_decimal"] == "123456789012345678901234567890.123456789"
-    for value, code in (("1e129", "numeric_exponent_limit"), ("1e-129", "numeric_exponent_limit"), ("9" * 129, "numeric_precision_limit")):
+    for value, code in (
+        ("1e129", "numeric_exponent_limit"),
+        ("1e-129", "numeric_exponent_limit"),
+        ("9" * 129, "numeric_precision_limit"),
+    ):
         with pytest.raises(KofrEvidenceError, match=code):
             parse_response(_xml(rate=value))
 
@@ -139,7 +172,10 @@ def test_decimal_bounds_do_not_use_ambient_precision() -> None:
 def test_duplicate_date_and_missing_field_are_rejected() -> None:
     one = _xml().decode()
     fields = one.split("<result>", 1)[1].split("</result>", 1)[0]
-    body = f'<vector result="2"><data><result>{fields}</result></data><data><result>{fields}</result></data></vector>'.encode()
+    body = (
+        f'<vector result="2"><data><result>{fields}</result></data>'
+        f"<data><result>{fields}</result></data></vector>"
+    ).encode()
     with pytest.raises(KofrEvidenceError, match="duplicate_date"):
         parse_response(body)
     missing = _xml().replace(b'<RFR_INDEX value="105.1234"/>', b"")
@@ -156,14 +192,27 @@ def test_one_request_and_offline_reproducibility(tmp_path: Path) -> None:
     assert transport.seen[0] == ENDPOINT
     assert transport.seen[2] == 30.0
     assert output.exists()
+    assert evidence == json.loads(output.read_text())
+    assert set(evidence) == {
+        "schema",
+        "request",
+        "rows",
+        "projection",
+        "observed",
+        "raw",
+        "collected_at_utc",
+        "limitations",
+    }
     assert verify_evidence(output, tmp_path / "audit")["verified"] is True
     with pytest.raises(KofrEvidenceError, match="artifact_exists"):
         collect(FakeTransport(_xml()), audit_root=tmp_path / "audit")
     assert transport.calls == 1
 
 
-def test_semantic_failure_freezes_bounded_raw_and_failure_metadata(tmp_path: Path) -> None:
-    transport = FakeTransport(b"<vector result=\"1\"><data/></vector>")
+def test_semantic_failure_freezes_bounded_raw_and_failure_metadata(
+    tmp_path: Path,
+) -> None:
+    transport = FakeTransport(b'<vector result="1"><data/></vector>')
     audit = tmp_path / "audit"
     with pytest.raises(KofrEvidenceError, match="malformed_data"):
         collect(transport, audit_root=audit)
@@ -171,11 +220,16 @@ def test_semantic_failure_freezes_bounded_raw_and_failure_metadata(tmp_path: Pat
     assert len(raw_files) == 1
     failure = json.loads((audit / "failure.json").read_text())
     assert failure["code"] == "malformed_data"
-    assert failure["raw"]["sha256"] == hashlib.sha256(raw_files[0].read_bytes()).hexdigest()
+    assert (
+        failure["raw"]["sha256"]
+        == hashlib.sha256(raw_files[0].read_bytes()).hexdigest()
+    )
     assert transport.calls == 1
 
 
-def test_verifier_rejects_raw_directory_symlink_and_request_mismatch(tmp_path: Path) -> None:
+def test_verifier_rejects_raw_directory_symlink_and_request_mismatch(
+    tmp_path: Path,
+) -> None:
     audit = tmp_path / "audit"
     output = tmp_path / "evidence.json"
     collect(FakeTransport(_xml()), audit_root=audit, evidence_output=output)
@@ -195,6 +249,22 @@ def test_verifier_rejects_raw_directory_symlink_and_request_mismatch(tmp_path: P
     raw_file.write_bytes(original_raw)
     (audit / "request.xml").write_bytes(b"<tampered/>")
     with pytest.raises(KofrEvidenceError, match="request_mismatch"):
+        verify_evidence(output, audit)
+
+
+def test_verifier_rejects_raw_tampering_and_path_escape(tmp_path: Path) -> None:
+    audit = tmp_path / "audit"
+    output = tmp_path / "evidence.json"
+    collect(FakeTransport(_xml()), audit_root=audit, evidence_output=output)
+    evidence = json.loads(output.read_text())
+    raw_path = audit / evidence["raw"]["path"]
+    raw_path.write_bytes(raw_path.read_bytes() + b" ")
+    with pytest.raises(KofrEvidenceError, match="raw_sha_mismatch"):
+        verify_evidence(output, audit)
+
+    evidence["raw"]["path"] = "raw/../outside.xml"
+    output.write_text(json.dumps(evidence))
+    with pytest.raises(KofrEvidenceError, match="unsafe_path"):
         verify_evidence(output, audit)
 
 
@@ -220,5 +290,8 @@ def test_audit_parent_symlink_is_rejected_before_transport(tmp_path: Path) -> No
 def test_http_response_contract(headers: dict[str, str], tmp_path: Path) -> None:
     transport = FakeTransport(_xml(), headers=headers)
     with pytest.raises(KofrEvidenceError):
-        collect(transport, audit_root=tmp_path / hashlib.sha256(repr(headers).encode()).hexdigest())
+        collect(
+            transport,
+            audit_root=tmp_path / hashlib.sha256(repr(headers).encode()).hexdigest(),
+        )
     assert transport.calls == 1
