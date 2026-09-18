@@ -16,6 +16,8 @@ from fastapi.responses import FileResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from jusik.kis_stream import KisReadOnlyStream
+from jusik.market_research_api import router as market_research_router
+from jusik.market_research_service import production_market_research_service
 from jusik.operations_models import (
     ActivateStrategyRequest,
     OperationsStatus,
@@ -97,6 +99,12 @@ from jusik.research_portfolio_robustness import (
     PortfolioRobustnessRepository,
     PortfolioRobustnessResult,
 )
+from jusik.research_progress import (
+    DEFAULT_RUNNER_CONFIG,
+    ResearchProgressResponse,
+    UnitStatus,
+    build_research_progress,
+)
 from jusik.research_prospective_readiness import (
     ProspectiveReadiness,
     prospective_readiness,
@@ -145,6 +153,10 @@ def create_research_app(
     clock_health_probe: Callable[[], Awaitable[ForwardClockHealth]] | None = None,
     boundary_capture_dir: Path = DEFAULT_BOUNDARY_CAPTURE_DIR,
     run_boundary_capture_background: bool = False,
+    runner_config_path: Path = DEFAULT_RUNNER_CONFIG,
+    runner_db_path: Path | None = None,
+    progress_history_dir: Path | None = None,
+    runner_service_probe: Callable[[str], UnitStatus] | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -251,6 +263,9 @@ def create_research_app(
         except Exception:
             pass
         app.state.research_store = run_store
+        app.state.market_research_service = production_market_research_service(
+            run_store.path.with_name("market-research.db")
+        )
         app.state.research_worker = worker
         app.state.operations_store = operation_store
         app.state.automation = automation
@@ -313,12 +328,24 @@ def create_research_app(
         TrustedHostMiddleware,
         allowed_hosts=["127.0.0.1", "localhost", "testserver"],
     )
+    research_app.include_router(market_research_router)
     portfolio_repository = PortfolioRunRepository(portfolio_report_dir)
     dividend_repository = DividendOverlayRepository(dividend_report_dir)
     robustness_repository = PortfolioRobustnessRepository(validation_report_dir)
 
     def forward_components() -> tuple[ForwardCoordinator, ForwardStore]:
         return research_app.state.forward, research_app.state.forward_store
+
+    @research_app.get("/api/research/progress", response_model=ResearchProgressResponse)
+    async def research_progress(response: Response) -> ResearchProgressResponse:
+        response.headers["Cache-Control"] = "no-store"
+        return await asyncio.to_thread(
+            build_research_progress,
+            config_path=runner_config_path,
+            history_dir=progress_history_dir or history_dir or DEFAULT_HISTORY_DIR,
+            runner_db_path=runner_db_path,
+            service_probe=runner_service_probe,
+        )
 
     @research_app.get(
         "/api/research/actions/status", response_model=ActionCollectionStatus

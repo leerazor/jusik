@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import fcntl
 import hashlib
 import json
@@ -30,14 +31,39 @@ from jusik.development_runner_planning import (
 from jusik.development_runner_planning import (
     fingerprint as planning_fingerprint,
 )
+from jusik.development_runner_roadmap import (
+    DEVELOPMENT_DELIVERY_POLICY,
+    ROADMAP_SCOPE,
+    RoadmapError,
+    eligible_areas,
+    load_roadmap,
+    reserved_areas,
+    roadmap_fingerprint,
+    roadmap_planner_context,
+    roadmap_prompt,
+    validate_enqueue,
+    validate_planner_area,
+    validate_roadmap_completion,
+)
 from jusik.development_runner_store import RunnerStore, RunnerTask
 from jusik.research_history import HistoryRepository
+from jusik.research_mandate_governance import (
+    MandateGovernanceError,
+    ValidatedMandate,
+    validate_dispatch_gate,
+)
 
 DEFAULT_CONFIG = Path.home() / ".config/jusik/development-runner.json"
 DEFAULT_STATE = Path.home() / ".local/share/jusik/development-runner"
 DEFAULT_HISTORY = Path.home() / ".local/share/jusik/research-history"
 DEFAULT_HISTORY_DB = Path.home() / ".local/share/jusik/research-history-journal.db"
 DEFAULT_ARTIFACTS = Path.home() / ".local/share/jusik/portfolio-audit"
+
+
+class RunnerResumeError(RuntimeError):
+    """Raised when a private operator hold still suppresses queue mutations."""
+
+
 ALLOWED_AREAS = {
     "entry-amount-distribution",
     "preregistration-small-entry",
@@ -45,18 +71,60 @@ ALLOWED_AREAS = {
     "paper-signal-evidence",
     "portfolio-stress-robustness",
 }
+RESEARCH_MANDATE_REQUIRED_FIELDS = frozenset(
+    {
+        "recorded_at",
+        "capital_krw",
+        "maximum_drawdown_fraction",
+        "drawdown_reference",
+        "research_universe_expansion",
+        "interim_withdrawals",
+        "investment_horizon",
+        "historical_lookback_years",
+        "leveraged_allocation_fraction",
+        "turnover_preference",
+        "signal_detection",
+        "live_trading",
+        "frozen_paper_contract",
+        "user_answers",
+    }
+)
 COMMON_PROMPT = (
     "Follow the repository workflow: explore relevant code and AGENTS.md, write a "
     "bounded plan, assign at most four Luna worktrees, review the implementation, "
     "then Astra merges to local main and runs checks and handoff/web publication "
     "when applicable. Preserve unrelated work and never use real orders, remote "
-    "push, PAPER engine or PAPER database mutation, or GPU changes."
+    "push, PAPER engine or PAPER database mutation, arbitrary service changes, "
+    "or unapproved GPU changes. GPU use is opt-in and on-demand only: for portfolio "
+    "stress work use "
+    "python -m jusik.research_portfolio_gpu_stress --request PATH --output-dir PATH "
+    "--device auto|cpu|cuda with pinned input, seed, bounds, and CPU parity; "
+    "never promote approximate stress results."
 )
 RUNTIME_PROMPT_SUFFIX = (
     "Before removing any merged worktree after integration checks, archive all "
     "needed evidence, its SHA-256 hashes, and the handoff in durable files under "
     "the allowed roots. The completion JSON must reference only files that survive "
-    "worktree cleanup."
+    "worktree cleanup. For role routing, read docs/agent-tooling.md and use the "
+    "model-only adapter in backend/jusik/agent_routing.py when the actual spawn "
+    "tool has no role field; missing agent_type alone is not a halt condition. "
+    "On retry, inspect the prior task registry, owned worktree, and artifacts, "
+    "then reuse a matching owned branch rather than duplicating, resetting, or "
+    "deleting it. Automatic recovery is bounded: use recovery_kind=environment "
+    "only with one exact label from dependency_setup, cache_permission, "
+    "tool_unavailable, or recovery_kind=implementation only with "
+    "one exact blocked label from code_defect, test_defect, lint_defect, "
+    "type_defect, actionable_review. These labels cover known in-scope code, "
+    "test, lint, type, or actionable review defects only. Missing data, financial "
+    "policy choices, SHA or identity mismatch, unknown security issues, permission "
+    "expansion, raw Codex exits, interruption, and generic review failure are not "
+    "automatic recovery reasons. A retry must freshly pass the configured tests "
+    "and independent review; it never bypasses a gate or claims success. Repair an "
+    "owned virtual environment or attempt cache only as a routine local fix: run "
+    "the owned environment's python --version once before checks and stop the "
+    "attempt if setup fails instead of batching past the failed setup. A previous "
+    "attempt stop is historical state, not a permanent current block."
+    f" {DEVELOPMENT_DELIVERY_POLICY}"
 )
 BACKLOG = (
     (
@@ -104,9 +172,11 @@ class RunnerConfig(BaseModel):
     history_db: Path = DEFAULT_HISTORY_DB
     artifact_dir: Path = DEFAULT_ARTIFACTS
     timeout_seconds: int = Field(default=5400, ge=60, le=5400)
-    daily_launches: int = Field(default=8, ge=1, le=24)
+    daily_launches: int | None = Field(default=8, ge=1, le=24)
     cooldown_seconds: int = Field(default=60, ge=0, le=86400)
     planning_enabled: bool = False
+    automatic_recovery: bool = False
+    scope: Literal["research", "investment-roadmap"] = "research"
 
 
 class Evidence(BaseModel):
@@ -134,6 +204,7 @@ class Completion(BaseModel):
     handoff_path: str | None = Field(default=None, min_length=1)
     blocked_reason: str | None = Field(default=None, min_length=1, max_length=2000)
     followup: Followup | None = None
+    recovery_kind: Literal["environment", "implementation"] | None = None
 
 
 COMPLETION_SCHEMA: dict[str, Any] = {
@@ -150,6 +221,7 @@ COMPLETION_SCHEMA: dict[str, Any] = {
         "handoff_path",
         "blocked_reason",
         "followup",
+        "recovery_kind",
     ],
     "properties": {
         "task_id": {"type": "string"},
@@ -186,8 +258,32 @@ COMPLETION_SCHEMA: dict[str, Any] = {
                 "prompt": {"type": "string", "minLength": 1, "maxLength": 2000},
             },
         },
+        "recovery_kind": {
+            "type": ["string", "null"],
+            "enum": ["environment", "implementation", None],
+        },
     },
 }
+
+
+def _completion_schema(allowed_areas: set[str]) -> dict[str, Any]:
+    schema = copy.deepcopy(COMPLETION_SCHEMA)
+    followup = schema["properties"]["followup"]
+    if isinstance(followup, dict) and isinstance(followup.get("properties"), dict):
+        area = followup["properties"].get("area")
+        if isinstance(area, dict):
+            area["enum"] = sorted(allowed_areas)
+    return schema
+
+
+def _planning_schema(allowed_areas: set[str]) -> dict[str, Any]:
+    schema = copy.deepcopy(PLANNING_SCHEMA)
+    proposal = schema["properties"]["proposal"]
+    if isinstance(proposal, dict) and isinstance(proposal.get("properties"), dict):
+        area = proposal["properties"].get("area")
+        if isinstance(area, dict):
+            area["enum"] = sorted(allowed_areas)
+    return schema
 
 
 @dataclass(frozen=True)
@@ -225,6 +321,20 @@ def _write_private(path: Path, content: bytes) -> None:
         path.chmod(0o600)
 
 
+def _write_exit_diagnostics(
+    attempt_dir: Path, returncode: int, completion_path: Path
+) -> None:
+    payload = {
+        "returncode": returncode,
+        "signal_number": -returncode if returncode < 0 else None,
+        "completion_present": completion_path.exists(),
+    }
+    _write_private(
+        attempt_dir / "exit-diagnostics.json",
+        (json.dumps(payload, sort_keys=True) + "\n").encode(),
+    )
+
+
 def load_config(path: Path = DEFAULT_CONFIG) -> RunnerConfig:
     return RunnerConfig.model_validate_json(path.read_text(encoding="utf-8"))
 
@@ -241,8 +351,14 @@ def init_config(
     history: Path | None,
     history_db: Path | None,
     artifact_dir: Path | None = None,
+    scope: Literal["research", "investment-roadmap"] = "research",
 ) -> RunnerConfig:
     state = state.expanduser().resolve()
+    if scope == ROADMAP_SCOPE:
+        if state == DEFAULT_STATE.resolve():
+            raise ValueError("investment roadmap requires a dedicated state directory")
+        if (state / "runner.db").exists():
+            raise ValueError("investment roadmap state must be a new blank database")
     history_dir = (history or DEFAULT_HISTORY).expanduser().resolve()
     config = RunnerConfig(
         repo=repo.expanduser().resolve(),
@@ -250,21 +366,27 @@ def init_config(
         history_dir=history_dir,
         history_db=(history_db or DEFAULT_HISTORY_DB).expanduser().resolve(),
         artifact_dir=(artifact_dir or DEFAULT_ARTIFACTS).expanduser().resolve(),
+        scope=scope,
     )
-    save_config(config, path.expanduser().resolve())
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
-    for area, task_id, prompt in BACKLOG:
-        dependency = (
-            "entry-amount-distribution-v1"
-            if task_id == "preregistration-small-entry-v1"
-            else None
-        )
-        store.enqueue(
-            task_id,
-            area,
-            f"{COMMON_PROMPT}\n\nResearch area: {area}\n\n{prompt}",
-            dependency,
-        )
+    existing_scope = store.get_meta("scope")
+    if existing_scope is not None and existing_scope != scope:
+        raise ValueError("runner state scope mismatch")
+    save_config(config, path.expanduser().resolve())
+    store.set_meta("scope", scope)
+    if scope == "research":
+        for area, task_id, prompt in BACKLOG:
+            dependency = (
+                "entry-amount-distribution-v1"
+                if task_id == "preregistration-small-entry-v1"
+                else None
+            )
+            store.enqueue(
+                task_id,
+                area,
+                f"{COMMON_PROMPT}\n\nResearch area: {area}\n\n{prompt}",
+                dependency,
+            )
     return config
 
 
@@ -377,7 +499,12 @@ def _hash_file(path: Path) -> str:
 
 
 def validate_completion(
-    payload: Any, task: RunnerTask, attempt_id: str, config: RunnerConfig
+    payload: Any,
+    task: RunnerTask,
+    attempt_id: str,
+    config: RunnerConfig,
+    *,
+    allowed_areas: set[str] | None = None,
 ) -> Completion:
     try:
         completion = Completion.model_validate(payload)
@@ -389,6 +516,8 @@ def validate_completion(
         if not completion.blocked_reason or completion.followup is not None:
             raise ValueError("blocked completion needs a reason and no followup")
         return completion
+    if completion.recovery_kind is not None:
+        raise ValueError("completed result cannot request recovery")
     if not completion.tests_passed or not completion.review_passed:
         raise ValueError("independent checks are not reported passed")
     if completion.integrated_commit is None or not completion.evidence:
@@ -435,22 +564,45 @@ def validate_completion(
         or handoff.is_symlink()
     ):
         raise ValueError("handoff path invalid")
+    if allowed_areas is None and config.scope == ROADMAP_SCOPE:
+        try:
+            allowed_areas = set(load_roadmap(config.repo).by_id)
+        except RoadmapError as exc:
+            raise ValueError("tracked investment roadmap is unavailable") from exc
+    followup_areas = ALLOWED_AREAS if allowed_areas is None else allowed_areas
     if (
         completion.followup is not None
-        and completion.followup.area not in ALLOWED_AREAS
+        and completion.followup.area not in followup_areas
     ):
         raise ValueError("followup area is not allowed")
     return completion
 
 
-def _next_task(store: RunnerStore) -> RunnerTask | None:
+def _bind_scope(store: RunnerStore, scope: str) -> tuple[bool, str]:
+    existing = store.get_meta("scope")
+    if existing is None:
+        if scope != "research":
+            return False, "investment roadmap cannot use an unbound legacy state"
+        store.set_meta("scope", "research")
+        return True, ""
+    if existing != scope:
+        return False, "runner state scope mismatch"
+    return True, ""
+
+
+def _next_task(
+    store: RunnerStore, scope: Literal["research", "investment-roadmap"] = "research"
+) -> RunnerTask | None:
     now = datetime.now(UTC)
     for task in store.tasks():
         if task.status != "queued" or task.area == PLANNING_AREA:
             continue
         if task.depends_on is not None:
             dependency = store.task(task.depends_on)
-            if dependency is None or dependency.status not in {"completed", "blocked"}:
+            accepted = (
+                {"completed"} if scope == ROADMAP_SCOPE else {"completed", "blocked"}
+            )
+            if dependency is None or dependency.status not in accepted:
                 continue
         if task.next_allowed_at and datetime.fromisoformat(task.next_allowed_at) > now:
             continue
@@ -466,9 +618,121 @@ def _research_snapshot(store: RunnerStore) -> list[tuple[str, str, str | None]]:
     )
 
 
+def _tracked_research_mandate(
+    repo: Path, expected_digest: str | None = None
+) -> str | None:
+    """Read the current tracked mandate for planner context."""
+    path = repo / "docs" / "research-mandate.json"
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        raw = path.read_bytes()
+        if (
+            expected_digest is not None
+            and hashlib.sha256(raw).hexdigest() != expected_digest
+        ):
+            return None
+        content = raw.decode("utf-8")
+        mandate = json.loads(content)
+        if not isinstance(
+            mandate, dict
+        ) or not RESEARCH_MANDATE_REQUIRED_FIELDS.issubset(mandate):
+            return None
+        return content
+    except (OSError, UnicodeError):
+        return None
+    except json.JSONDecodeError:
+        return None
+
+
+def _roadmap_dispatch_gate(
+    repo: Path, expected_digest: str | None = None
+) -> ValidatedMandate:
+    ready, _ = _git_ready(repo)
+    if not ready:
+        raise MandateGovernanceError("investment roadmap worktree is not ready")
+    current = validate_dispatch_gate(repo)
+    if expected_digest is not None and current.digest != expected_digest:
+        raise MandateGovernanceError("mandate governance changed")
+    return current
+
+
+def _roadmap_documents_ready(repo: Path) -> tuple[bool, str]:
+    required = (
+        Path("docs/investment-development-roadmap.md"),
+        Path("docs/research-mandate.json"),
+        Path("docs/development-runner.md"),
+        Path("docs/roadmap-automation.md"),
+    )
+    for relative in required:
+        path = repo / relative
+        if not path.is_file() or path.is_symlink() or not os.access(path, os.R_OK):
+            return False, f"required roadmap document is missing: {relative}"
+        tracked = _git(repo, "ls-files", "--error-unmatch", str(relative), check=False)
+        if getattr(tracked, "returncode", 1) != 0 or tracked.stdout.strip() != str(
+            relative
+        ):
+            return False, f"required roadmap document is not tracked: {relative}"
+    if _tracked_research_mandate(repo) is None:
+        return False, "tracked research mandate is missing or malformed"
+    return True, ""
+
+
 def _planning_task(
-    store: RunnerStore, repo: Path
+    store: RunnerStore,
+    repo: Path,
+    scope: Literal["research", "investment-roadmap"] = "research",
+    mandate_digest: str | None = None,
 ) -> tuple[RunnerTask, str, list[tuple[str, str, str | None]]] | None:
+    if scope == ROADMAP_SCOPE:
+        documents_ready, _ = _roadmap_documents_ready(repo)
+        if not documents_ready:
+            return None
+        try:
+            roadmap = load_roadmap(repo)
+        except RoadmapError:
+            return None
+        tasks = _research_snapshot(store)
+        if any(status == "running" for _, status, _ in tasks):
+            return None
+        if _next_task(store, ROADMAP_SCOPE) is not None:
+            return None
+        if (
+            sum(
+                status not in {"completed", "failed", "blocked", "interrupted"}
+                for _, status, _ in tasks
+            )
+            >= 8
+        ):
+            return None
+        eligible = eligible_areas(roadmap) - reserved_areas(
+            task for task in store.tasks() if task.area != PLANNING_AREA
+        )
+        if not eligible:
+            return None
+        head = _git(repo, "rev-parse", "main").stdout.strip()
+        day = datetime.now(UTC).date().isoformat()
+        digest = roadmap_fingerprint(tasks, head, day, roadmap, mandate_digest)
+        existing = store.task(planner_task_id(digest))
+        if existing is not None:
+            ready = not existing.next_allowed_at or (
+                datetime.fromisoformat(existing.next_allowed_at) <= datetime.now(UTC)
+            )
+            return (
+                (existing, digest, tasks)
+                if existing.status == "queued" and ready
+                else None
+            )
+        task_id = planner_task_id(digest)
+        if mandate_digest is not None:
+            _roadmap_dispatch_gate(repo, mandate_digest)
+        store.enqueue(
+            task_id,
+            PLANNING_AREA,
+            roadmap_planner_context(roadmap, tasks, eligible),
+        )
+        task = store.task(task_id)
+        return (task, digest, tasks) if task is not None else None
     tasks = _research_snapshot(store)
     if any(status in {"queued", "running"} for _, status, _ in tasks):
         return None
@@ -479,19 +743,93 @@ def _planning_task(
     digest = planning_fingerprint(tasks, head, day)
     existing = store.task(planner_task_id(digest))
     if existing is not None:
-        return (existing, digest, tasks) if existing.status == "queued" else None
+        ready = not existing.next_allowed_at or (
+            datetime.fromisoformat(existing.next_allowed_at) <= datetime.now(UTC)
+        )
+        return (
+            (existing, digest, tasks) if existing.status == "queued" and ready else None
+        )
     task_id = planner_task_id(digest)
     store.enqueue(
         task_id,
         PLANNING_AREA,
-        "Plan exactly one useful bounded portfolio research job. Prefer cost-adjusted "
-        "return/risk/turnover experiments under the current mandate: 100m KRW, "
-        "max loss 20%, leveraged allocation 20%, low turnover with realtime signal "
-        "detection, live trading deferred. Keep PAPER10% unchanged. "
+        "Plan exactly one useful bounded portfolio research job. Read the current "
+        "tracked mandate at docs/research-mandate.json before making any proposal; "
+        "that document is authoritative and replaces any mandate details in this "
+        "task prompt. If it is missing or unreadable, return waiting with a clear "
+        "resume condition. Keep PAPER10% unchanged. "
+        "For GPU stress research, consult docs/research-gpu-role.md and "
+        "docs/research-portfolio-gpu-stress.md and use only the on-demand "
+        "research_portfolio_gpu_stress CLI when measured beneficial, with fixed "
+        "inputs, seed, bounds, and CPU parity; never promote approximate results. "
+        f"{DEVELOPMENT_DELIVERY_POLICY} "
         "Return planning JSON.",
     )
     task = store.task(task_id)
     return (task, digest, tasks) if task is not None else None
+
+
+AUTO_RETRY_BACKOFF_SECONDS = (60, 120)
+AUTO_RETRYABLE_PLANNING_FAILURES = frozenset(
+    {"planning_output_invalid", "planning_schema_invalid", "planning_length_invalid"}
+)
+ENVIRONMENT_RECOVERY_LABELS = frozenset(
+    {"dependency_setup", "cache_permission", "tool_unavailable"}
+)
+IMPLEMENTATION_RECOVERY_LABELS = frozenset(
+    {
+        "code_defect",
+        "test_defect",
+        "lint_defect",
+        "type_defect",
+        "actionable_review",
+    }
+)
+
+
+def _planner_feedback(store: RunnerStore, task_id: str) -> str | None:
+    code = store.last_failure_code(task_id)
+    return code if code in AUTO_RETRYABLE_PLANNING_FAILURES else None
+
+
+def _planning_failure_code(error: BaseException) -> str:
+    if isinstance(error, (OSError, json.JSONDecodeError)):
+        return "planning_output_invalid"
+    message = str(error)
+    if message == "planning schema invalid":
+        return "planning_schema_invalid"
+    if message == "proposal prompt is not bounded":
+        return "planning_length_invalid"
+    if message == "planning identity mismatch":
+        return "planning_identity_invalid"
+    if "planning evidence" in message:
+        return "planning_evidence_invalid"
+    return "planning_invalid"
+
+
+def _attempt_environment(attempt_dir: Path) -> dict[str, str]:
+    cache_root = attempt_dir / "cache"
+    _secure_dir(cache_root)
+    environment = os.environ.copy()
+    for name in (
+        "XDG_CACHE_HOME",
+        "UV_CACHE_DIR",
+        "PIP_CACHE_DIR",
+        "RUFF_CACHE_DIR",
+        "MYPY_CACHE_DIR",
+    ):
+        path = cache_root / name.lower()
+        _secure_dir(path)
+        environment[name] = str(path)
+    return environment
+
+
+def _automatic_retry_requested(
+    config: RunnerConfig,
+    *,
+    eligible: bool,
+) -> bool:
+    return config.automatic_recovery and eligible
 
 
 def _run_planning(
@@ -501,15 +839,36 @@ def _run_planning(
     candidate: tuple[RunnerTask, str, list[tuple[str, str, str | None]]],
     stop_requested: Callable[[], bool] | None,
     started_at: datetime,
+    *,
+    allowed_areas: set[str] | None = None,
+    context: str | None = None,
+    fingerprint_factory: Callable[[list[tuple[str, str, str | None]], str, str], str]
+    | None = None,
+    mandate_digest: str | None = None,
 ) -> RunResult:
     task, digest, snapshot = candidate
+    if config.scope == ROADMAP_SCOPE:
+        try:
+            _roadmap_dispatch_gate(config.repo, mandate_digest)
+        except MandateGovernanceError as exc:
+            return RunResult("blocked", task.id, reason=str(exc))
     attempt_id = uuid.uuid4().hex
-    attempt_dir = config.state_dir / "attempts" / attempt_id
-    _secure_dir(attempt_dir)
-    output_path = attempt_dir / "planning.json"
-    stderr_path = attempt_dir / "stderr.log"
-    stdout_path = attempt_dir / "stdout.jsonl"
     main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
+    mandate = _tracked_research_mandate(
+        config.repo,
+        mandate_digest if config.scope == ROADMAP_SCOPE else None,
+    )
+    if config.scope == ROADMAP_SCOPE and mandate is None:
+        return RunResult("blocked", task.id, reason="mandate governance changed")
+    mandate_context = (
+        "Current tracked mandate (docs/research-mandate.json) supersedes all older "
+        "mandate text in this queued task and prompt:\n"
+        f"{mandate}"
+        if mandate is not None
+        else "MANDATE STATUS: docs/research-mandate.json is missing or unreadable. "
+        "Return status waiting and state that planning resumes after the tracked "
+        "mandate is restored. Do not infer or propose research from an older prompt."
+    )
     evidence_roots = (
         config.repo,
         config.repo.parent,
@@ -517,10 +876,22 @@ def _run_planning(
         config.history_dir,
         config.artifact_dir,
     )
+    planning_areas = ALLOWED_AREAS if allowed_areas is None else allowed_areas
+    scope_context = "" if context is None else f"{context}\n"
+    feedback = _planner_feedback(store, task.id)
+    feedback_context = (
+        f"Previous planner failure label: {feedback}. Correct that bounded output "
+        "and preserve all identity, evidence, and repository gates.\n"
+        if feedback is not None
+        else ""
+    )
     prompt = (
         f"Task id: {task.id}\nAttempt id: {attempt_id}\nFingerprint: {digest}\n\n"
         f"{task.prompt}\nResearch snapshot: {json.dumps(snapshot, sort_keys=True)}\n"
-        f"Current main HEAD: {main_head}\nAllowed areas: {sorted(ALLOWED_AREAS)}\n"
+        f"Current main HEAD: {main_head}\nAllowed areas: {sorted(planning_areas)}\n"
+        f"{scope_context}"
+        f"{feedback_context}"
+        f"{mandate_context}\n"
         f"Permitted evidence roots: "
         f"{[str(path.resolve()) for path in evidence_roots]}\n"
         "Return planning JSON only. The proposal prompt MUST contain six concise "
@@ -530,11 +901,25 @@ def _run_planning(
         "Refer to evidence instead of repeating long context. Do not modify repo, "
         "database, config, remote, orders, or create subagents. Use private bounded "
         "wait_reason with missing input and resume condition when waiting. Cite "
-        "existing permitted evidence only; never cite this attempt's files."
+        "existing permitted evidence only; never cite this attempt's files. GPU stress "
+        "must remain on-demand, fixed-input/seed/bounds with CPU parity and no "
+        "promotion of approximate results."
     )
+    if config.scope == ROADMAP_SCOPE:
+        try:
+            _roadmap_dispatch_gate(config.repo, mandate_digest)
+        except MandateGovernanceError as exc:
+            return RunResult("blocked", task.id, reason=str(exc))
+    attempt_dir = config.state_dir / "attempts" / attempt_id
+    _secure_dir(attempt_dir)
+    output_path = attempt_dir / "planning.json"
+    stderr_path = attempt_dir / "stderr.log"
+    stdout_path = attempt_dir / "stdout.jsonl"
     _write_private(attempt_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     try:
+        if config.scope == ROADMAP_SCOPE:
+            _roadmap_dispatch_gate(config.repo, mandate_digest)
         store.claim(
             task,
             attempt_id,
@@ -544,11 +929,17 @@ def _run_planning(
             history_outcome="planning_started",
         )
         _safe_history_flush(store, config)
+    except MandateGovernanceError as exc:
+        for path in attempt_dir.iterdir():
+            path.unlink()
+        attempt_dir.rmdir()
+        return RunResult("blocked", task.id, reason=str(exc))
     except ValueError:
         return RunResult("idle")
     schema_path = attempt_dir / "planning.schema.json"
     _write_private(
-        schema_path, (json.dumps(PLANNING_SCHEMA, sort_keys=True) + "\n").encode()
+        schema_path,
+        (json.dumps(_planning_schema(planning_areas), sort_keys=True) + "\n").encode(),
     )
     command = _codex_command(config, common, schema_path, output_path, planning=True)
     with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
@@ -560,6 +951,7 @@ def _run_planning(
                 stdout=stdout,
                 stderr=stderr,
                 start_new_session=True,
+                env=_attempt_environment(attempt_dir),
             )
         except OSError:
             store.finish(attempt_id, task.id, "failed", failure_code="dispatch_error")
@@ -613,6 +1005,17 @@ def _run_planning(
         )
     try:
         payload = json.loads(output_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        failure_code = "planning_output_invalid"
+        store.finish(
+            attempt_id,
+            task.id,
+            "failed",
+            failure_code=failure_code,
+            automatic_retry=_automatic_retry_requested(config, eligible=True),
+        )
+        return RunResult("failed", task.id, attempt_id, failure_code)
+    try:
         if store.is_paused() or (stop_requested is not None and stop_requested()):
             store.finish(
                 attempt_id,
@@ -630,19 +1033,45 @@ def _run_planning(
             digest,
             config,
             attempt_dir,
-            ALLOWED_AREAS,
+            planning_areas,
             {item.id for item in store.tasks()},
         )
+        if mandate is None and result.proposal is not None:
+            result = result.model_copy(
+                update={
+                    "status": "waiting",
+                    "proposal": None,
+                    "wait_reason": (
+                        "Tracked docs/research-mandate.json is missing or unreadable; "
+                        "planning resumes after it is restored."
+                    ),
+                }
+            )
         ready, reason = _git_ready(config.repo)
         if not ready:
             raise ValueError(reason)
         current_head = _git(config.repo, "rev-parse", "main").stdout.strip()
-        current_digest = planning_fingerprint(
-            snapshot, current_head, started_at.date().isoformat()
+        current_digest = (
+            planning_fingerprint(snapshot, current_head, started_at.date().isoformat())
+            if fingerprint_factory is None
+            else fingerprint_factory(
+                snapshot, current_head, started_at.date().isoformat()
+            )
         )
-    except (OSError, json.JSONDecodeError, ValueError, subprocess.CalledProcessError):
-        store.finish(attempt_id, task.id, "failed", failure_code="planning_invalid")
-        return RunResult("failed", task.id, attempt_id, "planning_invalid")
+    except (OSError, ValueError, subprocess.CalledProcessError) as exc:
+        failure_code = _planning_failure_code(exc)
+        if isinstance(exc, OSError):
+            failure_code = "planning_evidence_invalid"
+        store.finish(
+            attempt_id,
+            task.id,
+            "failed",
+            failure_code=failure_code,
+            automatic_retry=_automatic_retry_requested(
+                config, eligible=failure_code in AUTO_RETRYABLE_PLANNING_FAILURES
+            ),
+        )
+        return RunResult("failed", task.id, attempt_id, failure_code)
     proposal = (
         None
         if result.proposal is None
@@ -652,6 +1081,13 @@ def _run_planning(
             f"{COMMON_PROMPT}\n\n{result.proposal.prompt}",
         )
     )
+    if proposal is not None and allowed_areas is not None:
+        try:
+            roadmap = load_roadmap(config.repo)
+            validate_planner_area(roadmap, proposal[1], store.tasks())
+        except RoadmapError:
+            store.finish(attempt_id, task.id, "failed", failure_code="planning_invalid")
+            return RunResult("failed", task.id, attempt_id, "planning_invalid")
     if store.is_paused() or (stop_requested is not None and stop_requested()):
         store.finish(
             attempt_id,
@@ -663,6 +1099,10 @@ def _run_planning(
             "paused" if store.is_paused() else "interrupted", task.id, attempt_id
         )
     try:
+        if config.scope == ROADMAP_SCOPE:
+            current_mandate = validate_dispatch_gate(config.repo)
+            if mandate_digest != current_mandate.digest:
+                raise MandateGovernanceError("mandate governance changed")
         committed = store.finish_planning(
             attempt_id,
             task.id,
@@ -672,7 +1112,11 @@ def _run_planning(
             snapshot,
             current_digest,
             proposal,
+            scope=config.scope,
         )
+    except MandateGovernanceError as exc:
+        store.finish(attempt_id, task.id, "blocked", failure_code="mandate_stale")
+        return RunResult("blocked", task.id, attempt_id, str(exc))
     except RuntimeError:
         store.finish(
             attempt_id,
@@ -782,7 +1226,14 @@ def pause_runner(config: RunnerConfig) -> None:
 
 
 def resume_runner(config: RunnerConfig) -> None:
+    if config.scope == ROADMAP_SCOPE:
+        validate_dispatch_gate(config.repo)
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    hold_triggers = store.operator_hold_triggers()
+    if hold_triggers:
+        raise RunnerResumeError(
+            "operator hold triggers remain: " + ", ".join(hold_triggers)
+        )
     store.resume()
     _record_control_event(store, config, "resumed")
 
@@ -790,10 +1241,19 @@ def resume_runner(config: RunnerConfig) -> None:
 def run_once(
     config: RunnerConfig, stop_requested: Callable[[], bool] | None = None
 ) -> RunResult:
+    governance: ValidatedMandate | None = None
     try:
         common = _git_common(config.repo)
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return RunResult("blocked", reason="invalid repository")
+    if config.scope == ROADMAP_SCOPE:
+        documents_ready, documents_reason = _roadmap_documents_ready(config.repo)
+        if not documents_ready:
+            return RunResult("blocked", reason=documents_reason)
+        try:
+            governance = validate_dispatch_gate(config.repo)
+        except MandateGovernanceError as exc:
+            return RunResult("blocked", reason=str(exc))
     lock_path = common / "development-runner.lock"
     with lock_path.open("a+") as lock:
         lock_path.chmod(0o600)
@@ -802,6 +1262,24 @@ def run_once(
         except BlockingIOError:
             return RunResult("busy")
         store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+        scope_ready, scope_reason = _bind_scope(store, config.scope)
+        if not scope_ready:
+            return RunResult("blocked", reason=scope_reason)
+        hold_triggers = store.operator_hold_triggers()
+        if hold_triggers:
+            return RunResult(
+                "blocked",
+                reason="operator hold triggers remain: " + ", ".join(hold_triggers),
+            )
+        roadmap = None
+        if config.scope == ROADMAP_SCOPE:
+            documents_ready, documents_reason = _roadmap_documents_ready(config.repo)
+            if not documents_ready:
+                return RunResult("blocked", reason=documents_reason)
+            try:
+                roadmap = load_roadmap(config.repo)
+            except RoadmapError as exc:
+                return RunResult("blocked", reason=str(exc))
         active = store.active_attempt()
         if active is not None and _process_group_alive(active.process_group_id):
             return RunResult(
@@ -820,7 +1298,10 @@ def run_once(
         if not ready:
             return RunResult("blocked", reason=reason)
         now = datetime.now(UTC)
-        if store.launch_count(now.strftime("%Y-%m-%d")) >= config.daily_launches:
+        if (
+            config.daily_launches is not None
+            and store.launch_count(now.strftime("%Y-%m-%d")) >= config.daily_launches
+        ):
             _record_control_event(store, config, "quota")
             return RunResult("quota")
         latest = store.get_meta("last_launch_at")
@@ -828,11 +1309,29 @@ def run_once(
             seconds=config.cooldown_seconds
         ):
             return RunResult("cooldown")
-        task = _next_task(store)
+        task = _next_task(store, config.scope)
         if task is None:
             if not config.planning_enabled:
                 return RunResult("idle")
-            candidate = _planning_task(store, config.repo)
+            if config.scope == ROADMAP_SCOPE:
+                if governance is None:
+                    return RunResult(
+                        "blocked", reason="mandate governance is unavailable"
+                    )
+                try:
+                    current_governance = validate_dispatch_gate(config.repo)
+                except MandateGovernanceError as exc:
+                    return RunResult("blocked", reason=str(exc))
+                if current_governance.digest != governance.digest:
+                    return RunResult("blocked", reason="mandate governance changed")
+                try:
+                    candidate = _planning_task(
+                        store, config.repo, config.scope, governance.digest
+                    )
+                except MandateGovernanceError as exc:
+                    return RunResult("blocked", reason=str(exc))
+            else:
+                candidate = _planning_task(store, config.repo, config.scope)
             if candidate is None:
                 return RunResult("idle")
             try:
@@ -841,40 +1340,126 @@ def run_once(
                 return RunResult(
                     "blocked", candidate[0].id, reason="artifact directory unavailable"
                 )
+            planning_kwargs: dict[str, Any] = {}
+            if config.scope == ROADMAP_SCOPE and roadmap is not None:
+                eligible = eligible_areas(roadmap) - reserved_areas(
+                    item for item in store.tasks() if item.area != PLANNING_AREA
+                )
+                planning_kwargs = {
+                    "allowed_areas": eligible,
+                    "context": roadmap_planner_context(roadmap, candidate[2], eligible),
+                    "fingerprint_factory": lambda tasks, head, day: roadmap_fingerprint(
+                        tasks,
+                        head,
+                        day,
+                        load_roadmap(config.repo),
+                        governance.digest if governance is not None else None,
+                    ),
+                }
             result = _run_planning(
-                config, common, store, candidate, stop_requested, now
+                config,
+                common,
+                store,
+                candidate,
+                stop_requested,
+                now,
+                mandate_digest=(governance.digest if governance is not None else None),
+                **planning_kwargs,
             )
             _safe_history_flush(store, config)
             return result
+        roadmap_prompt_text = ""
+        if roadmap is not None:
+            try:
+                if governance is None:
+                    return RunResult(
+                        "blocked", task.id, reason="mandate governance is unavailable"
+                    )
+                _roadmap_dispatch_gate(config.repo, governance.digest)
+                mandate_snapshot = _tracked_research_mandate(
+                    config.repo, governance.digest
+                )
+                if mandate_snapshot is None:
+                    return RunResult(
+                        "blocked", task.id, reason="mandate governance changed"
+                    )
+                if task.area.lower() not in roadmap.by_id:
+                    raise RoadmapError("queued roadmap area is not tracked")
+                if roadmap.by_id[task.area.lower()].complete:
+                    raise RoadmapError("queued roadmap area is already complete")
+                roadmap_prompt_text = roadmap_prompt(
+                    task.area.lower(),
+                    roadmap.by_id[task.area.lower()],
+                    mandate_snapshot,
+                )
+            except (MandateGovernanceError, RoadmapError) as exc:
+                return RunResult("blocked", task.id, reason=str(exc))
         try:
+            if config.scope == ROADMAP_SCOPE:
+                if governance is None:
+                    return RunResult(
+                        "blocked", task.id, reason="mandate governance is unavailable"
+                    )
+                current_governance = validate_dispatch_gate(config.repo)
+                if current_governance.digest != governance.digest:
+                    return RunResult(
+                        "blocked", task.id, reason="mandate governance changed"
+                    )
             _prepare_artifact_dir(config.artifact_dir)
         except OSError:
             return RunResult(
                 "blocked", task.id, reason="artifact directory unavailable"
             )
         attempt_id = uuid.uuid4().hex
-        attempt_dir = config.state_dir / "attempts" / attempt_id
-        _secure_dir(attempt_dir)
-        output_path = attempt_dir / "completion.json"
-        stderr_path = attempt_dir / "stderr.log"
-        stdout_path = attempt_dir / "stdout.jsonl"
         previous = task.last_attempt_id or "none"
         prompt = (
             f"Task id: {task.id}\nAttempt id: {attempt_id}\n"
-            f"Previous attempt id: {previous}\n\n{task.prompt}\n\n"
+            f"Previous attempt id: {previous}\n\n{task.prompt}\n"
+            f"{roadmap_prompt_text}\n\n"
             "Return the required completion JSON to the output path supplied by "
             "the CLI. Use the exact task and attempt ids, include SHA-256 evidence "
             "paths under the allowed roots, "
             "and report tests_passed, review_passed, integrated_commit, and "
             f"handoff_path.\n\n{RUNTIME_PROMPT_SUFFIX}"
         )
+        if roadmap is not None:
+            try:
+                _roadmap_dispatch_gate(
+                    config.repo, governance.digest if governance else None
+                )
+            except MandateGovernanceError as exc:
+                return RunResult("blocked", task.id, reason=str(exc))
+        attempt_dir = config.state_dir / "attempts" / attempt_id
+        _secure_dir(attempt_dir)
+        output_path = attempt_dir / "completion.json"
+        stderr_path = attempt_dir / "stderr.log"
+        stdout_path = attempt_dir / "stdout.jsonl"
         _write_private(attempt_dir / "prompt.txt", prompt.encode())
         _write_private(stdout_path, b"")
-        store.claim(task, attempt_id, output_path, stderr_path, now.isoformat())
+        try:
+            if roadmap is not None:
+                _roadmap_dispatch_gate(
+                    config.repo, governance.digest if governance else None
+                )
+            store.claim(task, attempt_id, output_path, stderr_path, now.isoformat())
+        except MandateGovernanceError as exc:
+            for path in attempt_dir.iterdir():
+                path.unlink()
+            attempt_dir.rmdir()
+            return RunResult("blocked", task.id, reason=str(exc))
         _safe_history_flush(store, config)
         schema_path = attempt_dir / "completion.schema.json"
         _write_private(
-            schema_path, (json.dumps(COMPLETION_SCHEMA, sort_keys=True) + "\n").encode()
+            schema_path,
+            (
+                json.dumps(
+                    _completion_schema(
+                        set(roadmap.by_id) if roadmap is not None else ALLOWED_AREAS
+                    ),
+                    sort_keys=True,
+                )
+                + "\n"
+            ).encode(),
         )
         command = _codex_command(config, common, schema_path, output_path)
         with (
@@ -889,6 +1474,7 @@ def run_once(
                     stdout=stdout,
                     stderr=stderr,
                     start_new_session=True,
+                    env=_attempt_environment(attempt_dir),
                 )
             except OSError:
                 store.finish(
@@ -949,12 +1535,24 @@ def run_once(
             )
         if process.returncode != 0:
             store.finish(attempt_id, task.id, "failed", failure_code="codex_exit")
+            try:
+                _write_exit_diagnostics(attempt_dir, process.returncode, output_path)
+            except OSError:
+                pass
             _safe_history_flush(store, config)
             return RunResult("failed", task.id, attempt_id, "codex_exit")
         try:
             payload = json.loads(output_path.read_text(encoding="utf-8"))
-            completion = validate_completion(payload, task, attempt_id, config)
-        except (OSError, json.JSONDecodeError, ValueError):
+            completion = validate_completion(
+                payload,
+                task,
+                attempt_id,
+                config,
+                allowed_areas=set(roadmap.by_id) if roadmap is not None else None,
+            )
+            if roadmap is not None:
+                validate_roadmap_completion(load_roadmap(config.repo), task, completion)
+        except (OSError, json.JSONDecodeError, RoadmapError, ValueError):
             store.finish(
                 attempt_id, task.id, "failed", failure_code="completion_invalid"
             )
@@ -966,25 +1564,98 @@ def run_once(
             _safe_history_flush(store, config)
             return RunResult("failed", task.id, attempt_id, post_reason)
         if completion.status == "blocked":
+            recovery_eligible = (
+                completion.recovery_kind == "environment"
+                and completion.blocked_reason in ENVIRONMENT_RECOVERY_LABELS
+            ) or (
+                completion.recovery_kind == "implementation"
+                and completion.blocked_reason in IMPLEMENTATION_RECOVERY_LABELS
+            )
             store.finish(
-                attempt_id, task.id, "blocked", evidence=completion.model_dump()
+                attempt_id,
+                task.id,
+                "blocked",
+                evidence=completion.model_dump(),
+                automatic_retry=_automatic_retry_requested(
+                    config, eligible=recovery_eligible
+                ),
             )
             _safe_history_flush(store, config)
             return RunResult("blocked", task.id, attempt_id, completion.blocked_reason)
         store.finish(attempt_id, task.id, "completed", evidence=completion.model_dump())
         if completion.followup is not None:
+            if config.scope == ROADMAP_SCOPE:
+                if governance is None:
+                    _safe_history_flush(store, config)
+                    return RunResult(
+                        "blocked",
+                        task.id,
+                        attempt_id,
+                        "mandate governance is unavailable",
+                    )
+                try:
+                    _roadmap_dispatch_gate(config.repo, governance.digest)
+                except MandateGovernanceError as exc:
+                    _safe_history_flush(store, config)
+                    return RunResult("blocked", task.id, attempt_id, str(exc))
             pending = [
                 item
                 for item in store.tasks()
                 if item.area != PLANNING_AREA
-                if item.status not in {"completed", "failed"}
+                if (
+                    item.status in {"queued", "running"}
+                    if roadmap is not None
+                    else item.status not in {"completed", "failed"}
+                )
             ]
             if len(pending) < 8:
-                store.enqueue(
-                    completion.followup.id,
-                    completion.followup.area,
-                    f"{COMMON_PROMPT}\n\n{completion.followup.prompt}",
-                )
+                if roadmap is None:
+                    store.enqueue(
+                        completion.followup.id,
+                        completion.followup.area,
+                        f"{COMMON_PROMPT}\n\n{completion.followup.prompt}",
+                    )
+                else:
+                    try:
+                        current_roadmap = load_roadmap(config.repo)
+                        area = validate_enqueue(
+                            current_roadmap,
+                            store.tasks(),
+                            completion.followup.id,
+                            completion.followup.area,
+                        )
+                    except RoadmapError:
+                        area = None
+                    if area is not None:
+                        mandate_snapshot = _tracked_research_mandate(
+                            config.repo, governance.digest if governance else None
+                        )
+                        if mandate_snapshot is None:
+                            _safe_history_flush(store, config)
+                            return RunResult(
+                                "blocked",
+                                task.id,
+                                attempt_id,
+                                "mandate governance changed",
+                            )
+                        followup_prompt = roadmap_prompt(
+                            area,
+                            current_roadmap.by_id[area],
+                            mandate_snapshot,
+                        )
+                        try:
+                            _roadmap_dispatch_gate(
+                                config.repo, governance.digest if governance else None
+                            )
+                        except MandateGovernanceError as exc:
+                            _safe_history_flush(store, config)
+                            return RunResult("blocked", task.id, attempt_id, str(exc))
+                        store.enqueue(
+                            completion.followup.id,
+                            area,
+                            f"{COMMON_PROMPT}\n\n{followup_prompt}\n\n"
+                            f"{completion.followup.prompt}",
+                        )
         _safe_history_flush(store, config)
         return RunResult("completed", task.id, attempt_id)
 
@@ -999,13 +1670,16 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--history-dir", type=Path)
     init.add_argument("--history-db", type=Path)
     init.add_argument("--artifact-dir", type=Path, default=DEFAULT_ARTIFACTS)
+    init.add_argument(
+        "--scope", choices=["research", ROADMAP_SCOPE], default="research"
+    )
     for name in ("status", "run-once", "pause", "resume"):
         command = sub.add_parser(name)
         command.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     enqueue = sub.add_parser("enqueue")
     enqueue.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     enqueue.add_argument("--id", required=True)
-    enqueue.add_argument("--area", required=True, choices=sorted(ALLOWED_AREAS))
+    enqueue.add_argument("--area", required=True)
     enqueue.add_argument("--prompt", required=True)
     retry = sub.add_parser("retry")
     retry.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
@@ -1023,15 +1697,31 @@ def main(argv: list[str] | None = None) -> int:
             args.history_dir,
             args.history_db,
             args.artifact_dir,
+            args.scope,
         )
         print(
             json.dumps(
-                {"status": "initialized", "tasks": len(BACKLOG)}, ensure_ascii=False
+                {
+                    "status": "initialized",
+                    "scope": config.scope,
+                    "tasks": len(BACKLOG) if config.scope == "research" else 0,
+                },
+                ensure_ascii=False,
             )
         )
         return 0
     config = load_config(args.config)
+    if args.command == "resume" and config.scope == ROADMAP_SCOPE:
+        try:
+            validate_dispatch_gate(config.repo)
+        except MandateGovernanceError as exc:
+            print(json.dumps({"status": "blocked", "reason": str(exc)}))
+            return 2
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    scope_ready, scope_reason = _bind_scope(store, config.scope)
+    if not scope_ready:
+        print(json.dumps({"status": "blocked", "reason": scope_reason}))
+        return 2
     if args.command == "status":
         print(
             json.dumps(
@@ -1044,9 +1734,21 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if args.command == "enqueue":
+        if config.scope == ROADMAP_SCOPE:
+            try:
+                roadmap = load_roadmap(config.repo)
+                area = validate_enqueue(roadmap, store.tasks(), args.id, args.area)
+            except RoadmapError as exc:
+                print(json.dumps({"enqueued": False, "reason": str(exc)}))
+                return 2
+        else:
+            area = args.area
+            if area not in ALLOWED_AREAS:
+                print(json.dumps({"enqueued": False, "reason": "area is not allowed"}))
+                return 2
         print(
             json.dumps(
-                {"enqueued": store.enqueue(args.id, args.area, args.prompt)},
+                {"enqueued": store.enqueue(args.id, area, args.prompt)},
                 ensure_ascii=False,
             )
         )
@@ -1059,7 +1761,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"status": "paused"}, ensure_ascii=False))
         return 0
     if args.command == "resume":
-        resume_runner(config)
+        try:
+            resume_runner(config)
+        except (MandateGovernanceError, RunnerResumeError) as exc:
+            print(json.dumps({"status": "blocked", "reason": str(exc)}))
+            return 2
         print(json.dumps({"status": "resumed"}, ensure_ascii=False))
         return 0
     stop_event = threading.Event()

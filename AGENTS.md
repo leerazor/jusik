@@ -6,6 +6,8 @@
 - 특정 디렉터리에만 적용되는 규칙은 해당 디렉터리의 `AGENTS.md`로, 긴 절차와 참고 자료는 별도 문서로 분리합니다.
 - 별도 문서로 분리할 때는 이 파일에 상대 경로와 읽어야 하는 조건을 명시합니다. 같은 규칙을 여러 문서에 중복하지 않습니다.
 - 길이뿐 아니라 적용 범위와 반복을 기준으로 분리를 판단하며, 짧고 밀접한 규칙은 함께 유지합니다.
+- 개발 완료 시에는 [개발 기록 기준](docs/development-records.md)을 읽습니다. 사용자·운영자에게 보이는 동작, 계약 또는 설정이 바뀌면 해당 문서를 함께 갱신하고, 작업별 영구 기록을 남깁니다.
+- 새 작업을 시작하거나 이어받을 때는 [구조 안내](docs/architecture.md), 활성 항목이 있는 [작업 등록부](docs/worktree-tasks.md), 해당 작업의 개발 기록을 먼저 확인합니다.
 
 ## 언어
 
@@ -23,8 +25,19 @@
 ## 지속 개발 실행기
 
 - 자동 실행기를 설치·운영하거나 수동 개발을 시작하기 전에는 [지속 개발 운영 절차](docs/development-runner.md)를 읽고 자동·수동 작업이 같은 저장소를 동시에 변경하지 않도록 합니다.
+- 연구를 계획하거나 기존 큐 작업을 재개할 때는 [현재 연구 위임 조건](docs/research-mandate.md)과 해당 JSON을 먼저 읽습니다. 새 연구에는 최신 조건을 적용하고, 과거 실험의 재현에는 당시 고정 조건을 유지합니다.
+
+## Agent 도구
+
+- agent 역할·모델 라우팅·압축 보고·보조 도구와 supervisor 스킬의 상세 규칙은 [agent tooling 운영 문서](docs/agent-tooling.md)입니다. agent 라우팅이나 도구를 설정하거나 supervisor 작업을 시작하기 전에 읽습니다.
+
+## 연구 성과 공개
+
+- 포트폴리오 연구 결과를 웹에 공개하거나 정정할 때는 [진행 화면 성과 공개 절차](docs/research-progress-publication.md)를 읽고 같은 조건의 비교 catalog를 함께 갱신합니다. 성과 비교가 없는 개발 작업에는 수치를 만들지 않습니다.
 
 ## Agent workflow
+
+실제 spawn CLI가 role 필드를 제공하지 않는 경우에는 [agent routing compatibility procedure](docs/agent-tooling.md#roleless-cli-routing)를 따르고 `backend/jusik/agent_routing.py`의 model-only adapter를 사용합니다. 이 예외는 roleless CLI에만 적용하며 native interactive helper의 검사는 바꾸지 않습니다.
 
 ### 감독과 작업자 구성
 

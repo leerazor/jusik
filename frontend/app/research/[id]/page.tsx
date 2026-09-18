@@ -90,7 +90,6 @@ export default async function ResearchRunPage({ params, searchParams }: PageProp
   if (unavailable) {
     return (
       <main>
-        <header><Link href="/research" className="brand"><span className="mark">J</span> jusik</Link><Link href="/research" className="secondary-button">검증 결과 목록</Link></header>
         <section className="notice" role="alert"><h2>연구 백엔드에 연결할 수 없습니다</h2><p>서비스 실행 상태를 확인한 뒤 다시 시도하세요.</p></section>
       </main>
     );
@@ -101,17 +100,13 @@ export default async function ResearchRunPage({ params, searchParams }: PageProp
 
   return (
     <main>
-      <header className="research-result-header">
-        <Link href="/research" className="brand">
-          <span className="mark">J</span> jusik
-          <span className="brand-sub">백테스트 결과</span>
-        </Link>
+      <div className="result-local-actions">
         <div className="action-row">
-          <Link className="secondary-button" href="/research">검증 결과 목록</Link>
+          <Link className="secondary-button" href="/research/lab#results">검증 결과 목록</Link>
           <a className="secondary-button" href="/research-guide.html">사용 안내 보기</a>
           <span className="badge">연구 전용 · 실전 반영 불가</span>
         </div>
-      </header>
+      </div>
       <section className="intro research-intro">
         <div>
           <p className="eyebrow">RUN {run.id.slice(0, 8)}</p>

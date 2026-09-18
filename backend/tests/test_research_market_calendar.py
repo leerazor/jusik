@@ -14,6 +14,7 @@ from jusik.research_market_calendar import (
     MarketCalendarError,
     load_market_calendar,
 )
+from scripts.generate_market_calendar import build_payload
 
 
 def _payload() -> dict[str, Any]:
@@ -52,6 +53,26 @@ def test_committed_calendar_has_holidays_early_closes_dst_and_krx_offsets() -> N
     assert first_krx.close_at.hour == 6
     assert csat is not None and (csat.open_at.hour, csat.close_at.hour) == (1, 7)
     assert calendar.lookup("KRX", datetime(2026, 11, 19).date()).state == "unavailable"
+
+
+def test_generated_calendar_overrides_2026_krx_holidays_without_changing_xnys() -> None:
+    payload = build_payload(datetime(2026, 6, 1).date(), datetime(2026, 7, 20).date())
+    xkrx = {row["date"]: row for row in payload["calendars"]["XKRX"]}
+    assert xkrx["2026-06-03"] == {"date": "2026-06-03", "state": "closed"}
+    assert xkrx["2026-07-17"] == {"date": "2026-07-17", "state": "closed"}
+    overrides = {
+        (row["calendar"], row["date"]): row
+        for row in payload["verified_overrides"]
+        if row.get("state") == "closed"
+    }
+    assert set(overrides) == {
+        ("XKRX", "2026-06-03"),
+        ("XKRX", "2026-07-17"),
+    }
+    assert all(len(row.get("source_urls", [])) == 2 for row in overrides.values())
+    xnys = {row["date"]: row for row in payload["calendars"]["XNYS"]}
+    assert xnys["2026-06-03"]["state"] == "session"
+    assert xnys["2026-07-17"]["state"] == "session"
 
 
 def test_session_boundaries_are_inclusive_and_next_session_stops_at_unknown() -> None:

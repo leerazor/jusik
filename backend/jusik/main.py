@@ -10,6 +10,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from jusik.alert_store import AlertStore
 from jusik.config import Settings
 from jusik.fx import FxService
+from jusik.investor_api import router as investor_router
+from jusik.investor_data import KisInvestorProvider
+from jusik.investor_store import InvestorStore
 from jusik.kis import BrokerError, KisClient
 from jusik.kiwoom import KiwoomClient
 from jusik.kiwoom_config import load_kiwoom_settings
@@ -55,6 +58,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             kiwoom = KiwoomClient(kiwoom_settings, kiwoom_http, account_id=account_id)
         app.state.portfolio = PortfolioService(kis, kiwoom)
+        app.state.investor_provider = KisInvestorProvider(kis)
+        app.state.investor_store = InvestorStore(settings.investor_db_path)
         public_http = await stack.enter_async_context(
             httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False)
         )
@@ -104,6 +109,7 @@ app = FastAPI(title="Jusik read-only portfolio", lifespan=lifespan)
 app.add_middleware(
     TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"]
 )
+app.include_router(investor_router)
 
 
 @app.get("/health")

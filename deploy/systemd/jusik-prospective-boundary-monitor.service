@@ -1,0 +1,17 @@
+[Unit]
+Description=Jusik prospective OOS boundary capture monitor only
+After=default.target
+
+[Service]
+Type=exec
+WorkingDirectory=%h/projects/jusik/backend
+ExecStart=%h/projects/jusik/backend/.venv/bin/python -m jusik.research_boundary_monitor --code-root %h/.local/share/jusik/research-prospective-code/8e716fd339cf44895799f0f0183047b64466b9702fd0bece91bfb2d79ed3fc07/backend/jusik
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+UMask=0077
+Restart=on-failure
+RestartSec=30s
+KillMode=control-group
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

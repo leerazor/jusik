@@ -1,0 +1,56 @@
+# 투자 개발 로드맵 자동 실행기
+
+- 상태: 진행 (코드 검증 완료, 사용자 승인 후 자동 운영 전환)
+- 기록 시각: 2026-09-15T07:10:21.954856+00:00
+- 작업 slug: `roadmap-automation`
+- 기준/통합: `3df0c0c` / `518ddb8b6f048dc4a46f36136fd14469f8f22782`
+- 범위: 기존 research runner를 보존하면서 `investment-roadmap` scope의 전용 상태 binding, Markdown checklist queue, coarse phase gate와 bounded planner/dispatch를 추가했다.
+
+## 변경과 결정
+
+- `RunnerConfig.scope`는 `research`를 기본값으로 유지한다. 투자 scope 초기화는 전용 blank state만 허용하고 기존 state나 기본 research state를 재사용하지 않는다.
+- area는 tracked `docs/investment-development-roadmap.md` checklist ID를 소문자로 정규화한다. Markdown checkbox는 전체 checklist 완료의 authoritative source이며 slice 기술 완료와 분리하고 phase 전체를 자동 완료하지 않는다.
+- R0→R1/R2/R3, R1+R2→R4, R4→R5/R6, R5→R7 gate를 planner와 CLI enqueue에 함께 적용한다. 실패·차단·중단 area는 같은 ID를 명시적으로 retry할 때까지 quarantine한다.
+- Review 후 partial slice의 완료 이력은 새 bounded slice를 허용하되, 실행 중·실패·차단·중단 이력은 계속 격리한다. 실행 불가능한 queued dependency는 독립 phase planner를 막지 않으며, 필수 roadmap/mandate/runbook 문서는 regular readable tracked 파일인지 dispatch 전에 확인한다.
+
+## 문서·계약 영향
+
+- 사용자 문서: 해당 없음; 자동 실행기 운영 계약은 `docs/roadmap-automation.md`에 기록했다.
+- 운영 문서: `docs/development-runner.md`에 전용 config·pause 경계를 갱신했다.
+- API·설정·데이터 계약: `RunnerConfig.scope`와 roadmap completion/planner schema가 추가되었다. 기존 research config JSON은 기본값으로 호환된다.
+
+## 검증
+
+- `backend/.venv/bin/python -m pytest -q backend/tests/test_development_runner*.py` — 78 passed.
+- `backend/.venv/bin/ruff format --check ... && backend/.venv/bin/ruff check ...` — 통과.
+- `backend/.venv/bin/mypy --strict backend/jusik/development_runner.py backend/jusik/development_runner_roadmap.py` — 통과.
+- `git diff --check` — 통과.
+
+## 안전·운영 상태
+
+- PAPER/live activation, 실제 주문, 운영 원장 변경, remote push는 수행하지 않았다. 기존 inactive 서비스에 전용 config용 drop-in을 설치하고 daemon-reload했으며, service/timer는 활성화하지 않았다.
+- main 통합 pytest78(13.60초)·Ruff·strict mypy·독립 review 통과. 전용 state는 기존 연구 큐와 별도로 초기화했고 R1-01 seed 1건을 등록했다. paused run-once smoke 통과; 실제 child dispatch는 아직 미확인.
+
+## 증거와 재개
+
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260915-roadmap-automation`; manifest: `integration-verification.json`; 코드·lock·전용 config SHA-256과 실제 검사 결과 기록
+- 남은 작업·차단 조건: 코드·설정·큐 준비는 완료했다. 사용자가 필요한 커밋과 자동 실행을 승인했다. 기존 문서는 a4f9760으로 보존했고 전용 큐만 시작한다. 실제 서비스·attempt 상태는 activation.json에 기록한다.
+- 다음 시작: 전용 큐의 실제 R1-01 attempt와 이후 체크리스트 진행을 관찰한다. 과거 activation 대기 상태는 activation.json의 확인 시각과 상태로 대체한다.
+
+## 최종 검토 보완
+
+- 운용 조건 JSON의 구문과 필수 필드 검사를 복구했다. 잘못된 조건은 queued seed와 빈 큐 planner 모두 attempt 생성 전에 차단하며 큐·dispatch 한도를 소비하지 않는다.
+- 누락된 runbook뿐 아니라 실제 파일이 남아 있지만 Git 추적에서 제외된 경우도 검증했다.
+- Luna 구현 완료 후 host agent thread limit으로 동일 담당자의 재호출이 세 번 거부됐다. 감독 Astra가 이 마지막 검사 복구와 회귀 테스트만 인계받아 수정했으며, 이를 Luna 수행으로 표시하지 않는다. 수정은 별도 commit과 동일 독립 reviewer의 재검토 대상으로 남긴다.
+
+## 통합·운영 준비 증거
+
+- 통합 검사 후 이번 worktree만 제거했으며 기존 여섯 worktree는 보존했다.
+- 전용 config: `~/.config/jusik/roadmap-development-runner.json`; state: `~/.local/share/jusik/roadmap-development-runner`. `planning_enabled=true`, 기존 승인된 daily_launches=null·90분 timeout·60초 cooldown을 유지한다.
+- 기존 서비스 drop-in: `~/.config/systemd/user/jusik-development-runner.service.d/roadmap.conf`. 기존 연구 config/DB는 paused로 보존했다.
+- 실제 활성화가 끝나지 않았으므로 자동 개발 실행 중 또는 전체 로드맵 완료로 표시하지 않는다. R0만 완료이며 R1~R7은 미완료다.
+
+## 자동 실행 승인
+
+- 사용자가 필요한 커밋과 자동 개발 시작을 승인했다. 문서 보존 커밋은 `a4f9760`이며 파일 내용은 그대로 유지했다. 추가 시작 승인은 필요하지 않다.
+- 자동 운영 전환 직전 기록이며, 실제 dispatch 증거는 audit `activation.json`에 분리해 기록한다. 실행 중인 supervisor와 동시에 main 문서를 수정하지 않기 위한 경계다.

@@ -9,4 +9,9 @@ Locate the smallest relevant code surface with targeted searches and file reads.
 Trace entry points, data flow, dependencies, tests, and repository conventions.
 Report findings with file paths, line numbers, symbols, and unresolved questions.
 Never print secrets, credentials, tokens, certificates, or brokerage account identifiers.
+
+Return a compact report with exactly these topics: paths and evidence, changes (always none),
+commit (not applicable), validation commands and results, and remaining issues or questions.
+Use path:line references. Never include prompts, secrets, credentials, tokens, certificates,
+or account identifiers in the report.
 """

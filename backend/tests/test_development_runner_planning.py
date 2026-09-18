@@ -1,19 +1,27 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
-from jusik.development_runner import RunnerConfig, _codex_command
+from jusik.development_runner import (
+    RunnerConfig,
+    _codex_command,
+    _tracked_research_mandate,
+)
 from jusik.development_runner_planning import (
     PLANNING_AREA,
     fingerprint,
     validate_planning_result,
 )
+from jusik.development_runner_roadmap import ROADMAP_SCOPE
 from jusik.development_runner_store import RunnerStore
+from jusik.research_mandate_governance import validate_mandate
 
 
 def _config(tmp_path: Path) -> RunnerConfig:
@@ -38,6 +46,169 @@ def test_planning_area_is_private_and_fingerprint_excludes_planner_state(
     assert fingerprint(research, "a" * 40, "2026-09-12") == fingerprint(
         research, "a" * 40, "2026-09-12"
     )
+
+
+def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
+    import json
+
+    path = Path(__file__).parents[2].joinpath("docs/research-mandate.json")
+    raw_content = path.read_text(encoding="utf-8")
+    mandate = json.loads(raw_content)
+    recorded_at = mandate.pop("recorded_at")
+    parsed_recorded_at = datetime.fromisoformat(recorded_at)
+    assert parsed_recorded_at.tzinfo == UTC
+    staged_policy = mandate.pop("staged_market_research_policy")
+    approximate_policy = mandate.pop("approximate_market_data_policy")
+    governance = mandate.pop("governance")
+    assert approximate_policy == {
+        "grade": (
+            "approximate results are for personal investment judgment and never "
+            "strict PIT verified"
+        ),
+        "historical_universe": (
+            "date-specific KRX/public lists or Alpha Vantage "
+            "LISTING_STATUS(date active/delisted); current candidates are forbidden"
+        ),
+        "sample": (
+            "fixed seed, max 100 sampled symbols per market and max 400 unique "
+            "source symbols"
+        ),
+        "sources": [
+            "KRX/public",
+            "Alpha Vantage",
+            "Yahoo historical OHLCV",
+            "FRED DEXKOUS",
+        ],
+        "contracts": (
+            "pilot pool is fixed through its end date; final must match market, "
+            "grade, policy, assumptions, source, pool, normalization, missing-data, "
+            "corporate-action, and FX contracts"
+        ),
+        "missing_data": (
+            "exclude non-held missing bars with coverage counts; held missing bars "
+            "use last known mark with age/estimated caveat and no invented liquidation"
+        ),
+        "web": (
+            "web reads prepared bounded cache only; import-file validates a prepared "
+            "response; network collection is CLI-only"
+        ),
+        "network_collection": (
+            "CLI collect may fetch bounded KRX official daily GET, Alpha Vantage, "
+            "Yahoo, and FRED responses into secret-free resumable cache; missing "
+            "keys, partial responses, malformed responses, and unresolved actions "
+            "remain insufficient"
+        ),
+        "credentials": (
+            "missing KRX or Alpha Vantage credentials remain explicitly unavailable"
+        ),
+    }
+    assert mandate == {
+        "capital_krw": 100000000,
+        "maximum_drawdown_fraction": "0.20",
+        "drawdown_reference": (
+            "running peak of total portfolio marked-to-market NAV, including initial "
+            "capital"
+        ),
+        "research_universe_expansion": [
+            "existing instruments",
+            "cash",
+            "broad-market index ETFs",
+            "short-duration bond ETFs",
+        ],
+        "interim_withdrawals": "none",
+        "investment_horizon": "open_ended",
+        "historical_lookback_years": 3,
+        "leveraged_allocation_fraction": "0.20",
+        "turnover_preference": (
+            "Infrequent trading; compare net returns, drawdown, trade counts, and "
+            "transaction/FX costs side by side before deciding priority. No implicit "
+            "weights or adoption decision."
+        ),
+        "signal_detection": "real-time",
+        "live_trading": "deferred",
+        "frozen_paper_contract": "unchanged;10% drawdown",
+        "user_answers": [
+            "기존 종목에 현금·광범위 지수·단기채 ETF 등을 추가해 비교",
+            "운용 중 평가액 최고점 대비 20% 하락",
+            "중간 인출 없음",
+            "현금 비중을 낮춰서 진행. 신규 ETF는 방해된다면 제외. 거래가 너무 잦지 "
+            "않도록 거래 횟수도 최적화.",
+            "투자기간은 정하지 않고 계속 운용하는 open-ended 방식으로 본다.",
+            "우선순위는 정하지 않는다. 실제 순수익·낙폭·거래 횟수·거래/FX 비용을 "
+            "나란히 "
+            "확인한 뒤 결정한다.",
+        ],
+        "cash_preference": (
+            "Reduce unnecessary idle cash and compare higher investment exposure "
+            "within the drawdown and leverage constraints."
+        ),
+        "short_history_etf_policy": (
+            "Exclude newly listed ETFs from primary research when insufficient "
+            "history blocks a meaningful comparison."
+        ),
+        "market_accounts_krw": {"KR": 100000000, "US": 100000000},
+        "historical_discovery_policy": {
+            "universe": "point-in-time eligible stocks only; ETFs excluded",
+            "rediscovery": (
+                "rebuild the eligible universe on every historical trading day"
+            ),
+            "future_candidate_backfill": "forbidden",
+            "ranking": (
+                "raw numeric close-session volume top 20 with deterministic "
+                "symbol tie-break"
+            ),
+            "entry": (
+                "close above prior completed 20-session high and volume above prior "
+                "completed 20-session average; fill next tradable open"
+            ),
+            "exit": (
+                "close below SMA20 for two consecutive sessions; fill next "
+                "tradable open"
+            ),
+            "position_target_fraction": "0.05",
+            "position_limit": 20,
+            "drawdown_latch_fraction": "0.20",
+            "drawdown_reference": (
+                "KRW running peak NAV; next-open liquidation and no re-entry "
+                "during the run"
+            ),
+            "us_fx": (
+                "one initial KRW/USD conversion with spread, then native USD cash and "
+                "trades with USD and KRW curves"
+            ),
+            "execution": "research and simulation only; no live or paper activation",
+        },
+    }
+    assert staged_policy["request_stages"] == {
+        "pilot": "exactly one calendar year ending on the requested end date",
+        "final": "exactly three calendar years ending on the requested end date",
+    }
+    assert staged_policy["warmup"] == (
+        "exactly twenty completed sessions before evaluation; no warmup trades, "
+        "equity, or positions"
+    )
+    validated = validate_mandate(path.parents[1])
+    assert governance["schema_version"] == validated.schema_version
+    assert governance["policy_version"] == validated.policy_version
+    assert validated.dispatch_enabled is True
+    assert _tracked_research_mandate(path.parents[1]) == raw_content
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["not json\n", '{"investment_horizon": null}\n'],
+    ids=["malformed", "missing-required-fields"],
+)
+def test_invalid_tracked_research_mandate_fails_closed(
+    tmp_path: Path, content: str
+) -> None:
+    path = tmp_path / "docs" / "research-mandate.json"
+    path.parent.mkdir()
+    path.write_text(content, encoding="utf-8")
+    assert _tracked_research_mandate(tmp_path) is None
+    path.unlink()
+    path.symlink_to(tmp_path / "other.json")
+    assert _tracked_research_mandate(tmp_path) is None
 
 
 def test_planning_result_requires_bounded_prompt_and_existing_hashed_evidence(
@@ -136,6 +307,86 @@ def test_finish_planning_is_atomic_and_exact_replay_is_idempotent(
     assert len([item for item in store.tasks() if item.area != PLANNING_AREA]) == 1
 
 
+def test_roadmap_finish_planning_cap_ignores_legacy_blocked_tasks(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    for index in range(8):
+        task_id = f"blocked-{index}"
+        store.enqueue(task_id, "r1-01", "blocked")
+        task = store.task(task_id)
+        assert task is not None
+        store.claim(
+            task,
+            f"attempt-{index}",
+            tmp_path / f"out-{index}",
+            tmp_path / f"err-{index}",
+        )
+        store.finish(f"attempt-{index}", task_id, "blocked")
+    store.enqueue("planner-task", PLANNING_AREA, "internal")
+    planner = store.task("planner-task")
+    assert planner is not None
+    store.claim(
+        planner,
+        "planner-attempt",
+        tmp_path / "planner-out",
+        tmp_path / "planner-err",
+    )
+    snapshot = [
+        (f"blocked-{index}", "blocked", f"attempt-{index}") for index in range(8)
+    ]
+
+    assert store.finish_planning(
+        "planner-attempt",
+        "planner-task",
+        "proposed",
+        {"status": "proposed"},
+        hashlib.sha256(json.dumps(sorted(snapshot)).encode()).hexdigest(),
+        snapshot,
+        proposal=("roadmap-next-v1", "r1-02", "prompt"),
+        scope=ROADMAP_SCOPE,
+    )
+    assert store.task("roadmap-next-v1") is not None
+
+
+def test_stale_planner_callback_cannot_overwrite_newer_attempt(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.enqueue("planner-task", PLANNING_AREA, "internal")
+    planner = store.task("planner-task")
+    assert planner is not None
+    store.claim(planner, "old-attempt", tmp_path / "old-out", tmp_path / "old-err")
+    store.recover_running()
+    assert store.retry("planner-task")
+    planner = store.task("planner-task")
+    assert planner is not None
+    store.claim(
+        planner,
+        "new-attempt",
+        tmp_path / "new-out",
+        tmp_path / "new-err",
+    )
+    with sqlite3.connect(tmp_path / "state" / "runner.db") as db:
+        db.execute("UPDATE attempts SET status='running' WHERE id='old-attempt'")
+        db.commit()
+
+    with pytest.raises(ValueError, match="planning task is not current"):
+        store.finish_planning(
+            "old-attempt",
+            "planner-task",
+            "proposed",
+            {"status": "proposed"},
+            hashlib.sha256(b"[]").hexdigest(),
+            [],
+            proposal=("must-not-enqueue", "portfolio-stress-robustness", "prompt"),
+        )
+    assert store.task("must-not-enqueue") is None
+    current = store.task("planner-task")
+    assert current is not None
+    assert current.status == "running" and current.last_attempt_id == "new-attempt"
+
+
 def test_planning_outbox_preserves_started_then_terminal_then_proposal(
     tmp_path: Path,
 ) -> None:
@@ -217,13 +468,24 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
 
     repo = tmp_path / "repo"
     repo.mkdir()
+    mandate_path = repo / "docs" / "research-mandate.json"
+    mandate_path.parent.mkdir()
+    mandate_path.write_text(
+        Path(__file__)
+        .parents[2]
+        .joinpath("docs/research-mandate.json")
+        .read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
     store = RunnerStore(tmp_path / "state" / "runner.db", tmp_path / "history")
     store.enqueue("research", "portfolio-stress-robustness", "prompt")
     fake = tmp_path / "wait.py"
+    captured_prompt = tmp_path / "captured-prompt.txt"
     fake.write_text(
         "#!/usr/bin/env python3\n"
         "import json, pathlib, sys\n"
         "prompt = sys.stdin.read()\n"
+        f"pathlib.Path({str(captured_prompt)!r}).write_text(prompt, encoding='utf-8')\n"
         "fields = dict(line.split(': ', 1) for line in prompt.splitlines()\n"
         "               if ': ' in line)\n"
         "pathlib.Path(sys.argv[sys.argv.index('-o') + 1]).write_text(json.dumps({\n"
@@ -279,6 +541,12 @@ def test_planner_wait_is_idempotent_per_day_and_reconsiders_changed_inputs(
     store.finish("attempt-1", "research", "failed")
 
     assert development_runner.run_once(config).status == "completed"
+    prompt_text = captured_prompt.read_text(encoding="utf-8")
+    assert "docs/research-mandate.json" in prompt_text
+    assert '"historical_lookback_years": 3' in prompt_text
+    assert '"investment_horizon": "open_ended"' in prompt_text
+    assert "supersedes all older mandate text" in prompt_text
+    assert "100m KRW" not in prompt_text
     assert development_runner.run_once(config).status == "idle"
     assert len([t for t in store.tasks() if t.area == PLANNING_AREA]) == 1
 

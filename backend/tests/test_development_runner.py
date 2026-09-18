@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 import subprocess
 import threading
 import time
@@ -15,6 +16,7 @@ import pytest
 from jusik.development_runner import (
     RunnerConfig,
     RunResult,
+    _attempt_environment,
     _git_common,
     _next_task,
     _prepare_artifact_dir,
@@ -42,7 +44,11 @@ def _repo(tmp_path: Path) -> Path:
     _git(repo, "config", "user.email", "test@example.invalid")
     _git(repo, "config", "user.name", "Runner Test")
     (repo / "README.md").write_text("test\n", encoding="utf-8")
+    mandate = Path(__file__).parents[2] / "docs" / "research-mandate.json"
+    (repo / "docs").mkdir()
+    (repo / "docs" / "research-mandate.json").write_bytes(mandate.read_bytes())
     _git(repo, "add", "README.md")
+    _git(repo, "add", "docs/research-mandate.json")
     _git(repo, "commit", "-m", "initial")
     return repo
 
@@ -189,6 +195,72 @@ def test_validate_completion_allows_explicit_blocked_result(tmp_path: Path) -> N
     assert result.status == "blocked"
 
 
+def test_completed_completion_cannot_request_recovery(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    config = RunnerConfig(repo=repo, state_dir=tmp_path / "state")
+    store = RunnerStore(config.state_dir / "runner.db")
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    task = store.task("task-a")
+    assert task is not None
+    with pytest.raises(ValueError, match="cannot request recovery"):
+        validate_completion(
+            {
+                "task_id": task.id,
+                "attempt_id": "attempt-a",
+                "status": "completed",
+                "integrated_commit": "a" * 40,
+                "evidence": [],
+                "tests_passed": True,
+                "review_passed": True,
+                "handoff_path": None,
+                "blocked_reason": None,
+                "followup": None,
+                "recovery_kind": "implementation",
+            },
+            task,
+            "attempt-a",
+            config,
+        )
+
+
+def test_attempt_environment_is_private_to_attempt(tmp_path: Path) -> None:
+    attempt = tmp_path / "state" / "attempts" / "attempt-id"
+    environment = _attempt_environment(attempt)
+    for name in (
+        "XDG_CACHE_HOME",
+        "UV_CACHE_DIR",
+        "PIP_CACHE_DIR",
+        "RUFF_CACHE_DIR",
+        "MYPY_CACHE_DIR",
+    ):
+        path = Path(environment[name])
+        assert attempt in path.parents
+        assert path.is_dir()
+
+
+def test_finish_ignores_stale_attempt_without_changing_task(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    task = store.task("task-a")
+    assert task is not None
+    store.claim(task, "attempt-a", tmp_path / "out", tmp_path / "err")
+    with sqlite3.connect(tmp_path / "state" / "runner.db") as db:
+        db.execute("UPDATE tasks SET last_attempt_id='newer-attempt' WHERE id='task-a'")
+        db.commit()
+
+    store.finish("attempt-a", "task-a", "blocked", automatic_retry=True)
+
+    current = store.task("task-a")
+    assert current is not None and current.status == "running"
+    with sqlite3.connect(tmp_path / "state" / "runner.db") as db:
+        assert (
+            db.execute("SELECT status FROM attempts WHERE id='attempt-a'").fetchone()[0]
+            == "running"
+        )
+
+
 def test_git_common_resolves_linked_worktree_to_main_git_directory(
     tmp_path: Path,
 ) -> None:
@@ -296,6 +368,10 @@ output.write_text(json.dumps({{
     assert roots[str(history.parent.resolve())] is True
     assert roots[str(artifact.resolve())] is True
     assert "Before removing any merged worktree" in captured_prompt.read_text(
+        encoding="utf-8"
+    )
+    assert "model-only adapter" in captured_prompt.read_text(encoding="utf-8")
+    assert "reuse a matching owned branch" in captured_prompt.read_text(
         encoding="utf-8"
     )
 
@@ -500,6 +576,31 @@ def test_config_accepts_supported_launch_settings(
     assert config.daily_launches == daily_launches
 
 
+def test_config_accepts_unlimited_launches(tmp_path: Path) -> None:
+    config = RunnerConfig(
+        repo=tmp_path,
+        artifact_dir=tmp_path / "artifact",
+        daily_launches=None,
+    )
+    assert config.daily_launches is None
+
+
+def test_config_round_trips_null_launch_limit(tmp_path: Path) -> None:
+    from jusik.development_runner import load_config, save_config
+
+    path = tmp_path / "runner.json"
+    original = RunnerConfig(
+        repo=tmp_path,
+        artifact_dir=tmp_path / "artifact",
+        daily_launches=None,
+    )
+    save_config(original, path)
+    restored = load_config(path)
+    assert restored.daily_launches is None
+    assert restored.repo == original.repo
+    assert restored.timeout_seconds == original.timeout_seconds
+
+
 @pytest.mark.parametrize("daily_launches", [0, 25])
 def test_config_rejects_unbounded_launch_settings(
     tmp_path: Path, daily_launches: int
@@ -523,6 +624,45 @@ def test_pause_and_utc_launch_count_are_durable(tmp_path: Path) -> None:
     store.record_launch(launched)
     assert store.launch_count(launched[:10]) == 1
     assert store.launch_count("2099-01-01") == 0
+
+
+def test_operator_hold_triggers_fail_closed_before_queue_work(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    with sqlite3.connect(state / "runner.db") as db:
+        db.executescript(
+            """
+            CREATE TRIGGER operator_hold_no_new_tasks
+            BEFORE INSERT ON tasks BEGIN SELECT RAISE(IGNORE); END;
+            CREATE TRIGGER operator_hold_no_requeue
+            AFTER UPDATE OF status ON tasks
+            WHEN NEW.status='queued' AND OLD.status!='queued'
+            BEGIN SELECT RAISE(IGNORE); END;
+            """
+        )
+    assert store.operator_hold_triggers() == (
+        "operator_hold_no_new_tasks",
+        "operator_hold_no_requeue",
+    )
+    config = RunnerConfig(
+        repo=repo,
+        codex="unused",
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        cooldown_seconds=0,
+    )
+    result = run_once(config)
+    assert result.status == "blocked"
+    assert result.reason == (
+        "operator hold triggers remain: "
+        "operator_hold_no_new_tasks, operator_hold_no_requeue"
+    )
 
 
 def test_timeout_marks_attempt_failed_without_retrying_implicitly(
@@ -578,6 +718,127 @@ def test_timeout_marks_attempt_failed_without_retrying_implicitly(
     task = RunnerStore(state / "runner.db", history).task("task-a")
     assert task is not None and task.status == "failed"
     assert _next_task(RunnerStore(state / "runner.db", history)) is None
+
+
+def _run_nonzero_codex(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    returncode: int,
+    completion: bool = False,
+) -> tuple[RunResult, RunnerStore, Path]:
+    repo = _repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    assert store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    config = RunnerConfig(
+        repo=repo,
+        codex="unused",
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        cooldown_seconds=0,
+    )
+
+    class ExitProcess:
+        pid = 100_001
+
+        def __init__(self) -> None:
+            self.returncode = returncode
+
+        def communicate(self, _prompt: bytes, timeout: int) -> None:
+            return None
+
+    def fake_popen(command: list[str], **_kwargs: Any) -> ExitProcess:
+        if completion:
+            output = Path(command[command.index("-o") + 1])
+            output.write_text("{}\n", encoding="utf-8")
+        return ExitProcess()
+
+    monkeypatch.setattr("jusik.development_runner.subprocess.Popen", fake_popen)
+    monkeypatch.setattr(
+        "jusik.development_runner._git_common", lambda _repo: repo / ".git"
+    )
+    monkeypatch.setattr("jusik.development_runner._git_ready", lambda _repo: (True, ""))
+    monkeypatch.setattr("jusik.development_runner.os.getpgid", lambda _pid: 100_001)
+
+    result = run_once(config)
+    assert result.attempt_id is not None
+    attempt_dir = state / "attempts" / result.attempt_id
+    return result, RunnerStore(state / "runner.db", history), attempt_dir
+
+
+def test_nonzero_codex_exit_writes_private_diagnostics_without_completion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result, store, attempt_dir = _run_nonzero_codex(tmp_path, monkeypatch, 1)
+
+    assert result.status == "failed"
+    assert result.reason == "codex_exit"
+    assert store.task("task-a").status == "failed"  # type: ignore[union-attr]
+    assert json.loads(
+        (attempt_dir / "exit-diagnostics.json").read_text(encoding="utf-8")
+    ) == {
+        "completion_present": False,
+        "returncode": 1,
+        "signal_number": None,
+    }
+    assert (attempt_dir / "exit-diagnostics.json").stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize(
+    ("returncode", "signal_number"),
+    [(-9, 9), (137, None)],
+)
+def test_exit_diagnostics_distinguishes_signal_from_exit_code(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    returncode: int,
+    signal_number: int | None,
+) -> None:
+    result, _store, attempt_dir = _run_nonzero_codex(tmp_path, monkeypatch, returncode)
+
+    assert result.status == "failed"
+    diagnostics = json.loads(
+        (attempt_dir / "exit-diagnostics.json").read_text(encoding="utf-8")
+    )
+    assert diagnostics["returncode"] == returncode
+    assert diagnostics["signal_number"] == signal_number
+
+
+def test_nonzero_codex_exit_remains_failed_when_completion_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result, store, attempt_dir = _run_nonzero_codex(
+        tmp_path, monkeypatch, 1, completion=True
+    )
+
+    assert result.status == "failed"
+    assert result.reason == "codex_exit"
+    assert store.task("task-a").status == "failed"  # type: ignore[union-attr]
+    assert (
+        json.loads((attempt_dir / "exit-diagnostics.json").read_text(encoding="utf-8"))[
+            "completion_present"
+        ]
+        is True
+    )
+
+
+def test_exit_diagnostics_write_failure_does_not_change_failed_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "jusik.development_runner._write_exit_diagnostics",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("read-only")),
+    )
+
+    result, store, attempt_dir = _run_nonzero_codex(tmp_path, monkeypatch, 1)
+
+    assert result.status == "failed"
+    assert result.reason == "codex_exit"
+    assert store.task("task-a").status == "failed"  # type: ignore[union-attr]
+    assert not (attempt_dir / "exit-diagnostics.json").exists()
 
 
 def test_live_previous_group_fails_closed_before_recovery(
@@ -760,6 +1021,46 @@ output.write_text(json.dumps({
     assert store.launch_count("2099-01-01") == 0
 
 
+def test_unlimited_launches_dispatch_after_25_prior_records(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "fake-codex.py"
+    fake.write_text(
+        """#!/usr/bin/env python3
+import json, pathlib, sys
+output = pathlib.Path(sys.argv[sys.argv.index('-o') + 1])
+output.write_text(json.dumps({'task_id':'task-a','attempt_id':output.parent.name,
+'status':'blocked','integrated_commit':None,'evidence':[],
+'tests_passed':False,'review_passed':False,'handoff_path':None,
+'blocked_reason':'test','followup':None}), encoding='utf-8')
+""",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    state, history = tmp_path / "state", tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    today = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    for index in range(25):
+        store.record_launch((today + timedelta(seconds=index)).isoformat())
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        daily_launches=None,
+        cooldown_seconds=0,
+    )
+    assert run_once(config).status == "blocked"
+    assert (
+        RunnerStore(state / "runner.db", history).launch_count(
+            today.strftime("%Y-%m-%d")
+        )
+        == 26
+    )
+
+
 def test_daily_launch_limit_blocks_at_limit_24_without_dispatch(
     tmp_path: Path,
 ) -> None:
@@ -796,10 +1097,20 @@ def test_daily_launch_limit_blocks_at_limit_24_without_dispatch(
     assert not fake.exists()
 
 
+@pytest.mark.parametrize("mandate_state", ["valid", "missing", "malformed"])
 def test_empty_queue_planner_proposes_then_dispatches_research_child(
-    tmp_path: Path,
+    tmp_path: Path, mandate_state: str
 ) -> None:
     repo = _repo(tmp_path)
+    mandate_path = repo / "docs" / "research-mandate.json"
+    if mandate_state == "missing":
+        mandate_path.unlink()
+        _git(repo, "add", "-u", "docs/research-mandate.json")
+        _git(repo, "commit", "-m", "remove mandate for planner gate")
+    elif mandate_state == "malformed":
+        mandate_path.write_text("not json\n", encoding="utf-8")
+        _git(repo, "add", "docs/research-mandate.json")
+        _git(repo, "commit", "-m", "corrupt mandate for planner gate")
     fake = tmp_path / "fake-codex.py"
     evidence = repo / "README.md"
     evidence_hash = hashlib.sha256(evidence.read_bytes()).hexdigest()
@@ -855,17 +1166,215 @@ def test_empty_queue_planner_proposes_then_dispatches_research_child(
     assert planned.status == "completed"
     store = RunnerStore(state / "runner.db", history)
     research = store.task("planned-research-v1")
-    assert research is not None and research.status == "queued"
-    assert "Follow the repository workflow" in research.prompt
-    assert "never use real orders" in research.prompt
-    assert "PAPER engine" in research.prompt
-    assert "GPU changes" in research.prompt
+    if mandate_state == "valid":
+        assert research is not None and research.status == "queued"
+        assert "Follow the repository workflow" in research.prompt
+        assert "never use real orders" in research.prompt
+        assert "PAPER engine" in research.prompt
+        assert "GPU changes" in research.prompt
+        assert "research_portfolio_gpu_stress" in research.prompt
+        assert "CPU parity" in research.prompt
 
-    dispatched = run_once(config)
-    assert dispatched.status == "blocked"
-    assert research.id == dispatched.task_id
-    assert store.task(research.id).status == "blocked"  # type: ignore[union-attr]
-    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 2
+        dispatched = run_once(config)
+        assert dispatched.status == "blocked"
+        assert research.id == dispatched.task_id
+        assert store.task(research.id).status == "blocked"  # type: ignore[union-attr]
+        assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 2
+    else:
+        assert research is None
+        planner = next(task for task in store.tasks() if task.area == PLANNING_AREA)
+        assert planner.status == "completed"
+        assert not any(
+            item[3] == "planning_proposed" for item in store.outbox_pending()
+        )
+
+
+@pytest.mark.parametrize(
+    ("recovery_kind", "blocked_reason", "queued"),
+    [
+        ("environment", "tool_unavailable", True),
+        ("implementation", "lint_defect", True),
+        (None, "actionable review finding", False),
+        ("environment", "missing_data", False),
+    ],
+)
+def test_explicit_recovery_marker_controls_bounded_auto_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    recovery_kind: str | None,
+    blocked_reason: str,
+    queued: bool,
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "fake-codex.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "prompt = sys.stdin.read()\n"
+        "fields = dict(line.split(': ', 1) for line in prompt.splitlines()\n"
+        "              if ': ' in line)\n"
+        "marker = os.environ.get('TEST_RECOVERY_KIND')\n"
+        "payload = {'task_id': fields['Task id'], 'attempt_id': fields['Attempt id'],\n"
+        " 'status': 'blocked', 'integrated_commit': None, 'evidence': [],\n"
+        " 'tests_passed': False, 'review_passed': False, 'handoff_path': None,\n"
+        " 'blocked_reason': os.environ.get(\n"
+        "     'TEST_RECOVERY_REASON', 'tool_unavailable'),\n"
+        " 'followup': None, 'recovery_kind': marker}\n"
+        "Path(sys.argv[sys.argv.index('-o') + 1]).write_text(\n"
+        "    json.dumps(payload), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    if recovery_kind is None:
+        monkeypatch.delenv("TEST_RECOVERY_KIND", raising=False)
+    else:
+        monkeypatch.setenv("TEST_RECOVERY_KIND", recovery_kind)
+    monkeypatch.setenv("TEST_RECOVERY_REASON", blocked_reason)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        automatic_recovery=True,
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+
+    result = run_once(config)
+
+    assert result.status == "blocked"
+    task = store.task("task-a")
+    assert task is not None
+    assert (task.status == "queued") is queued
+    assert task.attempt_count == 1
+    if queued:
+        assert task.next_allowed_at is not None
+
+
+def test_automatic_recovery_retries_twice_across_runner_invocations(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "fake-codex.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "prompt = sys.stdin.read()\n"
+        "fields = dict(line.split(': ', 1) for line in prompt.splitlines()\n"
+        "              if ': ' in line)\n"
+        "payload = {'task_id': fields['Task id'], 'attempt_id': fields['Attempt id'],\n"
+        " 'status': 'blocked', 'integrated_commit': None, 'evidence': [],\n"
+        " 'tests_passed': False, 'review_passed': False, 'handoff_path': None,\n"
+        " 'blocked_reason': 'tool_unavailable', 'followup': None,\n"
+        " 'recovery_kind': 'environment'}\n"
+        "Path(sys.argv[sys.argv.index('-o') + 1]).write_text(\n"
+        "    json.dumps(payload), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        automatic_recovery=True,
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+
+    assert run_once(config).status == "blocked"
+    assert run_once(config).status == "idle"
+    for expected_attempts in (2, 3):
+        with sqlite3.connect(state / "runner.db") as db:
+            db.execute(
+                "UPDATE tasks SET next_allowed_at='2000-01-01T00:00:00+00:00' "
+                "WHERE id='task-a'"
+            )
+            db.commit()
+        assert run_once(config).status == "blocked"
+        task = store.task("task-a")
+        assert task is not None and task.attempt_count == expected_attempts
+        if expected_attempts == 2:
+            assert task.status == "queued"
+        else:
+            assert task.status == "blocked"
+
+
+def test_planner_output_retry_honors_backoff_and_attempt_cap(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "malformed-planner.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "prompt = sys.stdin.read()\n"
+        "output = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "(output.parent / 'received-prompt.txt').write_text(prompt, encoding='utf-8')\n"
+        "output.write_text('{', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        planning_enabled=True,
+        automatic_recovery=True,
+        daily_launches=24,
+        cooldown_seconds=0,
+    )
+    store = RunnerStore(state / "runner.db", history)
+
+    first = run_once(config)
+    assert first.status == "failed" and first.reason == "planning_output_invalid"
+    planner = next(task for task in store.tasks() if task.area == PLANNING_AREA)
+    assert planner.status == "queued" and planner.attempt_count == 1
+    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 1
+
+    assert run_once(config).status == "idle"
+    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 1
+    assert "Previous planner failure label" not in (
+        next((state / "attempts").glob("*/prompt.txt")).read_text(encoding="utf-8")
+    )
+
+    for expected_attempts in (2, 3):
+        with sqlite3.connect(state / "runner.db") as db:
+            db.execute(
+                "UPDATE tasks SET next_allowed_at='2000-01-01T00:00:00+00:00' "
+                "WHERE area='__planning__'"
+            )
+            db.commit()
+        assert run_once(config).status == "failed"
+        planner = next(task for task in store.tasks() if task.area == PLANNING_AREA)
+        assert planner.attempt_count == expected_attempts
+        assert planner.status == ("queued" if expected_attempts == 2 else "failed")
+    latest_prompt = max(
+        (state / "attempts").glob("*/prompt.txt"), key=lambda p: p.stat().st_mtime
+    )
+    assert "Previous planner failure label: planning_output_invalid" in (
+        latest_prompt.read_text(encoding="utf-8")
+    )
 
 
 @pytest.mark.parametrize(

@@ -3,14 +3,16 @@ from __future__ import annotations
 import statistics
 from bisect import bisect_right
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal, localcontext
+from types import MappingProxyType
 from typing import Literal
 from zoneinfo import ZoneInfo
 
 from jusik.research_external_models import ExternalFeatureSnapshot, ExternalObservation
+from jusik.research_market_calendar import MarketCalendar, MarketSession
 from jusik.research_models import DailyBar
 from jusik.research_portfolio_models import (
     PortfolioCandidate,
@@ -42,8 +44,9 @@ LEVERAGED_ETFS = frozenset({"SOXL", "TQQQ"})
 class InstrumentData:
     instrument: ResearchInstrument
     snapshot: OfflineResearchSnapshot
-    bars_by_date: dict[date, DailyBar]
-    actions_by_date: dict[date, CorporateAction]
+    bars_by_date: Mapping[date, DailyBar]
+    actions_by_date: Mapping[date, CorporateAction]
+    sessions_by_date: Mapping[date, MarketSession] | None = None
 
 
 @dataclass(frozen=True)
@@ -95,19 +98,60 @@ def _market_time(day: date, timezone_name: str, *, opening: bool) -> datetime:
     return datetime.combine(day, local_time, ZoneInfo(timezone_name)).astimezone(UTC)
 
 
-def _instrument_data(source: PortfolioInput) -> dict[str, InstrumentData]:
+def _instrument_data(
+    source: PortfolioInput, *, calendar: MarketCalendar | None = None
+) -> dict[str, InstrumentData]:
     result: dict[str, InstrumentData] = {}
     for snapshot in source.instruments:
         item = snapshot.instruments[0]
+        sessions: dict[date, MarketSession] | None = None
+        if calendar is not None:
+            if not calendar.available:
+                raise ValueError("supplied market calendar is unavailable")
+            sessions = {}
+            for bar in item.bars:
+                lookup = calendar.lookup(item.instrument.exchange, bar.date)
+                if lookup.state != "session" or lookup.session is None:
+                    reason = lookup.reason or lookup.state
+                    raise ValueError(
+                        f"bar session unavailable for {item.symbol} "
+                        f"{item.instrument.exchange} {bar.date}: {reason}"
+                    )
+                sessions[bar.date] = lookup.session
         result[item.symbol] = InstrumentData(
             instrument=item.instrument,
             snapshot=snapshot,
-            bars_by_date={bar.date: bar for bar in item.bars},
-            actions_by_date={
-                action.date: action for action in snapshot.corporate_actions
-            },
+            bars_by_date=MappingProxyType({bar.date: bar for bar in item.bars}),
+            actions_by_date=MappingProxyType(
+                {action.date: action for action in snapshot.corporate_actions}
+            ),
+            sessions_by_date=(
+                MappingProxyType(sessions) if sessions is not None else None
+            ),
         )
     return result
+
+
+def _session_times(
+    item: InstrumentData,
+    day: date,
+    *,
+    opening: bool,
+    calendar: MarketCalendar | None = None,
+) -> datetime:
+    if calendar is not None and item.sessions_by_date is None:
+        lookup = calendar.lookup(item.instrument.exchange, day)
+        if lookup.state != "session" or lookup.session is None:
+            raise ValueError(
+                f"missing session timing for {item.instrument.symbol} {day}"
+            )
+        return lookup.session.open_at if opening else lookup.session.close_at
+    if item.sessions_by_date is None:
+        return _market_time(day, item.instrument.timezone, opening=opening)
+    session = item.sessions_by_date.get(day)
+    if session is None:
+        raise ValueError(f"missing session timing for {item.instrument.symbol} {day}")
+    return session.open_at if opening else session.close_at
 
 
 def _as_of_external(
@@ -199,8 +243,8 @@ def _gate_allowed(
 def _known_bars(data: InstrumentData, at: datetime) -> list[DailyBar]:
     return [
         bar
-        for bar in data.snapshot.instruments[0].bars
-        if _market_time(bar.date, data.instrument.timezone, opening=False) <= at
+        for bar in data.bars_by_date.values()
+        if _session_times(data, bar.date, opening=False) <= at
     ]
 
 
@@ -263,13 +307,15 @@ def target_weights(
     candidate: PortfolioCandidate,
     at: datetime,
     config: PortfolioConfig,
+    *,
+    calendar: MarketCalendar | None = None,
 ) -> tuple[dict[str, Decimal], dict[str, Decimal], str | None]:
+    data = _instrument_data(source, calendar=calendar)
     allowed = _gate_allowed(source, candidate, at, config)
     if allowed is None:
         return {}, {}, "external data missing or stale"
     if not allowed:
         return {}, {}, None
-    data = _instrument_data(source)
     histories: dict[str, list[DailyBar]] = {}
     volatilities: dict[str, Decimal] = {}
     momentums: dict[str, Decimal] = {}
@@ -338,15 +384,17 @@ def volatility_scale(
     at: datetime,
     config: PortfolioConfig,
     fx_cache: dict[datetime, Decimal | None] | None = None,
+    *,
+    calendar: MarketCalendar | None = None,
 ) -> tuple[Decimal | None, Decimal | None]:
     if not weights:
         return ONE, ZERO
     global_days = sorted(
         {
-            _market_time(bar.date, item.instrument.timezone, opening=False).date()
+            _session_times(item, bar.date, opening=False, calendar=calendar).date()
             for item in data.values()
             for bar in item.snapshot.instruments[0].bars
-            if _market_time(bar.date, item.instrument.timezone, opening=False) < at
+            if _session_times(item, bar.date, opening=False, calendar=calendar) < at
         }
     )[-(config.volatility_window + 1) :]
     if len(global_days) < config.volatility_window + 1:
@@ -357,7 +405,7 @@ def volatility_scale(
         values: list[Decimal] = []
         bars = item.snapshot.instruments[0].bars
         known_closes = [
-            _market_time(bar.date, item.instrument.timezone, opening=False)
+            _session_times(item, bar.date, opening=False, calendar=calendar)
             for bar in bars
         ]
         for day in global_days:
@@ -397,9 +445,14 @@ def forward_volatility_scale(
     weights: dict[str, Decimal],
     at: datetime,
     config: PortfolioConfig,
+    *,
+    calendar: MarketCalendar | None = None,
 ) -> tuple[Decimal | None, Decimal | None]:
     """Small causal policy helper shared by backtest and forward PAPER research."""
-    return volatility_scale(source, _instrument_data(source), weights, at, config)
+    data = _instrument_data(source, calendar=calendar)
+    if calendar is None:
+        return volatility_scale(source, data, weights, at, config)
+    return volatility_scale(source, data, weights, at, config, calendar=calendar)
 
 
 # Kept for the historical regression contract and older internal callers.
@@ -407,7 +460,11 @@ _volatility_scale = volatility_scale
 
 
 def _events(
-    data: dict[str, InstrumentData], start: date, end: date
+    data: dict[str, InstrumentData],
+    start: date,
+    end: date,
+    *,
+    calendar: MarketCalendar | None = None,
 ) -> list[MarketEvent]:
     events: list[MarketEvent] = []
     cursor = start
@@ -423,13 +480,13 @@ def _events(
                 events.extend(
                     (
                         MarketEvent(
-                            _market_time(day, item.instrument.timezone, opening=True),
+                            _session_times(item, day, opening=True, calendar=calendar),
                             "open",
                             symbol,
                             day,
                         ),
                         MarketEvent(
-                            _market_time(day, item.instrument.timezone, opening=False),
+                            _session_times(item, day, opening=False, calendar=calendar),
                             "close",
                             symbol,
                             day,
@@ -453,8 +510,9 @@ def _simulate(
     end: date,
     config: PortfolioConfig,
     policy: PortfolioPolicy,
+    calendar: MarketCalendar | None = None,
 ) -> PortfolioSimulation:
-    data = _instrument_data(source)
+    data = _instrument_data(source, calendar=calendar)
     cash = config.initial_cash_krw
     positions: dict[str, int] = defaultdict(int)
     latest_local: dict[str, Decimal] = {}
@@ -521,7 +579,7 @@ def _simulate(
         return total
 
     grouped: dict[datetime, list[MarketEvent]] = defaultdict(list)
-    for event in _events(data, start, end):
+    for event in _events(data, start, end, calendar=calendar):
         grouped[event.at].append(event)
     for at in sorted(grouped):
         group = grouped[at]
@@ -539,9 +597,14 @@ def _simulate(
                     + timedelta(days=config.reentry_cooldown_days)
                 )
                 if cooldown_complete:
-                    recovery_weights, correlations, reason = target_weights(
-                        source, candidate, at, config
-                    )
+                    if calendar is None:
+                        recovery_weights, correlations, reason = target_weights(
+                            source, candidate, at, config
+                        )
+                    else:
+                        recovery_weights, correlations, reason = target_weights(
+                            source, candidate, at, config, calendar=calendar
+                        )
                     recovered = (
                         reason is None
                         and sum(value > 0 for value in recovery_weights.values())
@@ -597,9 +660,14 @@ def _simulate(
                         )
             elif not latched:
                 if cadence_due:
-                    weights, correlations, reason = target_weights(
-                        source, candidate, at, config
-                    )
+                    if calendar is None:
+                        weights, correlations, reason = target_weights(
+                            source, candidate, at, config
+                        )
+                    else:
+                        weights, correlations, reason = target_weights(
+                            source, candidate, at, config, calendar=calendar
+                        )
                 elif uses_low_turnover:
                     policy_events.append(
                         PortfolioPolicyEvent(
@@ -614,9 +682,20 @@ def _simulate(
                     incomplete.add(f"{at.isoformat()}: {reason}")
                     weights = {}
                 if uses_volatility and weights:
-                    scale, proxy = volatility_scale(
-                        source, data, weights, at, config, fx_cache
-                    )
+                    if calendar is None:
+                        scale, proxy = volatility_scale(
+                            source, data, weights, at, config, fx_cache
+                        )
+                    else:
+                        scale, proxy = volatility_scale(
+                            source,
+                            data,
+                            weights,
+                            at,
+                            config,
+                            fx_cache,
+                            calendar=calendar,
+                        )
                     if scale is None:
                         incomplete.add(
                             f"{at.isoformat()}: volatility history or FX missing"
@@ -1172,10 +1251,14 @@ def simulate(
     end: date,
     config: PortfolioConfig,
     policy: PortfolioPolicy = "corrected_control",
+    *,
+    calendar: MarketCalendar | None = None,
 ) -> PortfolioSimulation:
     with localcontext() as context:
         context.prec = 40
-        return _simulate(source, candidate, start, end, config, policy)
+        return _simulate(
+            source, candidate, start, end, config, policy, calendar=calendar
+        )
 
 
 def cash_metrics(config: PortfolioConfig) -> PortfolioMetrics:

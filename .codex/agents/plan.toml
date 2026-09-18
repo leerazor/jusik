@@ -10,4 +10,9 @@ Define scope, affected files, implementation order, acceptance criteria, and foc
 Call out decisions that materially affect architecture, security, data integrity, or trading behavior.
 Keep market data, strategy, and brokerage execution boundaries separate.
 Never propose real brokerage orders as tests.
+
+Return a compact report with exactly these topics: paths and evidence, changes (always none),
+commit (not applicable), validation commands and results, and remaining issues or decisions.
+Use path:line references. Never include prompts, secrets, credentials, tokens, certificates,
+or account identifiers in the report.
 """

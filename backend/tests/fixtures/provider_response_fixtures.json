@@ -1,0 +1,106 @@
+[
+  {
+    "name": "krx-normal",
+    "source": "krx",
+    "kind": "normal",
+    "body": "{\"OutBlock_1\":[{\"BAS_DD\":\"20260914\",\"ISU_SRT_CD\":\"005930\",\"ISU_ABBRV\":\"Sample\",\"MKT_NM\":\"KOSPI\",\"TDD_OPNPRC\":\"100\",\"TDD_HGPRC\":\"110\",\"TDD_LWPRC\":\"90\",\"TDD_CLSPRC\":\"105\",\"ACC_TRDVOL\":\"1000\"}]}"
+  },
+  {
+    "name": "krx-empty-trade-day",
+    "source": "krx",
+    "kind": "normal",
+    "body": "{\"OutBlock_1\":[]}"
+  },
+  {
+    "name": "krx-auth-envelope",
+    "source": "krx",
+    "kind": "auth",
+    "body": "{\"resultCode\":\"401\",\"resultMsg\":\"unauthorized\"}"
+  },
+  {
+    "name": "krx-quota-envelope",
+    "source": "krx",
+    "kind": "quota",
+    "body": "{\"resultCode\":\"429\",\"resultMsg\":\"rate limit exceeded\"}"
+  },
+  {
+    "name": "alpha-null",
+    "source": "alpha_vantage",
+    "kind": "null",
+    "body": "null"
+  },
+  {
+    "name": "yahoo-null-result",
+    "source": "yahoo",
+    "kind": "null",
+    "body": "{\"chart\":{\"result\":null,\"error\":null}}"
+  },
+  {
+    "name": "alpha-quota-note",
+    "source": "alpha_vantage",
+    "kind": "quota",
+    "body": "{\"Note\":\"The standard API call frequency limit was reached.\"}"
+  },
+  {
+    "name": "alpha-daily-request-limit-note",
+    "source": "alpha_vantage",
+    "kind": "quota",
+    "body": "{\"Note\":\"The daily request limit has been reached.\"}"
+  },
+  {
+    "name": "fred-quota-error",
+    "source": "fred",
+    "kind": "quota",
+    "body": "{\"error_code\":429,\"error_message\":\"rate limit exceeded\"}"
+  },
+  {
+    "name": "fred-empty-observations",
+    "source": "fred",
+    "kind": "null",
+    "body": "{\"observations\":[]}"
+  },
+  {
+    "name": "fred-auth-error",
+    "source": "fred",
+    "kind": "auth",
+    "body": "{\"error_code\":400,\"error_message\":\"api key is invalid\"}"
+  },
+  {
+    "name": "yahoo-auth-error",
+    "source": "yahoo",
+    "kind": "auth",
+    "body": "{\"chart\":{\"result\":null,\"error\":{\"code\":\"Unauthorized\",\"description\":\"authentication rejected\"}}}"
+  },
+  {
+    "name": "krx-malformed-json",
+    "source": "krx",
+    "kind": "parse",
+    "body": "{\"OutBlock_1\":["
+  },
+  {
+    "name": "alpha-malformed-csv",
+    "source": "alpha_vantage",
+    "kind": "parse",
+    "body": "symbol,name\nAAA,Sample\n"
+  },
+  {
+    "name": "fred-out-of-range",
+    "source": "fred",
+    "kind": "coverage",
+    "body": "{\"observations\":[{\"date\":\"2020-01-01\",\"value\":\"1200\"}]}"
+  },
+  {
+    "name": "yahoo-out-of-range",
+    "source": "yahoo",
+    "kind": "coverage",
+    "body": "{\"chart\":{\"result\":[{\"meta\":{\"symbol\":\"AAA\",\"currency\":\"USD\",\"instrumentType\":\"EQUITY\",\"exchangeName\":\"NMS\",\"exchangeTimezoneName\":\"America/New_York\"},\"timestamp\":[1451606400],\"indicators\":{\"quote\":[{\"open\":[\"1\"],\"high\":[\"1\"],\"low\":[\"1\"],\"close\":[\"1\"],\"volume\":[\"1\"]}]}}],\"error\":null}}"
+  },
+  {
+    "name": "yahoo-identity-mismatch",
+    "source": "yahoo",
+    "kind": "parse",
+    "expected_exchange": "NAS",
+    "expected_currency": "USD",
+    "body": "{\"chart\":{\"result\":[{\"meta\":{\"symbol\":\"AAA\",\"currency\":\"USD\",\"instrumentType\":\"EQUITY\",\"exchangeName\":\"NYS\",\"exchangeTimezoneName\":\"America/New_York\"},\"timestamp\":[1789416000],\"indicators\":{\"quote\":[{\"open\":[\"1\"],\"high\":[\"1\"],\"low\":[\"1\"],\"close\":[\"1\"],\"volume\":[\"1\"]}]}}],\"error\":null}}"
+  }
+]
