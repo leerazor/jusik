@@ -10,6 +10,7 @@
 - 보류 해소: 2026-09-17 drain 후 생성된 operator hold는 승인 전 재개 금지 기록이므로 원문과 runner DB 백업을 archive로 보존했습니다. DB의 `operator_hold_no_new_tasks`·`operator_hold_no_requeue` trigger도 승인된 재개 시점에만 제거했고, timer/service와 planner 결과를 확인했습니다.
 - 현재 판정: planner attempt `0065eefe2e294823975e75c1e3947349`는 `waiting`입니다. R1-04/R1-05의 실제 원문 SHA·관측시각·권리/가격 근거가 없으므로 성공·retry task를 만들지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-18-roadmap-governance-activation.md`
+- fail-closed 보강: legacy operator-hold SQLite trigger가 남아 있으면 `resume`을 거부하고 `run-once`를 `blocked`로 종료하도록 `RunnerStore.operator_hold_triggers`와 회귀 테스트를 추가했습니다. 개발 기록은 `docs/development-records/2026-09-18-runner-hold-trigger-gate.md`입니다.
 
 ## r1-action-evidence-audit
 

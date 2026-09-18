@@ -626,6 +626,45 @@ def test_pause_and_utc_launch_count_are_durable(tmp_path: Path) -> None:
     assert store.launch_count("2099-01-01") == 0
 
 
+def test_operator_hold_triggers_fail_closed_before_queue_work(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    with sqlite3.connect(state / "runner.db") as db:
+        db.executescript(
+            """
+            CREATE TRIGGER operator_hold_no_new_tasks
+            BEFORE INSERT ON tasks BEGIN SELECT RAISE(IGNORE); END;
+            CREATE TRIGGER operator_hold_no_requeue
+            AFTER UPDATE OF status ON tasks
+            WHEN NEW.status='queued' AND OLD.status!='queued'
+            BEGIN SELECT RAISE(IGNORE); END;
+            """
+        )
+    assert store.operator_hold_triggers() == (
+        "operator_hold_no_new_tasks",
+        "operator_hold_no_requeue",
+    )
+    config = RunnerConfig(
+        repo=repo,
+        codex="unused",
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        cooldown_seconds=0,
+    )
+    result = run_once(config)
+    assert result.status == "blocked"
+    assert result.reason == (
+        "operator hold triggers remain: "
+        "operator_hold_no_new_tasks, operator_hold_no_requeue"
+    )
+
+
 def test_timeout_marks_attempt_failed_without_retrying_implicitly(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

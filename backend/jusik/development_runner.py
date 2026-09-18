@@ -58,6 +58,12 @@ DEFAULT_STATE = Path.home() / ".local/share/jusik/development-runner"
 DEFAULT_HISTORY = Path.home() / ".local/share/jusik/research-history"
 DEFAULT_HISTORY_DB = Path.home() / ".local/share/jusik/research-history-journal.db"
 DEFAULT_ARTIFACTS = Path.home() / ".local/share/jusik/portfolio-audit"
+
+
+class RunnerResumeError(RuntimeError):
+    """Raised when a private operator hold still suppresses queue mutations."""
+
+
 ALLOWED_AREAS = {
     "entry-amount-distribution",
     "preregistration-small-entry",
@@ -1223,6 +1229,11 @@ def resume_runner(config: RunnerConfig) -> None:
     if config.scope == ROADMAP_SCOPE:
         validate_dispatch_gate(config.repo)
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    hold_triggers = store.operator_hold_triggers()
+    if hold_triggers:
+        raise RunnerResumeError(
+            "operator hold triggers remain: " + ", ".join(hold_triggers)
+        )
     store.resume()
     _record_control_event(store, config, "resumed")
 
@@ -1254,6 +1265,12 @@ def run_once(
         scope_ready, scope_reason = _bind_scope(store, config.scope)
         if not scope_ready:
             return RunResult("blocked", reason=scope_reason)
+        hold_triggers = store.operator_hold_triggers()
+        if hold_triggers:
+            return RunResult(
+                "blocked",
+                reason="operator hold triggers remain: " + ", ".join(hold_triggers),
+            )
         roadmap = None
         if config.scope == ROADMAP_SCOPE:
             documents_ready, documents_reason = _roadmap_documents_ready(config.repo)
@@ -1746,7 +1763,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "resume":
         try:
             resume_runner(config)
-        except MandateGovernanceError as exc:
+        except (MandateGovernanceError, RunnerResumeError) as exc:
             print(json.dumps({"status": "blocked", "reason": str(exc)}))
             return 2
         print(json.dumps({"status": "resumed"}, ensure_ascii=False))

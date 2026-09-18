@@ -490,6 +490,20 @@ class RunnerStore:
     def is_paused(self) -> bool:
         return self.get_meta("paused") == "1"
 
+    def operator_hold_triggers(self) -> tuple[str, ...]:
+        """Return legacy triggers that can silently suppress queue work."""
+        names = {
+            "operator_hold_no_new_tasks",
+            "operator_hold_no_requeue",
+        }
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT name FROM sqlite_master WHERE type='trigger' "
+                "AND name IN (?, ?) ORDER BY name",
+                tuple(sorted(names)),
+            ).fetchall()
+        return tuple(str(row["name"]) for row in rows)
+
     def retry(self, task_id: str) -> bool:
         now = utc_now()
         with self._connect() as db:
