@@ -87,6 +87,8 @@ def test_request_is_fixed_and_parser_preserves_decimal_text() -> None:
     zero_rows, zero_projection = parse_response(_xml(rate="-0.0000"))
     assert zero_rows[0]["RFR_PUBN_MR"] == "-0.0000"
     assert zero_projection[0]["rate_decimal"] == "0"
+    compact_rows, _ = parse_response(_xml(date_text="20250911"))
+    assert compact_rows[0]["RFR_PUBN_DT"] == "20250911"
 
 
 def test_collection_uses_websquare_request_context(tmp_path: Path) -> None:
@@ -123,6 +125,26 @@ def test_legacy_wrapper_and_record_count_shape_are_rejected() -> None:
     )
     with pytest.raises(KofrEvidenceError, match="unexpected_xml_root"):
         parse_response(legacy)
+
+
+def test_parser_accepts_official_websquare_metadata() -> None:
+    body = (
+        _xml()
+        .replace(
+            b'<vector result="1">',
+            b'<vector beforeServletCall="1" beforeEJBCall="2" '
+            b'afterServletCall="3" afterEJBCall="3" result="1">',
+        )
+        .replace(b"<data>", b'<data vectorkey="0" type="Document">')
+    )
+    rows, _ = parse_response(body)
+    assert len(rows) == 1
+
+
+def test_parser_rejects_unknown_websquare_metadata() -> None:
+    body = _xml().replace(b'<vector result="1">', b'<vector unexpected="x" result="1">')
+    with pytest.raises(KofrEvidenceError, match="malformed_vector"):
+        parse_response(body)
 
 
 def test_exact_xml_attributes_and_leaf_shape_are_required() -> None:

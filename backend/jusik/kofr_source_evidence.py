@@ -180,9 +180,14 @@ def _check_tree_bounds(root: ET.Element) -> None:
 def _parse_date(raw: str) -> str:
     match = DATE_RE.fullmatch(raw)
     if match is None:
-        raise KofrEvidenceError("invalid_date")
+        if re.fullmatch(r"\d{8}", raw):
+            year, month, day = int(raw[:4]), int(raw[4:6]), int(raw[6:])
+        else:
+            raise KofrEvidenceError("invalid_date")
+    else:
+        year, month, day = int(match[1]), int(match[3]), int(match[4])
     try:
-        parsed = date(int(match[1]), int(match[3]), int(match[4]))
+        parsed = date(year, month, day)
     except ValueError:
         raise KofrEvidenceError("invalid_date") from None
     normalized = parsed.isoformat()
@@ -194,7 +199,8 @@ def _parse_date(raw: str) -> str:
 def _decimal_text(raw: str) -> str:
     if not raw or len(raw) > MAX_DECIMAL_TEXT_LENGTH:
         raise KofrEvidenceError("malformed_numeric")
-    if raw.strip().lower() in {
+    candidate = raw.strip()
+    if not candidate or candidate.lower() in {
         "nan",
         "+nan",
         "-nan",
@@ -206,10 +212,10 @@ def _decimal_text(raw: str) -> str:
         "-inf",
     }:
         raise KofrEvidenceError("nonfinite_value")
-    if not re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", raw):
+    if not re.fullmatch(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", candidate):
         raise KofrEvidenceError("malformed_numeric")
     try:
-        value = Decimal(raw)
+        value = Decimal(candidate)
     except (DecimalException, ValueError):
         raise KofrEvidenceError("malformed_numeric") from None
     if not value.is_finite():
@@ -278,7 +284,14 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     if root.tag != "vector":
         raise KofrEvidenceError("unexpected_xml_root")
     vector = root
-    if set(vector.attrib) != {"result"}:
+    allowed_vector_attributes = {
+        "result",
+        "beforeServletCall",
+        "beforeEJBCall",
+        "afterServletCall",
+        "afterEJBCall",
+    }
+    if not set(vector.attrib).issubset(allowed_vector_attributes):
         raise KofrEvidenceError("malformed_vector")
     declared = vector.attrib.get("result")
     if declared is None or not declared.isdecimal() or len(declared) > 6:
@@ -293,7 +306,8 @@ def parse_response(body: bytes) -> tuple[list[dict[str, str]], list[dict[str, ob
     results: list[ET.Element] = []
     for data in data_nodes:
         if (
-            data.attrib
+            set(data.attrib) - {"vectorkey", "type"}
+            or data.attrib.get("type") not in {None, "Document"}
             or (data.text and data.text.strip())
             or (data.tail and data.tail.strip())
         ):
