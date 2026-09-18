@@ -2168,7 +2168,7 @@
 - 동일 cache와 prepared output 경로의 `collect-status`는 `completed=true`, `ready=true`, credentials missing 없음(exit 0)으로 확인했습니다. marker output 경로가 다르면 identity 불일치로 false가 됩니다.
 - 파일럿: approximate pilot은 `insufficient/incomplete`, `readiness.ready=false`, trades/equity/metrics 0입니다. PIT 기업행사·배당·상폐·관측 시각 근거가 없어 경제 성과·strict/PAPER 승격을 금지합니다.
 - 개발 기록: `docs/development-records/2026-09-19-r6-krx-smoke.md`; audit `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r6-krx-smoke`.
-- 검증: `backend/.venv/bin/python -m pytest -q backend/tests/test_market_data_collector.py` — 128 passed. 실주문·브로커 API·PAPER 설정·운영 DB·원격 push 없음.
+- 검증: `backend/.venv/bin/python -m pytest -q backend/tests/test_market_data_collector.py` — 129 passed. 실주문·브로커 API·PAPER 설정·운영 DB·원격 push 없음.
 
 ## timestamp-provenance-path-fix
 
