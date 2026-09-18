@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Final, Protocol, cast
 
 ENDPOINT: Final = "https://www.kofr.kr/websquare/engine/proworks/callServletService.jsp"
-TASK: Final = "rate.process.RatePTask"
+TASK: Final = "ksd.rfr.user.rate.process.RatePTask"
 ACTION: Final = "getGridRateExcelList"
 LANG: Final = "kor"
 START_DATE: Final = "20250911"
