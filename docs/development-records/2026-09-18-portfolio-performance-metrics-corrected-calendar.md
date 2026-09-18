@@ -25,6 +25,9 @@
 - `... ruff check ...` 및 `ruff format --check ...` — 통과
 - `PYTHONPATH=backend ... python -m mypy --strict ...` — 통과
 - corrected bundle 재현 — full NAV 1,172개, UTC daily projection 614개, Sharpe unavailable(`missing_risk_free_evidence`), MDD/Calmar full chronology 확인
+- envelope: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-2026-krx-holiday-correction/performance-envelope.json`
+- envelope SHA-256: `7e866ef5fb9a66943f26fa53a2ff9776f5da0ef0af453e926ceea653a547aeb8`
+- total net return `0.163268124744995331088760521181225046386`, CAGR `0.0657385546019824424128508399999526447379403462741`, MDD `0.073743511705833131472595651962985278354913344557870`, Calmar `0.89144865875410304314635859803184788494925619127820`
 
 ## 안전·운영 상태
 
