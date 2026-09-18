@@ -6,3 +6,4 @@
 - 안전: 합성 자료 생성, 기존 DB 수정, network 수집, 주문, PAPER/live 승격, remote push는 0회입니다.
 - 재개 조건: 승인된 SHA 고정 원천 자료와 versioned provenance 계약이 준비된 뒤 동일 fail-closed gate를 통과해야 합니다.
 - planning 산출물은 `/home/kwl/.local/share/jusik/roadmap-development-runner/attempts/11f1a5101c7649cfabb3a4d35123115e/`에 보존합니다.
+- 후속 timer cycle `12f52e007e234686b6cf63c56f918667`도 동일 조건으로 `status=waiting`, `proposal=null`, exit 0을 기록했습니다. 이는 입력 gate가 안정적으로 유지됨을 확인한 것이며 임의 retry를 만들지 않았습니다.

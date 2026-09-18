@@ -5,6 +5,7 @@
 - 상태: 정상 대기. planner attempt `11f1a5101c7649cfabb3a4d35123115e`가 `proposal=null`, `status=waiting`, exit 0으로 종료했습니다.
 - 근거: HEAD·roadmap SHA·mandate gate는 일치했으나 R1-04/R1-05의 초기 상태·가격·권리수량·effective/payment UTC 경계·전체 coverage 원천 자료가 없습니다.
 - 조치: 합성 자료·임의 retry·경제 acceptance·PAPER/live·주문을 수행하지 않았습니다. fail-closed 재개 조건은 승인된 SHA 고정 원천 자료와 versioned provenance 계약입니다.
+- 후속 timer attempt `12f52e007e234686b6cf63c56f918667`도 동일 대기로 정상 종료했습니다.
 - 개발 기록: `docs/development-records/2026-09-19-roadmap-planner-wait-r1-evidence.md`.
 
 ## metric-diagnostic-contract
