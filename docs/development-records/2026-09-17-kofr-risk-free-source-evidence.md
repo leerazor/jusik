@@ -41,5 +41,6 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-kofr-risk-free-source-evidence`; `attempt.json`과 `request.xml`만 존재합니다.
 - 보존: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`, branch `feat/kofr-risk-free-source-evidence`, final candidate `8dc93fc`; main integration `d96c609`.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260919-kofr-browser-context/`; evidence SHA `995f963074aa9fe2b83236b27d67f152ec4697780d851ba4ef14e9b3ed180337`, verification SHA `d1e1d5f31ebb9c595d1a28535f59759d1a689cc73bee23286d8d7cd74d466c2c`.
+- 진단적으로 현재 XKRX 달력과 대조하면 source 245행 대 calendar 246세션이며 `2026-06-03`, `2026-07-17`은 source에 없고 `2025-12-31`은 source에만 있습니다. 이는 KOFR 자체 영업일 계약이 아니므로 completeness를 성공으로 해석하지 않고 `unverified`로 유지합니다.
 - 남은 작업·차단 조건: source evidence는 확보했지만 `PUBN_DTTM` timezone/instant, KOFR business-date completeness, NAV interval 적용·복리 정책을 증명하지 않았습니다. 따라서 `missing_risk_free_evidence` 제거, Sharpe 계산, readiness 승격은 하지 않습니다. 다음 작업은 이 application evidence 계약을 별도로 설계하는 것입니다.
 - 다음 시작: KOFR 재수집과 독립적으로, 명시적 initial-capital event와 per-NAV UTC timestamp를 생성하는 forward-only simulation artifact를 조사·설계합니다.
