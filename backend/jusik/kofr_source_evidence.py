@@ -892,11 +892,9 @@ def _cli() -> int:
             result = replay_raw(
                 args.audit_root, args.replay_raw, evidence_output=args.evidence_output
             )
-            print(
-                json.dumps(
-                    {"rows": len(result["rows"]), "replayed": True}, sort_keys=True
-                )
-            )
+            rows = result.get("rows")
+            row_count = len(rows) if isinstance(rows, list) else 0
+            print(json.dumps({"rows": row_count, "replayed": True}, sort_keys=True))
         else:
             collect(
                 StdlibTransport(),
