@@ -2159,3 +2159,13 @@
 - 기록: `docs/development-records/2026-09-18-portfolio-kofr-offline-quality-repair-v1.md`; audit `HANDOFF.md`, `integration-verification.json`, `evidence-manifest.json`.
 
 최종 정정: 검사와 독립 검토는 통과했으나 최종 기록 단계의 누적 실측이 917.630초로 900초를 초과했습니다. 기술 slice 완료를 철회하고 차단으로 기록합니다. 자동 복구 대상이 아니며 새 예산의 명시적 재시도에서 지정 검사·독립 검토·identity gate를 다시 통과해야 합니다. 초과 이후에는 이 차단 정정과 증거 보존만 수행했습니다.
+
+## r6-krx-smoke
+
+- 상태: 차단. KRX 공식 읽기 응답의 무거래 0값 경계를 보완하고 1년 bounded collection을 완료했습니다.
+- 변경: `backend/jusik/market_data_collector.py`와 회귀 테스트에서 `-`/0 OHLC·거래량 행은 membership만 보존하고 bar를 만들지 않습니다. 알 수 없는 값은 계속 fail-closed입니다.
+- 수집: 2025-09-11~2026-09-11, request budget 532, cache 534건, excluded 0. KRX 단일 응답 960행 중 31행이 0값 무거래였으며 수정 후 929개 bar가 생성됐습니다.
+- 동일 cache와 prepared output 경로의 `collect-status`는 `completed=true`, `ready=true`, credentials missing 없음(exit 0)으로 확인했습니다. marker output 경로가 다르면 identity 불일치로 false가 됩니다.
+- 파일럿: approximate pilot은 `insufficient/incomplete`, `readiness.ready=false`, trades/equity/metrics 0입니다. PIT 기업행사·배당·상폐·관측 시각 근거가 없어 경제 성과·strict/PAPER 승격을 금지합니다.
+- 개발 기록: `docs/development-records/2026-09-19-r6-krx-smoke.md`; audit `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r6-krx-smoke`.
+- 검증: `backend/.venv/bin/python -m pytest -q backend/tests/test_market_data_collector.py` — 128 passed. 실주문·브로커 API·PAPER 설정·운영 DB·원격 push 없음.

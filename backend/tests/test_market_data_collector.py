@@ -150,6 +150,32 @@ def test_krx_parser_normalizes_all_daily_rows_and_market_board() -> None:
     assert parsed.bars[0].volume == 1234
 
 
+def test_krx_daily_trade_preserves_zero_valued_membership_without_bar() -> None:
+    parsed = parse_krx_daily_trade_response(
+        json.dumps(
+            {
+                "OutBlock_1": [
+                    {
+                        "BAS_DD": "20260914",
+                        "ISU_CD": "000300",
+                        "ISU_NM": "거래정지종목",
+                        "MKT_NM": "KOSPI",
+                        "TDD_OPNPRC": "0",
+                        "TDD_HGPRC": "0",
+                        "TDD_LWPRC": "0",
+                        "TDD_CLSPRC": "100",
+                        "ACC_TRDVOL": "0",
+                    }
+                ]
+            }
+        ).encode(),
+        checkpoint=date(2026, 9, 14),
+    )
+    assert len(parsed.universe) == 1
+    assert parsed.universe[0].symbol == "000300"
+    assert parsed.bars == ()
+
+
 def test_alpha_listing_status_filters_etf_and_future_or_delisted_rows() -> None:
     body = (
         b"symbol,name,exchange,assetType,ipoDate,delistingDate,status\n"

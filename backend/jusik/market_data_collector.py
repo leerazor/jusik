@@ -631,6 +631,19 @@ def _decimal(value: object, field: str, *, nonnegative: bool = False) -> Decimal
     return result
 
 
+def _krx_trade_value_missing(value: object) -> bool:
+    """Return whether KRX marks a trade field as unavailable."""
+    if value is None:
+        return True
+    text = str(value).replace(",", "").strip()
+    if text in {"", "-"}:
+        return True
+    try:
+        return Decimal(text) == 0
+    except (InvalidOperation, ValueError):
+        return False
+
+
 def _date(value: object, field: str) -> date:
     try:
         text = str(value).replace("/", "-").replace(".", "-")
@@ -810,11 +823,11 @@ def parse_krx_daily_trade_response(
             _field(row, "TDD_CLSPRC", "clsprc", "close"),
             _field(row, "ACC_TRDVOL", "acml_vol", "volume"),
         )
-        # KRX uses '-' for an untraded price. Preserve membership but do not
-        # invent a daily bar for that symbol.
+        # KRX uses '-' or zero-valued OHLC/volume fields for an untraded or
+        # suspended instrument. Preserve membership but do not invent a daily
+        # bar for that symbol.
         if all(
-            value is not None and str(value).strip() not in {"", "-"}
-            for value in price_fields
+            not _krx_trade_value_missing(value) for value in price_fields
         ):
             assert all(value is not None for value in price_fields)
             bars.append(
