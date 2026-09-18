@@ -24,6 +24,7 @@
 - `... ruff check ...` 및 `ruff format --check ...` — 통과
 - `PYTHONPATH=backend ... python -m mypy --strict ...` — 통과
 - corrected bundle 재현 — trade_count 171, maximum recovery duration 23,707,800 UTC seconds (`P274DT9H30M0S`), 세 unavailable reason 확인
+- deterministic envelope: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-2026-krx-holiday-correction/performance-envelope.json`, SHA `f5eed1c895775ba02dd80448f970554f1f8cfcca58b858478187c1a2f67c295d`
 - simulation.json tamper — artifact SHA chain에서 fail-closed
 
 ## 안전·운영 상태
