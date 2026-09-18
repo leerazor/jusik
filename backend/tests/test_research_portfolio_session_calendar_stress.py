@@ -75,6 +75,7 @@ def test_unknown_session_fails_closed() -> None:
 @pytest.mark.parametrize(
     ("timezone_name", "day", "open_at", "close_at"),
     (
+        ("America/New_York", date(2026, 7, 3), None, None),
         (
             "America/New_York",
             date(2026, 11, 27),
@@ -117,8 +118,8 @@ def test_copied_engine_event_hook_uses_required_session_times(
     tmp_path: Path,
     timezone_name: str,
     day: date,
-    open_at: datetime,
-    close_at: datetime,
+    open_at: datetime | None,
+    close_at: datetime | None,
 ) -> None:
     engine = load_isolated_engine(tmp_path / "engine")
     adapter = CalendarAdapter()
@@ -127,12 +128,13 @@ def test_copied_engine_event_hook_uses_required_session_times(
     item.instrument = type("Instrument", (), {"timezone": timezone_name})()
     item.bars_by_date = {day: object()}
     events = engine._events({"FIXTURE": item}, day, day, calendar=adapter.calendar)
-    assert [
-        (event.kind, event.at) for event in events if event.kind != "rebalance"
-    ] == [
-        ("open", open_at),
-        ("close", close_at),
-    ]
+    actual = [(event.kind, event.at) for event in events if event.kind != "rebalance"]
+    expected = (
+        []
+        if open_at is None or close_at is None
+        else [("open", open_at), ("close", close_at)]
+    )
+    assert actual == expected
 
 
 def test_historical_volatility_uses_publication_timed_varying_fx(
@@ -145,8 +147,8 @@ def test_historical_volatility_uses_publication_timed_varying_fx(
         observations=tuple(
             row.model_copy(
                 update={
-                    "value": Decimal("1200")
-                    + Decimal((row.observed_on - date(2023, 10, 2)).days)
+                    "value": Decimal("1300")
+                    + Decimal((row.observed_on - date(2023, 10, 2)).days % 3)
                 }
             )
             if row.series == "usdkrw"
@@ -349,9 +351,24 @@ def test_decimal_reconciliation_and_harness(tmp_path: Path) -> None:
 
 
 def test_independent_split_ledger_paths(tmp_path: Path) -> None:
+    from jusik.research_external_models import ExternalFeatureSnapshot
     from jusik.research_universe_models import CorporateAction
 
-    source = synthetic_source()
+    base = synthetic_source()
+    varying_external = ExternalFeatureSnapshot(
+        observations=tuple(
+            row.model_copy(
+                update={
+                    "value": Decimal("1300")
+                    + Decimal((row.observed_on - date(2023, 10, 2)).days % 3)
+                }
+            )
+            if row.series == "usdkrw"
+            else row
+            for row in base.external.observations
+        )
+    )
+    source = base.model_copy(update={"external": varying_external})
     adapter = CalendarAdapter(publication=fixture_publication_metadata(source))
     source = _normal_session_source(
         source, adapter, date(2024, 1, 3), date(2024, 3, 15)
@@ -379,6 +396,14 @@ def test_independent_split_ledger_paths(tmp_path: Path) -> None:
         adapter=adapter,
     )
     assert replay_trade_ledger(source, simulation, config, adapter=adapter) == 0
+    consumed_fx = {
+        trade.fx_rate for trade in simulation.trades if trade.symbol == "SYNUSD"
+    } | {
+        position.fx_rate
+        for position in simulation.positions
+        if position.symbol == "SYNUSD"
+    }
+    assert len(consumed_fx) > 1
     action_day = next(
         action.date
         for snapshot in source.instruments
@@ -392,6 +417,37 @@ def test_independent_split_ledger_paths(tmp_path: Path) -> None:
         and trade.executed_at.date() > action_day
         for trade in simulation.trades
     )
+    assert not any(
+        trade.symbol == "SYNKRW" and trade.executed_at.date() == action_day
+        for trade in simulation.trades
+    )
+    action_bar = next(
+        bar
+        for snapshot in source.instruments
+        if snapshot.instruments[0].symbol == "SYNKRW"
+        for bar in snapshot.instruments[0].bars
+        if bar.date == action_day
+    )
+    presplit_quantity = sum(
+        trade.quantity if trade.side == "buy" else -trade.quantity
+        for trade in simulation.trades
+        if trade.symbol == "SYNKRW" and trade.executed_at.date() < action_day
+    )
+    post_split_exact = Decimal(presplit_quantity) * Decimal("1.5")
+    post_split_quantity = int(post_split_exact)
+    expected_fractional_cash = (
+        post_split_exact - post_split_quantity
+    ) * action_bar.open
+    assert simulation.split_cash_in_lieu_krw["SYNKRW"] == expected_fractional_cash
+    expected_terminal_quantity = post_split_quantity + sum(
+        trade.quantity if trade.side == "buy" else -trade.quantity
+        for trade in simulation.trades
+        if trade.symbol == "SYNKRW" and trade.executed_at.date() > action_day
+    )
+    terminal_position = next(
+        position for position in simulation.positions if position.symbol == "SYNKRW"
+    )
+    assert terminal_position.quantity == expected_terminal_quantity
     assert all(position.local_close > 0 for position in simulation.positions)
 
     after_period = CorporateAction(
