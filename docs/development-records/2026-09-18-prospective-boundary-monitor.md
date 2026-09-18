@@ -15,8 +15,8 @@ prospective OOS의 시작·종료 raw boundary artifact만 자동 캡처하는 �
 
 CLI import/format/lint와 기존 boundary capture 테스트를 통과시킨 뒤 unit 템플릿을 설치할 수 있습니다. 설치·enable은 별도 명령이며, 설치 전 현재 등록 identity와 capture 경로를 확인합니다. 실제 활성화 후에도 `systemctl --user status jusik-prospective-boundary-monitor.service`로 monitor만 실행 중인지 확인합니다.
 
-## 현재 판정
+## 현재 판정과 해결
 
-사전등록 status preflight가 `identity_mismatch/registered_identity_changed`로 닫혔습니다. 등록 시점의 `research_portfolio_engine.py`와 `research_market_calendar.py` SHA가 현재 corrected-calendar 이후 코드와 다르므로, monitor는 경계 capture를 수행할 수 없습니다. 등록 계약을 사후 갱신하거나 현재 코드를 과거 시점에 소급하지 않습니다.
+초기 preflight는 현재 corrected code가 등록 identity와 달라 `identity_mismatch`였습니다. 계약을 갱신하지 않고 등록 시점 소스를 재구성했습니다. engine은 commit `0102858`, calendar는 등록 SHA를 가진 commit `c67e6e2`에서 가져온 immutable snapshot이며, 전체 identity가 계약 SHA `19d3622e5b195e52e1e06065d32d771d3e40c4e4c53f8fc25c101f510ca14fd7`와 일치합니다.
 
-따라서 unit 템플릿은 추가했지만 설치·enable하지 않았습니다. 자동 개발 runner·research app·optimizer·주문·live 설정은 변경하지 않았습니다. 이 prospective 창은 OOS 근거로 사용할 수 없으며, 다음 prospective 기간에는 현재 코드 identity를 먼저 고정한 새 사전등록이 필요합니다.
+monitor는 이 snapshot을 `--code-root`로 사용해 status `observing`을 통과한 뒤 boundary capture만 수행합니다. 현재 corrected code·계약 JSON·전략 결과는 변경하지 않습니다. unit은 snapshot 경로를 고정해 설치·활성화할 수 있으며, end artifact 생성 후 정상 종료합니다. 이 snapshot 사용은 과거 전략 재실행이나 OOS 성과 계산이 아닙니다.
