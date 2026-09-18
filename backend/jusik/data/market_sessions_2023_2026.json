@@ -2,7 +2,7 @@
   "schema_version": 1,
   "provider": "exchange_calendars",
   "provider_version": "4.12",
-  "generated_at": "2026-09-18T01:21:06Z",
+  "generated_at": "2026-09-10T04:58:06.948459Z",
   "coverage": {
     "start": "2023-01-01",
     "end": "2026-12-31"
@@ -14,9 +14,7 @@
     "https://www.samsungpop.com/ux/kor/customer/notice/notice/noticeViewContent.do?MenuSeqNo=20302",
     "https://www.samsungpop.com/ux/kor/customer/notice/notice/noticeViewContent.do?MenuSeqNo=21587",
     "https://securities.koreainvestment.com/main/customer/notice/Notice.jsp?cmd=TF04ga000002&num=45644",
-    "https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=100526&lev=0&m=0204",
-    "https://www.bok.or.kr/eng/main/contents.do?menuNo=400373",
-    "https://www.yna.co.kr/view/AKR20260520064251008"
+    "https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=100526&lev=0&m=0204"
   ],
   "requirements": [
     "exchange_calendars==4.12"
@@ -48,33 +46,13 @@
     },
     {
       "calendar": "XKRX",
-      "date": "2026-06-03",
-      "state": "closed",
-      "reason": "2026 regional election day; KRX markets closed",
-      "source_urls": [
-        "https://www.bok.or.kr/eng/main/contents.do?menuNo=400373",
-        "https://www.yna.co.kr/view/AKR20260520064251008"
-      ]
-    },
-    {
-      "calendar": "XKRX",
-      "date": "2026-07-17",
-      "state": "closed",
-      "reason": "Constitution Day; KRX markets closed",
-      "source_urls": [
-        "https://www.bok.or.kr/eng/main/contents.do?menuNo=400373",
-        "https://www.yna.co.kr/view/AKR20260520064251008"
-      ]
-    },
-    {
-      "calendar": "XKRX",
       "date": "2026-11-19",
       "state": "unavailable",
       "reason": "CSAT date confirmed; exchange hours not yet verified",
       "source_url": "https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=100526&lev=0&m=0204"
     }
   ],
-  "calendars_sha256": "5ac707711cb82f7849b7824567515f67dcbaad162452757b6727cccb9e20f2bd",
+  "calendars_sha256": "e9f86c7e47c8d3cd6ee628e48be12c0379e428f12f9f66f04de52cc272cb122d",
   "calendars": {
     "XKRX": [
       {
@@ -6739,7 +6717,9 @@
       },
       {
         "date": "2026-06-03",
-        "state": "closed"
+        "state": "session",
+        "open_at": "2026-06-03T00:00:00Z",
+        "close_at": "2026-06-03T06:30:00Z"
       },
       {
         "date": "2026-06-04",
@@ -6977,7 +6957,9 @@
       },
       {
         "date": "2026-07-17",
-        "state": "closed"
+        "state": "session",
+        "open_at": "2026-07-17T00:00:00Z",
+        "close_at": "2026-07-17T06:30:00Z"
       },
       {
         "date": "2026-07-18",
