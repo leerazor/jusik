@@ -5,7 +5,7 @@
 - 상태: 완료. `exchange_calendars==4.12`의 2026년 KRX 임시·복원 공휴일 누락을 versioned XKRX closure override로 교정했습니다.
 - 목표와 완료 조건: 2026-06-03(지방선거일)·2026-07-17(제헌절)을 versioned XKRX 휴장 override로 반영하고, 생성기·달력 parser·readiness/accounting 계약·회귀 테스트를 통과시킵니다. 기존 audit bundle은 수정하지 않고 새 calendar/source identity를 사용합니다.
 - 담당: Astra 감독·통합, Luna 단일 구현, Terra 독립 review.
-- 워크트리/브랜치: 정리 예정. `feat/portfolio-calendar-2026-krx-holiday-correction`, 구현 `1162889`, main 통합 `91d8d87`.
+- 워크트리/브랜치: 전용 worktree 제거. 구현 `1162889`, main 통합 `91d8d87`.
 - 입력과 근거: fixed bundle의 XKRX 2개 누락 close, Yahoo KSC 6종목 bounded probe(두 날짜 모두 no bars), KRX 휴장 공지 근거(한국거래소 공지 보도 및 BOK 2026 holiday schedule).
 - 수정 허용: `generate_market_calendar.py`, 직접 관련 parser/readiness tests, 계약 문서·개발 기록. 기존 bundle/canonical artifact·runner·metrics evaluator 정책은 변경하지 않습니다.
 - 금지: NAV 보간·bar 합성·날짜 이동, 기존 bundle 덮어쓰기, strategy/engine/replay 변경, network cache/주문/PAPER/live/remote 변경.
