@@ -32,6 +32,15 @@
 - 남은 조건: KOFR/risk-free evidence 없이는 Sharpe를 unavailable로 유지합니다. readiness 자동 승격·R4 canonical 주장은 금지합니다. 개발 기록은 `docs/development-records/2026-09-18-portfolio-performance-input-readiness.md`입니다.
 - blocker 원인: 두 시각은 KRX 지방선거일·제헌절 휴장으로 확인되어 달력 override로 제거했습니다. 새 bundle 검증 전에는 metrics adapter·성과 계산·readiness 승격을 구현하지 않습니다.
 
+## portfolio-performance-input-readiness-corrected-calendar
+
+- 상태: 다음 작업 대기. corrected calendar로 새 bundle generation/verify는 통과했으나 independent accounting verifier가 구 manifest만 등록합니다.
+- 목표와 완료 조건: corrected bundle manifest/calendar/source SHA를 별도 등록하고 기존 원장 계약으로 171 fills·1,172 cash/NAV·terminal positions를 재대사합니다. 기존 canonical bundle과 readiness identity는 보존합니다.
+- 수정 허용: accounting verifier의 등록 identity 확장, 직접 관련 tests·개발 기록·등록부. metrics 계산/승격은 원장 통과 후 별도 작업입니다.
+- 금지: old bundle 덮어쓰기, NAV 보간·세션 합성, evaluator 우회, runner/network/order/PAPER/live/remote 변경.
+- 입력: corrected bundle manifest `e5aa5af8a2c3a21696f395987216cae6ca002093a1138127449d09b54cf01600`, calendar bytes `36b64e421192062ff183112d1eef7d441af6e0f73cfaf739310b0b5ab8c281e1`, payload `5ac707711cb82f7849b7824567515f67dcbaad162452757b6727cccb9e20f2bd`.
+- 검증: corrected generation/verification은 완료. 다음 단계는 accounting focused tests, fixed bundle CLI, Ruff/strict mypy, independent review입니다.
+
 ## portfolio-calendar-aware-time-input
 
 - 상태: 완료. optional 공식 calendar 시간 정책과 bounded lexical 한도를 local `main`에 통합했습니다.
