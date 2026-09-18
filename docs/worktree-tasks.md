@@ -1647,6 +1647,7 @@
 - 통합·정리: 구현·테스트·보고서를 local main에 통합하고 이전 실패 audit 및 root HANDOFF.md는 보존합니다. retry worktree 정리는 검증 기록 후 수행합니다.
 - 남은 제한: partial/cancel/reject 체결은 unsupported이며, 본 결과만으로 승자 선택·retuning·정책 승격을 하지 않습니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e017-retry-20260919c/HANDOFF.md.
+- runner gate 후속: stale cadence worktree의 검증된 source-path 정리 커밋 `1a7edd6`을 기록하고 main에 `df59edc`·`d806da1`로 통합했습니다. timer 다음 cycle은 dirty gate 없이 idle 종료했습니다.
 
 
 ## gpu-collector-mode
