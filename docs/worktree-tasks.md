@@ -32,6 +32,7 @@
 - 확인: NVDA 1건만 eligible(2024-06-11 ex, 2024-06-28 payment, USD 0.01, entitled quantity 30/38 scenario); 107 revisions 중 106건 excluded/current revision unreviewed. `prospective_validation_eligible=false`, `automatic_ledger_application=false`입니다.
 - 판정: 부분 후향 overlay를 R1-04/R1-05 완료나 prospective/PIT acceptance로 승격하지 않습니다. 개발 기록은 `docs/development-records/2026-09-18-r1-action-evidence-audit.md`입니다.
 - 추가 확인: review DB에서 공식 근거 3개와 matched review 4개를 확인했습니다. NVDA 2024 split/dividend 및 TQQQ 2025 split은 원문 SHA·capture 시각·provider revision과 연결되지만, NVDA 2026 dividend는 ex-date 누락으로 partial입니다. synthetic mismatch 1건도 별도 보존합니다. 개발 기록은 `docs/development-records/2026-09-18-r1-action-receipt-db-audit.md`입니다.
+- 2026-09-19 재검증: 고정 overlay CLI는 review DB 경로 부재로 `OperationalError: unable to open database file` fail-closed 종료했습니다. 기존 artifact는 보존했고, DB·원문 SHA 복구 전 R1-04/R1-05 retry 및 경제 승격을 만들지 않습니다.
 
 ## portfolio-prospective-oos-gate
 

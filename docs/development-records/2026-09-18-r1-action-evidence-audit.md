@@ -21,3 +21,11 @@ artifact에는 stable `event_id`, `revision_id`, `review_id`, `evidence_id/evide
 ## 판정
 
 이 artifact는 누락 사실과 partial evidence를 보존하는 진단 근거이지 R1-04/R1-05 전체 완료, strict PIT, prospective validation, 경제 성과 acceptance 근거가 아니다. 따라서 checkbox와 runner task 상태를 변경하지 않는다. 다음 retry 조건은 전체 action coverage와 원문 관측시각·권리 경계가 같은 고정 identity로 연결되는 것이다.
+
+## 2026-09-19 재검증
+
+동일 overlay CLI를 고정 local DB 경로에 대해 read-only로 재실행하려 했으나
+SQLite 파일이 현재 존재하지 않아 `OperationalError: unable to open database file`로
+fail-closed 종료했다. 기존 overlay artifact는 삭제·덮어쓰기하지 않았고, 이 실패는
+새로운 금융 근거가 생겼다는 뜻이 아니다. DB 복구와 원문 SHA 재확인 전에는 R1-04/R1-05
+retry나 경제 승격을 만들지 않는다.
