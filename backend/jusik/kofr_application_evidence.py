@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from decimal import Decimal, InvalidOperation
@@ -116,6 +117,34 @@ class KofrApplicationReport:
     intervals: tuple[ApplicationInterval, ...]
 
 
+@dataclass(frozen=True)
+class NavDateApplicationReport:
+    nav_dates: tuple[date, ...]
+    matched_dates: tuple[date, ...]
+    missing_dates: tuple[date, ...]
+
+
+def validate_nav_date_application(
+    application: KofrApplicationReport, nav_dates: Iterable[date]
+) -> NavDateApplicationReport:
+    """Require exact source-date coverage for every NAV date.
+
+    This preflight intentionally has no carry-forward or calendar inference.
+    A caller that needs either policy must provide a separate reviewed contract.
+    """
+    normalized = tuple(nav_dates)
+    if any(not isinstance(item, date) for item in normalized):
+        raise KofrApplicationError("nav_date_invalid")
+    if normalized != tuple(sorted(set(normalized))):
+        raise KofrApplicationError("nav_dates_not_ordered")
+    source_dates = set(application.business_dates)
+    matched = tuple(item for item in normalized if item in source_dates)
+    missing = tuple(item for item in normalized if item not in source_dates)
+    if missing:
+        raise KofrApplicationError("nav_date_application_missing")
+    return NavDateApplicationReport(normalized, matched, missing)
+
+
 def validate_application_contract(
     source_evidence: Path, application: Path
 ) -> KofrApplicationReport:
@@ -200,5 +229,7 @@ __all__ = [
     "ApplicationInterval",
     "KofrApplicationError",
     "KofrApplicationReport",
+    "NavDateApplicationReport",
+    "validate_nav_date_application",
     "validate_application_contract",
 ]

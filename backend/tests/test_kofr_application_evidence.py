@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 from jusik.kofr_application_evidence import (
     KofrApplicationError,
     validate_application_contract,
+    validate_nav_date_application,
 )
 
 
@@ -109,3 +111,10 @@ def test_complete_manifest_must_declare_every_source_date(tmp_path: Path) -> Non
     manifest.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(KofrApplicationError, match="business_date_manifest_mismatch"):
         validate_application_contract(source, manifest)
+
+
+def test_nav_date_application_rejects_uncovered_dates(tmp_path: Path) -> None:
+    source, manifest = _fixture(tmp_path)
+    report = validate_application_contract(source, manifest)
+    with pytest.raises(KofrApplicationError, match="nav_date_application_missing"):
+        validate_nav_date_application(report, [date(2026, 9, 11), date(2026, 9, 12)])

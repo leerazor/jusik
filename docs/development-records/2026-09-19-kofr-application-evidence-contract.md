@@ -16,7 +16,7 @@
 
 ## 검증
 
-- `pytest -q backend/tests/test_kofr_application_evidence.py`: 6 passed
+- `pytest -q backend/tests/test_kofr_application_evidence.py`: 7 passed
 - Ruff check/format: passed
 - strict mypy: passed
 - 실패 fixture: timezone, completeness, publication semantics, source hash/interval ordering, source·manifest 날짜 집합 불일치 경계를 fail-closed로 확인했습니다.
@@ -34,6 +34,11 @@
 manifest에서 조용히 누락하거나 manifest에 source 밖 날짜를 추가하면
 `business_date_manifest_mismatch`로 거부합니다. 이 검사는 provider 전체 영업일 목록을
 증명하지 않으며, 그 외부 근거가 없으면 기존 `unverified` 차단을 유지합니다.
+
+`validate_nav_date_application` preflight도 추가했습니다. 검증된 application report와
+NAV 날짜를 exact 비교해 source 날짜가 없는 NAV 날짜를
+`nav_date_application_missing`으로 거부합니다. carry-forward·calendar 추론은 구현하지
+않았고 별도 reviewed contract가 없으면 계속 fail-closed입니다.
 
 추가로 corrected NAV bundle은 614개 UTC daily date를 `2024-04-24~2026-09-08`
 범위로 포함하지만 현재 KOFR source evidence는 `2025-09-11~2026-09-11`만 포함해
