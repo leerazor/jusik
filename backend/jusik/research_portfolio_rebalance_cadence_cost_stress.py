@@ -309,11 +309,7 @@ def _prior_inputs(
     results = _load_json(results_path)
     if results.get("evaluations") is None or len(results["evaluations"]) != 48:
         raise ValueError("frozen result set must contain exactly 48 evaluations")
-    manifest_paths = prereg.get("input_paths") or prereg.get("source_paths")
-    if not isinstance(manifest_paths, dict) or not isinstance(
-        manifest_paths.get("source-manifest.json"), str
-    ):
-        raise ValueError("frozen source path is missing")
+    manifest_paths = _manifest_paths(prereg)
     frozen_dir = Path(manifest_paths["source-manifest.json"]).resolve().parent
     source_hashes = prereg.get("source_hashes")
     if not isinstance(source_hashes, dict):
@@ -325,6 +321,15 @@ def _prior_inputs(
     _periods(prereg)
     _verify_frozen_artifacts(prior_audit, source, base, prereg, results)
     return source, base, prereg, results
+
+
+def _manifest_paths(prereg: dict[str, Any]) -> dict[str, Any]:
+    manifest_paths = prereg.get("input_paths") or prereg.get("source_paths")
+    if not isinstance(manifest_paths, dict) or not isinstance(
+        manifest_paths.get("source-manifest.json"), str
+    ):
+        raise ValueError("frozen source path is missing")
+    return manifest_paths
 
 
 def _verify_prior_inputs_unchanged(
@@ -810,6 +815,7 @@ def _run_experiment_inner(
     )
     _verify_runtime_hashes(engine_source)
     source, base, prereg, prior_results = _prior_inputs(prior_audit)
+    manifest_paths = _manifest_paths(prereg)
     periods = _periods(prereg)
     manifest_paths = prereg.get("input_paths") or prereg.get("source_paths")
     if not isinstance(manifest_paths, dict):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -190,6 +191,9 @@ def test_run_experiment_executes_control_24_then_variant_24(
     from tests.test_research_portfolio_held_band_cost3_stress import _runner_simulation
 
     source, base, prereg, results = _synthetic_contract()
+    fallback_paths = {"source-manifest.json": "synthetic/source-manifest.json"}
+    prereg.pop("input_paths")
+    prereg["source_paths"] = fallback_paths
     calls: list[int] = []
     replays: list[int] = []
 
@@ -237,6 +241,10 @@ def test_run_experiment_executes_control_24_then_variant_24(
         )
         assert result["evaluation_count"] == 48
         assert calls == [4] * 24 + [8] * 24
+        metadata = json.loads(
+            (tmp_path / "out" / "preregistration.json").read_text(encoding="utf-8")
+        )
+        assert metadata["source_paths"] == fallback_paths
     else:
         with pytest.raises(ValueError, match="synthetic control mismatch"):
             run_experiment(
