@@ -283,7 +283,7 @@
 - 중단 조건: 공식 단일 응답의 전체 수신·선언 행수·요청 범위·필수 공표 필드·재정규화를 검증할 수 없거나 source evidence를 적용 근거와 분리할 수 없으면 통합하지 않습니다. 별도 KOFR 영업일 달력이 없으므로 기대 영업일 완전성은 `unverified`로 고정하며 이를 완료 조건으로 주장하지 않습니다.
 - 포트·테스트 DB·출력 경로: 포트·DB 해당 없음. 테스트는 fake transport만 사용하고, 실제 bounded 수집은 작업 전용 audit 경로에 저장한 뒤 필요한 불변 artifact만 추적합니다.
 - 검증·결과: 후보 commit `3fcb553`; Terra 최종 review PASS(P1/P2 없음). 표준 라이브러리 fake harness, py_compile/compileall, diff 검사는 통과했습니다. 전용 환경이 없어 pytest/Ruff/mypy는 실행하지 못했습니다. 공식 추가 요청은 0회이며 readiness·metrics·runner는 변경하지 않았습니다.
-- 후속 교정: 공식 `rate/rate.jsp`의 tracked WebSquare XML(`/pub/rate/rate.xml`)에서 실제 task가 `rate.process.RatePTask`임을 읽기 전용 확인했습니다. candidate `720f6dc`에서 task 상수를 교정하고 fake transport pytest 21개·Ruff check/format을 통과했습니다. 공식 추가 요청은 0회이며 readiness·metrics·runner는 변경하지 않았습니다.
+- 후속 조사 정정: 공식 `rate/rate.jsp`와 `/js/common.js`에서 화면의 짧은 `rate.process.RatePTask`가 `_doTask`의 `ksd.rfr.user.` prefix로 전송됨을 확인했습니다. 따라서 기존 전체 task는 유효하며 시험 교정 `720f6dc`는 `4b6490f`에서 복구했습니다. 두 번째 bounded 요청은 XML 선언만 반환되어 `malformed_xml`로 fail-closed했고, audit `/home/kwl/.local/share/jusik/portfolio-audit/20260919-kofr-task-correction`에 raw/failure를 보존했습니다.
 - 보존·재개: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`와 `feat/kofr-risk-free-source-evidence`를 미병합 보존합니다. 새 audit attempt와 두 번째 공식 요청을 별도 승인·계획하기 전에는 통합하지 않습니다. 개발 기록은 `docs/development-records/2026-09-17-kofr-risk-free-source-evidence.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## r0-us-modeled-cost-evidence
