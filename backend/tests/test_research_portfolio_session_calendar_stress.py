@@ -7,17 +7,22 @@ from pathlib import Path
 import pytest
 
 from jusik.research_market_calendar import DEFAULT_CALENDAR_PATH
+from jusik.research_portfolio_models import PortfolioCandidate, PortfolioConfig
 from jusik.research_portfolio_session_calendar_stress import (
     CALENDAR_SHA256,
     CalendarAdapter,
     CalendarStressError,
     IncompleteSessionError,
+    _normal_session_source,
     assert_next_open,
     fixture_publication_metadata,
+    install_calendar_adapter,
+    load_isolated_engine,
     reconcile_decimal_accounting,
     replay_trade_ledger,
     run_simulation_gate,
     run_stress_harness,
+    synthetic_source,
     validate_feature_cutoff,
 )
 
@@ -65,6 +70,133 @@ def test_holiday_early_close_dst_and_krx_offsets() -> None:
 def test_unknown_session_fails_closed() -> None:
     with pytest.raises(CalendarStressError, match="unknown_session"):
         CalendarAdapter().lookup("Asia/Seoul", date(2026, 11, 19))
+
+
+@pytest.mark.parametrize(
+    ("timezone_name", "day", "open_at", "close_at"),
+    (
+        (
+            "America/New_York",
+            date(2026, 11, 27),
+            datetime(2026, 11, 27, 14, 30, tzinfo=UTC),
+            datetime(2026, 11, 27, 18, tzinfo=UTC),
+        ),
+        (
+            "America/New_York",
+            date(2026, 12, 24),
+            datetime(2026, 12, 24, 14, 30, tzinfo=UTC),
+            datetime(2026, 12, 24, 18, tzinfo=UTC),
+        ),
+        (
+            "America/New_York",
+            date(2026, 12, 23),
+            datetime(2026, 12, 23, 14, 30, tzinfo=UTC),
+            datetime(2026, 12, 23, 21, tzinfo=UTC),
+        ),
+        (
+            "America/New_York",
+            date(2024, 3, 8),
+            datetime(2024, 3, 8, 14, 30, tzinfo=UTC),
+            datetime(2024, 3, 8, 21, tzinfo=UTC),
+        ),
+        (
+            "America/New_York",
+            date(2024, 3, 11),
+            datetime(2024, 3, 11, 13, 30, tzinfo=UTC),
+            datetime(2024, 3, 11, 20, tzinfo=UTC),
+        ),
+        (
+            "Asia/Seoul",
+            date(2025, 11, 13),
+            datetime(2025, 11, 13, 1, tzinfo=UTC),
+            datetime(2025, 11, 13, 7, 30, tzinfo=UTC),
+        ),
+    ),
+)
+def test_copied_engine_event_hook_uses_required_session_times(
+    tmp_path: Path,
+    timezone_name: str,
+    day: date,
+    open_at: datetime,
+    close_at: datetime,
+) -> None:
+    engine = load_isolated_engine(tmp_path / "engine")
+    adapter = CalendarAdapter()
+    install_calendar_adapter(engine, adapter)
+    item = type("Item", (), {})()
+    item.instrument = type("Instrument", (), {"timezone": timezone_name})()
+    item.bars_by_date = {day: object()}
+    events = engine._events({"FIXTURE": item}, day, day, calendar=adapter.calendar)
+    assert [
+        (event.kind, event.at) for event in events if event.kind != "rebalance"
+    ] == [
+        ("open", open_at),
+        ("close", close_at),
+    ]
+
+
+def test_historical_volatility_uses_publication_timed_varying_fx(
+    tmp_path: Path,
+) -> None:
+    from jusik.research_external_models import ExternalFeatureSnapshot
+
+    base = synthetic_source()
+    varying_external = ExternalFeatureSnapshot(
+        observations=tuple(
+            row.model_copy(
+                update={
+                    "value": Decimal("1200")
+                    + Decimal((row.observed_on - date(2023, 10, 2)).days)
+                }
+            )
+            if row.series == "usdkrw"
+            else row
+            for row in base.external.observations
+        )
+    )
+    varying = base.model_copy(update={"external": varying_external})
+    adapter = CalendarAdapter(publication=fixture_publication_metadata(base))
+    varying = _normal_session_source(
+        varying, adapter, date(2024, 1, 3), date(2024, 3, 15)
+    )
+    config = PortfolioConfig(
+        volatility_window=20,
+        initial_cash_krw=Decimal("1000000"),
+        symbol_cap=Decimal("1"),
+        gross_cap=Decimal("1"),
+        leveraged_etf_cap=Decimal("1"),
+    )
+    at = datetime(2024, 3, 15, 21, tzinfo=UTC)
+
+    engine_constant = load_isolated_engine(tmp_path / "constant")
+    data_constant = engine_constant._instrument_data(base)
+    install_calendar_adapter(engine_constant, adapter)
+    constant_proxy = engine_constant.volatility_scale(
+        base, data_constant, {"SYNUSD": Decimal("1")}, at, config, {}
+    )[1]
+
+    varying_adapter = CalendarAdapter(publication=fixture_publication_metadata(varying))
+    engine_varying = load_isolated_engine(tmp_path / "varying")
+    data_varying = engine_varying._instrument_data(varying)
+    install_calendar_adapter(engine_varying, varying_adapter)
+    varying_proxy = engine_varying.volatility_scale(
+        varying, data_varying, {"SYNUSD": Decimal("1")}, at, config, {}
+    )[1]
+    assert constant_proxy is not None and varying_proxy is not None
+    assert constant_proxy != varying_proxy
+
+    delayed_publication = fixture_publication_metadata(varying)
+    delayed_publication[("SYNUSD", date(2024, 3, 1))] = datetime(
+        2024, 3, 20, tzinfo=UTC
+    )
+    delayed_adapter = CalendarAdapter(publication=delayed_publication)
+    engine_delayed = load_isolated_engine(tmp_path / "delayed")
+    data_delayed = engine_delayed._instrument_data(varying)
+    install_calendar_adapter(engine_delayed, delayed_adapter)
+    delayed_proxy = engine_delayed.volatility_scale(
+        varying, data_delayed, {"SYNUSD": Decimal("1")}, at, config, {}
+    )[1]
+    assert delayed_proxy is not None and delayed_proxy != varying_proxy
 
 
 def test_missing_first_valid_open_bar_is_incomplete() -> None:
@@ -214,6 +346,81 @@ def test_decimal_reconciliation_and_harness(tmp_path: Path) -> None:
     assert result["calendar_sha256"] == CALENDAR_SHA256
     assert (tmp_path / "hash-manifest.json").exists()
     assert DEFAULT_CALENDAR_PATH.exists()
+
+
+def test_independent_split_ledger_paths(tmp_path: Path) -> None:
+    from jusik.research_universe_models import CorporateAction
+
+    source = synthetic_source()
+    adapter = CalendarAdapter(publication=fixture_publication_metadata(source))
+    source = _normal_session_source(
+        source, adapter, date(2024, 1, 3), date(2024, 3, 15)
+    )
+    config = PortfolioConfig(
+        initial_cash_krw=Decimal("1000000"),
+        signal_window=20,
+        volatility_window=20,
+        momentum_window=20,
+        warmup_sessions=20,
+        validation_sessions=20,
+        symbol_cap=Decimal("1"),
+        gross_cap=Decimal("1"),
+        leveraged_etf_cap=Decimal("1"),
+    )
+    candidate = PortfolioCandidate(id="equal", method="equal", gate="none")
+    simulation = run_simulation_gate(
+        source,
+        candidate,
+        date(2024, 1, 3),
+        date(2024, 3, 15),
+        config,
+        "corrected_control",
+        audit_dir=tmp_path / "base",
+        adapter=adapter,
+    )
+    assert replay_trade_ledger(source, simulation, config, adapter=adapter) == 0
+    action_day = next(
+        action.date
+        for snapshot in source.instruments
+        for action in snapshot.corporate_actions
+        if snapshot.instruments[0].symbol == "SYNKRW"
+    )
+    assert simulation.split_cash_in_lieu_krw["SYNKRW"] > 0
+    assert any(
+        trade.symbol == "SYNKRW"
+        and trade.side == "sell"
+        and trade.executed_at.date() > action_day
+        for trade in simulation.trades
+    )
+    assert all(position.local_close > 0 for position in simulation.positions)
+
+    after_period = CorporateAction(
+        date=date(2024, 4, 1), numerator=Decimal("3"), denominator=Decimal("2")
+    )
+    snapshots = [
+        snapshot.model_copy(
+            update={"corporate_actions": [*snapshot.corporate_actions, after_period]}
+        )
+        if snapshot.instruments[0].symbol == "SYNKRW"
+        else snapshot
+        for snapshot in source.instruments
+    ]
+    after_source = source.model_copy(update={"instruments": snapshots})
+    after_simulation = run_simulation_gate(
+        after_source,
+        candidate,
+        date(2024, 1, 3),
+        date(2024, 3, 15),
+        config,
+        "corrected_control",
+        audit_dir=tmp_path / "after-period",
+        adapter=adapter,
+    )
+    assert after_simulation.split_cash_in_lieu_krw == simulation.split_cash_in_lieu_krw
+    assert (
+        replay_trade_ledger(after_source, after_simulation, config, adapter=adapter)
+        == 0
+    )
 
 
 def test_ledger_rejects_independent_output_corruptions(tmp_path: Path) -> None:

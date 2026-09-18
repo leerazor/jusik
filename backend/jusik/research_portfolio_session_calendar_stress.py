@@ -628,8 +628,8 @@ def _replay_trade_ledger(
 
     observations = list(source.external.observations)
 
-    def fx_row(at: datetime) -> Any | None:
-        by_day: dict[date, Any] = {}
+    def fx_row(at: datetime) -> ExternalObservation | None:
+        by_day: dict[date, ExternalObservation] = {}
         for row in observations:
             if (
                 row.series == "usdkrw"

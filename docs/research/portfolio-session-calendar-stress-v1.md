@@ -26,7 +26,7 @@ split fractional cash-in-lieu, buy/sell 현금흐름, 수수료·FX 비용, clos
 position, contribution과 모든 positive position의 symbol set을 결과와 대조하며 금전
 잔차 허용치는 `1e-6 KRW`이다. 출력 결과를 기대값 산출에 사용하지 않는다.
 
-이 문서는 synthetic fixture에 대한 기술 검증만 기록한다. 이전 시도에서 terminal
-cash가 `1 KRW` 변조된 결과를 회계 gate가 거부한 실패 증거는 해당 audit 디렉터리에
-보존되어 있다. 이번 구현은 달력·cutoff·causality·회계 gate를 통과해도
+이 문서는 synthetic fixture에 대한 기술 검증만 기록한다. 이전 시도에서는 terminal
+cash가 `1 KRW` 변조된 결과가 회계 gate를 통과한 결함이 확인되었고, 그 수락 증거와
+후속 수정 검증은 해당 audit 디렉터리에 보존되어 있다. 이번 구현은 달력·cutoff·causality·회계 gate를 통과해도
 역사 자료, 성과 비교, PAPER·실거래 승격의 근거로 사용하지 않는다.
