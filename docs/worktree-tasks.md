@@ -2033,16 +2033,16 @@
 
 ## portfolio-symbol-cap-episodes-0e01
 
-- 상태: 준비
+- 상태: 진행 (최신 canonical mandate pin으로 재개)
 - 목표와 완료 조건: 저장된 32개 셀의 symbol cap 초과 관측 351회를 종목별 episode로 재구성하고 같은 셀의 비용 반영 성과와 연결합니다. 입력 SHA 검증, 분석 1회와 결정성 재검산 1회, 독립 검토, local main 통합 검사와 영구 handoff를 완료합니다.
 - 담당 Luna: 전용 Luna 구현 작업자 1명. explore 완료 후 plan을 진행합니다.
-- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-symbol-cap-episodes-0e01
-- 작업 브랜치: feat/portfolio-symbol-cap-episodes-0e01
-- 기준 커밋 SHA: 93bddaf9db7214331a8e363b95bbf9c6f8b8e4df 이후 이 등록 커밋
+- 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-symbol-cap-episodes-20260919
+- 작업 브랜치: feat/portfolio-symbol-cap-episodes-20260919
+- 기준 커밋 SHA: b27126b40cfdadf9b52cc1bd3406bdefc684f7b8
 - 통합 대상 브랜치: local main
-- 입력과 선행 작업: task portfolio-symbol-cap-breach-episodes-v1, attempt 0e018f57a6b14e3587dc5dfca65985d8. 선행 mandate/report/results/manifest 4개 및 manifest 72개 파일 SHA 일치. 자동 실행기의 현재 시도이며 서비스나 큐를 변경하지 않습니다.
+- 입력과 선행 작업: task portfolio-symbol-cap-breach-episodes-v1, 이전 attempt 0e018f57a6b14e3587dc5dfca65985d8는 등록 mandate pin `197f8e09…`과 canonical SHA drift로 fail-closed 중단했습니다. retry는 현재 승인된 `docs/research-mandate.json` SHA `ceca2ee1d3e86cf79822b6b4a1606ac6699405f93eaf302fcf3842247f5de7ac`를 새 입력 identity로 고정하고, 기존 결과·manifest SHA 72개는 그대로 읽기 전용 검증합니다.
 - 수정 허용 범위: 새 분석 모듈, 해당 fixture tests, 한국어 연구 보고서와 전용 audit. 감독만 이 등록부를 갱신합니다.
-- 포트·테스트 DB·출력 경로: 포트와 DB 미사용. 워크트리 자체 Python 3.13 venv. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-breach-episodes-v1-0e018f57a6b14e3587dc5dfca65985d8.
+- 포트·테스트 DB·출력 경로: 포트와 DB 미사용. 워크트리 자체 Python 3.13 venv. 기존 audit `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-breach-episodes-v1-0e018f57a6b14e3587dc5dfca65985d8`를 보존하고 retry audit은 `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-episodes-v1-20260919`에 저장합니다.
 - 검증 명령과 결과: 관련 pytest, Ruff check/format, strict mypy. 32셀 CPU 분석 1회와 결정성 재검산 1회 합계 900초 이내. Historical simulation·수집·GPU·후보 탐색 0회.
 - 검토 결과와 남은 문제: 원본 배열 순서를 보존하며 동일 UTC 시각과 동일 값의 정상 반복도 유지합니다. 거래와 관측의 동일시각 선후 및 관측 사이 회복은 추정하지 않습니다. 기존 PAPER10%, 사용자 MDD20%·레버리지20%, 1억원·인출 없음과 짧은 이력/PIT 한계를 보존합니다.
 
