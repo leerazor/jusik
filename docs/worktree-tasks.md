@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## portfolio-calendar-2026-krx-holiday-correction
+
+- 상태: 조사 완료·구현 준비. `exchange_calendars==4.12`가 2026년 KRX 임시/복원 공휴일을 세션으로 잘못 산출해 metrics 입력 완전성 blocker가 발생했습니다.
+- 목표와 완료 조건: 2026-06-03(지방선거일)·2026-07-17(제헌절)을 versioned XKRX 휴장 override로 반영하고, 생성기·달력 parser·readiness/accounting 계약·회귀 테스트를 통과시킵니다. 기존 audit bundle은 수정하지 않고 새 calendar/source identity를 사용합니다.
+- 담당: Astra 감독·통합, Luna 단일 구현, Terra 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-portfolio-calendar-2026-krx-holiday-correction` / `feat/portfolio-calendar-2026-krx-holiday-correction`.
+- 입력과 근거: fixed bundle의 XKRX 2개 누락 close, Yahoo KSC 6종목 bounded probe(두 날짜 모두 no bars), KRX 휴장 공지 근거(한국거래소 공지 보도 및 BOK 2026 holiday schedule).
+- 수정 허용: `generate_market_calendar.py`, 직접 관련 parser/readiness tests, 계약 문서·개발 기록. 기존 bundle/canonical artifact·runner·metrics evaluator 정책은 변경하지 않습니다.
+- 금지: NAV 보간·bar 합성·날짜 이동, 기존 bundle 덮어쓰기, strategy/engine/replay 변경, network cache/주문/PAPER/live/remote 변경.
+- 중단 조건: 두 날짜가 KRX 휴장이라는 권위 근거와 일치하지 않거나, override가 XNYS·기존 session을 바꾸면 중단합니다.
+- 검증: generator output hash, parser/readiness/accounting focused tests, Ruff/strict mypy, fixed-bundle read-only recheck showing 1,172 required XKRX closes, independent review.
+- 재개 후 조건: 새 calendar SHA로 별도 bundle 입력을 재생성·검증한 뒤에만 metrics adapter 재개. 기존 1,172 NAV ledger는 새 달력과 독립 대사합니다.
+
 ## portfolio-performance-input-readiness
 
 - 상태: 차단. 독립 modeled accounting은 통과했으나 공식 calendar close union 1,174개와 stored NAV 1,172개가 불일치해 metrics adapter를 만들 수 없습니다.
