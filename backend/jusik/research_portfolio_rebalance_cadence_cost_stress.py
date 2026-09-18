@@ -817,9 +817,6 @@ def _run_experiment_inner(
     source, base, prereg, prior_results = _prior_inputs(prior_audit)
     manifest_paths = _manifest_paths(prereg)
     periods = _periods(prereg)
-    manifest_paths = prereg.get("input_paths") or prereg.get("source_paths")
-    if not isinstance(manifest_paths, dict):
-        raise ValueError("frozen source paths are missing")
     candidate = PortfolioCandidate(
         id="portfolio_inverse_volatility_fx_vix_v1",
         method="inverse_volatility",

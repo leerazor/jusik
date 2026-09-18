@@ -192,7 +192,7 @@ def test_run_experiment_executes_control_24_then_variant_24(
 
     source, base, prereg, results = _synthetic_contract()
     fallback_paths = {"source-manifest.json": "synthetic/source-manifest.json"}
-    prereg.pop("input_paths")
+    prereg.pop("input_paths", None)
     prereg["source_paths"] = fallback_paths
     calls: list[int] = []
     replays: list[int] = []
