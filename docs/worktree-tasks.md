@@ -1648,6 +1648,7 @@
 - 남은 제한: partial/cancel/reject 체결은 unsupported이며, 본 결과만으로 승자 선택·retuning·정책 승격을 하지 않습니다.
 - handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e017-retry-20260919c/HANDOFF.md.
 - runner gate 후속: stale cadence worktree의 검증된 source-path 정리 커밋 `1a7edd6`을 기록하고 main에 `df59edc`·`d806da1`로 통합했습니다. timer 다음 cycle은 dirty gate 없이 idle 종료했습니다.
+- planner 후속: timer planner attempt `8234d2559f6e486cb071e529067783a7`는 R1-04/R1-05 실제 근거 부족을 확인하고 `waiting`으로 정상 종료했습니다. 합성 자료·임의 retry·경제 승격은 하지 않았습니다.
 
 
 ## gpu-collector-mode
