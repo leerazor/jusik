@@ -165,6 +165,8 @@ def validate_application_contract(
     business_dates = tuple(_day(item) for item in raw_dates)
     if business_dates != tuple(sorted(set(business_dates))):
         raise KofrApplicationError("business_dates_not_ordered")
+    if set(business_dates) != set(row_by_day):
+        raise KofrApplicationError("business_date_manifest_mismatch")
     if any(item not in row_by_day for item in business_dates):
         raise KofrApplicationError("business_date_source_missing")
     raw_intervals = manifest.get("intervals")

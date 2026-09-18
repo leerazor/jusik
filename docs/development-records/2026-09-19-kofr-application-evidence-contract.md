@@ -29,6 +29,12 @@
 `business_date_completeness_unverified`로 종료했습니다. 이 결과는 자료 부족을 확인하는
 진단이며 source evidence나 원본 audit을 수정하지 않습니다.
 
+계약도 보강했습니다. `coverage_status=complete`인 application manifest의
+`business_dates` 집합은 source rows의 관측일 집합과 정확히 같아야 합니다. source 행을
+manifest에서 조용히 누락하거나 manifest에 source 밖 날짜를 추가하면
+`business_date_manifest_mismatch`로 거부합니다. 이 검사는 provider 전체 영업일 목록을
+증명하지 않으며, 그 외부 근거가 없으면 기존 `unverified` 차단을 유지합니다.
+
 추가로 corrected NAV bundle은 614개 UTC daily date를 `2024-04-24~2026-09-08`
 범위로 포함하지만 현재 KOFR source evidence는 `2025-09-11~2026-09-11`만 포함해
 앞쪽 359개 NAV 날짜가 비어 있습니다. 따라서 현재 source로 전체 Sharpe를 계산할 수

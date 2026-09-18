@@ -91,3 +91,21 @@ def test_application_contract_rejects_publication_after_interval_start(
     manifest.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(KofrApplicationError, match="publication_after_interval_start"):
         validate_application_contract(source, manifest)
+
+
+def test_complete_manifest_must_declare_every_source_date(tmp_path: Path) -> None:
+    source, manifest = _fixture(tmp_path)
+    source_payload = json.loads(source.read_text(encoding="utf-8"))
+    source_payload["rows"].append(
+        {
+            "RFR_PUBN_DT": "2026.09.12",
+            "RFR_PUBN_MR": "3.000",
+            "PUBN_DTTM": "2026.09.12 10:50:15",
+        }
+    )
+    source.write_text(json.dumps(source_payload), encoding="utf-8")
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    payload["source_evidence_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(KofrApplicationError, match="business_date_manifest_mismatch"):
+        validate_application_contract(source, manifest)
