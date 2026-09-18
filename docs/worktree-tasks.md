@@ -34,6 +34,12 @@
 - 추가 확인: review DB에서 공식 근거 3개와 matched review 4개를 확인했습니다. NVDA 2024 split/dividend 및 TQQQ 2025 split은 원문 SHA·capture 시각·provider revision과 연결되지만, NVDA 2026 dividend는 ex-date 누락으로 partial입니다. synthetic mismatch 1건도 별도 보존합니다. 개발 기록은 `docs/development-records/2026-09-18-r1-action-receipt-db-audit.md`입니다.
 - 2026-09-19 재검증: 최초 문서 경로(`research-action-collection.sqlite3`)는 존재하지 않아 `OperationalError`로 종료했으나, canonical DB(`/home/kwl/.local/share/jusik/research-action-collection.db`)를 확인해 overlay를 재실행했습니다. 새 run `7b742e9b99a1b809dda225d7feb60d79e4824f4cb4b7b0455e8918406ddd93b3`는 109개 revision 중 1개 eligible·108개 excluded이며 `coverage_complete=false`, `prospective_validation_eligible=false`, `automatic_ledger_application=false`입니다. 경로 문제는 해결했지만 R1-04/R1-05와 경제 승격은 여전히 보류합니다.
 
+## r4-us-pilot-cache-readiness
+
+- 상태: 자료 게이트 차단·pilot 미실행
+- 2026-09-19 read-only `collect-status` 재검증: 기존 US approximate cache 84개 entry, `completed=false`, `ready=false`, 누락 자격증명 `ALPHA_VANTAGE_API_KEY`·`FRED_API_KEY`, exit code 2. 기존 cache와 frozen artifact는 변경하지 않았습니다.
+- 판정: 기존 frozen pilot의 independent cost/NAV 검증을 현재 R4 pilot 또는 strict/PIT 근거로 재명명하지 않습니다. 자격증명 또는 동등 provenance 응답이 준비되어 coverage·membership·FX·기업행동 계약을 통과하기 전에는 R4-01~R4-05와 경제 승격을 보류합니다. 개발 기록은 `docs/development-records/2026-09-19-r4-us-pilot-cache-readiness.md`입니다.
+
 ## portfolio-prospective-oos-gate
 
 - 상태: 관찰 중·OOS 판정 대기. 현재 코드와 등록 identity가 다르지만 등록 시점 immutable source snapshot을 재구성해 monitor를 그 snapshot으로 격리 실행합니다. 계약 기간이 아직 종료되지 않아 OOS go/no-go는 실행하지 않았습니다.
