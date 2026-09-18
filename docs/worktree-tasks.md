@@ -2120,3 +2120,18 @@
 - 예산: 환경 포함 900초, 신규 환경/cache 1GiB, 보고 artifact 50MiB. 금융 실험·수집·GPU 0회.
 - 금융 상태: 공식 성공 raw/evidence 부재, 금융/data acceptance 차단, PAPER 10%를 유지합니다. 웹 publication은 성과 수치가 없어 해당 없습니다.
 - 개발 기록: `docs/development-records/2026-09-18-portfolio-kofr-offline-verification-v1.md`. 검사 통과·collector 병합·기술 완료를 주장하지 않습니다. 재개 시 소유 환경 의존성과 routing mode를 확인하고 전체 검사와 독립 검토가 필요합니다.
+
+
+## portfolio-kofr-offline-quality-repair-v1
+
+- 상태: 기술 slice 완료. attempt `65f6765444cd46c3866ae6c2eaa4dca2`. 입력 identity와 SHA 검증을 통과했습니다.
+- 목표: 기존 후보 두 파일의 Ruff/format/strict mypy 결함을 오프라인으로 수정하고 계약 보존을 검증합니다.
+- 담당: Astra 감독·계획, Luna 단일 구현, Terra 독립 검토 PASS.
+- 소유 워크트리/브랜치: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`, `feat/kofr-risk-free-source-evidence` 재사용. 기준 `3fcb553a22ba652071503bead96cf43425118a78`.
+- 범위: `backend/jusik/kofr_source_evidence.py`, `backend/tests/test_kofr_source_evidence.py`만 수정합니다. collector main 병합은 금지하며 기록만 main에 반영합니다.
+- 검증: 네트워크 namespace 차단과 fake transport, 단일 CPU·seed 0으로 pytest/Ruff check·format/configured strict mypy를 실행하고 원문 출력·exit code·SHA를 저장합니다.
+- 예산: 누적 wall time 900초, 환경/cache 증가 1GiB, 신규 audit 50MiB. 금융 실험·network·GPU·PAPER/DB/service/config/remote/주문 변경 0.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/kofr-quality-65f67654`. 과거 실패·위반·review 미통과와 금융/data acceptance 차단, PAPER10%를 유지합니다.
+
+- 결과: 후보 `a7c283603415d57da93ff95ac62e96f23da67002`, pytest21/Ruff check·format/configured strict mypy PASS, routing4단계 PASS. collector 미병합·소유 worktree 보존.
+- 기록: `docs/development-records/2026-09-18-portfolio-kofr-offline-quality-repair-v1.md`; audit `HANDOFF.md`, `integration-verification.json`, `evidence-manifest.json`.
