@@ -16,10 +16,10 @@
 
 ## 검증
 
-- `pytest -q backend/tests/test_kofr_application_evidence.py`: 5 passed
+- `pytest -q backend/tests/test_kofr_application_evidence.py`: 6 passed
 - Ruff check/format: passed
 - strict mypy: passed
-- 실패 fixture: timezone, completeness, publication semantics, source hash/interval ordering 경계를 fail-closed로 확인했습니다.
+- 실패 fixture: timezone, completeness, publication semantics, source hash/interval ordering, source·manifest 날짜 집합 불일치 경계를 fail-closed로 확인했습니다.
 
 ## 제한과 다음 단계
 
