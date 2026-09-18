@@ -468,7 +468,7 @@ OpenAI 검토는 키·모델·양수 일일 token 예산을 모두 명시한 경
 cd backend
 .venv/bin/python -m jusik.research_dividend_overlay \
   --source-run-id c94690f0ee13f01b1810ac0368e84fdcaeb1c1bbe7f396985d04dd3634b5ead0 \
-  --review-db ~/.local/share/jusik/research-action-collection.sqlite3 \
+  --review-db ~/.local/share/jusik/research-action-collection.db \
   --source-report-dir ~/.local/share/jusik/research-universe-reports \
   --report-dir ~/.local/share/jusik/research-dividend-reports
 ```

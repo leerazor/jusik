@@ -29,3 +29,12 @@ SQLite 파일이 현재 존재하지 않아 `OperationalError: unable to open da
 fail-closed 종료했다. 기존 overlay artifact는 삭제·덮어쓰기하지 않았고, 이 실패는
 새로운 금융 근거가 생겼다는 뜻이 아니다. DB 복구와 원문 SHA 재확인 전에는 R1-04/R1-05
 retry나 경제 승격을 만들지 않는다.
+
+실제 canonical 경로 `/home/kwl/.local/share/jusik/research-action-collection.db`를
+확인한 뒤 같은 overlay를 재실행했다. 새 run
+`7b742e9b99a1b809dda225d7feb60d79e4824f4cb4b7b0455e8918406ddd93b3`는
+109개 revision 중 1개 eligible·108개 excluded, `coverage_complete=false`,
+`prospective_validation_eligible=false`, `automatic_ledger_application=false`를
+기록했다. 기존 run의 source manifest/result SHA와 eligible NVDA event는 동일했고,
+review snapshot만 최신 DB 상태로 갱신되었다. 경로 문제는 교정했지만 전체 coverage
+gate는 여전히 닫혀 있다.
