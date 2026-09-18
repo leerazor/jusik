@@ -1356,7 +1356,7 @@
 
 ## small-entry-draft-provenance-4840
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: 오프라인 bundle의 실제 SHA·canonical SHA·별도 identity·역사 재사용 계약 검증, 결정적인 공개 manifest/보고서, 독립 검토·main 검사·연구 이력 게시.
 - 담당 Luna: gpt-5.6-luna 단일 구현 작업자
 - 워크트리 절대 경로: /home/kwl/projects/jusik-small-entry-draft-provenance-4840
@@ -1366,9 +1366,13 @@
 - 입력과 선행 작업: 지정된 small-entry-preregistration-draft-v1 archive의 네 파일 읽기 전용; explore/plan 완료.
 - 수정 허용 범위: backend/jusik/research_small_entry_draft_provenance.py, 대응 tests, docs/research/small-entry-draft-provenance-audit-v1.md
 - 포트·테스트 DB·출력 경로: 서버·DB 없음. 작업 내부 venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/small-entry-draft-provenance-audit-v1-484028675d0647a0a0b47f86c46a5ca5
-- 검증 명령과 결과: baseline draft pytest 19개 및 mypy jusik 79개 통과. 신규 경계·회귀·Ruff·mypy와 archive replay를 추가 실행한다.
-- 검토 결과와 남은 문제: 구현 후 독립 검토 예정.
+- 검증 명령과 결과: 후보 pytest 41개, main 통합 관련 pytest 41개, Ruff check/format, strict mypy, `git diff --check`, 고정 archive CLI replay와 반복 출력 SHA 대조가 모두 통과했습니다. 실제 history backend/frontend를 임시 기동해 API·웹·3개 artifact의 6개 download SHA가 모두 HTTP 200으로 일치했습니다.
+- 검토 결과와 남은 문제: 독립 검토 PASS, blocking finding 없음. TOCTOU 경쟁 교체는 범위 밖이며 입력은 고정 archive의 읽기 전용 provenance만 검증합니다.
 - 보존 및 제외: 기존 HANDOFF.md 보존. PAPER/DB/orders/collector/GPU/runner/quota/remote 및 과거 blocked 작업 변경 없음.
+- 결과 커밋 SHA: `d499309`, `ee4a0f8`. 통합 커밋: `2f729585b3aec107cb28f309a2bac9620e4d1fab`.
+- 게시: `/research/history` 항목 `small-entry-draft-provenance-audit-v1-484028675d0647a0a0b47f86c46a5ca5`; 기존 seed 보존. artifact SHA는 `3c610ff4063722f7bfc278e3203c62b467be06ce73b1fa5dd5ac4fb26e313bb8`, `4e37b3ab706d1c7eb2f90954c4c0fb9a8baef9afca7e9a4e96b66d26e983765b`, `a7077e91aef71d4e4bec46c93f1140272bcfc424b510e31b35661f06185eb4bc`입니다.
+- 개발 기록: `docs/development-records/2026-09-19-small-entry-draft-provenance.md`. audit `/home/kwl/.local/share/jusik/portfolio-audit/small-entry-draft-provenance-audit-v1-484028675d0647a0a0b47f86c46a5ca5`.
+- 워크트리 정리: 통합 후 소유 worktree는 보존 상태이며, 다음 정리 절차에서 audit·handoff SHA 확인 후 제거합니다. 루트 `HANDOFF.md`는 보존합니다.
 
 ## future-observation-revision-9773
 
