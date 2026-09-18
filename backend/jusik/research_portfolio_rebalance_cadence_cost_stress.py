@@ -811,6 +811,9 @@ def _run_experiment_inner(
     _verify_runtime_hashes(engine_source)
     source, base, prereg, prior_results = _prior_inputs(prior_audit)
     periods = _periods(prereg)
+    manifest_paths = prereg.get("input_paths") or prereg.get("source_paths")
+    if not isinstance(manifest_paths, dict):
+        raise ValueError("frozen source paths are missing")
     candidate = PortfolioCandidate(
         id="portfolio_inverse_volatility_fx_vix_v1",
         method="inverse_volatility",
@@ -848,7 +851,7 @@ def _run_experiment_inner(
             "source_run_id": prior_results.get("source_run_id"),
             "point_in_time_verified": False,
             "automatic_trading_eligible": False,
-            "source_paths": prereg["input_paths"],
+            "source_paths": manifest_paths,
             "source_hashes": prereg["source_hashes"],
             "core_hashes": prereg["core_hashes"],
             "imported_helper_hashes": prereg["imported_helper_hashes"],

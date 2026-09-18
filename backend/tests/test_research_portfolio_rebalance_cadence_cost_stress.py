@@ -141,7 +141,7 @@ def _synthetic_contract() -> tuple[
         PortfolioConfig(),
         {
             "periods": periods,
-            "input_paths": {},
+            "source_paths": {},
             "source_hashes": {},
             "core_hashes": {},
             "imported_helper_hashes": {},
