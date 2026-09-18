@@ -176,6 +176,30 @@ def test_krx_daily_trade_preserves_zero_valued_membership_without_bar() -> None:
     assert parsed.bars == ()
 
 
+def test_krx_daily_trade_rejects_negative_trade_values() -> None:
+    with pytest.raises(CollectorError, match="KRX open is not valid"):
+        parse_krx_daily_trade_response(
+            json.dumps(
+                {
+                    "OutBlock_1": [
+                        {
+                            "BAS_DD": "20260914",
+                            "ISU_CD": "000300",
+                            "ISU_NM": "잘못된 가격",
+                            "MKT_NM": "KOSPI",
+                            "TDD_OPNPRC": "-1",
+                            "TDD_HGPRC": "100",
+                            "TDD_LWPRC": "90",
+                            "TDD_CLSPRC": "95",
+                            "ACC_TRDVOL": "10",
+                        }
+                    ]
+                }
+            ).encode(),
+            checkpoint=date(2026, 9, 14),
+        )
+
+
 def test_alpha_listing_status_filters_etf_and_future_or_delisted_rows() -> None:
     body = (
         b"symbol,name,exchange,assetType,ipoDate,delistingDate,status\n"
