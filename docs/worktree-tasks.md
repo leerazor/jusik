@@ -9,7 +9,7 @@
 - 검증: main pytest50·Ruff·configured strict mypy4파일·고정 DB 출력 결정성·원본 전후 SHA 불변 PASS. 공개 SHA override와 SQLite 테스트 누락을 수정한 뒤 재검토했습니다.
 - 예산/격리: 단일CPU·seed0·누적 342.263/900초·artifact50MiB 이내. 금융 실험/network/GPU/PAPER/live/주문/원본DB·원장/서비스/설정/remote 변경0.
 - 증거/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/r1-receipt-0c28fbb5`; `integration-verification.json`, `evidence-manifest.json`, `HANDOFF.md`. 과거 차단과 위반 기록은 이전 audit·개발 기록에 보존합니다.
-- 정리: 소스·패치·검증 로그·기존 미추적 개발 초안과 SHA를 archive한 뒤 소유 worktree만 제거합니다. 최종 정리 상태는 audit `cleanup.json`입니다. 다른 격리 작업은 재개하지 않았습니다.
+- 정리: 소스·패치·검증 로그·기존 미추적 개발 초안과 SHA를 archive·검증한 뒤 소유 worktree와 병합 브랜치를 제거했습니다. `--force`는 사용하지 않았습니다. 최종 상태는 audit `cleanup.json`이며 다른 격리 작업은 재개하지 않았습니다.
 - 남은 조건: coverage·가격·권리·effective UTC 경계가 없어 linkage false, strict PIT·경제 acceptance·승격 보류. 성과가 없는 기술 slice로 웹 publication 해당 없음.
 - 개발 기록: `docs/development-records/2026-09-18-r1-receipt-429bc04a.md`.
 
