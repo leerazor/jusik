@@ -16,7 +16,7 @@ import re
 import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Final
@@ -56,6 +56,7 @@ ACCOUNTING_REPORT_SHA256: Final = (
     "2f0378214f622b069aa8d2f679ded7bc96600f5348fe91ed5e69b0f283ba9847"
 )
 EXPECTED_DAILY_NAV: Final = 614
+EXPECTED_TRADE_COUNT: Final = 171
 MAX_ARTIFACT_BYTES: Final = 20 * 1024 * 1024
 MAX_REPORT_BYTES: Final = 2 * 1024 * 1024
 MAX_TOTAL_READ_BYTES: Final = 50 * 1024 * 1024
@@ -257,7 +258,13 @@ def _read_artifact(
 
 def _verify_chain(
     bundle_dir: Path, accounting_report_path: Path
-) -> tuple[dict[str, object], dict[str, object], dict[str, object], int]:
+) -> tuple[
+    dict[str, object],
+    dict[str, object],
+    dict[str, object],
+    dict[str, object],
+    int,
+]:
     root = _bundle_root(bundle_dir)
     manifest_raw = _bounded_read(root / "manifest.json", MAX_REPORT_BYTES, "manifest")
     if hashlib.sha256(manifest_raw).hexdigest() != CORRECTED_MANIFEST_SHA256:
@@ -323,7 +330,17 @@ def _verify_chain(
         or report.get("verifier_source_sha256") != ACCOUNTING_VERIFIER_SOURCE_SHA256
     ):
         raise PortfolioPerformanceError("accounting_identity_mismatch")
-    return manifest, report, loaded["time-evidence.json"], total + len(report_raw)
+    simulation = loaded["simulation.json"]
+    simulation_metrics = _mapping(simulation.get("metrics"))
+    if simulation_metrics.get("trade_count") != Decimal(EXPECTED_TRADE_COUNT):
+        raise PortfolioPerformanceError("simulation_trade_count_mismatch")
+    return (
+        manifest,
+        report,
+        loaded["time-evidence.json"],
+        simulation,
+        total + len(report_raw),
+    )
 
 
 @dataclass(frozen=True)
@@ -410,12 +427,72 @@ def combine_projection_metrics(
     )
 
 
+def _iso_duration(seconds: int) -> str:
+    duration = timedelta(seconds=seconds)
+    days = duration.days
+    remainder = duration.seconds
+    hours, remainder = divmod(remainder, 60 * 60)
+    minutes, secs = divmod(remainder, 60)
+    if days:
+        return f"P{days}DT{hours}H{minutes}M{secs}S"
+    return f"PT{hours}H{minutes}M{secs}S"
+
+
+def maximum_mdd_recovery_duration(
+    points: Sequence[NAVPoint], *, initial: Decimal, anchor: datetime
+) -> dict[str, object]:
+    """Return the longest completed peak-to-recovery duration in UTC seconds."""
+    if not points:
+        return {
+            "availability": "unavailable",
+            "utc_seconds": None,
+            "iso_duration": None,
+            "reason": "missing_nav_chronology",
+        }
+    peak = initial
+    peak_at = anchor.astimezone(UTC)
+    underwater = False
+    maximum = 0
+    for point in points:
+        at = point.timestamp.astimezone(UTC)
+        if point.nav < peak:
+            underwater = True
+            continue
+        if underwater:
+            elapsed = at - peak_at
+            if elapsed.days < 0 or elapsed.microseconds:
+                return {
+                    "availability": "unavailable",
+                    "utc_seconds": None,
+                    "iso_duration": None,
+                    "reason": "invalid_recovery_timestamp",
+                }
+            maximum = max(maximum, elapsed.days * 86_400 + elapsed.seconds)
+            underwater = False
+        if point.nav >= peak:
+            peak = point.nav
+            peak_at = at
+    if maximum == 0 and underwater:
+        return {
+            "availability": "unavailable",
+            "utc_seconds": None,
+            "iso_duration": None,
+            "reason": "mdd_not_recovered",
+        }
+    return {
+        "availability": "available",
+        "utc_seconds": maximum,
+        "iso_duration": _iso_duration(maximum),
+        "reason": None,
+    }
+
+
 def evaluate_corrected_bundle(
     bundle_dir: Path = BUNDLE_PATH,
     accounting_report_path: Path = ACCOUNTING_REPORT_PATH,
 ) -> dict[str, object]:
     """Verify and evaluate the registered corrected bundle exactly once."""
-    manifest, accounting, time_evidence, bytes_read = _verify_chain(
+    manifest, accounting, time_evidence, simulation, bytes_read = _verify_chain(
         bundle_dir, accounting_report_path
     )
     try:
@@ -439,6 +516,28 @@ def evaluate_corrected_bundle(
     )
     output = result.as_dict()
     output["schema"] = RESULT_SCHEMA
+    simulation_metrics = _mapping(simulation["metrics"])
+    secondary_metrics = {
+        "trade_count": int(_decimal(simulation_metrics["trade_count"])),
+        "maximum_mdd_recovery_duration": maximum_mdd_recovery_duration(
+            projection.full, initial=initial, anchor=anchor
+        ),
+        "profit_factor": {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "missing_realized_trade_pnl",
+        },
+        "max_consecutive_loss": {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "missing_realized_trade_pnl",
+        },
+        "sortino": {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "missing_downside_target_policy",
+        },
+    }
     return {
         "schema": SCHEMA,
         "status": "verified",
@@ -473,6 +572,7 @@ def evaluate_corrected_bundle(
                 ]
             ),
         },
+        "secondary_metrics": secondary_metrics,
         "bytes_read": bytes_read,
         "result": output,
     }
@@ -506,5 +606,6 @@ __all__ = [
     "canonical_envelope_bytes",
     "combine_projection_metrics",
     "evaluate_corrected_bundle",
+    "maximum_mdd_recovery_duration",
     "project_nav",
 ]

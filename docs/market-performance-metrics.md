@@ -200,3 +200,14 @@ KOFR 근거가 없으므로 adapter 결과의 Sharpe는
 `economic_evaluation=not-evaluated`를 승격하지 않습니다. 결과 envelope는
 `portfolio-performance-metrics-envelope/v1`로 결정적 JSON 직렬화를 제공하며 기존
 canonical/old bundle과 evaluator/policy artifact는 수정하지 않습니다.
+
+## secondary metrics
+
+corrected portfolio envelope의 `secondary_metrics`는 SHA 검증이 끝난
+`simulation.json.metrics.trade_count`를 보존하고, 전체 UTC NAV chronology에서 peak
+이후 회복까지의 최대 MDD recovery duration을 `utc_seconds`와 ISO 8601 duration으로
+기록합니다. persisted realized trade P&L이 없으므로 `profit_factor`와
+`max_consecutive_loss`는 `missing_realized_trade_pnl`로 unavailable입니다. 명시적
+downside target 정책이 없으므로 `sortino`도 `missing_downside_target_policy`로
+unavailable이며 0% 목표를 가정하지 않습니다. 기존 v1 `result.metrics` 값은
+변경하지 않습니다.

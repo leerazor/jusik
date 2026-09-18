@@ -10,7 +10,7 @@ from typing import cast
 import pytest
 
 import jusik.research_portfolio_performance_metrics as adapter
-from jusik.market_performance_metrics import PerformanceReport
+from jusik.market_performance_metrics import NAVPoint, PerformanceReport
 
 BUNDLE = adapter.BUNDLE_PATH
 ACCOUNTING_REPORT = adapter.ACCOUNTING_REPORT_PATH
@@ -64,6 +64,26 @@ def test_synthetic_metrics_preserve_anchor_first_return_and_full_drawdown() -> N
     assert report.calmar.value is not None
 
 
+def test_synthetic_recovery_duration_uses_utc_peak_to_recovery_seconds() -> None:
+    anchor = datetime(2024, 1, 1, tzinfo=UTC)
+    points = (
+        NAVPoint(datetime(2024, 1, 1, 1, tzinfo=UTC), Decimal("120")),
+        NAVPoint(datetime(2024, 1, 2, tzinfo=UTC), Decimal("90")),
+        NAVPoint(datetime(2024, 1, 3, 13, tzinfo=UTC), Decimal("121")),
+        NAVPoint(datetime(2024, 1, 4, tzinfo=UTC), Decimal("80")),
+        NAVPoint(datetime(2024, 1, 5, tzinfo=UTC), Decimal("122")),
+    )
+    result = adapter.maximum_mdd_recovery_duration(
+        points, initial=Decimal("100"), anchor=anchor
+    )
+    assert result == {
+        "availability": "available",
+        "utc_seconds": 216000,
+        "iso_duration": "P2DT12H0M0S",
+        "reason": None,
+    }
+
+
 def _require_bundle() -> None:
     if not BUNDLE.is_dir() or not ACCOUNTING_REPORT.is_file():
         pytest.skip("corrected audit bundle is not available")
@@ -86,6 +106,21 @@ def test_registered_corrected_bundle_has_deterministic_envelope() -> None:
     sharpe = metrics["sharpe"]
     assert isinstance(sharpe, dict)
     assert sharpe["reason"] == "missing_risk_free_evidence"
+    secondary = first["secondary_metrics"]
+    assert isinstance(secondary, dict)
+    assert secondary["trade_count"] == 171
+    recovery = secondary["maximum_mdd_recovery_duration"]
+    assert isinstance(recovery, dict)
+    assert recovery["availability"] == "available"
+    for name, reason in (
+        ("profit_factor", "missing_realized_trade_pnl"),
+        ("max_consecutive_loss", "missing_realized_trade_pnl"),
+        ("sortino", "missing_downside_target_policy"),
+    ):
+        metric = secondary[name]
+        assert isinstance(metric, dict)
+        assert metric["availability"] == "unavailable"
+        assert metric["reason"] == reason
     assert adapter.canonical_envelope_bytes(first) == adapter.canonical_envelope_bytes(
         second
     )
@@ -136,6 +171,22 @@ def test_time_evidence_tamper_fails_artifact_sha_chain(tmp_path: Path) -> None:
     shutil.copytree(BUNDLE, copied)
     evidence = copied / "time-evidence.json"
     evidence.write_bytes(evidence.read_bytes() + b" ")
+    with pytest.raises(
+        adapter.PortfolioPerformanceError, match="artifact_sha_mismatch"
+    ):
+        adapter.evaluate_corrected_bundle(copied, ACCOUNTING_REPORT)
+
+
+def test_simulation_tamper_fails_before_persisted_trade_count_is_used(
+    tmp_path: Path,
+) -> None:
+    _require_bundle()
+    copied = tmp_path / "bundle"
+    shutil.copytree(BUNDLE, copied)
+    simulation = copied / "simulation.json"
+    payload = json.loads(simulation.read_text(encoding="utf-8"))
+    payload["metrics"]["trade_count"] = 170
+    simulation.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(
         adapter.PortfolioPerformanceError, match="artifact_sha_mismatch"
     ):
