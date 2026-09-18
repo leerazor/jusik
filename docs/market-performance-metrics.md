@@ -37,6 +37,24 @@ reason code가 남는다.
 경우 기간과 NAV가 유효하면 total return, CAGR, MDD, Calmar와 hard filter는
 계산한다. hard filter는 별도 객체의 `passed: true|false|null`로 직렬화한다.
 
+## KOFR 원천 증거와 적용 근거의 분리
+
+`backend/jusik/kofr_source_evidence.py`는 공식 KOFR 공시의 단일 HTTPS 응답만
+bounded하게 수집하고, 요청 XML·content-addressed 원문·검증 결과와 전체 행 및
+정규화 projection을 고정한다. 요청 endpoint, task, action, 언어와
+`2025-09-11~2026-09-11` 범위는 코드에 고정되어 CLI에서 바꿀 수 없다. 표준
+라이브러리 transport는 redirect, proxy, auth, compression을 차단하고 retry 없이
+30초·5MiB 경계를 사용한다. 시도 기록을 네트워크 전에 배타적으로 생성하므로
+실패한 수집을 같은 audit 디렉터리에서 다시 보내지 않는다.
+
+이 artifact는 `RFR_PUBN_DT`, 게시 시각 원문(`PUBN_DTTM`), KOFR 수치 원문과
+정규화 Decimal을 보존하는 source evidence일 뿐이다. `PUBN_DTTM`의 timezone과
+instant, KOFR business-date 완전성은 검증하지 않으며 날짜 간격을 합성하지 않는다.
+따라서 이 근거는 현재 성과 evaluator의 annual risk-free input이나
+`missing_risk_free_evidence`를 제거하는 적용 근거가 아니며, NAV·수익률·Sharpe·
+readiness·strategy에 연결되지 않는다. 추후 적용 근거는 별도 작업에서 독립적으로
+정의하고 검증해야 한다.
+
 ## 동결 JSON 어댑터
 
 `market-performance-metrics-envelope/v1` envelope는 입력 파일 경로와 명시적인
