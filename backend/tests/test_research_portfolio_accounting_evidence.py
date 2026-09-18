@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from jusik.research_portfolio_accounting_evidence import (
+    CORRECTED_MANIFEST_SHA256,
     MANIFEST_SHA256,
     AccountingEvidenceError,
     _apply_close_marks,
@@ -27,6 +28,10 @@ BUNDLE = Path(
     "forward-simulation-time-evidence-run/run-gr68c4/"
     "bundle-continuous-official"
 )
+CORRECTED_BUNDLE = Path(
+    "/home/kwl/.local/share/jusik/portfolio-audit/"
+    "portfolio-calendar-2026-krx-holiday-correction/run-v3"
+)
 
 
 def _require_bundle() -> None:
@@ -42,6 +47,18 @@ def test_registered_bundle_consumes_every_row() -> None:
     assert report["consumed_nav_count"] == 1172
     assert report["max_residual_krw"] == "0"
     assert report["economic_evaluation"] == "not-evaluated"
+
+
+def test_corrected_calendar_bundle_consumes_every_row() -> None:
+    if not CORRECTED_BUNDLE.is_dir():
+        pytest.skip("corrected calendar audit bundle is not available")
+    report = verify_accounting_bundle(
+        CORRECTED_BUNDLE, expected_manifest_sha256=CORRECTED_MANIFEST_SHA256
+    )
+    assert report["trade_count"] == 171
+    assert report["nav_count"] == 1172
+    assert report["consumed_nav_count"] == 1172
+    assert report["max_residual_krw"] == "0"
 
 
 def test_external_decimal_context_is_not_mutated() -> None:

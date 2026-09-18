@@ -24,11 +24,14 @@ SCHEMA: Final = "portfolio-modeled-accounting-evidence/v1"
 MANIFEST_SHA256: Final = (
     "eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b"
 )
+CORRECTED_MANIFEST_SHA256: Final = (
+    "e5aa5af8a2c3a21696f395987216cae6ca002093a1138127449d09b54cf01600"
+)
 ENGINE_SHA256: Final = (
     "2a91ef9621fcb96b52179fb8fd22df7f74d6aab385b798333dd354594e61f70c"
 )
 SOURCE_SHA256: Final = (
-    "8a5444639ef754f6f88223f3f84623a403db7cf35dab570b78aee0e707474c8a"
+    "0aa01d5cba655220ab6548db3485589c59851974ee09c06463f9bb43b67c73d6"
 )
 EXPECTED_TRADES: Final = 171
 EXPECTED_NAV: Final = 1172
@@ -354,10 +357,10 @@ def _scan_artifact_paths(root: Path) -> dict[str, Path]:
 def _read_bundle(
     bundle_dir: Path, expected_manifest_sha256: str
 ) -> dict[str, dict[str, object]]:
-    if (
-        not _SHA.fullmatch(expected_manifest_sha256)
-        or expected_manifest_sha256 != MANIFEST_SHA256
-    ):
+    if not _SHA.fullmatch(expected_manifest_sha256) or expected_manifest_sha256 not in {
+        MANIFEST_SHA256,
+        CORRECTED_MANIFEST_SHA256,
+    }:
         raise AccountingEvidenceError("manifest_not_registered")
     try:
         if bundle_dir.is_symlink():
@@ -1085,6 +1088,7 @@ def main(argv: list[str] | None = None) -> int:
 
 __all__ = [
     "AccountingEvidenceError",
+    "CORRECTED_MANIFEST_SHA256",
     "DECIMAL_CONTEXT",
     "MANIFEST_SHA256",
     "SCHEMA",
