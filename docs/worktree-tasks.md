@@ -301,6 +301,7 @@
 - 검증: focused pytest 5개, Ruff check/format, strict mypy 통과. 실제 KOFR source completeness가 아직 `unverified`이므로 application manifest·성과 계산·`missing_risk_free_evidence` 제거는 보류합니다.
 - fail-closed 보강: `coverage_status=complete` manifest의 `business_dates`와 source rows 관측일 집합 exact equality를 요구합니다. 누락·추가 날짜는 `business_date_manifest_mismatch`로 거부하며, provider 전체 영업일 근거 부족 상태는 변경하지 않습니다. 보강 테스트 포함 application pytest 6개, Ruff/format, strict mypy 통과.
 - 추가 범위 진단: corrected NAV의 614개 UTC daily date는 `2024-04-24~2026-09-08`인데 현재 KOFR source는 `2025-09-11~2026-09-11`뿐이라 앞쪽 359개 날짜가 없습니다. 기간 축소·0 대체·자동 carry-forward 없이, 전체 기간 source를 별도 bounded 수집하거나 사전등록한 부분기간 평가를 선택해야 합니다.
+- 추가 날짜 대사: 겹침 구간 `2025-09-11~2026-09-08`의 NAV daily 255개 중 KOFR 직접 일치일은 242개, 13개는 NAV에만 존재합니다. source 누락과 시장별 휴장 차이를 구분할 근거가 없으므로 Sharpe 표본을 조용히 삭제하거나 carry-forward하지 않고 별도 calendar/application 정책을 요구합니다.
 
 ## r0-us-modeled-cost-evidence
 

@@ -40,6 +40,13 @@ manifest에서 조용히 누락하거나 manifest에 source 밖 날짜를 추가
 앞쪽 359개 NAV 날짜가 비어 있습니다. 따라서 현재 source로 전체 Sharpe를 계산할 수
 없으며, 기간을 조용히 줄이거나 결측을 0으로 대체하지 않습니다.
 
+동일 기간을 더 좁혀 대사해도 `2025-09-11~2026-09-08`의 NAV daily date는 255개이고
+KOFR와 직접 겹치는 날짜는 242개입니다. NAV에만 있고 KOFR 행이 없는 13개 날짜는
+`2025-10-03~2025-10-09`, `2026-02-17~2026-02-18`, `2026-03-02`,
+`2026-05-01`, `2026-05-05`, `2026-06-03`, `2026-07-17`, `2026-08-17`입니다.
+이 결손은 source 누락인지 시장별 휴장일 차이인지 현재 자료만으로 확정하지 않으며,
+자동 carry-forward나 NAV 표본 삭제 없이 별도 calendar/application 정책을 요구합니다.
+
 한국거래소의 표준 KOFR 설명서는 산정·재산정·검증 절차와 공시 주기·방법 변경을
 설명하지만, 이 자료 자체에는 이 artifact에 필요한 provider business-date 전체 목록과
 `PUBN_DTTM` timezone 계약이 없습니다. [공식 설명서](https://open.krx.co.kr/contents/OPN/01/01040505/%ED%91%9C%EC%A4%80_%ED%95%9C%EA%B5%AD%EB%AC%B4%EC%9C%84%ED%97%98%EC%A7%80%ED%91%9C%EA%B8%88%EB%A6%AC%5BKOFR%5D_%EC%84%A4%EB%AA%85%EC%84%9C.pdf)
