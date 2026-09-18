@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## roadmap-planner-wait-20260919
+
+- 상태: 정상 대기. planner attempt `11f1a5101c7649cfabb3a4d35123115e`가 `proposal=null`, `status=waiting`, exit 0으로 종료했습니다.
+- 근거: HEAD·roadmap SHA·mandate gate는 일치했으나 R1-04/R1-05의 초기 상태·가격·권리수량·effective/payment UTC 경계·전체 coverage 원천 자료가 없습니다.
+- 조치: 합성 자료·임의 retry·경제 acceptance·PAPER/live·주문을 수행하지 않았습니다. fail-closed 재개 조건은 승인된 SHA 고정 원천 자료와 versioned provenance 계약입니다.
+- 개발 기록: `docs/development-records/2026-09-19-roadmap-planner-wait-r1-evidence.md`.
+
 ## metric-diagnostic-contract
 
 - 상태: 완료. primary `CAGR/MDD/Sharpe/Calmar`를 유지하고 `Sortino`, `Profit Factor`, MDD 회복 기간, 최대 연속 손실을 diagnostic metrics로 mandate·roadmap에 명시했습니다.
