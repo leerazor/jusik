@@ -11,6 +11,13 @@
 - 현재 판정: planner attempt `0065eefe2e294823975e75c1e3947349`는 `waiting`입니다. R1-04/R1-05의 실제 원문 SHA·관측시각·권리/가격 근거가 없으므로 성공·retry task를 만들지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-18-roadmap-governance-activation.md`
 
+## r1-action-evidence-audit
+
+- 상태: 부분 근거 확인·경제 acceptance 대기. 기존 dividend overlay artifact에서 stable event/revision/evidence identity, ex/payment UTC 경계, 금액·통화·권리수량을 확인했지만 전체 coverage는 `false`입니다.
+- 근거: `/home/kwl/.local/share/jusik/portfolio-audit/20260910T100314Z-dividend-accounting/isolated-output/dividend-overlay-runs/28bb6a8aaf8097a4f41e6bf0e087393111c752daed43a675e5579b68f833597f/result.json`, result SHA `909e356c8b9588335ee435f636e1c16df4eace81aa7433505b4044cc61d5e9f1`.
+- 확인: NVDA 1건만 eligible(2024-06-11 ex, 2024-06-28 payment, USD 0.01, entitled quantity 30/38 scenario); 107 revisions 중 106건 excluded/current revision unreviewed. `prospective_validation_eligible=false`, `automatic_ledger_application=false`입니다.
+- 판정: 부분 후향 overlay를 R1-04/R1-05 완료나 prospective/PIT acceptance로 승격하지 않습니다. 개발 기록은 `docs/development-records/2026-09-18-r1-action-evidence-audit.md`입니다.
+
 ## portfolio-prospective-oos-gate
 
 - 상태: 관찰 중·OOS 판정 대기. 현재 코드와 등록 identity가 다르지만 등록 시점 immutable source snapshot을 재구성해 monitor를 그 snapshot으로 격리 실행합니다. 계약 기간이 아직 종료되지 않아 OOS go/no-go는 실행하지 않았습니다.
