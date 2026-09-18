@@ -39,6 +39,7 @@
 - 상태: 자료 게이트 차단·pilot 미실행
 - 2026-09-19 read-only `collect-status` 재검증: 기존 US approximate cache 84개 entry, `completed=false`, `ready=false`, 누락 자격증명 `ALPHA_VANTAGE_API_KEY`·`FRED_API_KEY`, exit code 2. 기존 cache와 frozen artifact는 변경하지 않았습니다.
 - 판정: 기존 frozen pilot의 independent cost/NAV 검증을 현재 R4 pilot 또는 strict/PIT 근거로 재명명하지 않습니다. 자격증명 또는 동등 provenance 응답이 준비되어 coverage·membership·FX·기업행동 계약을 통과하기 전에는 R4-01~R4-05와 경제 승격을 보류합니다. 개발 기록은 `docs/development-records/2026-09-19-r4-us-pilot-cache-readiness.md`입니다.
+- 후속 bounded 수집: frozen cache 복사본에서 405회 상한·`--resume` 수집은 exit 0이었으나, 1년 approximate pilot은 `insufficient`/`incomplete`로 종료했습니다. 35개 심볼의 기업행동 발생·관측 시각이 불확실해 trades/equity/metrics를 생성하지 않았습니다. audit은 `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r4-us-pilot-collection-5e966f4/`이며 pilot run SHA는 `c93ea954610ca0cfb94aeb577b1ebd7a4b343651fdc638e296fca2c8e38d22b1`입니다. R4-02~R4-05와 경제 승격은 보류합니다.
 
 ## portfolio-prospective-oos-gate
 
