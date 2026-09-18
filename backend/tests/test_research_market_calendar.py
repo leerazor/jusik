@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from scripts.generate_market_calendar import build_payload
 
 from jusik.research_market_calendar import (
     DEFAULT_CALENDAR_PATH,
@@ -15,6 +14,7 @@ from jusik.research_market_calendar import (
     MarketCalendarError,
     load_market_calendar,
 )
+from scripts.generate_market_calendar import build_payload
 
 
 def _payload() -> dict[str, Any]:

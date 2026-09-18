@@ -130,9 +130,7 @@ def build_payload(start: date, end: date) -> dict[str, Any]:
                     "reason": reason,
                     "source_urls": list(source_urls),
                 }
-                for day, (reason, source_urls) in sorted(
-                    XKRX_CLOSURE_OVERRIDES.items()
-                )
+                for day, (reason, source_urls) in sorted(XKRX_CLOSURE_OVERRIDES.items())
             ],
             {
                 "calendar": "XKRX",
