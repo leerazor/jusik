@@ -42,6 +42,14 @@
 - 검증: corrected generation/verification 1회씩, accounting `verified`(171 fills·1,172 NAV·residual 0), focused pytest 14개, Ruff/strict mypy 통과. verifier source SHA `0aa01d5cba655220ab6548db3485589c59851974ee09c06463f9bb43b67c73d6`.
 - 다음 의존 작업: metrics adapter의 UTC daily sampling 및 CAGR/MDD/Sharpe/Calmar 계산. KOFR 없이는 Sharpe unavailable이며 readiness 승격은 별도 판정입니다.
 
+## portfolio-performance-metrics-corrected-calendar
+
+- 상태: 완료. corrected bundle SHA chain을 검증하고 UTC daily/full chronology projection으로 CAGR·MDD·Calmar를 계산하는 historical approximate envelope를 생성했습니다. Sharpe는 `missing_risk_free_evidence`로 unavailable입니다.
+- 구현: `backend/jusik/research_portfolio_performance_metrics.py`, 테스트 `backend/tests/test_research_portfolio_performance_metrics.py`, commit `fb3976b9156d8227f23ab49047ed03a51a102c7d` / main `e9a0524`.
+- 입력: corrected manifest/accounting report/calendar identity만 허용. accounting verifier 정확히 1회 호출; old canonical/evaluator/readiness/runner는 변경하지 않았습니다.
+- 검증: full NAV 1,172, UTC daily 614, focused 및 회귀 pytest 52개, Ruff, strict mypy, diff 검사 통과.
+- 제한: modeled-cost historical approximate 결과입니다. strict/PIT/R4/경제 평가/후보 채택/readiness 승격이 아니며 KOFR·법정 비용·배당·세금 주장은 없습니다.
+
 ## portfolio-calendar-aware-time-input
 
 - 상태: 완료. optional 공식 calendar 시간 정책과 bounded lexical 한도를 local `main`에 통합했습니다.
