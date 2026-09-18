@@ -271,7 +271,7 @@
 
 ## kofr-risk-free-source-evidence
 
-- 상태: 차단. bounded collector 후보와 fake-transport 검증은 완성했으나 첫 공식 요청에서 초기 파서가 실제 KSD XML 구조를 잘못 가정해 성공 evidence를 만들지 못했습니다. 재요청 금지 조건 때문에 end-to-end 근거가 없습니다.
+- 상태: source evidence 기술 slice 완료·성과 적용 차단. 공식 원문 245행을 확보하고 parser 보완 후 offline replay로 evidence·verification·manifest를 생성해 local main에 통합했습니다. `missing_risk_free_evidence` 제거와 Sharpe/readiness 승격은 별도 application evidence가 없어 보류합니다.
 - 목표와 완료 조건: canonical NAV 통화인 KRW와 일치하는 KOFR 일별 금리의 공식 원문을 bounded하게 수집하고, 요청·응답·공표시각·원문 SHA·정규화 결과를 검증 가능한 evidence로 고정합니다. source evidence만 확정하며 `missing_risk_free_evidence` 제거, Sharpe 계산, readiness 승격은 하지 않습니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence` / `feat/kofr-risk-free-source-evidence`.
@@ -282,9 +282,9 @@
 - 금지: 과거 NAV/초기자본 timestamp 합성, KOFR을 interval return에 연결, scalar 축약, CAGR/MDD/Sharpe/Calmar 계산, readiness 누락 제거·등급 승격, 기존 evaluator/전략/runner/API 변경, PAPER/live/주문/서비스/config/remote 변경.
 - 중단 조건: 공식 단일 응답의 전체 수신·선언 행수·요청 범위·필수 공표 필드·재정규화를 검증할 수 없거나 source evidence를 적용 근거와 분리할 수 없으면 통합하지 않습니다. 별도 KOFR 영업일 달력이 없으므로 기대 영업일 완전성은 `unverified`로 고정하며 이를 완료 조건으로 주장하지 않습니다.
 - 포트·테스트 DB·출력 경로: 포트·DB 해당 없음. 테스트는 fake transport만 사용하고, 실제 bounded 수집은 작업 전용 audit 경로에 저장한 뒤 필요한 불변 artifact만 추적합니다.
-- 검증·결과: 후보 commit `3fcb553`; Terra 최종 review PASS(P1/P2 없음). 표준 라이브러리 fake harness, py_compile/compileall, diff 검사는 통과했습니다. 전용 환경이 없어 pytest/Ruff/mypy는 실행하지 못했습니다. 공식 추가 요청은 0회이며 readiness·metrics·runner는 변경하지 않았습니다.
-- 후속 조사 정정: 공식 `rate/rate.jsp`와 `/js/common.js`에서 화면의 짧은 `rate.process.RatePTask`가 `_doTask`의 `ksd.rfr.user.` prefix로 전송됨을 확인했습니다. 따라서 기존 전체 task는 유효하며 시험 교정 `720f6dc`는 `4b6490f`에서 복구했습니다. 두 번째 bounded 요청은 XML 선언만 반환되어 `malformed_xml`로 fail-closed했고, audit `/home/kwl/.local/share/jusik/portfolio-audit/20260919-kofr-task-correction`에 raw/failure를 보존했습니다. 이후 읽기 전용 브라우저 요청에서 `submissionid`와 `Referer`가 실제 응답을 받는 필수 컨텍스트임을 확인해 후보 `fe1c4e7`에 반영했습니다. 조건을 넣은 공식 요청은 245행을 반환했으나 vector metadata·공백·compact date parser 제한으로 `malformed_vector`가 발생했고 raw SHA `cd22f321c16bd95b939c88f141465417cd9f86ba67df8cc538bc1e56be835184`를 별도 audit에 보존했습니다. 후보 `c505f0d`의 offline replay와 fake transport 24개는 통과했으며 추가 네트워크 요청은 중단합니다.
-- 보존·재개: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`와 `feat/kofr-risk-free-source-evidence`를 미병합 보존합니다. parser 보완 후보 `c505f0d`를 기준으로 offline evidence 재구성 또는 새 공식 요청을 별도 승인·계획하기 전에는 통합하지 않습니다. 개발 기록은 `docs/development-records/2026-09-17-kofr-risk-free-source-evidence.md`, handoff는 루트 `HANDOFF.md`입니다.
+- 검증·결과: 최종 후보 `8dc93fc`, main 통합 `d96c609`; 표준 라이브러리 fake harness 25개, 실제 raw offline replay 245행, Ruff check/format, strict mypy, governance 회귀 35개가 통과했습니다. readiness·metrics의 적용 경계와 runner는 변경하지 않았습니다.
+- 후속 조사 정정: 공식 `rate/rate.jsp`와 `/js/common.js`에서 화면의 짧은 `rate.process.RatePTask`가 `_doTask`의 `ksd.rfr.user.` prefix로 전송됨을 확인했습니다. 따라서 기존 전체 task는 유효하며 시험 교정 `720f6dc`는 `4b6490f`에서 복구했습니다. 두 번째 bounded 요청은 XML 선언만 반환되어 `malformed_xml`로 fail-closed했고, audit `/home/kwl/.local/share/jusik/portfolio-audit/20260919-kofr-task-correction`에 raw/failure를 보존했습니다. 이후 읽기 전용 브라우저 요청에서 `submissionid`와 `Referer`가 실제 응답을 받는 필수 컨텍스트임을 확인해 후보에 반영했습니다. 조건을 넣은 공식 요청은 245행을 반환했으나 parser 제한으로 `malformed_vector`가 발생했고 raw SHA `cd22f321c16bd95b939c88f141465417cd9f86ba67df8cc538bc1e56be835184`를 보존했습니다. 최종 후보 `8dc93fc`의 offline replay로 evidence SHA `995f963074aa9fe2b83236b27d67f152ec4697780d851ba4ef14e9b3ed180337`를 생성했고 추가 네트워크 요청은 중단합니다.
+- 보존·재개: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`와 `feat/kofr-risk-free-source-evidence`를 보존하며 main 통합은 `d96c609`입니다. source evidence의 application evidence는 별도 작업으로 등록하기 전 자동 성과 계산에 연결하지 않습니다. 개발 기록은 `docs/development-records/2026-09-17-kofr-risk-free-source-evidence.md`, handoff는 루트 `HANDOFF.md`입니다.
 
 ## r0-us-modeled-cost-evidence
 
