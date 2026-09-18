@@ -27,3 +27,20 @@ runner는 [`research_portfolio_rebalance_cadence_cost_stress.py`](../../backend/
 실행 결과와 각 simulation JSON, ledger, failure record, hash manifest는 전용
 `portfolio-rebalance-cadence-cost-stress-v1-e0176881b1d34518805032c279324417`
 audit 디렉터리에 보존한다. 결과가 음성이어도 artifact hash와 한계를 보존하고 종료한다.
+
+## 재개 실행 결과 (2026-09-19)
+
+이전 attempt의 `source_paths` schema mismatch와 strict mypy fixture 오류를 별도
+수정·검증한 뒤, retry/resume가 아닌 새 audit에서 실행했다. 최신 구현은
+`input_paths`와 `source_paths`를 동일한 frozen manifest 계약으로 정규화한다.
+
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e017-retry-20260919c`
+- 결과: `evaluation_count=48`, `all_complete=true`, control 24회 + variant 24회
+- control exact replay, source/core/helper/runner hash, temporal/cadence/holiday/UTC,
+  risk close·recovery/cooldown 및 Decimal 회계 검사를 통과했다.
+- hash manifest 55개를 재계산해 모두 일치했고, 최대 회계 residual은
+  `2.4375e-31 KRW`로 `0.000001 KRW` 한도 이내다.
+- historical/PIT 결과이며 `automatic_trading_eligible=false`; PAPER/live 설정,
+  주문·DB·remote·GPU는 변경하지 않았다. 결과만으로 승자 선택·retuning·정책
+  승격을 하지 않는다.
+- 이전 실패 audit 두 개는 삭제·덮어쓰기·재사용하지 않고 그대로 보존한다.

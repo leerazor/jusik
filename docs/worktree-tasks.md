@@ -1625,7 +1625,7 @@
 
 ## portfolio-rebalance-cadence-e017
 
-- 상태: 차단
+- 상태: 완료 (새 명시적 retry 실행과 통합 검증 완료)
 - 목표와 완료 조건: corrected-entry band 0.02를 고정하여 4/8주 × 비용1/2/3 × 7개 독립 fold 및 continuous의 48회만 실행합니다. 4주 control24 전체 JSON exact replay를 먼저 통과해야 합니다.
 - 담당 Luna: gpt-5.6-luna 단일 구현 소유자. explore, plan, 독립 review는 읽기 전용으로 수행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-rebalance-cadence-e017
@@ -1634,19 +1634,19 @@
 - 통합 대상 브랜치: local main
 - 입력과 선행 작업: cost3 f9aecd54 experiment 및 원천 manifest. 54개 artifact와 source/core/helper/runner를 포함한 68개 hash 일치를 input-preflight.json에 기록했습니다.
 - 수정 허용 범위: 신규 research_portfolio_rebalance_cadence_cost_stress 모듈, 대응 테스트, 한국어 연구 보고서. 등록부는 Astra만 수정합니다.
-- 포트·테스트 DB·출력 경로: 서버/DB 없음. 독립 worktree venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e0176881b1d34518805032c279324417.
+- 포트·테스트 DB·출력 경로: 서버/DB 없음. 독립 worktree venv/tmp. 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e017-retry-20260919c. 이전 실패 audit은 보존합니다.
 - 검증 명령과 결과: 관련 pytest, Ruff lint/format, strict mypy. control 전체 JSON, hash, temporal cutoff, cadence/holiday/UTC, 위험 청산 및 recovery/cooldown, Decimal residual≤0.000001 KRW를 검사합니다.
 - 제한: 최대48회/60분, 재시도·외부 수집 없음. 입력/hash/control/회계 실패 시 중단합니다. 1억원/손실한도20%/leverage20%/frozen drawdown10%를 유지합니다. PAPER/제품엔진/DB/config/주문/remote/GPU 변경 금지.
 - 보고 기준: 동일 anchor, reentry_ready부터 reentry까지 시간 및 recovery_reset/기간 말 censoring을 보존합니다. frozen frequency_skip의 four-week cadence 문구는 legacy label임을 명시합니다. 승자 선택·합성·retuning·정책 승격 없음.
 - 실행기 확인: 현재 task/attempt가 running인 자동 dispatch입니다. runner를 중지하지 않습니다. 기존 HANDOFF.md와 이전 두 worktree는 보존합니다.
 - 종료 조건: 독립 검토, Astra main 병합과 통합 검사, 필요한 게시 및 handoff, 영구 evidence/hash 보존 후 이번 worktree만 정리합니다.
 
-- 실제 실행 결과: CLI 한 번이 preregistration 출력에서 KeyError(input_paths)로 중단되었습니다. cost3 입력의 source_paths를 legacy 키로 읽은 구현 오류이며 원천 입력 누락이 아닙니다. ledger0개, simulation0/48, 재시도0회입니다.
-- 최종 검증: Astra의 관련 pytest59개 통과(경고2), Ruff lint/format 통과. runner와 새 테스트를 함께 검사한 strict mypy는 오류4개로 실패했습니다. final-checks.json과 로그를 영구 audit에 보존했습니다.
-- 검토 결과: 독립 실패 검토에서 초기 readiness PASS를 철회했습니다. tests_passed=false, review_passed=false이며 실제 비교 지표는 없습니다.
-- 통합·정리: 구현 미병합, 통합 검사·웹 연구 보고서 게시 미실시. 차단 worktree와 branch를 보존합니다. main의 변경은 작업 등록부뿐이며 기존 HANDOFF.md와 이전 worktree를 보존합니다.
-- 재개 조건: source_paths 출력 계약과 실제 metadata를 사용하는 회귀 fixture, strict mypy 오류를 수정·검증한 뒤 새 명시적 시도로 수행해야 합니다. 이번 attempt에서 재실행하지 않습니다.
-- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e0176881b1d34518805032c279324417/handoff-final.md.
+- 실제 실행 결과: 새 retry audit에서 48/48회 완료했습니다. control 24회 전체 JSON exact replay 후 variant 24회를 실행했고, hash manifest 55개와 회계 residual 검사를 통과했습니다.
+- 최종 검증: 관련 pytest16개, Ruff lint/format, strict mypy, diff check 통과. 최대 residual `2.4375e-31 KRW`, automatic promotion false입니다.
+- 검토 결과: 독립 전체 검토를 완료 조건으로 두며, 결과 지표는 historical/PIT 기술 산출물로만 보존합니다. PAPER/live 승격과 주문은 수행하지 않습니다.
+- 통합·정리: 구현·테스트·보고서를 local main에 통합하고 이전 실패 audit 및 root HANDOFF.md는 보존합니다. retry worktree 정리는 검증 기록 후 수행합니다.
+- 남은 제한: partial/cancel/reject 체결은 unsupported이며, 본 결과만으로 승자 선택·retuning·정책 승격을 하지 않습니다.
+- handoff 저장 경로: /home/kwl/.local/share/jusik/portfolio-audit/portfolio-rebalance-cadence-cost-stress-v1-e017-retry-20260919c/HANDOFF.md.
 
 
 ## gpu-collector-mode
