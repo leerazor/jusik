@@ -21,11 +21,23 @@ SOURCE_URLS = (
     "https://www.samsungpop.com/ux/kor/customer/notice/notice/noticeViewContent.do?MenuSeqNo=21587",
     "https://securities.koreainvestment.com/main/customer/notice/Notice.jsp?cmd=TF04ga000002&num=45644",
     "https://www.moe.go.kr/boardCnts/viewRenew.do?boardID=294&boardSeq=100526&lev=0&m=0204",
+    "https://www.bok.or.kr/eng/main/contents.do?menuNo=400373",
+    "https://www.yna.co.kr/view/AKR20260520064251008",
 )
 XKRX_CSAT_OVERRIDES = {
     date(2023, 11, 16): SOURCE_URLS[3],
     date(2024, 11, 14): SOURCE_URLS[4],
     date(2025, 11, 13): SOURCE_URLS[5],
+}
+XKRX_CLOSURE_OVERRIDES: dict[date, tuple[str, tuple[str, ...]]] = {
+    date(2026, 6, 3): (
+        "2026 regional election day; KRX markets closed",
+        (SOURCE_URLS[7], SOURCE_URLS[8]),
+    ),
+    date(2026, 7, 17): (
+        "Constitution Day; KRX markets closed",
+        (SOURCE_URLS[7], SOURCE_URLS[8]),
+    ),
 }
 XKRX_UNCONFIRMED = {date(2026, 11, 19): SOURCE_URLS[6]}
 
@@ -52,7 +64,9 @@ def _entries(name: str, start: date, end: date) -> list[dict[str, str]]:
     current = start
     while current <= end:
         times = sessions.get(current)
-        if name == "XKRX" and current in XKRX_UNCONFIRMED:
+        if name == "XKRX" and current in XKRX_CLOSURE_OVERRIDES:
+            result.append({"date": current.isoformat(), "state": "closed"})
+        elif name == "XKRX" and current in XKRX_UNCONFIRMED:
             result.append({"date": current.isoformat(), "state": "unavailable"})
         elif times is None:
             result.append({"date": current.isoformat(), "state": "closed"})
@@ -107,6 +121,18 @@ def build_payload(start: date, end: date) -> dict[str, Any]:
                     "source_url": source_url,
                 }
                 for day, source_url in sorted(XKRX_CSAT_OVERRIDES.items())
+            ],
+            *[
+                {
+                    "calendar": "XKRX",
+                    "date": day.isoformat(),
+                    "state": "closed",
+                    "reason": reason,
+                    "source_urls": list(source_urls),
+                }
+                for day, (reason, source_urls) in sorted(
+                    XKRX_CLOSURE_OVERRIDES.items()
+                )
             ],
             {
                 "calendar": "XKRX",
