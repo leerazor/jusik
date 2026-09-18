@@ -50,7 +50,7 @@ def test_missing_first_valid_open_bar_is_incomplete() -> None:
 
     class Item:
         instrument = Instrument()
-        bars_by_date = {}
+        bars_by_date: dict[date, object] = {}
 
     with pytest.raises(IncompleteSessionError, match="missing_first_valid_open_bar"):
         CalendarAdapter().require_complete_bars(

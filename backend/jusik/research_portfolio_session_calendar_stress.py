@@ -596,6 +596,13 @@ def replay_trade_ledger(
             raise CalendarStressError("ledger_terminal_quantity_mismatch")
         terminal += Decimal(position.quantity) * position.local_close * position.fx_rate
     residual += abs(cash + terminal - simulation.metrics.final_equity_krw)
+    if not simulation.equity:
+        raise CalendarStressError("ledger_missing_equity_series")
+    terminal_equity = simulation.equity[-1]
+    residual += abs(Decimal(terminal_equity.cash_krw) - cash)
+    residual += abs(
+        Decimal(terminal_equity.equity_krw) - simulation.metrics.final_equity_krw
+    )
     if residual > Decimal("0.000001"):
         raise CalendarStressError(f"ledger_residual:{residual}")
     return Decimal(residual)
