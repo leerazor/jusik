@@ -320,6 +320,7 @@ def test_disabled_governance_blocks_run_resume_and_cli_without_state_mutation(
     tmp_path: Path,
 ) -> None:
     repo = _tracked_repo(tmp_path)
+    _make_self_consistent_governance_swap(repo, False)
     config = RunnerConfig(
         repo=repo,
         state_dir=tmp_path / "state",
@@ -361,9 +362,6 @@ def test_dirty_governance_swap_blocks_queued_task_before_claim(
     from jusik import development_runner
 
     repo = _tracked_repo(tmp_path)
-    _make_self_consistent_governance_swap(repo, True)
-    subprocess.run(["git", "add", "docs"], cwd=repo, check=True)
-    subprocess.run(["git", "commit", "-qm", "enable governance"], cwd=repo, check=True)
     config = RunnerConfig(
         repo=repo,
         state_dir=tmp_path / "state",
@@ -405,9 +403,6 @@ def test_dirty_governance_swap_blocks_planner_before_enqueue(
     from jusik import development_runner
 
     repo = _tracked_repo(tmp_path)
-    _make_self_consistent_governance_swap(repo, True)
-    subprocess.run(["git", "add", "docs"], cwd=repo, check=True)
-    subprocess.run(["git", "commit", "-qm", "enable governance"], cwd=repo, check=True)
     config = RunnerConfig(
         repo=repo,
         state_dir=tmp_path / "state",

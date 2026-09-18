@@ -190,7 +190,7 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     validated = validate_mandate(path.parents[1])
     assert governance["schema_version"] == validated.schema_version
     assert governance["policy_version"] == validated.policy_version
-    assert validated.dispatch_enabled is False
+    assert validated.dispatch_enabled is True
     assert _tracked_research_mandate(path.parents[1]) == raw_content
 
 

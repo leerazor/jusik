@@ -78,12 +78,12 @@ def _refresh_json_hash(repo: Path) -> None:
     hashes.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def test_validates_additive_governance_and_disabled_dispatch(tmp_path: Path) -> None:
+def test_validates_additive_governance_and_enabled_dispatch(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
 
     result = validate_mandate(repo)
 
-    assert result.dispatch_enabled is False
+    assert result.dispatch_enabled is True
     manifest = (repo / "docs" / "market-research-mandate.sha256").read_text(
         encoding="utf-8"
     )
@@ -98,8 +98,7 @@ def test_validates_additive_governance_and_disabled_dispatch(tmp_path: Path) -> 
         ).encode("utf-8")
     ).hexdigest()
     assert f"{GOVERNANCE_PROJECTION_HASH_KEY} {governance_digest}" in manifest
-    with pytest.raises(MandateGovernanceError, match="disabled"):
-        validate_dispatch_gate(repo)
+    assert validate_dispatch_gate(repo).digest == result.digest
 
 
 def test_rejects_duplicate_json_keys(tmp_path: Path) -> None:
@@ -171,14 +170,25 @@ def test_rejects_legacy_field_mutation_even_with_manifest_updates(
 def test_rejects_governance_mutation_with_stale_projection(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     path = repo / "docs" / "research-mandate.json"
+    manifest = repo / "docs" / "market-research-mandate.sha256"
+    original_governance_line = next(
+        line
+        for line in manifest.read_text(encoding="utf-8").splitlines()
+        if line.startswith(f"{GOVERNANCE_PROJECTION_HASH_KEY} ")
+    )
     path.write_bytes(
         path.read_bytes().replace(
-            b'"dispatch_enabled": false', b'"dispatch_enabled": true'
+            b'"dispatch_enabled": true', b'"dispatch_enabled": false'
         )
     )
     _refresh_json_hash(repo)
-    hashes = repo / "docs" / "market-research-mandate.sha256"
-    assert "#governance-object" in hashes.read_text(encoding="utf-8")
+    lines = [
+        original_governance_line
+        if line.startswith(f"{GOVERNANCE_PROJECTION_HASH_KEY} ")
+        else line
+        for line in manifest.read_text(encoding="utf-8").splitlines()
+    ]
+    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     with pytest.raises(MandateGovernanceError, match="invalid"):
         validate_mandate(repo)
