@@ -2,12 +2,14 @@
 
 ## portfolio-prospective-oos-gate
 
-- 상태: 차단(대기). 사전등록된 untouched prospective 구간이 아직 종료되지 않아 OOS go/no-go를 실행하지 않았습니다.
+- 상태: 차단. 관찰 monitor 구현은 준비했지만 사전등록 code identity가 현재 코드와 달라 fail-closed 되었고, 계약 기간도 아직 종료되지 않아 OOS go/no-go를 실행하지 않았습니다.
 - 목표: R5의 bounded IS·validation·walk-forward 이후 최종 untouched OOS를 단회 판정하고, 통과 전에는 stress/PAPER 승격을 금지합니다.
 - 고정 계약: `research_prospective_registration`, 평가 구간 `[2026-09-14, 2026-11-09)`, source run `fa0907ecfe86b19836881e5a78a874925fc611978ffe31064eacc82a0a46f687` 및 등록된 session/policy/code/calendar identity.
 - 확인 결과: 기존 historical robustness는 7 folds/147 evaluations의 과거 반복 검증이며 새 미래 holdout이 아닙니다. corrected calendar bundle도 2026-09-08에 끝나는 historical approximate simulation이므로 OOS 입력으로 재사용하지 않습니다.
 - 차단 사유: 2026-09-18 현재 prospective 구간이 진행 중입니다. 종료 전 수신 `[start, end)` 자료, fill provenance, 시작·종료 raw boundary artifact, 승인된 경계 NAV와 `evaluation_inputs_complete=true`를 확보할 수 없습니다.
 - 재개 조건: 2026-11-09 이후 고정 계약의 자료·시각·SHA를 읽기 전용으로 검증하고, 경계 NAV 승인과 completeness를 확인한 뒤 단 한 번 OOS go/no-go를 계산합니다. 실패 시 stress/PAPER를 진행하지 않습니다.
+- 자동화: `research_boundary_monitor`는 `BoundaryCaptureMonitor`만 사용해 start/end artifact를 캡처하고 end artifact 생성 뒤 종료합니다. `research_app`, 개발 runner, optimizer, 주문 경로를 시작하지 않습니다. unit 템플릿은 `deploy/systemd/jusik-prospective-boundary-monitor.service`입니다. 현재 registration status가 `identity_mismatch/registered_identity_changed`이므로 unit은 설치·활성화하지 않았습니다.
+- 추가 차단 근거: 등록 SHA `research_portfolio_engine.py=8790405075a22548f7490c8d4cced8845d3067cba647568a2169a908fe339ed2`, `research_market_calendar.py=edca750738bf69bb58b27ee15a0985a3434707ba1daad06719c26a4d17a54d9a`; 현재 SHA가 각각 다릅니다. 계약을 사후 갱신하거나 현재 corrected code로 소급 실행하지 않습니다.
 - 금지: historical 결과 재명명, corrected bundle 재사용, holdout 반복 평가·retune, runner/service/network/order/PAPER/live 변경.
 - 개발 기록: `docs/development-records/2026-09-18-portfolio-prospective-oos-gate.md`
 
