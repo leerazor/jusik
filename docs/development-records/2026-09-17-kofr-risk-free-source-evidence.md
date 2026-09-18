@@ -14,6 +14,7 @@
 - 후보 `3fcb553`은 실제 관측 구조, bounded Decimal 무손실 정규화, 정확한 XML tag·attribute·text 계약, request/raw SHA, descriptor-relative `O_NOFOLLOW`와 상위 symlink 거부를 구현했습니다.
 - 읽기 전용 브라우저 검증에서 화면은 `submissionid=ksd.rfr.user.rate.process.RatePTask.getGridRateExcelList`, `Referer=https://www.kofr.kr/rate/rate.jsp?sMenuId=002001&sLangCd=01`, `Accept: application/xml`을 함께 보내며 동일 endpoint가 HTTP 200과 실제 표를 반환하는 것을 확인했습니다. 이 조건을 후보 `fe1c4e7`에 반영하고 fake transport 회귀를 22개로 늘렸습니다.
 - 브라우저 세션의 실제 요청 body는 `getGridRateList`/`getGridRateExcelList`와 `SEARCH_START_DATE`, `SEARCH_END_DATE`, `LANG`을 사용했습니다. 이 검증은 화면 읽기와 요청 조건 확인만 수행했으며 원문을 audit에 저장하거나 성과에 적용하지 않았습니다.
+- 조건을 반영한 단일 공식 요청은 245행 원문을 받았지만 초기 parser가 `beforeServletCall` 등 vector metadata에서 `malformed_vector`로 fail-closed했습니다. 원문 SHA는 `cd22f321c16bd95b939c88f141465417cd9f86ba67df8cc538bc1e56be835184`이며 `/home/kwl/.local/share/jusik/portfolio-audit/20260919-kofr-browser-context/`에 보존했습니다. 후보 `c505f0d`가 metadata, 선행 공백, compact date를 허용하고 해당 원문을 네트워크 없이 245행으로 재검증했습니다.
 - 실패 후 공식 요청을 반복하지 않았습니다. 성공 evidence JSON이 없으므로 후보를 local `main`에 병합하지 않습니다.
 - KOFR source evidence는 향후에도 interval 적용 근거가 아닙니다. 초기자본/NAV UTC timestamp, 공표 instant·timezone, 기대 영업일 완전성, scalar 축약과 복리 정책을 별도로 증명해야 합니다.
 
@@ -28,7 +29,7 @@
 - 표준 라이브러리 fake-transport harness — 정상/위협/Decimal/path/XML 회귀 통과.
 - `python -m py_compile`, `python -m compileall`, `git diff --check` — 통과.
 - Terra 독립 재검토 — `3fcb553` PASS, P1/P2 없음.
-- 후보 `fe1c4e7`에서 main의 Python 3.13 환경으로 KOFR pytest 22개, Ruff check/format, diff 검사를 통과했습니다.
+- 후보 `c505f0d`에서 main의 Python 3.13 환경으로 KOFR pytest 24개, 실제 원문 offline replay 245행, Ruff check/format, diff 검사를 통과했습니다.
 - 공식 요청: 2회. 첫 요청은 parser 계약 실패, 두 번째 요청은 XML 선언만 반환되어 `malformed_xml`로 fail-closed했습니다. 두 번째 audit의 raw SHA와 failure 기록을 보존했습니다.
 
 ## 안전·운영 상태
@@ -39,5 +40,5 @@
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260917-kofr-risk-free-source-evidence`; `attempt.json`과 `request.xml`만 존재합니다.
 - 보존: `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`, branch `feat/kofr-risk-free-source-evidence`, candidate `fe1c4e7` (prior `3fcb553` preserved).
-- 남은 작업·차단 조건: 브라우저 조건을 반영한 후보는 준비됐지만 성공 raw/evidence가 아직 없습니다. 동일 endpoint 재요청은 새 승인·계획 없이는 수행하지 않으며, 허용되면 후보 `fe1c4e7`을 기준으로 단 한 번 검증합니다. 그 전에는 local `main` 병합, Sharpe·readiness·성과 적용을 하지 않습니다.
+- 남은 작업·차단 조건: 실제 raw는 확보했지만 parser 실패 시점에 collector가 evidence JSON을 만들지 못했으므로 성공 source evidence는 아직 없습니다. parser 보완 후 네트워크 재요청은 하지 않았으며, 후보 `c505f0d`를 기준으로 별도 승인된 offline evidence 재구성 또는 단 한 번의 재수집 계획이 필요합니다. 그 전에는 local `main` 병합, Sharpe·readiness·성과 적용을 하지 않습니다.
 - 다음 시작: KOFR 재수집과 독립적으로, 명시적 initial-capital event와 per-NAV UTC timestamp를 생성하는 forward-only simulation artifact를 조사·설계합니다.
