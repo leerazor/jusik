@@ -2033,7 +2033,7 @@
 
 ## portfolio-symbol-cap-episodes-0e01
 
-- 상태: 진행 (최신 canonical mandate pin으로 재개)
+- 상태: 완료 (최신 canonical mandate pin으로 재개한 retry)
 - 목표와 완료 조건: 저장된 32개 셀의 symbol cap 초과 관측 351회를 종목별 episode로 재구성하고 같은 셀의 비용 반영 성과와 연결합니다. 입력 SHA 검증, 분석 1회와 결정성 재검산 1회, 독립 검토, local main 통합 검사와 영구 handoff를 완료합니다.
 - 담당 Luna: 전용 Luna 구현 작업자 1명. explore 완료 후 plan을 진행합니다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-portfolio-symbol-cap-episodes-20260919
@@ -2045,6 +2045,9 @@
 - 포트·테스트 DB·출력 경로: 포트와 DB 미사용. 워크트리 자체 Python 3.13 venv. 기존 audit `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-breach-episodes-v1-0e018f57a6b14e3587dc5dfca65985d8`를 보존하고 retry audit은 `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-episodes-v1-20260919`에 저장합니다.
 - 검증 명령과 결과: 관련 pytest, Ruff check/format, strict mypy. 32셀 CPU 분석 1회와 결정성 재검산 1회 합계 900초 이내. Historical simulation·수집·GPU·후보 탐색 0회.
 - 검토 결과와 남은 문제: 원본 배열 순서를 보존하며 동일 UTC 시각과 동일 값의 정상 반복도 유지합니다. 거래와 관측의 동일시각 선후 및 관측 사이 회복은 추정하지 않습니다. 기존 PAPER10%, 사용자 MDD20%·레버리지20%, 1억원·인출 없음과 짧은 이력/PIT 한계를 보존합니다.
+- 결과 커밋: `220abd1288f069b947ed4246e672682109ce6bbf`, 고정 episode 계약 보완 `ab9eed58feadfdbd26a2bc3c6c4425a952c8c34d`; main 통합 커밋은 아래 기록합니다.
+- 검증 결과: pytest 6개, Ruff check/format, strict mypy, fixed archive 재분석 및 결정성 replay SHA `34a9eeb0c8151067a8bb745f3be4f7f38f26c6f553b13e774417db8ddcf34320` 통과. 독립 review PASS.
+- audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-symbol-cap-episodes-v1-20260919/HANDOFF.md` 및 `analysis-1/analysis.json`, `analysis-2/analysis.json`, `deterministic-replay.json` 보존.
 
 ## investor-web
 
