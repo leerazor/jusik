@@ -1,5 +1,15 @@
 # 워크트리 작업 등록부
 
+## roadmap-governance-activation
+
+- 상태: 진행·승인된 investment-roadmap 전용 runner 자동 실행 준비 완료. 일반 research scope와 PAPER/live·주문 경로는 계속 비활성입니다.
+- 목표: 승인된 경제 목표에 맞춰 governance와 전용 runner를 동기화하고, fail-closed 검증을 통과한 뒤 다음 미완료 roadmap slice를 자동 계획·실행합니다.
+- 동기화: `docs/research-mandate.json` dispatch enabled, 전체 JSON SHA-256 `ceca2ee1d3e86cf79822b6b4a1606ac6699405f93eaf302fcf3842247f5de7ac`, governance projection SHA `624599f24864201fce981ed2e1407db3cf53eb3ad2da306bf3e7cc0b25031adb`.
+- 전용 설정: `~/.config/jusik/roadmap-development-runner.json`의 `planning_enabled=true`, `scope=investment-roadmap`, `automatic_recovery=false`; user timer는 승인 검증 후 활성화합니다.
+- 안전 범위: runner는 git clean·mandate SHA·dispatch gate를 확인하고 roadmap slice만 다룹니다. 실제 주문, PAPER/live 승격, network collection, remote push는 자동화하지 않습니다.
+- 보류 해소: 2026-09-17 drain 후 생성된 operator hold는 승인 전 재개 금지 기록이므로 원문을 보존한 채 archive로 이동하고, 재개 후 service/timer 상태와 planner 결과를 확인합니다.
+- 개발 기록: `docs/development-records/2026-09-18-roadmap-governance-activation.md`
+
 ## portfolio-prospective-oos-gate
 
 - 상태: 관찰 중·OOS 판정 대기. 현재 코드와 등록 identity가 다르지만 등록 시점 immutable source snapshot을 재구성해 monitor를 그 snapshot으로 격리 실행합니다. 계약 기간이 아직 종료되지 않아 OOS go/no-go는 실행하지 않았습니다.
