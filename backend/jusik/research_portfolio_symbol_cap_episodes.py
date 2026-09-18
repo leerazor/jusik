@@ -22,6 +22,7 @@ RESULTS_SHA256 = "cada27b0e5518b8384e521235bc6fc1e4c5a029b9c4f8ff3db173cde41f267
 EXPECTED_MANIFEST_ENTRIES = 72
 EXPECTED_CELLS = 32
 EXPECTED_BREACH_OBSERVATIONS = 351
+EXPECTED_EPISODES = 13
 SYMBOL_CAP = Decimal("0.20")
 
 
@@ -364,6 +365,9 @@ def analyze(archive: Path, repo_root: Path) -> dict[str, Any]:
         for cell in cells:
             for episode in cell["episodes"]:
                 symbols[episode["symbol"]]["episode_count"] += 1
+        episode_count = sum(int(cell["episode_count"]) for cell in cells)
+        if episode_count != EXPECTED_EPISODES:
+            raise EpisodesError("episode_count_mismatch")
         manifest_after, manifest_sha_after = _manifest(archive)
         if manifest_after != manifest or manifest_sha_after != manifest_sha:
             raise EpisodesError("input_changed_during_analysis")
@@ -378,7 +382,7 @@ def analyze(archive: Path, repo_root: Path) -> dict[str, Any]:
             "symbol_cap": format(SYMBOL_CAP, "f"),
             "cell_count": len(cells),
             "breach_observation_count": len(all_records),
-            "episode_count": sum(int(cell["episode_count"]) for cell in cells),
+            "episode_count": episode_count,
             "cells": cells,
             "symbol_summary": list(symbols.values()),
             "input_pins": {

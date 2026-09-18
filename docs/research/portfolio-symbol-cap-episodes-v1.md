@@ -8,7 +8,7 @@
 
 ## 결과
 
-총 351개 cap-breach 관측을 13개 episode로 재구성했다. 초과는 NVDA 158개 관측·10개 episode, MSFT 193개 관측·3개 episode뿐이었다. 최대 비중은 NVDA `0.2058790572161882352`와 MSFT `0.2313109643362605899`였다.
+총 351개 cap-breach 관측을 고정 계약 `EXPECTED_EPISODES=13`에 따라 13개 episode로 재구성했다. 초과는 NVDA 158개 관측·10개 episode, MSFT 193개 관측·3개 episode뿐이었다. 최대 비중은 NVDA `0.2058790572161882352`와 MSFT `0.2313109643362605899`였다.
 
 | cell | cap 관측 | episode | 비용 반영 순수익 % | MDD % | 거래비용 KRW | FX 비용 KRW |
 |---|---:|---:|---:|---:|---:|---:|

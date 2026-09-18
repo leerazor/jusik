@@ -7,6 +7,12 @@ import pytest
 
 import jusik.research_portfolio_symbol_cap_episodes as module
 
+FIXED_ARCHIVE = Path(
+    "/home/kwl/.local/share/jusik/portfolio-audit/"
+    "portfolio-volatility15-cadence-cost-tradeoff-v1-527025c895ad4d54a9559469434162a8/"
+    "experiment"
+)
+
 
 def _evaluation() -> dict[str, Any]:
     return {
@@ -87,6 +93,16 @@ def test_cap_boundary_is_not_a_breach(tmp_path: Path) -> None:
     assert cell["breach_observation_count"] == 1
     assert [record["symbol"] for record in records] == ["BBB"]
     assert Decimal(records[0]["excess_weight"]) > 0
+
+
+@pytest.mark.skipif(
+    not FIXED_ARCHIVE.is_dir(), reason="fixed offline archive is unavailable"
+)
+def test_fixed_archive_reconstructs_expected_episode_count() -> None:
+    result = module.analyze(FIXED_ARCHIVE, Path(__file__).parents[2])
+    assert result["cell_count"] == module.EXPECTED_CELLS
+    assert result["breach_observation_count"] == module.EXPECTED_BREACH_OBSERVATIONS
+    assert result["episode_count"] == module.EXPECTED_EPISODES == 13
 
 
 @pytest.mark.parametrize(
