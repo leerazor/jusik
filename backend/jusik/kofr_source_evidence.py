@@ -29,6 +29,8 @@ from typing import Final, Protocol, cast
 ENDPOINT: Final = "https://www.kofr.kr/websquare/engine/proworks/callServletService.jsp"
 TASK: Final = "ksd.rfr.user.rate.process.RatePTask"
 ACTION: Final = "getGridRateExcelList"
+SUBMISSION_ID: Final = f"{TASK}.{ACTION}"
+REFERER: Final = "https://www.kofr.kr/rate/rate.jsp?sMenuId=002001&sLangCd=01"
 LANG: Final = "kor"
 START_DATE: Final = "20250911"
 END_DATE: Final = "20260911"
@@ -658,6 +660,10 @@ def collect(
             "Content-Type": "application/xml; charset=utf-8",
             "Accept": "application/xml",
             "Accept-Encoding": "identity",
+            # Match the WebSquare request context. Without these fields the
+            # endpoint can return only an XML declaration with HTTP 200.
+            "submissionid": SUBMISSION_ID,
+            "Referer": REFERER,
         },
     )
     _check_response(response)

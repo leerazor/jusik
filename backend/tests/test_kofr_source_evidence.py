@@ -14,7 +14,9 @@ from jusik.kofr_source_evidence import (
     ENDPOINT,
     FIELDS,
     LANG,
+    REFERER,
     START_DATE,
+    SUBMISSION_ID,
     TASK,
     HttpResponse,
     KofrEvidenceError,
@@ -85,6 +87,15 @@ def test_request_is_fixed_and_parser_preserves_decimal_text() -> None:
     zero_rows, zero_projection = parse_response(_xml(rate="-0.0000"))
     assert zero_rows[0]["RFR_PUBN_MR"] == "-0.0000"
     assert zero_projection[0]["rate_decimal"] == "0"
+
+
+def test_collection_uses_websquare_request_context(tmp_path: Path) -> None:
+    transport = FakeTransport(_xml())
+    collect(transport, audit_root=tmp_path / "audit")
+    assert transport.seen is not None
+    headers = {key.lower(): value for key, value in transport.seen[3].items()}
+    assert headers["submissionid"] == SUBMISSION_ID
+    assert headers["referer"] == REFERER
 
 
 @pytest.mark.parametrize(
