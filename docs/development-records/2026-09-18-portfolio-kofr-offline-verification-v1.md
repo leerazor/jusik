@@ -30,3 +30,13 @@ Luna는 전용 환경에서 Python 3.13.15를 확인했습니다. `bwrap --unsha
 ## 독립 검토와 최종 보충
 
 Terra review는 미통과입니다. 원본 보고서의 delivery 실패 누락·용량 분리 측정 부족·최종 artifact 미생성·과거 clean 상태 증거 누락을 지적했습니다. 원본 REVIEW.md와 보고서를 보존하고 `supervisor-final-supplement.json`에 정정 및 재개 조건을 남겼습니다. `budget-final.json`은 환경/cache와 보고서를 별도 측정합니다. 최종 manifest는 저장을 마친 증거의 SHA를 고정합니다. 보충 기록을 재검토해 통과한 것으로 주장하지 않으며 `review_passed=false`를 유지합니다. review agent routing post 자체는 PASS이고 code agent routing post는 FAIL입니다.
+
+## 재시도 4f728844 — 2026-09-18
+
+현재 시도 `4f728844d75b4f829cf64277d6144aab`도 차단입니다. 동일 후보와 기존 소유 워크트리를 재사용했고, 고정 입력 6개의 Git bytes 및 SHA를 확인했습니다. 소유 환경에서 누락 의존성을 복구했으며 Luna는 pytest 20개 통과와 Ruff check 52건 실패를 보고했습니다. Ruff format 및 strict mypy는 실패 중단 조건에 따라 미실행입니다. 후보 코드는 수정하지 않았습니다.
+
+code routing post는 `first child assistant response lacks routing receipt`로 실패했습니다. 이 게이트를 우회하지 않으며 결과를 완료 처리하지 않습니다. 검사 로그의 원문 보존 여부는 독립 검토 대상으로 남겼고, 최종 검토·보충은 새 audit에 보존합니다. collector 코드 수정이 범위 밖이므로 lint 실패를 자동 implementation 복구로 분류하지 않습니다.
+
+새 audit은 `/home/kwl/.local/share/jusik/portfolio-audit/kofr-offline-4f728844`입니다. 과거 실패·위반과 공식 성공 raw/evidence 부재, 금융/data acceptance 차단, PAPER10%를 유지합니다. 금융 실험·수집·GPU·PAPER engine/DB·서비스·설정·remote·주문 변경은 없습니다. 성과 수치가 없어 웹 publication은 해당 없습니다. 후보 branch/worktree는 미병합 보존합니다. 재개하려면 별도로 허용된 범위에서 lint 결함 처리와 새로운 전체 검사·원문 로그·독립 검토·routing gate 통과가 필요합니다.
+
+독립 Terra 검토는 미통과입니다. 요약 로그와 원문 출력의 구분, routing 실패 누락, 최종 예산 측정 누락을 지적했습니다. 감독자는 원본 child tool 출력 두 건을 `original-check-tool-results.json`으로 복구했고 pytest 20개 PASSED와 Ruff 실패를 확인했습니다. `supervisor-final-supplement.json`과 최종 예산·manifest로 보충하되 재검토 통과를 주장하지 않습니다. `tests_passed=false`, `review_passed=false`, 자동 복구 분류 없음으로 종료합니다.

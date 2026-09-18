@@ -2109,6 +2109,8 @@
 
 ## portfolio-kofr-offline-verification-v1
 
+- 현재 재시도: 차단. `4f728844d75b4f829cf64277d6144aab`, Luna `kofr_verify` 단일 검증 담당. 기존 소유 branch/worktree/환경을 재사용하고 입력 SHA를 확인했습니다. 새 audit은 `/home/kwl/.local/share/jusik/portfolio-audit/kofr-offline-4f728844`이며 후보 코드 수정·병합은 하지 않습니다. 아래 이전 차단 기록은 역사 상태로 보존합니다. pytest20 통과 보고 후 Ruff52건 실패, format/mypy 미실행이며 code routing receipt gate도 실패했습니다. 최종 독립 검토와 보충은 새 audit에 보존합니다.
+
 - 상태: 차단. attempt `7b509bb93dcb4e02bbaf6c163f889a8d`. pytest import에서 `py` 의존성 누락으로 실패해 본문·Ruff·mypy는 미실행입니다. code routing post도 transport mode 불일치로 실패했습니다.
 - 범위: 후보 `3fcb553a22ba652071503bead96cf43425118a78`의 두 파일 SHA를 고정한 오프라인 검사만 수행합니다. collector 수정·병합과 공식 재요청은 금지합니다.
 - 담당: Astra 감독·계획, Luna 단일 검증 담당, Terra 독립 검토 미통과(보고서 근거 누락 지적).
