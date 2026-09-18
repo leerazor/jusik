@@ -2,7 +2,7 @@
 
 ## r1-receipt-429bc04a
 
-- 상태: 차단. task `roadmap-r1-04-receipt-preflight-v1`, retry attempt `20ce2a6e43b0486f9b47102077ae8cab` (previous `cdfb88049027478f943474462c6b0185`) . 기존 소유 브랜치와 워크트리를 재사용합니다. R1-04 전체 checkbox는 미체크로 유지합니다.
+- 상태: 진행. task `roadmap-r1-04-receipt-preflight-v1`, retry attempt `0c28fbb501444741a1fa43554e1933af` (previous `20ce2a6e43b0486f9b47102077ae8cab`). 명시적으로 승인된 legacy-v1 원본 보존 provenance 계약을 구현합니다. 기존 소유 브랜치와 워크트리를 재사용합니다. R1-04 전체 checkbox는 미체크로 유지합니다.
 - 목표: 고정 action DB 두 개의 receipt·공식 review를 기존 회계 artifact 계약에 연결하는 읽기 전용 preflight와 결정적 누락 진단을 추가합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-r1-receipt-429bc04a`, `feat/r1-receipt-429bc04a`; 요청 기준 `ab8f366`, 통합 대상 local `main`.
