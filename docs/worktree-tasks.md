@@ -2106,3 +2106,15 @@
 - 게시: cadence-decision-20260913 신규 study·16개 비교와 한국어 보고서 공개. 기존 study 4개 및 featured 비교 보존. runner 전체 snapshot·기존 7건 상태 불변, paused와 service/timer inactive 유지. 웹은 실행 중입니다.
 - handoff: /home/kwl/.local/share/jusik/portfolio-audit/20260913-open-ended-decision-study/HANDOFF.md. 기존 6개 미완료 워크트리 및 이번 작업 중 별도 등록된 jusik-agent-tooling 워크트리는 이번 정리 대상에서 제외합니다.
 - 정리: 검증·구현 diff·환경 정보·보고서 등 audit 41개 파일의 SHA를 확인한 뒤 이번 워크트리와 병합 브랜치를 정상 제거했습니다. 다른 작업의 등록 내용과 워크트리는 보존했습니다.
+
+## portfolio-kofr-offline-verification-v1
+
+- 상태: 차단. attempt `7b509bb93dcb4e02bbaf6c163f889a8d`. pytest import에서 `py` 의존성 누락으로 실패해 본문·Ruff·mypy는 미실행입니다. code routing post도 transport mode 불일치로 실패했습니다.
+- 범위: 후보 `3fcb553a22ba652071503bead96cf43425118a78`의 두 파일 SHA를 고정한 오프라인 검사만 수행합니다. collector 수정·병합과 공식 재요청은 금지합니다.
+- 담당: Astra 감독·계획, Luna 단일 검증 담당, Terra 독립 검토 미통과(보고서 근거 누락 지적).
+- 워크트리/브랜치: 기존 `/home/kwl/projects/jusik-kofr-risk-free-source-evidence`, `feat/kofr-risk-free-source-evidence`를 검사에 재사용합니다. 새 워크트리는 만들지 않습니다.
+- 증거/계획: `/home/kwl/.local/share/jusik/portfolio-audit/kofr-offline-7b509bb9/PLAN.md`, `inputs.json`.
+- 완료 조건: fake transport·네트워크 차단·단일 CPU·seed 0으로 지정 pytest, Ruff check/format, configured strict mypy 및 독립 검토 통과. 실패 시 후보를 그대로 보존하고 원인과 재개 조건을 기록합니다.
+- 예산: 환경 포함 900초, 신규 환경/cache 1GiB, 보고 artifact 50MiB. 금융 실험·수집·GPU 0회.
+- 금융 상태: 공식 성공 raw/evidence 부재, 금융/data acceptance 차단, PAPER 10%를 유지합니다. 웹 publication은 성과 수치가 없어 해당 없습니다.
+- 개발 기록: `docs/development-records/2026-09-18-portfolio-kofr-offline-verification-v1.md`. 검사 통과·collector 병합·기술 완료를 주장하지 않습니다. 재개 시 소유 환경 의존성과 routing mode를 확인하고 전체 검사와 독립 검토가 필요합니다.
