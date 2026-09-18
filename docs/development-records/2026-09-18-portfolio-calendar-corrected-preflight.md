@@ -14,7 +14,7 @@
 - verifier source SHA: `0aa01d5cba655220ab6548db3485589c59851974ee09c06463f9bb43b67c73d6`
 - accounting report: `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-calendar-2026-krx-holiday-correction/accounting-report.json`, bytes SHA `2f0378214f622b069aa8d2f679ded7bc96600f5348fe91ed5e69b0f283ba9847`
 
-2026-06-03·2026-07-17은 XKRX `closed`이고 XNYS 세션은 유지된다. 따라서 두 누락 close가 세션 완전성에서 제거되지만, 기존 registered independent accounting verifier는 이전 manifest만 허용한다.
+2026-06-03·2026-07-17은 XKRX `closed`이고 XNYS 세션은 유지된다. 따라서 두 누락 close가 세션 완전성에서 제거된다. 독립 accounting verifier는 기존·corrected manifest를 별도 allowlist로 검증한다.
 
 ## 제한과 다음 작업
 
