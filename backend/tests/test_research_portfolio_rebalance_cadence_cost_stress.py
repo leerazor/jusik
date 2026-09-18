@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from jusik.research_portfolio_held_band_experiment import _copy_engine, _load_copy
-from jusik.research_portfolio_models import PortfolioCandidate, PortfolioConfig
+from jusik.research_portfolio_models import (
+    PortfolioCandidate,
+    PortfolioConfig,
+    PortfolioSimulation,
+)
 from jusik.research_portfolio_rebalance_cadence_cost_stress import (
     EVALUATION_CAP,
     FULL_EVALUATION_COUNT,
@@ -144,6 +148,15 @@ def _synthetic_contract() -> tuple[
     )
 
 
+def _synthetic_simulation(
+    policy_events: list[SimpleNamespace], period_end: date
+) -> PortfolioSimulation:
+    return cast(
+        PortfolioSimulation,
+        SimpleNamespace(policy_events=policy_events, period_end=period_end),
+    )
+
+
 @pytest.mark.parametrize("fail_at", [None, 24])
 def test_run_experiment_executes_control_24_then_variant_24(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fail_at: int | None
@@ -155,7 +168,9 @@ def test_run_experiment_executes_control_24_then_variant_24(
     replays: list[int] = []
 
     def simulate(*args: object) -> Any:
-        calls.append(args[4].low_turnover_weeks)
+        config = args[4]
+        assert isinstance(config, PortfolioConfig)
+        calls.append(config.low_turnover_weeks)
         return _runner_simulation()
 
     module = "jusik.research_portfolio_rebalance_cadence_cost_stress"
@@ -234,9 +249,7 @@ def test_reentry_ready_delay_and_censored_episode_are_preserved() -> None:
         SimpleNamespace(kind="reentry", at=start + timedelta(days=97)),
     ]
     result = _reentry_summary(
-        SimpleNamespace(
-            policy_events=events, period_end=start.date() + timedelta(days=100)
-        )
+        _synthetic_simulation(events, start.date() + timedelta(days=100))
     )
     assert result["ready_utc"] == [
         (start + timedelta(days=35)).isoformat(),
@@ -259,9 +272,9 @@ def test_existing_output_refuses_resume(tmp_path: Path) -> None:
 def test_never_ready_risk_episode_is_censored() -> None:
     start = datetime(2025, 1, 6, tzinfo=UTC)
     result = _reentry_summary(
-        SimpleNamespace(
-            policy_events=[SimpleNamespace(kind="risk_exit", at=start)],
-            period_end=start.date() + timedelta(days=10),
+        _synthetic_simulation(
+            [SimpleNamespace(kind="risk_exit", at=start)],
+            start.date() + timedelta(days=10),
         )
     )
     assert result["never_ready_count"] == 1

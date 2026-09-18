@@ -115,7 +115,7 @@ def test_cost3_rates_and_boundaries() -> None:
     with pytest.raises(ValueError):
         _config(base, "0.02", -1)
     with pytest.raises(ValueError):
-        _config(base, "0.02", True)  # type: ignore[arg-type]
+        _config(base, "0.02", True)
     with pytest.raises(ValueError):
         _config(base.model_copy(update={"fee_rate": Decimal("0")}), "0.02", 3)
 
