@@ -28,3 +28,13 @@
 실제 source audit SHA를 pin한 임시 application manifest를 계약에 넣어 재현한 결과는
 `business_date_completeness_unverified`로 종료했습니다. 이 결과는 자료 부족을 확인하는
 진단이며 source evidence나 원본 audit을 수정하지 않습니다.
+
+추가로 corrected NAV bundle은 614개 UTC daily date를 `2024-04-24~2026-09-08`
+범위로 포함하지만 현재 KOFR source evidence는 `2025-09-11~2026-09-11`만 포함해
+앞쪽 359개 NAV 날짜가 비어 있습니다. 따라서 현재 source로 전체 Sharpe를 계산할 수
+없으며, 기간을 조용히 줄이거나 결측을 0으로 대체하지 않습니다.
+
+한국거래소의 표준 KOFR 설명서는 산정·재산정·검증 절차와 공시 주기·방법 변경을
+설명하지만, 이 자료 자체에는 이 artifact에 필요한 provider business-date 전체 목록과
+`PUBN_DTTM` timezone 계약이 없습니다. [공식 설명서](https://open.krx.co.kr/contents/OPN/01/01040505/%ED%91%9C%EC%A4%80_%ED%95%9C%EA%B5%AD%EB%AC%B4%EC%9C%84%ED%97%98%EC%A7%80%ED%91%9C%EA%B8%88%EB%A6%AC%5BKOFR%5D_%EC%84%A4%EB%AA%85%EC%84%9C.pdf)
+와 원문을 함께 보존할 별도 자료 수집 계획이 필요합니다.

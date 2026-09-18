@@ -292,6 +292,7 @@
 - 구현: `backend/jusik/kofr_application_evidence.py`, 테스트 5개, 개발 기록 `docs/development-records/2026-09-19-kofr-application-evidence-contract.md`.
 - 계약: source SHA pin, `Asia/Seoul` local publication time, provider business-date completeness 명시, interval source value 일치, publication-before-interval-start를 요구합니다. 달력·평일 추정, 자동 carry-forward, Sharpe/readiness 연결은 하지 않습니다.
 - 검증: focused pytest 5개, Ruff check/format, strict mypy 통과. 실제 KOFR source completeness가 아직 `unverified`이므로 application manifest·성과 계산·`missing_risk_free_evidence` 제거는 보류합니다.
+- 추가 범위 진단: corrected NAV의 614개 UTC daily date는 `2024-04-24~2026-09-08`인데 현재 KOFR source는 `2025-09-11~2026-09-11`뿐이라 앞쪽 359개 날짜가 없습니다. 기간 축소·0 대체·자동 carry-forward 없이, 전체 기간 source를 별도 bounded 수집하거나 사전등록한 부분기간 평가를 선택해야 합니다.
 
 ## r0-us-modeled-cost-evidence
 
