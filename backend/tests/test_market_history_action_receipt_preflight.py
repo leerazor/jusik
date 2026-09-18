@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import sqlite3
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
 import pytest
 
+import jusik.market_history_action_receipt_preflight as preflight
 from jusik.market_history_action_receipt_preflight import (
     PreflightError,
     _check_attempts,
@@ -20,10 +24,22 @@ from jusik.market_history_action_receipt_preflight import (
     _review_representation,
     _sha,
     build_preflight,
+    main,
 )
-from jusik.research_action_review import ExtractedFacts, compare_review
+from jusik.research_action_collection import parse_action_response
+from jusik.research_action_collection_store import ActionCollectionStore
+from jusik.research_action_review import (
+    EvidenceInput,
+    ExtractedFacts,
+    ReviewInput,
+    ReviewManifest,
+    compare_review,
+)
+from jusik.research_action_review_store import ActionReviewStore
+from jusik.research_universe_data import REGISTRY
 
 NOW = "2026-09-10T09:00:00+00:00"
+NOW_DT = datetime(2026, 9, 10, 9, tzinfo=UTC)
 EVIDENCE_BODY = b"official evidence"
 EVIDENCE_SHA256 = hashlib.sha256(EVIDENCE_BODY).hexdigest()
 
@@ -347,42 +363,276 @@ def test_review_raw_hash_and_identity_are_checked_before_adapter() -> None:
         )
 
 
-def test_artifact_linkage_is_explicit_without_synthesizing_replay(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    empty_tables: dict[str, list[dict[str, object]]] = {
-        "action_collection_attempts": [],
-        "action_collection_source_status": [],
-        "action_collection_events": [],
-        "action_collection_revisions": [],
-        "action_review_evidence": [],
-        "action_reviews": [],
-    }
-
-    def snapshot(
-        *_args: object, **_kwargs: object
-    ) -> tuple[dict[str, list[dict[str, object]]], dict[str, object]]:
-        return empty_tables, {
-            "path": "fixture",
-            "sha256": "0" * 64,
-            "size_bytes": 0,
-            "tables": {},
+def _create_fixture_pair(tmp_path: Path) -> tuple[Path, Path, dict[str, int]]:
+    instrument = next(item for item in REGISTRY if item.symbol == "NVDA")
+    collection_path = tmp_path / "collection.db"
+    review_path = tmp_path / "review.db"
+    evidence_path = tmp_path / "evidence.html"
+    evidence_path.write_bytes(EVIDENCE_BODY)
+    body = json.dumps(
+        {
+            "chart": {
+                "result": [
+                    {
+                        "meta": {
+                            "symbol": instrument.yahoo_symbol,
+                            "exchangeName": instrument.exchange,
+                            "exchangeTimezoneName": instrument.timezone,
+                            "currency": instrument.currency,
+                        },
+                        "events": {
+                            "dividends": {
+                                "legacy": {
+                                    "date": 1718064000,
+                                    "amount": 0.01,
+                                },
+                                "partial": {
+                                    "date": 1720656000,
+                                    "amount": 0.02,
+                                },
+                                "mismatch": {
+                                    "date": 1723248000,
+                                    "amount": 0.03,
+                                },
+                            }
+                        },
+                    }
+                ],
+                "error": None,
+            }
         }
+    ).encode()
+    start = date(2024, 1, 1)
+    end = date(2024, 12, 31)
+    store = ActionCollectionStore(review_path)
+    store.ensure_sources((instrument,), NOW_DT)
+    attempt_id = store.begin_attempt(instrument.symbol, start, end, NOW_DT)
+    actions = parse_action_response(body, instrument, start, end)
+    store.complete_success(
+        attempt_id=attempt_id,
+        completed_at=NOW_DT,
+        http_status=200,
+        request_url="https://example.test/chart",
+        body=body,
+        actions=actions,
+    )
+    with sqlite3.connect(review_path) as connection:
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    for suffix in ("-wal", "-shm"):
+        review_path.with_name(review_path.name + suffix).unlink(missing_ok=True)
+    shutil.copyfile(review_path, collection_path)
 
-    monkeypatch.setattr(
-        "jusik.market_history_action_receipt_preflight._read_snapshot", snapshot
+    revision_by_amount = {
+        cast(str, item.payload.amount): item
+        for item in store.revision_page(None, 20).items
+    }
+    legacy_revision = revision_by_amount["0.01"]
+    partial_revision = revision_by_amount["0.02"]
+    mismatch_revision = revision_by_amount["0.03"]
+    evidence = EvidenceInput(
+        local_file=evidence_path,
+        sha256=EVIDENCE_SHA256,
+        source_url="https://example.test/evidence",
+        publisher="Example",
+        locator="table-1",
+        captured_at=NOW_DT,
     )
-    result = build_preflight(
-        tmp_path / "collection.db",
-        tmp_path / "review.db",
-        expected_collection_sha256=None,
-        expected_review_sha256=None,
+    reviews = [
+        ReviewInput(
+            review_key="official-legacy",
+            revision_id=legacy_revision.id,
+            content_sha256=legacy_revision.content_sha256,
+            operator_verified=True,
+            evidence=evidence,
+            extracted_facts=ExtractedFacts(
+                amount="0.01",
+                currency="USD",
+                comparable_share_basis=True,
+                ex_dividend_date=legacy_revision.payload.vendor_date,
+            ),
+        ),
+        ReviewInput(
+            review_key="official-partial",
+            revision_id=partial_revision.id,
+            content_sha256=partial_revision.content_sha256,
+            operator_verified=True,
+            evidence=evidence,
+            extracted_facts=ExtractedFacts(
+                amount="0.02",
+                currency="USD",
+                comparable_share_basis=True,
+            ),
+        ),
+        ReviewInput(
+            review_key="official-mismatch",
+            revision_id=mismatch_revision.id,
+            content_sha256=mismatch_revision.content_sha256,
+            operator_verified=True,
+            evidence=evidence,
+            extracted_facts=ExtractedFacts(
+                amount="0.99",
+                currency="USD",
+                comparable_share_basis=True,
+                ex_dividend_date=mismatch_revision.payload.vendor_date,
+            ),
+        ),
+        ReviewInput(
+            review_key="synthetic-mismatch",
+            revision_id=mismatch_revision.id,
+            content_sha256=mismatch_revision.content_sha256,
+            operator_verified=True,
+            evidence=evidence,
+            extracted_facts=ExtractedFacts(
+                amount="0.99",
+                currency="USD",
+                comparable_share_basis=True,
+                ex_dividend_date=mismatch_revision.payload.vendor_date,
+            ),
+        ),
+    ]
+    ActionReviewStore(review_path).import_manifest(
+        ReviewManifest(schema_version=1, reviews=reviews), NOW_DT + timedelta(minutes=1)
     )
-    assert result["artifact_replay"] is None
-    linkage = cast(dict[str, object], result["artifact_linkage"])
-    assert linkage["linked"] is False
-    assert "price_inputs" in cast(list[object], linkage["missing_fields"])
+    with sqlite3.connect(review_path) as connection:
+        legacy = json.loads(
+            connection.execute(
+                "SELECT compared_fields_json FROM action_reviews WHERE review_key=?",
+                ("official-legacy",),
+            ).fetchone()[0]
+        )
+        next(item for item in legacy if item["field"] == "comparable_share_basis")[
+            "source_value"
+        ] = "true"
+        connection.execute(
+            "UPDATE action_reviews SET compared_fields_json=? WHERE review_key=?",
+            (
+                json.dumps(legacy, sort_keys=True, separators=(",", ":")),
+                "official-legacy",
+            ),
+        )
+        partial = connection.execute(
+            "SELECT compared_fields_json FROM action_reviews WHERE review_key=?",
+            ("official-partial",),
+        ).fetchone()[0]
+        connection.execute(
+            "UPDATE action_reviews SET compared_fields_json=? WHERE review_key=?",
+            (json.dumps(json.loads(partial), indent=2), "official-partial"),
+        )
+    with sqlite3.connect(review_path) as connection:
+        connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    for suffix in ("-wal", "-shm"):
+        review_path.with_name(review_path.name + suffix).unlink(missing_ok=True)
+    counts = {
+        "collection_attempts": 1,
+        "collection_source_status": 1,
+        "collection_events": 3,
+        "collection_revisions": 3,
+        "review_evidence": 1,
+        "reviews": 4,
+    }
+    return collection_path, review_path, counts
+
+
+def test_public_api_rejects_caller_selected_sha(tmp_path: Path) -> None:
+    with pytest.raises(TypeError):
+        build_preflight(  # type: ignore[call-arg]
+            tmp_path / "collection.db",
+            tmp_path / "review.db",
+            expected_collection_sha256="0" * 64,
+        )
+    with pytest.raises(SystemExit, match="2"):
+        main(
+            [
+                "--collection-db",
+                str(tmp_path / "collection.db"),
+                "--review-db",
+                str(tmp_path / "review.db"),
+                "--output",
+                str(tmp_path / "output.json"),
+                "--collection-sha256",
+                "0" * 64,
+            ]
+        )
+
+
+def test_sqlite_fixture_pair_is_read_only_and_fail_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    collection_path, review_path, counts = _create_fixture_pair(tmp_path)
+    collection_before = hashlib.sha256(collection_path.read_bytes()).hexdigest()
+    review_before = hashlib.sha256(review_path.read_bytes()).hexdigest()
+    collection_meta = {
+        "action_collection_attempts": counts["collection_attempts"],
+        "action_collection_source_status": counts["collection_source_status"],
+        "action_collection_events": counts["collection_events"],
+        "action_collection_revisions": counts["collection_revisions"],
+    }
+    review_meta = {
+        **collection_meta,
+        "action_review_evidence": counts["review_evidence"],
+        "action_reviews": counts["reviews"],
+    }
+    monkeypatch.setattr(preflight, "COLLECTION_DB_SHA256", collection_before)
+    monkeypatch.setattr(preflight, "REVIEW_DB_SHA256", review_before)
+    monkeypatch.setitem(
+        preflight.EXPECTED_SIZES, collection_before, collection_path.stat().st_size
+    )
+    monkeypatch.setitem(
+        preflight.EXPECTED_SIZES, review_before, review_path.stat().st_size
+    )
+    monkeypatch.setitem(preflight.EXPECTED_ROWS, collection_before, collection_meta)
+    monkeypatch.setitem(preflight.EXPECTED_ROWS, review_before, review_meta)
+
+    result = build_preflight(collection_path, review_path)
+    records = cast(list[dict[str, object]], result["records"])
+    by_key = {cast(str, item["review_key"]): item for item in records}
+    legacy_fields = cast(
+        dict[str, object], by_key["official-legacy"]["compared_fields"]
+    )
+    assert legacy_fields["normalization_version"] == "legacy-v1"
+    assert by_key["official-partial"]["comparison_status"] == "partial"
+    assert by_key["official-mismatch"]["comparison_status"] == "mismatched"
+    assert by_key["official-mismatch"]["eligibility"] == "blocked"
+    assert by_key["synthetic-mismatch"]["eligibility"] == "excluded"
+    assert result["coverage"] == "incomplete"
+    assert result["economic_status"] == "not-evaluated"
+    assert hashlib.sha256(collection_path.read_bytes()).hexdigest() == collection_before
+    assert hashlib.sha256(review_path.read_bytes()).hexdigest() == review_before
+
+    review_rows, _ = preflight._read_snapshot(
+        review_path,
+        tables=set(preflight.TABLE_COLUMNS),
+        caps={
+            "action_collection_attempts": preflight.MAX_ATTEMPTS,
+            "action_collection_source_status": preflight.MAX_EVENTS,
+            "action_collection_events": preflight.MAX_EVENTS,
+            "action_collection_revisions": preflight.MAX_REVISIONS,
+            "action_review_evidence": preflight.MAX_EVIDENCE,
+            "action_reviews": preflight.MAX_REVIEWS,
+        },
+        expected_sha256=review_before,
+    )
+    _natural, review_revisions, _counts = preflight._check_collection(review_rows)
+    duplicate = dict(review_rows)
+    duplicate["action_collection_revisions"] = [
+        *review_rows["action_collection_revisions"],
+        dict(review_rows["action_collection_revisions"][0]),
+    ]
+    with pytest.raises(PreflightError, match="duplicate revision identity"):
+        preflight._check_collection(duplicate)
+    missing_capture = dict(review_rows)
+    missing_capture["action_review_evidence"] = [
+        {**review_rows["action_review_evidence"][0], "captured_at": None}
+    ]
+    with pytest.raises(PreflightError, match="captured_at"):
+        preflight._check_reviews(missing_capture, review_revisions)
+    missing_first_seen = dict(review_rows)
+    missing_first_seen["action_collection_revisions"] = [
+        {**review_rows["action_collection_revisions"][0], "first_seen_at": None},
+        *review_rows["action_collection_revisions"][1:],
+    ]
+    with pytest.raises(PreflightError, match="first_seen_at"):
+        preflight._check_collection(missing_first_seen)
 
 
 def test_output_rejects_symlink_parent(tmp_path: Path) -> None:

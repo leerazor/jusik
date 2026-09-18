@@ -752,12 +752,12 @@ def _check_reviews(
     return records, {"reviews": len(records), "counts": dict(sorted(counts.items()))}
 
 
-def build_preflight(
+def _build_preflight(
     collection_db: Path,
     review_db: Path,
     *,
-    expected_collection_sha256: str | None = COLLECTION_DB_SHA256,
-    expected_review_sha256: str | None = REVIEW_DB_SHA256,
+    expected_collection_sha256: str,
+    expected_review_sha256: str,
 ) -> dict[str, object]:
     """Build a deterministic read-only receipt provenance report."""
     collection_rows, collection_input = _read_snapshot(
@@ -856,16 +856,13 @@ def write_preflight(
     collection_db: Path,
     review_db: Path,
     output: Path,
-    *,
-    expected_collection_sha256: str | None = COLLECTION_DB_SHA256,
-    expected_review_sha256: str | None = REVIEW_DB_SHA256,
 ) -> None:
     data = _canonical(
-        build_preflight(
+        _build_preflight(
             collection_db,
             review_db,
-            expected_collection_sha256=expected_collection_sha256,
-            expected_review_sha256=expected_review_sha256,
+            expected_collection_sha256=COLLECTION_DB_SHA256,
+            expected_review_sha256=REVIEW_DB_SHA256,
         )
     )
     if len(data) > MAX_OUTPUT_BYTES:
@@ -887,21 +884,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--collection-db", type=Path, required=True)
     parser.add_argument("--review-db", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--collection-sha256", default=COLLECTION_DB_SHA256)
-    parser.add_argument("--review-sha256", default=REVIEW_DB_SHA256)
     try:
         args = parser.parse_args(argv)
         write_preflight(
             args.collection_db,
             args.review_db,
             args.output,
-            expected_collection_sha256=args.collection_sha256,
-            expected_review_sha256=args.review_sha256,
         )
     except (PreflightError, OSError, TypeError, ValueError, sqlite3.Error) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 0
+
+
+def build_preflight(collection_db: Path, review_db: Path) -> dict[str, object]:
+    """Build a report for the two immutable databases in the fixed manifest."""
+    return _build_preflight(
+        collection_db,
+        review_db,
+        expected_collection_sha256=COLLECTION_DB_SHA256,
+        expected_review_sha256=REVIEW_DB_SHA256,
+    )
 
 
 __all__ = [
