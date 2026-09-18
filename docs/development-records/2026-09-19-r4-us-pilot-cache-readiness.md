@@ -25,6 +25,8 @@ frozen cache 복사본에서 요청 예산 405, `--resume`로 bounded 수집을 
 
 같은 prepared dataset으로 임시 DB pilot을 두 번 반복한 결과 모두 `insufficient`/`incomplete`, `readiness.ready=false`, trades/equity/metrics 0, 동일 limitation과 data-contract hash를 반환했습니다. `input_hash`는 snapshot의 실행별 UTC `captured_at`을 포함하므로 서로 달랐으며, 이는 두 실행의 provenance identity가 다름을 나타내는 값이지 성공 결과의 불일치가 아닙니다.
 
+반복 실행 DB는 `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r4-us-pilot-collection-5e966f4/repeated-pilot.db`에 보존했습니다(SHA-256 `16f84d2b43cf551ca58620f9a5d783da178979cfc0754e40cab5b6e52f5df081`).
+
 ## 판정과 재개 조건
 
 기존 frozen US pilot은 independent cost/NAV 검증을 통과했지만, 현재 R4 pilot의 자료 readiness와 동일하지 않습니다. 따라서 기존 결과를 현재 policy의 새 pilot 또는 strict/PIT 근거로 재명명하지 않습니다. 누락 자격증명이 준비되거나 동일한 provenance를 가진 공급자 응답 파일이 제공되어 cache coverage·membership·FX·기업행동 계약을 다시 통과할 때만 bounded pilot을 실행합니다. 그 전에는 R4-01~R4-05와 경제 승격을 보류합니다.
