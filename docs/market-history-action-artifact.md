@@ -37,3 +37,27 @@ exit 0의 `rejected` 진단으로 기록하며, 원본 입력과 이전 상태�
 이 기술 slice는 전체 R1-04 로드맵 항목을 완료하거나 체크하지 않습니다. 실제 시장
 자료 연결, 완전성 검증과 경제적 평가는 별도 작업이며 결과는 계속
 `incomplete`/`not-evaluated`로 남습니다.
+
+## Receipt preflight 연결
+
+`jusik.market_history_action_receipt_preflight`는 action collection receipt와
+공식 review DB를 읽기 전용으로 대조합니다. collection·review DB의 고정 SHA와
+원문 receipt body SHA를 모두 확인하며, DB SHA 검증은 각 revision의 parser 재현
+검사를 대신하지 않습니다. 입력 DB나 sidecar를 변경하지 않고, 결과는
+`coverage: "incomplete"`, `economic_status: "not-evaluated"`로 남습니다.
+
+review의 `compared_fields_json`은 저장된 UTF-8 문자열과 SHA를 먼저 보존합니다.
+canonical 비교 배열 전체가 정확히 일치하면 `normalization_version`을
+`canonical-v1`로 기록합니다. 기존 자료에서 dividend의
+`comparable_share_basis`에 `evidence_value: "true"`, `status: "matched"`,
+`source_value: "true"`가 저장된 경우에만 해당 한 필드를 canonical의 `null`로
+해석하는 `legacy-v1`을 허용합니다. raw 문자열·raw SHA·canonical 배열과
+canonical SHA·adapter 이름은 서로 별도 필드로 남기며, 알 수 없는 필드·배열 순서·
+값·aggregate 상태는 거부합니다. review content hash와 identity는 이 표현 변환
+판정보다 먼저 검증합니다.
+
+preflight의 `artifact_linkage`는 이 receipt 자료가 accounting artifact의
+`schema_version`, `seed`, `initial_state`, `steps` 입력을 제공하는지 명시합니다.
+현재 action receipt에는 effective UTC 경계, 가격, entitlement를 결정할 자료가
+없으므로 `linked: false`와 누락 필드를 기록하며 holdings·execution·빈 replay를
+합성하지 않습니다.
