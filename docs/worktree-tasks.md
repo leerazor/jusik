@@ -34,12 +34,13 @@
 
 ## portfolio-performance-input-readiness-corrected-calendar
 
-- 상태: 다음 작업 대기. corrected calendar로 새 bundle generation/verify는 통과했으나 independent accounting verifier가 구 manifest만 등록합니다.
+- 상태: 완료. corrected bundle manifest/calendar identity를 등록하고 independent accounting을 통과했습니다.
 - 목표와 완료 조건: corrected bundle manifest/calendar/source SHA를 별도 등록하고 기존 원장 계약으로 171 fills·1,172 cash/NAV·terminal positions를 재대사합니다. 기존 canonical bundle과 readiness identity는 보존합니다.
 - 수정 허용: accounting verifier의 등록 identity 확장, 직접 관련 tests·개발 기록·등록부. metrics 계산/승격은 원장 통과 후 별도 작업입니다.
 - 금지: old bundle 덮어쓰기, NAV 보간·세션 합성, evaluator 우회, runner/network/order/PAPER/live/remote 변경.
 - 입력: corrected bundle manifest `e5aa5af8a2c3a21696f395987216cae6ca002093a1138127449d09b54cf01600`, calendar bytes `36b64e421192062ff183112d1eef7d441af6e0f73cfaf739310b0b5ab8c281e1`, payload `5ac707711cb82f7849b7824567515f67dcbaad162452757b6727cccb9e20f2bd`.
-- 검증: corrected generation/verification은 완료. 다음 단계는 accounting focused tests, fixed bundle CLI, Ruff/strict mypy, independent review입니다.
+- 검증: corrected generation/verification 1회씩, accounting `verified`(171 fills·1,172 NAV·residual 0), focused pytest 14개, Ruff/strict mypy 통과. verifier source SHA `0aa01d5cba655220ab6548db3485589c59851974ee09c06463f9bb43b67c73d6`.
+- 다음 의존 작업: metrics adapter의 UTC daily sampling 및 CAGR/MDD/Sharpe/Calmar 계산. KOFR 없이는 Sharpe unavailable이며 readiness 승격은 별도 판정입니다.
 
 ## portfolio-calendar-aware-time-input
 
