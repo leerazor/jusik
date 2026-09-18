@@ -47,6 +47,12 @@ KOFR와 직접 겹치는 날짜는 242개입니다. NAV에만 있고 KOFR 행이
 이 결손은 source 누락인지 시장별 휴장일 차이인지 현재 자료만으로 확정하지 않으며,
 자동 carry-forward나 NAV 표본 삭제 없이 별도 calendar/application 정책을 요구합니다.
 
+추가로 13개 날짜의 corrected NAV triggering close group을 확인한 결과 모두
+`XNYS`만 존재하고 `XKRX` session은 없습니다. 따라서 이 날짜는 현재 자료에서
+KOFR provider 누락으로 단정하지 않습니다. 다만 combined KRW NAV의 Sharpe를 계산하려면
+미국-only 날짜에 risk-free를 적용할 명시적 정책과 그 근거가 필요합니다. 암묵적인
+carry-forward나 XNYS-only 수익률 삭제는 application evidence로 인정하지 않습니다.
+
 한국거래소의 표준 KOFR 설명서는 산정·재산정·검증 절차와 공시 주기·방법 변경을
 설명하지만, 이 자료 자체에는 이 artifact에 필요한 provider business-date 전체 목록과
 `PUBN_DTTM` timezone 계약이 없습니다. [공식 설명서](https://open.krx.co.kr/contents/OPN/01/01040505/%ED%91%9C%EC%A4%80_%ED%95%9C%EA%B5%AD%EB%AC%B4%EC%9C%84%ED%97%98%EC%A7%80%ED%91%9C%EA%B8%88%EB%A6%AC%5BKOFR%5D_%EC%84%A4%EB%AA%85%EC%84%9C.pdf)
