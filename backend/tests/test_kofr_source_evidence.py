@@ -94,7 +94,8 @@ def test_request_is_fixed_and_parser_preserves_decimal_text() -> None:
 
 def test_collection_uses_websquare_request_context(tmp_path: Path) -> None:
     transport = FakeTransport(_xml())
-    collect(transport, audit_root=tmp_path / "audit")
+    audit = tmp_path / "audit"
+    collect(transport, audit_root=audit, evidence_output=audit / "evidence.json")
     assert transport.seen is not None
     headers = {key.lower(): value for key, value in transport.seen[3].items()}
     assert headers["submissionid"] == SUBMISSION_ID

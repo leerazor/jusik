@@ -739,8 +739,11 @@ def collect(
         ],
     }
     evidence_bytes = _json_bytes(evidence)
-    _exclusive_write(audit_root / "evidence.json", evidence_bytes)
-    if evidence_output is not None:
+    evidence_path = audit_root / "evidence.json"
+    _exclusive_write(evidence_path, evidence_bytes)
+    if evidence_output is not None and Path(os.path.abspath(evidence_output)) != Path(
+        os.path.abspath(evidence_path)
+    ):
         _exclusive_write(evidence_output, evidence_bytes)
     verification = {
         "schema": "kofr-source-verification/v1",
@@ -841,8 +844,11 @@ def replay_raw(
         ],
     }
     evidence_bytes = _json_bytes(evidence)
-    _exclusive_write(audit_root / "evidence.json", evidence_bytes)
-    if evidence_output is not None:
+    evidence_path = audit_root / "evidence.json"
+    _exclusive_write(evidence_path, evidence_bytes)
+    if evidence_output is not None and Path(os.path.abspath(evidence_output)) != Path(
+        os.path.abspath(evidence_path)
+    ):
         _exclusive_write(evidence_output, evidence_bytes)
     verification = {
         "schema": "kofr-source-verification/v1",
