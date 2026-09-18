@@ -24,3 +24,7 @@
 ## 제한과 다음 단계
 
 현재 확보된 KOFR source evidence는 자체 business-date completeness와 공표시각 timezone을 독립적으로 증명하지 않습니다. 따라서 실제 application manifest를 만들거나 `missing_risk_free_evidence`를 제거하지 않았고 Sharpe를 재계산하지 않았습니다. 다음 작업은 provider가 제공하는 business-date/시간대 receipt가 이 계약을 충족하는지 별도로 확보하는 것입니다.
+
+실제 source audit SHA를 pin한 임시 application manifest를 계약에 넣어 재현한 결과는
+`business_date_completeness_unverified`로 종료했습니다. 이 결과는 자료 부족을 확인하는
+진단이며 source evidence나 원본 audit을 수정하지 않습니다.
