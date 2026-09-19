@@ -2271,4 +2271,5 @@
 
 - 후속 bounded fetch: 2024–2025의 8-K/8-K/A 문서 3건을 fetch해 raw HTML·summary·request
   SHA를 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-filing-candidates/`에
-  보존했습니다. merger 후보 1건과 빈 후보 2건이며, 경제 acceptance에는 반영하지 않았습니다.
+  보존했습니다. merger 후보 1건과 빈 후보 2건이며, 문맥 snippet도 저장했지만 XBRL
+  false positive 가능성이 있어 경제 acceptance에는 반영하지 않았습니다.

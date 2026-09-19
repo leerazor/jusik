@@ -64,6 +64,7 @@ class SecFilingCandidate(BaseModel):
     observed_at: datetime
     raw_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     candidate_kinds: tuple[str, ...]
+    candidate_snippets: tuple[str, ...]
 
     @field_validator("observed_at")
     @classmethod
@@ -97,8 +98,14 @@ def parse_sec_filing_candidate(
         text = body.decode("utf-8", errors="strict")
     except UnicodeDecodeError as exc:
         raise ValueError("sec_filing_invalid_utf8") from exc
-    kinds = tuple(
-        kind for kind, pattern in _FILING_CANDIDATE_PATTERNS if pattern.search(text)
+    matches = [
+        (kind, match)
+        for kind, pattern in _FILING_CANDIDATE_PATTERNS
+        if (match := pattern.search(text)) is not None
+    ]
+    snippets = tuple(
+        " ".join(text[max(0, match.start() - 100) : match.end() + 140].split())
+        for _, match in matches[:3]
     )
     return SecFilingCandidate(
         cik=filing.cik,
@@ -107,7 +114,8 @@ def parse_sec_filing_candidate(
         source_url=source_url,
         observed_at=observed_at,
         raw_sha256=hashlib.sha256(body).hexdigest(),
-        candidate_kinds=kinds,
+        candidate_kinds=tuple(kind for kind, _ in matches),
+        candidate_snippets=snippets,
     )
 
 

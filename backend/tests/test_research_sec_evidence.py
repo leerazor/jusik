@@ -82,6 +82,8 @@ def test_filing_document_url_and_candidate_parser_are_fail_closed() -> None:
 
     assert source_url.endswith("/1045810/000104581024000144/event.htm")
     assert result.candidate_kinds == ("dividend", "split")
+    assert len(result.candidate_snippets) == 2
+    assert "dividend" in result.candidate_snippets[0].lower()
     assert len(result.raw_sha256) == 64
 
     missing_document = filing.model_copy(update={"primary_document": None})

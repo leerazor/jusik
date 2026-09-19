@@ -93,5 +93,8 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
   보존했습니다.
 - 결과 후보 종류는 `merger` 1건과 빈 후보 2건입니다. 키워드 후보는 확정 event가 아니며
   권리·가격·effective/payment date 산출, catalog 승격, R1 acceptance에 사용하지 않습니다.
+- 각 후보의 최대 3개 문맥 snippet을 `candidates.json`으로 별도 보존했습니다. 첫 merger
+  후보는 XBRL `BusinessAcquisitionAxis` 문맥에서 잡힌 키워드일 수 있어, 단순 정규식의
+  false positive 가능성을 확인했습니다.
 - 요청 경계는 `max_documents=3`, 허용 form `8-K`/`8-K/A`, SEC User-Agent, 요청 간격
   0.2초로 고정했습니다. 실제 주문·PAPER/live·원격 push는 없었습니다.

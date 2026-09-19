@@ -36,6 +36,8 @@
 - 2024–2025 범위에서 SEC 8-K/8-K/A 문서 3건을 bounded fetch했습니다. 3건 모두 raw
   저장에 성공했고 후보는 merger 1건·빈 후보 2건입니다. audit 경로는
   `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-filing-candidates/`입니다.
+- 최대 3개 문맥 snippet을 `candidates.json`으로 저장했으며, merger 후보가 XBRL 문맥의
+  정규식 false positive일 수 있음을 확인했습니다. 따라서 event 승격은 보류합니다.
 
 ## 검증
 
