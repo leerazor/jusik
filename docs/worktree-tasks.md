@@ -2450,3 +2450,17 @@
 - 개발 기록: `docs/development-records/2026-09-20-r2-fred-csv-parser-contract.md`.
 - handoff: 별도 세션 handoff 없음; 기존 untracked `HANDOFF.md`를 보존합니다.
 - 정리: local `main` 통합 검증 후 작업 worktree와 브랜치를 제거했습니다.
+
+## alfred-vintage-evidence-20260920
+
+- 상태: 완료된 자료 조사 slice; PIT application과 경제 성과 적용은 차단
+- 목표와 완료 조건: ALFRED 공개 vintage CSV 4개를 read-only로 수집하고 raw SHA·vintage
+  날짜·관측 존재/부재를 보존합니다. 현재 snapshot을 과거 PIT로 재명명하거나 자동
+  성과 계산에 연결하지 않습니다.
+- 결과: `2025-09-12` vintage에는 `2025-09-11` 값이 없고 `2025-09-19` vintage에는
+  `2025-09-11=1388.97`, `2025-09-12=1394.06`이 존재함을 확인했습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-alfred-vintage-evidence/`;
+  metadata `request.json`에 4개 raw SHA/행 수를 고정했습니다.
+- 제한: per-date publication instant, full-period availability, calendar/application
+  completeness가 없어 R2/R4 readiness와 Sharpe 계산은 계속 차단합니다.
+- 개발 기록: `docs/development-records/2026-09-20-alfred-vintage-evidence.md`.
