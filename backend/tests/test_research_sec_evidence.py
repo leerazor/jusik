@@ -31,6 +31,6 @@ def test_parse_sec_submissions_preserves_acceptance_and_raw_hash() -> None:
 
     assert len(result) == 2
     assert result[0].cik == "0001045810"
-    assert result[0].acceptance_datetime == datetime(2024, 6, 7, 15, 30, tzinfo=UTC)
+    assert result[0].acceptance_datetime == datetime(2024, 6, 7, 19, 30, tzinfo=UTC)
     assert result[0].primary_document == "event.htm"
     assert len(result[0].raw_sha256) == 64

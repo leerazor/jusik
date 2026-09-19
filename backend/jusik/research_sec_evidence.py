@@ -10,6 +10,7 @@ import os
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -56,7 +57,10 @@ def _parse_acceptance(value: str | None) -> datetime | None:
     try:
         normalized = value.replace("Z", "+00:00")
         if normalized.isdigit() and len(normalized) == 14:
-            return datetime.strptime(normalized, "%Y%m%d%H%M%S").replace(tzinfo=UTC)
+            eastern = datetime.strptime(normalized, "%Y%m%d%H%M%S").replace(
+                tzinfo=ZoneInfo("America/New_York")
+            )
+            return eastern.astimezone(UTC)
         return _utc(datetime.fromisoformat(normalized))
     except ValueError:
         return None
