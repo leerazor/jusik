@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from jusik.research_r7_isolation import R7IsolationWorkspace
 
@@ -32,6 +32,16 @@ class R7ReviewEvidence(BaseModel):
     )
     independent_review_passed: bool = False
 
+    @model_validator(mode="after")
+    def require_hash_for_passed_evidence(self) -> R7ReviewEvidence:
+        if self.oos_passed and self.oos_artifact_sha256 is None:
+            raise ValueError("passed OOS evidence requires an artifact hash")
+        if self.stress_passed and self.stress_artifact_sha256 is None:
+            raise ValueError("passed stress evidence requires an artifact hash")
+        if self.independent_review_passed and self.independent_review_sha256 is None:
+            raise ValueError("passed review evidence requires an artifact hash")
+        return self
+
 
 class R7GateResult(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -44,6 +54,16 @@ class R7GateResult(BaseModel):
     workspace_manifest_sha256: str | None = Field(
         default=None, pattern=HASH_PATTERN
     )
+
+    @model_validator(mode="after")
+    def preserve_gate_invariants(self) -> R7GateResult:
+        if self.state == "blocked" and self.simulation_allowed:
+            raise ValueError("blocked R7 gate cannot allow simulation")
+        if self.state == "ready" and (
+            not self.simulation_allowed or self.reasons
+        ):
+            raise ValueError("ready R7 gate requires simulation and no reasons")
+        return self
 
 
 def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:

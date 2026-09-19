@@ -3,12 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from jusik.research_prospective_readiness import (
     ProspectiveBoundaryReadiness,
     ProspectiveExecutionEvidenceReadiness,
     ProspectiveReadiness,
 )
-from jusik.research_r7_gate import R7ReviewEvidence, evaluate_r7_gate
+from jusik.research_r7_gate import R7GateResult, R7ReviewEvidence, evaluate_r7_gate
 from jusik.research_r7_isolation import create_r7_isolation_workspace
 
 
@@ -94,3 +96,10 @@ def test_gate_is_ready_only_after_every_gate_and_keeps_paper_manual(
     assert result.paper_decision_required is True
     assert result.automatic_promotion_eligible is False
     assert result.workspace_manifest_sha256 is not None
+
+
+def test_gate_evidence_and_result_invariants_cannot_be_bypassed() -> None:
+    with pytest.raises(ValueError, match="OOS evidence"):
+        R7ReviewEvidence(oos_passed=True)
+    with pytest.raises(ValueError, match="cannot allow simulation"):
+        R7GateResult(state="blocked", simulation_allowed=True, reasons=())
