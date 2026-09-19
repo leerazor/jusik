@@ -10,6 +10,8 @@
   고정합니다. 기존 retrospective 경로와 겹치거나 symlink·재사용·누락 source이면
   생성하지 않습니다. source path별 deterministic SHA-256을 실제로 대조하고 workspace와
   child를 `0700`으로 생성하며, 부모 symlink와 사용 불가 source를 거부합니다.
+- 생성·manifest 쓰기·실패 정리는 `O_NOFOLLOW`와 고정 `dir_fd`를 사용해 경로 교체
+  경쟁 조건에서 임의 경로를 따라가지 않도록 합니다.
 - 확인: 고정 prospective 상태·stress 결과는 자동 승격되지 않으며, 해시 고정·엄격한
   JSON·격리된 입력/출력·calendar 변형 경계가 실패 시 차단됩니다. paper fill은 앱 내부
   paper 원장 경계에만 존재하고 broker 주문 경로와 분리됩니다.

@@ -81,20 +81,15 @@ def _sha256_path(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _fsync_directory(path: Path) -> None:
-    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-
-
-def _write_manifest(path: Path, payload: dict[str, object]) -> None:
+def _write_manifest_at(
+    directory_fd: int, name: str, payload: dict[str, object]
+) -> None:
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     descriptor = os.open(
-        path,
+        name,
         os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
         0o600,
+        dir_fd=directory_fd,
     )
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
@@ -102,7 +97,10 @@ def _write_manifest(path: Path, payload: dict[str, object]) -> None:
             handle.flush()
             os.fsync(handle.fileno())
     except BaseException:
-        path.unlink(missing_ok=True)
+        try:
+            os.unlink(name, dir_fd=directory_fd)
+        except FileNotFoundError:
+            pass
         raise
 
 
@@ -155,11 +153,15 @@ def create_r7_isolation_workspace(
         if _sha256_path(path) != expected:
             raise ValueError(f"retrospective source hash mismatch: {path}")
 
-    root.mkdir(mode=0o700, exist_ok=False)
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    parent_fd = os.open(root.parent, directory_flags)
+    root_fd: int | None = None
     try:
+        os.mkdir(root.name, mode=0o700, dir_fd=parent_fd)
+        root_fd = os.open(root.name, directory_flags, dir_fd=parent_fd)
         children = {name: root / name for name in CHILDREN}
-        for child in children.values():
-            child.mkdir(mode=0o700)
+        for name in CHILDREN:
+            os.mkdir(name, mode=0o700, dir_fd=root_fd)
         manifest = root / "workspace.json"
         payload: dict[str, object] = {
             "schema_version": SCHEMA_VERSION,
@@ -170,8 +172,8 @@ def create_r7_isolation_workspace(
             "source_identities": dict(sorted(source_identities.items())),
             "paths": {name: name for name in (*CHILDREN, "workspace.json")},
         }
-        _write_manifest(manifest, payload)
-        _fsync_directory(root)
+        _write_manifest_at(root_fd, "workspace.json", payload)
+        os.fsync(root_fd)
         return R7IsolationWorkspace(
             root=root,
             market_data=children["market-data"],
@@ -181,15 +183,26 @@ def create_r7_isolation_workspace(
             manifest=manifest,
         )
     except BaseException:
-        # This is a newly-created, private workspace.  Remove only its known
-        # empty/manifest children so a failed setup cannot be reused silently.
-        for path in (root / "workspace.json", *(root / name for name in CHILDREN)):
-            if path.is_file() or path.is_symlink():
-                path.unlink(missing_ok=True)
-            elif path.is_dir():
-                path.rmdir()
-        root.rmdir()
+        # Remove only entries created through the held directory descriptors.
+        if root_fd is not None:
+            for name in ("workspace.json", *CHILDREN):
+                try:
+                    os.unlink(name, dir_fd=root_fd)
+                except IsADirectoryError:
+                    os.rmdir(name, dir_fd=root_fd)
+                except FileNotFoundError:
+                    pass
+            os.close(root_fd)
+            root_fd = None
+        try:
+            os.rmdir(root.name, dir_fd=parent_fd)
+        except FileNotFoundError:
+            pass
         raise
+    finally:
+        if root_fd is not None:
+            os.close(root_fd)
+        os.close(parent_fd)
 
 
 def workspace_manifest_sha256(workspace: R7IsolationWorkspace) -> str:
