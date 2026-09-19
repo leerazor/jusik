@@ -2315,3 +2315,10 @@
 - accounting evidence/FX provenance/FX signal 테스트 46개 통과. USD/KRW as-of, stale/future
   거부, Decimal 반올림 경계를 확인했습니다.
 - 실제 historical FX coverage와 거래 timestamp가 부족해 R2-03 경제 승격은 하지 않습니다.
+
+## r2-dd-chronology-verification-20260920
+
+- 상태: 기술 계약 재검증 완료; 경제 평가는 `not-evaluated`.
+- drawdown chronology/underwater-duration 테스트 28개 통과. 초기 자본 고점, DD latch,
+  시간순 매수 차단과 malformed chronology 거부를 확인했습니다.
+- complete fills/opening positions와 미래 검증 자료 부족으로 R2-04 및 PAPER 승격은 하지 않습니다.
