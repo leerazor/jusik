@@ -2510,7 +2510,7 @@
 
 ## r1-action-receipt-time-order-20260920
 
-- 상태: 진행
+- 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
 - 목표와 완료 조건: action receipt preflight가 불가능한 시간 역전(`requested_start > requested_end`,
   `started_at > completed_at`, event/revision 관측 시각 역전)을 fail-closed로 거부하도록
   보강합니다. 정상 동일시각은 허용하고 R1-04/R1-05 경제 acceptance·checkbox는 변경하지 않습니다.
@@ -2526,3 +2526,12 @@
   diff check. 자료 coverage incomplete와 경제 not-evaluated를 유지합니다.
 - 중지 조건: 기존 receipt identity/hash가 변하거나 fixed artifact가 재생성되어야 하면 중단하고
   원인과 재개 조건을 기록합니다.
+- 결과 커밋: 구현 `2c24b9b`, review 보강 `a2a7405`, 개발 기록 `e936834`·`7bf6e92`.
+- 독립 검토: material finding 없음. revision sequence 비감소와 event 전체 시간 범위 검증을
+  추가한 뒤 재검토했습니다.
+- 통합: local `main` 병합 커밋 `4d2b4809a833fabc92bf2c5b83353050fb1eca4b`.
+- 통합 검증: preflight/action-review/SEC/collector `163 passed, 2 warnings`, Ruff
+  check/format, 변경 모듈 strict mypy, `git diff --check` 통과.
+- 정리: 통합 검증 후 worktree와 브랜치를 제거합니다. 기존 미추적 `HANDOFF.md`는 보존합니다.
+- 제한: 실제 receipt coverage·PIT publication·권리/가격 자료는 보강하지 않았고, R1
+  checkbox·ledger·NAV·성과·PAPER/live는 변경하지 않았습니다.
