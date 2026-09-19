@@ -2407,6 +2407,7 @@
   provider receipt와 경제 acceptance는 이 fixture로 주장하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r1-02-krx-prefix-invariance.md`.
 - handoff: 별도 세션 handoff 없음; 기존 untracked `HANDOFF.md`를 보존합니다.
+- 정리: local `main` 통합 검증 후 작업 worktree와 브랜치를 제거했습니다.
 - 중지 조건: 미래 사건이 사건 전 prefix를 변경하거나 자료 의미가 불명확하면 checkbox를
   변경하지 않고 근거와 재개 조건을 남깁니다.
 
@@ -2448,3 +2449,4 @@
   material finding 없음, local main 통합 `a061838`.
 - 개발 기록: `docs/development-records/2026-09-20-r2-fred-csv-parser-contract.md`.
 - handoff: 별도 세션 handoff 없음; 기존 untracked `HANDOFF.md`를 보존합니다.
+- 정리: local `main` 통합 검증 후 작업 worktree와 브랜치를 제거했습니다.
