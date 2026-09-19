@@ -2,6 +2,11 @@
 
 지속 개발 실행기는 systemd user timer가 한 번에 하나의 제한된 연구 작업을 Codex에 전달하고, 결과를 검증한 뒤 다음 실행을 위해 SQLite 큐에 남기는 자동 개발 도구입니다. 작업 상태와 시도별 JSON·JSONL·stderr는 `state_dir` 아래 private 파일로 보관합니다. 실제 주문, 원격 push, GPU 서비스 변경, 전략 엔진 변경은 실행하지 않습니다.
 
+운영자가 정한 연속 세션의 시작·마감 시각, 자동 복구 원칙, 중단 조건은
+[연속 개발 세션 정책](continuous-development-session.md)을 canonical 문서로 사용합니다.
+이 문서와 정책을 중복해서 수정하지 말고, 세션별 재개 정보는
+[`docs/handoffs/`](handoffs/)에 날짜별로 기록합니다.
+
 ## 초기 설정
 
 백엔드 개발 의존성을 설치한 뒤 저장소 루트에서 설정 파일과 고정 초기 큐를 만듭니다.
