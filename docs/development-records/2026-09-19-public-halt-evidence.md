@@ -19,3 +19,12 @@
 
 SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/evidence 계약으로
 연결하고, SEC acceptance 시각을 source-specific `observed_at`으로 보존합니다.
+
+## SEC filing collector 추가
+
+- 구현: `backend/jusik/research_sec_evidence.py`
+- CIK별 SEC submissions JSON 원문을 저장하고 accession, form, filing date,
+  acceptance timestamp, primary document와 수집 시각·SHA-256을 보존합니다.
+- 검증: `pytest -q tests/test_research_sec_evidence.py`: 1 passed; Ruff 통과.
+- 실제 SEC CIK `1045810` 1회 조회 성공(1000 filings, raw JSON 저장). API key는
+  사용하지 않았고 User-Agent만 요청 헤더에 사용했습니다.
