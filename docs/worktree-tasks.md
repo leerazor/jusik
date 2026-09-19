@@ -2480,3 +2480,16 @@
 - 제한: publication instant/timezone, business calendar completeness, NAV 적용 정책이
   없어 R2/R4 readiness와 Sharpe·Calmar 계산은 유지됩니다.
 - 개발 기록: `docs/development-records/2026-09-20-alfred-weekly-vintage-evidence.md`.
+
+## alpha-target-period-action-evidence-20260920
+
+- 상태: 완료된 자료 조사 slice; R1-04/R1-05 경제 acceptance는 차단
+- 목표와 완료 조건: 기존 Alpha Vantage raw 응답을 재호출 없이 목표 기간에 대해
+  offline 재대조하고 raw SHA·심볼·종류·관측일을 보존합니다. 자동 ledger·성과 계산에는
+  연결하지 않습니다.
+- 결과: raw 20개, nonempty 8개, 관측 27개. `TQQQ` split 1건과 배당 관측을 확인했습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-alpha-target-period-evidence/`;
+  `target-period-summary.json`, `request.json`.
+- 제한: exact PIT publication instant, 완전성, 수동 권리 검토가 없어 action review
+  manifest·R1 승격·NAV/성과 계산은 보류합니다.
+- 개발 기록: `docs/development-records/2026-09-20-alpha-target-period-action-evidence.md`.
