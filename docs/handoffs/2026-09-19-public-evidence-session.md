@@ -1,9 +1,9 @@
 # 2026-09-19 공개 evidence 자동수집 세션 인계
 
-- 갱신: 2026-09-20T07:05:00+09:00
+- 갱신: 2026-09-20T07:12:00+09:00
 - 저장소: `/home/kwl/projects/jusik`
 - branch: `main`
-- 원격 반영 HEAD: `9b2243a6234450bfb3d3e76ae333d08aaeae12ff`
+- 현재 로컬 HEAD: `450c9ff` (`feat: preserve SEC filing action candidates`); 원격 push 없음.
 
 ## 목표와 상태
 
@@ -36,8 +36,9 @@
 
 ## 검증
 
-- Ruff 통과.
-- 공개 evidence 및 기존 collector/history 관련 pytest 174개 통과.
+- SEC 관련 pytest 4개 및 Ruff 통과.
+- 전체 backend pytest는 1615 passed, 7 failed. 실패는 기존 investor 상태 기대치,
+  frozen archive/hash, prospective status 기대치에 해당하며 이번 SEC 파일 변경과 무관합니다.
 - Nasdaq RSS 실제 1일 조회 45건 성공.
 - SEC CIK 1045810 실제 submissions 조회 1,000건 성공.
 - API key, 주문, PAPER/live, 운영 DB/원격 설정 변경 없음.
@@ -45,7 +46,8 @@
 ## 운영
 
 - roadmap runner timer/service: inactive (수동 작업과 자동 실행 충돌 방지를 위해 유지)
-- Windows 종료: 이전 세션 예약은 이미 경과했으며 새 예약은 하지 않음
+- Windows 종료는 handoff 저장 후 별도 요청 범위로 남겼으며, 종료하면 현재 실행 세션이
+  끊기므로 이 기록을 먼저 저장했습니다.
 - 기존 루트 `HANDOFF.md`는 사용자 작성 이력으로 보존하고 수정하지 않음.
 
 ## 남은 작업
