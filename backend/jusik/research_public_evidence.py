@@ -51,6 +51,11 @@ class NasdaqHalt(BaseModel):
 _SYMBOL_RE = re.compile(r"\b(?:Security|Issue)\s+([A-Z0-9][A-Z0-9.\-/]{0,19})\b", re.I)
 _DATE_RE = re.compile(r"\b(\d{2}/\d{2}/\d{4})\b")
 _CODE_RE = re.compile(r"\b(?:halt code|reason code)\s*[:=-]?\s*([A-Z0-9]{1,8})\b", re.I)
+_HTML_SYMBOL_RE = re.compile(
+    r"Issue\s+Symbol.*?</th>\s*<th[^>]*>.*?</th>.*?</tr>\s*<tr>\s*"
+    r"<td[^>]*>\s*([A-Z0-9][A-Z0-9.\-/]{0,19})\s*</td>",
+    re.I | re.S,
+)
 
 
 def _local_name(tag: str) -> str:
@@ -61,6 +66,15 @@ def _item_text(item: ET.Element, name: str) -> str:
     for child in item:
         if _local_name(child.tag) == name:
             return " ".join("".join(child.itertext()).split())
+    return ""
+
+
+def _item_raw(item: ET.Element, name: str) -> str:
+    for child in item:
+        if _local_name(child.tag) == name:
+            if child.text and not list(child):
+                return child.text
+            return ET.tostring(child, encoding="unicode")
     return ""
 
 
@@ -84,8 +98,10 @@ def parse_nasdaq_halt_rss(
             continue
         title = _item_text(item, "title")
         description = _item_text(item, "description")
+        raw_description = _item_raw(item, "description")
         text = f"{title} {description}"
-        match = _SYMBOL_RE.search(text)
+        html_match = _HTML_SYMBOL_RE.search(raw_description)
+        match = html_match or _SYMBOL_RE.search(text)
         if match is None:
             continue
         parsed_date = _DATE_RE.search(text)

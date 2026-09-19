@@ -28,6 +28,17 @@
 - 검증: catalog focused pytest 1개, Ruff, diff 검사 통과.
 - 개발 기록: `docs/development-records/2026-09-19-public-halt-evidence.md`.
 
+## public-evidence-batch-20260920
+
+- 상태: bounded batch 및 parser 교정 완료.
+- 입력: registry 미국 10개 심볼, Alpha 2024–2025, Nasdaq 2024-01-02 1일.
+- 결과: Alpha 53 actions, Nasdaq raw 45건·catalog 27건. audit
+  `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-batch/`에
+  raw, catalog, request, SHA-256을 보존합니다.
+- 교정: HTML `Issue Symbol` 헤더 오인식 재현 테스트를 추가했고 raw 45건 재파싱에서
+  `SYMBOL` 오인식 0건을 확인했습니다.
+- 판정: 전체 coverage/PIT/권리 가격 경계가 없어 R1 체크와 경제 acceptance는 보류.
+
 ## roadmap-planner-wait-20260919
 
 - 상태: 정상 대기. planner attempt `11f1a5101c7649cfabb3a4d35123115e`가 `proposal=null`, `status=waiting`, exit 0으로 종료했습니다.

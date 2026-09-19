@@ -49,3 +49,15 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
   원천 전체 coverage가 없는 상태에서 R1 checklist나 경제 acceptance를 승격하지
   않습니다.
 - 검증: `pytest -q tests/test_research_public_evidence_catalog.py`: 1 passed; Ruff 통과.
+
+## 2026-09-20 bounded batch 및 parser 교정
+
+- 대상: 미국 registry 10개 심볼, Alpha 2024-01-01~2025-12-31, Nasdaq halt
+  2024-01-02 1일.
+- 결과: Alpha 53 actions, Nasdaq raw 45건 중 요청 기간에 포함된 catalog 27건.
+  catalog SHA-256은 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-batch/catalog.json`
+  및 `request.json`에 보존했습니다.
+- 결함 교정: Nasdaq HTML 표의 `Issue Symbol` 헤더를 symbol 값으로 읽던 parser를
+  수정했습니다. 기존 raw 45건 재파싱에서 잘못된 `SYMBOL` 결과는 0건입니다.
+- 판정: 무료 공급자의 전체 기간·PIT·권리 가격 경계가 없으므로 `coverage=incomplete`,
+  R1-02/R1-04/R1-05 미체크를 유지합니다.

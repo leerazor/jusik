@@ -34,3 +34,20 @@ def test_nasdaq_halt_url_supports_resumption_filter() -> None:
         "https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts&"
         "haltdate=10082010&resumedate=10112010"
     )
+
+
+def test_parse_nasdaq_html_table_uses_issue_symbol_cell() -> None:
+    body = (
+        b"<rss><channel><item><title>VIASP</title><description>"
+        b"<table><tr><th>Issue Symbol</th><th>Issue Name</th><th>Mkt</th>"
+        b"</tr><tr><td>VIASP</td><td>Via Renewables</td><td>Q</td></tr></table>"
+        b"</description></item></channel></rss>"
+    )
+    result = parse_nasdaq_halt_rss(
+        body,
+        halt_date=date(2024, 1, 2),
+        source_url="https://www.nasdaqtrader.com/rss.aspx?feed=tradehalts",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+    )
+
+    assert result[0].symbol == "VIASP"
