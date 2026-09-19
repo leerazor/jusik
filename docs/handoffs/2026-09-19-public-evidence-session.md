@@ -1,9 +1,9 @@
 # 2026-09-19 공개 evidence 자동수집 세션 인계
 
-- 갱신: 2026-09-20T07:12:00+09:00
+- 갱신: 2026-09-20T07:20:00+09:00
 - 저장소: `/home/kwl/projects/jusik`
 - branch: `main`
-- 현재 로컬 HEAD: `450c9ff` (`feat: preserve SEC filing action candidates`); 원격 push 없음.
+- 현재 로컬 HEAD: `02e97d3` (`feat: retain SEC candidate context snippets`); 원격 push 없음.
 
 ## 목표와 상태
 
@@ -41,7 +41,7 @@
 
 ## 검증
 
-- SEC 관련 pytest 4개 및 Ruff 통과.
+- SEC 관련 pytest 5개 및 Ruff 통과.
 - 전체 backend pytest는 1615 passed, 7 failed. 실패는 기존 investor 상태 기대치,
   frozen archive/hash, prospective status 기대치에 해당하며 이번 SEC 파일 변경과 무관합니다.
 - Nasdaq RSS 실제 1일 조회 45건 성공.
