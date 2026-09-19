@@ -2373,6 +2373,9 @@
   pytest는 89개 통과(경고 2개)이며 passed-evidence/result 불변식도 검증합니다.
 - 프로젝트 전체 mypy는 기존 unrelated 10개 오류로 실패했으며, 이번 변경이 전체 통과했다고
   주장하지 않습니다.
+- 연구 API의 `/api/research/validation/r7/gate`를 연결해 현재 자료가 부족하면 `blocked`
+  상태와 `simulation_allowed=false`를 반환하도록 했습니다. 기본 경로는 workspace나
+  review evidence를 생성하지 않습니다.
 - 제한: untouched OOS 단회 판정과 독립 reviewer 승인 전에는 stress/PAPER 경제 승격을
   하지 않습니다. 실제 연구·network·주문·PAPER/live 설정 변경·remote push는 없습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r7-isolation-safety-verification.md`.

@@ -19,6 +19,9 @@
 - 게이트 테스트와 evidence/result 불변식 검사를 포함한 R7 focused pytest 89개가
   통과했습니다(경고 2개). 프로젝트
   전체 mypy는 기존 10개 오류가 남아 있어 전체 통과로 주장하지 않습니다.
+- 연구 API의 `/api/research/validation/r7/gate`가 prospective readiness와 R7 gate를
+  실제로 소비하도록 연결했습니다. 기본 설정에서는 workspace/evidence가 없어
+  `blocked`를 반환하며, 실행·주문·PAPER 설정을 변경하지 않습니다.
 - 확인: 고정 prospective 상태·stress 결과는 자동 승격되지 않으며, 해시 고정·엄격한
   JSON·격리된 입력/출력·calendar 변형 경계가 실패 시 차단됩니다. paper fill은 앱 내부
   paper 원장 경계에만 존재하고 broker 주문 경로와 분리됩니다.

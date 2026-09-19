@@ -494,8 +494,13 @@ def test_readiness_api_is_read_only_and_fails_closed(
     )
     with TestClient(app) as client:
         response = client.get("/api/research/validation/prospective/readiness")
+        gate = client.get("/api/research/validation/r7/gate")
     assert response.status_code == 200
     assert response.json()["execution_evidence"]["state"] == "unobserved"
+    assert gate.status_code == 200
+    assert gate.json()["state"] == "blocked"
+    assert gate.json()["simulation_allowed"] is False
+    assert gate.json()["automatic_promotion_eligible"] is False
 
     monkeypatch.setattr(
         research_app_module,

@@ -116,6 +116,12 @@ from jusik.research_prospective_registration import (
     code_identity,
     prospective_registration_status,
 )
+from jusik.research_r7_gate import (
+    R7GateResult,
+    R7ReviewEvidence,
+    evaluate_r7_gate,
+)
+from jusik.research_r7_isolation import R7IsolationWorkspace
 from jusik.research_signal_validation import (
     SignalValidationResult,
     latest_completed_signal_date,
@@ -157,6 +163,8 @@ def create_research_app(
     runner_db_path: Path | None = None,
     progress_history_dir: Path | None = None,
     runner_service_probe: Callable[[str], UnitStatus] | None = None,
+    r7_workspace: R7IsolationWorkspace | None = None,
+    r7_review_evidence: R7ReviewEvidence | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -814,6 +822,44 @@ def create_research_app(
         except (OSError, sqlite3.Error, ValueError):
             raise HTTPException(
                 status_code=503, detail="Prospective readiness unavailable."
+            ) from None
+
+    @research_app.get(
+        "/api/research/validation/r7/gate",
+        response_model=R7GateResult,
+    )
+    async def r7_validation_gate(response: Response) -> R7GateResult:
+        response.headers["Cache-Control"] = "no-store"
+        _forward, forward_store = forward_components()
+
+        def read() -> R7GateResult:
+            checked_at = datetime.now(UTC)
+            registration = prospective_registration_status(
+                forward_db=forward_store.path,
+                source_report_dir=prospective_source_report_dir,
+                output_dir=prospective_dir,
+                code_root=prospective_code_root,
+                app_start_code_identity_sha256=(
+                    research_app.state.prospective_app_start_code_identity_sha256
+                ),
+                now=checked_at,
+            )
+            readiness = prospective_readiness(
+                forward_db=forward_store.path,
+                registration_status=registration,
+                now=checked_at,
+            )
+            return evaluate_r7_gate(
+                prospective=readiness,
+                workspace=r7_workspace,
+                evidence=r7_review_evidence or R7ReviewEvidence(),
+            )
+
+        try:
+            return await asyncio.to_thread(read)
+        except (OSError, sqlite3.Error, ValueError):
+            raise HTTPException(
+                status_code=503, detail="R7 gate unavailable."
             ) from None
 
     @research_app.get(
