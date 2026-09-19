@@ -2428,7 +2428,7 @@
 
 ## r2-fred-csv-parser-contract-20260920
 
-- 상태: 준비
+- 상태: 진행
 - 목표와 완료 조건: FRED 공개 graph CSV를 기존 JSON parser와 혼동하지 않도록 별도
   fail-closed parser/fixture를 추가합니다. 날짜·중복·결측·범위·Decimal 보존을 검증하고
   transport/readiness/performance에 연결하지 않습니다.
