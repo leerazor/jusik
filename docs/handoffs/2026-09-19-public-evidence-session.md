@@ -25,6 +25,9 @@
   10건을 파싱했습니다.
 - `backend/jusik/research_public_evidence_catalog.py`: 세 공급자의 evidence를
   source-specific identity와 raw SHA로 결합하고 `coverage=incomplete`를 강제합니다.
+- 2026-09-20 bounded batch: 미국 registry 10개 심볼에서 Alpha 53 actions와 Nasdaq
+  raw 45건(요청 기간 catalog 27건)을 수집했습니다. Nasdaq HTML symbol parser 결함을
+  수정하고 기존 raw 재파싱에서 `SYMBOL` 오인식 0건을 확인했습니다.
 
 ## 검증
 
@@ -43,8 +46,10 @@
 
 ## 남은 작업
 
-1. catalog에 실제 대상 universe 전체를 수집하는 bounded batch와 coverage 진단을 연결.
-2. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을
+1. SEC CIK 매핑과 filing event extraction을 catalog에 연결하고 coverage 진단을 강화.
+2. 전체 대상 기간의 halt coverage를 공식 자료로 확장하되 호출 예산과 PIT 한계를
+   명시적으로 기록.
+3. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을
    유지하고, 불완전 coverage는 성공으로 표시하지 않음.
 3. 중복 운영 문서는 삭제하지 말고 canonical 문서 링크만 정리한 뒤 최종 검증.
 4. 세션 종료 전 최종 테스트·커밋·push 상태를 확인.
