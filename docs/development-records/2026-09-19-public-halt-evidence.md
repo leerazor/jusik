@@ -40,3 +40,12 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
 - 검증: `pytest -q tests/test_research_sec_evidence.py`: 1 passed; Ruff 통과.
 - 실제 SEC CIK `1045810` 1회 조회 성공(1000 filings, raw JSON 저장). API key는
   사용하지 않았고 User-Agent만 요청 헤더에 사용했습니다.
+
+## Public evidence catalog
+
+- 구현: `backend/jusik/research_public_evidence_catalog.py`
+- SEC filing, Nasdaq halt, Alpha action을 source-specific identity와 raw SHA로 결합하며
+  중복을 제거합니다. catalog의 `coverage`는 의도적으로 `incomplete`로 고정되어
+  원천 전체 coverage가 없는 상태에서 R1 checklist나 경제 acceptance를 승격하지
+  않습니다.
+- 검증: `pytest -q tests/test_research_public_evidence_catalog.py`: 1 passed; Ruff 통과.

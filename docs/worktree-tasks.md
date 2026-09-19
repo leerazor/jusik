@@ -16,6 +16,18 @@
   경계 검증 전까지 미체크로 유지합니다.
 - 기록: `docs/development-records/2026-09-19-public-halt-evidence.md`.
 
+## public-evidence-catalog-20260920
+
+- 상태: 기술 slice 완료. SEC·Nasdaq·Alpha 결과를 source-specific identity와 raw
+  SHA로 결합하는 읽기 전용 catalog를 추가했습니다.
+- 구현: `backend/jusik/research_public_evidence_catalog.py` 및
+  `backend/tests/test_research_public_evidence_catalog.py`.
+- 계약: 중복을 제거하지만 `coverage=incomplete`를 강제합니다. 원천 전체 coverage,
+  PIT completeness, 가격·권리 경계가 확인되기 전에는 R1-02/R1-04/R1-05나 경제
+  acceptance를 변경하지 않습니다.
+- 검증: catalog focused pytest 1개, Ruff, diff 검사 통과.
+- 개발 기록: `docs/development-records/2026-09-19-public-halt-evidence.md`.
+
 ## roadmap-planner-wait-20260919
 
 - 상태: 정상 대기. planner attempt `11f1a5101c7649cfabb3a4d35123115e`가 `proposal=null`, `status=waiting`, exit 0으로 종료했습니다.
