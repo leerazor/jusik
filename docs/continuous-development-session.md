@@ -2,10 +2,14 @@
 
 ## Session
 
-- status: active
+- status: completed
 - started_at: 2026-09-19T23:22:09+09:00
 - deadline_at: 2026-09-20T02:22:09+09:00
 - requested_shutdown: windows
+
+The bounded session ended at `deadline_at`. A later session must update this
+document with a new explicit start/deadline before relying on automatic
+continuous execution.
 
 ## Operating policy
 
