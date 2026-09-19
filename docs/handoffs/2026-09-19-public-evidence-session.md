@@ -3,7 +3,7 @@
 - 갱신: 2026-09-20T07:20:00+09:00
 - 저장소: `/home/kwl/projects/jusik`
 - branch: `main`
-- 현재 로컬 HEAD: `02e97d3` (`feat: retain SEC candidate context snippets`); 원격 push 없음.
+- 현재 로컬 HEAD: `0541f1f` (`docs: update SEC candidate handoff`); 원격 push 없음.
 
 ## 목표와 상태
 
