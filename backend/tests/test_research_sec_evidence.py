@@ -1,10 +1,14 @@
+import asyncio
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
+import httpx
 import pytest
 
 from jusik.research_sec_evidence import (
     SecFiling,
+    collect_sec_filing_candidates,
     filing_document_url,
     parse_sec_filing_candidate,
     parse_sec_submissions,
@@ -83,3 +87,40 @@ def test_filing_document_url_and_candidate_parser_are_fail_closed() -> None:
     missing_document = filing.model_copy(update={"primary_document": None})
     with pytest.raises(ValueError, match="primary_document"):
         filing_document_url(missing_document)
+
+
+def test_collect_sec_filing_candidates_is_bounded_and_persists_raw(
+    tmp_path: Path,
+) -> None:
+    filing = SecFiling(
+        cik="0001045810",
+        accession_number="0001045810-24-000144",
+        form="8-K",
+        filing_date="2024-06-07",
+        primary_document="event.htm",
+        source_url="https://data.sec.gov/submissions/CIK0001045810.json",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        raw_sha256="0" * 64,
+    )
+    requests: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        return httpx.Response(200, content=b"dividend", request=request)
+
+    async def run() -> tuple:
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            return await collect_sec_filing_candidates(
+                filings=(filing, filing, filing),
+                output_dir=tmp_path,
+                max_documents=1,
+                user_agent="test-agent",
+                client=client,
+            )
+
+    result = asyncio.run(run())
+    assert len(result) == 1
+    assert result[0].candidate_kinds == ("dividend",)
+    assert len(requests) == 1
+    assert list(tmp_path.glob("sec-filing-*.html"))

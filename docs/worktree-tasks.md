@@ -2268,3 +2268,7 @@
   상태 기대치 불일치 7건으로 실패(1615 passed, 7 failed)했으며 별도 기록했습니다.
 - 다음: bounded document fetch와 수동 검토 가능한 후보 audit을 추가하되, 승격 조건과
   PIT 경계를 먼저 고정합니다.
+
+- 후속 bounded fetch: 2024–2025의 8-K/8-K/A 문서 3건을 fetch해 raw HTML·summary·request
+  SHA를 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-filing-candidates/`에
+  보존했습니다. merger 후보 1건과 빈 후보 2건이며, 경제 acceptance에는 반영하지 않았습니다.

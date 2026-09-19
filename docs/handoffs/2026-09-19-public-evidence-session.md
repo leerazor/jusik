@@ -33,6 +33,9 @@
 - SEC accession의 primary document URL 재현과 본문 키워드 후보(`SecFilingCandidate`)를
   추가했습니다. 후보는 `candidate/incomplete` 성격이며 권리·가격 확정이나 acceptance
   승격에 사용하지 않습니다.
+- 2024–2025 범위에서 SEC 8-K/8-K/A 문서 3건을 bounded fetch했습니다. 3건 모두 raw
+  저장에 성공했고 후보는 merger 1건·빈 후보 2건입니다. audit 경로는
+  `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-filing-candidates/`입니다.
 
 ## 검증
 
@@ -52,7 +55,7 @@
 
 ## 남은 작업
 
-1. SEC filing 본문 후보를 bounded fetch로 검증하되 확정 event 승격 조건을 먼저 정의.
+1. SEC 후보를 사람이 검토 가능한 event schema로 확장하되, 확정 event 승격 조건을 먼저 정의.
 2. 전체 대상 기간의 halt coverage를 공식 자료로 확장하되 호출 예산과 PIT 한계를
    명시적으로 기록.
 3. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을

@@ -298,6 +298,62 @@ async def collect_sec_ticker_map(
             await http_client.aclose()
 
 
+async def collect_sec_filing_candidates(
+    *,
+    filings: Iterable[SecFiling],
+    output_dir: Path,
+    max_documents: int = 20,
+    user_agent: str | None = None,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[SecFilingCandidate, ...]:
+    """Fetch a bounded set of primary documents as non-authoritative candidates."""
+    if max_documents < 1:
+        raise ValueError("max_documents_must_be_positive")
+    agent = user_agent or os.environ.get("SEC_USER_AGENT")
+    if not agent:
+        raise ValueError("SEC_USER_AGENT is required")
+    owns_client = client is None
+    http_client = client or httpx.AsyncClient(timeout=30)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    result: list[SecFilingCandidate] = []
+    try:
+        eligible = (
+            filing
+            for filing in filings
+            if filing.primary_document and filing.form in {"8-K", "8-K/A"}
+        )
+        for index, filing in enumerate(eligible):
+            if index >= max_documents:
+                break
+            if index:
+                await asyncio.sleep(SEC_MIN_REQUEST_INTERVAL_SECONDS)
+            source_url = filing_document_url(filing)
+            response = await http_client.get(
+                source_url,
+                headers={"User-Agent": agent, "Accept": "text/html"},
+            )
+            response.raise_for_status()
+            observed = datetime.now(UTC)
+            digest = hashlib.sha256(response.content).hexdigest()
+            raw_path = (
+                output_dir / f"sec-filing-{filing.accession_number}-{digest}.html"
+            )
+            if not raw_path.exists():
+                raw_path.write_bytes(response.content)
+            result.append(
+                parse_sec_filing_candidate(
+                    response.content,
+                    filing=filing,
+                    observed_at=observed,
+                    source_url=source_url,
+                )
+            )
+    finally:
+        if owns_client:
+            await http_client.aclose()
+    return tuple(result)
+
+
 def _main(argv: Iterable[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Collect SEC filing evidence")
     parser.add_argument("--cik", action="append", required=True)

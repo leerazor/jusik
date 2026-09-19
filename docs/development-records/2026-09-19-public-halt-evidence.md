@@ -84,3 +84,14 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
 - 검증: SEC parser 관련 pytest 4개 및 Ruff 통과. 전체 backend pytest는 기존 archive/hash
   및 상태 기대치 불일치 7건으로 실패했으며 이번 SEC 변경과 무관한 실패로 기록합니다
   (1615 passed, 7 failed).
+
+## SEC filing bounded candidate fetch
+
+- 2024-01-01~2025-12-31 범위에서 기존 SEC submissions raw를 입력으로 8-K/8-K/A
+  primary document 3건만 fetch했습니다. 원문 HTML 3개, summary/request와 SHA sidecar를
+  `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-filing-candidates/`에
+  보존했습니다.
+- 결과 후보 종류는 `merger` 1건과 빈 후보 2건입니다. 키워드 후보는 확정 event가 아니며
+  권리·가격·effective/payment date 산출, catalog 승격, R1 acceptance에 사용하지 않습니다.
+- 요청 경계는 `max_documents=3`, 허용 form `8-K`/`8-K/A`, SEC User-Agent, 요청 간격
+  0.2초로 고정했습니다. 실제 주문·PAPER/live·원격 push는 없었습니다.
