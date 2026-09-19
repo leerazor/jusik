@@ -1,5 +1,21 @@
 # 워크트리 작업 등록부
 
+## public-evidence-collectors-20260920
+
+- 상태: 기술 slice 완료. Nasdaq Trader RSS, SEC EDGAR submissions, Alpha Vantage
+  `DIVIDENDS`/`SPLITS`의 공개 원문 evidence collector를 추가했습니다.
+- 구현: `backend/jusik/research_public_evidence.py`,
+  `backend/jusik/research_sec_evidence.py`,
+  `backend/jusik/research_alpha_actions.py`와 각 focused test.
+- 검증: 관련 collector·market collector/history pytest 176개, Ruff, diff 검사 통과.
+  실제 Nasdaq RSS 45건, SEC CIK 1045810 1,000 filings, Alpha NVDA 2024–2025
+  10 actions를 읽기 전용으로 확인했습니다.
+- 범위: 원문·source URL·관측 시각·SHA-256만 보존하며 가격·원장·PAPER/live에 자동
+  적용하지 않습니다. 무료 provider의 historical PIT/전체 coverage는 미증명입니다.
+- 제한: R1-02/R1-04/R1-05 checklist와 경제 acceptance는 원천 coverage 및 권리·가격
+  경계 검증 전까지 미체크로 유지합니다.
+- 기록: `docs/development-records/2026-09-19-public-halt-evidence.md`.
+
 ## roadmap-planner-wait-20260919
 
 - 상태: 정상 대기. planner attempt `11f1a5101c7649cfabb3a4d35123115e`가 `proposal=null`, `status=waiting`, exit 0으로 종료했습니다.
