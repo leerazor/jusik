@@ -2301,3 +2301,10 @@
 - 기존 독립 accounting/NAV 및 corporate-action 전이 테스트 43개를 재실행해 통과했습니다.
 - 완전한 fills/opening positions/terminal marks/dividend evidence가 없어 PnL 승격은 금지하고,
   기존 R2-01 blocked audit을 유지합니다.
+
+## r2-counterfactual-reverification-20260920
+
+- 상태: 기술 계약 재검증 완료; 실제 자료 acceptance와 경제 평가는 `not-evaluated`.
+- counterfactual/independent accounting pytest 45개 통과. scenario별 cost·dividend·FX를
+  분리 보존하고 unavailable을 0으로 바꾸지 않는 계약을 재확인했습니다.
+- complete fills/corporate-action evidence 부재로 R2-06과 R4 승격은 하지 않습니다.
