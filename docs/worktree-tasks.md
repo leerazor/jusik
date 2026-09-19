@@ -2334,3 +2334,11 @@
 - 상태: 기술 gate 재검증 완료; 실제 pilot/경제 평가는 실행하지 않음.
 - readiness/외부 자료/근사 시장 이력 테스트 90개 통과. strict·approximate grade,
   provenance·coverage·future/FX 누락을 분리하고 approximate→strict 승격을 차단함을 확인했습니다.
+
+## r5-preregistration-verification-20260920
+
+- 상태: 부분 검증; R5 승격 보류.
+- optimizer/preregistration focused 50개 통과. validation API 2개는 기존 상태 기대치와
+  달라 실패(`503` vs `200`, `observing` vs `planned`)했으며 성공으로 표시하지 않았습니다.
+- API 상태 계약을 복구한 뒤 후보 기간 freeze·MDD hard filter·자동 winner 금지 전체 검증을
+  다시 수행해야 합니다. 전략 실행과 PAPER/live 승격은 하지 않습니다.
