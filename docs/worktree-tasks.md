@@ -2493,3 +2493,17 @@
 - 제한: exact PIT publication instant, 완전성, 수동 권리 검토가 없어 action review
   manifest·R1 승격·NAV/성과 계산은 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-20-alpha-target-period-action-evidence.md`.
+
+## sec-target-period-filing-evidence-20260920
+
+- 상태: 완료된 자료 조사 slice; 기업행사 확정과 R1 acceptance는 차단
+- 목표와 완료 조건: 기존 SEC submissions raw를 재호출 없이 목표 기간의 8-K/8-K/A
+  filing·접수 시각으로 재대조하고 accession·items·primary document·원본 SHA를
+  보존합니다. filing을 자동 기업행사·원장·성과 근거로 승격하지 않습니다.
+- 결과: 8개 매핑 심볼, 89개 filing (`AMD` 14, `COHR` 11, `GEV` 8, `GOOGL` 16,
+  `MSFT` 9, `NVDA` 13, `VRT` 18).
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-target-period-evidence/`;
+  `target-period-8k-summary.json`, `request.json`.
+- 제한: issuer-verified rights/price/effective/payment review가 없어 R1-02/R1-04/R1-05와
+  action-review manifest·성과 계산은 보류합니다.
+- 개발 기록: `docs/development-records/2026-09-20-sec-target-period-filing-evidence.md`.
