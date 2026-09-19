@@ -41,6 +41,46 @@ def _overlaps(left: Path, right: Path) -> bool:
     return left == right or left in right.parents or right in left.parents
 
 
+def _validate_parent_chain(path: Path) -> None:
+    """Require an existing, non-symlink parent chain before creating root."""
+
+    parent = path.parent
+    if not parent.exists() or not parent.is_dir():
+        raise ValueError(f"workspace parent is unavailable: {parent}")
+    current = parent
+    while True:
+        if current.is_symlink():
+            raise ValueError(f"workspace parent must not contain a symlink: {current}")
+        ancestor = current.parent
+        if ancestor == current:
+            return
+        if not ancestor.exists():
+            raise ValueError(f"workspace parent is unavailable: {ancestor}")
+        current = ancestor
+
+
+def _sha256_path(path: Path) -> str:
+    """Hash a regular file or a deterministic tree without following symlinks."""
+
+    digest = hashlib.sha256()
+    if path.is_file() and not path.is_symlink():
+        digest.update(path.read_bytes())
+        return digest.hexdigest()
+    if not path.is_dir() or path.is_symlink():
+        raise ValueError(f"source path is not a regular file or directory: {path}")
+    for child in sorted(path.rglob("*")):
+        if child.is_symlink():
+            raise ValueError(f"source tree contains a symlink: {child}")
+        if child.is_file():
+            relative = child.relative_to(path).as_posix().encode("utf-8")
+            digest.update(len(relative).to_bytes(8, "big"))
+            digest.update(relative)
+            body = child.read_bytes()
+            digest.update(len(body).to_bytes(8, "big"))
+            digest.update(body)
+    return digest.hexdigest()
+
+
 def _fsync_directory(path: Path) -> None:
     descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
     try:
@@ -71,6 +111,7 @@ def create_r7_isolation_workspace(
     *,
     retrospective_paths: tuple[Path, ...],
     source_identities: dict[str, str],
+    source_hashes: dict[Path, str],
 ) -> R7IsolationWorkspace:
     """Create one empty R7 workspace without touching retrospective paths.
 
@@ -79,8 +120,12 @@ def create_r7_isolation_workspace(
     identities; it never copies or mutates source artifacts.
     """
 
+    if not retrospective_paths:
+        raise ValueError("retrospective paths are required")
     if not isinstance(source_identities, dict) or not source_identities:
         raise ValueError("source identities are required")
+    if set(source_hashes) != set(retrospective_paths):
+        raise ValueError("source hashes must cover every retrospective path")
     if any(
         not isinstance(key, str)
         or not key
@@ -90,20 +135,31 @@ def create_r7_isolation_workspace(
         for key, value in source_identities.items()
     ):
         raise ValueError("source identities must be lowercase SHA-256 values")
+    if any(
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+        for digest in source_hashes.values()
+    ):
+        raise ValueError("source hashes must be lowercase SHA-256 values")
     if root.exists() or root.is_symlink():
         raise ValueError("workspace root must be new and not a symlink")
+    _validate_parent_chain(root)
     resolved_root = _resolved(root)
     resolved_sources = tuple(
         _resolved(path, require_exists=True) for path in retrospective_paths
     )
     if any(_overlaps(resolved_root, source) for source in resolved_sources):
         raise ValueError("workspace overlaps a retrospective path")
+    for path, expected in source_hashes.items():
+        if _sha256_path(path) != expected:
+            raise ValueError(f"retrospective source hash mismatch: {path}")
 
-    root.mkdir(parents=True, exist_ok=False)
+    root.mkdir(mode=0o700, exist_ok=False)
     try:
         children = {name: root / name for name in CHILDREN}
         for child in children.values():
-            child.mkdir()
+            child.mkdir(mode=0o700)
         manifest = root / "workspace.json"
         payload: dict[str, object] = {
             "schema_version": SCHEMA_VERSION,

@@ -2364,8 +2364,9 @@
 - 보강: `research_r7_isolation.py`와 계약 테스트를 추가해 새
   `market-data/config/database/artifacts` 경로와 manifest를 생성하고, retrospective
   경로 겹침·symlink·재사용·누락 source를 fail-closed로 거부합니다.
-- 검증: 관련 pytest 85개 통과(경고 2개). 해시·엄격 JSON·입출력 격리·calendar stress·
-  paper-only 경계와 새 workspace 계약을 확인했습니다.
+- 검증: 관련 pytest 86개 통과(경고 2개). 해시·엄격 JSON·입출력 격리·calendar stress·
+  paper-only 경계와 새 workspace 계약을 확인했습니다. source hash mismatch, 권한,
+  부모 symlink 경계도 포함합니다.
 - 제한: untouched OOS 단회 판정과 독립 reviewer 승인 전에는 stress/PAPER 경제 승격을
   하지 않습니다. 실제 연구·network·주문·PAPER/live 설정 변경·remote push는 없습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r7-isolation-safety-verification.md`.
