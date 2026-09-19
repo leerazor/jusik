@@ -3,6 +3,7 @@
 - 상태: 완료된 기술 slice; 자동 FX/NAV 적용은 차단
 - 기록 시각: 2026-09-20T00:00:00Z
 - 작업 slug: `r2-fred-csv-parser-contract-20260920`
+- 기준/통합: `22677a8` / `a061838`
 - 범위: 기존 JSON parser와 분리된 FRED graph CSV offline parser와 inline regression
   cases만 추가했습니다.
   network transport, credentials, readiness, performance, 원장, service, PAPER/live는

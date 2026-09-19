@@ -2428,14 +2428,14 @@
 
 ## r2-fred-csv-parser-contract-20260920
 
-- 상태: 진행
+- 상태: 완료 (기술 parser); 자동 FX/NAV 적용과 R2 경제 acceptance는 미완료
 - 목표와 완료 조건: FRED 공개 graph CSV를 기존 JSON parser와 혼동하지 않도록 별도
   fail-closed parser/fixture를 추가합니다. 날짜·중복·결측·범위·Decimal 보존을 검증하고
   transport/readiness/performance에 연결하지 않습니다.
 - 담당: 단일 Luna 구현, Astra 통합, Terra 독립 review
 - 워크트리·브랜치: `/home/kwl/projects/jusik-r2-fred-csv-parser` /
   `feat/r2-fred-csv-parser`
-- 기준 커밋·통합 대상: `27be6ae`, local `main`
+- 기준 커밋·통합 대상: `22677a8`, local `main`
 - 입력과 선행 작업: audit CSV
   `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fred-csv-evidence/`와
   기존 `parse_fred_observations` 계약.
@@ -2444,3 +2444,7 @@
 - 검증: CSV parser focused pytest, collector test subset, Ruff, mypy 변경 모듈, diff check.
 - 중지 조건: CSV source semantics가 JSON contract와 동등하지 않거나 결측 의미가 불명확하면
   parser를 연결하지 않고 차단 기록만 남깁니다.
+- 결과 커밋: 구현 `13861b0`, duplicate/quoting 보강 `5fb9056`·`b23afe9`, 독립 review
+  material finding 없음, local main 통합 `a061838`.
+- 개발 기록: `docs/development-records/2026-09-20-r2-fred-csv-parser-contract.md`.
+- handoff: 별도 세션 handoff 없음; 기존 untracked `HANDOFF.md`를 보존합니다.
