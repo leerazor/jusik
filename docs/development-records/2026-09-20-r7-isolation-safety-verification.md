@@ -30,5 +30,5 @@
   PAPER 승격은 유지합니다.
 - 안전: 실제 연구 실행·네트워크 수집·실주문·PAPER/live 설정 변경·원격 push 없음.
 - 수동 검증 충돌을 막기 위해 roadmap runner를 pause하고 service/timer를 중지했습니다.
-  확인 시 `paused=true`, service/timer `inactive`, queued/running task 0개였습니다.
-  자동 실행은 재개하지 않습니다.
+  timer도 disable했습니다. 확인 시 `paused=true`, service/timer `inactive`·`disabled`,
+  queued/running task 0개였습니다. 자동 실행은 재개하지 않습니다.
