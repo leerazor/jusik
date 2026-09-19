@@ -972,22 +972,47 @@ class _FixtureTransport:
 
 
 class _CorporateActionTransport(_FixtureTransport):
-    def __init__(self, mode: str) -> None:
+    def __init__(self, mode: str, *, include_unaffected: bool = False) -> None:
         super().__init__()
         self.mode = mode
+        self.include_unaffected = include_unaffected
         self.action_session = date(2026, 1, 5)
 
     async def krx(self, market_board: str, start: date, end: date) -> bytes:
-        if (self.mode == "delisting" and start >= self.action_session) or (
-            self.mode == "halt" and start == self.action_session
-        ):
+        if self.include_unaffected and market_board == "KSQ":
             return b'{"OutBlock_1": []}'
         body = await super().krx(market_board, start, end)
-        if self.mode == "split" and start >= self.action_session:
-            payload = json.loads(body)
-            payload["OutBlock_1"][0]["LIST_SHRS"] = "2000000"
-            return json.dumps(payload).encode()
-        return body
+        if not self.include_unaffected:
+            if (self.mode == "delisting" and start >= self.action_session) or (
+                self.mode == "halt" and start == self.action_session
+            ):
+                return b'{"OutBlock_1": []}'
+            if self.mode == "split" and start >= self.action_session:
+                payload = json.loads(body)
+                payload["OutBlock_1"][0]["LIST_SHRS"] = "2000000"
+                return json.dumps(payload).encode()
+            return body
+
+        payload = json.loads(body)
+        target = payload["OutBlock_1"][0]
+        unaffected = dict(target)
+        unaffected.update(
+            {
+                "ISU_SRT_CD": "KOSPI2",
+                "ISU_ABBRV": "KOSPI2",
+                "TDD_OPNPRC": "200",
+                "TDD_HGPRC": "210",
+                "TDD_LWPRC": "190",
+                "TDD_CLSPRC": "205",
+                "LIST_SHRS": "2000000",
+            }
+        )
+        payload["OutBlock_1"] = [target, unaffected]
+        if self.mode == "delisting" and start >= self.action_session:
+            payload["OutBlock_1"] = [unaffected]
+        elif self.mode == "halt" and start == self.action_session:
+            payload["OutBlock_1"] = [unaffected]
+        return json.dumps(payload).encode()
 
 
 class _USCheckpointTransport:
@@ -2457,6 +2482,86 @@ def test_krx_event_forward_exclusion_is_truthful(mode: str, reason: str) -> None
     )
     assert any(reason in limitation for limitation in result.limitations)
     assert all(bar.session < date(2026, 1, 5) for bar in result.dataset.bars)
+
+
+@pytest.mark.parametrize("mode", ["halt", "delisting"])
+def test_krx_future_event_preserves_prefix_and_unaffected_symbol(mode: str) -> None:
+    """A future KRX halt or delisting cannot rewrite the earlier dataset."""
+
+    start = date(2025, 9, 14)
+    pre_event_end = date(2026, 1, 2)
+    full_end = date(2026, 9, 14)
+    cutoff = date(2026, 1, 5)
+    target = "KOSPI1"
+    unaffected = "KOSPI2"
+
+    def collect(end: date, event_mode: str):
+        return asyncio.run(
+            FreeMarketDataCollector(
+                _CorporateActionTransport(
+                    event_mode,
+                    include_unaffected=True,
+                )
+            ).collect(
+                market="KR",
+                start=start,
+                end=end,
+                sample_size=2,
+            )
+        )
+
+    baseline_pre = collect(pre_event_end, "baseline")
+    event_pre = collect(pre_event_end, mode)
+    assert event_pre.dataset.universe == baseline_pre.dataset.universe
+    assert event_pre.dataset.bars == baseline_pre.dataset.bars
+
+    baseline_full = collect(full_end, "baseline")
+    event_full = collect(full_end, mode)
+    event_full_universe_prefix = tuple(
+        row for row in event_full.dataset.universe if row.session < cutoff
+    )
+    event_full_bars_prefix = tuple(
+        row for row in event_full.dataset.bars if row.session < cutoff
+    )
+    assert event_pre.dataset.universe == event_full_universe_prefix
+    assert event_pre.dataset.bars == event_full_bars_prefix
+    assert tuple(
+        row for row in event_full.dataset.universe if row.session < cutoff
+    ) == tuple(row for row in baseline_full.dataset.universe if row.session < cutoff)
+    assert tuple(
+        row for row in event_full.dataset.bars if row.session < cutoff
+    ) == tuple(row for row in baseline_full.dataset.bars if row.session < cutoff)
+    assert tuple(
+        row for row in event_full.dataset.universe if row.symbol == unaffected
+    ) == tuple(
+        row for row in baseline_full.dataset.universe if row.symbol == unaffected
+    )
+    assert tuple(
+        row for row in event_full.dataset.bars if row.symbol == unaffected
+    ) == tuple(row for row in baseline_full.dataset.bars if row.symbol == unaffected)
+
+    baseline_target_universe = tuple(
+        row for row in baseline_full.dataset.universe if row.symbol == target
+    )
+    baseline_target_bars = tuple(
+        row for row in baseline_full.dataset.bars if row.symbol == target
+    )
+    assert any(row.session < cutoff for row in baseline_target_universe)
+    assert any(row.session >= cutoff for row in baseline_target_universe)
+    assert any(row.session < cutoff for row in baseline_target_bars)
+    assert any(row.session >= cutoff for row in baseline_target_bars)
+    assert all(
+        row.session < cutoff
+        for row in event_full.dataset.universe
+        if row.symbol == target
+    )
+    assert all(
+        row.session < cutoff for row in event_full.dataset.bars if row.symbol == target
+    )
+    expected_reason = (
+        "delisting" if mode == "delisting" else "halt or missing trade bar"
+    )
+    assert any(expected_reason in limitation for limitation in event_full.limitations)
 
 
 def test_cli_collector_missing_keys_is_controlled_and_cache_status_is_truthful(
