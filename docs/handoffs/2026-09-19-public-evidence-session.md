@@ -45,6 +45,8 @@
   verification·수동 facts·단일 split/dividend 후보가 없으면 fail-closed입니다.
 - 실제 facts를 추정하지 않고 3건을 `review-queue.json`에 기록했습니다. 현재 모두
   `promotion=forbidden_until_action_review`, `automatic_ledger_application=false`입니다.
+- `build_sec_review_manifest()`는 accession별 raw 경로와 수동 `ExtractedFacts`가 모두
+  제공될 때만 기존 `ReviewManifest`를 생성하며, 누락·빈 manifest는 거부합니다.
 
 ## 검증
 
@@ -64,8 +66,8 @@
 
 ## 남은 작업
 
-1. review queue의 수동 분류·event/effective/권리·가격/PIT 필드를 채운 뒤 기존 review
-   manifest로 연결하되, 확정 event 승격 조건을 먼저 정의.
+1. review queue의 수동 분류·event/effective/권리·가격/PIT 필드를 채운 뒤 새 manifest
+   adapter로 기존 review store 검증까지 연결하되, 확정 event 승격 조건을 먼저 정의.
 2. 전체 대상 기간의 halt coverage를 공식 자료로 확장하되 호출 예산과 PIT 한계를
    명시적으로 기록.
 3. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을

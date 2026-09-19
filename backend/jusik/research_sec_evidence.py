@@ -16,7 +16,11 @@ from zoneinfo import ZoneInfo
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from jusik.research_action_review import ExtractedFacts, ReviewInput
+from jusik.research_action_review import (
+    ExtractedFacts,
+    ReviewInput,
+    ReviewManifest,
+)
 
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 SEC_TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json"
@@ -152,6 +156,32 @@ def build_sec_action_review_input(
         },
         extracted_facts=extracted_facts,
     )
+
+
+def build_sec_review_manifest(
+    candidates: Iterable[SecFilingCandidate],
+    *,
+    local_files: Mapping[str, Path],
+    extracted_facts: Mapping[str, ExtractedFacts],
+    operator_verified: bool,
+) -> ReviewManifest:
+    """Create a review manifest only from complete, manually supplied facts."""
+    reviews: list[ReviewInput] = []
+    for candidate in candidates:
+        accession = candidate.accession_number
+        if accession not in local_files or accession not in extracted_facts:
+            raise ValueError("sec_candidate_review_facts_missing")
+        reviews.append(
+            build_sec_action_review_input(
+                candidate,
+                local_file=local_files[accession],
+                extracted_facts=extracted_facts[accession],
+                operator_verified=operator_verified,
+            )
+        )
+    if not reviews:
+        raise ValueError("sec_candidate_review_manifest_empty")
+    return ReviewManifest(schema_version=1, reviews=reviews)
 
 
 def parse_sec_ticker_map(

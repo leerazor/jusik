@@ -104,7 +104,9 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
 - `build_sec_action_review_input()` adapter를 추가했습니다. `operator_verified=True`,
   사람이 입력한 `ExtractedFacts`, 단일 split/dividend 후보가 모두 필요하며 merger·복수
   후보·미검증 후보는 fail-closed로 거부합니다.
-- 검증: SEC 및 action-review pytest 14개, Ruff 통과.
+- `build_sec_review_manifest()`를 추가해 accession별 local raw와 수동 facts가 모두 있을
+  때만 기존 `ReviewManifest`를 생성합니다. 누락·빈 manifest는 거부합니다.
+- 검증: SEC 및 action-review pytest 15개, Ruff 통과.
 
 ## SEC 수동 검토 queue
 

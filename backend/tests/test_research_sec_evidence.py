@@ -11,6 +11,7 @@ from jusik.research_sec_evidence import (
     SecFiling,
     SecFilingCandidate,
     build_sec_action_review_input,
+    build_sec_review_manifest,
     collect_sec_filing_candidates,
     filing_document_url,
     parse_sec_filing_candidate,
@@ -174,5 +175,40 @@ def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind
             unresolved,
             local_file=tmp_path / "doc.htm",
             extracted_facts=ExtractedFacts(),
+            operator_verified=True,
+        )
+
+
+def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> None:
+    candidate = SecFilingCandidate(
+        cik="0001045810",
+        accession_number="0001045810-24-000144",
+        form="8-K",
+        source_url="https://www.sec.gov/Archives/edgar/data/1045810/doc.htm",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        raw_sha256="2" * 64,
+        candidate_kinds=("dividend",),
+        candidate_snippets=("declared a dividend",),
+    )
+    facts = ExtractedFacts(
+        amount="0.10",
+        currency="USD",
+        ex_dividend_date=datetime(2024, 6, 7, tzinfo=UTC).date(),
+        comparable_share_basis=True,
+    )
+    manifest = build_sec_review_manifest(
+        (candidate,),
+        local_files={candidate.accession_number: tmp_path / "doc.htm"},
+        extracted_facts={candidate.accession_number: facts},
+        operator_verified=True,
+    )
+    assert manifest.schema_version == 1
+    assert len(manifest.reviews) == 1
+
+    with pytest.raises(ValueError, match="facts_missing"):
+        build_sec_review_manifest(
+            (candidate,),
+            local_files={},
+            extracted_facts={},
             operator_verified=True,
         )
