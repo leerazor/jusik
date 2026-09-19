@@ -1,0 +1,21 @@
+# Nasdaq 공개 거래중단 evidence collector
+
+- 상태: 기술 slice 완료. 경제 acceptance나 R1-02 전체 체크는 변경하지 않았습니다.
+- 구현: `backend/jusik/research_public_evidence.py`
+- 범위: Nasdaq Trader의 날짜별 공개 RSS를 조회하고 원문 XML, 수집 시각, source URL,
+  SHA-256, symbol, halt date, reason code를 보존합니다.
+- 안전: API key·주문·PAPER/live 상태·운영 원장·원격 push를 사용하지 않았습니다.
+  공식 호출 제한을 지키도록 요청 간격을 60초로 제한합니다.
+
+## 검증
+
+- `pytest -q tests/test_research_public_evidence.py`: 2 passed
+- Ruff: 통과
+- 실제 공개 RSS 2024-01-02 1회 조회: 45건, 원문 XML 저장 성공
+- 수집 결과는 `coverage`와 공급자 원문이 확보된 범위만 의미하며, 전체 미국 시장
+  coverage 또는 역사적 provider PIT를 주장하지 않습니다.
+
+## 다음 단계
+
+SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/evidence 계약으로
+연결하고, SEC acceptance 시각을 source-specific `observed_at`으로 보존합니다.
