@@ -5,6 +5,7 @@ import json
 import traceback
 from dataclasses import replace
 from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import httpx
@@ -34,6 +35,7 @@ from jusik.market_data_collector import (
     load_collector_settings,
     parse_alpha_vantage_listing_status,
     parse_alpha_vantage_listing_status_detailed,
+    parse_fred_csv_observations,
     parse_fred_observations,
     parse_krx_daily_response,
     parse_krx_daily_trade_response,
@@ -604,6 +606,38 @@ def test_fred_parser_rejects_empty_range_and_preserves_decimal_values() -> None:
     assert rows[0].krw_per_usd == 1380.125
     with pytest.raises(CollectorError, match="no requested"):
         parse_fred_observations(body, start=date(2026, 9, 14), end=date(2026, 9, 14))
+
+
+def test_fred_csv_parser_preserves_decimal_and_explicit_availability() -> None:
+    available_at = datetime(2026, 9, 20, 1, 2, 3, tzinfo=UTC)
+    rows = parse_fred_csv_observations(
+        b"observation_date,DEXKOUS\n2026-09-11,1340.30\n2026-09-12,.\n",
+        start=date(2026, 9, 1),
+        end=date(2026, 9, 14),
+        available_at=available_at,
+    )
+    assert len(rows) == 1
+    assert rows[0].session == date(2026, 9, 11)
+    assert rows[0].krw_per_usd == Decimal("1340.30")
+    assert rows[0].available_at == available_at
+
+
+@pytest.mark.parametrize(
+    ("body", "error"),
+    [
+        (b"", CollectorNullError),
+        (b"observation_date,OTHER\n2026-09-11,1340.30\n", CollectorParseError),
+        (
+            b"observation_date,DEXKOUS\n2026-09-11,1340.30\n2026-09-11,1341.30\n",
+            CollectorError,
+        ),
+    ],
+)
+def test_fred_csv_parser_fails_closed(body: bytes, error: type[Exception]) -> None:
+    with pytest.raises(error):
+        parse_fred_csv_observations(
+            body, start=date(2026, 9, 1), end=date(2026, 9, 14)
+        )
 
 
 def test_atomic_cache_verifies_raw_hash_and_does_not_expose_request_secret(
