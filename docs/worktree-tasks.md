@@ -2294,3 +2294,10 @@
   catalog에 보존했습니다. v2 audit에서 `SOXL`/`TQQQ`를 기록했으며 catalog SHA는
   `10b6edc5d34c3b2dd0802a0fb77238debc2c3a61fdeeafc1790dcb86916a800f`입니다.
 - 검증: catalog/SEC pytest 7개와 Ruff 통과.
+
+## r2-independent-accounting-verification-20260920
+
+- 상태: 기술 계약 재검증 완료; 경제 평가는 `not-evaluated`, R2 전체 미완료.
+- 기존 독립 accounting/NAV 및 corporate-action 전이 테스트 43개를 재실행해 통과했습니다.
+- 완전한 fills/opening positions/terminal marks/dividend evidence가 없어 PnL 승격은 금지하고,
+  기존 R2-01 blocked audit을 유지합니다.
