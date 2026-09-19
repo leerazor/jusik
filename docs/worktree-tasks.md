@@ -2342,3 +2342,9 @@
   52개 통과. signal 날짜와 prospective `observing` 상태가 현재 fixed window와 일치합니다.
 - 후보 기간 freeze·MDD hard filter·자동 winner 금지 계약은 유지하며 전략 실행과 PAPER/live
   승격은 하지 않습니다.
+
+## r5-primary-metrics-verification-20260920
+
+- 상태: 기술 계약 재검증 완료; 후보 선택·경제 승격 없음.
+- performance metrics/GPU stress 경계 테스트 46개 통과. 비용 차감 수익률·MDD·Sharpe·Calmar,
+  zero volatility/drawdown 및 negative outcome을 확인했습니다.
