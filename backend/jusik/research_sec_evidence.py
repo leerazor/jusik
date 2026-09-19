@@ -16,6 +16,8 @@ from zoneinfo import ZoneInfo
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from jusik.research_action_review import ExtractedFacts, ReviewInput
+
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 SEC_TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_MIN_REQUEST_INTERVAL_SECONDS = 0.2
@@ -116,6 +118,39 @@ def parse_sec_filing_candidate(
         raw_sha256=hashlib.sha256(body).hexdigest(),
         candidate_kinds=tuple(kind for kind, _ in matches),
         candidate_snippets=snippets,
+    )
+
+
+def build_sec_action_review_input(
+    candidate: SecFilingCandidate,
+    *,
+    local_file: Path,
+    extracted_facts: ExtractedFacts,
+    operator_verified: bool,
+) -> ReviewInput:
+    """Build a manually verified action-review input; never infer facts."""
+    if not operator_verified:
+        raise ValueError("sec_candidate_operator_verification_required")
+    kinds = tuple(
+        kind for kind in candidate.candidate_kinds if kind in {"split", "dividend"}
+    )
+    if len(kinds) != 1 or len(candidate.candidate_kinds) != 1:
+        raise ValueError("sec_candidate_action_kind_unresolved")
+    kind = kinds[0]
+    return ReviewInput(
+        review_key=f"sec:{candidate.accession_number}:{kind}",
+        revision_id=candidate.raw_sha256,
+        content_sha256=candidate.raw_sha256,
+        operator_verified=True,
+        evidence={
+            "local_file": local_file,
+            "sha256": candidate.raw_sha256,
+            "source_url": candidate.source_url,
+            "publisher": "SEC EDGAR",
+            "locator": candidate.accession_number,
+            "captured_at": candidate.observed_at,
+        },
+        extracted_facts=extracted_facts,
     )
 
 

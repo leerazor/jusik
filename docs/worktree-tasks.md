@@ -2276,3 +2276,6 @@
 - 승격 경계: SEC 후보를 별도 ledger 경로로 승격하지 않고 기존
   `research_action_review.py`의 `ReviewInput`/`ExtractedFacts`/`ActionReview` 계약을
   통과시키는 후속 작업으로 고정합니다. 자동 원장 적용은 계속 금지합니다.
+- adapter `build_sec_action_review_input()`은 operator verification·수동 facts·단일
+  split/dividend를 강제하며, merger/미검증 후보를 fail-closed로 거부합니다. 관련
+  pytest 14개와 Ruff가 통과했습니다.

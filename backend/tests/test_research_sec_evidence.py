@@ -6,8 +6,11 @@ from pathlib import Path
 import httpx
 import pytest
 
+from jusik.research_action_review import ExtractedFacts
 from jusik.research_sec_evidence import (
     SecFiling,
+    SecFilingCandidate,
+    build_sec_action_review_input,
     collect_sec_filing_candidates,
     filing_document_url,
     parse_sec_filing_candidate,
@@ -126,3 +129,50 @@ def test_collect_sec_filing_candidates_is_bounded_and_persists_raw(
     assert result[0].candidate_kinds == ("dividend",)
     assert len(requests) == 1
     assert list(tmp_path.glob("sec-filing-*.html"))
+
+
+def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind(
+    tmp_path: Path,
+) -> None:
+    candidate = SecFilingCandidate(
+        cik="0001045810",
+        accession_number="0001045810-24-000144",
+        form="8-K",
+        source_url="https://www.sec.gov/Archives/edgar/data/1045810/doc.htm",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        raw_sha256="1" * 64,
+        candidate_kinds=("dividend",),
+        candidate_snippets=("declared a dividend",),
+    )
+    review = build_sec_action_review_input(
+        candidate,
+        local_file=tmp_path / "doc.htm",
+        extracted_facts=ExtractedFacts(
+            amount="0.10",
+            currency="USD",
+            ex_dividend_date=datetime(2024, 6, 7, tzinfo=UTC).date(),
+            comparable_share_basis=True,
+        ),
+        operator_verified=True,
+    )
+    assert review.operator_verified is True
+    assert review.review_key.endswith(":dividend")
+
+    with pytest.raises(ValueError, match="operator_verification"):
+        build_sec_action_review_input(
+            candidate,
+            local_file=tmp_path / "doc.htm",
+            extracted_facts=ExtractedFacts(),
+            operator_verified=False,
+        )
+
+    unresolved = candidate.model_copy(
+        update={"candidate_kinds": ("merger",), "candidate_snippets": ("merger",)}
+    )
+    with pytest.raises(ValueError, match="action_kind"):
+        build_sec_action_review_input(
+            unresolved,
+            local_file=tmp_path / "doc.htm",
+            extracted_facts=ExtractedFacts(),
+            operator_verified=True,
+        )

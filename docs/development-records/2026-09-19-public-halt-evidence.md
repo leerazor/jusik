@@ -101,5 +101,9 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
   `ActionReview` 계약을 재사용해야 합니다. 이 계약은 날짜·금액·권리 비교와
   `automatic_ledger_application=False`를 강제하므로, 현재 SEC 후보는 review input이
   완성되기 전까지 catalog·원장·성과 계산으로 전달하지 않습니다.
+- `build_sec_action_review_input()` adapter를 추가했습니다. `operator_verified=True`,
+  사람이 입력한 `ExtractedFacts`, 단일 split/dividend 후보가 모두 필요하며 merger·복수
+  후보·미검증 후보는 fail-closed로 거부합니다.
+- 검증: SEC 및 action-review pytest 14개, Ruff 통과.
 - 요청 경계는 `max_documents=3`, 허용 form `8-K`/`8-K/A`, SEC User-Agent, 요청 간격
   0.2초로 고정했습니다. 실제 주문·PAPER/live·원격 push는 없었습니다.
