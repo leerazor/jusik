@@ -1429,7 +1429,7 @@ def parse_fred_csv_observations(
         raise CollectorNullError("FRED CSV provider returned an empty response")
     try:
         text = body.decode("utf-8-sig")
-        rows = list(csv.reader(io.StringIO(text, newline="")))
+        rows = list(csv.reader(io.StringIO(text, newline=""), strict=True))
     except (UnicodeDecodeError, csv.Error):
         raise CollectorError("FRED CSV response is malformed") from None
     if not rows or rows[0] != ["observation_date", "DEXKOUS"]:

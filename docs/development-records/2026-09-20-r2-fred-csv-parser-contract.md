@@ -21,9 +21,9 @@
 ## 검증
 
 - `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest
-  backend/tests/test_market_data_collector.py -k 'fred' -q` — 9 passed
+  backend/tests/test_market_data_collector.py -k 'fred' -q` — 11 passed
 - `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest
-  backend/tests/test_market_data_collector.py -q` — 135 passed
+  backend/tests/test_market_data_collector.py -q` — 137 passed
 - `/home/kwl/projects/jusik/backend/.venv/bin/python -m ruff check
   backend/jusik/market_data_collector.py backend/tests/test_market_data_collector.py` — passed
 - `/home/kwl/projects/jusik/backend/.venv/bin/python -m mypy --config-file
