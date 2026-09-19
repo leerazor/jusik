@@ -645,6 +645,25 @@ def _tracked_research_mandate(
         return None
 
 
+def _tracked_continuous_session_policy(repo: Path) -> str | None:
+    """Read the tracked operator policy for a bounded continuous session."""
+    path = repo / "docs" / "continuous-development-session.md"
+    if not path.is_file() or path.is_symlink() or not os.access(path, os.R_OK):
+        return None
+    relative = str(path.relative_to(repo))
+    tracked = _git(repo, "ls-files", "--error-unmatch", relative, check=False)
+    if getattr(tracked, "returncode", 1) != 0 or tracked.stdout.strip() != str(
+        relative
+    ):
+        return None
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return None
+    required = ("started_at:", "deadline_at:", "status:", "Stop conditions")
+    return content if all(marker in content for marker in required) else None
+
+
 def _roadmap_dispatch_gate(
     repo: Path, expected_digest: str | None = None
 ) -> ValidatedMandate:
@@ -663,6 +682,7 @@ def _roadmap_documents_ready(repo: Path) -> tuple[bool, str]:
         Path("docs/research-mandate.json"),
         Path("docs/development-runner.md"),
         Path("docs/roadmap-automation.md"),
+        Path("docs/continuous-development-session.md"),
     )
     for relative in required:
         path = repo / relative
@@ -675,6 +695,10 @@ def _roadmap_documents_ready(repo: Path) -> tuple[bool, str]:
             return False, f"required roadmap document is not tracked: {relative}"
     if _tracked_research_mandate(repo) is None:
         return False, "tracked research mandate is missing or malformed"
+    if _tracked_continuous_session_policy(repo) is None:
+        return False, (
+            "tracked continuous development session policy is missing or malformed"
+        )
     return True, ""
 
 
@@ -1272,12 +1296,14 @@ def run_once(
                 reason="operator hold triggers remain: " + ", ".join(hold_triggers),
             )
         roadmap = None
+        session_policy = None
         if config.scope == ROADMAP_SCOPE:
             documents_ready, documents_reason = _roadmap_documents_ready(config.repo)
             if not documents_ready:
                 return RunResult("blocked", reason=documents_reason)
             try:
                 roadmap = load_roadmap(config.repo)
+                session_policy = _tracked_continuous_session_policy(config.repo)
             except RoadmapError as exc:
                 return RunResult("blocked", reason=str(exc))
         active = store.active_attempt()
@@ -1347,7 +1373,11 @@ def run_once(
                 )
                 planning_kwargs = {
                     "allowed_areas": eligible,
-                    "context": roadmap_planner_context(roadmap, candidate[2], eligible),
+                    "context": (
+                        roadmap_planner_context(roadmap, candidate[2], eligible)
+                        + "\n\nOperator session policy:\n"
+                        + (session_policy or "")
+                    ),
                     "fingerprint_factory": lambda tasks, head, day: roadmap_fingerprint(
                         tasks,
                         head,
@@ -1391,6 +1421,10 @@ def run_once(
                     task.area.lower(),
                     roadmap.by_id[task.area.lower()],
                     mandate_snapshot,
+                )
+                roadmap_prompt_text += (
+                    "\n\nOperator session policy:\n"
+                    + (session_policy or "")
                 )
             except (MandateGovernanceError, RoadmapError) as exc:
                 return RunResult("blocked", task.id, reason=str(exc))

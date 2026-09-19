@@ -62,6 +62,7 @@ def _repo(tmp_path: Path, roadmap_content: str | None = None) -> Path:
         "research-mandate.md",
         "market-research-mandate.sha256",
         "market-research.md",
+        "continuous-development-session.md",
     ):
         (docs / name).write_bytes((source / name).read_bytes())
     return repo
