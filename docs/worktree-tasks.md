@@ -2384,3 +2384,22 @@
 - 제한: untouched OOS 단회 판정과 독립 reviewer 승인 전에는 stress/PAPER 경제 승격을
   하지 않습니다. 실제 연구·network·주문·PAPER/live 설정 변경·remote push는 없습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r7-isolation-safety-verification.md`.
+
+## r1-02-krx-prefix-invariance-20260920
+
+- 상태: 준비
+- 목표와 완료 조건: KRX daily halt/delisting fixture에서 미래 사건을 추가해도 사건
+  적용일 이전의 universe·bars·비대상 symbol이 동일함을 회귀 검증합니다. 이 기술
+  slice가 통과해도 historical provider receipt·PIT coverage가 없으면 R1-02 checkbox와
+  경제 acceptance는 미체크로 유지합니다.
+- 담당: 단일 Luna 구현, Astra 통합, Terra 독립 review
+- 워크트리·브랜치: `/home/kwl/projects/jusik-r1-02-krx-prefix-invariance` /
+  `feat/r1-02-krx-prefix-invariance`
+- 기준 커밋·통합 대상: `727dd2b`, local `main`
+- 입력과 선행 작업: 기존 `test_krx_event_forward_exclusion_is_truthful`, `_CorporateActionTransport`,
+  R1-02 미국 사건 불변성 계약. runner는 수동 작업 중 pause 상태를 유지합니다.
+- 수정 허용 범위: `backend/tests/test_market_data_collector.py`와 이 작업의 개발 기록만.
+  production collector·자료·원장·서비스·PAPER/live·remote는 변경하지 않습니다.
+- 검증: 해당 KRX/미국 collector pytest, Ruff, diff check; 실패 시 차단 사유만 기록합니다.
+- 중지 조건: 미래 사건이 사건 전 prefix를 변경하거나 자료 의미가 불명확하면 checkbox를
+  변경하지 않고 근거와 재개 조건을 남깁니다.
