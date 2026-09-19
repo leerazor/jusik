@@ -50,3 +50,29 @@
 기존 clean worktree의 최종 구현 `03b837f`를 재사용했습니다. 새 독립 Terra 정적 검토는 P1/P2 없음이며, 감독이 지정한 collector/history/replay 세 파일만 검사했습니다. 병합 전과 main 통합 후 pytest134, 관련 Ruff, configured mypy2 source가 통과했습니다. 동결 R0 replay는 모든 비교 항목이 일치했습니다. broad suite와 PAPER/forward 검사는 재실행하지 않았으며 이전 경계 일탈 기록은 보존합니다.
 
 증거는 `/home/kwl/.local/share/jusik/portfolio-audit/20260916-roadmap-recovery/r102-premerge`와 `r102-integrated`에 있으며, 이전 자동 시도의 codex_exit 원인은 종료 코드가 저장되지 않아 확정하지 않았습니다. 기술 slice가 통합됐어도 실제 Yahoo 관측 시각의 과거 근거를 만들거나 R1-02 checkbox를 체크하지 않습니다. 다음 작업은 해당 자료 한계를 유지한 후속 데이터 품질 개발입니다.
+
+## 재시도 확인 (2026-09-19, 0fec3e1577aa4ed789ce66b02d87e0aa)
+
+`roadmap-r1-02-v1` 재시도는 자료 부족으로 차단했습니다. 현재 main
+`816e180cc2dd22d0ae4f9fe67d1dd0f66d27a1e6`에는 기존 통합 `bcf34c5`와 후속
+synthetic 불변성 통합 `91cb1bbe`가 모두 포함됩니다. 이전 소유 워크트리와 브랜치는
+이미 정리되어 있어 중복 생성하지 않았습니다. 현재 코드·fixture·계약을 읽기 전용으로
+대조했으며 추가 기술 결함은 확인하지 못했습니다. 실제 historical observed-at receipt와
+거래중단 coverage의 원문 근거가 제공되지 않아 R1-02 checkbox는 미체크로 유지합니다.
+배당·분할 회계는 이 재시도 범위 밖이며 별도 차단 요건으로 추가하지 않습니다.
+
+R0 동결 입력 4개의 SHA-256을 다시 대조해 모두 일치함을 확인했습니다. 현재 mandate의
+bytes SHA-256은 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`입니다.
+pytest·Ruff·mypy·동결 replay 실행과 독립 구현 검토는 이번 시도에서 하지 않았습니다.
+이전 통과 결과를 새 시도의 통과로 재사용하지 않습니다. 신규 fixture와 검증 실행은 0개이며,
+과거 테스트 횟수 제한이나 경계 위반을 현재 차단 원인으로 삼지 않았습니다.
+
+Luna 읽기 전용 조사는 반환됐지만 model-only routing의 pre만 통과했고 post는
+`FAIL verification unavailable or failed`를 반환했습니다. 이를 검증된 routing 또는
+독립 review 통과로 표시하지 않습니다. 완료 gate는 우회하지 않습니다.
+
+코드·금융 자료·운영 DB·서비스·설정·PAPER/live·원격에는 변경이 없습니다. 경제 성과나
+strict PIT 승격을 주장하지 않으며 웹 성과 공개도 하지 않습니다. audit와 handoff는
+`/home/kwl/.local/share/jusik/portfolio-audit/20260919-r1-02-0fec3e15`에 보존합니다.
+재개에는 출처와 사건 발생·관측 시각을 확인할 수 있는 원문 및 거래중단 coverage가
+필요합니다. 이후에도 새 focused 검사와 독립 검토를 통과하기 전 완료로 표시하지 않습니다.

@@ -633,6 +633,7 @@
 
 ## r1-us-event-timing
 
+- 현재 재시도: `0fec3e1577aa4ed789ce66b02d87e0aa` — 자료 부족으로 차단. main `816e180`에서 기존 통합과 후속 `91cb1bbe` 포함, R0 입력4개 SHA 일치를 재확인했습니다. 기존 소유 worktree/branch는 정리된 상태이며 중복 생성하지 않았습니다. 실제 historical observed-at receipt·거래중단 coverage가 없고 추가 코드 결함은 확인하지 못했습니다. 이번 pytest/Ruff/mypy/replay·독립 review는 미실행이며 routing post도 검증 불가입니다. R1-02 체크 유지. 상세 기록: `docs/development-records/2026-09-16-r1-us-event-timing.md`; audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r1-02-0fec3e15/HANDOFF.md`.
 - 상태: 기술 slice 복구·통합 완료(bcf34c5); 실제 Yahoo 과거 관측 시각 근거가 없어 R1-02 checkbox는 보류. 이전 codex_exit 이력 보존.
 - task/attempt: roadmap-r1-02-v1 / c42012de115c4aed8c8d9348002a47ff
 - 목표: 미국 사건 발생일·관측 시점을 보존하고 미래 사건에 대한 과거 선택 불변성을 검증합니다.
