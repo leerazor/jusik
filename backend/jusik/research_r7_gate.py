@@ -1,0 +1,102 @@
+"""Fail-closed entry gate for R7 isolated simulation.
+
+The gate only authorizes a future isolated simulation when the prospective
+window, data readiness, OOS result, stress result, and independent review are
+all evidenced.  It never authorizes PAPER or live promotion.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from typing import TYPE_CHECKING, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from jusik.research_r7_isolation import R7IsolationWorkspace
+
+if TYPE_CHECKING:
+    from jusik.research_prospective_readiness import ProspectiveReadiness
+
+HASH_PATTERN = r"^[a-f0-9]{64}$"
+
+
+class R7ReviewEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    oos_artifact_sha256: str | None = Field(default=None, pattern=HASH_PATTERN)
+    oos_passed: bool = False
+    stress_artifact_sha256: str | None = Field(default=None, pattern=HASH_PATTERN)
+    stress_passed: bool = False
+    independent_review_sha256: str | None = Field(
+        default=None, pattern=HASH_PATTERN
+    )
+    independent_review_passed: bool = False
+
+
+class R7GateResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    state: Literal["blocked", "ready"]
+    simulation_allowed: bool = False
+    paper_decision_required: Literal[True] = True
+    automatic_promotion_eligible: Literal[False] = False
+    reasons: tuple[str, ...]
+    workspace_manifest_sha256: str | None = Field(
+        default=None, pattern=HASH_PATTERN
+    )
+
+
+def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:
+    if workspace.root.is_symlink() or not workspace.root.is_dir():
+        return None
+    expected = {
+        workspace.market_data,
+        workspace.config,
+        workspace.database,
+        workspace.artifacts,
+    }
+    if any(path.is_symlink() or not path.is_dir() for path in expected):
+        return None
+    if workspace.manifest.is_symlink() or not workspace.manifest.is_file():
+        return None
+    return hashlib.sha256(workspace.manifest.read_bytes()).hexdigest()
+
+
+def evaluate_r7_gate(
+    *,
+    prospective: ProspectiveReadiness,
+    workspace: R7IsolationWorkspace | None,
+    evidence: R7ReviewEvidence,
+) -> R7GateResult:
+    """Return a non-promoting R7 decision from already-collected evidence."""
+
+    reasons: list[str] = []
+    manifest_sha = None if workspace is None else _manifest_sha256(workspace)
+    if manifest_sha is None:
+        reasons.append("isolated_workspace_manifest_unavailable")
+    if prospective.registration_status != "window_elapsed":
+        reasons.append("prospective_window_not_elapsed")
+    if prospective.evaluation_inputs_complete is not True:
+        reasons.append("prospective_inputs_incomplete")
+    if prospective.start_boundary.state != "unverified_candidate":
+        reasons.append("prospective_start_boundary_unverified")
+    if prospective.end_boundary.state != "unverified_candidate":
+        reasons.append("prospective_end_boundary_unverified")
+    if prospective.execution_evidence.state != "linked_integrity":
+        reasons.append("prospective_execution_evidence_incomplete")
+    if not evidence.oos_passed or evidence.oos_artifact_sha256 is None:
+        reasons.append("untouched_oos_not_passed")
+    if not evidence.stress_passed or evidence.stress_artifact_sha256 is None:
+        reasons.append("stress_review_not_passed")
+    if (
+        not evidence.independent_review_passed
+        or evidence.independent_review_sha256 is None
+    ):
+        reasons.append("independent_review_not_passed")
+    ready = not reasons
+    return R7GateResult(
+        state="ready" if ready else "blocked",
+        simulation_allowed=ready,
+        reasons=tuple(reasons),
+        workspace_manifest_sha256=manifest_sha,
+    )

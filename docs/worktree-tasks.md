@@ -2367,6 +2367,12 @@
 - 검증: 관련 pytest 86개 통과(경고 2개). 해시·엄격 JSON·입출력 격리·calendar stress·
   paper-only 경계와 새 workspace 계약을 확인했습니다. source hash mismatch, 권한,
   부모 symlink, `O_NOFOLLOW`/`dir_fd` 생성·정리 경계도 포함합니다.
+- `research_r7_gate.py`를 추가해 isolation manifest, prospective readiness, untouched
+  OOS, stress, independent review가 모두 충족될 때만 격리 simulation을 허용합니다.
+  PAPER 결정은 별도 수동 단계이며 자동 승격은 불변 `false`입니다. 게이트 포함 focused
+  pytest는 88개 통과(경고 2개)입니다.
+- 프로젝트 전체 mypy는 기존 unrelated 10개 오류로 실패했으며, 이번 변경이 전체 통과했다고
+  주장하지 않습니다.
 - 제한: untouched OOS 단회 판정과 독립 reviewer 승인 전에는 stress/PAPER 경제 승격을
   하지 않습니다. 실제 연구·network·주문·PAPER/live 설정 변경·remote push는 없습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r7-isolation-safety-verification.md`.

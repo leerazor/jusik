@@ -12,6 +12,12 @@
   child를 `0700`으로 생성하며, 부모 symlink와 사용 불가 source를 거부합니다.
 - 생성·manifest 쓰기·실패 정리는 `O_NOFOLLOW`와 고정 `dir_fd`를 사용해 경로 교체
   경쟁 조건에서 임의 경로를 따라가지 않도록 합니다.
+- `research_r7_gate.py`의 진입 게이트를 추가해 prospective window/data readiness,
+  untouched OOS, stress, independent review, isolation manifest가 모두 없으면
+  simulation을 차단합니다. 게이트는 PAPER 결정을 수동으로 남기고 자동 승격은 항상
+  `false`로 유지합니다.
+- 게이트 테스트를 포함한 R7 focused pytest 88개가 통과했습니다(경고 2개). 프로젝트
+  전체 mypy는 기존 10개 오류가 남아 있어 전체 통과로 주장하지 않습니다.
 - 확인: 고정 prospective 상태·stress 결과는 자동 승격되지 않으며, 해시 고정·엄격한
   JSON·격리된 입력/출력·calendar 변형 경계가 실패 시 차단됩니다. paper fill은 앱 내부
   paper 원장 경계에만 존재하고 broker 주문 경로와 분리됩니다.
