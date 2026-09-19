@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-20T00:00:00Z
 - 작업 slug: `r1-02-krx-prefix-invariance-20260920`
-- 기준/통합: `6869cc8` / integration pending
+- 기준/통합: `6869cc8` / `793792e`
 - 범위: KRX collector 테스트 fixture와 이 개발 기록만 변경했습니다. production
   collector, 자료, 원장, 서비스, PAPER/live 설정, 원격 상태는 변경하지 않았습니다.
 
@@ -40,4 +40,5 @@
 - audit: 없음; manifest: 없음; hash: 없음
 - 남은 작업·차단 조건: R1-02 historical provider receipt/PIT coverage와 경제
   acceptance는 이 기술 fixture로 승격하지 않습니다.
-- 다음 시작: 통합 agent가 이 커밋을 검토한 뒤 local `main`에 통합합니다.
+- 다음 시작: 실제 historical provider receipt/PIT coverage가 확보되기 전까지 R1-02
+  checkbox와 경제 acceptance는 유지하고, 다음 의존 가능한 R2/R3 작업을 선택합니다.
