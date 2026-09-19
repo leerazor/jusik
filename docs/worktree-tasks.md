@@ -2327,4 +2327,4 @@
 
 - 상태: 기술 계약 재검증 완료; benchmark/USD 자료 부재로 R3-01 경제 승격 보류.
 - 시장 결과 화면의 KRW NAV/DD 곡선과 USD/KRW·benchmark 확인 불가 상태를 frontend contract,
-  ESLint, TypeScript typecheck로 검증했습니다.
+  ESLint, TypeScript typecheck, production build로 검증했습니다.
