@@ -2409,3 +2409,19 @@
 - handoff: 별도 세션 handoff 없음; 기존 untracked `HANDOFF.md`를 보존합니다.
 - 중지 조건: 미래 사건이 사건 전 prefix를 변경하거나 자료 의미가 불명확하면 checkbox를
   변경하지 않고 근거와 재개 조건을 남깁니다.
+
+## fred-public-csv-evidence-20260920
+
+- 상태: 완료된 자료 조사 slice; 경제 성과 적용은 차단
+- 목표와 완료 조건: FRED API key 없이 공개 DEXKOUS CSV를 bounded read-only로 조회하고
+  raw bytes·요청 범위·retrieval 시각·SHA를 보존합니다. 기존 collector/readiness에
+  자동 연결하거나 FRED API key 요구를 제거하지 않습니다.
+- 담당: Astra 조사·기록
+- 입력과 선행 작업: R2 FX/NAV readiness의 `FRED_API_KEY` 및 PIT availability blocker.
+- 수정 범위: 저장소 밖 audit raw/request와 개발 기록·등록부만; 코드·원장·서비스·runner
+  설정·PAPER/live·remote는 변경하지 않습니다.
+- 검증: HTTP 200, raw 4,926 bytes/263 lines, SHA
+  `06751750c69089e33aaac8d5bdd0e102887c9c4db2d4d5da529561ad318f8210`.
+- 제한: 공개 CSV 관측값은 source evidence일 뿐 PIT availability·NAV 적용·calendar
+  completeness를 증명하지 않으므로 R2/R4 readiness와 경제 acceptance는 유지합니다.
+- 개발 기록: `docs/development-records/2026-09-20-fred-public-csv-evidence.md`.
