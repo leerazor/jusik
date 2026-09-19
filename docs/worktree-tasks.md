@@ -1895,7 +1895,7 @@
 
 ## portfolio-blocked-research-repair-122f
 
-- 상태: 진행
+- 상태: 준비
 - 목표와 완료 조건: source_paths/input_paths 불일치와 최종 현금 변조 누락을 오프라인 어댑터·검증기로 복구하고 독립 검토, local main 통합 검사, 한국어 웹 보고 및 handoff를 완료한다.
 - 담당 Luna: code 단일 구현자. explore와 plan은 읽기 전용으로 수행한다.
 - 워크트리 절대 경로: /home/kwl/projects/jusik-blocked-research-repair-122f
