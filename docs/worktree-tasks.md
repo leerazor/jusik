@@ -2507,3 +2507,22 @@
 - 제한: issuer-verified rights/price/effective/payment review가 없어 R1-02/R1-04/R1-05와
   action-review manifest·성과 계산은 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-target-period-filing-evidence.md`.
+
+## r1-action-receipt-time-order-20260920
+
+- 상태: 진행
+- 목표와 완료 조건: action receipt preflight가 불가능한 시간 역전(`requested_start > requested_end`,
+  `started_at > completed_at`, event/revision 관측 시각 역전)을 fail-closed로 거부하도록
+  보강합니다. 정상 동일시각은 허용하고 R1-04/R1-05 경제 acceptance·checkbox는 변경하지 않습니다.
+- 담당: 단일 Luna 구현, Astra 통합, 독립 Terra 검토
+- 워크트리·브랜치: `/home/kwl/projects/jusik-r1-action-receipt-time-order` /
+  `fix/r1-action-receipt-time-order`
+- 기준 커밋·통합 대상: `042e87e`, local `main`
+- 입력과 선행 작업: `market_history_action_receipt_preflight.py`의 기존 fixed receipt 계약과
+  R1 action evidence audit. runner는 pause/service/timer inactive 상태를 유지합니다.
+- 수정 허용 범위: `backend/jusik/market_history_action_receipt_preflight.py`,
+  해당 테스트, 이 작업의 개발 기록만. 원장·collector·network·PAPER/live·remote는 변경하지 않습니다.
+- 검증: 역전 4종 거부와 동일시각 허용 회귀, focused pytest, Ruff, 변경 모듈 strict mypy,
+  diff check. 자료 coverage incomplete와 경제 not-evaluated를 유지합니다.
+- 중지 조건: 기존 receipt identity/hash가 변하거나 fixed artifact가 재생성되어야 하면 중단하고
+  원인과 재개 조건을 기록합니다.
