@@ -631,6 +631,10 @@ def test_fred_csv_parser_preserves_decimal_and_explicit_availability() -> None:
             b"observation_date,DEXKOUS\n2026-09-11,1340.30\n2026-09-11,1341.30\n",
             CollectorError,
         ),
+        (
+            b"observation_date,DEXKOUS\n2026-09-11,.\n2026-09-11,1340.30\n",
+            CollectorError,
+        ),
     ],
 )
 def test_fred_csv_parser_fails_closed(body: bytes, error: type[Exception]) -> None:

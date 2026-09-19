@@ -3,7 +3,8 @@
 - 상태: 완료된 기술 slice; 자동 FX/NAV 적용은 차단
 - 기록 시각: 2026-09-20T00:00:00Z
 - 작업 slug: `r2-fred-csv-parser-contract-20260920`
-- 범위: 기존 JSON parser와 분리된 FRED graph CSV offline parser와 fixture만 추가했습니다.
+- 범위: 기존 JSON parser와 분리된 FRED graph CSV offline parser와 inline regression
+  cases만 추가했습니다.
   network transport, credentials, readiness, performance, 원장, service, PAPER/live는
   변경하지 않았습니다.
 
@@ -19,9 +20,15 @@
 
 ## 검증
 
-- CSV parser focused pytest 및 collector 관련 테스트 — 통과
-- Ruff와 변경 모듈 mypy — 통과
-- diff check — 통과
+- `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest
+  backend/tests/test_market_data_collector.py -k 'fred' -q` — 9 passed
+- `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest
+  backend/tests/test_market_data_collector.py -q` — 135 passed
+- `/home/kwl/projects/jusik/backend/.venv/bin/python -m ruff check
+  backend/jusik/market_data_collector.py backend/tests/test_market_data_collector.py` — passed
+- `/home/kwl/projects/jusik/backend/.venv/bin/python -m mypy --config-file
+  backend/pyproject.toml backend/jusik/market_data_collector.py` — passed
+- `git diff --check` — passed
 
 ## 제한과 다음 시작
 
