@@ -61,3 +61,14 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
   수정했습니다. 기존 raw 45건 재파싱에서 잘못된 `SYMBOL` 결과는 0건입니다.
 - 판정: 무료 공급자의 전체 기간·PIT·권리 가격 경계가 없으므로 `coverage=incomplete`,
   R1-02/R1-04/R1-05 미체크를 유지합니다.
+
+## SEC ticker mapping 및 filing batch
+
+- SEC `company_tickers.json`을 자동 조회해 registry 미국 10개 심볼 중 8개를 CIK로
+  매핑하고 submissions 6,243건을 수집했습니다. SOXL/TQQQ는 SEC ticker map에 없어
+  매핑 누락으로 명시적으로 보존했습니다.
+- 2024–2025 요청 범위에서 catalog에는 SEC 1,517건, Alpha 53건, Nasdaq 27건이
+  source-specific identity로 포함되었습니다. 최종 catalog SHA-256은
+  audit batch의 `catalog.json`과 `request.json`에 기록했습니다.
+- SEC filing은 공시 접수 시각을 보존하지만 filing 본문에서 corporate-action 권리·가격
+  경계를 완전히 추출한 것은 아니므로 R1-04/R1-05 acceptance는 승격하지 않습니다.

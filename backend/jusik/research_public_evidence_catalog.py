@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
@@ -56,6 +57,7 @@ def build_public_evidence_catalog(
     halts: tuple[NasdaqHalt, ...] = (),
     filings: tuple[SecFiling, ...] = (),
     actions: tuple[AlphaAction, ...] = (),
+    filing_symbols: Mapping[str, str] | None = None,
 ) -> PublicEvidenceCatalog:
     if end < start:
         raise ValueError("end_before_start")
@@ -79,7 +81,11 @@ def build_public_evidence_catalog(
             items.append(
                 PublicEvidenceItem(
                     source="sec_edgar",
-                    instrument_ref=item.cik,
+                    instrument_ref=(
+                        filing_symbols.get(item.cik, item.cik)
+                        if filing_symbols is not None
+                        else item.cik
+                    ),
                     event_kind=item.form,
                     event_date=filing_date,
                     observed_at=item.acceptance_datetime or item.observed_at,

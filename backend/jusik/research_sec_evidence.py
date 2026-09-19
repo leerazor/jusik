@@ -16,6 +16,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
+SEC_TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_MIN_REQUEST_INTERVAL_SECONDS = 0.2
 
 
@@ -42,6 +43,46 @@ class SecFiling(BaseModel):
     @classmethod
     def timestamps_utc(cls, value: datetime | None) -> datetime | None:
         return _utc(value) if value is not None else None
+
+
+class SecTicker(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    ticker: str = Field(min_length=1, max_length=20)
+    cik: str = Field(pattern=r"^\d{10}$")
+    title: str = Field(min_length=1, max_length=300)
+
+
+def parse_sec_ticker_map(
+    body: bytes, *, symbols: Iterable[str] | None = None
+) -> tuple[SecTicker, ...]:
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("sec_ticker_map_invalid_json") from exc
+    if not isinstance(payload, Mapping):
+        raise ValueError("sec_ticker_map_invalid_root")
+    wanted = {item.upper() for item in symbols} if symbols is not None else None
+    result: list[SecTicker] = []
+    for value in payload.values():
+        if not isinstance(value, Mapping):
+            continue
+        ticker = value.get("ticker")
+        cik_value = value.get("cik_str")
+        title = value.get("title")
+        if not isinstance(ticker, str) or not isinstance(title, str):
+            continue
+        ticker = ticker.upper()
+        if wanted is not None and ticker not in wanted:
+            continue
+        try:
+            cik = str(cik_value).zfill(10)
+        except (TypeError, ValueError):
+            continue
+        if len(cik) != 10 or not cik.isdigit():
+            continue
+        result.append(SecTicker(ticker=ticker, cik=cik, title=title))
+    return tuple(sorted(result, key=lambda item: item.ticker))
 
 
 def _string_at(values: object, index: int) -> str | None:
@@ -168,6 +209,35 @@ async def collect_sec_submissions(
         if owns_client:
             await http_client.aclose()
     return tuple(result)
+
+
+async def collect_sec_ticker_map(
+    *,
+    output_dir: Path,
+    symbols: Iterable[str] | None = None,
+    user_agent: str | None = None,
+    client: httpx.AsyncClient | None = None,
+) -> tuple[SecTicker, ...]:
+    agent = user_agent or os.environ.get("SEC_USER_AGENT")
+    if not agent:
+        raise ValueError("SEC_USER_AGENT is required")
+    owns_client = client is None
+    http_client = client or httpx.AsyncClient(timeout=30)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        response = await http_client.get(
+            SEC_TICKER_MAP_URL,
+            headers={"User-Agent": agent, "Accept": "application/json"},
+        )
+        response.raise_for_status()
+        digest = hashlib.sha256(response.content).hexdigest()
+        raw_path = output_dir / f"sec-company-tickers-{digest}.json"
+        if not raw_path.exists():
+            raw_path.write_bytes(response.content)
+        return parse_sec_ticker_map(response.content, symbols=symbols)
+    finally:
+        if owns_client:
+            await http_client.aclose()
 
 
 def _main(argv: Iterable[str] | None = None) -> int:

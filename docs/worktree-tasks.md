@@ -39,6 +39,17 @@
   `SYMBOL` 오인식 0건을 확인했습니다.
 - 판정: 전체 coverage/PIT/권리 가격 경계가 없어 R1 체크와 경제 acceptance는 보류.
 
+## sec-ticker-filing-batch-20260920
+
+- 상태: SEC ticker mapping 및 submissions batch 완료.
+- 결과: 미국 registry 10개 중 8개 CIK 매핑, submissions 6,243건, 2024–2025
+  catalog 편입 1,517건. SOXL/TQQQ 매핑 누락을 성공으로 숨기지 않고 request에
+  기록했습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-batch/`.
+- 제한: filing 접수 시각은 보존하지만 corporate-action 본문 권리·가격 경계와
+  전체 PIT/coverage는 아직 증명하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-19-public-halt-evidence.md`.
+
 ## roadmap-planner-wait-20260919
 
 - 상태: 정상 대기. planner attempt `11f1a5101c7649cfabb3a4d35123115e`가 `proposal=null`, `status=waiting`, exit 0으로 종료했습니다.

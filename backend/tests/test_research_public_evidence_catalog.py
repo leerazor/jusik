@@ -39,6 +39,7 @@ def test_catalog_joins_sources_deduplicates_and_stays_incomplete() -> None:
         halts=halt * 2,
         filings=filing,
         actions=actions,
+        filing_symbols={"0001045810": "NVDA"},
     )
 
     assert catalog.coverage == "incomplete"
@@ -47,5 +48,9 @@ def test_catalog_joins_sources_deduplicates_and_stays_incomplete() -> None:
         "nasdaq_trader": 1,
         "sec_edgar": 1,
     }
+    sec_refs = {
+        item.instrument_ref for item in catalog.items if item.source == "sec_edgar"
+    }
+    assert sec_refs == {"NVDA"}
     assert catalog.observed_item_count == 3
     assert len(catalog.catalog_sha256) == 64
