@@ -2355,3 +2355,14 @@
 - market data collector/readiness 테스트 167개 통과. zero-OHLC/volume 0·malformed OHLC,
   KRX cache/auth, US/KR prepared path 분리를 확인했습니다.
 - 한국 자료는 미국 결과와 혼합하지 않으며 실제 성과·PAPER 승격은 하지 않습니다.
+
+## r7-isolation-safety-verification-20260920
+
+- 상태: 기술 계약 재검증 완료; R7 경제 평가와 PAPER 결정은 `not-evaluated`.
+- 범위: prospective registration/readiness, bounded stress, isolated experiment guard,
+  calendar stress, forward paper boundary의 fail-closed·격리 계약.
+- 검증: 관련 pytest 81개 통과(경고 2개). 해시·엄격 JSON·입출력 격리·calendar stress·
+  paper-only 경계를 확인했습니다.
+- 제한: untouched OOS 단회 판정과 독립 reviewer 승인 전에는 stress/PAPER 경제 승격을
+  하지 않습니다. 실제 연구·network·주문·PAPER/live 설정 변경·remote push는 없습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r7-isolation-safety-verification.md`.
