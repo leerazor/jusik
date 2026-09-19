@@ -2376,6 +2376,9 @@
 - 연구 API의 `/api/research/validation/r7/gate`를 연결해 현재 자료가 부족하면 `blocked`
   상태와 `simulation_allowed=false`를 반환하도록 했습니다. 기본 경로는 workspace나
   review evidence를 생성하지 않습니다.
+- 수동 검증 충돌을 막기 위해 runner를 pause하고 service/timer를 중지했습니다. 확인 시
+  `paused=true`, service/timer `inactive`, queued/running task 0개이며 자동 재개하지
+  않습니다.
 - 제한: untouched OOS 단회 판정과 독립 reviewer 승인 전에는 stress/PAPER 경제 승격을
   하지 않습니다. 실제 연구·network·주문·PAPER/live 설정 변경·remote push는 없습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r7-isolation-safety-verification.md`.
