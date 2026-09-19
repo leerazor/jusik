@@ -17,8 +17,9 @@
   simulation을 차단합니다. 게이트는 PAPER 결정을 수동으로 남기고 자동 승격은 항상
   `false`로 유지합니다.
 - 게이트 테스트와 evidence/result 불변식 검사를 포함한 R7 focused pytest 91개가
-  통과했습니다(경고 2개). 프로젝트
-  전체 mypy는 기존 10개 오류가 남아 있어 전체 통과로 주장하지 않습니다.
+  통과했습니다(경고 2개). 현재 configured 전체 mypy는 기존 범위 밖 오류 104개
+  (27개 파일)로 실패하므로 전체 통과로 주장하지 않습니다. R7 코드의 동작 검증은
+  focused pytest와 Ruff 결과를 기준으로 유지합니다.
 - 연구 API의 `/api/research/validation/r7/gate`가 prospective readiness와 R7 gate를
   실제로 소비하도록 연결했습니다. 기본 설정에서는 workspace/evidence가 없어
   `blocked`를 반환하며, 실행·주문·PAPER 설정을 변경하지 않습니다.
