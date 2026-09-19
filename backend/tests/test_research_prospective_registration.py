@@ -369,6 +369,6 @@ def test_read_only_status_api_returns_registration_contract(tmp_path: Path) -> N
         response = client.get("/api/research/validation/prospective")
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "planned"
+    assert body["status"] == "observing"
     assert body["registration"]["session_id"] == session_id
     assert body["registration"]["contract_sha256"]

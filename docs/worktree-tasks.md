@@ -2337,8 +2337,8 @@
 
 ## r5-preregistration-verification-20260920
 
-- 상태: 부분 검증; R5 승격 보류.
-- optimizer/preregistration focused 50개 통과. validation API 2개는 기존 상태 기대치와
-  달라 실패(`503` vs `200`, `observing` vs `planned`)했으며 성공으로 표시하지 않았습니다.
-- API 상태 계약을 복구한 뒤 후보 기간 freeze·MDD hard filter·자동 winner 금지 전체 검증을
-  다시 수행해야 합니다. 전략 실행과 PAPER/live 승격은 하지 않습니다.
+- 상태: 기술 계약 검증 완료; 경제 성과·R5 승격은 자료 gate 뒤로 유지.
+- 최초 2개 fixture drift를 교정한 뒤 optimizer/preregistration/validation focused 테스트
+  52개 통과. signal 날짜와 prospective `observing` 상태가 현재 fixed window와 일치합니다.
+- 후보 기간 freeze·MDD hard filter·자동 winner 금지 계약은 유지하며 전략 실행과 PAPER/live
+  승격은 하지 않습니다.

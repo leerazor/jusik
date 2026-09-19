@@ -657,7 +657,7 @@ def test_robustness_repository_and_validation_api_are_bounded(tmp_path: Path) ->
         validation_report_dir=reports,
     )
     with TestClient(app) as client:
-        signal = client.get("/api/research/validation/signal?local_date=2026-09-10")
+        signal = client.get("/api/research/validation/signal?local_date=2026-09-14")
         assert signal.status_code == 200
         robustness = client.get("/api/research/validation/portfolio/latest")
         assert robustness.status_code == 200
