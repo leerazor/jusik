@@ -28,6 +28,8 @@
 - 2026-09-20 bounded batch: 미국 registry 10개 심볼에서 Alpha 53 actions와 Nasdaq
   raw 45건(요청 기간 catalog 27건)을 수집했습니다. Nasdaq HTML symbol parser 결함을
   수정하고 기존 raw 재파싱에서 `SYMBOL` 오인식 0건을 확인했습니다.
+- SEC ticker map으로 8/10 심볼을 CIK에 매핑해 submissions 6,243건을 수집했고,
+  요청 기간 catalog에 1,517건을 연결했습니다. SOXL/TQQQ는 매핑 누락으로 기록했습니다.
 
 ## 검증
 
@@ -46,7 +48,8 @@
 
 ## 남은 작업
 
-1. SEC CIK 매핑과 filing event extraction을 catalog에 연결하고 coverage 진단을 강화.
+1. SEC filing 본문의 corporate-action event extraction을 catalog에 연결하고 coverage
+   진단을 강화.
 2. 전체 대상 기간의 halt coverage를 공식 자료로 확장하되 호출 예산과 PIT 한계를
    명시적으로 기록.
 3. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을
