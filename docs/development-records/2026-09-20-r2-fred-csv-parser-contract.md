@@ -18,6 +18,9 @@
   기존 JSON parser와 같은 다음 날 UTC 자정입니다.
 - parser 통과는 source parsing만 의미하며 FRED CSV의 PIT availability나 application
   completeness를 증명하지 않습니다.
+- 보존한 audit CSV를 offline replay한 결과 요청 기간 내 유효 관측은 251개였고, caller가
+  고정한 retrieval 시각을 모든 row에 보존했습니다. 이 replay도 source/application
+  readiness를 승격하지 않습니다.
 
 ## 검증
 
@@ -30,6 +33,8 @@
 - `/home/kwl/projects/jusik/backend/.venv/bin/python -m mypy --config-file
   backend/pyproject.toml backend/jusik/market_data_collector.py` — passed
 - `git diff --check` — passed
+- audit CSV offline replay — 251 parsed rows, raw SHA
+  `06751750c69089e33aaac8d5bdd0e102887c9c4db2d4d5da529561ad318f8210`
 
 ## 제한과 다음 시작
 
