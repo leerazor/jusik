@@ -155,6 +155,8 @@ def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind
             comparable_share_basis=True,
         ),
         operator_verified=True,
+        revision_id="3" * 64,
+        content_sha256="4" * 64,
     )
     assert review.operator_verified is True
     assert review.review_key.endswith(":dividend")
@@ -165,6 +167,8 @@ def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind
             local_file=tmp_path / "doc.htm",
             extracted_facts=ExtractedFacts(),
             operator_verified=False,
+            revision_id="3" * 64,
+            content_sha256="4" * 64,
         )
 
     unresolved = candidate.model_copy(
@@ -176,6 +180,8 @@ def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind
             local_file=tmp_path / "doc.htm",
             extracted_facts=ExtractedFacts(),
             operator_verified=True,
+            revision_id="3" * 64,
+            content_sha256="4" * 64,
         )
 
 
@@ -200,6 +206,8 @@ def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> 
         (candidate,),
         local_files={candidate.accession_number: tmp_path / "doc.htm"},
         extracted_facts={candidate.accession_number: facts},
+        revision_ids={candidate.accession_number: "3" * 64},
+        content_hashes={candidate.accession_number: "4" * 64},
         operator_verified=True,
     )
     assert manifest.schema_version == 1
@@ -210,5 +218,7 @@ def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> 
             (candidate,),
             local_files={},
             extracted_facts={},
+            revision_ids={},
+            content_hashes={},
             operator_verified=True,
         )

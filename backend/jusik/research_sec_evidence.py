@@ -131,10 +131,16 @@ def build_sec_action_review_input(
     local_file: Path,
     extracted_facts: ExtractedFacts,
     operator_verified: bool,
+    revision_id: str,
+    content_sha256: str,
 ) -> ReviewInput:
     """Build a manually verified action-review input; never infer facts."""
     if not operator_verified:
         raise ValueError("sec_candidate_operator_verification_required")
+    if not re.fullmatch(r"[0-9a-f]{64}", revision_id):
+        raise ValueError("sec_candidate_collection_revision_invalid")
+    if not re.fullmatch(r"[0-9a-f]{64}", content_sha256):
+        raise ValueError("sec_candidate_collection_content_hash_invalid")
     kinds = tuple(
         kind for kind in candidate.candidate_kinds if kind in {"split", "dividend"}
     )
@@ -143,8 +149,8 @@ def build_sec_action_review_input(
     kind = kinds[0]
     return ReviewInput(
         review_key=f"sec:{candidate.accession_number}:{kind}",
-        revision_id=candidate.raw_sha256,
-        content_sha256=candidate.raw_sha256,
+        revision_id=revision_id,
+        content_sha256=content_sha256,
         operator_verified=True,
         evidence={
             "local_file": local_file,
@@ -163,13 +169,20 @@ def build_sec_review_manifest(
     *,
     local_files: Mapping[str, Path],
     extracted_facts: Mapping[str, ExtractedFacts],
+    revision_ids: Mapping[str, str],
+    content_hashes: Mapping[str, str],
     operator_verified: bool,
 ) -> ReviewManifest:
     """Create a review manifest only from complete, manually supplied facts."""
     reviews: list[ReviewInput] = []
     for candidate in candidates:
         accession = candidate.accession_number
-        if accession not in local_files or accession not in extracted_facts:
+        if (
+            accession not in local_files
+            or accession not in extracted_facts
+            or accession not in revision_ids
+            or accession not in content_hashes
+        ):
             raise ValueError("sec_candidate_review_facts_missing")
         reviews.append(
             build_sec_action_review_input(
@@ -177,6 +190,8 @@ def build_sec_review_manifest(
                 local_file=local_files[accession],
                 extracted_facts=extracted_facts[accession],
                 operator_verified=operator_verified,
+                revision_id=revision_ids[accession],
+                content_sha256=content_hashes[accession],
             )
         )
     if not reviews:

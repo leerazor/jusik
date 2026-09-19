@@ -47,6 +47,8 @@
   `promotion=forbidden_until_action_review`, `automatic_ledger_application=false`입니다.
 - `build_sec_review_manifest()`는 accession별 raw 경로와 수동 `ExtractedFacts`가 모두
   제공될 때만 기존 `ReviewManifest`를 생성하며, 누락·빈 manifest는 거부합니다.
+- `ActionReviewStore` 계약에 맞춰 collection `revision_id`와 collection content SHA를
+  명시적으로 받도록 수정했습니다. SEC raw SHA를 collection revision으로 오인하지 않습니다.
 
 ## 검증
 

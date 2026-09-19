@@ -2284,3 +2284,5 @@
   전달하지 않습니다.
 - `build_sec_review_manifest()`는 모든 accession에 raw 경로와 수동 facts가 있어야만
   manifest를 생성합니다. 관련 SEC/action-review pytest는 15개로 늘었고 통과했습니다.
+- store 계약 검토 후 collection revision/content SHA 매핑을 필수화했습니다. SEC raw SHA는
+  evidence 식별자이며 collection revision으로 사용하지 않습니다.

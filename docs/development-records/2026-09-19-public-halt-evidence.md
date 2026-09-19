@@ -106,6 +106,10 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
   후보·미검증 후보는 fail-closed로 거부합니다.
 - `build_sec_review_manifest()`를 추가해 accession별 local raw와 수동 facts가 모두 있을
   때만 기존 `ReviewManifest`를 생성합니다. 누락·빈 manifest는 거부합니다.
+- 검토 과정에서 `ActionReviewStore`의 `revision_id`가 collection revision을 가리켜야
+  함을 확인하고 adapter를 수정했습니다. SEC raw SHA는 evidence `content_sha256`가
+  아니라 evidence SHA로만 사용하며, collection revision/content SHA 매핑을 명시하지
+  않으면 manifest를 생성하지 않습니다.
 - 검증: SEC 및 action-review pytest 15개, Ruff 통과.
 
 ## SEC 수동 검토 queue
