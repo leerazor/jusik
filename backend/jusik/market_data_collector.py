@@ -1415,6 +1415,60 @@ def parse_fred_observations(
     return tuple(result)
 
 
+@_parse_boundary
+def parse_fred_csv_observations(
+    body: bytes, *, start: date, end: date, available_at: datetime | None = None
+) -> tuple[ApproximateFXRow, ...]:
+    """Parse the public FRED graph CSV without changing the JSON contract.
+
+    The CSV path is intentionally parser-only. Callers must supply the retrieval
+    timestamp and decide separately whether source availability is suitable for
+    point-in-time performance application.
+    """
+    if not body.strip():
+        raise CollectorNullError("FRED CSV provider returned an empty response")
+    try:
+        text = body.decode("utf-8-sig")
+        rows = list(csv.reader(io.StringIO(text, newline=""), strict=True))
+    except (UnicodeDecodeError, csv.Error):
+        raise CollectorError("FRED CSV response is malformed") from None
+    if not rows or rows[0] != ["observation_date", "DEXKOUS"]:
+        raise CollectorError("FRED CSV header is invalid")
+    if len(rows) == 1:
+        raise CollectorNullError("FRED CSV provider returned no observations")
+    result: list[ApproximateFXRow] = []
+    seen_sessions: set[date] = set()
+    for row in rows[1:]:
+        if len(row) != 2:
+            raise CollectorError("FRED CSV row is malformed")
+        if not row[0].strip() and not row[1].strip():
+            continue
+        session = _date(row[0], "FRED CSV")
+        if session in seen_sessions:
+            raise CollectorError("FRED CSV response contains duplicate observations")
+        seen_sessions.add(session)
+        value = row[1].strip()
+        if value in {"", "."}:
+            continue
+        if start <= session <= end:
+            row_available_at = available_at or datetime.combine(
+                session + timedelta(days=1), time(), UTC
+            )
+            result.append(
+                ApproximateFXRow(
+                    session=session,
+                    krw_per_usd=_decimal(value, "FRED CSV FX"),
+                    spread_rate=Decimal("0"),
+                    available_at=row_available_at,
+                )
+            )
+    if not result:
+        raise CollectorCoverageError(
+            "FRED CSV response contains no requested observations"
+        )
+    return tuple(result)
+
+
 class CollectorTransport(Protocol):
     async def krx(self, market_board: str, start: date, end: date) -> bytes: ...
 
