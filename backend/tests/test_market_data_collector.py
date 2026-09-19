@@ -2517,6 +2517,14 @@ def test_krx_future_event_preserves_prefix_and_unaffected_symbol(mode: str) -> N
 
     baseline_full = collect(full_end, "baseline")
     event_full = collect(full_end, mode)
+    event_full_universe_prefix = tuple(
+        row for row in event_full.dataset.universe if row.session < cutoff
+    )
+    event_full_bars_prefix = tuple(
+        row for row in event_full.dataset.bars if row.session < cutoff
+    )
+    assert event_pre.dataset.universe == event_full_universe_prefix
+    assert event_pre.dataset.bars == event_full_bars_prefix
     assert tuple(
         row for row in event_full.dataset.universe if row.session < cutoff
     ) == tuple(row for row in baseline_full.dataset.universe if row.session < cutoff)

@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-20T00:00:00Z
 - 작업 slug: `r1-02-krx-prefix-invariance-20260920`
-- 기준/통합: `727dd2b` / 없음
+- 기준/통합: `6869cc8` / integration pending
 - 범위: KRX collector 테스트 fixture와 이 개발 기록만 변경했습니다. production
   collector, 자료, 원장, 서비스, PAPER/live 설정, 원격 상태는 변경하지 않았습니다.
 
