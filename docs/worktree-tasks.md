@@ -2308,3 +2308,10 @@
 - counterfactual/independent accounting pytest 45개 통과. scenario별 cost·dividend·FX를
   분리 보존하고 unavailable을 0으로 바꾸지 않는 계약을 재확인했습니다.
 - complete fills/corporate-action evidence 부재로 R2-06과 R4 승격은 하지 않습니다.
+
+## r2-fx-boundary-verification-20260920
+
+- 상태: 기술 계약 재검증 완료; 경제 평가는 `not-evaluated`.
+- accounting evidence/FX provenance/FX signal 테스트 46개 통과. USD/KRW as-of, stale/future
+  거부, Decimal 반올림 경계를 확인했습니다.
+- 실제 historical FX coverage와 거래 timestamp가 부족해 R2-03 경제 승격은 하지 않습니다.
