@@ -2464,3 +2464,19 @@
 - 제한: per-date publication instant, full-period availability, calendar/application
   completeness가 없어 R2/R4 readiness와 Sharpe 계산은 계속 차단합니다.
 - 개발 기록: `docs/development-records/2026-09-20-alfred-vintage-evidence.md`.
+
+## alfred-weekly-vintage-evidence-20260920
+
+- 상태: 완료된 자료 조사 slice; PIT application과 경제 성과 적용은 차단
+- 목표와 완료 조건: ALFRED 공개 graph CSV의 2025-09-12~2026-09-18 주간 vintage를
+  bounded read-only로 수집하고 raw SHA·행 수·관측일별 sampled first-seen 결과를
+  보존합니다. 현재 snapshot을 과거 PIT로 재명명하거나 자동 성과 계산에 연결하지
+  않습니다.
+- 담당: Astra 조사·기록
+- 결과: 주간 vintage 54개, 요청 범위 nonblank 관측일 251개, sampled coverage
+  251/251. 날짜별 first-seen 결과는 정확한 publication instant가 아닌 upper bound입니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-alfred-weekly-vintages/`;
+  `request.json`, `weekly-vintage-summary.json`, `first-seen-sampled-vintages.json`.
+- 제한: publication instant/timezone, business calendar completeness, NAV 적용 정책이
+  없어 R2/R4 readiness와 Sharpe·Calmar 계산은 유지됩니다.
+- 개발 기록: `docs/development-records/2026-09-20-alfred-weekly-vintage-evidence.md`.
