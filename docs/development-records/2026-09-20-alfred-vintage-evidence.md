@@ -3,7 +3,7 @@
 - 상태: 완료된 자료 조사 slice; PIT application과 경제 성과 적용은 차단
 - 기록 시각: 2026-09-19T23:31:28Z
 - 작업 slug: `alfred-vintage-evidence-20260920`
-- 기준/통합: `6056c7b` / 문서 커밋 예정
+- 기준/통합: `6056c7b` / `67ebbb7`
 - 범위: ALFRED 공개 graph CSV에서 고정 vintage 4개를 읽기 전용으로 보존하고
   release-lag 관찰을 기록했습니다. collector/readiness/metrics에는 연결하지 않았습니다.
 
