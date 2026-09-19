@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import stat
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -80,14 +82,42 @@ def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:
         return None
     if workspace.manifest.is_symlink() or not workspace.manifest.is_file():
         return None
-    if workspace.root.stat().st_mode & 0o777 != 0o700:
+    try:
+        root_stat = os.stat(workspace.root, follow_symlinks=False)
+        child_stats = [os.stat(path, follow_symlinks=False) for path in expected]
+    except OSError:
         return None
-    if any(path.stat().st_mode & 0o777 != 0o700 for path in expected):
+    if not stat.S_ISDIR(root_stat.st_mode) or root_stat.st_mode & 0o777 != 0o700:
         return None
-    if workspace.manifest.stat().st_mode & 0o777 != 0o600:
+    if any(
+        not stat.S_ISDIR(item.st_mode) or item.st_mode & 0o777 != 0o700
+        for item in child_stats
+    ):
         return None
     try:
-        payload = json.loads(workspace.manifest.read_text(encoding="utf-8"))
+        descriptor = os.open(
+            workspace.manifest,
+            os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+        )
+    except OSError:
+        return None
+    try:
+        manifest_stat = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(manifest_stat.st_mode)
+            or manifest_stat.st_mode & 0o777 != 0o600
+        ):
+            return None
+        chunks: list[bytes] = []
+        while chunk := os.read(descriptor, 1024 * 1024):
+            chunks.append(chunk)
+        manifest_bytes = b"".join(chunks)
+    except OSError:
+        return None
+    finally:
+        os.close(descriptor)
+    try:
+        payload = json.loads(manifest_bytes.decode("utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
     if not isinstance(payload, dict):
@@ -121,7 +151,7 @@ def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:
         for key, value in identities.items()
     ):
         return None
-    return hashlib.sha256(workspace.manifest.read_bytes()).hexdigest()
+    return hashlib.sha256(manifest_bytes).hexdigest()
 
 
 def evaluate_r7_gate(
