@@ -2535,3 +2535,23 @@
 - 정리: 통합 검증 후 worktree와 브랜치를 제거합니다. 기존 미추적 `HANDOFF.md`는 보존합니다.
 - 제한: 실제 receipt coverage·PIT publication·권리/가격 자료는 보강하지 않았고, R1
   checkbox·ledger·NAV·성과·PAPER/live는 변경하지 않았습니다.
+
+## r1-public-evidence-symbol-boundary-20260920
+
+- 상태: 진행
+- 목표와 완료 조건: PublicEvidenceCatalog가 요청 universe 밖의 Nasdaq halt, Alpha
+  action, SEC filing을 조용히 포함하지 않고 `evidence_symbol_not_requested`로
+  fail-closed 거부하도록 보강합니다. 정상 catalog·unresolved identity·중복 제거
+  계약을 보존하며 R1-05 경제 acceptance와 checkbox는 변경하지 않습니다.
+- 담당: 단일 Luna 구현, Astra 통합, 독립 Terra 검토
+- 워크트리·브랜치: `/home/kwl/projects/jusik-r1-public-evidence-symbol-boundary` /
+  `fix/r1-public-evidence-symbol-boundary`
+- 기준 커밋·통합 대상: `2292c4c`, local `main`
+- 입력과 선행 작업: `research_public_evidence_catalog.py`, 관련 테스트와
+  `2026-09-19-public-halt-evidence` 계약. runner는 pause/service/timer inactive를 유지합니다.
+- 수정 허용 범위: catalog 구현·해당 테스트·이 작업의 개발 기록만. collector·network·원장·
+  PAPER/live·remote는 변경하지 않습니다.
+- 검증: source별 요청 외 심볼 거부 회귀, focused pytest, Ruff, strict mypy, diff check.
+  `coverage=incomplete`, 경제 `not-evaluated`를 유지합니다.
+- 중지 조건: 기존 catalog identity/hash가 바뀌거나 fixed artifact 재생성이 필요하면 중단하고
+  원인과 재개 조건을 기록합니다.
