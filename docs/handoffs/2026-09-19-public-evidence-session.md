@@ -23,6 +23,8 @@
 - `backend/jusik/research_alpha_actions.py`: Alpha Vantage `DIVIDENDS`/`SPLITS`
   원문·배당/분할 날짜·수량·관측 시각·SHA-256 보존. 실제 NVDA 2024–2025 응답
   10건을 파싱했습니다.
+- `backend/jusik/research_public_evidence_catalog.py`: 세 공급자의 evidence를
+  source-specific identity와 raw SHA로 결합하고 `coverage=incomplete`를 강제합니다.
 
 ## 검증
 
@@ -41,7 +43,7 @@
 
 ## 남은 작업
 
-1. Alpha/SEC/Nasdaq raw 응답을 하나의 evidence catalog와 coverage 진단으로 연결.
+1. catalog에 실제 대상 universe 전체를 수집하는 bounded batch와 coverage 진단을 연결.
 2. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을
    유지하고, 불완전 coverage는 성공으로 표시하지 않음.
 3. 중복 운영 문서는 삭제하지 말고 canonical 문서 링크만 정리한 뒤 최종 검증.
