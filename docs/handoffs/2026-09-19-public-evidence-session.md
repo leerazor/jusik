@@ -1,6 +1,6 @@
 # 2026-09-19 공개 evidence 자동수집 세션 인계
 
-- 갱신: 2026-09-19T23:22:55+09:00
+- 갱신: 2026-09-20T06:48:20+09:00
 - 저장소: `/home/kwl/projects/jusik`
 - branch: `main`
 - 원격 반영 HEAD: `9b2243a6234450bfb3d3e76ae333d08aaeae12ff`
@@ -20,6 +20,9 @@
 - `docs/continuous-development-session.md`: 3시간 세션 정책과 2026-09-20 02:22:09
   KST 마감 시각을 실행기 필수 문서로 고정.
 - `docs/development-records/2026-09-19-public-halt-evidence.md`: 개발 기록.
+- `backend/jusik/research_alpha_actions.py`: Alpha Vantage `DIVIDENDS`/`SPLITS`
+  원문·배당/분할 날짜·수량·관측 시각·SHA-256 보존. 실제 NVDA 2024–2025 응답
+  10건을 파싱했습니다.
 
 ## 검증
 
@@ -32,13 +35,13 @@
 ## 운영
 
 - roadmap runner timer: active
-- 현재 service: 마지막 cycle 종료 후 inactive가 정상이며 timer가 다음 cycle을 재실행
-- Windows 종료: 2026-09-20 02:22:09 KST 예약
+- 현재 service: 마지막 planner cycle 종료 후 inactive가 정상이며 timer가 다음 cycle을 재실행
+- Windows 종료: 이전 세션 예약은 이미 경과했으며 새 예약은 하지 않음
 - 기존 루트 `HANDOFF.md`는 사용자 작성 이력으로 보존하고 수정하지 않음.
 
 ## 남은 작업
 
-1. Alpha Vantage `DIVIDENDS`/`SPLITS` raw 응답을 동일 evidence catalog에 연결.
+1. Alpha/SEC/Nasdaq raw 응답을 하나의 evidence catalog와 coverage 진단으로 연결.
 2. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을
    유지하고, 불완전 coverage는 성공으로 표시하지 않음.
 3. 중복 운영 문서는 삭제하지 말고 canonical 문서 링크만 정리한 뒤 최종 검증.
