@@ -556,6 +556,29 @@ def _check_collection(
             raise PreflightError("event latest revision is missing")
         if latest_revision["content_sha256"] != event["latest_content_sha256"]:
             raise PreflightError("event latest content pointer is stale")
+        revision_list = event.get("revisions")
+        if not isinstance(revision_list, list) or not revision_list:
+            raise PreflightError("event revisions are missing")
+        ordered_revisions = sorted(
+            revision_list, key=lambda item: cast(int, item["sequence"])
+        )
+        event_first_seen_at = _utc(event["first_seen_at"], "event.first_seen_at")
+        event_last_seen_at = _utc(event["last_seen_at"], "event.last_seen_at")
+        previous_revision_seen_at: datetime | None = None
+        for revision in ordered_revisions:
+            revision_seen_at = _utc(revision["first_seen_at"], "revision.first_seen_at")
+            if (
+                previous_revision_seen_at is not None
+                and revision_seen_at < previous_revision_seen_at
+            ):
+                raise PreflightError(
+                    "revision observation timestamps are not nondecreasing"
+                )
+            if revision_seen_at < event_first_seen_at:
+                raise PreflightError("revision was observed before event start")
+            if revision_seen_at > event_last_seen_at:
+                raise PreflightError("revision was observed after event end")
+            previous_revision_seen_at = revision_seen_at
     summary: dict[str, object] = {
         "attempts": len(attempts),
         "events": len(events),
