@@ -2348,3 +2348,10 @@
 - 상태: 기술 계약 재검증 완료; 후보 선택·경제 승격 없음.
 - performance metrics/GPU stress 경계 테스트 46개 통과. 비용 차감 수익률·MDD·Sharpe·Calmar,
   zero volatility/drawdown 및 negative outcome을 확인했습니다.
+
+## r6-krx-path-verification-20260920
+
+- 상태: 기술 계약 재검증 완료; 한국 경제 성과는 별도 실행 전까지 `not-evaluated`.
+- market data collector/readiness 테스트 167개 통과. zero-OHLC/volume 0·malformed OHLC,
+  KRX cache/auth, US/KR prepared path 분리를 확인했습니다.
+- 한국 자료는 미국 결과와 혼합하지 않으며 실제 성과·PAPER 승격은 하지 않습니다.
