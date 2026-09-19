@@ -8,6 +8,7 @@ all evidenced.  It never authorizes PAPER or live promotion.
 from __future__ import annotations
 
 import hashlib
+import json
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -78,6 +79,47 @@ def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:
     if any(path.is_symlink() or not path.is_dir() for path in expected):
         return None
     if workspace.manifest.is_symlink() or not workspace.manifest.is_file():
+        return None
+    if workspace.root.stat().st_mode & 0o777 != 0o700:
+        return None
+    if any(path.stat().st_mode & 0o777 != 0o700 for path in expected):
+        return None
+    if workspace.manifest.stat().st_mode & 0o777 != 0o600:
+        return None
+    try:
+        payload = json.loads(workspace.manifest.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("schema_version") != 1 or payload.get("mode") != "r7_isolated":
+        return None
+    if (
+        payload.get("paper_only") is not True
+        or payload.get("automatic_promotion_eligible") is not False
+        or payload.get("retrospective_write_access") is not False
+    ):
+        return None
+    expected_paths = {
+        **{
+            name: name
+            for name in ("market-data", "config", "database", "artifacts")
+        },
+        "workspace.json": "workspace.json",
+    }
+    if payload.get("paths") != expected_paths:
+        return None
+    identities = payload.get("source_identities")
+    if not isinstance(identities, dict) or not identities:
+        return None
+    if any(
+        not isinstance(key, str)
+        or not key
+        or not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+        for key, value in identities.items()
+    ):
         return None
     return hashlib.sha256(workspace.manifest.read_bytes()).hexdigest()
 

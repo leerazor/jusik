@@ -2370,7 +2370,8 @@
 - `research_r7_gate.py`를 추가해 isolation manifest, prospective readiness, untouched
   OOS, stress, independent review가 모두 충족될 때만 격리 simulation을 허용합니다.
   PAPER 결정은 별도 수동 단계이며 자동 승격은 불변 `false`입니다. 게이트 포함 focused
-  pytest는 89개 통과(경고 2개)이며 passed-evidence/result 불변식도 검증합니다.
+  pytest는 90개 통과(경고 2개)이며 passed-evidence/result 및 manifest 변조 불변식도
+  검증합니다.
 - 프로젝트 전체 mypy는 기존 unrelated 10개 오류로 실패했으며, 이번 변경이 전체 통과했다고
   주장하지 않습니다.
 - 연구 API의 `/api/research/validation/r7/gate`를 연결해 현재 자료가 부족하면 `blocked`

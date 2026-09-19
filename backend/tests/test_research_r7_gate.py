@@ -103,3 +103,20 @@ def test_gate_evidence_and_result_invariants_cannot_be_bypassed() -> None:
         R7ReviewEvidence(oos_passed=True)
     with pytest.raises(ValueError, match="cannot allow simulation"):
         R7GateResult(state="blocked", simulation_allowed=True, reasons=())
+
+
+def test_gate_blocks_tampered_manifest(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    workspace.manifest.write_text(
+        workspace.manifest.read_text(encoding="utf-8").replace(
+            '"paper_only": true', '"paper_only": false'
+        ),
+        encoding="utf-8",
+    )
+    result = evaluate_r7_gate(
+        prospective=_prospective(complete=True),
+        workspace=workspace,
+        evidence=R7ReviewEvidence(),
+    )
+    assert result.state == "blocked"
+    assert "isolated_workspace_manifest_unavailable" in result.reasons
