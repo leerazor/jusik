@@ -43,6 +43,7 @@ class PublicEvidenceCatalog(BaseModel):
     requested_start: date
     requested_end: date
     coverage: Literal["incomplete"] = "incomplete"
+    unresolved_symbols: tuple[str, ...] = ()
     items: tuple[PublicEvidenceItem, ...]
     source_counts: dict[str, int]
     observed_item_count: int = Field(ge=0)
@@ -58,9 +59,14 @@ def build_public_evidence_catalog(
     filings: tuple[SecFiling, ...] = (),
     actions: tuple[AlphaAction, ...] = (),
     filing_symbols: Mapping[str, str] | None = None,
+    unresolved_symbols: tuple[str, ...] = (),
 ) -> PublicEvidenceCatalog:
     if end < start:
         raise ValueError("end_before_start")
+    requested = tuple(sorted(set(symbols)))
+    unresolved = tuple(sorted(set(unresolved_symbols)))
+    if any(symbol not in requested for symbol in unresolved):
+        raise ValueError("unresolved_symbol_not_requested")
     items: list[PublicEvidenceItem] = []
     for item in halts:
         if start <= item.halt_date <= end:
@@ -133,10 +139,11 @@ def build_public_evidence_catalog(
         counts[item.source] = counts.get(item.source, 0) + 1
     provisional = {
         "schema_version": 1,
-        "requested_symbols": tuple(sorted(set(symbols))),
+        "requested_symbols": requested,
         "requested_start": start.isoformat(),
         "requested_end": end.isoformat(),
         "coverage": "incomplete",
+        "unresolved_symbols": unresolved,
         "items": [item.model_dump(mode="json") for item in ordered],
         "source_counts": dict(sorted(counts.items())),
         "observed_item_count": len(ordered),

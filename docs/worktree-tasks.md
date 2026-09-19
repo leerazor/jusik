@@ -2286,3 +2286,11 @@
   manifest를 생성합니다. 관련 SEC/action-review pytest는 15개로 늘었고 통과했습니다.
 - store 계약 검토 후 collection revision/content SHA 매핑을 필수화했습니다. SEC raw SHA는
   evidence 식별자이며 collection revision으로 사용하지 않습니다.
+
+## public-evidence-catalog-unresolved-identity-20260920
+
+- 상태: 기술 slice 완료; `coverage=incomplete`, 경제 acceptance 미승격.
+- `PublicEvidenceCatalog.unresolved_symbols`로 requested universe의 SEC CIK mapping 누락을
+  catalog에 보존했습니다. v2 audit에서 `SOXL`/`TQQQ`를 기록했으며 catalog SHA는
+  `10b6edc5d34c3b2dd0802a0fb77238debc2c3a61fdeeafc1790dcb86916a800f`입니다.
+- 검증: catalog/SEC pytest 7개와 Ruff 통과.

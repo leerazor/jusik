@@ -33,16 +33,18 @@ def test_catalog_joins_sources_deduplicates_and_stays_incomplete() -> None:
     )
 
     catalog = build_public_evidence_catalog(
-        symbols=("NVDA",),
+        symbols=("NVDA", "SOXL"),
         start=date(2024, 1, 1),
         end=date(2024, 12, 31),
         halts=halt * 2,
         filings=filing,
         actions=actions,
         filing_symbols={"0001045810": "NVDA"},
+        unresolved_symbols=("SOXL",),
     )
 
     assert catalog.coverage == "incomplete"
+    assert catalog.unresolved_symbols == ("SOXL",)
     assert catalog.source_counts == {
         "alpha_vantage": 1,
         "nasdaq_trader": 1,

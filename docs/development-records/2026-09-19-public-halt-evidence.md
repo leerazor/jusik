@@ -121,3 +121,13 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
   event/effective/권리·가격/PIT 필드를 채운 뒤 기존 action-review manifest로 전환합니다.
 - 요청 경계는 `max_documents=3`, 허용 form `8-K`/`8-K/A`, SEC User-Agent, 요청 간격
   0.2초로 고정했습니다. 실제 주문·PAPER/live·원격 push는 없었습니다.
+
+## catalog unresolved identity 보존
+
+- `PublicEvidenceCatalog.unresolved_symbols`를 추가해 requested universe에 있었지만
+  SEC CIK mapping이 없는 심볼을 catalog 자체에 남깁니다. 요청 심볼 외 값은 fail-closed로
+  거부합니다.
+- 기존 batch를 덮어쓰지 않고 v2 catalog를 생성했습니다. audit:
+  `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-v2/`
+  (unresolved `SOXL`, `TQQQ`, catalog SHA `10b6edc5d34c3b2dd0802a0fb77238debc2c3a61fdeeafc1790dcb86916a800f`).
+  coverage는 여전히 `incomplete`이며 경제 acceptance로 승격하지 않습니다.

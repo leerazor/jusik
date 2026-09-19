@@ -49,6 +49,9 @@
   제공될 때만 기존 `ReviewManifest`를 생성하며, 누락·빈 manifest는 거부합니다.
 - `ActionReviewStore` 계약에 맞춰 collection `revision_id`와 collection content SHA를
   명시적으로 받도록 수정했습니다. SEC raw SHA를 collection revision으로 오인하지 않습니다.
+- `PublicEvidenceCatalog.unresolved_symbols`를 추가하고 v2 catalog에서 SEC mapping 누락
+  `SOXL`/`TQQQ`를 보존했습니다. v2 catalog SHA는
+  `10b6edc5d34c3b2dd0802a0fb77238debc2c3a61fdeeafc1790dcb86916a800f`입니다.
 
 ## 검증
 
