@@ -15,6 +15,18 @@
 - 수집 결과는 `coverage`와 공급자 원문이 확보된 범위만 의미하며, 전체 미국 시장
   coverage 또는 역사적 provider PIT를 주장하지 않습니다.
 
+## Alpha Vantage 기업행동 collector
+
+- 구현: `backend/jusik/research_alpha_actions.py`
+- `DIVIDENDS`/`SPLITS` 응답을 원문 JSON, source URL(키 제거), 수집 시각, SHA-256,
+  ex/effective/payment date, 금액·통화·분할비율로 보존합니다.
+- 무료 API 호출 제한을 고려해 요청 간격을 12초로 제한하며, 원문은 가격·원장에
+  자동 적용하지 않습니다.
+- 검증: `pytest -q tests/test_research_alpha_actions.py`: 2 passed; Ruff 통과.
+- 실제 `.env` 키로 NVDA 2024–2025 응답 2건을 조회해 10개 action을 파싱했습니다.
+  이 결과는 provider 응답의 수집 시각만 증명하며 historical PIT completeness를
+  주장하지 않습니다.
+
 ## 다음 단계
 
 SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/evidence 계약으로
