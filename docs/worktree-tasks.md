@@ -2273,3 +2273,6 @@
   SHA를 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-filing-candidates/`에
   보존했습니다. merger 후보 1건과 빈 후보 2건이며, 문맥 snippet도 저장했지만 XBRL
   false positive 가능성이 있어 경제 acceptance에는 반영하지 않았습니다.
+- 승격 경계: SEC 후보를 별도 ledger 경로로 승격하지 않고 기존
+  `research_action_review.py`의 `ReviewInput`/`ExtractedFacts`/`ActionReview` 계약을
+  통과시키는 후속 작업으로 고정합니다. 자동 원장 적용은 계속 금지합니다.

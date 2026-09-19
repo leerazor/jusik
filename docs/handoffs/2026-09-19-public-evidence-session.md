@@ -38,6 +38,9 @@
   `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-filing-candidates/`입니다.
 - 최대 3개 문맥 snippet을 `candidates.json`으로 저장했으며, merger 후보가 XBRL 문맥의
   정규식 false positive일 수 있음을 확인했습니다. 따라서 event 승격은 보류합니다.
+- 승격 시에는 기존 `research_action_review.py`의 `ReviewInput`/`ExtractedFacts`/
+  `ActionReview` 계약을 재사용하고, 자동 원장 적용 금지·날짜/금액/권리 비교를 통과해야
+  합니다. SEC 후보에 별도 승격 경로는 만들지 않았습니다.
 
 ## 검증
 
@@ -57,7 +60,8 @@
 
 ## 남은 작업
 
-1. SEC 후보를 사람이 검토 가능한 event schema로 확장하되, 확정 event 승격 조건을 먼저 정의.
+1. SEC 후보를 기존 action-review 계약의 evidence input으로 연결하되, 수동 검토와
+   확정 event 승격 조건을 먼저 정의.
 2. 전체 대상 기간의 halt coverage를 공식 자료로 확장하되 호출 예산과 PIT 한계를
    명시적으로 기록.
 3. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을

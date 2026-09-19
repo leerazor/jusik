@@ -96,5 +96,10 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
 - 각 후보의 최대 3개 문맥 snippet을 `candidates.json`으로 별도 보존했습니다. 첫 merger
   후보는 XBRL `BusinessAcquisitionAxis` 문맥에서 잡힌 키워드일 수 있어, 단순 정규식의
   false positive 가능성을 확인했습니다.
+- 승격 게이트는 새 SEC 전용 모델로 복제하지 않고 기존
+  `backend/jusik/research_action_review.py`의 `ReviewInput`/`ExtractedFacts`/
+  `ActionReview` 계약을 재사용해야 합니다. 이 계약은 날짜·금액·권리 비교와
+  `automatic_ledger_application=False`를 강제하므로, 현재 SEC 후보는 review input이
+  완성되기 전까지 catalog·원장·성과 계산으로 전달하지 않습니다.
 - 요청 경계는 `max_documents=3`, 허용 form `8-K`/`8-K/A`, SEC User-Agent, 요청 간격
   0.2초로 고정했습니다. 실제 주문·PAPER/live·원격 push는 없었습니다.
