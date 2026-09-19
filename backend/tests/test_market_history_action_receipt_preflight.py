@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import sqlite3
+from copy import deepcopy
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import cast
@@ -130,6 +131,21 @@ def test_attempt_requires_raw_sha_and_terminal_timestamp() -> None:
     with pytest.raises(PreflightError, match="duplicate collection attempt"):
         _check_attempts([row, row])
 
+    with pytest.raises(PreflightError, match="requested date range"):
+        _check_attempts(
+            [{**row, "requested_start": "2025-01-01", "requested_end": "2024-12-31"}]
+        )
+    with pytest.raises(PreflightError, match="timestamps are reversed"):
+        _check_attempts(
+            [
+                {
+                    **row,
+                    "started_at": "2026-09-10T10:00:00+00:00",
+                    "completed_at": NOW,
+                }
+            ]
+        )
+
 
 def test_fixed_input_sha_and_evidence_timestamp_are_fail_closed(tmp_path: Path) -> None:
     path = tmp_path / "input.db"
@@ -180,6 +196,56 @@ def test_duplicate_event_and_revision_identities_are_rejected() -> None:
     }
     with pytest.raises(PreflightError, match="duplicate event identity"):
         _check_collection(base)
+
+
+def test_event_and_revision_temporal_order_is_fail_closed(tmp_path: Path) -> None:
+    collection_path, _review_path, _counts = _create_fixture_pair(tmp_path)
+    collection_rows, _metadata = _read_snapshot(
+        collection_path,
+        tables={
+            "action_collection_attempts",
+            "action_collection_source_status",
+            "action_collection_events",
+            "action_collection_revisions",
+        },
+        caps={
+            "action_collection_attempts": preflight.MAX_ATTEMPTS,
+            "action_collection_source_status": preflight.MAX_EVENTS,
+            "action_collection_events": preflight.MAX_EVENTS,
+            "action_collection_revisions": preflight.MAX_REVISIONS,
+        },
+        expected_sha256=None,
+    )
+
+    # The fixture uses one timestamp for all receipt observations; equality is valid.
+    _check_collection(collection_rows)
+
+    reversed_event = {
+        **collection_rows,
+        "action_collection_events": [
+            {
+                **collection_rows["action_collection_events"][0],
+                "first_seen_at": "2026-09-10T10:00:00+00:00",
+                "last_seen_at": NOW,
+            },
+            *collection_rows["action_collection_events"][1:],
+        ],
+    }
+    with pytest.raises(PreflightError, match="event observation timestamps"):
+        _check_collection(reversed_event)
+
+    reversed_revision = {
+        **collection_rows,
+        "action_collection_revisions": [
+            {
+                **collection_rows["action_collection_revisions"][0],
+                "first_seen_at": "2026-09-10T08:59:59+00:00",
+            },
+            *collection_rows["action_collection_revisions"][1:],
+        ],
+    }
+    with pytest.raises(PreflightError, match="before attempt start"):
+        _check_collection(reversed_revision)
 
 
 def test_compare_statuses_remain_partial_or_mismatched_without_normalization() -> None:
@@ -531,6 +597,104 @@ def _create_fixture_pair(tmp_path: Path) -> tuple[Path, Path, dict[str, int]]:
         "reviews": 4,
     }
     return collection_path, review_path, counts
+
+
+def test_revision_sequence_and_event_bounds_are_fail_closed(tmp_path: Path) -> None:
+    collection_path, _review_path, _counts = _create_fixture_pair(tmp_path)
+    collection_rows, _metadata = _read_snapshot(
+        collection_path,
+        tables={
+            "action_collection_attempts",
+            "action_collection_source_status",
+            "action_collection_events",
+            "action_collection_revisions",
+        },
+        caps={
+            "action_collection_attempts": preflight.MAX_ATTEMPTS,
+            "action_collection_source_status": preflight.MAX_EVENTS,
+            "action_collection_events": preflight.MAX_EVENTS,
+            "action_collection_revisions": preflight.MAX_REVISIONS,
+        },
+        expected_sha256=None,
+    )
+    base_attempt = collection_rows["action_collection_attempts"][0]
+    later_attempt_id = "a" * 64
+    later_seen = "2026-09-10T10:00:00+00:00"
+    later_attempt = {
+        **base_attempt,
+        "id": later_attempt_id,
+        "started_at": later_seen,
+        "completed_at": later_seen,
+    }
+    target_event = collection_rows["action_collection_events"][0]
+    target_event_id = cast(str, target_event["id"])
+    target_revision = next(
+        row
+        for row in collection_rows["action_collection_revisions"]
+        if row["event_id"] == target_event_id
+    )
+    other_revisions = [
+        row
+        for row in collection_rows["action_collection_revisions"]
+        if row["event_id"] != target_event_id
+    ]
+    second_revision = {
+        **target_revision,
+        "id": _hash_object({"event": target_event_id, "sequence": 2}),
+        "sequence": 2,
+        "first_seen_at": later_seen,
+        "attempt_id": later_attempt_id,
+    }
+    valid_rows = {
+        **collection_rows,
+        "action_collection_attempts": [base_attempt, later_attempt],
+        "action_collection_events": [
+            {
+                **target_event,
+                "last_seen_at": later_seen,
+                "latest_revision_sequence": 2,
+            },
+            *collection_rows["action_collection_events"][1:],
+        ],
+        "action_collection_revisions": [
+            target_revision,
+            second_revision,
+            *other_revisions,
+        ],
+    }
+    _check_collection(deepcopy(valid_rows))
+
+    reversed_sequence = deepcopy(valid_rows)
+    reversed_sequence["action_collection_revisions"][:2] = [
+        {
+            **target_revision,
+            "first_seen_at": later_seen,
+            "attempt_id": later_attempt_id,
+        },
+        {
+            **second_revision,
+            "first_seen_at": NOW,
+            "attempt_id": cast(str, base_attempt["id"]),
+        },
+    ]
+    with pytest.raises(PreflightError, match="not nondecreasing"):
+        _check_collection(reversed_sequence)
+
+    before_event = deepcopy(valid_rows)
+    before_event["action_collection_events"][0] = {
+        **before_event["action_collection_events"][0],
+        "first_seen_at": later_seen,
+    }
+    with pytest.raises(PreflightError, match="before event start"):
+        _check_collection(before_event)
+
+    after_event = deepcopy(valid_rows)
+    after_event["action_collection_events"][0] = {
+        **after_event["action_collection_events"][0],
+        "last_seen_at": NOW,
+    }
+    with pytest.raises(PreflightError, match="after event end"):
+        _check_collection(after_event)
 
 
 def test_public_api_rejects_caller_selected_sha(tmp_path: Path) -> None:

@@ -396,14 +396,18 @@ def _check_attempts(rows: list[dict[str, object]]) -> dict[str, dict[str, object
         state = row["state"]
         if state not in {"pending", "success", "failure", "interrupted"}:
             raise PreflightError("attempt state is unsupported")
-        _date(row["requested_start"], "attempt.requested_start")
-        _date(row["requested_end"], "attempt.requested_end")
-        _utc(row["started_at"], "attempt.started_at")
+        requested_start = _date(row["requested_start"], "attempt.requested_start")
+        requested_end = _date(row["requested_end"], "attempt.requested_end")
+        if requested_start > requested_end:
+            raise PreflightError("attempt requested date range is reversed")
+        started_at = _utc(row["started_at"], "attempt.started_at")
         completed_at = row["completed_at"]
         if completed_at is None and state in {"success", "failure", "interrupted"}:
             raise PreflightError("completed attempt has no completion timestamp")
         if completed_at is not None:
-            _utc(completed_at, "attempt.completed_at")
+            completed_at_utc = _utc(completed_at, "attempt.completed_at")
+            if started_at > completed_at_utc:
+                raise PreflightError("attempt timestamps are reversed")
         body = row["body"]
         if body is not None and not isinstance(body, bytes):
             raise PreflightError("attempt body must be bytes")
@@ -454,8 +458,10 @@ def _check_collection(
         if event_id != expected_id:
             raise PreflightError("event identity hash mismatch")
         _date(row["vendor_date"], "event.vendor_date")
-        _utc(row["first_seen_at"], "event.first_seen_at")
-        _utc(row["last_seen_at"], "event.last_seen_at")
+        first_seen_at = _utc(row["first_seen_at"], "event.first_seen_at")
+        last_seen_at = _utc(row["last_seen_at"], "event.last_seen_at")
+        if first_seen_at > last_seen_at:
+            raise PreflightError("event observation timestamps are reversed")
         _sha(row["latest_content_sha256"])
         natural[key] = {**row, "id": event_id, "key": key}
         events[event_id] = natural[key]
@@ -519,7 +525,9 @@ def _check_collection(
             or matches[0].payload.model_dump_json() != row["payload_json"]
         ):
             raise PreflightError("revision payload does not match parsed receipt")
-        _utc(row["first_seen_at"], "revision.first_seen_at")
+        revision_first_seen_at = _utc(row["first_seen_at"], "revision.first_seen_at")
+        if revision_first_seen_at < _utc(attempt["started_at"], "attempt.started_at"):
+            raise PreflightError("revision was observed before attempt start")
         if row["first_seen_at"] != attempt["completed_at"]:
             raise PreflightError("revision and attempt completion times differ")
         revision = {
@@ -548,6 +556,29 @@ def _check_collection(
             raise PreflightError("event latest revision is missing")
         if latest_revision["content_sha256"] != event["latest_content_sha256"]:
             raise PreflightError("event latest content pointer is stale")
+        revision_list = event.get("revisions")
+        if not isinstance(revision_list, list) or not revision_list:
+            raise PreflightError("event revisions are missing")
+        ordered_revisions = sorted(
+            revision_list, key=lambda item: cast(int, item["sequence"])
+        )
+        event_first_seen_at = _utc(event["first_seen_at"], "event.first_seen_at")
+        event_last_seen_at = _utc(event["last_seen_at"], "event.last_seen_at")
+        previous_revision_seen_at: datetime | None = None
+        for revision in ordered_revisions:
+            revision_seen_at = _utc(revision["first_seen_at"], "revision.first_seen_at")
+            if (
+                previous_revision_seen_at is not None
+                and revision_seen_at < previous_revision_seen_at
+            ):
+                raise PreflightError(
+                    "revision observation timestamps are not nondecreasing"
+                )
+            if revision_seen_at < event_first_seen_at:
+                raise PreflightError("revision was observed before event start")
+            if revision_seen_at > event_last_seen_at:
+                raise PreflightError("revision was observed after event end")
+            previous_revision_seen_at = revision_seen_at
     summary: dict[str, object] = {
         "attempts": len(attempts),
         "events": len(events),
