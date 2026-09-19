@@ -7,6 +7,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -51,6 +52,63 @@ class SecTicker(BaseModel):
     ticker: str = Field(min_length=1, max_length=20)
     cik: str = Field(pattern=r"^\d{10}$")
     title: str = Field(min_length=1, max_length=300)
+
+
+class SecFilingCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    cik: str = Field(pattern=r"^\d{10}$")
+    accession_number: str = Field(pattern=r"^\d{10}-\d{2}-\d{6}$")
+    form: str = Field(min_length=1, max_length=20)
+    source_url: str = Field(min_length=1, max_length=500)
+    observed_at: datetime
+    raw_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_kinds: tuple[str, ...]
+
+    @field_validator("observed_at")
+    @classmethod
+    def observed_at_utc(cls, value: datetime) -> datetime:
+        return _utc(value)
+
+
+_FILING_CANDIDATE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("dividend", re.compile(r"\bdividend(?:s|ed)?\b", re.I)),
+    ("split", re.compile(r"\b(?:stock|reverse)\s+split\b", re.I)),
+    ("merger", re.compile(r"\bmerger|acquisition|business combination\b", re.I)),
+    ("delisting", re.compile(r"\bdelist(?:ed|ing)?\b", re.I)),
+    ("suspension", re.compile(r"\bsuspend(?:ed|sion)?\b", re.I)),
+)
+
+
+def filing_document_url(filing: SecFiling) -> str:
+    if not filing.primary_document:
+        raise ValueError("sec_filing_primary_document_missing")
+    accession = filing.accession_number.replace("-", "")
+    return (
+        f"https://www.sec.gov/Archives/edgar/data/{int(filing.cik)}/"
+        f"{accession}/{filing.primary_document}"
+    )
+
+
+def parse_sec_filing_candidate(
+    body: bytes, *, filing: SecFiling, observed_at: datetime, source_url: str
+) -> SecFilingCandidate:
+    try:
+        text = body.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError("sec_filing_invalid_utf8") from exc
+    kinds = tuple(
+        kind for kind, pattern in _FILING_CANDIDATE_PATTERNS if pattern.search(text)
+    )
+    return SecFilingCandidate(
+        cik=filing.cik,
+        accession_number=filing.accession_number,
+        form=filing.form,
+        source_url=source_url,
+        observed_at=observed_at,
+        raw_sha256=hashlib.sha256(body).hexdigest(),
+        candidate_kinds=kinds,
+    )
 
 
 def parse_sec_ticker_map(

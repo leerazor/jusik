@@ -1,6 +1,6 @@
 # 2026-09-19 공개 evidence 자동수집 세션 인계
 
-- 갱신: 2026-09-20T06:48:20+09:00
+- 갱신: 2026-09-20T07:05:00+09:00
 - 저장소: `/home/kwl/projects/jusik`
 - branch: `main`
 - 원격 반영 HEAD: `9b2243a6234450bfb3d3e76ae333d08aaeae12ff`
@@ -30,6 +30,9 @@
   수정하고 기존 raw 재파싱에서 `SYMBOL` 오인식 0건을 확인했습니다.
 - SEC ticker map으로 8/10 심볼을 CIK에 매핑해 submissions 6,243건을 수집했고,
   요청 기간 catalog에 1,517건을 연결했습니다. SOXL/TQQQ는 매핑 누락으로 기록했습니다.
+- SEC accession의 primary document URL 재현과 본문 키워드 후보(`SecFilingCandidate`)를
+  추가했습니다. 후보는 `candidate/incomplete` 성격이며 권리·가격 확정이나 acceptance
+  승격에 사용하지 않습니다.
 
 ## 검증
 
@@ -41,21 +44,19 @@
 
 ## 운영
 
-- roadmap runner timer: active
-- 현재 service: 마지막 planner cycle 종료 후 inactive가 정상이며 timer가 다음 cycle을 재실행
+- roadmap runner timer/service: inactive (수동 작업과 자동 실행 충돌 방지를 위해 유지)
 - Windows 종료: 이전 세션 예약은 이미 경과했으며 새 예약은 하지 않음
 - 기존 루트 `HANDOFF.md`는 사용자 작성 이력으로 보존하고 수정하지 않음.
 
 ## 남은 작업
 
-1. SEC filing 본문의 corporate-action event extraction을 catalog에 연결하고 coverage
-   진단을 강화.
+1. SEC filing 본문 후보를 bounded fetch로 검증하되 확정 event 승격 조건을 먼저 정의.
 2. 전체 대상 기간의 halt coverage를 공식 자료로 확장하되 호출 예산과 PIT 한계를
    명시적으로 기록.
 3. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을
    유지하고, 불완전 coverage는 성공으로 표시하지 않음.
-3. 중복 운영 문서는 삭제하지 말고 canonical 문서 링크만 정리한 뒤 최종 검증.
-4. 세션 종료 전 최종 테스트·커밋·push 상태를 확인.
+4. 중복 운영 문서는 삭제하지 말고 canonical 문서 링크만 정리한 뒤 최종 검증.
+5. 세션 종료 전 최종 테스트·커밋 상태를 확인. 원격 push는 금지.
 
 다음 세션 시작 명령: 이 파일과 `docs/continuous-development-session.md`를 읽고 `git
 status`, runner 상태, 원격 HEAD를 확인한 뒤 Alpha Vantage evidence 연결부터 재개합니다.

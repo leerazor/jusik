@@ -72,3 +72,15 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
   audit batch의 `catalog.json`과 `request.json`에 기록했습니다.
 - SEC filing은 공시 접수 시각을 보존하지만 filing 본문에서 corporate-action 권리·가격
   경계를 완전히 추출한 것은 아니므로 R1-04/R1-05 acceptance는 승격하지 않습니다.
+
+## SEC filing 본문 후보 추출 slice
+
+- `SecFilingCandidate`와 `filing_document_url()`을 추가해 accession의 primary document를
+  원문 URL로 재현하고, 본문 키워드(`dividend`, `split`, `merger`, `delisting`,
+  `suspension`)를 후보 종류로만 기록합니다.
+- 후보는 확정 기업행동·권리·가격·effective/payment date가 아니며 catalog acceptance나
+  R1 checklist를 승격하지 않습니다. primary document가 없거나 UTF-8이 아니면
+  fail-closed 합니다.
+- 검증: SEC parser 관련 pytest 4개 및 Ruff 통과. 전체 backend pytest는 기존 archive/hash
+  및 상태 기대치 불일치 7건으로 실패했으며 이번 SEC 변경과 무관한 실패로 기록합니다
+  (1615 passed, 7 failed).

@@ -1,7 +1,15 @@
 import json
 from datetime import UTC, datetime
 
-from jusik.research_sec_evidence import parse_sec_submissions, parse_sec_ticker_map
+import pytest
+
+from jusik.research_sec_evidence import (
+    SecFiling,
+    filing_document_url,
+    parse_sec_filing_candidate,
+    parse_sec_submissions,
+    parse_sec_ticker_map,
+)
 
 
 def test_parse_sec_submissions_preserves_acceptance_and_raw_hash() -> None:
@@ -46,3 +54,32 @@ def test_parse_sec_ticker_map_normalizes_cik_and_filters_symbols() -> None:
 
     assert result[0].ticker == "NVDA"
     assert result[0].cik == "0001045810"
+
+
+def test_filing_document_url_and_candidate_parser_are_fail_closed() -> None:
+    filing = SecFiling(
+        cik="0001045810",
+        accession_number="0001045810-24-000144",
+        form="8-K",
+        filing_date="2024-06-07",
+        primary_document="event.htm",
+        source_url="https://data.sec.gov/submissions/CIK0001045810.json",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        raw_sha256="0" * 64,
+    )
+
+    source_url = filing_document_url(filing)
+    result = parse_sec_filing_candidate(
+        b"The company declared a dividend and announced a stock split.",
+        filing=filing,
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        source_url=source_url,
+    )
+
+    assert source_url.endswith("/1045810/000104581024000144/event.htm")
+    assert result.candidate_kinds == ("dividend", "split")
+    assert len(result.raw_sha256) == 64
+
+    missing_document = filing.model_copy(update={"primary_document": None})
+    with pytest.raises(ValueError, match="primary_document"):
+        filing_document_url(missing_document)

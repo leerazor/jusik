@@ -2256,3 +2256,15 @@
 - 변경: `research_signal_timestamp_forensics.py`가 마지막 `jusik/` 기준으로 경로를 잘못 정규화하던 문제를 `source/jusik` 쌍 기준으로 고쳤습니다. 다른 경로 형식은 계속 fail-closed입니다.
 - 검증: timestamp forensics pytest 8개, Ruff check/format 통과. 현재 달력 source hash가 과거 frozen archive 승인 hash와 달라 외부 replay 실패는 의도적으로 유지됩니다.
 - 개발 기록: `docs/development-records/2026-09-19-timestamp-provenance-path-fix.md`.
+
+## sec-filing-candidate-parser-20260920
+
+- 상태: 기술 slice 완료; 경제 acceptance/R1 승격 없음.
+- 범위: `backend/jusik/research_sec_evidence.py`의 SEC primary document URL 재현과
+  본문 키워드 후보 파싱, 관련 회귀 테스트.
+- 정책: 후보는 `candidate/incomplete`로만 보존하며 권리·가격·effective/payment date를
+  확정하지 않습니다. 원격 push, 주문, PAPER/live 설정 변경은 없습니다.
+- 검증: SEC 관련 pytest 4개와 Ruff 통과. 전체 backend pytest는 기존 archive/hash 및
+  상태 기대치 불일치 7건으로 실패(1615 passed, 7 failed)했으며 별도 기록했습니다.
+- 다음: bounded document fetch와 수동 검토 가능한 후보 audit을 추가하되, 승격 조건과
+  PIT 경계를 먼저 고정합니다.
