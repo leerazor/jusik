@@ -3,7 +3,7 @@
 - 상태: 완료된 자료 조사 slice; 경제 성과 적용은 차단
 - 기록 시각: 2026-09-19T23:17:03Z
 - 작업 slug: `fred-public-csv-evidence-20260920`
-- 기준/통합: `376f050` / `376f050` (자료 기록 후 문서 커밋 예정)
+- 기준/통합: `376f050` / `e7245de`
 - 범위: FRED 공개 graph CSV의 DEXKOUS bounded raw evidence를 저장하고 요청·SHA
   메타데이터를 기록했습니다. collector 설정·성과 계산·readiness·원장에는 연결하지
   않았습니다.
