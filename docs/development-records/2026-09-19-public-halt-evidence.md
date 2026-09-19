@@ -105,5 +105,13 @@ SEC EDGAR filing receipt와 Alpha Vantage 배당·분할 응답을 같은 raw/ev
   사람이 입력한 `ExtractedFacts`, 단일 split/dividend 후보가 모두 필요하며 merger·복수
   후보·미검증 후보는 fail-closed로 거부합니다.
 - 검증: SEC 및 action-review pytest 14개, Ruff 통과.
+
+## SEC 수동 검토 queue
+
+- 실제 후보에 사람이 확인한 facts가 없으므로 review manifest를 추정 생성하지 않고,
+  `review-queue.json`과 SHA sidecar만 audit에 생성했습니다.
+- queue는 3건 모두 `promotion=forbidden_until_action_review`이며 자동 원장 적용은
+  `false`입니다. merger/빈 후보는 `unsupported_candidate`로 남기고, 향후 수동 분류·
+  event/effective/권리·가격/PIT 필드를 채운 뒤 기존 action-review manifest로 전환합니다.
 - 요청 경계는 `max_documents=3`, 허용 form `8-K`/`8-K/A`, SEC User-Agent, 요청 간격
   0.2초로 고정했습니다. 실제 주문·PAPER/live·원격 push는 없었습니다.

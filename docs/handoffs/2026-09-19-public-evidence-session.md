@@ -43,6 +43,8 @@
   합니다. SEC 후보에 별도 승격 경로는 만들지 않았습니다.
 - `build_sec_action_review_input()`을 추가해 위 경계를 코드로 고정했습니다. operator
   verification·수동 facts·단일 split/dividend 후보가 없으면 fail-closed입니다.
+- 실제 facts를 추정하지 않고 3건을 `review-queue.json`에 기록했습니다. 현재 모두
+  `promotion=forbidden_until_action_review`, `automatic_ledger_application=false`입니다.
 
 ## 검증
 
@@ -62,8 +64,8 @@
 
 ## 남은 작업
 
-1. SEC 후보 adapter를 실제 수동 review manifest/audit에 연결하되, 확정 event 승격 조건을
-   먼저 정의.
+1. review queue의 수동 분류·event/effective/권리·가격/PIT 필드를 채운 뒤 기존 review
+   manifest로 연결하되, 확정 event 승격 조건을 먼저 정의.
 2. 전체 대상 기간의 halt coverage를 공식 자료로 확장하되 호출 예산과 PIT 한계를
    명시적으로 기록.
 3. SEC filing에서 corporate-action event를 추출하되 원문 accession과 acceptance 시각을

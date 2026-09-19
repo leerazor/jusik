@@ -2279,3 +2279,6 @@
 - adapter `build_sec_action_review_input()`은 operator verification·수동 facts·단일
   split/dividend를 강제하며, merger/미검증 후보를 fail-closed로 거부합니다. 관련
   pytest 14개와 Ruff가 통과했습니다.
+- 실제 facts를 추정하지 않고 `review-queue.json`을 생성했습니다. 3건 모두 promotion
+  금지 상태이며, 수동 필드가 채워지기 전에는 review manifest·원장·성과 계산으로
+  전달하지 않습니다.
