@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## current-contract-bundle-recheck-20260920
+
+- 상태: 현재 계약 회귀 재검증 완료·경제 acceptance 차단 유지
+- KRX/SEC/action/cost/performance 관련 명시 bundle을 현재 main에서 실행해 `243 passed, 2 warnings`를
+  확인했습니다. KRX readiness, SEC 수동 facts, risk-free·cost·PIT gate는 그대로 fail-closed입니다.
+- 기존 `290 passed`는 더 넓은 과거 실행 범위를 나타내며 덮어쓰지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-current-contract-bundle-recheck.md`
+
 ## canonical-governance-digest-recheck-20260920
 
 - 상태: 현재 정본 digest 재검증 완료·dispatch paused/inactive 유지
