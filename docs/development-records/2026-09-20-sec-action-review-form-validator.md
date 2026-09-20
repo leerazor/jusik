@@ -32,6 +32,9 @@
 - 실제 priority form 8개 검증: source SHA `8/8`, missing `0`, SHA mismatch `0`,
 - reference missing/unexpected `0/0`, `ready=false`, exit `2`. 실패 이유는 operator
   facts·verification·revision/content hash 누락이며 원문 source gate 실패가 아닙니다.
+- complete operator review fixture의 CLI 성공 경로도 검증해 `ready=true`, exit `0`을
+  확인했습니다. 성공 시에도 `automatic_ledger_application=false`는 유지됩니다.
+- 후속 SEC CLI 성공 경로 회귀 커밋 `27b1cba` 후 SEC evidence pytest는 `14 passed`입니다.
 
 ## 재개 조건
 

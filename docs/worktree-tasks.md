@@ -3280,7 +3280,9 @@
   `0/0`, `ready=false`, exit `2`를 확인했습니다.
 - 실제 blank form 결과: source verified `8/8`, missing `0`, SHA mismatch `0`, `ready=false`,
   exit `2`. 원문 gate는 통과했고 operator 입력만 남았습니다.
-- 검증: SEC evidence pytest `13 passed`, 통합 회귀 suite `126 passed, 2 warnings`, 실제 전체
+- complete operator review fixture의 CLI는 `ready=true`, exit `0`을 반환하면서도
+  `automatic_ledger_application=false`를 유지합니다(테스트 커밋 `27b1cba`).
+- 검증: SEC evidence pytest `14 passed`, 통합 회귀 suite `126 passed, 2 warnings`, 실제 전체
   source queue `52/52` verified·missing/SHA mismatch `0/0`, 실제 CLI에 priority catalog를
   연결해 `8/8` source verified·`ready=false` exit `2`, Ruff·strict mypy·diff check 통과.
   독립 review에서
