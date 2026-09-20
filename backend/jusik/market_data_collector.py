@@ -57,6 +57,7 @@ KRX_KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
 ALPHA_VANTAGE_URL = "https://www.alphavantage.co/query"
 YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
 FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
+KOREAEXIM_URL = "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON"
 MAX_RETRIES = 3
 MAX_RETRY_DELAY_SECONDS = 30
 DEFAULT_REQUEST_BUDGET = 5_000
@@ -1722,6 +1723,45 @@ def parse_fred_observations(
 
 
 @_parse_boundary
+def parse_koreaexim_exchange_response(
+    body: bytes, *, session: date, available_at: datetime | None = None
+) -> ApproximateFXRow:
+    """Parse one Korea Exim daily exchange response without inferring a rate."""
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CollectorError("Korea Exim response is malformed") from exc
+    if not isinstance(payload, list) or not payload:
+        raise CollectorNullError("Korea Exim response contains no rows")
+    rows = [row for row in payload if isinstance(row, Mapping)]
+    if len(rows) != len(payload):
+        raise CollectorError("Korea Exim response contains malformed rows")
+    for row in rows:
+        result_code = str(row.get("result", "")).strip()
+        if result_code == "3":
+            raise CollectorAuthenticationError(
+                "Korea Exim authentication was rejected"
+            )
+        if result_code != "1":
+            raise CollectorError("Korea Exim response result is not successful")
+    usd_rows = [
+        row for row in rows if str(row.get("cur_unit", "")).strip().upper() == "USD"
+    ]
+    if len(usd_rows) != 1:
+        raise CollectorCoverageError("Korea Exim response lacks one USD row")
+    usd = usd_rows[0]
+    row_available_at = available_at or datetime.combine(
+        session + timedelta(days=1), time(), UTC
+    )
+    return ApproximateFXRow(
+        session=session,
+        krw_per_usd=_decimal(usd.get("deal_bas_r"), "Korea Exim USD rate"),
+        spread_rate=Decimal("0"),
+        available_at=row_available_at,
+    )
+
+
+@_parse_boundary
 def parse_fred_csv_observations(
     body: bytes, *, start: date, end: date, available_at: datetime | None = None
 ) -> tuple[ApproximateFXRow, ...]:
@@ -2830,6 +2870,7 @@ __all__ = [
     "KRXDailyResponse",
     "KRX_KSQ_URL",
     "KRX_STK_URL",
+    "KOREAEXIM_URL",
     "MAX_KRX_ROWS_PER_DAY",
     "NetworkCollectorTransport",
     "NORMALIZATION_VERSION",
@@ -2843,6 +2884,7 @@ __all__ = [
     "load_collector_settings",
     "parse_alpha_vantage_listing_status",
     "parse_fred_observations",
+    "parse_koreaexim_exchange_response",
     "parse_krx_daily_response",
     "parse_krx_daily_trade_response",
     "parse_yahoo_chart",

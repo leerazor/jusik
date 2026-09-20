@@ -39,6 +39,7 @@ from jusik.market_data_collector import (
     parse_alpha_vantage_listing_status_detailed,
     parse_fred_csv_observations,
     parse_fred_observations,
+    parse_koreaexim_exchange_response,
     parse_krx_daily_response,
     parse_krx_daily_trade_response,
     parse_yahoo_chart,
@@ -755,6 +756,29 @@ def test_fred_csv_parser_preserves_decimal_and_explicit_availability() -> None:
     assert rows[0].session == date(2026, 9, 11)
     assert rows[0].krw_per_usd == Decimal("1340.30")
     assert rows[0].available_at == available_at
+
+
+def test_koreaexim_parser_requires_successful_usd_row_and_uses_next_day_bound() -> None:
+    body = json.dumps(
+        [
+            {
+                "result": 1,
+                "cur_unit": "USD",
+                "deal_bas_r": "1,388.97",
+            }
+        ]
+    ).encode()
+    row = parse_koreaexim_exchange_response(
+        body, session=date(2025, 9, 11)
+    )
+    assert row.krw_per_usd == Decimal("1388.97")
+    assert row.available_at == datetime(2025, 9, 12, tzinfo=UTC)
+
+    with pytest.raises(CollectorAuthenticationError, match="authentication"):
+        parse_koreaexim_exchange_response(
+            b'[{"result":3,"cur_unit":null,"deal_bas_r":null}]',
+            session=date(2025, 9, 11),
+        )
 
 
 @pytest.mark.parametrize(

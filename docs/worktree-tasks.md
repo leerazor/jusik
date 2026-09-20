@@ -82,6 +82,10 @@
   별도 계약이 필요한 다음 후보입니다.
 - 수출입은행 endpoint를 빈 key로 호출한 결과는 HTTP 200/`result=3`/환율 필드 null이었으며,
   인증 실패를 정상 자료로 저장하지 않았습니다(SHA `737f0e02...1023e2`).
+- 키 제공 후 재사용할 `parse_koreaexim_exchange_response()` parser-only slice를 추가했습니다.
+  성공 USD row·다음 UTC 자정 availability·auth/missing fail-closed를 fixture로 검증했고,
+  collector pytest `142 passed`, Ruff·strict mypy·diff를 통과했습니다. 네트워크 수집·경제 적용은
+  아직 연결하지 않았습니다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fx-alternative-source-audit/`
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`
 
