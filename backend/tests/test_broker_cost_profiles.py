@@ -5,6 +5,7 @@ import pytest
 from jusik.broker_cost_profiles import (
     build_bankis_paper_cost_contract,
     kis_bankis_online_profile,
+    validate_paper_cost_contract_manifest,
 )
 
 
@@ -31,3 +32,13 @@ def test_bankis_paper_contract_is_hash_bound_and_history_safe() -> None:
     assert len(contract.profile_hash) == 64
     assert tuple(profile.market for profile in contract.profiles) == ("KRX", "US")
     assert contract.applies_to_frozen_history is False
+
+
+def test_paper_contract_manifest_round_trips_and_rejects_tampering() -> None:
+    contract = build_bankis_paper_cost_contract(("KRX", "US"))
+    restored = validate_paper_cost_contract_manifest(contract.manifest())
+    assert restored.profile_hash == contract.profile_hash
+    tampered = contract.manifest()
+    tampered["profile_hash"] = "0" * 64
+    with pytest.raises(ValueError, match="hash_mismatch"):
+        validate_paper_cost_contract_manifest(tampered)

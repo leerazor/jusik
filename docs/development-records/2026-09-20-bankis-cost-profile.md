@@ -1,6 +1,6 @@
 # BanKIS online cost profile
 
-- 상태: 완료·새 PAPER 비용계약 builder 완료
+- 상태: 완료·PAPER 비용계약 manifest validator 완료
 - 기록 시각: 2026-09-20T14:00:00Z
 - 작업 slug: `bankis-cost-profile-20260920`
 - 기준/통합: `783b272` / 다음 통합 커밋
@@ -8,13 +8,13 @@
 
 ## 변경과 결정
 
-- `backend/jusik/broker_cost_profiles.py`에 KRX `0.000140527` fee/NXT `0.000130527` fee, 국내 매도세 `0.0023`, US online `0.0025` fee/SEC fee `0.0000206` profile을 기록하고, 선택 profile을 canonical JSON hash로 묶는 PAPER contract builder를 추가했습니다.
+- `backend/jusik/broker_cost_profiles.py`에 KRX `0.000140527` fee/NXT `0.000130527` fee, 국내 매도세 `0.0023`, US online `0.0025` fee/SEC fee `0.0000206` profile을 기록하고, 선택 profile을 canonical JSON hash로 묶는 PAPER contract builder와 manifest round-trip/hash validator를 추가했습니다.
 - 각 profile은 broker/account scope, currency, source URL, source-as-of를 보존합니다.
 - profile은 새 PAPER 연구 비용계약에서 명시적으로 선택할 때만 사용하며 frozen history에 자동 적용하지 않습니다.
 
 ## 검증
 
-- `backend/tests/test_broker_cost_profiles.py` — `3 passed`
+- `backend/tests/test_broker_cost_profiles.py` — `4 passed`
 - Ruff — 통과
 - strict mypy — 통과
 - `git diff --check` — 통과
