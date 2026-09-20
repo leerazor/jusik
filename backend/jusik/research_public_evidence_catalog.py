@@ -50,6 +50,11 @@ class PublicEvidenceCatalog(BaseModel):
     catalog_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+def _require_requested_symbol(symbol: str, requested: tuple[str, ...]) -> None:
+    if symbol not in requested:
+        raise ValueError("evidence_symbol_not_requested")
+
+
 def build_public_evidence_catalog(
     *,
     symbols: tuple[str, ...],
@@ -68,48 +73,52 @@ def build_public_evidence_catalog(
     if any(symbol not in requested for symbol in unresolved):
         raise ValueError("unresolved_symbol_not_requested")
     items: list[PublicEvidenceItem] = []
-    for item in halts:
-        if start <= item.halt_date <= end:
+    for halt in halts:
+        _require_requested_symbol(halt.symbol, requested)
+        if start <= halt.halt_date <= end:
             items.append(
                 PublicEvidenceItem(
                     source="nasdaq_trader",
-                    instrument_ref=item.symbol,
+                    instrument_ref=halt.symbol,
                     event_kind="trading_halt",
-                    event_date=item.halt_date,
-                    observed_at=item.observed_at,
-                    source_url=item.source_url,
-                    raw_sha256=item.raw_sha256,
+                    event_date=halt.halt_date,
+                    observed_at=halt.observed_at,
+                    source_url=halt.source_url,
+                    raw_sha256=halt.raw_sha256,
                 )
             )
-    for item in filings:
-        filing_date = date.fromisoformat(item.filing_date)
+    for filing in filings:
+        filing_symbol = (
+            filing_symbols.get(filing.cik, filing.cik)
+            if filing_symbols is not None
+            else filing.cik
+        )
+        _require_requested_symbol(filing_symbol, requested)
+        filing_date = date.fromisoformat(filing.filing_date)
         if start <= filing_date <= end:
             items.append(
                 PublicEvidenceItem(
                     source="sec_edgar",
-                    instrument_ref=(
-                        filing_symbols.get(item.cik, item.cik)
-                        if filing_symbols is not None
-                        else item.cik
-                    ),
-                    event_kind=item.form,
+                    instrument_ref=filing_symbol,
+                    event_kind=filing.form,
                     event_date=filing_date,
-                    observed_at=item.acceptance_datetime or item.observed_at,
-                    source_url=item.source_url,
-                    raw_sha256=item.raw_sha256,
+                    observed_at=filing.acceptance_datetime or filing.observed_at,
+                    source_url=filing.source_url,
+                    raw_sha256=filing.raw_sha256,
                 )
             )
-    for item in actions:
-        if start <= item.event_date <= end:
+    for action in actions:
+        _require_requested_symbol(action.symbol, requested)
+        if start <= action.event_date <= end:
             items.append(
                 PublicEvidenceItem(
                     source="alpha_vantage",
-                    instrument_ref=item.symbol,
-                    event_kind=item.kind,
-                    event_date=item.event_date,
-                    observed_at=item.observed_at,
-                    source_url=item.source_url,
-                    raw_sha256=item.raw_sha256,
+                    instrument_ref=action.symbol,
+                    event_kind=action.kind,
+                    event_date=action.event_date,
+                    observed_at=action.observed_at,
+                    source_url=action.source_url,
+                    raw_sha256=action.raw_sha256,
                 )
             )
     unique = {
@@ -135,8 +144,8 @@ def build_public_evidence_catalog(
         )
     )
     counts: dict[str, int] = {}
-    for item in ordered:
-        counts[item.source] = counts.get(item.source, 0) + 1
+    for evidence_item in ordered:
+        counts[evidence_item.source] = counts.get(evidence_item.source, 0) + 1
     provisional = {
         "schema_version": 1,
         "requested_symbols": requested,
