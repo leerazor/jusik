@@ -167,6 +167,31 @@ def test_future_bar_change_does_not_change_earlier_trades_or_equity() -> None:
     assert changed.equity[:-1] == original.equity[:-1]
 
 
+def test_future_market_event_does_not_change_earlier_trades_or_equity() -> None:
+    request, snapshot = fixture()
+    original = run_backtest(request, snapshot).candidate
+    future_at = datetime.combine(
+        request.end_date + timedelta(days=1), datetime.min.time(), tzinfo=UTC
+    )
+    event = MarketEvent(
+        kind="circuit_breaker",
+        market="KOSPI",
+        direction="down",
+        stage=1,
+        occurred_at=future_at,
+        known_at=future_at,
+        source_url="https://example.com/future-event",
+    )
+    revised_request = request.model_copy(update={"events": [event]})
+    revised_snapshot = snapshot.model_copy(update={"events": [event]})
+
+    changed = run_backtest(revised_request, revised_snapshot).candidate
+
+    assert changed.trades == original.trades
+    assert changed.equity == original.equity
+    assert changed.affected_decisions == []
+
+
 def test_time_split_uses_prior_bars_only_as_warmup_and_resets_test_capital() -> None:
     first = date(2024, 1, 1)
     request = ResearchRunRequest(

@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## r1-02-future-event-invariance-20260920
+
+- 상태: 기술 slice 완료·R1-02 전체 미완료
+- 연구 기간 이후의 `occurred_at`·`known_at` 이벤트를 추가해도 과거 거래·equity·affected
+  decision이 변하지 않는 회귀 fixture를 추가했습니다.
+- 검증: `test_research_engine.py` 13 passed, Ruff, `git diff --check`
+- 실제 기업행사·상장폐지·중단일 자료와 action ledger는 변경하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r1-02-future-event-invariance.md`
+
 ## roadmap-completion-audit-20260920
 
 - 상태: 완료 audit 작성·경제 acceptance 미완료
