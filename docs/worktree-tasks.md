@@ -3172,7 +3172,7 @@
   서비스키가 명시된 경우에만 일별 요청을 준비합니다. 캐시 key에서 `authkey`를 제거하고
   키 미설정 시 네트워크를 호출하지 않음을 테스트합니다. 실제 API key를 저장하거나
   경제 결과·NAV·원장에 연결하지 않습니다.
-- 수정 범위: `backend/jusik/market_data_collector.py`, 해당 collector 테스트와 개발 기록.
+- 수정 범위: `backend/jusik/market_data_collector.py`, 해당 collector 테스트, 예시 환경 파일과 개발 기록.
   기존 FRED/US 수집·readiness·서비스·PAPER/live·remote는 변경하지 않습니다.
 - 검증: `backend/tests/test_market_data_collector.py` — `144 passed`; Ruff·strict mypy·diff
   검사를 통과했습니다.

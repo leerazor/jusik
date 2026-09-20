@@ -19,7 +19,8 @@
 - API·설정·데이터 계약: `KOREAEXIM_API_KEY` 선택형 collector 설정과
   `NetworkCollectorTransport.koreaexim()`을 추가했습니다. 키가 없으면 네트워크를 호출하지
   않고, 캐시 request key에는 `authkey`를 포함하지 않습니다. 기존 FRED/US 수집 경로와
-  readiness·성과 적용은 변경하지 않았습니다.
+  readiness·성과 적용은 변경하지 않았습니다. `.env.example`와 `.env.dev.example`에는
+  placeholder만 추가해 등록 위치와 alias를 명시했습니다.
 
 ## 검증
 
