@@ -37,6 +37,6 @@
 
 ## 증거와 재개
 
-- audit: 기존 KRX diagnostics audit; 새 원시 자료 없음.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r6-krx-diagnostics-binding-hardening/report.json`; SHA-256 `6f54afb85d2b9343b296a544d5eb2cb165cac4da2c4ec42132ddf3ff4c624045`; 새 원시 자료 없음.
 - 남은 작업·차단 조건: legacy manifest의 explicit entry/checkpoint binding과 전체 PIT coverage가 없으면 한국 경제 평가를 승격하지 않습니다.
 - 다음 시작: KRX manifest binding 설계가 승인되거나, 더 우선인 R1 SEC manual review/FX·비용 자료 gate를 해소할 수 있는지 확인합니다.

@@ -9,6 +9,8 @@
 - 요청·관측·누락 session과 `date_coverage`를 진단 결과에 추가했습니다. 실제 cache에서
   `2026-06-29` 요청/관측, missing `[]`, zero/missing `29`, readiness `insufficient`, CLI exit 2를
   재현했습니다. 이 값은 provider 전체 PIT coverage를 뜻하지 않습니다.
+- artifact: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r6-krx-diagnostics-binding-hardening/report.json`
+  (SHA-256 `6f54afb85d2b9343b296a544d5eb2cb165cac4da2c4ec42132ddf3ff4c624045`).
 - focused KRX diagnostics pytest `3 passed`, collector 전체 `140 passed`, SEC/action/metrics 인접
   회귀 `179 passed`, Ruff, strict mypy, diff 검사를 통과했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r6-krx-diagnostics-binding-hardening-20260920.md`
