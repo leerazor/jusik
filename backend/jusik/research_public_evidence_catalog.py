@@ -66,6 +66,9 @@ class PublicEvidenceSymbolCoverage(BaseModel):
     schema_version: Literal[1] = 1
     catalog_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     requested_symbols: tuple[str, ...]
+    requested_start: date
+    requested_end: date
+    unresolved_symbols: tuple[str, ...]
     coverage: Literal["incomplete"] = "incomplete"
     economic_acceptance: Literal[False] = False
     pit_proof: Literal[False] = False
@@ -219,6 +222,9 @@ def build_public_evidence_symbol_coverage(
     return PublicEvidenceSymbolCoverage(
         catalog_sha256=catalog.catalog_sha256,
         requested_symbols=requested,
+        requested_start=catalog.requested_start,
+        requested_end=catalog.requested_end,
+        unresolved_symbols=catalog.unresolved_symbols,
         symbols=symbols,
     )
 

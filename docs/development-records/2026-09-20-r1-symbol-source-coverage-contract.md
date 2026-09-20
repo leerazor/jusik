@@ -28,10 +28,11 @@
 실제 재구축 catalog(`/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-rebuilt-20260920/catalog.json`, semantic SHA
 `0ffb17730ad4fe98e808ff6f3973359f67aa6f2665b28dc53ca51fc7b638e03b`)를 새 계약으로 읽어
 10개 종목 보고서를 생성했습니다. artifact SHA는
-`4d344fc0a3bacab1154106f54a44a5f0db0e44ba914a05c236a40813afca4b49`이며, 기존 sparse
+`d76d1980a63dca9074c3576651a5639143dee523a368a2eb13b53daeca05329a`이며, 기존 sparse
 표현의 audit report와 관측 건수·누락 source를 대조했습니다. 새 계약은 0건 source도 명시해
-누락을 더 직접적으로 보존하며, `write_symbol_coverage()`로 동일 계약 JSON을 재현할 수
-있습니다. writer 보강은 main `875b071`에 기록했습니다.
+누락을 더 직접적으로 보존하며, 요청 기간과 `unresolved_symbols`도 함께 결속합니다.
+`write_symbol_coverage()`로 동일 계약 JSON을 재현할 수 있으며 writer 보강은 main
+`875b071`에 기록했습니다.
 
 ## 제한
 

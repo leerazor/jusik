@@ -68,6 +68,8 @@ def test_catalog_joins_sources_deduplicates_and_stays_incomplete() -> None:
 
     report = build_public_evidence_symbol_coverage(catalog)
     assert report.catalog_sha256 == catalog.catalog_sha256
+    assert report.requested_start == date(2024, 1, 1)
+    assert report.requested_end == date(2024, 12, 31)
     assert report.coverage == "incomplete"
     assert report.economic_acceptance is False
     assert report.pit_proof is False
@@ -113,6 +115,7 @@ def test_symbol_coverage_preserves_empty_and_unresolved_sources() -> None:
     )
     report = build_public_evidence_symbol_coverage(catalog)
     assert report.requested_symbols == ("NVDA", "SOXL")
+    assert report.unresolved_symbols == ("SOXL",)
     assert report.symbols["NVDA"].source_counts == {
         "alpha_vantage": 0,
         "nasdaq_trader": 0,
