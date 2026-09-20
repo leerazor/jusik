@@ -2,18 +2,22 @@
 
 ## r1-public-evidence-catalog-integrity-audit-20260920
 
-- 상태: 차단 진단 완료·재구축 필요
+- 상태: 기술 재구축 완료·coverage incomplete 유지
 - 목표: 현재 v2 public-evidence catalog가 요청 universe 경계를 실제로 지키는지 읽기 전용
   검증하고, unresolved identity와 out-of-universe 항목을 조용히 승격하지 않습니다.
 - 입력: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-v2/catalog.json`
   (source SHA `0c7b6b568ef87e9c752204a8974434767ba0460ead76ac7b4cc3f15a8a2c31f3`)
-- 결과: requested 10개·items 1,597개 중 27개가 요청 universe 밖이며 `SOXL`·`TQQQ` identity가
-  unresolved로 남아 `status=blocked`입니다. 기존 catalog를 수정하지 않았습니다.
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r1-catalog-integrity-audit/report.json`,
-  report SHA `c36ce6ffc982c8f8afa4b5da0d8e9dace6ab9a18ee93533b8f068dd8de0830e1`.
-- 다음: cached raw SEC/Nasdaq/Alpha 원문을 현재 fail-closed builder로 재구축하고, 모든 source
-  item의 requested-symbol 경계를 통과한 새 catalog를 별도 artifact로 만들기 전까지 R1-05와
-  경제 acceptance를 승격하지 않습니다.
+- 초기 진단: requested 10개·items 1,597개 중 27개가 요청 universe 밖이며 `SOXL`·`TQQQ` identity가
+  unresolved였습니다. 기존 catalog는 수정하지 않았습니다.
+- 재구축: cached Alpha/SEC/Nasdaq raw를 현재 fail-closed builder로 재생성해 새 catalog는
+  1,570개 item, out-of-universe 0, unresolved 0, `coverage=incomplete`입니다. Nasdaq raw의
+  27개 비요청 halt는 rejected 목록으로 manifest에 보존했습니다.
+- identity mapping: SOXL `0001424958`, TQQQ `0001174610`을 별도 SEC ETF identity evidence로 결속했습니다.
+- audit: 진단 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r1-catalog-integrity-audit/report.json`,
+  재구축 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-rebuilt-20260920/`.
+  새 catalog semantic SHA `0ffb17730ad4fe98e808ff6f3973359f67aa6f2665b28dc53ca51fc7b638e03b`.
+- 다음: 새 catalog는 identity/symbol boundary만 보강합니다. provider 전체 coverage, PIT, 권리·가격
+  경계가 없으므로 R1-05와 경제 acceptance는 계속 보류합니다.
 
 ## r2-04-drawdown-chronology-preflight-20260920
 
