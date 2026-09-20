@@ -47,3 +47,6 @@ ETF series/class identity를 별도 evidence source로 분리했습니다. 이 �
 두 결과는 ETF filing inventory일 뿐 corporate-action coverage나 PIT 증거가 아닙니다.
 제출 유형이 광범위하고 series/class별 문서가 섞이므로, 이를 기업행사로 해석하거나
 catalog coverage를 승격하지 않습니다.
+
+초기 sidecar의 TQQQ SHA 오타를 발견해 실제 raw bytes SHA로 교정했고, 이후 두 파일의
+크기·SHA 검증을 다시 통과했습니다.
