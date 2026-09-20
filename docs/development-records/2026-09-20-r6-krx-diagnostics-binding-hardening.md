@@ -10,6 +10,7 @@
 
 - `CacheCheckpointBinding`을 추가해 새 cache write가 response key와 causal checkpoint를 명시적으로 함께 보존하도록 했습니다.
 - `diagnose_krx_cache()`는 explicit binding을 우선 사용하고, legacy manifest의 다중 entry는 정렬된 `zip`으로 임의 결속하지 않고 `unbound:<key>`·`cache_integrity=false`로 보존합니다.
+- 진단 결과에 요청·관측·누락 session과 `date_coverage`를 추가해 cache 내부 요청 범위의 날짜 대사를 명시합니다. 이는 provider 전체 기간 coverage나 PIT completeness를 의미하지 않습니다.
 - 기존 manifest는 optional field omission으로 계속 읽히며, 날짜·board를 추정하지 않습니다.
 
 ## 문서·계약 영향
@@ -27,6 +28,7 @@
 - `backend/.venv/bin/python -m ruff check backend/jusik/market_data_collector.py backend/tests/test_market_data_collector.py` — 통과.
 - `backend/.venv/bin/python -m mypy --strict backend/jusik/market_data_collector.py` — 통과.
 - `git diff --check` — 통과.
+- 실제 cache CLI — requested/observed `2026-06-29`, missing `[]`, `date_coverage=complete`, zero/missing `29`, readiness `insufficient`, exit 2.
 
 ## 안전·운영 상태
 

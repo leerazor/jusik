@@ -226,6 +226,10 @@ def test_krx_cache_diagnostic_separates_zero_ohlcv_from_http_success(
     assert report.http_status_counts == {"200": 1}
     assert report.auth_observed is False
     assert report.zero_ohlcv_rows == 1
+    assert report.requested_sessions == (date(2026, 9, 14),)
+    assert report.observed_sessions == (date(2026, 9, 14),)
+    assert report.missing_sessions == ()
+    assert report.date_coverage == "complete"
     assert report.entries[0].membership_rows == 2
     assert report.entries[0].valid_bar_rows == 1
     assert report.entries[0].parse_status == "ok"
@@ -280,6 +284,8 @@ def test_krx_cache_diagnostic_does_not_zip_unbound_multiple_entries(
 
     assert report.readiness == "insufficient"
     assert report.cache_integrity is False
+    assert report.date_coverage == "unavailable"
+    assert report.requested_sessions == ()
     assert all(entry.cache_integrity is False for entry in report.entries)
     assert all(entry.checkpoint.startswith("unbound:") for entry in report.entries)
 

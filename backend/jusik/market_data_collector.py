@@ -360,6 +360,10 @@ class KrxCacheDiagnostics(BaseModel):
     version: Literal["krx-cache-diagnostics-v1"] = "krx-cache-diagnostics-v1"
     cache_dir: str = Field(min_length=1, max_length=1000)
     entries: tuple[KrxCacheDiagnosticEntry, ...] = ()
+    requested_sessions: tuple[date, ...] = ()
+    observed_sessions: tuple[date, ...] = ()
+    missing_sessions: tuple[date, ...] = ()
+    date_coverage: Literal["complete", "incomplete", "unavailable"]
     http_status_counts: dict[str, int] = Field(default_factory=dict)
     auth_observed: bool = False
     parse_failures: int = Field(ge=0)
@@ -459,6 +463,8 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
     parse_failures = 0
     coverage_failures = 0
     zero_rows_total = 0
+    requested_sessions: set[date] = set()
+    observed_sessions: set[date] = set()
     krx_entries = sorted(
         (item for item in manifest.entries if item.source == "krx"),
         key=lambda value: value.key,
@@ -505,6 +511,12 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
                 )
             )
             continue
+        checkpoint_parts = checkpoint.split(":")
+        if len(checkpoint_parts) == 4:
+            try:
+                requested_sessions.add(date.fromisoformat(checkpoint_parts[3]))
+            except ValueError:
+                pass
         raw_path = cache.raw_root / f"{item.key}.bin"
         try:
             body = raw_path.read_bytes()
@@ -530,6 +542,11 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
         elif parse_status == "coverage":
             coverage_failures += 1
         zero_ohlcv_rows = entry.zero_ohlcv_rows
+        if entry.response_date_matches:
+            try:
+                observed_sessions.add(date.fromisoformat(checkpoint_parts[3]))
+            except (IndexError, ValueError):
+                pass
         zero_rows_total += max(zero_ohlcv_rows, 0)
         if zero_ohlcv_rows > 0:
             reasons.append(
@@ -549,6 +566,16 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
         )
     if zero_rows_total:
         reasons.append("one or more membership rows lack complete OHLCV")
+    missing_sessions = requested_sessions - observed_sessions
+    if missing_sessions:
+        reasons.append("one or more requested sessions lack an observed response")
+    date_coverage: Literal["complete", "incomplete", "unavailable"]
+    if not requested_sessions:
+        date_coverage = "unavailable"
+    elif missing_sessions:
+        date_coverage = "incomplete"
+    else:
+        date_coverage = "complete"
     ready = (
         bool(entries)
         and integrity_ok
@@ -560,6 +587,10 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
     return KrxCacheDiagnostics(
         cache_dir=str(cache.root),
         entries=tuple(entries),
+        requested_sessions=tuple(sorted(requested_sessions)),
+        observed_sessions=tuple(sorted(observed_sessions)),
+        missing_sessions=tuple(sorted(missing_sessions)),
+        date_coverage=date_coverage,
         http_status_counts=status_counts,
         auth_observed=auth_observed,
         parse_failures=parse_failures,

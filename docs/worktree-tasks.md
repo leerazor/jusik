@@ -6,6 +6,9 @@
 - `CacheCheckpointBinding`을 추가해 새 cache write가 entry/checkpoint를 명시적으로 결속하도록
   보강했습니다. legacy KRX manifest의 독립 배열은 정렬 `zip`으로 결속하지 않으며, 다중 entry는
   binding이 없으면 `unbound`·`cache_integrity=false`로 fail-closed입니다.
+- 요청·관측·누락 session과 `date_coverage`를 진단 결과에 추가했습니다. 실제 cache에서
+  `2026-06-29` 요청/관측, missing `[]`, zero/missing `29`, readiness `insufficient`, CLI exit 2를
+  재현했습니다. 이 값은 provider 전체 PIT coverage를 뜻하지 않습니다.
 - focused KRX diagnostics pytest `3 passed`, collector 전체 `140 passed`, SEC/action/metrics 인접
   회귀 `179 passed`, Ruff, strict mypy, diff 검사를 통과했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r6-krx-diagnostics-binding-hardening-20260920.md`
