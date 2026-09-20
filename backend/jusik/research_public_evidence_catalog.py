@@ -75,6 +75,27 @@ class PublicEvidenceSymbolCoverage(BaseModel):
     symbols: dict[str, SymbolEvidenceCoverage]
 
 
+def public_evidence_catalog_sha256(catalog: PublicEvidenceCatalog) -> str:
+    """Return the canonical digest over catalog content excluding its digest."""
+    payload = catalog.model_dump(mode="json", exclude={"catalog_sha256"})
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def verify_public_evidence_catalog(catalog: PublicEvidenceCatalog) -> None:
+    """Reject tampered or internally inconsistent public evidence catalogs."""
+    if public_evidence_catalog_sha256(catalog) != catalog.catalog_sha256:
+        raise ValueError("catalog_sha_mismatch")
+    if catalog.observed_item_count != len(catalog.items):
+        raise ValueError("catalog_item_count_mismatch")
+    counts: dict[str, int] = {}
+    for item in catalog.items:
+        counts[item.source] = counts.get(item.source, 0) + 1
+    if dict(sorted(counts.items())) != dict(sorted(catalog.source_counts.items())):
+        raise ValueError("catalog_source_count_mismatch")
+
+
 def _require_requested_symbol(symbol: str, requested: tuple[str, ...]) -> None:
     if symbol not in requested:
         raise ValueError("evidence_symbol_not_requested")
@@ -195,6 +216,7 @@ def build_public_evidence_symbol_coverage(
     catalog: PublicEvidenceCatalog,
 ) -> PublicEvidenceSymbolCoverage:
     """Summarize observed source rows per requested symbol without promotion."""
+    verify_public_evidence_catalog(catalog)
     requested = tuple(catalog.requested_symbols)
     if requested != tuple(sorted(set(requested))):
         raise ValueError("catalog_requested_symbols_not_canonical")

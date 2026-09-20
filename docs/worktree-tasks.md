@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## r1-public-evidence-catalog-integrity-gate-20260920
+
+- 상태: 기술 무결성 gate 완료·R1-05 coverage/PIT 미완료
+- public evidence catalog의 SHA·item count·source count를 coverage 계산 전에 재검증하도록
+  보강했습니다. 관련 pytest 16개와 Ruff를 통과했으며 변조 catalog는 fail-closed입니다.
+- strict mypy는 해당 모듈의 기존 Pydantic/의존 모듈 오류로 non-zero였고, 새 오류는 추가하지
+  않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r1-public-evidence-catalog-integrity-gate.md`
+
 ## r2-02-kiwoom-source-audit-20260920
 
 - 상태: 공식 일부 원천 확인·시장/계좌 비용 계약 미완료

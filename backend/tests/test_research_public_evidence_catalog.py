@@ -10,6 +10,8 @@ from jusik.research_public_evidence_catalog import (
     PublicEvidenceItem,
     build_public_evidence_catalog,
     build_public_evidence_symbol_coverage,
+    public_evidence_catalog_sha256,
+    verify_public_evidence_catalog,
     write_symbol_coverage,
 )
 from jusik.research_sec_evidence import parse_sec_submissions
@@ -102,8 +104,28 @@ def test_symbol_coverage_rejects_out_of_universe_items() -> None:
             )
         }
     )
+    item = item.model_copy(
+        update={
+            "observed_item_count": 1,
+            "source_counts": {"sec_edgar": 1},
+        }
+    )
+    item = item.model_copy(
+        update={"catalog_sha256": public_evidence_catalog_sha256(item)}
+    )
     with pytest.raises(ValueError, match="catalog_item_symbol_not_requested"):
         build_public_evidence_symbol_coverage(item)
+
+
+def test_catalog_integrity_rejects_tampering_before_coverage() -> None:
+    catalog = build_public_evidence_catalog(
+        symbols=("NVDA",), start=date(2024, 1, 1), end=date(2024, 12, 31)
+    )
+    tampered = catalog.model_copy(update={"observed_item_count": 1})
+    with pytest.raises(ValueError, match="catalog_sha_mismatch"):
+        verify_public_evidence_catalog(tampered)
+    with pytest.raises(ValueError, match="catalog_sha_mismatch"):
+        build_public_evidence_symbol_coverage(tampered)
 
 
 def test_symbol_coverage_preserves_empty_and_unresolved_sources() -> None:
