@@ -32,6 +32,7 @@ from jusik.market_data_collector import (
     collect_market_data,
     completed_collection_is_valid,
     diagnose_krx_cache,
+    diagnose_krx_response,
     estimate_network_requests,
     load_collector_settings,
     parse_alpha_vantage_listing_status,
@@ -228,6 +229,28 @@ def test_krx_cache_diagnostic_separates_zero_ohlcv_from_http_success(
     assert report.entries[0].membership_rows == 2
     assert report.entries[0].valid_bar_rows == 1
     assert report.entries[0].parse_status == "ok"
+
+
+def test_krx_service_response_diagnostic_separates_auth_and_parse() -> None:
+    auth = diagnose_krx_response(
+        b'{"errorCode":"401","message":"unauthorized"}',
+        status_code=401,
+        checkpoint="krx:daily:STK:2026-09-14",
+        market_board="STK",
+    )
+    assert auth.cache_integrity is None
+    assert auth.parse_status == "auth"
+    assert auth.membership_rows == 0
+
+    malformed = diagnose_krx_response(
+        b"not-json",
+        status_code=200,
+        checkpoint="krx:daily:STK:2026-09-14",
+        market_board="STK",
+    )
+    assert malformed.cache_integrity is None
+    assert malformed.parse_status == "parse"
+    assert malformed.response_date_matches is False
 
 
 def test_krx_daily_trade_rejects_negative_trade_values() -> None:

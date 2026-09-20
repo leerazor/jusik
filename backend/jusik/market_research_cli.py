@@ -13,6 +13,7 @@ from jusik.market_data_collector import (
     collect_market_data,
     completed_collection_is_valid,
     diagnose_krx_cache,
+    diagnose_krx_response,
     load_collector_settings,
 )
 from jusik.market_history_approximate import (
@@ -59,6 +60,13 @@ def parser() -> argparse.ArgumentParser:
         "diagnose-krx-cache", help="diagnose cached KRX responses without network"
     )
     krx_diagnose.add_argument("--cache", type=Path, required=True)
+    krx_response = subcommands.add_parser(
+        "diagnose-krx-response", help="diagnose one KRX service response"
+    )
+    krx_response.add_argument("--input", type=Path, required=True)
+    krx_response.add_argument("--status-code", type=int, required=True)
+    krx_response.add_argument("--checkpoint", required=True)
+    krx_response.add_argument("--board", choices=("STK", "KSQ"), default="STK")
     collect = subcommands.add_parser(
         "collect", help="collect and validate a prepared approximate dataset"
     )
@@ -112,6 +120,27 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False))
         return 0 if report.readiness == "ready" else 2
+    if args.command == "diagnose-krx-response":
+        try:
+            entry = diagnose_krx_response(
+                args.input.read_bytes(),
+                status_code=args.status_code,
+                checkpoint=args.checkpoint,
+                market_board=args.board,
+            )
+        except (OSError, CollectorError, ValueError):
+            print(
+                json.dumps(
+                    {
+                        "status": "unavailable",
+                        "reason": "KRX service response diagnostic input is invalid",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 2
+        print(json.dumps(entry.model_dump(mode="json"), ensure_ascii=False))
+        return 0 if entry.parse_status == "ok" and entry.zero_ohlcv_rows == 0 else 2
     if args.command == "collect-status":
         try:
             settings = load_collector_settings(args.env_file)

@@ -330,7 +330,7 @@ class KrxCacheDiagnosticEntry(BaseModel):
     status_code: int = Field(ge=100, lt=600)
     byte_count: int = Field(ge=0)
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    cache_integrity: bool
+    cache_integrity: bool | None
     parse_status: Literal["ok", "auth", "parse", "coverage", "unknown"]
     response_date_matches: bool | None = None
     membership_rows: int = Field(ge=0)
@@ -355,6 +355,85 @@ class KrxCacheDiagnostics(BaseModel):
     cache_integrity: bool
     readiness: Literal["ready", "insufficient"]
     readiness_reasons: tuple[str, ...] = ()
+
+
+def diagnose_krx_response(
+    body: bytes,
+    *,
+    status_code: int,
+    checkpoint: str,
+    market_board: Literal["STK", "KSQ"],
+) -> KrxCacheDiagnosticEntry:
+    """Classify one service response without caching or retrying it."""
+    if status_code in {401, 403}:
+        return KrxCacheDiagnosticEntry(
+            checkpoint=checkpoint,
+            status_code=status_code,
+            byte_count=len(body),
+            content_sha256=hashlib.sha256(body).hexdigest(),
+            cache_integrity=None,
+            parse_status="auth",
+            membership_rows=0,
+            valid_bar_rows=0,
+            zero_ohlcv_rows=0,
+            reason="KRX authentication was rejected",
+        )
+    if status_code < 200 or status_code >= 300:
+        return KrxCacheDiagnosticEntry(
+            checkpoint=checkpoint,
+            status_code=status_code,
+            byte_count=len(body),
+            content_sha256=hashlib.sha256(body).hexdigest(),
+            cache_integrity=None,
+            parse_status="unknown",
+            membership_rows=0,
+            valid_bar_rows=0,
+            zero_ohlcv_rows=0,
+            reason=f"KRX service returned HTTP {status_code}",
+        )
+    parts = checkpoint.split(":")
+    session_text = parts[-1] if parts else ""
+    reason: str | None
+    try:
+        parsed = parse_krx_daily_trade_response(
+            body,
+            checkpoint=date.fromisoformat(session_text),
+            market_board=market_board,
+        )
+    except CollectorAuthenticationError as exc:
+        parse_status: Literal["ok", "auth", "parse", "coverage", "unknown"] = "auth"
+        reason = str(exc)
+        parsed = None
+    except CollectorCoverageError as exc:
+        parse_status = "coverage"
+        reason = str(exc)
+        parsed = None
+    except CollectorError as exc:
+        parse_status = "parse"
+        reason = str(exc)
+        parsed = None
+    except ValueError:
+        parse_status = "parse"
+        reason = "KRX checkpoint date is invalid"
+        parsed = None
+    else:
+        parse_status = "ok"
+        reason = None
+    membership_rows = len(parsed.universe) if parsed is not None else 0
+    valid_bar_rows = len(parsed.bars) if parsed is not None else 0
+    return KrxCacheDiagnosticEntry(
+        checkpoint=checkpoint,
+        status_code=status_code,
+        byte_count=len(body),
+        content_sha256=hashlib.sha256(body).hexdigest(),
+        cache_integrity=None,
+        parse_status=parse_status,
+        response_date_matches=parsed is not None,
+        membership_rows=membership_rows,
+        valid_bar_rows=valid_bar_rows,
+        zero_ohlcv_rows=max(membership_rows - valid_bar_rows, 0),
+        reason=reason,
+    )
 
 
 def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
@@ -413,56 +492,27 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
             and hashlib.sha256(body).hexdigest() == item.content_sha256
         )
         integrity_ok = integrity_ok and entry_integrity
-        board = checkpoint.split(":")[2] if len(checkpoint.split(":")) == 4 else "STK"
-        session_text = checkpoint.rsplit(":", 1)[-1]
-        reason: str | None
-        try:
-            parsed = parse_krx_daily_trade_response(
-                body,
-                checkpoint=date.fromisoformat(session_text),
-                market_board=cast(Literal["STK", "KSQ"], board),
-            )
-        except CollectorAuthenticationError as exc:
-            parse_status: Literal["ok", "auth", "parse", "coverage", "unknown"] = "auth"
+        parts = checkpoint.split(":")
+        board = parts[2] if len(parts) == 4 else "STK"
+        entry = diagnose_krx_response(
+            body,
+            status_code=item.status_code,
+            checkpoint=checkpoint,
+            market_board=cast(Literal["STK", "KSQ"], board),
+        )
+        entry = entry.model_copy(update={"cache_integrity": entry_integrity})
+        parse_status = entry.parse_status
+        if parse_status in {"auth", "parse", "unknown"}:
             parse_failures += 1
-            reason = str(exc)
-            parsed = None
-        except CollectorCoverageError as exc:
-            parse_status = "coverage"
+        elif parse_status == "coverage":
             coverage_failures += 1
-            reason = str(exc)
-            parsed = None
-        except CollectorError as exc:
-            parse_status = "parse"
-            parse_failures += 1
-            reason = str(exc)
-            parsed = None
-        else:
-            parse_status = "ok"
-            reason = None
-        membership_rows = len(parsed.universe) if parsed is not None else 0
-        valid_bar_rows = len(parsed.bars) if parsed is not None else 0
-        zero_ohlcv_rows = membership_rows - valid_bar_rows
+        zero_ohlcv_rows = entry.zero_ohlcv_rows
         zero_rows_total += max(zero_ohlcv_rows, 0)
         if zero_ohlcv_rows > 0:
             reasons.append(
                 f"{checkpoint}: {zero_ohlcv_rows} membership rows lack complete OHLCV"
             )
-        entries.append(
-            KrxCacheDiagnosticEntry(
-                checkpoint=checkpoint,
-                status_code=item.status_code,
-                byte_count=item.byte_count,
-                content_sha256=item.content_sha256,
-                cache_integrity=entry_integrity,
-                parse_status=parse_status,
-                response_date_matches=parsed is not None,
-                membership_rows=membership_rows,
-                valid_bar_rows=valid_bar_rows,
-                zero_ohlcv_rows=max(zero_ohlcv_rows, 0),
-                reason=reason,
-            )
-        )
+        entries.append(entry)
     if not entries:
         reasons.append("no KRX cache entries")
     auth_observed = any(code in status_counts for code in ("401", "403"))
@@ -2709,6 +2759,7 @@ __all__ = [
     "collect_market_data",
     "completed_collection_is_valid",
     "diagnose_krx_cache",
+    "diagnose_krx_response",
     "estimate_network_requests",
     "load_collector_settings",
     "parse_alpha_vantage_listing_status",
