@@ -237,9 +237,11 @@ R6는 미국 우선 진단이 끝난 뒤 한국의 zero-OHLC 문제를 별도 �
   - 기술 `pass`, 자료 readiness `insufficient`, 경제 `not-evaluated`: `diagnose-krx-cache`가
     실제 cache에서 HTTP status·raw SHA/size·parser·coverage·membership·valid bar·zero/missing
     OHLCV를 분리 기록합니다. artifact `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r6-krx-diagnostics/report.json`
-    (SHA-256 `8c9fa160e597eba627ae27f7353ccfb8f59f7ff55157c7040f822a79650815bb`)에서 HTTP 200,
-    membership 946, valid bars 917, zero/missing 29, parser/coverage 실패 0, readiness
-    `insufficient`을 확인했습니다. zero 행은 보간하지 않으며 R6 전체 완료·한국 성과 승격을 뜻하지 않습니다.
+    (SHA-256 `6f54afb85d2b9343b296a544d5eb2cb165cac4da2c4ec42132ddf3ff4c624045`)에서 HTTP 200,
+    membership 946, valid bars 917, zero/missing 29, parser/coverage 실패 0, requested/observed
+    `2026-06-29`, missing `[]`, `date_coverage=complete`, readiness `insufficient`을 확인했습니다.
+    zero 행은 보간하지 않으며 R6 전체 완료·한국 성과 승격을 뜻하지 않습니다. 다중 entry legacy
+    manifest는 checkpoint binding이 없으면 `unbound`로 fail-closed합니다. [binding hardening 기록](development-records/2026-09-20-r6-krx-diagnostics-binding-hardening.md)
     전후 공식 STK 응답 대조에서도 6/26·6/29 대상 29개가 모두 zero, 6/30에는 28개가 zero로
     반복됐지만, 별도 status 원문 없이 거래정지로 확정하지 않았습니다. [전후 대사 기록](development-records/2026-09-20-r6-krx-zero-adjacent-recheck.md)
     [개발 기록](development-records/2026-09-20-r6-krx-diagnostics.md)
