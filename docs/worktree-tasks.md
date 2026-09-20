@@ -235,6 +235,9 @@
 - mandate digest `22efba...c264ab1`, policy version, dispatch flag와 roadmap 40개 checklist/complete
   16개를 parser로 재확인했습니다. runner DB는 blocked 9/completed 75/failed 12/running 0이며
   service inactive, timer not-found입니다.
+- 후속 재검증에서 같은 mandate SHA와 governance/roadmap/planning pytest `57 passed`, service
+  `inactive`, timer `disabled`를 확인했습니다. legacy fragment hash는 정본 validator 규칙을
+  그대로 적용했으며 파일을 임의로 재생성하지 않았습니다.
 - 자동 resume·성과 승격·PAPER/live·remote push·Windows 종료는 하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-canonical-governance-sync-recheck.md`
 

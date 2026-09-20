@@ -11,6 +11,14 @@
 - runner DB는 `blocked=9`, `completed=75`, `failed=12`, `running=0`; user service `inactive`, timer
   `not-found`입니다.
 
+## 현재 재확인 (2026-09-20T05:05:19Z)
+
+- `docs/research-mandate.json` SHA는 동일한
+  `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`이며, fragment hash를
+  포함한 legacy manifest도 governance 테스트의 정본 규칙으로 검증했습니다.
+- mandate/roadmap/runner planning focused pytest는 `57 passed`입니다. 현재 user service는
+  `inactive`, timer는 `disabled`이며 자동 resume은 수행하지 않았습니다.
+
 ## 판정
 
 - 승인 설계·mandate·로드맵 parser의 현재 동기화와 fail-closed 운영 상태를 재현했습니다.
