@@ -760,16 +760,16 @@ def boundary_evidence(
         limitations=_limitations(),
     )
     if checked_at < item.boundary_at:
-        return BoundaryEvidenceResult(
-            **empty, state="not_due", reason="boundary_not_due"
+        return BoundaryEvidenceResult.model_validate(
+            {**empty, "state": "not_due", "reason": "boundary_not_due"}
         )
     if item.state in {"scheduled", "collecting"}:
-        return BoundaryEvidenceResult(
-            **empty, state="missing", reason="capture_missing"
+        return BoundaryEvidenceResult.model_validate(
+            {**empty, "state": "missing", "reason": "capture_missing"}
         )
     if not item.download_available:
-        return BoundaryEvidenceResult(
-            **empty, state="unavailable", reason="capture_unavailable"
+        return BoundaryEvidenceResult.model_validate(
+            {**empty, "state": "unavailable", "reason": "capture_unavailable"}
         )
     try:
         raw, body_sha256 = monitor.artifact_body(boundary)
@@ -777,8 +777,8 @@ def boundary_evidence(
             raise ValueError("capture body hash is invalid")
         artifact = BoundaryCaptureArtifact.model_validate_json(raw)
     except (OSError, ValueError):
-        return BoundaryEvidenceResult(
-            **empty, state="unavailable", reason="capture_unavailable"
+        return BoundaryEvidenceResult.model_validate(
+            {**empty, "state": "unavailable", "reason": "capture_unavailable"}
         )
     return inspect_boundary_artifact(artifact)
 

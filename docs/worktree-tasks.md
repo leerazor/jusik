@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## boundary-evidence-validation-typing-20260920
+
+- 상태: 완료
+- boundary evidence의 dynamic empty result 생성을 `model_validate` 기반 runtime schema
+  검증으로 정리했습니다.
+- 검증: boundary evidence strict mypy·Ruff 통과, 관련 테스트 `22 passed`
+- 개발 기록: `docs/development-records/2026-09-20-boundary-evidence-validation-typing.md`
+
 ## canonical-bundle-post-typing-recheck-20260920
 
 - 상태: 완료
