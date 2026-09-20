@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-20T01:00:00Z
 - 작업 slug: `canonical-time-evidence-sidecar-20260920`
-- 기준/통합: `206e1fa` / 통합 전
+- 기준/통합: `206e1fa` / `fe4b1a5`
 - 범위: frozen R0 run을 변경하지 않고, tracked XNYS calendar에서 파생한 시간 증거를 별도 sidecar로 생성·검증했습니다.
 
 ## 변경과 결정
@@ -33,5 +33,8 @@
 ## 증거와 재개
 
 - audit: `~/.local/share/jusik/portfolio-audit/canonical-time-evidence-candidate-20260920/`; 생성 sidecar 경로는 호출자가 지정합니다.
-- 남은 작업·차단 조건: Astra의 독립 diff 검토 및 main 통합 전입니다.
-- 다음 시작: 이 브랜치 커밋을 검토한 뒤 main에서 readiness 연결 여부를 별도 작업으로 판단합니다.
+- 남은 작업·차단 조건: sidecar는 calendar-derived technical evidence일 뿐 historical PIT
+  observation proof가 아닙니다. readiness missing code 제거와 경제 acceptance는 별도 승인
+  작업에서 판단합니다.
+- 다음 시작: canonical sidecar verifier를 readiness에 연결할지 별도 계획·검증 작업으로
+  결정하되, KOFR risk-free evidence와 기존 자료 completeness gate를 유지합니다.

@@ -2,13 +2,13 @@
 
 ## canonical-time-evidence-sidecar-20260920
 
-- 상태: 준비
+- 상태: 완료
 - 목표와 완료 조건: frozen canonical run을 수정하지 않고, 공식 XNYS calendar에서 파생한
   시간 evidence sidecar를 별도 audit 경로에 생성·검증합니다. canonical run/manifest,
   candidate time-evidence, replay identity와 equity session/NAV를 SHA로 대조하고
   불일치·경로 변조·순서 위반을 fail-closed로 거부합니다. readiness 기본 판정과
   경제 acceptance는 변경하지 않습니다.
-- 담당 Luna: 배정 예정
+- 담당 Luna: canonical_time_sidecar_code
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-canonical-time-evidence-sidecar`
 - 작업 브랜치: `feat/canonical-time-evidence-sidecar`
 - 기준 커밋 SHA: `206e1fa`
@@ -18,14 +18,15 @@
 - 수정 허용 범위: 새 sidecar builder/verifier, focused tests, 개발 기록. 기존
   canonical artifact·readiness 정책·runner·network/order/PAPER/live는 변경하지 않습니다.
 - 포트·테스트 DB·출력 경로: 별도 audit 디렉터리, DB/서비스 해당 없음
-- 검증 명령과 결과: 작업자 실행 예정
-- 결과 커밋 SHA: 미정
-- 검토 결과와 남은 문제: 독립 review 예정
-- 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미정
+- 검증 명령과 결과: `pytest -q backend/tests/test_research_canonical_time_evidence.py` 4개 통과,
+  Ruff·strict mypy·diff check 통과, 실제 252개 sidecar build/verify 통과
+- 결과 커밋 SHA: `3c6dbef`
+- 검토 결과와 남은 문제: 독립 review PASS. readiness 연결 및 경제 acceptance는 별도 작업
+- 병합 직전 main SHA: `cf99086`
+- 통합 커밋 SHA와 정리 여부: `fe4b1a5`; 검증 후 전용 워크트리 정리 예정
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-20-canonical-time-evidence-sidecar.md` 예정
-- handoff 저장 경로와 갱신 여부: 통합 완료 시 현재 handoff 갱신
+- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-20-canonical-time-evidence-sidecar.md` 갱신 필요
+- handoff 저장 경로와 갱신 여부: 현재 세션 handoff에 통합 SHA와 다음 작업을 반영
 
 ## public-evidence-collectors-20260920
 
