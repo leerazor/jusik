@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## sec-review-queue-integrity-recheck-20260920
+
+- 상태: 원문 무결성 재검증 완료·수동 review 대기
+- SEC event-near review queue 52개와 `event-near-candidates/` 원문을 accession·SHA로 대조해
+  52/52 존재·일치, credential-free URL, `unsupported_candidate`, 자동 ledger 적용 금지를
+  재확인했습니다.
+- action 사실·effective date·권리/가격·PIT 근거는 operator review 전 확정하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-sec-review-queue-integrity-recheck.md`
+
 ## contract-regression-bundle-20260920
 
 - 상태: 기술 계약 재검증 완료·경제 평가 보류
