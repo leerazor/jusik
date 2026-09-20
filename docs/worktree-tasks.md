@@ -10,6 +10,15 @@
   원천, completion marker, PIT action coverage, broker cost contract가 준비될 때까지 R4/R2-03은 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-20-market-data-readiness-recheck.md`
 
+## action-review-state-recheck-20260920
+
+- 상태: read-only 재확인·R1-04/R1-05 blocked 유지
+- canonical action DB의 111 revisions와 4 reviews를 확인했습니다. reviews는 matched 3건, partial
+  1건이며 NVDA 2026-06-04 dividend의 ex-dividend date가 missing입니다.
+- 일부 matched review를 전체 PIT/coverage 근거로 승격하지 않고, action ledger·성과·PAPER 적용은
+  계속 차단합니다. DB는 수정하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-action-review-state-recheck.md`
+
 ## market-cost-diagnostic-reverification-20260920
 
 - 상태: 독립 산술 pass·법정/체결 자료 unavailable
