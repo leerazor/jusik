@@ -3188,7 +3188,8 @@
   `docs/research-mandate.json` SHA와 runner 수동 pause/inactive 상태로 갱신했습니다.
 - 투자 roadmap의 fail-closed gate, 자동 PAPER/live 승격 금지, 실주문 금지와 일반 research
   scope 분리 설명은 유지했습니다.
-- 검증: `git diff --check`; 비밀값·코드·연구 결과·runner 상태 변경 없음.
+- 검증: mandate/runner pytest `75 passed`, `git diff --check`; 비밀값·코드·연구 결과·runner
+  상태 변경 없음.
 
 ## kofr-repeat-response-evidence-20260920
 

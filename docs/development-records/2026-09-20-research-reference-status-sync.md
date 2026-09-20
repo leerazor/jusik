@@ -16,6 +16,8 @@
 
 ## 검증
 
+- `backend/.venv/bin/python -m pytest backend/tests/test_research_mandate_governance.py
+  backend/tests/test_development_runner.py -q` — `75 passed`.
 - `git diff --check` 통과.
 - 관련 변경은 `docs/research.md`, `docs/worktree-tasks.md`, 이 개발 기록뿐이며 비밀값은
   포함하지 않습니다.
