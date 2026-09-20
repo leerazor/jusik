@@ -28,6 +28,15 @@
   R2-03와 USD/KRW NAV 경제 평가는 달력/application/PIT 근거 확보 전까지 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-calendar-reconciliation.md`
 
+## r2-03-fx-provenance-cutoff-recheck-20260920
+
+- 상태: resolver 재검증 완료·historical PIT blocker 유지
+- `research-external.db`의 915개 USDKRW 후보를 기존 read-only resolver로 cutoff별 확인했습니다.
+  2025-09-11, 2025-10-13, 2025-11-11, 2026-04-03은 모두 `no_candidate`; 2026-09-11만
+  2026-09-09 관측(age 2)으로 resolve됐습니다.
+- 행 수만으로 historical availability를 주장하지 않고, R2-03/NAV application은 계속 fail-closed입니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-provenance-cutoff-recheck.md`
+
 ## market-cost-diagnostic-reverification-20260920
 
 - 상태: 독립 산술 pass·법정/체결 자료 unavailable
