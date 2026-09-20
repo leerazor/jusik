@@ -2647,6 +2647,17 @@
   실제 주문, PAPER/live 승격, 원격 push, Windows 종료는 수행하지 않습니다.
 - 기준 문서: `docs/continuous-development-session.md`.
 
+## kofr-publication-schedule-evidence-20260920
+
+- 상태: 보조 source evidence 확보·application 승격 보류.
+- 결과: 공식 KODEX KOFR 설명서가 KOFR INDEX의 일일 11:00 공시 일정을 명시하는
+  raw를 보존했습니다. SHA-256은 `57037e008a62ccfdda91a61f1d86f79fc6a3cdffd1bce0bbac46beca97afd6cd`이며
+  audit는 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-kofr-publication-schedule-evidence/`입니다.
+- 제한: 운용사 설명서는 KSD 행별 응답의 `PUBN_DTTM` absolute instant와 canonical
+  기간의 전체 business-date completeness를 증명하지 않습니다. `missing_risk_free_evidence`,
+  Sharpe/readiness 및 자동 적용은 유지합니다.
+- 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료

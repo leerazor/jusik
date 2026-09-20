@@ -52,4 +52,15 @@ provider의 실제 completeness가 `unknown`이면 `business_date_completeness_u
 - source SHA와 schema를 읽기 전용으로 확인했습니다.
 - canonical NAV 252개와 source 245개를 결정적으로 대사했습니다.
 - `validate_application_contract`의 completeness 차단 code가 재현됐습니다.
+
+## 보조 공시 일정 증거
+
+- KODEX KOFR 공식 투자위험 설명서가 KOFR INDEX를 매일 오전 11시 00분에
+  공시한다고 설명하는 원문을 별도 보조 자료로 보존했습니다.
+- 원문: [KODEX KOFR 투자위험 설명서](https://m.samsungfund.com/upload/core/2ETFG6-Aa.pdf)
+- raw SHA-256: `57037e008a62ccfdda91a61f1d86f79fc6a3cdffd1bce0bbac46beca97afd6cd`
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-kofr-publication-schedule-evidence/`
+- 이 자료는 공식 KSD 응답의 행별 `PUBN_DTTM` timezone/instant 또는 canonical NAV
+  기간의 provider business-date 완전성을 증명하지 않으므로 `operator_verified=false`,
+  자동 적용=false를 유지합니다.
 - 실제 네트워크 요청, 연구 실행, 주문, runner 재개, readiness 승격은 없었습니다.
