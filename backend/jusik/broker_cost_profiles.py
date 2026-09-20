@@ -6,6 +6,8 @@ historical runs implicitly.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
@@ -23,6 +25,16 @@ class BrokerCostProfile:
     sell_tax_rate: Decimal
     source_urls: tuple[str, ...]
     source_as_of: str
+    applies_to_frozen_history: bool = False
+
+
+@dataclass(frozen=True)
+class PaperCostContract:
+    """Hash-bound broker costs for a new paper study only."""
+
+    contract_id: str
+    profile_hash: str
+    profiles: tuple[BrokerCostProfile, ...]
     applies_to_frozen_history: bool = False
 
 
@@ -76,8 +88,36 @@ def kis_bankis_online_profile(market: BrokerMarket) -> BrokerCostProfile:
     raise ValueError(f"unsupported BanKIS market: {market}")
 
 
+def build_bankis_paper_cost_contract(
+    markets: tuple[BrokerMarket, ...] = ("KRX", "NXT", "US"),
+) -> PaperCostContract:
+    """Build a deterministic BanKIS contract without changing historical runs."""
+    profiles = tuple(kis_bankis_online_profile(market) for market in markets)
+    payload = [
+        {
+            "market": profile.market,
+            "currency": profile.currency,
+            "fee": str(profile.online_fee_rate),
+            "sell_tax": str(profile.sell_tax_rate),
+            "source_as_of": profile.source_as_of,
+            "source_urls": profile.source_urls,
+        }
+        for profile in profiles
+    ]
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return PaperCostContract(
+        contract_id=f"kis-bankis-online-paper-v1:{digest[:16]}",
+        profile_hash=digest,
+        profiles=profiles,
+    )
+
+
 __all__ = [
     "BrokerCostProfile",
+    "PaperCostContract",
     "KIS_BANKIS_ONLINE_PROFILES",
+    "build_bankis_paper_cost_contract",
     "kis_bankis_online_profile",
 ]

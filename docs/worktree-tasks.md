@@ -25,8 +25,8 @@
 ## bankis-cost-profile-20260920
 
 - 상태: 완료·새 PAPER 계약 대기
-- BanKIS online KRX/NXT/US 수수료·세금 profile을 명시적 immutable 입력으로 추가했습니다. `applies_to_frozen_history=false`로 기존 historical modeled rate와 결과를 보호합니다.
-- 검증: cost profile `2 passed`, Ruff, strict mypy, diff check 통과.
+- BanKIS online KRX/NXT/US 수수료·세금 profile과 deterministic hash-bound PAPER cost contract builder를 추가했습니다. `applies_to_frozen_history=false`로 기존 historical modeled rate와 결과를 보호합니다.
+- 검증: cost profile `3 passed`, Ruff, strict mypy, diff check 통과.
 - 개발 기록: `docs/development-records/2026-09-20-bankis-cost-profile.md`
 
 ## sec-explicit-exclusion-disposition-20260920
