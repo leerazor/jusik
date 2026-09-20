@@ -31,6 +31,19 @@
   ledger와 원가·비용 배분 규칙이 필요합니다. 자료가 생겨도 독립 회계 대사와 회귀 검증
   전에는 성과·PAPER 승격에 사용하지 않습니다.
 
+## Canonical 재평가
+
+- `evaluate_corrected_bundle()`를 현재 canonical bundle에 다시 실행해 `status=verified`를
+  확인했습니다. primary 결과는 CAGR `0.0657385546019824424128508399999526447379403462741`,
+  MDD `0.073743511705833131472595651962985278354913557870`, Calmar
+  `0.89144865875410304314635859803184788494925619127820`이며 hard filter는 통과했습니다.
+- secondary 결과는 거래 `171`건, 최대 MDD 회복기간 `P274DT9H30M0S`
+  (`23,707,800` UTC seconds)입니다. Sharpe는 `missing_risk_free_evidence`, Sortino는
+  `missing_downside_target_policy`, Profit Factor·최대 연속 손실은
+  `missing_realized_trade_pnl`로 unavailable입니다.
+- 이 평가는 기존 artifact를 덮어쓰거나 경제 acceptance/readiness/PAPER 승격을 변경하지 않는
+  읽기 전용 재현입니다.
+
 ## 안전·검증
 
 - 네트워크·원장·전략·PAPER/live·실주문·runner 상태는 변경하지 않았습니다.

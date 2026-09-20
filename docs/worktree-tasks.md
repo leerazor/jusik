@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## secondary-metrics-canonical-evaluation-20260920
+
+- 상태: canonical 재평가 완료·경제 acceptance 차단 유지
+- `evaluate_corrected_bundle()`를 재실행해 CAGR `0.0657385546019824424`, MDD
+  `0.0737435117058331315`, Calmar `0.8914486587541030431`, hard filter 통과를 확인했습니다.
+  거래 횟수는 `171`, 최대 MDD 회복기간은 `P274DT9H30M0S`입니다.
+- Sharpe·Sortino·Profit Factor·최대 연속 손실은 각각 risk-free evidence, downside target,
+  realized trade P&L 근거가 없어 unavailable을 유지합니다. artifact·readiness·PAPER/live·주문·
+  runner 상태는 변경하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-secondary-metrics-realized-pnl-audit.md`
+
 ## regression-bundle-recheck-20260920
 
 - 상태: 기술 회귀 재검증 완료·경제 acceptance 차단 유지
