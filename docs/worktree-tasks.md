@@ -2592,6 +2592,16 @@
 - 제한: 자료 coverage·PIT·기업행사·경제 acceptance는 기존 차단을 유지합니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
 
+## tqqq-issuer-split-evidence-20260920
+
+- 상태: 단일 issuer split evidence candidate 확보·R1-04 승격 보류.
+- 결과: ProShares release가 TQQQ `2:1`, `2025-11-20` market open 전 effective를
+  명시하며 Alpha 원문과 exact match했습니다.
+- 제한: 전체 coverage, split 전후 가격·보유수량·세금·fill 경계가 없어 자동 ledger·성과·
+  readiness에는 연결하지 않습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-tqqq-issuer-split-evidence/`.
+- 개발 기록: `docs/development-records/2026-09-20-tqqq-issuer-split-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
