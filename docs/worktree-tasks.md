@@ -1,5 +1,19 @@
 # 워크트리 작업 등록부
 
+## r3-01-market-curves-20260920
+
+- 상태: 기술 UI 계약 완료·benchmark 자료 확인 불가
+- 목표: 기존 결과 계약의 저장 시계열을 같은 기간으로 묶어 KRW NAV, USD 수익률,
+  MDD와 benchmark 상태를 읽기 전용 화면에 표시합니다.
+- 구현: `frontend/lib/marketResearch.ts`에 fail-closed USD return/MDD/benchmark curve를
+  추가하고 `frontend/app/research/market/[id]/page.tsx`에 곡선과 상태를 표시했습니다.
+  benchmark는 자료 계약이 없어 빈 곡선으로 남겼습니다.
+- 검증: frontend contract verification, lint, typecheck, build, diff 검사 통과.
+- 결과 commit: `e3580e2`
+- 제한: benchmark PIT 자료와 경제 성과는 확인하지 않으며 R4 재실행·PAPER/live 승격과
+  분리합니다.
+- 개발 기록: `docs/development-records/2026-09-20-r3-01-market-curves.md`
+
 ## r1-symbol-source-coverage-contract-20260920
 
 - 상태: 기술 계약 완료·coverage incomplete 유지

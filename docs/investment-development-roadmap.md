@@ -167,7 +167,12 @@ R2는 전략 로직과 분리된 계산으로 가격손익, 배당, FX, 비용, 
 
 R3는 R0 계약이 정한 기존 자료만 읽어 화면에 보여주는 작업이다. R1·R2의 실행을 기다릴 필요가 없는 프런트엔드 작업은 독립 worktree에서 병렬 진행할 수 있다.
 
-- [ ] **R3-01** asset curve에 NAV, USD/KRW return, MDD와 benchmark를 같은 기간·통화로 표시한다.
+- [x] **R3-01** asset curve에 NAV, USD/KRW return, MDD와 benchmark를 같은 기간·통화로 표시한다.
+  - 기술 `pass`, 경제 `not-evaluated`: main `e3580e2`; 기존 저장 equity의 KRW NAV·기록 낙폭과
+    계좌/환율 근거가 있는 US USD return을 동일 요청 기간에 표시하고 MDD를 저장 낙폭의
+    최대값으로 계산합니다. benchmark 계약·PIT 자료가 없어 빈 상태와 사유를 표시하며 값을
+    합성하지 않습니다. 검증은 frontend contract verification, lint, typecheck, build입니다.
+    [개발 기록](development-records/2026-09-20-r3-01-market-curves.md)
 - [x] **R3-02** coverage, 자료 등급, provisional 상태, 누락·오류 원인을 수치와 함께 표시한다.
   - 기술 `pass`, 경제 `not-evaluated`: main `c8cb6e29b038d3724fd3b76d04788270e9221e0a`; contract/lint/typecheck/build 및 desktop/mobile 16개 재검증·Terra review PASS. 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r3-02-981ad0a5/integration-verification.json` (SHA-256 `0fe76bcc80d5e141151c887ab23ffa84e8e22520b42183f9d907454f45cec550`). 기존 상태에서 도출한 잠정 UI이며 자료 확정성·승격을 추정하지 않습니다.
 - [x] **R3-03** R0 API fixture contract로 loading, empty, partial, error 응답을 검증한다.
