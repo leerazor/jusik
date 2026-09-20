@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## fx-currency-strict-typing-20260920
+
+- 상태: 완료
+- FX 지원 통화와 `ExchangeRate` 입력을 `Currency` typed tuple/literal로 고정했습니다.
+- 검증: FX strict mypy·Ruff 통과, FX 테스트 `14 passed`
+- 개발 기록: `docs/development-records/2026-09-20-fx-currency-strict-typing.md`
+
 ## dividend-overlay-strict-typing-20260920
 
 - 상태: 완료

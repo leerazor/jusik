@@ -3,6 +3,7 @@ import json
 import time
 from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -16,7 +17,15 @@ from jusik.models import (
     percentage,
 )
 
-SUPPORTED_CURRENCIES = ("KRW", "USD", "HKD", "CNY", "JPY", "VND")
+Currency = Literal["KRW", "USD", "HKD", "CNY", "JPY", "VND"]
+SUPPORTED_CURRENCIES: tuple[Currency, ...] = (
+    "KRW",
+    "USD",
+    "HKD",
+    "CNY",
+    "JPY",
+    "VND",
+)
 FX_ERROR = "환율을 확인할 수 없어 원화 환산값을 제공하지 못했습니다."
 
 
@@ -97,7 +106,7 @@ class FxService:
         self._cache: dict[str, ExchangeRate] = {}
         self._cached_at: dict[str, float] = {}
 
-    async def _rate(self, currency: str) -> ExchangeRate:
+    async def _rate(self, currency: Currency) -> ExchangeRate:
         now = datetime.now(UTC)
         if currency == "KRW":
             return ExchangeRate(
