@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## full-backend-strict-typing-20260920
+
+- 상태: 완료
+- fixture app의 Decimal·currency·signal 타입을 명시해 전체 `backend/jusik` strict mypy를
+  통과시켰습니다.
+- 검증: 전체 strict mypy·Ruff 통과, 관련 테스트 `38 passed`
+- 개발 기록: `docs/development-records/2026-09-20-full-backend-strict-typing.md`
+
 ## main-settings-typing-20260920
 
 - 상태: 완료

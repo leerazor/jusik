@@ -2,6 +2,7 @@ import os
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, Response
 
@@ -48,19 +49,21 @@ from jusik.models import (
 
 NOW = datetime(2026, 9, 7, 10, 0, tzinfo=UTC)
 INVESTOR_NOW = datetime(2026, 9, 7, 10, 0, tzinfo=UTC)
+FixtureCurrency = Literal["KRW", "USD", "HKD", "CNY", "JPY", "VND"]
+FixtureSignal = Literal["buy_review", "hold", "sell_review", "insufficient"]
 
 
 def _holding(
     market: str,
     symbol: str,
     name: str,
-    currency: str,
+    currency: FixtureCurrency,
     quantity: str,
     cost: str,
     value: str,
     profit: str,
     per: str | None,
-    signal: str,
+    signal: FixtureSignal,
 ) -> Holding:
     rate = Decimal("1") if currency == "KRW" else Decimal("1351.44")
     q = Decimal(quantity)
@@ -175,7 +178,7 @@ def fixture_portfolio() -> Portfolio:
             summary=AssetSummary(
                 net_asset=total_value + Decimal("1000000000"),
                 total_evaluation=total_value,
-                cash="1000000000",
+        cash=Decimal("1000000000"),
                 profit_loss=total_profit,
                 overseas_evaluation=sum(
                     (holding.value_krw or Decimal(0) for holding in HOLDINGS[1:]),
@@ -202,14 +205,14 @@ def fixture_portfolio() -> Portfolio:
             ExchangeRate(
                 currency="KRW",
                 status="ok",
-                krw_per_unit="1",
+                krw_per_unit=Decimal("1"),
                 as_of=date(2026, 9, 7),
                 fetched_at=NOW,
             ),
             ExchangeRate(
                 currency="USD",
                 status="ok",
-                krw_per_unit="1351.44",
+                krw_per_unit=Decimal("1351.44"),
                 as_of=date(2026, 9, 7),
                 fetched_at=NOW,
             ),
@@ -229,7 +232,7 @@ def fixture_portfolio() -> Portfolio:
             )
         ],
         intelligence=MarketIntelligence(
-            korea_base_rate="3.00",
+            korea_base_rate=Decimal("3.00"),
             korea_rate_as_of=date(2026, 8, 27),
             us_target_rate="3.50%–3.75%",
             us_rate_as_of=date(2026, 9, 6),
