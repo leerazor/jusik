@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from jusik.research_r7_isolation import R7IsolationWorkspace, _sha256_path
+from jusik.research_r7_isolation import CHILDREN, R7IsolationWorkspace, _sha256_path
 
 if TYPE_CHECKING:
     from jusik.research_prospective_readiness import ProspectiveReadiness
@@ -70,9 +70,23 @@ class R7GateResult(BaseModel):
         return self
 
 
+def _open_directory_chain(path: Path) -> int:
+    """Open a directory path without following any component symlink."""
+    absolute = Path(os.path.abspath(path))
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    descriptor = os.open(os.sep, flags)
+    try:
+        for component in absolute.parts[1:]:
+            child = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
 def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:
-    if workspace.root.is_symlink() or not workspace.root.is_dir():
-        return None
     root_path = Path(os.path.abspath(workspace.root))
     expected_workspace_paths = {
         "market_data": root_path / "market-data",
@@ -90,50 +104,48 @@ def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:
     }
     if actual_workspace_paths != expected_workspace_paths:
         return None
-    expected = {
-        workspace.market_data,
-        workspace.config,
-        workspace.database,
-        workspace.artifacts,
-    }
-    if any(path.is_symlink() or not path.is_dir() for path in expected):
-        return None
-    if workspace.manifest.is_symlink() or not workspace.manifest.is_file():
-        return None
+    root_fd: int | None = None
+    child_fds: list[int] = []
+    manifest_fd: int | None = None
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
     try:
-        root_stat = os.stat(workspace.root, follow_symlinks=False)
-        child_stats = [os.stat(path, follow_symlinks=False) for path in expected]
-    except OSError:
-        return None
-    if not stat.S_ISDIR(root_stat.st_mode) or root_stat.st_mode & 0o777 != 0o700:
-        return None
-    if any(
-        not stat.S_ISDIR(item.st_mode) or item.st_mode & 0o777 != 0o700
-        for item in child_stats
-    ):
-        return None
-    try:
-        descriptor = os.open(
-            workspace.manifest,
+        root_fd = _open_directory_chain(root_path)
+        root_stat = os.fstat(root_fd)
+        if not stat.S_ISDIR(root_stat.st_mode) or root_stat.st_mode & 0o777 != 0o700:
+            return None
+        for name in CHILDREN:
+            descriptor = os.open(name, directory_flags, dir_fd=root_fd)
+            child_fds.append(descriptor)
+            child_stat = os.fstat(descriptor)
+            if (
+                not stat.S_ISDIR(child_stat.st_mode)
+                or child_stat.st_mode & 0o777 != 0o700
+            ):
+                return None
+        manifest_fd = os.open(
+            "workspace.json",
             os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+            dir_fd=root_fd,
         )
-    except OSError:
-        return None
-    try:
-        manifest_stat = os.fstat(descriptor)
+        manifest_stat = os.fstat(manifest_fd)
         if (
             not stat.S_ISREG(manifest_stat.st_mode)
             or manifest_stat.st_mode & 0o777 != 0o600
         ):
             return None
         chunks: list[bytes] = []
-        while chunk := os.read(descriptor, 1024 * 1024):
+        while chunk := os.read(manifest_fd, 1024 * 1024):
             chunks.append(chunk)
         manifest_bytes = b"".join(chunks)
     except OSError:
         return None
     finally:
-        os.close(descriptor)
+        if manifest_fd is not None:
+            os.close(manifest_fd)
+        for descriptor in child_fds:
+            os.close(descriptor)
+        if root_fd is not None:
+            os.close(root_fd)
     try:
         payload = json.loads(manifest_bytes.decode("utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):

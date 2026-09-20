@@ -174,3 +174,41 @@ def test_gate_requires_exact_private_directory_modes(tmp_path: Path) -> None:
     )
     assert result.state == "blocked"
     assert "isolated_workspace_manifest_unavailable" in result.reasons
+
+
+def test_gate_rejects_symlinked_workspace_ancestor(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    original = tmp_path / "original-future"
+    workspace.root.rename(original)
+    workspace.root.symlink_to(original, target_is_directory=True)
+    result = evaluate_r7_gate(
+        prospective=_prospective(complete=True),
+        workspace=workspace,
+        evidence=R7ReviewEvidence(),
+    )
+    assert result.state == "blocked"
+    assert "isolated_workspace_manifest_unavailable" in result.reasons
+
+
+def test_gate_rejects_ancestor_symlink_workspace_alias(tmp_path: Path) -> None:
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    workspace = _workspace(parent)
+    alias = tmp_path / "alias"
+    alias.symlink_to(parent, target_is_directory=True)
+    aliased = replace(
+        workspace,
+        root=alias / "future",
+        market_data=alias / "future" / "market-data",
+        config=alias / "future" / "config",
+        database=alias / "future" / "database",
+        artifacts=alias / "future" / "artifacts",
+        manifest=alias / "future" / "workspace.json",
+    )
+    result = evaluate_r7_gate(
+        prospective=_prospective(complete=True),
+        workspace=aliased,
+        evidence=R7ReviewEvidence(),
+    )
+    assert result.state == "blocked"
+    assert "isolated_workspace_manifest_unavailable" in result.reasons
