@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## main-settings-typing-20260920
+
+- 상태: 완료
+- main lifespan의 env-backed `Settings()` 생성에 대한 pydantic-settings 정적 false-positive를
+  국소 처리했습니다. runtime env loading과 주문 정책은 유지합니다.
+- 검증: main strict mypy·Ruff 통과, 관련 테스트 `45 passed`
+- 개발 기록: `docs/development-records/2026-09-20-main-settings-typing.md`
+
 ## kiwoom-settings-typing-20260920
 
 - 상태: 완료
