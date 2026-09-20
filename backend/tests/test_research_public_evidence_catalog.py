@@ -12,6 +12,7 @@ from jusik.research_public_evidence_catalog import (
     build_public_evidence_symbol_coverage,
     public_evidence_catalog_sha256,
     verify_public_evidence_catalog,
+    write_catalog,
     write_symbol_coverage,
 )
 from jusik.research_sec_evidence import parse_sec_submissions
@@ -117,7 +118,7 @@ def test_symbol_coverage_rejects_out_of_universe_items() -> None:
         build_public_evidence_symbol_coverage(item)
 
 
-def test_catalog_integrity_rejects_tampering_before_coverage() -> None:
+def test_catalog_integrity_rejects_tampering_before_coverage(tmp_path: Path) -> None:
     catalog = build_public_evidence_catalog(
         symbols=("NVDA",), start=date(2024, 1, 1), end=date(2024, 12, 31)
     )
@@ -126,6 +127,8 @@ def test_catalog_integrity_rejects_tampering_before_coverage() -> None:
         verify_public_evidence_catalog(tampered)
     with pytest.raises(ValueError, match="catalog_sha_mismatch"):
         build_public_evidence_symbol_coverage(tampered)
+    with pytest.raises(ValueError, match="catalog_sha_mismatch"):
+        write_catalog(tampered, tmp_path / "should-not-write-catalog.json")
 
 
 def test_symbol_coverage_preserves_empty_and_unresolved_sources() -> None:

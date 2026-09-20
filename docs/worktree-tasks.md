@@ -5,6 +5,7 @@
 - 상태: 기술 무결성 gate 완료·R1-05 coverage/PIT 미완료
 - public evidence catalog의 SHA·item count·source count를 coverage 계산 전에 재검증하도록
   보강했습니다. 관련 pytest 16개와 Ruff를 통과했으며 변조 catalog는 fail-closed입니다.
+  catalog writer도 같은 검증을 거친 뒤에만 파일을 저장합니다.
 - public evidence·Alpha action·catalog 3개 모듈의 strict mypy도 통과하도록 optional match,
   CLI argv, catalog 생성 타입 오류를 함께 정리했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r1-public-evidence-catalog-integrity-gate.md`

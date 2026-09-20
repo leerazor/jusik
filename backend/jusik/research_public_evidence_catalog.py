@@ -260,6 +260,7 @@ def build_public_evidence_symbol_coverage(
 
 
 def write_catalog(catalog: PublicEvidenceCatalog, path: Path) -> None:
+    verify_public_evidence_catalog(catalog)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(catalog.model_dump_json(indent=2) + "\n", encoding="utf-8")
 

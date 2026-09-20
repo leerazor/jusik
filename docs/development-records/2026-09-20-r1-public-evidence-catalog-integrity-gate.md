@@ -3,8 +3,8 @@
 - 상태: 기술 gate 완료·coverage/PIT/economic acceptance 미완료
 - 구현: `public_evidence_catalog_sha256()`가 catalog digest를 재계산하고,
   `verify_public_evidence_catalog()`가 SHA·item count·source count를 검증합니다.
-  `build_public_evidence_symbol_coverage()`는 집계 전에 이 검증을 수행하며 변조·불일치
-  catalog는 fail-closed로 거부합니다.
+  `build_public_evidence_symbol_coverage()`와 `write_catalog()`는 각각 집계·저장 전에 이
+  검증을 수행하며 변조·불일치 catalog는 fail-closed로 거부합니다.
 - 검증: public evidence 관련 pytest `16 passed`, Ruff, `git diff --check` 통과.
 - strict mypy: public evidence·Alpha action·catalog 3개 모듈을 통과했습니다. 기존 오류였던
   optional regex match 처리, CLI argv 타입, catalog 동적 생성 타입을 함께 수정했습니다.
