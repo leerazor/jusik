@@ -1,5 +1,15 @@
 # 워크트리 작업 등록부
 
+## canonical-runner-state-recheck-20260920
+
+- 상태: 완료·자동 dispatch 중지 유지
+- `validate_mandate` digest `22efba...c264ab1`, roadmap 40개/complete 16개와 roadmap digest를 재확인했습니다.
+- runner `tasks` 상태는 blocked 9/completed 75/failed 12이며 running task는 없습니다. user service는
+  `inactive`, timer는 `disabled`입니다. `attempts`의 과거 interrupted/failed 이력은 보존하며 재시도하지
+  않았습니다.
+- 자동 resume·PAPER/live·remote push·Windows 종료는 수행하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-canonical-runner-state-recheck.md`
+
 ## canonical-governance-sync-recheck-20260920
 
 - 상태: 완료·운영 dispatch는 계속 paused/inactive
