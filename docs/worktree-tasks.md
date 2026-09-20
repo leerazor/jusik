@@ -2542,6 +2542,17 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-etf-identity-evidence/`.
 - 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
 
+## sec-etf-identity-parser-20260920
+
+- 상태: 기술 parser 완료·catalog/경제 acceptance 연결 보류.
+- 구현: `backend/jusik/research_sec_etf_identity.py`와 focused test를 추가했습니다.
+  SEC index raw 하나에서 symbol·title·CIK·accession provenance를 검증하고 credential
+  URL·누락·malformed 입력을 fail-closed합니다.
+- 검증: focused pytest 5개, Ruff check/format, strict mypy, diff check 통과.
+- 제한: 기존 SEC ticker map/catalog를 자동 변경하지 않으며 filing coverage, PIT,
+  R1-05 acceptance와 원장·성과를 승격하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
