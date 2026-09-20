@@ -60,6 +60,8 @@ export type MarketResearchEquityCurves = {
   nav: MarketResearchCurve;
   drawdown: MarketResearchCurve;
   krwReturn: MarketResearchCurve;
+  usdReturn: MarketResearchCurve;
+  benchmark: MarketResearchCurve;
 };
 
 const capabilitySchema = z.object({
@@ -366,12 +368,40 @@ function krwReturnCurve(result: MarketResearchResult, nav: MarketResearchCurve):
   return curveFromPoints(points, "숫자를 확인할 수 없는 NAV 구간은 수익률도 확인할 수 없습니다.");
 }
 
+function usdReturnCurve(result: MarketResearchResult): MarketResearchCurve {
+  const points = result.equity.map((item) => ({ session: item.session, value: null as number | null }));
+  const account = result.account;
+  if (result.market !== "US" || account === undefined || account === null || account.native_currency !== "USD") {
+    return unknownCurve("USD 계좌가 아닌 연구 결과에는 USD 수익률을 표시하지 않습니다.", points);
+  }
+  const initialKrw = finiteDecimalNumber(account.initial_cash_krw);
+  const initialFx = finiteDecimalNumber(account.fx_krw_per_usd);
+  if (initialKrw === null || initialKrw <= 0 || initialFx === null || initialFx <= 0) {
+    return unknownCurve("초기 원화 자본과 초기 환율 근거가 충분하지 않아 USD 수익률을 확인할 수 없습니다.", points);
+  }
+  const initialUsd = initialKrw / initialFx;
+  const values = result.equity.map((item) => {
+    const nav = finiteDecimalNumber(item.nav_krw);
+    const fx = finiteDecimalNumber(item.fx_krw_per_usd);
+    if (nav === null || fx === null || fx <= 0) return { session: item.session, value: null };
+    const value = ((nav / fx) / initialUsd - 1) * 100;
+    return { session: item.session, value: Number.isFinite(value) ? value : null };
+  });
+  return curveFromPoints(values, "환율 또는 NAV를 확인할 수 없는 구간은 USD 수익률도 확인할 수 없습니다.");
+}
+
+function benchmarkCurve(result: MarketResearchResult): MarketResearchCurve {
+  return unknownCurve("동일 기간·원화 benchmark 자료가 결과 계약에 없어 비교하지 않습니다.", result.equity.map((item) => ({ session: item.session, value: null })));
+}
+
 export function marketResearchEquityCurves(result: MarketResearchResult): MarketResearchEquityCurves {
   const nav = equityCurve(result, "nav_krw");
   return {
     nav,
     drawdown: equityCurve(result, "drawdown_pct"),
     krwReturn: krwReturnCurve(result, nav),
+    usdReturn: usdReturnCurve(result),
+    benchmark: benchmarkCurve(result),
   };
 }
 
@@ -381,6 +411,21 @@ export function marketResearchKrwReturn(result: MarketResearchResult): string {
   return final === undefined || final === null || !Number.isFinite(final)
     ? "확인 불가"
     : marketResearchMetric(String(final), "%");
+}
+
+export function marketResearchUsdReturn(result: MarketResearchResult): string {
+  const curve = marketResearchEquityCurves(result).usdReturn;
+  const final = curve.status === "available" ? curve.points.at(-1)?.value : null;
+  return final === undefined || final === null || !Number.isFinite(final)
+    ? "확인 불가"
+    : marketResearchMetric(String(final), "%");
+}
+
+export function marketResearchMdd(result: MarketResearchResult): string {
+  const curve = marketResearchEquityCurves(result).drawdown;
+  const values = curve.points.flatMap((point) => point.value === null ? [] : [point.value]);
+  if (curve.status === "unavailable" || values.length === 0) return "확인 불가";
+  return marketResearchMetric(String(Math.max(...values)), "%");
 }
 
 export function marketResearchGradeLabel(grade: "strict" | "approximate"): string {

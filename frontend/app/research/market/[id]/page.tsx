@@ -10,6 +10,8 @@ import {
   marketResearchGradeIsConsistent,
   marketResearchEquityCurves,
   marketResearchKrwReturn,
+  marketResearchUsdReturn,
+  marketResearchMdd,
   marketResearchMetric,
   marketResearchNullResultMessage,
   marketResearchProvisionalLabel,
@@ -58,17 +60,20 @@ function CurveChart({ curve, label, suffix }: { curve: MarketResearchCurve; labe
 function EquityDisplay({ result }: { result: MarketResearchResult }) {
   const curves = marketResearchEquityCurves(result);
   return <section className="panel research-section" aria-labelledby="equity-title">
-    <div className="section-title simple"><h2 id="equity-title">원화 NAV와 기록된 낙폭</h2><span className="muted">저장된 평가 시계열만 표시</span></div>
+    <div className="section-title simple"><h2 id="equity-title">자산 곡선과 비교 기준</h2><span className="muted">같은 요청 기간의 저장 시계열만 표시</span></div>
     <div className="portfolio-metrics">
       <div><span>계약 근거 원화 수익률</span><strong>{marketResearchKrwReturn(result)}</strong></div>
-      <div><span>미국 달러 수익률</span><strong>확인 불가</strong></div>
-      <div><span>Benchmark</span><strong>비교 불가</strong></div>
+      <div><span>미국 달러 수익률</span><strong>{marketResearchUsdReturn(result)}</strong></div>
+      <div><span>기록된 MDD</span><strong>{marketResearchMdd(result)}</strong></div>
+      <div><span>Benchmark 수익률</span><strong>비교 불가</strong></div>
     </div>
     <div className="strategy-grid">
       <article className="strategy-card"><h3>KRW NAV</h3><CurveChart curve={curves.nav} label="저장된 원화 순자산가치 흐름" suffix="KRW" /></article>
+      <article className="strategy-card"><h3>USD return</h3><CurveChart curve={curves.usdReturn} label="저장된 미국 달러 기준 수익률 흐름" suffix="%" /></article>
       <article className="strategy-card"><h3>기록된 낙폭</h3><CurveChart curve={curves.drawdown} label="저장된 낙폭 흐름" suffix="%" /></article>
+      <article className="strategy-card"><h3>Benchmark</h3><CurveChart curve={curves.benchmark} label="동일 기간 원화 benchmark 수익률 흐름" suffix="%" /></article>
     </div>
-    <p className="basis">낙폭은 저장된 기록을 그대로 표시하며 회계 재검산이나 DD latch 검증을 수행하지 않습니다. 수익률은 account의 초기 원화 자본과 각 저장 NAV에 근거할 때만 표시합니다. USD 초기 자본과 benchmark 계약·자료는 없어 비교하지 않습니다.</p>
+    <p className="basis">낙폭은 저장된 기록의 최대값을 MDD로 표시하며 회계 재검산이나 DD latch 검증을 수행하지 않습니다. 원화 수익률은 account의 초기 원화 자본과 각 저장 NAV, USD 수익률은 미국 계좌의 초기 환율과 각 저장 NAV·환율에 근거할 때만 표시합니다. 동일 기간·통화의 benchmark 계약·자료는 없어 비교하지 않습니다.</p>
   </section>;
 }
 

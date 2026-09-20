@@ -6,6 +6,8 @@ import {
   marketResearchEquityCurves,
   marketResearchGradeIsConsistent,
   marketResearchKrwReturn,
+  marketResearchUsdReturn,
+  marketResearchMdd,
   marketResearchNullResultMessage,
   marketResearchProvisionalLabel,
   marketResearchReadinessLabel,
@@ -367,6 +369,18 @@ for (const scenario of marketResearchFixtureScenarios) {
   }
   if (marketResearchKrwReturn(parsed.result) !== scenario.expected.krwReturn) {
     throw new Error(`${scenario.id} KRW return contract mismatch`);
+  }
+  if (scenario.id === "valid-kr" && marketResearchUsdReturn(parsed.result) !== "확인 불가") {
+    throw new Error("KR result must not claim a USD return");
+  }
+  if (scenario.id === "valid-kr" && marketResearchMdd(parsed.result) !== "2.86%") {
+    throw new Error("MDD must be derived from the stored drawdown curve");
+  }
+  if (scenario.id === "missing-us-fx" && marketResearchUsdReturn(parsed.result) !== "확인 불가") {
+    throw new Error("missing US FX must fail closed for USD return");
+  }
+  if (scenario.id === "signed-nav" && marketResearchUsdReturn(parsed.result) !== "-100%") {
+    throw new Error("US return must be derived from NAV and session FX");
   }
   if (!parsed.result.limitations.includes("화면 검사용 합성 fixture, 경제 not-evaluated")) {
     throw new Error(`${scenario.id} synthetic fixture limitation missing`);
