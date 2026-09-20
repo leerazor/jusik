@@ -10,6 +10,15 @@
   원천, completion marker, PIT action coverage, broker cost contract가 준비될 때까지 R4/R2-03은 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-20-market-data-readiness-recheck.md`
 
+## market-cost-diagnostic-reverification-20260920
+
+- 상태: 독립 산술 pass·법정/체결 자료 unavailable
+- frozen US pilot 106 trades/252 sessions를 읽기 전용 Decimal으로 재검증했습니다. 저장값 mismatch는
+  0건이고, fee/tax/slippage 독립 집계가 일치했지만 결과 `blocked`, 경제 평가는 `not-evaluated`입니다.
+- 휴장일·실제 체결 timestamp/order identity·partial fill·법정 세목/유효기간/공식 세율이 없으므로
+  R2-01/02 또는 경제 지표 승격을 하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-market-cost-diagnostic-reverification.md`
+
 ## r2-02-official-cost-source-audit-20260920
 
 - 상태: 부분 근거 확보·R2-02 blocked 유지
