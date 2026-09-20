@@ -16,6 +16,10 @@
   재사용합니다. source file이 누락되거나 SHA가 다르면 `ready=false`로 fail-closed합니다.
 - form accession 집합이 정본 queue 전체와 정확히 일치해야 하며, 누락·예상 밖 accession은
   각각 `reference_missing_accessions`·`reference_unexpected_accessions`로 보고합니다.
+- 전체 52개 event-near queue와 priority 8개 catalog를 구분합니다. priority form은
+  `pure-action-review-priority.json`을 reference로 사용하고, loader가 이를 subset queue로
+  변환합니다. 전체 queue를 reference로 잘못 연결해 정상 8개 form을 영구 차단하지 않도록
+  CLI 경계를 명확히 했습니다.
 - 기존 blank form과 호환되도록 `schema_version=1`, `status=operator_input_required`,
   `required_fields`를 허용합니다. 자동 ledger 적용 플래그는 항상 `false`입니다.
 
@@ -24,8 +28,8 @@
 - SEC evidence pytest: `12 passed`; Ruff·strict mypy·diff check 통과. 정본 queue identity
   변조와 CLI의 reference-queue 필수 gate 회귀도 확인했습니다.
 - 실제 priority form 8개 검증: source SHA `8/8`, missing `0`, SHA mismatch `0`,
-  `ready=false`, exit `2`. 실패 이유는 operator facts·verification·revision/content hash
-  누락이며 원문 source gate 실패가 아닙니다.
+- reference missing/unexpected `0/0`, `ready=false`, exit `2`. 실패 이유는 operator
+  facts·verification·revision/content hash 누락이며 원문 source gate 실패가 아닙니다.
 
 ## 재개 조건
 

@@ -137,6 +137,34 @@ class SecReviewQueueSourceVerification(BaseModel):
     ready: bool
 
 
+class SecReviewPriorityItem(BaseModel):
+    """One item from the bounded operator-review priority catalog."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    symbol: str = Field(pattern=r"^[A-Z0-9][A-Z0-9.\-/]{0,19}$")
+    accession_number: str = Field(pattern=r"^\d{10}-\d{2}-\d{6}$")
+    source_url: str = Field(min_length=1, max_length=500)
+    raw_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_kinds: tuple[str, ...]
+    candidate_snippets: tuple[str, ...]
+    required_fields: tuple[str, ...] = SEC_REVIEW_QUEUE_REQUIRED_FIELDS
+    status: Literal["unsupported_candidate"] = "unsupported_candidate"
+    automatic_ledger_application: Literal[False] = False
+
+
+class SecReviewPriorityPacket(BaseModel):
+    """Priority catalog that is a subset of the full SEC review queue."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[SecReviewPriorityItem, ...] = Field(min_length=1, max_length=100)
+    automatic_ledger_application: Literal[False] = False
+    operator_review_required: Literal[True] = True
+    schema_version: Literal[1] = 1
+    status: Literal["unsupported_candidate"] = "unsupported_candidate"
+
+
 class SecActionReviewFormItem(BaseModel):
     """One operator-supplied action review row; never an approved ledger event."""
 
@@ -440,6 +468,38 @@ def load_sec_review_queue(path: Path) -> SecReviewQueue:
         return SecReviewQueue.model_validate_json(raw)
     except ValueError as exc:
         raise ValueError("sec_review_queue_invalid") from exc
+
+
+def load_sec_review_reference_queue(path: Path) -> SecReviewQueue:
+    """Load either the full queue or the bounded priority catalog as a queue."""
+    try:
+        body = path.read_bytes()
+    except OSError as exc:
+        raise ValueError("sec_review_reference_unavailable") from exc
+    if len(body) > MAX_SEC_REVIEW_QUEUE_BYTES:
+        raise ValueError("sec_review_reference_too_large")
+    try:
+        payload = json.loads(body)
+        try:
+            return SecReviewQueue.model_validate(payload)
+        except ValueError:
+            packet = SecReviewPriorityPacket.model_validate(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("sec_review_reference_invalid") from exc
+    return SecReviewQueue(
+        items=tuple(
+            SecReviewQueueItem(
+                symbol=item.symbol,
+                accession_number=item.accession_number,
+                source_url=item.source_url,
+                raw_sha256=item.raw_sha256,
+                candidate_kinds=item.candidate_kinds,
+                candidate_snippets=item.candidate_snippets,
+                required_fields=item.required_fields,
+            )
+            for item in packet.items
+        )
+    )
 
 
 _FILING_CANDIDATE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -850,7 +910,9 @@ def _main(argv: Sequence[str] | None = None) -> int:
             form_report = validate_sec_action_review_form(
                 load_sec_action_review_form(args.validate_review_form),
                 candidate_dir=args.review_candidate_dir,
-                reference_queue=load_sec_review_queue(args.review_reference_queue),
+                reference_queue=load_sec_review_reference_queue(
+                    args.review_reference_queue
+                ),
             )
         except (OSError, ValueError):
             print("SEC action review form validation failed", file=sys.stderr)

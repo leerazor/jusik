@@ -9,6 +9,7 @@ import pytest
 
 from jusik.research_action_review import ExtractedFacts
 from jusik.research_sec_evidence import (
+    SEC_REVIEW_QUEUE_REQUIRED_FIELDS,
     SecActionReviewForm,
     SecActionReviewFormItem,
     SecFiling,
@@ -21,6 +22,7 @@ from jusik.research_sec_evidence import (
     build_sec_review_queue,
     collect_sec_filing_candidates,
     filing_document_url,
+    load_sec_review_reference_queue,
     parse_sec_filing_candidate,
     parse_sec_submissions,
     parse_sec_ticker_map,
@@ -463,6 +465,37 @@ def test_sec_review_queue_cli_is_fail_closed(tmp_path: Path, capsys) -> None:
         == 0
     )
     assert json.loads(capsys.readouterr().out)["ready"] is True
+
+
+def test_priority_reference_catalog_loads_as_subset_queue(tmp_path: Path) -> None:
+    path = tmp_path / "priority.json"
+    path.write_text(
+        json.dumps(
+            {
+                "automatic_ledger_application": False,
+                "operator_review_required": True,
+                "schema_version": 1,
+                "status": "unsupported_candidate",
+                "items": [
+                    {
+                        "symbol": "ONE",
+                        "accession_number": "0000000001-25-000001",
+                        "source_url": "https://www.sec.gov/Archives/one.htm",
+                        "raw_sha256": "a" * 64,
+                        "candidate_kinds": ["dividend"],
+                        "candidate_snippets": ["dividend"],
+                        "required_fields": list(SEC_REVIEW_QUEUE_REQUIRED_FIELDS),
+                        "status": "unsupported_candidate",
+                        "automatic_ledger_application": False,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    queue = load_sec_review_reference_queue(path)
+    assert len(queue.items) == 1
+    assert queue.items[0].accession_number == "0000000001-25-000001"
 
 
 def test_sec_action_review_form_cli_requires_reference_queue(

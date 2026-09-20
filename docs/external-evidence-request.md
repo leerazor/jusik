@@ -8,7 +8,8 @@
 검토 대상은 8개이며 양식과 원문은 다음 위치에 있습니다.
 
 - 양식: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-form.json`
-- 정본 queue: 같은 디렉터리의 `event-near-review-queue.json`
+- priority reference catalog: 같은 디렉터리의 `pure-action-review-priority.json`
+- 전체 source queue: 같은 디렉터리의 `event-near-review-queue.json` (52개 원문 source gate용)
 - 원문: 같은 디렉터리의 `event-near-candidates/`
 
 각 item에 대해 원문을 확인하고 `operator_verified`, `revision_id`,
@@ -23,7 +24,7 @@
 PYTHONPATH=backend backend/.venv/bin/python -m jusik.research_sec_evidence \
   --validate-review-form /path/to/pure-action-review-form.json \
   --review-candidate-dir /home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/event-near-candidates \
-  --review-reference-queue /home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/event-near-review-queue.json
+  --review-reference-queue /home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-priority.json
 ```
 
 `ready=true`, exit `0`이어야 다음 `ReviewManifest` 검토를 시작할 수 있습니다. 이 결과도
