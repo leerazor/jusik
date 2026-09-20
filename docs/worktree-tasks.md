@@ -2590,3 +2590,13 @@
   변경 모듈 strict mypy, `git diff --check` 통과. 기존 포맷 부채 4곳은 자동 수정하지 않았습니다.
 - 정리: 통합 검증 후 worktree와 브랜치를 제거합니다. 기존 미추적 `HANDOFF.md`는 보존합니다.
 - 제한: 실제 자료 coverage·PIT·경제 acceptance·R1 checkbox·원장·NAV·성과·PAPER/live는 변경하지 않았습니다.
+
+## r1-roadmap-status-synchronization-20260920
+
+- 상태: 완료 (문서 동기화)
+- 목표와 완료 조건: 누적된 R1 기술 slice의 실제 상태를 로드맵 표에 반영하되,
+  R1-02/R1-04/R1-05 경제 acceptance와 checkbox는 자료 부족 상태로 유지합니다.
+- 변경: `investment-development-roadmap.md`의 R1을 `진행`으로 정정하고 현재 기술
+  증거·PIT/coverage 차단 조건을 개발 기록에 고정했습니다.
+- 검증: `git diff --check`, mandate/runner 상태 확인. 코드·자료·원장·PAPER/live 변경 없음.
+- 개발 기록: `docs/development-records/2026-09-20-r1-roadmap-status-synchronization.md`.
