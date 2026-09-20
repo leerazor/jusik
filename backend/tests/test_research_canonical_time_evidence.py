@@ -64,3 +64,25 @@ def test_malformed_session_is_fail_closed() -> None:
         CanonicalTimeEvidenceError, match="time_evidence_session_invalid"
     ):
         _equity(rows, "time_evidence")
+
+
+@pytest.mark.parametrize("name", ("run", "manifest"))
+def test_canonical_source_path_is_pinned(tmp_path: Path, name: str) -> None:
+    source = (
+        Path(
+            "/home/kwl/.local/share/jusik/portfolio-audit/"
+            "20260915-market-data-live-contract-fixes/us-web-pilot-run.json"
+        )
+        if name == "run"
+        else Path(
+            "/home/kwl/.local/share/jusik/portfolio-audit/"
+            "20260915-r0-baseline/r0-baseline-freeze/baseline-manifest.json"
+        )
+    )
+    copied = tmp_path / source.name
+    copied.write_bytes(source.read_bytes())
+    kwargs = {"output_path": tmp_path / "sidecar.json"}
+    kwargs[f"canonical_{name}_path"] = copied
+
+    with pytest.raises(CanonicalTimeEvidenceError, match="path_not_pinned"):
+        build_canonical_time_evidence(**kwargs)

@@ -230,6 +230,10 @@ def _build(
     hashes: dict[str, str] = {}
     for label, path in paths.items():
         raw[label], hashes[label] = _read(path, label)
+    if canonical_run_path.resolve() != DEFAULT_CANONICAL_RUN.resolve():
+        raise CanonicalTimeEvidenceError("canonical_run_path_not_pinned")
+    if canonical_manifest_path.resolve() != DEFAULT_CANONICAL_MANIFEST.resolve():
+        raise CanonicalTimeEvidenceError("canonical_manifest_path_not_pinned")
     if hashes["canonical_run"] != CANONICAL_RUN_SHA256:
         raise CanonicalTimeEvidenceError("canonical_run_sha_mismatch")
     if hashes["canonical_manifest"] != CANONICAL_MANIFEST_SHA256:
