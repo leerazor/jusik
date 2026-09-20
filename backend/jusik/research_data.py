@@ -4,7 +4,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from email.utils import parsedate_to_datetime
-from typing import Protocol
+from typing import Literal, Protocol
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
@@ -375,6 +375,7 @@ class KisPaperHistoricalData:
             )
         market_name = raw_market or adjusted_market or ""
         normalized_market = market_name.upper()
+        market: Literal["KOSPI", "KOSDAQ", "UNKNOWN"]
         if symbol in {"005930", "000660"}:
             market = "KOSPI"
         elif "코스닥" in normalized_market or "KOSDAQ" in normalized_market:

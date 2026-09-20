@@ -8,6 +8,16 @@ from jusik.config import ROOT
 PAPER_BASE_URL = "https://openapivts.koreainvestment.com:29443"
 
 
+def _required_setting(value: str | None, name: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} is required")
+    return value
+
+
+def _optional_secret(value: str | None) -> SecretStr | None:
+    return SecretStr(value) if isinstance(value, str) and value else None
+
+
 class ResearchSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True, frozen=True)
 
@@ -39,12 +49,16 @@ def load_research_settings(env_path: Path = ROOT / ".env.dev") -> ResearchSettin
         if values.get("APP_ENV") != "dev":
             raise ValueError("Research configuration requires APP_ENV=dev.")
         return ResearchSettings(
-            app_key=values.get("KIS_APP_KEY"),
-            app_secret=values.get("KIS_APP_SECRET"),
-            base_url=values.get("KIS_BASE_URL"),
+            app_key=SecretStr(
+                _required_setting(values.get("KIS_APP_KEY"), "KIS_APP_KEY")
+            ),
+            app_secret=SecretStr(
+                _required_setting(values.get("KIS_APP_SECRET"), "KIS_APP_SECRET")
+            ),
+            base_url=_required_setting(values.get("KIS_BASE_URL"), "KIS_BASE_URL"),
             websocket_url=values.get("KIS_WEBSOCKET_URL")
             or "ws://ops.koreainvestment.com:31000",
-            openai_api_key=values.get("OPENAI_API_KEY"),
+            openai_api_key=_optional_secret(values.get("OPENAI_API_KEY")),
             openai_model=values.get("OPENAI_MODEL"),
             openai_daily_token_budget=int(
                 values.get("OPENAI_DAILY_TOKEN_BUDGET") or "0"

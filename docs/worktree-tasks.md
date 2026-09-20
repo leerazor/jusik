@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## research-input-strict-typing-20260920
+
+- 상태: 완료
+- 기존 `research_config.py`·`research_data.py` strict mypy 오류 5개를 제거하고 KIS 설정
+  secret 및 시장 literal 계약을 명시했습니다.
+- 검증: 관련 strict mypy 통과, Ruff/diff 통과, 설정·데이터·API `22 passed`
+- 개발 기록: `docs/development-records/2026-09-20-research-input-strict-typing.md`
+
 ## governance-economic-gate-recheck-20260920
 
 - 상태: 기술 회귀 통과·경제 acceptance 차단 유지
