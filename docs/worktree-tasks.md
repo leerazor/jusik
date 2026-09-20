@@ -2554,6 +2554,8 @@
 - 상태: 기술 계약 재검증 완료; 경제 평가는 `not-evaluated`.
 - drawdown chronology/underwater-duration 테스트 28개 통과. 초기 자본 고점, DD latch,
   시간순 매수 차단과 malformed chronology 거부를 확인했습니다.
+- 관련 underwater-duration/session-calendar stress 전체 회귀를 2026-09-20 재실행해
+  `40 passed`(경고 2건)를 확인했습니다.
 - complete fills/opening positions와 미래 검증 자료 부족으로 R2-04 및 PAPER 승격은 하지 않습니다.
 
 ## r3-market-curve-contract-verification-20260920
