@@ -10,6 +10,14 @@
   원천, completion marker, PIT action coverage, broker cost contract가 준비될 때까지 R4/R2-03은 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-20-market-data-readiness-recheck.md`
 
+## regression-failure-audit-20260920
+
+- 상태: 기존 회귀 4개 원인 분류·수정 보류
+- 투자자 stale 기대 2개, historical guarded-variant SHA pin 1개, frozen archive calendar hash 1개를
+  개별 재현했습니다. 이번 경제 경로와 무관하므로 production guard·historical artifact를 임의 변경하지
+  않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-regression-failure-audit.md`
+
 ## action-review-state-recheck-20260920
 
 - 상태: read-only 재확인·R1-04/R1-05 blocked 유지
