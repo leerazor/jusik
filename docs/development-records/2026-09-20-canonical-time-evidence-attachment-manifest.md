@@ -16,4 +16,4 @@
 
 ## 판정
 
-attachment manifest는 `/home/kwl/.local/share/jusik/portfolio-audit/canonical-time-evidence-candidate-20260920/attachment-manifest.json`에 보존했습니다. 이는 두 시간 blocker를 제거할 수 있는 재현 가능한 후보지만, 현재 readiness 기본 경로·canonical artifact·경제 평가는 변경하지 않았습니다. KOFR evidence가 없으므로 Sharpe와 경제 승격은 계속 차단됩니다.
+attachment manifest는 `/home/kwl/.local/share/jusik/portfolio-audit/canonical-time-evidence-candidate-20260920/attachment-manifest.json`에 보존했습니다(SHA-256 `59ba9f4c719681286bb487555336194a08bdbe35c7054d021227ea4387f69fe8`). 이는 두 시간 blocker를 제거할 수 있는 재현 가능한 후보지만, 현재 readiness 기본 경로·canonical artifact·경제 평가는 변경하지 않았습니다. KOFR evidence가 없으므로 Sharpe와 경제 승격은 계속 차단됩니다.
