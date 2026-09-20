@@ -2665,3 +2665,17 @@
 - 제한: 기존 canonical artifact에 timestamp를 소급하지 않으며 KOFR evidence·경제 지표·
   PAPER/live·원격 push는 변경하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-market-time-evidence-production-boundary.md`.
+
+## canonical-time-evidence-candidate-20260920
+
+- 상태: 완료 (candidate audit); canonical 승격 보류
+- 목표: R0 frozen manifest deterministic replay 결과에 공식 NMS timing을 연결해 시간
+  blocker 제거 가능성을 검증합니다.
+- 결과: replay `comparison.all=true`, 252 NAV/106 trades 일치; candidate initial anchor
+  `2025-09-11T13:30:00Z`, NAV 범위 `2025-09-11T20:00:00Z`~`2026-09-11T20:00:00Z`.
+  candidate readiness는 시간 두 code만 제거하고 KOFR·기타 evidence에서 blocked입니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/canonical-time-evidence-candidate-20260920/`;
+  candidate run SHA `5e4613e2fedad5ecb99f6308686b4e6151df52ba5356d7095dac266a2f4663a3`.
+- 제한: 기존 canonical artifact/상수/manifest는 변경하지 않았고, 경제 성과·Sharpe·PAPER/live를
+  승격하지 않았습니다. 개발 기록:
+  `docs/development-records/2026-09-20-canonical-time-evidence-candidate.md`.
