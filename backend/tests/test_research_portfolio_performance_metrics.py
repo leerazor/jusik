@@ -81,6 +81,23 @@ def test_realized_trade_metrics_require_explicit_pnl_and_preserve_streaks() -> N
     assert result["max_consecutive_loss"]["value"] == 2
 
 
+def test_sortino_requires_explicit_target_and_uses_downside_deviation() -> None:
+    points = (
+        NAVPoint(datetime(2024, 1, 1, tzinfo=UTC), Decimal("100")),
+        NAVPoint(datetime(2024, 1, 2, tzinfo=UTC), Decimal("90")),
+        NAVPoint(datetime(2024, 1, 3, tzinfo=UTC), Decimal("99")),
+    )
+    missing = adapter.sortino_from_nav(
+        points, initial=Decimal("100"), annual_target_rate=Decimal("0")
+    )
+    assert missing["availability"] == "available"
+    assert missing["value"] is not None
+    invalid = adapter.sortino_from_nav(
+        points, initial=Decimal("100"), annual_target_rate=Decimal("-1")
+    )
+    assert invalid["reason"] == "invalid_downside_target"
+
+
 def test_synthetic_recovery_duration_uses_utc_peak_to_recovery_seconds() -> None:
     anchor = datetime(2024, 1, 1, tzinfo=UTC)
     points = (

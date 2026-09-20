@@ -3179,7 +3179,9 @@
   `7d30263562fdab6edb3c27ff5c6812dd66bd0c29b9d3d8ba991bf9204229954e`입니다.
 - `realized_trade_metrics()`는 모든 row의 명시적 `realized_pnl_krw`가 있을 때만 Profit
   Factor와 최대 연속 손실을 계산하며, 누락·비정상 값은 fail-closed합니다.
-- 검증: explicit-P&L performance metrics `10 passed`, strict mypy·Ruff·diff check;
+- `sortino_from_nav()`는 명시적 annual downside target이 있을 때만 계산하며 기본 target을
+  합성하지 않습니다. canonical 결과는 계속 `missing_downside_target_policy`입니다.
+- 검증: explicit-P&L/Sortino performance metrics `11 passed`, strict mypy·Ruff·diff check;
   기존 metrics/readiness/SEC 회귀 `95 passed`. 코드 외부에서는 원장·PAPER/live·runner
   상태를 변경하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-secondary-metrics-realized-pnl-audit.md`.

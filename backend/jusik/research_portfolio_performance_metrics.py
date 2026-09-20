@@ -17,7 +17,7 @@ import stat
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path
 from typing import Final
 
@@ -487,6 +487,57 @@ def maximum_mdd_recovery_duration(
     }
 
 
+def sortino_from_nav(
+    points: Sequence[NAVPoint],
+    *,
+    initial: Decimal,
+    annual_target_rate: Decimal,
+    sessions_per_year: int = 252,
+) -> dict[str, object]:
+    """Calculate Sortino only when an explicit annual downside target exists."""
+    if len(points) < 2:
+        return {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "insufficient_returns",
+        }
+    if initial <= 0 or annual_target_rate <= Decimal("-1") or sessions_per_year <= 0:
+        return {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "invalid_downside_target",
+        }
+    with localcontext() as context:
+        context.prec = 50
+        daily_target = (
+            (Decimal(1) + annual_target_rate).ln() / Decimal(sessions_per_year)
+        ).exp() - Decimal(1)
+        returns = [points[0].nav / initial - Decimal(1)]
+        returns.extend(
+            current.nav / previous.nav - Decimal(1)
+            for previous, current in zip(points, points[1:])
+        )
+        excess = [value - daily_target for value in returns]
+        downside = [min(value, Decimal(0)) for value in excess]
+        denominator = (
+            sum((value * value for value in downside), Decimal(0))
+            / Decimal(len(downside))
+        ).sqrt()
+        if denominator == 0:
+            return {
+                "availability": "unavailable",
+                "value": None,
+                "reason": "zero_downside_deviation",
+            }
+        return {
+            "availability": "available",
+            "value": (sum(excess, Decimal(0)) / Decimal(len(excess)))
+            / denominator
+            * Decimal(sessions_per_year).sqrt(),
+            "reason": None,
+        }
+
+
 def realized_trade_metrics(
     rows: Sequence[Mapping[str, object]],
 ) -> dict[str, dict[str, object]]:
@@ -659,4 +710,6 @@ __all__ = [
     "evaluate_corrected_bundle",
     "maximum_mdd_recovery_duration",
     "project_nav",
+    "realized_trade_metrics",
+    "sortino_from_nav",
 ]

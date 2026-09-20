@@ -18,6 +18,9 @@
   계산합니다. 누락·비정상 값은 각각 `missing_realized_trade_pnl`·
   `invalid_realized_trade_pnl`로 fail-closed합니다. 현재 canonical bundle 결과는 기존과
   동일하게 unavailable입니다.
+- `sortino_from_nav()`도 명시적인 annual downside target이 전달된 경우에만 계산하며,
+  target이 없으면 canonical 결과의 `missing_downside_target_policy`를 유지합니다. 0% target을
+  기본값으로 주입하지 않습니다.
 
 ## 판정과 재개 조건
 
@@ -31,5 +34,5 @@
 ## 안전·검증
 
 - 네트워크·원장·전략·PAPER/live·실주문·runner 상태는 변경하지 않았습니다.
-- 관련 metrics/readiness/SEC 회귀 묶음은 `95 passed`로 재검증했고, 새 explicit-P&L
-  fixture를 포함한 performance-metrics 테스트는 `10 passed`입니다.
+- 관련 metrics/readiness/SEC 회귀 묶음은 `95 passed`로 재검증했고, explicit-P&L·Sortino
+  fixture를 포함한 performance-metrics 테스트는 `11 passed`입니다.
