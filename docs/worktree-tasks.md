@@ -13,6 +13,9 @@
 - 검증: catalog focused pytest 9개, Ruff, diff 검사 통과. strict mypy는 기존 public-
   evidence 의존 모듈의 범위 밖 오류로 non-zero이며 새 계약은 해당 오류를 추가하지
   않았습니다.
+- 실제 재구축 catalog 1,570개 item을 새 계약으로 재생성한 artifact
+  `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-rebuilt-20260920/symbol-coverage-contract-v1.json`
+  의 SHA는 `4d344fc0a3bacab1154106f54a44a5f0db0e44ba914a05c236a40813afca4b49`입니다.
 - 제한: provider 전체 coverage, PIT, 기업행사 권리·가격 증거는 여전히 없습니다.
   R1-05 checkbox·경제 acceptance·성과/원장/PAPER/live 승격은 변경하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r1-symbol-source-coverage-contract.md`
