@@ -1754,7 +1754,13 @@ def parse_fred_observations(
 def parse_koreaexim_exchange_response(
     body: bytes, *, session: date, available_at: datetime | None = None
 ) -> ApproximateFXRow:
-    """Parse one Korea Exim daily exchange response without inferring a rate."""
+    """Parse one Korea Exim row without inferring a rate or publication fact.
+
+    When ``available_at`` is omitted, the following UTC midnight is only a
+    conservative policy bound. It is not evidence that the provider published
+    the row at that instant; callers must validate source availability before
+    using the row for point-in-time performance.
+    """
     try:
         payload = json.loads(body)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
