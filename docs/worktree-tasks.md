@@ -2612,3 +2612,22 @@
   `diagnose_canonical_run()` 직접 호출.
 - 제한: anchor/timestamp/무위험률을 추정하거나 성과·hard filter·PAPER/live를 승격하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-canonical-readiness-blocker-recheck.md`.
+
+## roadmap-resume-dirty-gate-20260920
+
+- 상태: 진행
+- 목표와 완료 조건: roadmap scope의 `resume`가 mandate만 확인하고 dirty worktree를
+  해제하는 결함을 수정합니다. `_roadmap_documents_ready()`와 `_roadmap_dispatch_gate()`
+  및 git readiness를 모두 통과하기 전에는 paused 상태를 유지합니다.
+- 담당: 단일 Luna 구현, Astra 통합, 독립 Terra 검토
+- 워크트리·브랜치: `/home/kwl/projects/jusik-roadmap-resume-dirty-gate` /
+  `fix/roadmap-resume-dirty-gate`
+- 기준 커밋·통합 대상: `1af2a1c`, local `main`
+- 입력과 선행 작업: `development_runner.py` roadmap resume/run-once 경계와 기존
+  mandate/roadmap tests. runner는 실제 운영 상태에서 pause/service/timer inactive를 유지합니다.
+- 수정 허용 범위: runner 구현·해당 테스트·이 작업의 개발 기록만. task queue, service,
+  network, research, PAPER/live, remote는 변경하지 않습니다.
+- 검증: dirty roadmap resume 거부·paused 유지, clean resume 계약, 관련 runner/governance
+  pytest, Ruff, strict mypy, diff check.
+- 중지 조건: 기존 operator hold·scope binding·mandate identity 의미가 바뀌거나 실제
+  runner resume가 필요하면 중단합니다.
