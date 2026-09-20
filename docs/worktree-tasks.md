@@ -10,7 +10,7 @@
   `PublicEvidenceSymbolCoverage`를 기존 catalog 모듈에 추가했습니다. 결과는 catalog
   SHA에 결속되고 `coverage=incomplete`, `economic_acceptance=false`, `pit_proof=false`
   를 강제합니다.
-- 검증: catalog focused pytest 9개, Ruff, diff 검사 통과. strict mypy는 기존 public-
+- 검증: catalog focused pytest 10개, Ruff, diff 검사 통과. strict mypy는 기존 public-
   evidence 의존 모듈의 범위 밖 오류로 non-zero이며 새 계약은 해당 오류를 추가하지
   않았습니다.
 - 실제 재구축 catalog 1,570개 item을 새 계약으로 재생성한 artifact

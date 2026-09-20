@@ -19,7 +19,7 @@
 
 ## 검증
 
-- `pytest backend/tests/test_research_public_evidence_catalog.py -q` — 9 passed
+- `pytest backend/tests/test_research_public_evidence_catalog.py -q` — 10 passed
 - Ruff 변경 파일 — 통과
 - `git diff --check` — 통과
 - strict mypy는 기존 public-evidence 의존 모듈과 catalog builder의 범위 밖 오류가 있어
@@ -30,7 +30,8 @@
 10개 종목 보고서를 생성했습니다. artifact SHA는
 `4d344fc0a3bacab1154106f54a44a5f0db0e44ba914a05c236a40813afca4b49`이며, 기존 sparse
 표현의 audit report와 관측 건수·누락 source를 대조했습니다. 새 계약은 0건 source도 명시해
-누락을 더 직접적으로 보존합니다.
+누락을 더 직접적으로 보존하며, `write_symbol_coverage()`로 동일 계약 JSON을 재현할 수
+있습니다. writer 보강은 main `875b071`에 기록했습니다.
 
 ## 제한
 
