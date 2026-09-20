@@ -18,6 +18,21 @@
 - R4-01~05, 경제 지표, PAPER/live 승격은 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-20-us-market-collection-recheck.md`
 
+## us-action-sec-candidate-preflight-20260920
+
+- 상태: SEC 후보 evidence 확보·manual review/경제 적용 차단
+- 수집 결과: collection에서 `observed_at`이 없는 기업행사 31개 심볼에 대해 SEC ticker map을
+  대조해 31/31 CIK를 찾고, 2025-01-01~2026-09-11 submissions 4,268건(8-K/8-K/A 607건)을
+  별도 audit에 보존했습니다. 심볼별 8-K 후보 26건을 원문으로 읽어 dividend 후보 5건·merger
+  후보 2건만 자동 분류됐습니다.
+- SEC filing candidate는 action 사실·ex-date·권리수량을 증명하지 않으므로 operator-verified
+  `ReviewManifest`를 만들거나 기존 action DB에 적용하지 않았습니다. 후보의 관측시각을 Yahoo
+  event에 전이하지 않았습니다.
+- artifact: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/`
+  (`submission-summary.json` SHA `ffbf5711eb6a2105e0c240a390e11cb43a7230b59a9c8424ad42c84ec4a43995`,
+  `candidate-summary.json` SHA `efe2f2668755095518c8b0454e9f4963b774d83e4c0dc559d74200d98656d054`)
+- 개발 기록: `docs/development-records/2026-09-20-us-action-sec-candidate-preflight.md`
+
 ## canonical-runner-state-recheck-20260920
 
 - 상태: 완료·자동 dispatch 중지 유지
