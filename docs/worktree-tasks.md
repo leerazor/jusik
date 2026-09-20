@@ -2615,6 +2615,18 @@
   Alpha exact match와 SHA 고정을 재시도합니다.
 - 개발 기록: `docs/development-records/2026-09-20-soxl-issuer-dividend-evidence.md`.
 
+## portfolio-session-calendar-stress-v1
+
+- 상태: 완료된 synthetic 기술 검증.
+- 결과: 고정 offline calendar adapter로 holiday, early-close, DST, KRX offset,
+  completed-session cutoff, strict next-open 및 Decimal 회계를 검증했습니다.
+  통합 커밋은 `73134ba46337a2cdc492ae78d0bb3a6691e193a9`입니다.
+- 검증: focused pytest 18 passed. completion/review/integration/publication/cleanup/
+  handoff/archive evidence는 `/home/kwl/.local/share/jusik/portfolio-audit/portfolio-session-calendar-stress-v1-2cb9ec646e18470a8267ef06742562d2/`에 보존했습니다.
+- 제한: synthetic 기술 검증일 뿐 historical PIT·성과·R1 경제 acceptance·PAPER/live를
+  승격하지 않습니다. broker partial/cancel/reject와 자료 완전성은 미해결입니다.
+- 개발 기록: `docs/development-records/2026-09-20-portfolio-session-calendar-stress.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
