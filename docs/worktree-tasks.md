@@ -263,6 +263,8 @@
 - 투자자 stale 기대 2개, historical guarded-variant SHA pin 1개, frozen archive calendar hash 1개를
   개별 재현했습니다. 이번 경제 경로와 무관하므로 production guard·historical artifact를 임의 변경하지
   않았습니다.
+- `2026-09-20T13:33:00+09:00` 전체 회귀 재실행도 `1695 passed, 4 failed, 2 warnings`로
+  동일한 네 실패를 재현했으며, 신규 회귀는 확인되지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-regression-failure-audit.md`
 
 ## action-review-state-recheck-20260920
