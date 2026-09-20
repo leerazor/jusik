@@ -2,9 +2,9 @@
 
 ## sec-assisted-draft-kis-cost-krx-status-20260920
 
-- 상태: SEC 초안 생성 완료·한투 비용 근거 기록·KRX 상태 자료 추가 수집 대기
-- SEC priority 8건의 원문 SHA/후보 문맥을 별도 assistance packet으로 묶고, 검증 가능한 미확인 form 초안을 생성했습니다. 사실·operator verification·ledger 적용은 비워 두었습니다.
-- 한투 공식 표에서 뱅키스 국내 온라인 KRX 0.0140527%, NXT 0.0130527%(2025-10-27 기준), 미국 온라인 0.25%와 매도 SEC fee 0.00206%, 국내 KRX 매도 세금 합계 0.23%를 확인했습니다. 계좌·기간·상품 결속 전에는 기존 modeled rate를 바꾸지 않습니다.
+- 상태: SEC 4 action/4 exclude 초안 완료·한투 뱅키스 온라인 범위 선택·KRX 상태 자료 추가 수집 대기
+- SEC priority 8건 중 ADAMI/AVX/IMUX 관련 filing/RWT compensation filing 4건은 명백한 false positive 사유로 exclude하고, BMRC/RWT dividend·ATXG/IMUX split 4건은 보이는 사실만 action 초안에 채웠습니다. 미확정 ex-date·hash·operator verification 때문에 validator는 계속 `ready=false`입니다.
+- 한투 공식 표에서 뱅키스 국내 온라인 KRX 0.0140527%, NXT 0.0130527%(2025-10-27 기준), 미국 온라인 0.25%와 매도 SEC fee 0.00206%, 국내 KRX 매도 세금 합계 0.23%를 확인했습니다. 사용자 선택 A(뱅키스 온라인)를 audit 범위로 고정했지만 과거 frozen modeled rate는 변경하지 않습니다.
 - KRX 2026-06-29 zero OHLCV 29건은 공식 관리종목 지정 내역의 별도 상태 자료와 대조해야 하므로 보간·거래정지 추론 없이 `insufficient`를 유지합니다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-form.assisted-draft.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260920-kis-cost-source-audit/sources.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260920-krx-zero-status-source-audit/report.json`
 - 개발 기록: `docs/development-records/2026-09-20-sec-draft-kis-cost-krx-status.md`

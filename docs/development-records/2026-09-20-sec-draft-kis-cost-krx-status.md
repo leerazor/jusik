@@ -1,6 +1,6 @@
 # SEC assisted draft, KIS cost source audit, and KRX zero-status boundary
 
-- 상태: 완료·외부 operator/status evidence 대기
+- 상태: SEC action/exclude 초안 완료·외부 PIT/status evidence 대기
 - 기록 시각: 2026-09-20T00:00:00Z
 - 작업 slug: `sec-assisted-draft-kis-cost-krx-status-20260920`
 - 기준/통합: `d66249e` / 다음 통합 커밋
@@ -8,7 +8,7 @@
 
 ## 변경과 결정
 
-- SEC `pure-action-review-assistance.json`은 priority 8건의 accession/symbol/kind/source URL/raw SHA/후보 문맥을 보존하고 모든 행을 `review_required`로 표시합니다. `pure-action-review-form.assisted-draft.json`은 기존 8행 form의 구조를 유지하되 모든 facts와 `operator_verified`를 미완성으로 둡니다.
+- SEC `pure-action-review-assistance.json`은 priority 8건의 accession/symbol/kind/source URL/raw SHA/후보 문맥을 보존합니다. 명백한 false positive 4건은 `exclude`와 사유를 기록했고, BMRC/RWT/ATXG/IMUX 4건은 원문에 직접 보이는 금액·비율·일부 날짜만 action 초안에 채웠습니다. ex-date, revision/content hash, 최종 operator verification은 비워 두었습니다.
 - 한투 뱅키스 국내 온라인 표는 2025-10-27 기준 KRX 0.0140527%, NXT 0.0130527%이고, 미국 온라인은 0.25% 및 매도 SEC fee 0.00206%입니다. 국내 KRX 매도 세금 표시는 증권거래세 0.08% + 농어촌특별세 0.15% = 0.23%입니다. 계좌·주문채널·거래일·상품에 대한 연구 계약 결속이 없으므로 기존 modeled rate를 공식값으로 대체하지 않았습니다.
 - KRX zero OHLCV 29건은 KRX 관리종목 지정 내역 화면이 제공하는 일자·종목·지정사유·시세 컬럼과 정규장 09:00~15:30 설명을 근거로 별도 status 원문이 필요한 상태로 남겼습니다. 상태 원문 없이 거래정지/무거래를 확정하거나 bar를 보간하지 않습니다.
 
@@ -31,8 +31,8 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/`; form SHA `6e43d3f62deccc34211217fc35ee0ba3bf2daa03b1b9292c2fc1355fa9dae383`; assistance SHA `f22bd21af8edf2199cbb97954ae767131264077988acc7d3caf1eef44c3355ca`
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-kis-cost-source-audit/sources.json`; SHA `0678ec1d01da46976d629976c48386a8f73340ca0edf604cfb63c75ba208c01c`
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/`; assisted form SHA `112909452f9f19f2659d6999e102fe1dc2de45ce9a27533a031baa6ffd9672d7`; assistance SHA `f80fc5d02b2bf8bad080abb587ce7a9d94b0c31cab8db48940320442844f875f`
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-kis-cost-source-audit/sources.json`; SHA `9ee18ab9d8e7fabef1a96accdc9ec0b566a2da5d64ed9101cf4519e5069e826d`; selected scope `BanKIS online` (user A)
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-krx-zero-status-source-audit/report.json`; SHA `4b031089fd4985d549d7a49b3a6d4ab3c330eb3c522eb59454aef027cd28466d`
 - 남은 조건: SEC operator가 8건을 action/exclude로 확인하고 필수 facts·revision/content hash·PIT link를 입력해야 합니다. KIS는 계좌/채널/거래일을 확정해야 비용 계약에 반영할 수 있습니다. KRX는 29개 종목의 날짜별 공식 status 원문이 있어야 readiness를 올릴 수 있습니다.
 - 다음 시작: SEC form을 operator 입력으로 갱신하거나, KRX status 원문을 제한된 날짜·종목으로 수집해 zero 행과 결속합니다.
