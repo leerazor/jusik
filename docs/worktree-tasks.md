@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## roadmap-completion-audit-20260920
+
+- 상태: 완료 audit 작성·경제 acceptance 미완료
+- mandate/runner/source/metrics/KRX/FX/cost/SEC 각 gate를 current main 기준으로 대조했습니다.
+  SEC operator facts, KoreaExim/PIT FX, broker 비용 계약이 준비되기 전에는 성과 승격을 하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-roadmap-completion-audit.md`
+
 ## r2-03-ecb-publication-policy-audit-20260920
 
 - 상태: 공식 공표 일정 확인·FX application 미승격
