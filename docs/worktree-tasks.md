@@ -35,6 +35,7 @@
   2025-09-11, 2025-10-13, 2025-11-11, 2026-04-03은 모두 `no_candidate`; 2026-09-11만
   2026-09-09 관측(age 2)으로 resolve됐습니다.
 - 행 수만으로 historical availability를 주장하지 않고, R2-03/NAV application은 계속 fail-closed입니다.
+- resolver·FRED parser 관련 회귀 테스트는 `29 passed` (128 deselected)입니다.
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-provenance-cutoff-recheck.md`
 
 ## market-cost-diagnostic-reverification-20260920
