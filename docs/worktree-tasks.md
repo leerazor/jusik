@@ -2566,6 +2566,8 @@
 - 상태: 기술 계약 재검증 완료; benchmark/USD 자료 부재로 R3-01 경제 승격 보류.
 - 시장 결과 화면의 KRW NAV/DD 곡선과 USD/KRW·benchmark 확인 불가 상태를 frontend contract,
   ESLint, TypeScript typecheck, production build로 검증했습니다.
+- backend metrics/readiness/NAV reconciliation 회귀를 2026-09-20 재실행해 `88 passed`를
+  확인했습니다. unavailable risk-free·FX·benchmark를 0으로 대체하지 않는 경계를 유지합니다.
 
 ## r4-readiness-gate-verification-20260920
 
