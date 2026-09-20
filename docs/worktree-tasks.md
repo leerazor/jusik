@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## boundary-capture-issue-typing-20260920
+
+- 상태: 완료
+- prospective boundary capture issue code를 `BoundaryIssueCode` literal로 고정했습니다.
+- 검증: boundary capture strict mypy·Ruff 통과, 관련 테스트 `22 passed`
+- 개발 기록: `docs/development-records/2026-09-20-boundary-capture-issue-typing.md`
+
 ## signal-proposal-strict-typing-20260920
 
 - 상태: 완료

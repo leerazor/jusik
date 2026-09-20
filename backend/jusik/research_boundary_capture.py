@@ -62,6 +62,14 @@ CaptureErrorCode = Literal[
     "artifact_invalid",
     "capture_failed",
 ]
+BoundaryIssueCode = Literal[
+    "row_limit",
+    "row_oversize",
+    "total_budget",
+    "invalid_payload",
+    "missing_reference",
+    "observation_limit",
+]
 
 
 def _canonical(value: object) -> str:
@@ -95,14 +103,7 @@ def collector_code_sha256(path: Path | None = None) -> str:
 class BoundaryCaptureIssue(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    code: Literal[
-        "row_limit",
-        "row_oversize",
-        "total_budget",
-        "invalid_payload",
-        "missing_reference",
-        "observation_limit",
-    ]
+    code: BoundaryIssueCode
     table: str = Field(min_length=1, max_length=64)
     count: int = Field(gt=0)
     references: list[str] = Field(default_factory=list, max_length=MAX_ISSUE_REFERENCES)
@@ -358,7 +359,7 @@ class _CaptureBuilder:
 
     def issue(
         self,
-        code: str,
+        code: BoundaryIssueCode,
         table: str,
         references: Sequence[str],
         *,
