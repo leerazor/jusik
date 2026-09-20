@@ -226,3 +226,11 @@ def build_public_evidence_symbol_coverage(
 def write_catalog(catalog: PublicEvidenceCatalog, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(catalog.model_dump_json(indent=2) + "\n", encoding="utf-8")
+
+
+def write_symbol_coverage(
+    report: PublicEvidenceSymbolCoverage, path: Path
+) -> None:
+    """Write a deterministic symbol coverage report without changing its status."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(report.model_dump_json(indent=2) + "\n", encoding="utf-8")

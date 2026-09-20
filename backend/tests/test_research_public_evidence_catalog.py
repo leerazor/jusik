@@ -1,4 +1,6 @@
+import json
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 import pytest
 
@@ -8,6 +10,7 @@ from jusik.research_public_evidence_catalog import (
     PublicEvidenceItem,
     build_public_evidence_catalog,
     build_public_evidence_symbol_coverage,
+    write_symbol_coverage,
 )
 from jusik.research_sec_evidence import parse_sec_submissions
 
@@ -119,6 +122,18 @@ def test_symbol_coverage_preserves_empty_and_unresolved_sources() -> None:
         "alpha_vantage",
         "nasdaq_trader",
         "sec_edgar",
+    )
+
+
+def test_symbol_coverage_writer_is_deterministic(tmp_path: Path) -> None:
+    catalog = build_public_evidence_catalog(
+        symbols=("NVDA",), start=date(2024, 1, 1), end=date(2024, 12, 31)
+    )
+    report = build_public_evidence_symbol_coverage(catalog)
+    path = tmp_path / "coverage.json"
+    write_symbol_coverage(report, path)
+    assert json.loads(path.read_text(encoding="utf-8")) == report.model_dump(
+        mode="json"
     )
 
 
