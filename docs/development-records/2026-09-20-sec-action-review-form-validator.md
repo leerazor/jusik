@@ -19,7 +19,8 @@
 
 ## 검증
 
-- SEC evidence pytest: `11 passed`; Ruff·strict mypy·diff check 통과.
+- SEC evidence pytest: `12 passed`; Ruff·strict mypy·diff check 통과. 정본 queue identity
+  변조와 CLI의 reference-queue 필수 gate 회귀도 확인했습니다.
 - 실제 priority form 8개 검증: source SHA `8/8`, missing `0`, SHA mismatch `0`,
   `ready=false`, exit `2`. 실패 이유는 operator facts·verification·revision/content hash
   누락이며 원문 source gate 실패가 아닙니다.
