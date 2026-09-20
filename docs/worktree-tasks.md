@@ -1,5 +1,22 @@
 # 워크트리 작업 등록부
 
+## r1-symbol-source-coverage-contract-20260920
+
+- 상태: 기술 계약 완료·coverage incomplete 유지
+- 목표: 재구축 public-evidence catalog에서 요청 universe 종목별 source 관측 건수와
+  누락 원인을 결정적으로 보존하고, 빈 자료·unresolved·out-of-universe를 조용히
+  성공시키지 않습니다.
+- 구현: `build_public_evidence_symbol_coverage()`와 `SymbolEvidenceCoverage`/
+  `PublicEvidenceSymbolCoverage`를 기존 catalog 모듈에 추가했습니다. 결과는 catalog
+  SHA에 결속되고 `coverage=incomplete`, `economic_acceptance=false`, `pit_proof=false`
+  를 강제합니다.
+- 검증: catalog focused pytest 9개, Ruff, diff 검사 통과. strict mypy는 기존 public-
+  evidence 의존 모듈의 범위 밖 오류로 non-zero이며 새 계약은 해당 오류를 추가하지
+  않았습니다.
+- 제한: provider 전체 coverage, PIT, 기업행사 권리·가격 증거는 여전히 없습니다.
+  R1-05 checkbox·경제 acceptance·성과/원장/PAPER/live 승격은 변경하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r1-symbol-source-coverage-contract.md`
+
 ## r1-public-evidence-catalog-integrity-audit-20260920
 
 - 상태: 기술 재구축 완료·coverage incomplete 유지

@@ -4,7 +4,11 @@ import pytest
 
 from jusik.research_alpha_actions import parse_alpha_actions
 from jusik.research_public_evidence import parse_nasdaq_halt_rss
-from jusik.research_public_evidence_catalog import build_public_evidence_catalog
+from jusik.research_public_evidence_catalog import (
+    PublicEvidenceItem,
+    build_public_evidence_catalog,
+    build_public_evidence_symbol_coverage,
+)
 from jusik.research_sec_evidence import parse_sec_submissions
 
 
@@ -58,6 +62,64 @@ def test_catalog_joins_sources_deduplicates_and_stays_incomplete() -> None:
     assert sec_refs == {"NVDA"}
     assert catalog.observed_item_count == 3
     assert len(catalog.catalog_sha256) == 64
+
+    report = build_public_evidence_symbol_coverage(catalog)
+    assert report.catalog_sha256 == catalog.catalog_sha256
+    assert report.coverage == "incomplete"
+    assert report.economic_acceptance is False
+    assert report.pit_proof is False
+    assert report.symbols["NVDA"].missing_sources == ()
+    assert report.symbols["SOXL"].missing_sources == (
+        "alpha_vantage",
+        "nasdaq_trader",
+        "sec_edgar",
+    )
+
+
+def test_symbol_coverage_rejects_out_of_universe_items() -> None:
+    catalog = build_public_evidence_catalog(
+        symbols=("NVDA",),
+        start=date(2024, 1, 1),
+        end=date(2024, 12, 31),
+    )
+    item = catalog.model_copy(
+        update={
+            "items": (
+                PublicEvidenceItem(
+                    source="sec_edgar",
+                    instrument_ref="OTHER",
+                    event_kind="8-K",
+                    event_date=date(2024, 1, 2),
+                    observed_at=datetime(2026, 9, 20, 1, tzinfo=UTC),
+                    source_url="https://example.invalid/source",
+                    raw_sha256="a" * 64,
+                ),
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="catalog_item_symbol_not_requested"):
+        build_public_evidence_symbol_coverage(item)
+
+
+def test_symbol_coverage_preserves_empty_and_unresolved_sources() -> None:
+    catalog = build_public_evidence_catalog(
+        symbols=("NVDA", "SOXL"),
+        start=date(2024, 1, 1),
+        end=date(2024, 12, 31),
+        unresolved_symbols=("SOXL",),
+    )
+    report = build_public_evidence_symbol_coverage(catalog)
+    assert report.requested_symbols == ("NVDA", "SOXL")
+    assert report.symbols["NVDA"].source_counts == {
+        "alpha_vantage": 0,
+        "nasdaq_trader": 0,
+        "sec_edgar": 0,
+    }
+    assert report.symbols["SOXL"].missing_sources == (
+        "alpha_vantage",
+        "nasdaq_trader",
+        "sec_edgar",
+    )
 
 
 def test_catalog_rejects_nasdaq_halt_outside_requested_symbols() -> None:

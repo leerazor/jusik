@@ -50,6 +50,28 @@ class PublicEvidenceCatalog(BaseModel):
     catalog_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+PUBLIC_EVIDENCE_SOURCES = ("alpha_vantage", "nasdaq_trader", "sec_edgar")
+
+
+class SymbolEvidenceCoverage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source_counts: dict[str, int]
+    missing_sources: tuple[str, ...]
+
+
+class PublicEvidenceSymbolCoverage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    catalog_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    requested_symbols: tuple[str, ...]
+    coverage: Literal["incomplete"] = "incomplete"
+    economic_acceptance: Literal[False] = False
+    pit_proof: Literal[False] = False
+    symbols: dict[str, SymbolEvidenceCoverage]
+
+
 def _require_requested_symbol(symbol: str, requested: tuple[str, ...]) -> None:
     if symbol not in requested:
         raise ValueError("evidence_symbol_not_requested")
@@ -163,6 +185,41 @@ def build_public_evidence_catalog(
     return PublicEvidenceCatalog(
         **provisional,
         catalog_sha256=digest,
+    )
+
+
+def build_public_evidence_symbol_coverage(
+    catalog: PublicEvidenceCatalog,
+) -> PublicEvidenceSymbolCoverage:
+    """Summarize observed source rows per requested symbol without promotion."""
+    requested = tuple(catalog.requested_symbols)
+    if requested != tuple(sorted(set(requested))):
+        raise ValueError("catalog_requested_symbols_not_canonical")
+    counts = {
+        symbol: {source: 0 for source in PUBLIC_EVIDENCE_SOURCES}
+        for symbol in requested
+    }
+    for item in catalog.items:
+        if item.instrument_ref not in counts:
+            raise ValueError("catalog_item_symbol_not_requested")
+        if item.source not in PUBLIC_EVIDENCE_SOURCES:
+            raise ValueError("catalog_item_source_not_supported")
+        counts[item.instrument_ref][item.source] += 1
+    symbols = {
+        symbol: SymbolEvidenceCoverage(
+            source_counts=counts[symbol],
+            missing_sources=tuple(
+                source
+                for source in PUBLIC_EVIDENCE_SOURCES
+                if counts[symbol][source] == 0
+            ),
+        )
+        for symbol in requested
+    }
+    return PublicEvidenceSymbolCoverage(
+        catalog_sha256=catalog.catalog_sha256,
+        requested_symbols=requested,
+        symbols=symbols,
     )
 
 
