@@ -2453,9 +2453,17 @@
 - 수동 검증 충돌을 막기 위해 runner를 pause하고 service/timer를 중지했습니다. 확인 시
   timer도 disable했습니다. `paused=true`, service/timer `inactive`·`disabled`,
   queued/running task 0개이며 자동 재개하지 않습니다.
+- 후속 hardening: main `3ccb8ea`에서 parent descriptor와 manifest 경로 exact binding을
+  통합했고, 독립 review가 발견한 gate 소비 TOCTOU를 `6db5b16`에서 보강했습니다.
+  gate는 root의 모든 구성요소를 `O_NOFOLLOW` held descriptor로 열고 child/manifest를
+  root descriptor 기준으로 읽습니다. 조상 symlink alias 회귀를 포함한 R7 isolation/gate
+  focused pytest 15개, Ruff, diff 검사가 통과했습니다. 기존 저장소 범위 밖 mypy 오류는
+  그대로 기록하며 R7 경제 acceptance는 변경하지 않습니다.
 - 제한: untouched OOS 단회 판정과 독립 reviewer 승인 전에는 stress/PAPER 경제 승격을
   하지 않습니다. 실제 연구·network·주문·PAPER/live 설정 변경·remote push는 없습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r7-isolation-safety-verification.md`.
+- 후속 기록: `docs/development-records/2026-09-20-r7-isolation-hardening-followup.md`,
+  `docs/development-records/2026-09-20-r7-isolation-toctou-followup.md`.
 
 ## r1-02-krx-prefix-invariance-20260920
 

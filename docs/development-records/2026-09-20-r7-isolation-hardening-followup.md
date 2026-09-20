@@ -3,7 +3,7 @@
 - 상태: 완료된 fail-closed 보강
 - 기록 시각: 2026-09-20T02:00:00Z
 - 작업 slug: `r7-isolation-hardening-followup-20260920`
-- 기준/통합: `3e4b33f` / 별도 worktree 커밋
+- 기준/통합: `3e4b33f` / main `3ccb8ea`
 - 범위: R7 isolation workspace 생성·manifest 소비 경계만 보강했으며, simulation,
   PAPER/live, 주문, runner와 retrospective source 내용은 변경하지 않았습니다.
 
@@ -37,3 +37,7 @@
 - audit: 없음; manifest: 없음; hash: 코드·테스트 diff로 검증했습니다.
 - 남은 작업·차단 조건: R7 경제 평가와 PAPER 결정은 여전히 사전등록 OOS·자료·독립 review에 의해 차단됩니다.
 - 다음 시작: main 통합 전 focused R7 검증과 독립 review 결과를 다시 확인합니다.
+
+후속 TOCTOU 보강은 `docs/development-records/2026-09-20-r7-isolation-toctou-followup.md`와
+main commit `6db5b16`에 기록했습니다. 최종 focused R7 검증은 15 passed이며, gate 소비도
+held descriptor와 `O_NOFOLLOW` 기준으로 수행합니다.
