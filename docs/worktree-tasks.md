@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## alert-signal-strict-typing-20260920
+
+- 상태: 완료
+- alert store가 `buy_review | sell_review`만 저장하도록 runtime 조건 뒤 literal narrowing을
+  추가했습니다. `hold/insufficient`는 계속 저장하지 않습니다.
+- 검증: alert store strict mypy·Ruff 통과, 관련 테스트 `2 passed`
+- 개발 기록: `docs/development-records/2026-09-20-alert-signal-strict-typing.md`
+
 ## news-category-strict-typing-20260920
 
 - 상태: 완료

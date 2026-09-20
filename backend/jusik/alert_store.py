@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal, cast
 
 from jusik.models import Alert, Holding
 
@@ -62,6 +63,7 @@ class AlertStore:
             )
             if signal not in {"buy_review", "sell_review"} or not changed:
                 return None
+            alert_signal = cast(Literal["buy_review", "sell_review"], signal)
             title = f"{holding.name} {holding.advice.label} 신호"
             message = " ".join(holding.advice.reasons)
             cursor = connection.execute(
@@ -74,7 +76,7 @@ class AlertStore:
                     holding.market,
                     holding.symbol,
                     holding.name,
-                    signal,
+                    alert_signal,
                     title,
                     message,
                     now,
@@ -89,7 +91,7 @@ class AlertStore:
             market=holding.market,
             symbol=holding.symbol,
             name=holding.name,
-            signal=signal,
+            signal=alert_signal,
             title=title,
             message=message,
             created_at=datetime.fromisoformat(now),
