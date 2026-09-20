@@ -15,6 +15,13 @@
 - 최근 SEC/KIS/KRX audit 결과, 실제 `.env` KRX 키 검증, 최신 커밋과 개발 기록의 상태·hash·다음 작업을 대조했습니다. SEC `ready=true`, KIS BanKIS online 선택, KRX daily API HTTP 200 및 별도 status 권한 대기를 정본 문서에 반영했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-documentation-consistency-audit.md`
 
+## krx-status-evidence-adapter-20260920
+
+- 상태: 완료·공식 status payload 대기
+- 네트워크 호출과 분리된 `parse_krx_status_evidence()`를 추가해 공식 KRX status payload의 날짜·종목·명시적 상태를 검증합니다. 대상 종목이 누락되거나 중복되면 `insufficient`이며, 누락을 정상 상태로 해석하지 않습니다.
+- 검증: KRX status/collector `148 passed`, Ruff, strict mypy, diff check 통과.
+- 개발 기록: `docs/development-records/2026-09-20-krx-status-evidence-adapter.md`
+
 ## sec-explicit-exclusion-disposition-20260920
 
 - 상태: 완료·operator review gate 보강
