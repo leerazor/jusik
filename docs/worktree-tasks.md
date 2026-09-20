@@ -25,8 +25,8 @@
 - 병합 직전 main SHA: `cf99086`
 - 통합 커밋 SHA와 정리 여부: `fe4b1a5`; 검증 후 전용 워크트리 정리 예정
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
-- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-20-canonical-time-evidence-sidecar.md` 갱신 필요
-- handoff 저장 경로와 갱신 여부: 현재 세션 handoff에 통합 SHA와 다음 작업을 반영
+- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-20-canonical-time-evidence-sidecar.md` 갱신 완료
+- handoff 저장 경로와 갱신 여부: `HANDOFF.md` 갱신 완료
 
 ## public-evidence-collectors-20260920
 
