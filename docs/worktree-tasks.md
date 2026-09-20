@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## action-receipt-time-typing-20260920
+
+- 상태: 완료
+- action receipt preflight가 검증된 UTC datetime을 `EvidenceInput.captured_at`에 전달하도록
+  정리했습니다. 문자열 cast와 timestamp 계약 우회 가능성을 제거했습니다.
+- 검증: preflight strict mypy·Ruff 통과, 관련 테스트 `34 passed`
+- 개발 기록: `docs/development-records/2026-09-20-action-receipt-time-typing.md`
+
 ## runner-progress-strict-typing-20260920
 
 - 상태: 완료

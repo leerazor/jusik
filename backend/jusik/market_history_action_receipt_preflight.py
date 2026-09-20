@@ -616,7 +616,7 @@ def _review_content_hash(
         source_url=cast(str, evidence["source_url"]),
         publisher=cast(str, evidence["publisher"]),
         locator=cast(str, row["locator"]),
-        captured_at=cast(str, evidence["captured_at"]),
+        captured_at=_utc(evidence["captured_at"], "evidence.captured_at"),
     )
     content = {
         "revision_id": row["revision_id"],
