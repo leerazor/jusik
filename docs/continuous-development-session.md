@@ -2,18 +2,17 @@
 
 ## Session
 
-- status: completed
-- started_at: 2026-09-19T23:22:09+09:00
-- deadline_at: 2026-09-20T02:22:09+09:00
-- requested_shutdown: windows
+- status: active
+- started_at: 2026-09-20T10:17:00+09:00
+- deadline_at: 2026-09-20T13:17:00+09:00
+- requested_shutdown: none
 
-The bounded session ended at `deadline_at`. A later session must update this
-document with a new explicit start/deadline before relying on automatic
-continuous execution.
+This is a new bounded session approved by the continuing roadmap objective.
+The runner remains paused; work is performed manually with the same gates.
 
 ## Operating policy
 
-Continue the investment-roadmap work automatically until `deadline_at`. When a
+Continue the investment-roadmap work until `deadline_at`. When a
 task fails, inspect the durable attempt evidence, distinguish an actionable
 code/test/tool defect from missing external evidence, and repair actionable
 defects before retrying. Do not wait for another manual instruction for bounded
