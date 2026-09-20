@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## r2-02-kiwoom-source-audit-20260920
+
+- 상태: 공식 일부 원천 확인·시장/계좌 비용 계약 미완료
+- Kiwoom 공식 현재 안내에서 국내 KRX `0.015%`, NXT `0.0145%` 표기를 확인했지만,
+  미국 요율·SEC fee·계좌별 우대·유효기간을 현재 연구 계약으로 결속할 수 없어 modeled
+  rate를 변경하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-02-kiwoom-source-audit.md`
+
 ## sec-review-source-gate-20260920
 
 - 상태: 기술 source gate 완료·수동 action review 대기
