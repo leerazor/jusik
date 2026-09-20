@@ -4,6 +4,8 @@
 - 기록 시각: 2026-09-20T02:30:00Z
 - 작업 slug: `r3-01-market-curves-20260920`
 - 통합 commit: `e3580e2`
+- 사용자 계약 문서도 `docs/market-research-contract.md`에 파생 USD 수익률과 빈
+  benchmark 곡선의 fail-closed 표시 규칙으로 갱신했습니다.
 
 ## 변경과 결정
 

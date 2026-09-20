@@ -55,7 +55,7 @@ source identity는 `fixture`, `krx`, `massive`, `yahoo`, `alpha_vantage`, `fred`
 
 상세 화면은 `equity`에 저장된 `nav_krw`와 `drawdown_pct`를 평가 기간 안의 실제 `YYYY-MM-DD` session 순서 그대로 표시합니다. 날짜가 달력상 유효하지 않거나 요청 기간 밖이거나 엄격히 증가하지 않으면 해당 곡선 전체를 확인 불가로 두며, 행을 정렬하거나 복구하지 않습니다. 유한한 Decimal 숫자로 읽을 수 없는 값은 `null` 구간으로 남겨 선을 끊습니다. 빈 시계열은 확인 불가이고 유효한 점이 하나면 점으로 표시합니다. 0과 음수 NAV는 저장된 signed 값을 보존하며, 음수 낙폭은 잘못된 값으로 구분합니다. 100%를 넘는 유한 낙폭은 임의로 제한하지 않습니다. 좌표 계산의 overflow·비유한 값은 SVG에 전달하지 않습니다.
 
-저장 NAV와 기록 낙폭은 회계 재검산 또는 DD latch 검증 결과가 아닙니다. account의 양의 유한 `initial_cash_krw`가 request와 Decimal 의미로 일치하고 reporting currency·native currency·initial conversion 및 각 session의 FX 근거가 맞을 때만 저장 NAV별 원화 수익률을 계산해 표시합니다. US account에서 account 또는 개별 session FX가 없으면 저장 NAV·낙폭은 계속 표시할 수 있지만 원화 수익률은 확인 불가입니다. USD 초기 자본 계약과 benchmark 자료가 없으므로 USD 수익률과 benchmark 비교는 확인 불가로 표시합니다. account metadata가 없는 legacy 결과도 저장 곡선은 표시할 수 있으며 수익률은 확인 불가입니다.
+저장 NAV와 기록 낙폭은 회계 재검산 또는 DD latch 검증 결과가 아닙니다. account의 양의 유한 `initial_cash_krw`가 request와 Decimal 의미로 일치하고 reporting currency·native currency·initial conversion 및 각 session의 FX 근거가 맞을 때만 저장 NAV별 원화 수익률을 계산해 표시합니다. US account에서 account 또는 개별 session FX가 없으면 저장 NAV·낙폭은 계속 표시할 수 있지만 해당 수익률은 확인 불가입니다. US account의 초기 환율과 각 session FX·NAV가 모두 유효하면 저장 NAV를 USD로 환산한 수익률을 같은 기간에 표시하며, 이는 저장된 평가값의 파생 표시입니다. benchmark 자료 계약이 없으면 같은 기간의 빈 benchmark 곡선과 비교 불가 사유를 표시하고 값을 합성하지 않습니다. account metadata가 없는 legacy 결과도 저장 곡선은 표시할 수 있으며 수익률은 확인 불가입니다.
 
 ## 시간 의미
 
