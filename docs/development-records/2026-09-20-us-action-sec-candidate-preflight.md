@@ -22,6 +22,7 @@
 - 후보 52건을 `event-near-review-queue.json`으로 결속했습니다. queue SHA-256은
   `5d22bf07625916859cb42c56fa2e3929caeae946e2f67248a634931b4c96f90f`이며 모든 item은
   `unsupported_candidate`와 `automatic_ledger_application=false`를 가집니다.
+- 검증: SEC/evidence/action focused pytest `36 passed` (비차단 warning 2건)
 
 ## 판정
 
