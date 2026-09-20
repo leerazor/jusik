@@ -3179,6 +3179,8 @@
 - 제한: 현재 `.env`에 Korea Eximbank 서비스키가 없어 실제 자료 수집은 수행하지 않았습니다.
   publication timestamp 계약이 확인될 때까지 R2-03 FX application과 성과 산출은 승격하지
   않습니다.
+- 공식 발급 경로 재확인: 공공데이터포털의 한국수출입은행 환율 정보는 무료·개발/운영
+  자동승인으로 표시되며 신규 요청 도메인은 `oapi.koreaexim.go.kr`입니다.
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`.
 
 ## research-reference-status-sync-20260920

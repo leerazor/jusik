@@ -40,5 +40,9 @@
 
 - 남은 작업·차단 조건: publication/availability timestamp가 있는 FX 원천 또는 승인된 보수적 publication policy가 필요합니다. ECOS API key를 확보하면 BOK 원/달러 종가 계약을 별도로 검증할 수 있습니다. 한국수출입은행 환율 Open API도 무료 대안 후보이며, 신규 `oapi.koreaexim.go.kr` endpoint와 서비스키 신청이 필요하고 실제 공표시각 계약은 별도 확인해야 합니다.
 - 서비스키 없이 신규 endpoint를 bounded 호출한 결과는 HTTP 200이지만 `result=3`이고 모든 환율 필드가 null이었습니다. 이는 인증키 부족 증거이며 자료 관측으로 사용하지 않습니다. 응답 SHA-256은 `737f0e0235e82006eaabd9a2fa91dd30f42167d655335fe0cc3b6c24511023e2`입니다.
+- 2026-09-20 공식 공공데이터포털 페이지를 재확인했습니다. API는 무료이고 개발·운영
+  활용신청이 자동승인으로 표시되며, 요청 URL은 기존 도메인에서
+  `oapi.koreaexim.go.kr`로 변경되었습니다. 발급·약관 상태의 근거는
+  [한국수출입은행 환율 정보](https://www.data.go.kr/data/3068846/openapi.do)입니다.
 - 향후 키가 제공될 때의 재사용을 위해 `parse_koreaexim_exchange_response()`와 `KOREAEXIM_URL` 상수를 추가했습니다. parser는 성공한 단일 USD row만 허용하고 키 오류·누락·비수치 rate를 fail-closed하며 기본 availability를 다음 UTC 자정으로 둡니다. 선택형 network collector는 일별 `searchdate` 요청만 준비하며, 실제 키가 없으면 호출하지 않습니다. 경제 결과에는 아직 연결하지 않았습니다.
 - 다음 시작: 사용자가 ECOS Open API key를 제공하면 bounded canonical probe를 수행하고, 그 전에는 SEC action review를 계속 진행합니다.
