@@ -12,6 +12,10 @@
   이전 `17a93d…` 값은 과거 재검증 기록에만 남겨 당시 상태를 보존합니다.
 - mandate/governance 및 roadmap loader pytest는 `37 passed`입니다. service는 `inactive`, timer는
   `disabled`이며 dispatch·자료 수집·주문은 실행하지 않았습니다.
+- 전용 config로 bounded `development_runner run-once`를 실행한 결과는
+  `{"status":"paused","task_id":null,"attempt_id":null,"reason":null}`이었습니다. child
+  claim/attempt/launch는 생성되지 않았고, 실행 후에도 service inactive·timer disabled를
+  확인했습니다.
 
 ## 판정
 

@@ -7,6 +7,8 @@
   `ca5da89078bcc956259e4704b7ae46d02f22140c6ed9eed7b991dd34ce014f16`입니다.
 - governance/roadmap loader pytest `37 passed`, service inactive, timer disabled를 확인했습니다.
   과거 `17a93d...` digest는 당시 기록 보존용이며 현재 gate는 실행 시점에 다시 계산합니다.
+- 전용 config의 bounded `run-once`는 `status=paused`, `task_id=null`, `attempt_id=null`로
+  종료되어 child dispatch를 만들지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-canonical-governance-digest-recheck.md`
 
 ## r6-krx-malformed-row-diagnostics-20260920
