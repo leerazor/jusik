@@ -2600,3 +2600,15 @@
   증거·PIT/coverage 차단 조건을 개발 기록에 고정했습니다.
 - 검증: `git diff --check`, mandate/runner 상태 확인. 코드·자료·원장·PAPER/live 변경 없음.
 - 개발 기록: `docs/development-records/2026-09-20-r1-roadmap-status-synchronization.md`.
+
+## canonical-readiness-blocker-recheck-20260920
+
+- 상태: 완료 (읽기 전용 재검증)
+- 목표와 완료 조건: canonical readiness를 현재 artifact 기준으로 재실행해 실제 남은
+  missing code를 고정하고, 오래된 handoff의 누락 세션 설명과 현재 판정을 구분합니다.
+- 결과: `blocked`, `ready_for_metrics=false`, `economic_evaluation=not-evaluated`;
+  `missing_initial_capital_at`, `missing_nav_timestamps`, `missing_risk_free_evidence`.
+- 검증 경로: canonical run·session evidence·manifest·tracked calendar와
+  `diagnose_canonical_run()` 직접 호출.
+- 제한: anchor/timestamp/무위험률을 추정하거나 성과·hard filter·PAPER/live를 승격하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-canonical-readiness-blocker-recheck.md`.
