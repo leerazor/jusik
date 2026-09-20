@@ -120,6 +120,9 @@
 - 제한: provider 전체 coverage/PIT·경제 acceptance·한국 benchmark는 미증명이며 R6-03/R6-04와
   미국 결과 결합을 진행하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r6-krx-diagnostics.md`
+- 2026-09-20 재검증: KRX/approximate 관련 focused 회귀 `22 passed`(160 deselected, 경고 2건),
+  실제 cache CLI는 exit 2·HTTP 200·946 membership·917 valid bar·29 zero/missing·readiness
+  `insufficient`을 재현했습니다.
 
 ## r3-01-market-curves-20260920
 
