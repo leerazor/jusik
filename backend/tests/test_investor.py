@@ -22,6 +22,7 @@ from jusik.investor_models import (
     ValuationAssumptions,
 )
 from jusik.investor_store import InvestorStore, ThesisConflictError
+from jusik.research_market_calendar import default_market_calendar
 
 
 def _instrument(kind: str = "stock") -> Instrument:
@@ -328,17 +329,19 @@ def test_fixture_investor_routes() -> None:
 
 
 def test_review_closed_takes_priority_and_watch_is_not_sell_signal() -> None:
+    now = datetime(2026, 9, 18, 3, tzinfo=UTC)
     analysis = analyze(
         _instrument(),
         QuoteFact(
             price=Decimal("50"),
             currency="KRW",
-            fetched_at=datetime.now(UTC),
+            fetched_at=now,
             source="fixture",
-            as_of=datetime.now(UTC),
+            as_of=now,
         ),
         FundamentalFacts(),
         TrendFacts(deterioration_observed=True),
+        now=now,
     )
     closed = Thesis(
         **ThesisWrite(
@@ -1051,13 +1054,17 @@ def test_provider_analyzes_quote_after_yahoo_fetch(
     ) -> tuple[TrendFacts, str, QuoteFact]:
         await asyncio.sleep(0.01)
         fetched_at = datetime.now(UTC)
+        latest = default_market_calendar().latest_completed_session(
+            instrument.exchange, fetched_at
+        )
+        assert latest is not None
         return (
             TrendFacts(source="fixture"),
             "stock",
             QuoteFact(
                 price=Decimal("100"),
                 currency="KRW",
-                as_of=fetched_at,
+                as_of=latest.close_at,
                 fetched_at=fetched_at,
                 source="fixture",
             ),

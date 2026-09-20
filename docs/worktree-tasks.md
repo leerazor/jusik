@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## investor-session-fixture-determinism-20260920
+
+- 상태: 완료
+- 투자자 freshness 테스트가 실행일의 주말/장외 시각에 의존해 2건 실패하던 문제를 고정 완료 세션과 최신 완료 세션 종가 fixture로 교정했습니다. stale 정책과 운영 코드는 완화하지 않았습니다.
+- 검증: `test_investor.py` `25 passed`, Ruff 통과. runner/service 상태는 변경하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-investor-session-fixture-determinism.md`
+
 ## full-backend-strict-typing-20260920
 
 - 상태: 완료
