@@ -6,8 +6,8 @@
 - 연구 기간 이후의 `occurred_at`·`known_at` 이벤트와 시가 이후에 알려진 사건이 과거
   거래·equity·affected decision을 바꾸거나 시가 체결을 소급 차단하지 않는 회귀 fixture와
   `known_at <= fill_at` 실행 조건을 추가했습니다.
-- 검증: `test_research_engine.py` 14 passed, Ruff, `git diff --check`; strict mypy는 기존
-  인접 모듈 오류 5개로 실패(변경 파일 신규 오류 없음)
+- 검증: `test_research_engine.py` 14 passed 및 인접 회계/근사자료 회귀 78 passed, Ruff,
+  `git diff --check`; strict mypy는 기존 인접 모듈 오류 5개로 실패(변경 파일 신규 오류 없음)
 - 실제 기업행사·상장폐지·중단일 자료와 action ledger는 변경하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r1-02-future-event-invariance.md`
 

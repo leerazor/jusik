@@ -25,6 +25,8 @@
 - `backend/.venv/bin/ruff check backend/jusik/research_engine.py backend/tests/test_research_engine.py` — 통과
 - strict mypy는 기존 `research_config.py`·`research_data.py`의 5개 타입 오류로 실패했으며,
   이번 변경 파일의 신규 오류는 확인되지 않았습니다.
+- 인접 회귀 묶음 `test_market_loss_accounting.py test_research_engine.py
+  test_market_history_approximate.py` — 78 passed, 2 warnings
 - `git diff --check` — 통과
 
 ## 제한·다음 조건
