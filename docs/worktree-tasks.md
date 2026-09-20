@@ -2532,6 +2532,16 @@
   없으므로 R1-04/R1-05 checkbox, ledger, 성과, readiness는 변경하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-nvda-issuer-action-evidence.md`.
 
+## sec-etf-identity-evidence-20260920
+
+- 상태: SOXL/TQQQ identity candidate 확보·R1-05 승격 보류.
+- 결과: SEC 공식 filing index에서 `SOXL→0001424958`(Direxion Daily Semiconductor Bull
+  3X Shares), `TQQQ→0001174610`(ProShares UltraPro QQQ)을 확인하고 raw/SHA를 보존했습니다.
+- 제한: target-period filing coverage, PIT, 상장폐지·중단일·권리 경계는 아직 미확인입니다.
+  기존 catalog `coverage=incomplete`와 unresolved 표시를 유지합니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-etf-identity-evidence/`.
+- 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
