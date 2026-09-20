@@ -2568,7 +2568,7 @@
 
 ## r1-diagnostics-all-failed-boundary-20260920
 
-- 상태: 진행
+- 상태: 완료 (기술 slice); R1-05 경제 acceptance는 미완료
 - 목표와 완료 조건: `CollectionDiagnostics` 직렬화 입력에서 `all_failed=true`인데
   `symbols`·실패 원인·제외 정보가 모두 비어 있는 payload를 fail-closed로 거부합니다.
   정상 diagnostics와 coverage/incomplete 의미를 보존하며 R1-05 경제 acceptance와
@@ -2583,3 +2583,10 @@
 - 검증: 빈 all-failed payload 거부와 정상/aggregate coverage 회귀, focused pytest, Ruff,
   strict mypy, diff check. 자료 coverage와 경제 not-evaluated를 유지합니다.
 - 중지 조건: 기존 prepared artifact hash나 R0 계약 변경이 필요하면 중단하고 원인과 재개 조건을 기록합니다.
+- 결과 커밋: 구현 `a59d6a0`, local `main` 통합 커밋 `e32e085961cd8d0337b1edbd766f12c21c24c4d7`.
+- 독립 검토: material finding 없음. 빈 `all_failed` payload 거부와 유효한 다중 심볼
+  round-trip을 확인했습니다.
+- 통합 검증: approximate/collector/catalog `187 passed, 2 warnings`, Ruff check,
+  변경 모듈 strict mypy, `git diff --check` 통과. 기존 포맷 부채 4곳은 자동 수정하지 않았습니다.
+- 정리: 통합 검증 후 worktree와 브랜치를 제거합니다. 기존 미추적 `HANDOFF.md`는 보존합니다.
+- 제한: 실제 자료 coverage·PIT·경제 acceptance·R1 checkbox·원장·NAV·성과·PAPER/live는 변경하지 않았습니다.
