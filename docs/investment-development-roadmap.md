@@ -190,6 +190,9 @@ R3는 R0 계약이 정한 기존 자료만 읽어 화면에 보여주는 작업�
 R4는 R1·R2와 독립 review가 끝난 뒤 동일한 고정 정책으로 미국 1년을 다시 실행한다. 무료 자료·기존 cache를 먼저 audit하고, 자료가 부족할 때만 최소 수집을 추가한다. R3 UI는 연구 계산의 선행 조건이 아니며 새 결과 게시와 UX 검증에 사용한다. 1년 자료 게이트는 등급을 보존해 판정한다. strict pilot은 `run.status=completed`, `result.status=ready`, `result.completeness=complete`가 필요하고, approximate pilot은 `run.status=completed`, `result.status=approximate`, `result.completeness=approximate`이면 같은 시장·등급의 final이 참조할 수 있다. 두 등급 모두 고정 실행 가정, 현재 policy hash와 data contract hash, 자료 공급원의 simulated·grade 일치를 확인한다. strict 완료를 모든 자료에 무조건 요구하지 않는다. 이 단계의 pilot과 3년 final은 bounded 입력·비용·실행 예산을 사전에 고정하며, 최종 untouched OOS를 선택이나 튜닝에 사용하지 않는다.
 
 - [ ] **R4-01** 수정된 policy fingerprint로 정확히 1년 미국 pilot을 bounded 실행하고 기존 결과와 입력 차이를 기록하며, 무료 자료 우선·audit 후 최소 수집 순서를 증거로 남긴다.
+  - 2026-09-20 재수집은 별도 audit에서 credentials/collection을 통과했지만, approximate pilot은
+    기업행사 관측시각 불확실성으로 `insufficient`/`incomplete`/`ready=false`, trades/equity/metrics
+    `0`으로 종료했습니다. R4-01~05 완료나 경제 승격으로 표시하지 않습니다. [재검증 기록](development-records/2026-09-20-us-market-collection-recheck.md)
 - [ ] **R4-02** strict pilot은 `run.status=completed`·`result.status=ready`·`result.completeness=complete`, approximate pilot은 `run.status=completed`·`result.status=approximate`·`result.completeness=approximate`인 gate를 기록하고, 후자는 same-market·same-grade final 참조를 허용한다. 고정 실행 가정, 현재 policy hash·data contract hash, 자료 공급원의 simulated·grade 일치도 확인한다. 범위·등급·coverage가 계약을 만족하면 audit한 cache를 재사용하고, 부족한 날짜·심볼만 bounded 수집으로 보완하며 재사용·보완 evidence를 각각 기록한다. 자료 부족이면 차단 사유를 남긴다.
 - [ ] **R4-03** 신규 3년 입력이 같은 policy hash, 시장, 자료 등급, 실행 가정, source simulated 조건과 canonical data/result contract 및 data contract hash를 쓰는지 확인하고 benchmark를 같은 통화, 비용, 거래일, 초기 자본 기준으로 계산한다.
 - [ ] **R4-04** 비용 차감 `CAGR`, `MDD`, `Sharpe`, `Calmar`를 primary metrics로 기록하고, `MDD <= 20%` hard filter를 적용하며, 순수익 양수 여부·거래 수·회전율·비용은 diagnostic metrics로 별도 기록한다.
@@ -229,6 +232,8 @@ R6는 미국 우선 진단이 끝난 뒤 한국의 zero-OHLC 문제를 별도 �
     (SHA-256 `8c9fa160e597eba627ae27f7353ccfb8f59f7ff55157c7040f822a79650815bb`)에서 HTTP 200,
     membership 946, valid bars 917, zero/missing 29, parser/coverage 실패 0, readiness
     `insufficient`을 확인했습니다. zero 행은 보간하지 않으며 R6 전체 완료·한국 성과 승격을 뜻하지 않습니다.
+    전후 공식 STK 응답 대조에서도 6/26·6/29 대상 29개가 모두 zero, 6/30에는 28개가 zero로
+    반복됐지만, 별도 status 원문 없이 거래정지로 확정하지 않았습니다. [전후 대사 기록](development-records/2026-09-20-r6-krx-zero-adjacent-recheck.md)
     [개발 기록](development-records/2026-09-20-r6-krx-diagnostics.md)
 - [x] **R6-03** 한국과 미국 prepared path를 분리하고 각 시장에 원화 `1e8` 초기 자본과 단위를 명시한다.
   - 기술 `pass`, 경제 `not-evaluated`: KRX와 US collector가 서로의 provider 경로를 호출하지
