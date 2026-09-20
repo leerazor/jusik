@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -141,6 +142,31 @@ def test_gate_blocks_symlink_manifest(tmp_path: Path) -> None:
     source.write_bytes(workspace.manifest.read_bytes())
     workspace.manifest.unlink()
     workspace.manifest.symlink_to(source)
+    result = evaluate_r7_gate(
+        prospective=_prospective(complete=True),
+        workspace=workspace,
+        evidence=R7ReviewEvidence(),
+    )
+    assert result.state == "blocked"
+    assert "isolated_workspace_manifest_unavailable" in result.reasons
+
+
+def test_gate_binds_manifest_consumption_to_workspace_paths(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    other = tmp_path / "other"
+    other.mkdir()
+    result = evaluate_r7_gate(
+        prospective=_prospective(complete=True),
+        workspace=replace(workspace, artifacts=other),
+        evidence=R7ReviewEvidence(),
+    )
+    assert result.state == "blocked"
+    assert "isolated_workspace_manifest_unavailable" in result.reasons
+
+
+def test_gate_requires_exact_private_directory_modes(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    workspace.artifacts.chmod(0o755)
     result = evaluate_r7_gate(
         prospective=_prospective(complete=True),
         workspace=workspace,

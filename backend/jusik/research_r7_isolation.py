@@ -59,6 +59,22 @@ def _validate_parent_chain(path: Path) -> None:
         current = ancestor
 
 
+def _open_directory_chain(path: Path) -> int:
+    """Open every directory component without following an ancestor symlink."""
+    absolute = Path(os.path.abspath(path))
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    descriptor = os.open(os.sep, flags)
+    try:
+        for component in absolute.parts[1:]:
+            child = os.open(component, flags, dir_fd=descriptor)
+            os.close(descriptor)
+            descriptor = child
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
 def _sha256_path(path: Path) -> str:
     """Hash a regular file or a deterministic tree without following symlinks."""
 
@@ -154,7 +170,7 @@ def create_r7_isolation_workspace(
             raise ValueError(f"retrospective source hash mismatch: {path}")
 
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
-    parent_fd = os.open(root.parent, directory_flags)
+    parent_fd = _open_directory_chain(root.parent)
     root_fd: int | None = None
     try:
         os.mkdir(root.name, mode=0o700, dir_fd=parent_fd)

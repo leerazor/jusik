@@ -73,6 +73,23 @@ class R7GateResult(BaseModel):
 def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:
     if workspace.root.is_symlink() or not workspace.root.is_dir():
         return None
+    root_path = Path(os.path.abspath(workspace.root))
+    expected_workspace_paths = {
+        "market_data": root_path / "market-data",
+        "config": root_path / "config",
+        "database": root_path / "database",
+        "artifacts": root_path / "artifacts",
+        "manifest": root_path / "workspace.json",
+    }
+    actual_workspace_paths = {
+        "market_data": Path(os.path.abspath(workspace.market_data)),
+        "config": Path(os.path.abspath(workspace.config)),
+        "database": Path(os.path.abspath(workspace.database)),
+        "artifacts": Path(os.path.abspath(workspace.artifacts)),
+        "manifest": Path(os.path.abspath(workspace.manifest)),
+    }
+    if actual_workspace_paths != expected_workspace_paths:
+        return None
     expected = {
         workspace.market_data,
         workspace.config,
