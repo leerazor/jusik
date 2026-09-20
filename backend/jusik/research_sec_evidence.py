@@ -179,6 +179,8 @@ class SecActionReviewFormValidation(BaseModel):
     form_items: int = Field(ge=1, le=100)
     source_verified_items: int = Field(ge=0, le=100)
     missing_fields: dict[str, tuple[str, ...]] = {}
+    reference_missing_accessions: tuple[str, ...] = ()
+    reference_unexpected_accessions: tuple[str, ...] = ()
     source_missing_accessions: tuple[str, ...] = ()
     source_sha_mismatch_accessions: tuple[str, ...] = ()
     ready: bool
@@ -311,6 +313,9 @@ def validate_sec_action_review_form(
     reference_items = {
         item.accession_number: item for item in reference_queue.items
     }
+    form_accessions = {item.accession_number for item in form.items}
+    reference_missing = tuple(sorted(set(reference_items) - form_accessions))
+    reference_unexpected = tuple(sorted(form_accessions - set(reference_items)))
     seen_accessions: set[str] = set()
     seen_review_keys: set[str] = set()
     for item in form.items:
@@ -405,6 +410,8 @@ def validate_sec_action_review_form(
             missing[key] = tuple(sorted(set(missing_fields)))
     ready = (
         source_verified == len(form.items)
+        and not reference_missing
+        and not reference_unexpected
         and not source_missing
         and not source_mismatch
         and not missing
@@ -413,6 +420,8 @@ def validate_sec_action_review_form(
         form_items=len(form.items),
         source_verified_items=source_verified,
         missing_fields=missing,
+        reference_missing_accessions=reference_missing,
+        reference_unexpected_accessions=reference_unexpected,
         source_missing_accessions=tuple(source_missing),
         source_sha_mismatch_accessions=tuple(source_mismatch),
         ready=ready,

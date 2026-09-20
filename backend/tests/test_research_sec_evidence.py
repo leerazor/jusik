@@ -289,6 +289,27 @@ def test_sec_action_review_form_is_batch_fail_closed_before_manifest(
     assert ready_report.ready is True
     assert ready_report.automatic_ledger_application is False
 
+    expanded_queue = SecReviewQueue(
+        items=reference_queue.items
+        + (
+            SecReviewQueueItem(
+                symbol="TEST2",
+                accession_number="0001045810-24-000145",
+                source_url=base["source_url"],
+                raw_sha256=base["raw_sha256"],
+                candidate_kinds=("dividend",),
+                candidate_snippets=("declared a cash dividend",),
+            ),
+        )
+    )
+    incomplete_report = validate_sec_action_review_form(
+        ready, candidate_dir=tmp_path, reference_queue=expanded_queue
+    )
+    assert incomplete_report.ready is False
+    assert incomplete_report.reference_missing_accessions == (
+        "0001045810-24-000145",
+    )
+
     tampered = SecActionReviewForm(
         items=(ready.items[0].model_copy(update={"symbol": "EVIL"}),)
     )

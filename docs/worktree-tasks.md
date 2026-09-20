@@ -3250,7 +3250,8 @@
   priority row를 한 번에 검증하며 정본 queue와 symbol/source URL/raw SHA/required-fields를
   exact-match하고 accession/review-key identity, operator flag, revision/content hash,
   event-specific facts와 PIT link를 확인합니다. source URL은 credential-free HTTPS 규칙을
-  재사용합니다.
+  재사용합니다. form accession 집합도 정본 queue 전체와 exact-match해야 하며 누락·예상 밖
+  accession은 별도 fail-closed 필드로 보고합니다.
 - 실제 blank form 결과: source verified `8/8`, missing `0`, SHA mismatch `0`, `ready=false`,
   exit `2`. 원문 gate는 통과했고 operator 입력만 남았습니다.
 - 검증: SEC evidence pytest `12 passed`, 실제 CLI에 정본 queue를 연결해 `8/8` source
