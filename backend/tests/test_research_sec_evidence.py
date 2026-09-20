@@ -444,6 +444,60 @@ def test_sec_review_queue_cli_is_fail_closed(tmp_path: Path, capsys) -> None:
     assert json.loads(capsys.readouterr().out)["ready"] is True
 
 
+def test_sec_action_review_form_cli_requires_reference_queue(
+    tmp_path: Path, capsys
+) -> None:
+    raw = b"declared a cash dividend"
+    accession = "0000000001-25-000001"
+    source_url = "https://www.sec.gov/Archives/edgar/data/1/one.htm"
+    candidate_dir = tmp_path / "candidates"
+    candidate_dir.mkdir()
+    (candidate_dir / f"sec-filing-{accession}-raw.html").write_bytes(raw)
+    form = SecActionReviewForm(
+        items=(
+            SecActionReviewFormItem(
+                symbol="ONE",
+                accession_number=accession,
+                review_key=f"sec:{accession}:dividend",
+                source_url=source_url,
+                raw_sha256=hashlib.sha256(raw).hexdigest(),
+            ),
+        )
+    )
+    form_path = tmp_path / "form.json"
+    form_path.write_text(form.model_dump_json(), encoding="utf-8")
+    queue = SecReviewQueue(
+        items=(
+            SecReviewQueueItem(
+                symbol="ONE",
+                accession_number=accession,
+                source_url=source_url,
+                raw_sha256=hashlib.sha256(raw).hexdigest(),
+                candidate_kinds=("dividend",),
+                candidate_snippets=("declared a cash dividend",),
+            ),
+        )
+    )
+    queue_path = tmp_path / "queue.json"
+    queue_path.write_text(queue.model_dump_json(), encoding="utf-8")
+    assert (
+        _main(
+            [
+                "--validate-review-form",
+                str(form_path),
+                "--review-candidate-dir",
+                str(candidate_dir),
+                "--review-reference-queue",
+                str(queue_path),
+            ]
+        )
+        == 2
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["ready"] is False
+    assert output["automatic_ledger_application"] is False
+
+
 def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> None:
     evidence_body = b"declared a dividend"
     evidence_path = tmp_path / "doc.htm"
