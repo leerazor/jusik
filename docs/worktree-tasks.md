@@ -21,6 +21,20 @@
 - 결과: R6-03 기술 `pass`; R6-02의 zero/missing OHLCV로 한국 readiness insufficient은 유지합니다.
 - 개발 기록: `docs/development-records/2026-09-20-r6-krx-path-verification.md`
 
+## r6-service-response-diagnostics-20260920
+
+- 상태: 기술 진단 계약 완료·한국 readiness insufficient
+- 목표: KRX cache와 단일 서비스 응답을 분리해 HTTP/auth/parse/coverage/readiness를 진단합니다.
+- 구현: `diagnose_krx_response()`와 `diagnose-krx-response` CLI를 추가하고 cache 진단이
+  동일 parser 계약을 재사용하도록 연결했습니다. 서비스 진단은 cache integrity를 `null`로
+  남겨 과거 cache 성공으로 오인하지 않습니다.
+- 검증: KRX focused pytest 3개, Ruff, strict mypy, 실제 cache response CLI, diff 검사 통과.
+- artifact: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r6-krx-diagnostics/service-response.json`
+  SHA-256 `ad733e5520027298c8e7f3f4c6966a27409d0d90778772a6a2d184285605873f`; HTTP 200,
+  membership 946, valid bars 917, zero/missing 29, readiness exit 2.
+- 제한: zero/missing 행은 보간하지 않으며 한국 경제 성과·benchmark·R4/PAPER 승격은 하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r6-service-response-diagnostics.md`
+
 ## r6-krx-diagnostics-20260920
 
 - 상태: 기술 진단 계약 완료·readiness insufficient

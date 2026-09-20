@@ -208,7 +208,15 @@ R5는 R4 결과를 본 뒤 임의로 전략을 고르는 단계가 아니다. �
 
 R6는 미국 우선 진단이 끝난 뒤 한국의 zero-OHLC 문제를 별도 자료 경로에서 해결한다. 한국 실패가 미국 원인 분석의 선행 조건은 아니다.
 
-- [ ] **R6-01** KRX cache와 서비스 응답을 분리해 HTTP 상태, auth, parse, coverage, readiness를 독립 진단한다.
+- [x] **R6-01** KRX cache와 서비스 응답을 분리해 HTTP 상태, auth, parse, coverage, readiness를 독립 진단한다.
+  - 기술 `pass`, 경제 `not-evaluated`: `diagnose_krx_cache()`와 `diagnose_krx_response()`가
+    cache 무결성과 서비스 응답을 서로 다른 경로로 읽고 HTTP status, auth, parse, coverage,
+    zero/missing OHLCV, readiness를 fail-closed로 분리합니다. 실제 service-response artifact
+    `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r6-krx-diagnostics/service-response.json`
+    (SHA-256 `ad733e5520027298c8e7f3f4c6966a27409d0d90778772a6a2d184285605873f`)는 cache
+    integrity를 `null`로 남기고 HTTP 200·946 membership·917 valid bars·29 zero/missing·
+    readiness exit 2를 기록합니다. auth/parse fixture도 focused test로 검증했습니다. 실제
+    한국 자료 readiness와 경제 승격은 R6-02의 `insufficient` 상태로 보류합니다.
 - [x] **R6-02** zero-OHLC와 volume 0의 원인을 재현하고 정상 OHLC·행 수·날짜 coverage 계약을 추가한다.
   - 기술 `pass`, 자료 readiness `insufficient`, 경제 `not-evaluated`: `diagnose-krx-cache`가
     실제 cache에서 HTTP status·raw SHA/size·parser·coverage·membership·valid bar·zero/missing
