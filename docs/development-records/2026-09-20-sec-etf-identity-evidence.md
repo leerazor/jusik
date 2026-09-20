@@ -16,6 +16,7 @@ catalog에는 자동 병합하지 않습니다.
 - `TQQQ` → `0001174610`, `ProShares UltraPro QQQ`
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-etf-identity-evidence/`
 - request manifest가 accession, source URL, raw bytes, SHA-256을 고정합니다.
+- 새 parser로 보존 raw를 offline replay해 `SOXL`·`TQQQ` 2/2 identity를 재현했습니다.
 
 현재 SEC `company_tickers.json`의 unresolved 결과를 사후에 조용히 덮어쓰지 않고,
 ETF series/class identity를 별도 evidence source로 분리했습니다. 이 자료는 identity

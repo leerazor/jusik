@@ -2551,6 +2551,7 @@
 - 검증: focused pytest 5개, Ruff check/format, strict mypy, diff check 통과.
 - 제한: 기존 SEC ticker map/catalog를 자동 변경하지 않으며 filing coverage, PIT,
   R1-05 acceptance와 원장·성과를 승격하지 않습니다.
+- 보존 raw 2개를 새 parser로 offline replay해 identity 2/2 재현을 확인했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
 
 ## r1-action-receipt-time-order-20260920
