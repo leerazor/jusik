@@ -11,7 +11,7 @@ import asyncio
 import hashlib
 import os
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -226,7 +226,7 @@ async def collect_alpha_actions(
     return tuple(result)
 
 
-def _main(argv: Iterable[str] | None = None) -> int:
+def _main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Collect Alpha Vantage action evidence"
     )

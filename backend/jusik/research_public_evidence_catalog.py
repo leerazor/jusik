@@ -207,7 +207,15 @@ def build_public_evidence_catalog(
         json.dumps(provisional, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     return PublicEvidenceCatalog(
-        **provisional,
+        schema_version=1,
+        requested_symbols=requested,
+        requested_start=start,
+        requested_end=end,
+        coverage="incomplete",
+        unresolved_symbols=unresolved,
+        items=ordered,
+        source_counts=dict(sorted(counts.items())),
+        observed_item_count=len(ordered),
         catalog_sha256=digest,
     )
 

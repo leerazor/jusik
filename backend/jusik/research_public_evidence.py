@@ -11,7 +11,7 @@ import asyncio
 import hashlib
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
@@ -105,6 +105,7 @@ def parse_nasdaq_halt_rss(
         if match is None:
             continue
         parsed_date = _DATE_RE.search(text)
+        reason_match = _CODE_RE.search(text)
         event_date = (
             datetime.strptime(parsed_date.group(1), "%m/%d/%Y").date()
             if parsed_date is not None
@@ -120,8 +121,8 @@ def parse_nasdaq_halt_rss(
                 observed_at=observed,
                 raw_sha256=digest,
                 reason_code=(
-                    _CODE_RE.search(text).group(1).upper()
-                    if _CODE_RE.search(text) is not None
+                    reason_match.group(1).upper()
+                    if reason_match is not None
                     else None
                 ),
             )
@@ -188,7 +189,7 @@ async def collect_nasdaq_halts(
     return tuple(results)
 
 
-def _main(argv: Iterable[str] | None = None) -> int:
+def _main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Collect Nasdaq public halt evidence")
     parser.add_argument("--start", type=date.fromisoformat, required=True)
     parser.add_argument("--end", type=date.fromisoformat, required=True)
