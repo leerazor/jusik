@@ -3257,8 +3257,10 @@
   `0/0`, `ready=false`, exit `2`를 확인했습니다.
 - 실제 blank form 결과: source verified `8/8`, missing `0`, SHA mismatch `0`, `ready=false`,
   exit `2`. 원문 gate는 통과했고 operator 입력만 남았습니다.
-- 검증: SEC evidence pytest `12 passed`, 실제 CLI에 정본 queue를 연결해 `8/8` source
-  verified·`ready=false` exit `2`, Ruff·strict mypy·diff check 통과. 독립 review에서
+- 검증: SEC evidence pytest `13 passed`, 통합 회귀 suite `126 passed, 2 warnings`, 실제 전체
+  source queue `52/52` verified·missing/SHA mismatch `0/0`, 실제 CLI에 priority catalog를
+  연결해 `8/8` source verified·`ready=false` exit `2`, Ruff·strict mypy·diff check 통과.
+  독립 review에서
   지적된 self-consistent identity 우회를 수정했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-action-review-form-validator.md`.
 
