@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## kis-stream-contract-typing-20260920
+
+- 상태: 완료
+- 읽기 전용 KIS feed state와 TR ID를 허용 literal/type tuple로 고정했습니다.
+- 검증: `kis_stream.py` strict mypy·Ruff 통과, 관련 테스트 `17 passed`
+- 개발 기록: `docs/development-records/2026-09-20-kis-stream-contract-typing.md`
+
 ## boundary-evidence-validation-typing-20260920
 
 - 상태: 완료

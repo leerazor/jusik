@@ -38,6 +38,10 @@ US_EXCHANGE: dict[str, Literal["NAS", "NYS", "AMS"]] = {
     "NYQ": "NYS",
     "PCX": "AMS",
 }
+ResearchFeedItemState = Literal[
+    "pending", "connected", "stale", "rejected", "unsupported"
+]
+ResearchProtocolId = Literal["H0STCNT0", "HDFSCNT0"]
 
 
 class _Approval(BaseModel):
@@ -469,7 +473,7 @@ class KisReadOnlyStream:
                     symbol=subscription.symbol,
                     exchange=subscription.exchange,
                     currency=subscription.currency,
-                    state=state,
+                    state=cast(ResearchFeedItemState, state),
                     subscription_phase=phase,
                     detail=detail,
                     requested_at=evidence.requested_at if evidence else None,
@@ -534,6 +538,7 @@ class KisReadOnlyStream:
             overall, detail = "connecting", "연구 종목 구독 승인을 기다립니다."
         else:
             overall, detail = "error", "연구 시세 스트림이 실행 중이 아닙니다."
+        protocol_ids: tuple[ResearchProtocolId, ...] = ("H0STCNT0", "HDFSCNT0")
         return ResearchFeedStatus(
             state=cast(
                 Literal[
@@ -559,7 +564,7 @@ class KisReadOnlyStream:
                         "parse_failure_count", 0
                     ),
                 )
-                for tr_id in ("H0STCNT0", "HDFSCNT0")
+                for tr_id in protocol_ids
             ],
         )
 
