@@ -4,7 +4,7 @@
 - mandate: `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`,
   `policy_version=investment-roadmap-governance-v1`, `dispatch_enabled=true`
 - roadmap parser: checklist `40`, complete `16`, digest
-  `19efe30e41d1b3bc8a2ebecc77128fdcc3578be00d91b2881cab7ffac8be0df1`
+  `c4bb0e8b9320dc5abd3d0be4b0edca9f0f58f36d20d02387a349cc4d9319fd80`
 - runner `tasks` status: blocked `9`, completed `75`, failed `12`; running task `0`
 - user service: `inactive`; timer: `disabled`
 
