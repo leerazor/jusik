@@ -2658,6 +2658,17 @@
   Sharpe/readiness 및 자동 적용은 유지합니다.
 - 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
 
+## kofr-repeat-response-evidence-20260920
+
+- 상태: 반복 원문 대조 완료·application 승격 보류.
+- 결과: 동일 KSD `getGridRateExcelList` 요청이 245행을 반환했고 기존 projection과
+  exact match했습니다. repeat raw SHA는 `d35ca9232d1e3ef02af31f667387497476a9b4b6c66e146ecb4744aa0abce142`입니다.
+  alternate `getGridRateList`는 malformed XML로 fail-closed 보존했습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-kofr-repeat-response-evidence/`.
+- 제한: provider completeness와 `PUBN_DTTM` absolute instant는 여전히 검증되지 않아
+  `missing_risk_free_evidence`와 자동 적용을 유지합니다.
+- 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료

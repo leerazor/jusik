@@ -63,4 +63,15 @@ provider의 실제 completeness가 `unknown`이면 `business_date_completeness_u
 - 이 자료는 공식 KSD 응답의 행별 `PUBN_DTTM` timezone/instant 또는 canonical NAV
   기간의 provider business-date 완전성을 증명하지 않으므로 `operator_verified=false`,
   자동 적용=false를 유지합니다.
+
+## 반복 응답 대조
+
+- 동일한 KSD `getGridRateExcelList` 요청을 한 번 재실행해 245행을 받았고,
+  기존 245행 projection과 날짜·금리·`PUBN_DTTM` 원문이 exact match했습니다.
+- repeat raw SHA-256: `d35ca9232d1e3ef02af31f667387497476a9b4b6c66e146ecb4744aa0abce142`
+- alternate `getGridRateList` action은 malformed XML(40 bytes)로 fail-closed되어
+  보존했으며 채택하지 않았습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-kofr-repeat-response-evidence/`
+- 반복 응답은 provider 반환의 결정성을 보강할 뿐 completeness·publication instant를
+  증명하지 않으므로 application status는 변하지 않습니다.
 - 실제 네트워크 요청, 연구 실행, 주문, runner 재개, readiness 승격은 없었습니다.
