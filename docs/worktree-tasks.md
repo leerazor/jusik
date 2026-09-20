@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## external-evidence-strict-typing-20260920
+
+- 상태: 완료
+- Treasury external parser의 literal series 계약과 append-only snapshot tuple 반환을
+  정리했습니다.
+- 검증: 두 모듈 strict mypy·Ruff 통과, external/universe/forward `59 passed`
+- 개발 기록: `docs/development-records/2026-09-20-external-evidence-strict-typing.md`
+
 ## research-input-strict-typing-20260920
 
 - 상태: 완료

@@ -227,7 +227,7 @@ class ExternalStore:
                 """
             ).fetchall()
         return ExternalFeatureSnapshot(
-            observations=[
+            observations=tuple(
                 ExternalObservation(
                     series=row["series"],
                     observed_on=row["observed_on"],
@@ -236,7 +236,7 @@ class ExternalStore:
                     revision=row["revision"],
                 )
                 for row in rows
-            ]
+            )
         )
 
     def snapshot_asof(self, cutoff_at: datetime) -> ExternalFeatureSnapshot:

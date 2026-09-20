@@ -47,6 +47,10 @@ SOURCE_USAGE: dict[str, Literal["feature", "diagnostic_only", "archive_only"]] =
     "gpr": "archive_only",
     "effr": "archive_only",
 }
+TREASURY_SERIES: tuple[tuple[ExternalSeries, str], ...] = (
+    ("treasury_2y", "BC_2YEAR"),
+    ("treasury_10y", "BC_10YEAR"),
+)
 
 
 class ExternalCollectionError(RuntimeError):
@@ -97,7 +101,7 @@ def parse_treasury_xml(body: bytes, *, revision: str) -> list[ExternalObservatio
             raise ExternalCollectionError(
                 "Treasury 날짜 형식이 올바르지 않습니다."
             ) from None
-        for series, key in (("treasury_2y", "BC_2YEAR"), ("treasury_10y", "BC_10YEAR")):
+        for series, key in TREASURY_SERIES:
             raw_value = fields.get(key)
             if raw_value in (None, ""):
                 continue
