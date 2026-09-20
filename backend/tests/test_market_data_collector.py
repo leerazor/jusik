@@ -233,6 +233,7 @@ def test_krx_cache_diagnostic_separates_zero_ohlcv_from_http_success(
     assert report.date_coverage == "complete"
     assert report.entries[0].membership_rows == 2
     assert report.entries[0].valid_bar_rows == 1
+    assert report.entries[0].malformed_rows == 0
     assert report.entries[0].parse_status == "ok"
 
 
@@ -246,6 +247,7 @@ def test_krx_service_response_diagnostic_separates_auth_and_parse() -> None:
     assert auth.cache_integrity is None
     assert auth.parse_status == "auth"
     assert auth.membership_rows == 0
+    assert auth.malformed_rows == 0
 
     malformed = diagnose_krx_response(
         b"not-json",
@@ -256,6 +258,7 @@ def test_krx_service_response_diagnostic_separates_auth_and_parse() -> None:
     assert malformed.cache_integrity is None
     assert malformed.parse_status == "parse"
     assert malformed.response_date_matches is False
+    assert malformed.malformed_rows == 1
 
 
 def test_krx_cache_diagnostic_does_not_zip_unbound_multiple_entries(

@@ -352,6 +352,7 @@ class KrxCacheDiagnosticEntry(BaseModel):
     membership_rows: int = Field(ge=0)
     valid_bar_rows: int = Field(ge=0)
     zero_ohlcv_rows: int = Field(ge=0)
+    malformed_rows: int = Field(ge=0)
     reason: str | None = None
 
 
@@ -372,6 +373,7 @@ class KrxCacheDiagnostics(BaseModel):
     parse_failures: int = Field(ge=0)
     coverage_failures: int = Field(ge=0)
     zero_ohlcv_rows: int = Field(ge=0)
+    malformed_rows: int = Field(ge=0)
     cache_integrity: bool
     readiness: Literal["ready", "insufficient"]
     readiness_reasons: tuple[str, ...] = ()
@@ -396,6 +398,7 @@ def diagnose_krx_response(
             membership_rows=0,
             valid_bar_rows=0,
             zero_ohlcv_rows=0,
+            malformed_rows=0,
             reason="KRX authentication was rejected",
         )
     if status_code < 200 or status_code >= 300:
@@ -409,8 +412,10 @@ def diagnose_krx_response(
             membership_rows=0,
             valid_bar_rows=0,
             zero_ohlcv_rows=0,
+            malformed_rows=0,
             reason=f"KRX service returned HTTP {status_code}",
         )
+    malformed_rows = _count_krx_malformed_rows(body)
     parts = checkpoint.split(":")
     session_text = parts[-1] if parts else ""
     reason: str | None
@@ -452,8 +457,23 @@ def diagnose_krx_response(
         membership_rows=membership_rows,
         valid_bar_rows=valid_bar_rows,
         zero_ohlcv_rows=max(membership_rows - valid_bar_rows, 0),
+        malformed_rows=malformed_rows,
         reason=reason,
     )
+
+
+def _count_krx_malformed_rows(body: bytes) -> int:
+    """Count malformed rows without replacing the parser's fail-closed result."""
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return 1
+    if not isinstance(payload, dict) or "OutBlock_1" not in payload:
+        return 1
+    rows = payload["OutBlock_1"]
+    if not isinstance(rows, list):
+        return 1
+    return sum(not isinstance(row, Mapping) for row in rows)
 
 
 def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
@@ -466,6 +486,7 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
     parse_failures = 0
     coverage_failures = 0
     zero_rows_total = 0
+    malformed_rows_total = 0
     requested_sessions: set[date] = set()
     observed_sessions: set[date] = set()
     krx_entries = sorted(
@@ -510,6 +531,7 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
                     membership_rows=0,
                     valid_bar_rows=0,
                     zero_ohlcv_rows=0,
+                    malformed_rows=1,
                     reason="cache entry is not bound to a KRX checkpoint",
                 )
             )
@@ -545,6 +567,7 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
         elif parse_status == "coverage":
             coverage_failures += 1
         zero_ohlcv_rows = entry.zero_ohlcv_rows
+        malformed_rows_total += entry.malformed_rows
         if entry.response_date_matches:
             try:
                 observed_sessions.add(date.fromisoformat(checkpoint_parts[3]))
@@ -569,6 +592,8 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
         )
     if zero_rows_total:
         reasons.append("one or more membership rows lack complete OHLCV")
+    if malformed_rows_total:
+        reasons.append("one or more KRX response rows are malformed")
     missing_sessions = requested_sessions - observed_sessions
     if missing_sessions:
         reasons.append("one or more requested sessions lack an observed response")
@@ -599,6 +624,7 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
         parse_failures=parse_failures,
         coverage_failures=coverage_failures,
         zero_ohlcv_rows=zero_rows_total,
+        malformed_rows=malformed_rows_total,
         cache_integrity=integrity_ok,
         readiness="ready" if ready else "insufficient",
         readiness_reasons=tuple(reasons),
