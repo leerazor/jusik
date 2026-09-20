@@ -27,6 +27,7 @@ from jusik.development_runner_roadmap import (
     validate_roadmap_completion,
 )
 from jusik.development_runner_store import RunnerStore
+from jusik.research_mandate_governance import MandateGovernanceError
 
 _ROADMAP_CHECKBOX_RE = re.compile(r"(?m)^(- \[)[ xX](\] \*\*(R\d+-\d{2})\*\*)")
 
@@ -310,6 +311,80 @@ def test_missing_or_malformed_roadmap_fails_closed(tmp_path: Path) -> None:
     )
     with pytest.raises(RoadmapError, match="malformed"):
         load_roadmap(repo)
+
+
+def test_roadmap_resume_rejects_dirty_worktree_and_keeps_paused(
+    tmp_path: Path,
+) -> None:
+    repo = _tracked_repo(tmp_path)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+    )
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    store.pause()
+    roadmap_path = repo / "docs" / "investment-development-roadmap.md"
+    roadmap_path.write_text(
+        roadmap_path.read_text(encoding="utf-8") + "\n", encoding="utf-8"
+    )
+
+    with pytest.raises(MandateGovernanceError, match="worktree is not ready"):
+        resume_runner(config)
+
+    assert store.is_paused()
+
+
+def test_roadmap_resume_rejects_untracked_required_document_and_keeps_paused(
+    tmp_path: Path,
+) -> None:
+    repo = _tracked_repo(tmp_path)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+    )
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    store.pause()
+    relative = "docs/roadmap-automation.md"
+    subprocess.run(["git", "rm", "--cached", "--", relative], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "untrack roadmap runbook"], cwd=repo, check=True
+    )
+
+    with pytest.raises(
+        MandateGovernanceError, match="required roadmap document is not tracked"
+    ):
+        resume_runner(config)
+
+    assert store.is_paused()
+
+
+def test_clean_roadmap_resume_releases_pause(tmp_path: Path) -> None:
+    repo = _tracked_repo(tmp_path)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+    )
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    store.pause()
+
+    resume_runner(config)
+
+    assert not store.is_paused()
 
 
 def test_runner_config_keeps_research_default(tmp_path: Path) -> None:

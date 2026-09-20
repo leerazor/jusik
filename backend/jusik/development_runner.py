@@ -1252,6 +1252,10 @@ def pause_runner(config: RunnerConfig) -> None:
 def resume_runner(config: RunnerConfig) -> None:
     if config.scope == ROADMAP_SCOPE:
         validate_dispatch_gate(config.repo)
+        documents_ready, documents_reason = _roadmap_documents_ready(config.repo)
+        if not documents_ready:
+            raise MandateGovernanceError(documents_reason)
+        _roadmap_dispatch_gate(config.repo)
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
     hold_triggers = store.operator_hold_triggers()
     if hold_triggers:
@@ -1422,9 +1426,8 @@ def run_once(
                     roadmap.by_id[task.area.lower()],
                     mandate_snapshot,
                 )
-                roadmap_prompt_text += (
-                    "\n\nOperator session policy:\n"
-                    + (session_policy or "")
+                roadmap_prompt_text += "\n\nOperator session policy:\n" + (
+                    session_policy or ""
                 )
             except (MandateGovernanceError, RoadmapError) as exc:
                 return RunResult("blocked", task.id, reason=str(exc))
