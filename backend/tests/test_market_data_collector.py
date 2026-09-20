@@ -310,6 +310,7 @@ def test_krx_cache_diagnostic_does_not_zip_unbound_multiple_entries(
     assert report.readiness == "insufficient"
     assert report.cache_integrity is False
     assert report.date_coverage == "unavailable"
+    assert report.malformed_rows == 0
     assert report.requested_sessions == ()
     assert all(entry.cache_integrity is False for entry in report.entries)
     assert all(entry.checkpoint.startswith("unbound:") for entry in report.entries)

@@ -531,7 +531,7 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
                     membership_rows=0,
                     valid_bar_rows=0,
                     zero_ohlcv_rows=0,
-                    malformed_rows=1,
+                    malformed_rows=0,
                     reason="cache entry is not bound to a KRX checkpoint",
                 )
             )
