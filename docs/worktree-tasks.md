@@ -2554,6 +2554,16 @@
 - 보존 raw 2개를 새 parser로 offline replay해 identity 2/2 재현을 확인했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
 
+## sec-etf-submissions-inventory-20260920
+
+- 상태: target-period filing inventory 확보·기업행사 coverage 승격 보류.
+- 결과: SOXL CIK `0001424958` 771건, TQQQ CIK `0001174610` 1,063건을
+  `2025-09-11~2026-09-11` 범위에서 bounded 수집·파싱했습니다.
+- 제한: 제출 유형이 광범위하고 series/class 문서가 섞여 corporate-action/PIT 근거가
+  아닙니다. 기존 catalog coverage와 R1-05 상태는 변경하지 않습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-etf-submissions/`.
+- 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료

@@ -35,3 +35,15 @@ ETF series/class identity를 별도 evidence source로 분리했습니다. 이 �
 - SEC 공식 index bounded GET 2회, raw SHA·크기·symbol/CIK 문자열 대조를 통과했습니다.
 - identity parser focused pytest 5개, Ruff check/format, strict mypy를 통과했습니다.
 - 실제 주문, PAPER/live, runner 재개, 원격 push, Windows 종료는 없습니다.
+
+## CIK submissions inventory
+
+확인된 CIK로 SEC submissions를 각 1회 조회해 target-period inventory를 만들었습니다.
+
+- SOXL: 전체 1,023건, target period 771건
+- TQQQ: 전체 1,066건, target period 1,063건
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-etf-submissions/`
+
+두 결과는 ETF filing inventory일 뿐 corporate-action coverage나 PIT 증거가 아닙니다.
+제출 유형이 광범위하고 series/class별 문서가 섞이므로, 이를 기업행사로 해석하거나
+catalog coverage를 승격하지 않습니다.
