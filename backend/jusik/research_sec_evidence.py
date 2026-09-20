@@ -8,7 +8,7 @@ import hashlib
 import json
 import os
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -275,6 +275,9 @@ def parse_sec_submissions(
     documents = recent.get("primaryDocument")
     if not all(isinstance(item, list) for item in (forms, accessions, filing_dates)):
         raise ValueError("sec_submissions_columns_missing")
+    assert isinstance(forms, list)
+    assert isinstance(accessions, list)
+    assert isinstance(filing_dates, list)
     count = min(len(forms), len(accessions), len(filing_dates))
     observed = _utc(observed_at)
     digest = hashlib.sha256(body).hexdigest()
@@ -442,7 +445,7 @@ async def collect_sec_filing_candidates(
     return tuple(result)
 
 
-def _main(argv: Iterable[str] | None = None) -> int:
+def _main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Collect SEC filing evidence")
     parser.add_argument("--cik", action="append", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)

@@ -2581,6 +2581,17 @@
   승격하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
 
+## sec-evidence-mypy-repair-20260920
+
+- 상태: 완료.
+- 변경: `research_sec_evidence.py`의 submissions list narrowing과 CLI argv 타입을
+  수정해 기존 strict mypy 오류 2개를 제거했습니다. 수집 의미·raw 계약·재시도 정책은
+  변경하지 않았습니다.
+- 검증: SEC evidence/ETF identity/coverage/catalog pytest 26개, Ruff check/format,
+  strict mypy 3개 source, diff check 통과.
+- 제한: 자료 coverage·PIT·기업행사·경제 acceptance는 기존 차단을 유지합니다.
+- 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료

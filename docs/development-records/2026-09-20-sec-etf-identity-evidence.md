@@ -58,3 +58,7 @@ catalog coverage를 승격하지 않습니다.
 `research_sec_etf_coverage.py`의 inventory-only report로 두 submissions를 재생성해
 SOXL 771건·TQQQ 1,063건과 form 분포를 확인했습니다. report는 source/identity SHA를
 함께 pin하지만 completeness·PIT·기업행사 의미를 주장하지 않습니다.
+
+추가로 SEC submissions parser의 기존 strict mypy 오류 2개를 타입 narrowing과 CLI
+`Sequence` 입력 계약으로 수정했습니다. SEC evidence·identity·coverage source 3개와
+관련 테스트 26개, Ruff check/format, strict mypy가 통과합니다.
