@@ -261,6 +261,27 @@ def test_krx_service_response_diagnostic_separates_auth_and_parse() -> None:
     assert malformed.malformed_rows == 1
 
 
+def test_krx_cache_diagnostic_aggregates_malformed_rows(tmp_path: Path) -> None:
+    cache = AtomicResponseCache(tmp_path / "cache")
+    body = json.dumps({"OutBlock_1": [{"BAS_DD": "20260914"}, "bad-row"]}).encode()
+    cache.put(
+        source="krx",
+        endpoint="https://example.test/krx",
+        request_key="malformed-row",
+        body=body,
+        status_code=200,
+        captured_at=datetime(2026, 9, 14, tzinfo=UTC),
+        checkpoint="krx:daily:STK:2026-09-14",
+    )
+
+    report = diagnose_krx_cache(cache)
+
+    assert report.malformed_rows == 1
+    assert report.entries[0].malformed_rows == 1
+    assert report.parse_failures == 1
+    assert report.readiness == "insufficient"
+
+
 def test_krx_cache_diagnostic_does_not_zip_unbound_multiple_entries(
     tmp_path: Path,
 ) -> None:
