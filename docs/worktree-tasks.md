@@ -2689,6 +2689,17 @@
 - 제한: 이 문서는 Sharpe/readiness를 계산하거나 KOFR를 적용하지 않습니다.
 - 정본: `docs/research/kofr-application-policy-proposal.md`.
 
+## canonical-time-evidence-attachment-manifest-20260920
+
+- 상태: companion evidence manifest 확보·readiness 연결 보류.
+- 결과: canonical run과 동일한 input/data/pool/policy hash·US pilot period의 candidate를
+  exact replay(`comparison.all=true`)로 대조했습니다. 252개 NAV timestamp와 initial
+  anchor를 별도 manifest에 고정했습니다.
+- 제한: canonical artifact/readiness 기본 경로를 변경하지 않았고, KOFR 부족으로
+  Sharpe·경제 평가는 여전히 차단됩니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/canonical-time-evidence-candidate-20260920/attachment-manifest.json`.
+- 개발 기록: `docs/development-records/2026-09-20-canonical-time-evidence-attachment-manifest.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
