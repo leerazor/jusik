@@ -17,6 +17,7 @@ import httpx
 
 from jusik.research_action_collection_models import (
     ActionCollectionStatus,
+    ActionKind,
     CollectedAction,
     CollectedActionPayload,
     CollectorState,
@@ -211,7 +212,11 @@ def parse_action_response(
     if not isinstance(events, Mapping):
         raise CollectionError("response_events_invalid")
     actions: list[CollectedAction] = []
-    for provider_name, kind in (("splits", "split"), ("dividends", "dividend")):
+    action_sources: tuple[tuple[str, ActionKind], ...] = (
+        ("splits", "split"),
+        ("dividends", "dividend"),
+    )
+    for provider_name, kind in action_sources:
         container = events.get(provider_name, {})
         if not isinstance(container, Mapping):
             raise CollectionError(f"response_{provider_name}_invalid")

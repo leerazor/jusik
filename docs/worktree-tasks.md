@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## action-collection-strict-typing-20260920
+
+- 상태: 완료
+- R1-04 action provider kind 매핑을 `ActionKind` typed tuple로 고정했습니다. operator
+  review와 ledger 정책은 변경하지 않았습니다.
+- 검증: action collection strict mypy·Ruff 통과, 관련 테스트 `23 passed`
+- 개발 기록: `docs/development-records/2026-09-20-action-collection-strict-typing.md`
+
 ## portfolio-candidate-strict-typing-20260920
 
 - 상태: 완료
