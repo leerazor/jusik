@@ -4,6 +4,7 @@ import json
 import time
 from datetime import date, timedelta
 from decimal import ROUND_FLOOR, Decimal
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from jusik.operations_models import (
@@ -400,7 +401,7 @@ class ResearchAutomation:
             budget = account.cash / Decimal(
                 max(1, len(self.operations_store.universe()))
             )
-            side = "buy"
+            side: Literal["buy", "sell"] = "buy"
             limit_price = price * Decimal("1.005")
             unit_cash = limit_price * (Decimal(1) + FEE_RATE)
             quantity = int((budget / unit_cash).to_integral_value(rounding=ROUND_FLOOR))

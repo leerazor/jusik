@@ -3,7 +3,7 @@ import sqlite3
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -573,10 +573,13 @@ class OperationsStore:
     @staticmethod
     def _version(row: sqlite3.Row) -> StrategyVersionRecord:
         passed = row["passed"]
+        source = row["source"]
+        if source not in {"built_in", "openai_suggestion"}:
+            raise ValueError("strategy version source is invalid")
         return StrategyVersionRecord(
             definition=StrategyDefinition.model_validate_json(row["definition_json"]),
             created_at=datetime.fromisoformat(row["created_at"]),
-            source=cast(str, row["source"]),
+            source=cast(Literal["built_in", "openai_suggestion"], source),
             recommended=bool(row["recommended"]),
             active_for_paper=bool(row["active_for_paper"]),
             reason=cast(str, row["reason"]),

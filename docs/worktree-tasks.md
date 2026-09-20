@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## signal-proposal-strict-typing-20260920
+
+- 상태: 완료
+- research automation side와 operations strategy-version source를 각각 허용 literal로
+  검증·좁혔습니다. 실제 주문 경로는 변경하지 않았습니다.
+- 검증: 두 모듈 strict mypy·Ruff 통과, 관련 테스트 `13 passed`
+- 개발 기록: `docs/development-records/2026-09-20-signal-proposal-strict-typing.md`
+
 ## action-receipt-time-typing-20260920
 
 - 상태: 완료
