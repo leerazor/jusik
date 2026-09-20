@@ -2810,6 +2810,8 @@ def test_collector_settings_explicit_file_alias_precedence_and_no_interpolation(
         "ALPHA_VANTAGE_KEY",
         "FRED_API_KEY",
         "FRED_KEY",
+        "KOREAEXIM_API_KEY",
+        "KOREA_EXIM_API_KEY",
         "MARKET_DATA_REQUEST_BUDGET",
     ):
         monkeypatch.delenv(name, raising=False)
@@ -2819,6 +2821,7 @@ def test_collector_settings_explicit_file_alias_precedence_and_no_interpolation(
         "KRX_API_KEY=file-alias\n"
         "ALPHA_VANTAGE_KEY=file-alpha\n"
         "FRED_KEY=${UNSET_VALUE}\n"
+        "KOREA_EXIM_API_KEY=file-exim\n"
         "MARKET_DATA_REQUEST_BUDGET=123\n",
         encoding="utf-8",
     )
@@ -2830,12 +2833,17 @@ def test_collector_settings_explicit_file_alias_precedence_and_no_interpolation(
     assert settings.alpha_vantage_api_key.get_secret_value() == "file-alpha"
     assert settings.fred_api_key is not None
     assert settings.fred_api_key.get_secret_value() == "${UNSET_VALUE}"
+    assert settings.koreaexim_api_key is not None
+    assert settings.koreaexim_api_key.get_secret_value() == "file-exim"
     assert settings.request_budget == 123
 
     monkeypatch.setenv("KRX_AUTH_KEY", "process-standard")
+    monkeypatch.setenv("KOREAEXIM_API_KEY", "process-exim")
     process_settings = load_collector_settings(env_file)
     assert process_settings.krx_auth_key is not None
     assert process_settings.krx_auth_key.get_secret_value() == "process-standard"
+    assert process_settings.koreaexim_api_key is not None
+    assert process_settings.koreaexim_api_key.get_secret_value() == "process-exim"
     with pytest.raises(CollectorError, match="environment file"):
         load_collector_settings(tmp_path / "missing.env")
 
