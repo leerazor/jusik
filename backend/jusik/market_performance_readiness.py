@@ -151,6 +151,7 @@ _RESULT_FIELDS = frozenset(
         "pool_contract_hash",
         "provenance",
         "account",
+        "initial_capital_at",
     )
 )
 _READINESS_FIELDS = frozenset(
@@ -166,6 +167,7 @@ _EQUITY_FIELDS = frozenset(
         "nav_krw",
         "fx_krw_per_usd",
         "drawdown_pct",
+        "evaluation_at",
     )
 )
 _PROVENANCE_FIELDS = frozenset(
@@ -428,6 +430,8 @@ def _validate_equity_shape(result: Mapping[str, object]) -> None:
         item = _mapping(row)
         _reject_extra(item, _EQUITY_FIELDS)
         _date(_required(item, "session"))
+        if "evaluation_at" in item and item["evaluation_at"] is not None:
+            _timestamp(item["evaluation_at"])
         for key in (
             "cash_krw",
             "cash_native",
@@ -441,6 +445,32 @@ def _validate_equity_shape(result: Mapping[str, object]) -> None:
                 raise ReadinessInputError("malformed_input")
             if key != "fx_krw_per_usd" and value < 0:
                 raise ReadinessInputError("malformed_input")
+
+
+def _validate_time_evidence(
+    result: Mapping[str, object],
+) -> bool:
+    """Validate optional causal timestamps without inferring missing values."""
+
+    initial = result.get("initial_capital_at")
+    equity = _list(_required(result, "equity"))
+    evaluations = [_mapping(row).get("evaluation_at") for row in equity]
+    present = initial is not None or any(value is not None for value in evaluations)
+    if not present:
+        return False
+    if (
+        initial is None
+        or not evaluations
+        or any(value is None for value in evaluations)
+    ):
+        raise ReadinessInputError("incomplete_time_evidence")
+    initial_at = _timestamp(initial)
+    times = tuple(_timestamp(value) for value in evaluations)
+    if times != tuple(sorted(times)) or len(set(times)) != len(times):
+        raise ReadinessInputError("nav_timestamps_not_ordered")
+    if initial_at >= times[0]:
+        raise ReadinessInputError("initial_capital_after_first_nav")
+    return True
 
 
 def _validate_candidate_shape(result: Mapping[str, object]) -> None:
@@ -932,6 +962,7 @@ def _validate_run(
     _timestamp(_required(readiness, "checked_at"))
     _validate_result_facts(payload, result)
     _validate_equity_shape(result)
+    _validate_time_evidence(result)
     _validate_strict_model(payload)
     return request, result, readiness
 
@@ -1081,6 +1112,12 @@ def diagnose_run(
             except CostEvidenceError as exc:
                 raise ReadinessInputError(exc.code) from None
     missing = list(MISSING_CODES)
+    if _validate_time_evidence(result):
+        missing = [
+            code
+            for code in missing
+            if code not in {"missing_initial_capital_at", "missing_nav_timestamps"}
+        ]
     if evidence is not None:
         removable = {
             "missing_calendar_evidence",

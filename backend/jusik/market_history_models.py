@@ -406,6 +406,9 @@ class ResearchTrade(HistoryModel):
 
 class ResearchEquityPoint(HistoryModel):
     session: date
+    # Optional on legacy artifacts. New strategy runs populate the exact
+    # causal evaluation instant; readiness keeps the legacy omission blocked.
+    evaluation_at: datetime | None = None
     cash_krw: Decimal = Field(ge=0, allow_inf_nan=False)
     cash_native: Decimal = Field(ge=0, allow_inf_nan=False)
     invested_krw: Decimal = Field(ge=0, allow_inf_nan=False)
@@ -447,6 +450,9 @@ class MarketResearchResult(HistoryModel):
     candidate_evidence: tuple[CandidateEvidence, ...] = ()
     trades: tuple[ResearchTrade, ...] = ()
     equity: tuple[ResearchEquityPoint, ...] = ()
+    # The engine anchor is deliberately not interpreted as a historical
+    # deposit. It is present only when the run records its causal time plan.
+    initial_capital_at: datetime | None = None
     limitations: tuple[str, ...] = ()
     metrics: dict[str, Decimal] = Field(default_factory=dict)
     input_hash: str | None = None
@@ -459,6 +465,27 @@ class MarketResearchResult(HistoryModel):
     pool_contract_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     provenance: MarketResearchProvenance | None = None
     account: MarketResearchAccountMetadata | None = None
+
+    @model_validator(mode="after")
+    def validate_time_evidence(self) -> Self:
+        timestamps = tuple(item.evaluation_at for item in self.equity)
+        has_any = self.initial_capital_at is not None or any(
+            value is not None for value in timestamps
+        )
+        if not has_any:
+            return self
+        if self.initial_capital_at is None or any(
+            value is None for value in timestamps
+        ):
+            raise ValueError(
+                "time evidence must include initial and every NAV timestamp"
+            )
+        ordered = tuple(value for value in timestamps if value is not None)
+        if ordered != tuple(sorted(ordered)) or len(set(ordered)) != len(ordered):
+            raise ValueError("NAV evaluation timestamps must be strictly increasing")
+        if ordered and self.initial_capital_at >= ordered[0]:
+            raise ValueError("initial capital anchor must precede the first NAV")
+        return self
 
     @model_validator(mode="after")
     def validate_grade_consistency(self) -> Self:

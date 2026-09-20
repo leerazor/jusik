@@ -180,6 +180,44 @@ def test_timestamps_do_not_supply_missing_anchor(tmp_path: Path, field: str) -> 
     assert diagnose_run(path, digest)["missing"] == list(MISSING_CODES)
 
 
+def test_explicit_time_evidence_removes_only_two_time_codes(tmp_path: Path) -> None:
+    payload = _canonical()
+    result = cast(dict[str, object], payload["result"])
+    result["initial_capital_at"] = "2025-09-11T13:30:00Z"
+    equity = cast(list[dict[str, object]], result["equity"])
+    for index, row in enumerate(equity):
+        row["evaluation_at"] = f"2025-09-{11 + index:02d}T20:00:00Z"
+    path, digest = _write_run(tmp_path, payload)
+    assert diagnose_run(path, digest)["missing"] == [
+        code
+        for code in MISSING_CODES
+        if code not in {"missing_initial_capital_at", "missing_nav_timestamps"}
+    ]
+
+
+def test_partial_time_evidence_is_fail_closed(tmp_path: Path) -> None:
+    payload = _canonical()
+    result = cast(dict[str, object], payload["result"])
+    result["initial_capital_at"] = "2025-09-11T13:30:00Z"
+    path, digest = _write_run(tmp_path, payload)
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_run(path, digest)
+    assert error.value.code == "incomplete_time_evidence"
+
+
+def test_reversed_nav_time_evidence_is_fail_closed(tmp_path: Path) -> None:
+    payload = _canonical()
+    result = cast(dict[str, object], payload["result"])
+    result["initial_capital_at"] = "2025-09-11T13:30:00Z"
+    equity = cast(list[dict[str, object]], result["equity"])
+    for row in equity:
+        row["evaluation_at"] = "2025-09-11T20:00:00Z"
+    path, digest = _write_run(tmp_path, payload)
+    with pytest.raises(ReadinessInputError) as error:
+        diagnose_run(path, digest)
+    assert error.value.code == "nav_timestamps_not_ordered"
+
+
 def test_ready_calendar_and_recorded_rates_do_not_supply_evidence(
     tmp_path: Path,
 ) -> None:

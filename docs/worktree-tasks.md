@@ -2652,3 +2652,16 @@
 - 남은 조건: canonical과 동일한 frozen input/strategy/period로 생성한 새 bundle과 KOFR
   application evidence가 필요합니다. 개발 기록:
   `docs/development-records/2026-09-20-canonical-time-evidence-attachment-audit.md`.
+
+## market-time-evidence-production-boundary-20260920
+
+- 상태: 기술 slice 완료; 기존 canonical readiness는 차단
+- 목표: 새 market research service 결과에 공식 session close 기반 per-NAV timestamp와
+  첫 session open 기반 initial-capital anchor를 저장하고, legacy 결과는 보존합니다.
+- 구현: `market_time_evidence.py`, optional result fields, readiness fail-closed 검증,
+  service boundary 연결과 회귀 테스트.
+- 검증: market research/readiness/time-evidence pytest 72개, Ruff, 변경 source strict
+  mypy 통과. frozen replay는 commit 후 clean dependency 상태에서 재검증합니다.
+- 제한: 기존 canonical artifact에 timestamp를 소급하지 않으며 KOFR evidence·경제 지표·
+  PAPER/live·원격 push는 변경하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-market-time-evidence-production-boundary.md`.

@@ -36,6 +36,7 @@ from jusik.market_research_strategy import (
     market_research_policy_hash,
     run_market_research,
 )
+from jusik.market_time_evidence import attach_time_evidence
 from jusik.research_market_calendar import MarketCalendar, default_market_calendar
 
 
@@ -329,6 +330,7 @@ class MarketResearchService:
                     self.calendar,
                     policy_hash=self._policy_hash_for_grade(request.research_grade),
                 )
+            result = attach_time_evidence(result, self.calendar)
             result = result.model_copy(
                 update={
                     "provenance": _snapshot_provenance(snapshot),
