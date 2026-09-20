@@ -253,6 +253,30 @@ def test_krx_service_response_diagnostic_separates_auth_and_parse() -> None:
     assert malformed.response_date_matches is False
 
 
+def test_krx_cache_diagnostic_does_not_zip_unbound_multiple_entries(
+    tmp_path: Path,
+) -> None:
+    cache = AtomicResponseCache(tmp_path / "cache")
+    body = json.dumps({"OutBlock_1": []}).encode()
+    for index, session in enumerate(("2026-09-14", "2026-09-15")):
+        cache.put(
+            source="krx",
+            endpoint="https://example.test/krx",
+            request_key=f"fixture-{index}",
+            body=body,
+            status_code=200,
+            captured_at=datetime.fromisoformat(session).replace(tzinfo=UTC),
+            checkpoint=f"krx:daily:STK:{session}",
+        )
+
+    report = diagnose_krx_cache(cache)
+
+    assert report.readiness == "insufficient"
+    assert report.cache_integrity is False
+    assert all(entry.cache_integrity is False for entry in report.entries)
+    assert all(entry.checkpoint.startswith("unbound:") for entry in report.entries)
+
+
 def test_krx_daily_trade_rejects_negative_trade_values() -> None:
     with pytest.raises(CollectorError, match="KRX open is not valid"):
         parse_krx_daily_trade_response(

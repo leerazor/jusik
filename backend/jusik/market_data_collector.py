@@ -453,9 +453,14 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
     krx_checkpoints = sorted(
         value for value in manifest.checkpoints if value.startswith("krx:daily:")
     )
+    # The legacy manifest stores entry keys and checkpoints as independent
+    # collections.  A sorted zip is only provable for the single-entry case;
+    # with multiple entries it could attach a response to the wrong session.
+    # Keep the diagnostic fail-closed until the manifest carries an explicit
+    # key-to-checkpoint binding.
     checkpoint_by_key = (
-        dict(zip((item.key for item in krx_entries), krx_checkpoints, strict=True))
-        if len(krx_entries) == len(krx_checkpoints)
+        {krx_entries[0].key: krx_checkpoints[0]}
+        if len(krx_entries) == len(krx_checkpoints) == 1
         else {}
     )
     for item in krx_entries:
