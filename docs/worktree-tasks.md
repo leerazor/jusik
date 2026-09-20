@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## r2-03-ecb-publication-policy-audit-20260920
+
+- 상태: 공식 공표 일정 확인·FX application 미승격
+- ECB 공식 문서의 영업일 약 16:00 CET 공표 일정은 확인했지만, historical row별 first-seen
+  시각·휴일 예외를 증명하지 못합니다. 따라서 보수적 availability 정책 후보로만 기록하고
+  FX·NAV·Sharpe에 연결하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`
+
 ## current-contract-bundle-recheck-20260920
 
 - 상태: 현재 계약 회귀 재검증 완료·경제 acceptance 차단 유지

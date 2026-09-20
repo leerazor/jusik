@@ -10,6 +10,9 @@
 
 - `2025-09-11`, `2025-10-13`, `2025-11-11`에는 두 reference rate가 있어 Decimal USD/KRW 파생값을 계산할 수 있었습니다. `2026-04-03`은 두 시계열 모두 관측이 없었습니다.
 - ECB CSV에는 관측일·값·상태는 있으나 publication timestamp/first-seen 시각 필드가 없어 거래일 cutoff에 사용 가능했다고 증명할 수 없습니다.
+- ECB 공식 methodology는 영업일 약 16:00 CET 공표 일정을 설명하지만, historical row별
+  first-seen 시각과 예외 휴일을 제공하지 않습니다. 이 일정은 승인된 보수적 availability
+  policy 후보로만 기록하며 현재 FX/NAV/Sharpe 적용에는 사용하지 않습니다.
 - ECB 파생값은 exploratory evidence로만 보존하며 R2-03 FX application, canonical NAV, Sharpe에는 연결하지 않습니다. ECOS/BOK는 더 직접적인 KRW/USD 원천 후보지만 별도 API key와 source contract가 필요합니다.
 
 ## 문서·계약 영향

@@ -48,6 +48,10 @@ publication/availability timestamp 계약을 별도로 검증합니다. 발급 �
 `https://www.data.go.kr/data/3068846/openapi.do`이며, 키가 있어도 응답에 거래일 cutoff를
 증명할 publication/availability timestamp가 없으면 FX·Sharpe·NAV 적용은 계속 차단합니다.
 
+ECB reference rate는 키 없이 조회할 수 있지만 historical row별 first-seen 시각이 없어
+현재 적용 원천으로 승인하지 않았습니다. ECB의 일반 공표 일정만으로 적용하려면 별도
+보수적 availability 정책을 먼저 승인·고정해야 합니다.
+
 ## realized P&L
 
 Profit Factor·최대 연속 손실을 계산하려면 canonical trade row마다 명시적인
