@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## r2-03-regression-recheck-20260920
+
+- 상태: 기술 회귀 검증 완료·KOFR/포트폴리오 경제 적용 미완료
+- FX provenance, portfolio accounting evidence, exact-date KOFR application, receipt journal
+  관련 focused pytest `60 passed`, R2 핵심 모듈 strict mypy, `git diff --check`를 통과했습니다.
+- 검증은 기존 fail-closed 정책과 missing risk-free evidence 차단을 재확인했으며, 경제 acceptance,
+  PAPER/live 승격, 실주문, remote push, Windows 종료는 수행하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-regression-recheck.md`
+
 ## r1-public-evidence-catalog-integrity-gate-20260920
 
 - 상태: 기술 무결성 gate 완료·R1-05 coverage/PIT 미완료
