@@ -37,6 +37,7 @@
 ## 증거와 재개
 
 - audit: `~/.local/share/jusik/portfolio-audit/canonical-time-evidence-candidate-20260920/`; 생성 sidecar 경로는 호출자가 지정합니다.
+- 현재 생성 sidecar SHA-256: `1a50b408b3c684c46c61dfe60e1148e69e50fc8d2d0d490afb14a2828d427b50`.
 - 남은 작업·차단 조건: sidecar는 calendar-derived technical evidence일 뿐 historical PIT
   observation proof가 아닙니다. readiness missing code 제거와 경제 acceptance는 별도 승인
   작업에서 판단합니다.
