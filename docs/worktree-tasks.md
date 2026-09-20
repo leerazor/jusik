@@ -1,5 +1,15 @@
 # 워크트리 작업 등록부
 
+## market-data-readiness-recheck-20260920
+
+- 상태: read-only 확인 완료·미국 재실행 blocked 유지
+- `.env`를 명시한 `collect-status`에서 기존 US cache 84개 entry와 자격증명 누락 없음은 확인했지만,
+  completed marker/output identity가 없어 `completed=false`, `ready=false`, exit 2였습니다.
+- FRED는 `.env`에 설정되지 않았고, 기존 frozen 결과·public evidence를 보완자료로 재명명하지 않았습니다.
+- 신규 network collection·replay·성과 계산·요율 변경은 하지 않았습니다. FRED 또는 검증된 대체 FX
+  원천, completion marker, PIT action coverage, broker cost contract가 준비될 때까지 R4/R2-03은 보류합니다.
+- 개발 기록: `docs/development-records/2026-09-20-market-data-readiness-recheck.md`
+
 ## r2-02-official-cost-source-audit-20260920
 
 - 상태: 부분 근거 확보·R2-02 blocked 유지
