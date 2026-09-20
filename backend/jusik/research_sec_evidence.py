@@ -121,6 +121,19 @@ class SecReviewQueue(BaseModel):
     items: tuple[SecReviewQueueItem, ...] = Field(min_length=1, max_length=100)
 
 
+class SecReviewQueueSourceVerification(BaseModel):
+    """Bounded offline verification of queue-to-raw filing identity."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    queue_items: int = Field(ge=1, le=100)
+    verified_items: int = Field(ge=0, le=100)
+    missing_accessions: tuple[str, ...] = ()
+    sha_mismatch_accessions: tuple[str, ...] = ()
+    ready: bool
+
+
 def build_sec_review_queue(
     candidates: Iterable[SecFilingCandidate],
     *,
@@ -153,6 +166,60 @@ def build_sec_review_queue(
         items=tuple(
             sorted(items, key=lambda item: (item.symbol, item.accession_number))
         )
+    )
+
+
+def verify_sec_review_queue_sources(
+    queue: SecReviewQueue,
+    *,
+    candidate_dir: Path,
+    max_source_bytes: int = 10 * 1024 * 1024,
+) -> SecReviewQueueSourceVerification:
+    """Verify every queue item has a bounded, hash-matching local raw filing.
+
+    This function is read-only and deliberately does not approve a candidate or
+    enable ledger application.  A queue is not source-ready when any accession
+    is absent or its stored bytes do not match the queue hash.
+    """
+    if max_source_bytes < 1:
+        raise ValueError("sec_review_source_size_limit_invalid")
+    if candidate_dir.is_symlink() or not candidate_dir.is_dir():
+        raise ValueError("sec_review_source_dir_missing")
+    missing: list[str] = []
+    mismatched: list[str] = []
+    verified = 0
+    for item in queue.items:
+        matches = sorted(
+            candidate_dir.glob(f"sec-filing-{item.accession_number}-*.html")
+        )
+        valid_hash = False
+        for path in matches:
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                if path.stat().st_size > max_source_bytes:
+                    continue
+                body = path.read_bytes()
+            except OSError:
+                continue
+            if (
+                len(body) <= max_source_bytes
+                and hashlib.sha256(body).hexdigest() == item.raw_sha256
+            ):
+                valid_hash = True
+                break
+        if valid_hash:
+            verified += 1
+        elif matches:
+            mismatched.append(item.accession_number)
+        else:
+            missing.append(item.accession_number)
+    return SecReviewQueueSourceVerification(
+        queue_items=len(queue.items),
+        verified_items=verified,
+        missing_accessions=tuple(missing),
+        sha_mismatch_accessions=tuple(mismatched),
+        ready=verified == len(queue.items),
     )
 
 

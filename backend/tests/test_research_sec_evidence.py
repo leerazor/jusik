@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from jusik.research_sec_evidence import (
     parse_sec_filing_candidate,
     parse_sec_submissions,
     parse_sec_ticker_map,
+    verify_sec_review_queue_sources,
 )
 
 
@@ -246,6 +248,39 @@ def test_sec_review_queue_rejects_unknown_symbol_and_duplicate_accession() -> No
         )
     with pytest.raises(ValueError, match="queue_empty"):
         build_sec_review_queue((), filing_symbols={})
+
+
+def test_sec_review_queue_source_verification_is_hash_bound(tmp_path: Path) -> None:
+    candidate = SecFilingCandidate(
+        cik="0000000001",
+        accession_number="0000000001-25-000001",
+        form="8-K",
+        source_url="https://www.sec.gov/Archives/edgar/data/1/one.htm",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        raw_sha256="0" * 64,
+        candidate_kinds=("dividend",),
+        candidate_snippets=("dividend",),
+    )
+    queue = build_sec_review_queue((candidate,), filing_symbols={"0000000001": "ONE"})
+    report = verify_sec_review_queue_sources(queue, candidate_dir=tmp_path)
+    assert report.ready is False
+    assert report.missing_accessions == (candidate.accession_number,)
+
+    raw = b"declared a dividend"
+    candidate = candidate.model_copy(
+        update={"raw_sha256": hashlib.sha256(raw).hexdigest()}
+    )
+    queue = build_sec_review_queue((candidate,), filing_symbols={"0000000001": "ONE"})
+    path = tmp_path / f"sec-filing-{candidate.accession_number}-raw.html"
+    path.write_bytes(raw)
+    report = verify_sec_review_queue_sources(queue, candidate_dir=tmp_path)
+    assert report.ready is True
+    assert report.verified_items == 1
+
+    path.write_bytes(b"tampered")
+    report = verify_sec_review_queue_sources(queue, candidate_dir=tmp_path)
+    assert report.ready is False
+    assert report.sha_mismatch_accessions == (candidate.accession_number,)
 
 
 def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> None:
