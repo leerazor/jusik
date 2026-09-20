@@ -3193,6 +3193,18 @@
 - 검증: mandate/runner pytest `75 passed`, `git diff --check`; 비밀값·코드·연구 결과·runner
   상태 변경 없음.
 
+## sec-action-review-form-validator-20260920
+
+- 상태: 완료 (batch operator form fail-closed validator); action/NAV/economic acceptance는
+  미승격
+- `SecActionReviewForm`과 `validate_sec_action_review_form()` 및 CLI를 추가했습니다. 8개
+  priority row를 한 번에 검증하며 accession/review-key identity, raw SHA, operator flag,
+  revision/content hash, event-specific facts와 PIT link를 확인합니다.
+- 실제 blank form 결과: source verified `8/8`, missing `0`, SHA mismatch `0`, `ready=false`,
+  exit `2`. 원문 gate는 통과했고 operator 입력만 남았습니다.
+- 검증: SEC evidence pytest `11 passed`, Ruff·strict mypy·diff check 통과.
+- 개발 기록: `docs/development-records/2026-09-20-sec-action-review-form-validator.md`.
+
 ## kofr-repeat-response-evidence-20260920
 
 - 상태: 반복 원문 대조 완료·application 승격 보류.

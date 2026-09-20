@@ -137,6 +137,54 @@ class SecReviewQueueSourceVerification(BaseModel):
     ready: bool
 
 
+class SecActionReviewFormItem(BaseModel):
+    """One operator-supplied action review row; never an approved ledger event."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    symbol: str = Field(pattern=r"^[A-Z0-9][A-Z0-9.\-/]{0,19}$")
+    accession_number: str = Field(pattern=r"^\d{10}-\d{2}-\d{6}$")
+    review_key: str = Field(pattern=r"^sec:\d{10}-\d{2}-\d{6}:(split|dividend)$")
+    source_url: str = Field(min_length=1, max_length=500)
+    raw_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    required_fields: tuple[str, ...] = SEC_REVIEW_QUEUE_REQUIRED_FIELDS
+    operator_verified: bool = False
+    automatic_ledger_application: Literal[False] = False
+    revision_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    manual_classification: str | None = Field(
+        default=None, min_length=1, max_length=200
+    )
+    event_type: Literal["split", "dividend"] | None = None
+    pit_link: str | None = Field(default=None, min_length=1, max_length=2000)
+    extracted_facts: ExtractedFacts = ExtractedFacts()
+
+
+class SecActionReviewForm(BaseModel):
+    """Batch operator form that must pass validation before a ReviewManifest."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    status: Literal["operator_input_required"] = "operator_input_required"
+    items: tuple[SecActionReviewFormItem, ...] = Field(min_length=1, max_length=100)
+
+
+class SecActionReviewFormValidation(BaseModel):
+    """Fail-closed form readiness; readiness is not action approval."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    form_items: int = Field(ge=1, le=100)
+    source_verified_items: int = Field(ge=0, le=100)
+    missing_fields: dict[str, tuple[str, ...]] = {}
+    source_missing_accessions: tuple[str, ...] = ()
+    source_sha_mismatch_accessions: tuple[str, ...] = ()
+    ready: bool
+    automatic_ledger_application: Literal[False] = False
+
+
 def build_sec_review_queue(
     candidates: Iterable[SecFilingCandidate],
     *,
@@ -223,6 +271,124 @@ def verify_sec_review_queue_sources(
         missing_accessions=tuple(missing),
         sha_mismatch_accessions=tuple(mismatched),
         ready=verified == len(queue.items),
+    )
+
+
+def load_sec_action_review_form(path: Path) -> SecActionReviewForm:
+    """Load a bounded batch form without treating it as an approved manifest."""
+    try:
+        body = path.read_bytes()
+    except OSError as exc:
+        raise ValueError("sec_action_review_form_unavailable") from exc
+    if len(body) > MAX_SEC_REVIEW_QUEUE_BYTES:
+        raise ValueError("sec_action_review_form_too_large")
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("sec_action_review_form_invalid") from exc
+    try:
+        return SecActionReviewForm.model_validate(payload)
+    except ValueError as exc:
+        raise ValueError("sec_action_review_form_invalid") from exc
+
+
+def validate_sec_action_review_form(
+    form: SecActionReviewForm,
+    *,
+    candidate_dir: Path,
+    max_source_bytes: int = MAX_SEC_REVIEW_EVIDENCE_BYTES,
+) -> SecActionReviewFormValidation:
+    """Validate a filled batch form and its raw files, without approving actions."""
+    if max_source_bytes < 1:
+        raise ValueError("sec_action_review_source_size_limit_invalid")
+    if candidate_dir.is_symlink() or not candidate_dir.is_dir():
+        raise ValueError("sec_action_review_source_dir_missing")
+    missing: dict[str, tuple[str, ...]] = {}
+    source_missing: list[str] = []
+    source_mismatch: list[str] = []
+    source_verified = 0
+    seen_accessions: set[str] = set()
+    seen_review_keys: set[str] = set()
+    for item in form.items:
+        key = item.review_key
+        missing_fields: list[str] = []
+        kind = key.rsplit(":", 1)[-1]
+        if item.accession_number in seen_accessions:
+            missing_fields.append("duplicate_accession_number")
+        seen_accessions.add(item.accession_number)
+        if key in seen_review_keys:
+            missing_fields.append("duplicate_review_key")
+        seen_review_keys.add(key)
+        if item.review_key != f"sec:{item.accession_number}:{kind}":
+            missing_fields.append("review_key_identity")
+        if item.event_type != kind:
+            missing_fields.append("event_type")
+        if not item.operator_verified:
+            missing_fields.append("operator_verified")
+        if item.revision_id is None:
+            missing_fields.append("revision_id")
+        if item.content_sha256 is None:
+            missing_fields.append("content_sha256")
+        if item.manual_classification is None:
+            missing_fields.append("manual_classification")
+        if item.pit_link is None:
+            missing_fields.append("pit_link")
+        facts = item.extracted_facts
+        if kind == "dividend":
+            required_facts: tuple[tuple[str, object], ...] = (
+                ("amount", facts.amount),
+                ("currency", facts.currency),
+                ("ex_dividend_date", facts.ex_dividend_date),
+                ("comparable_share_basis", facts.comparable_share_basis),
+            )
+        else:
+            required_facts = (
+                ("numerator", facts.numerator),
+                ("denominator", facts.denominator),
+                ("legal_effective_date", facts.legal_effective_date),
+                ("comparable_share_basis", facts.comparable_share_basis),
+            )
+        missing_fields.extend(name for name, value in required_facts if value is None)
+        matches = sorted(
+            candidate_dir.glob(f"sec-filing-{item.accession_number}-*.html")
+        )
+        valid_hash = False
+        for path in matches:
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                if path.stat().st_size > max_source_bytes:
+                    continue
+                body = path.read_bytes()
+            except OSError:
+                continue
+            if (
+                len(body) <= max_source_bytes
+                and hashlib.sha256(body).hexdigest() == item.raw_sha256
+            ):
+                valid_hash = True
+                break
+        if valid_hash:
+            source_verified += 1
+        elif matches:
+            source_mismatch.append(item.accession_number)
+        else:
+            source_missing.append(item.accession_number)
+        if missing_fields:
+            missing[key] = tuple(sorted(set(missing_fields)))
+    ready = (
+        source_verified == len(form.items)
+        and not source_missing
+        and not source_mismatch
+        and not missing
+    )
+    return SecActionReviewFormValidation(
+        form_items=len(form.items),
+        source_verified_items=source_verified,
+        missing_fields=missing,
+        source_missing_accessions=tuple(source_missing),
+        source_sha_mismatch_accessions=tuple(source_mismatch),
+        ready=ready,
     )
 
 
@@ -626,7 +792,31 @@ def _main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--verify-queue", type=Path)
     parser.add_argument("--candidate-dir", type=Path)
+    parser.add_argument("--validate-review-form", type=Path)
+    parser.add_argument("--review-candidate-dir", type=Path)
     args = parser.parse_args(argv)
+    if args.validate_review_form is not None:
+        if (
+            args.cik
+            or args.output_dir is not None
+            or args.verify_queue is not None
+            or args.candidate_dir is not None
+            or args.review_candidate_dir is None
+        ):
+            parser.error(
+                "--validate-review-form requires --review-candidate-dir and cannot "
+                "be combined with collection or queue verification arguments"
+            )
+        try:
+            form_report = validate_sec_action_review_form(
+                load_sec_action_review_form(args.validate_review_form),
+                candidate_dir=args.review_candidate_dir,
+            )
+        except (OSError, ValueError):
+            print("SEC action review form validation failed", file=sys.stderr)
+            return 1
+        print(json.dumps(form_report.model_dump(mode="json"), sort_keys=True))
+        return 0 if form_report.ready else 2
     if args.verify_queue is not None:
         if args.cik or args.output_dir is not None or args.candidate_dir is None:
             parser.error(

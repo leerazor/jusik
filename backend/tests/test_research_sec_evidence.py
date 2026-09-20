@@ -9,6 +9,8 @@ import pytest
 
 from jusik.research_action_review import ExtractedFacts
 from jusik.research_sec_evidence import (
+    SecActionReviewForm,
+    SecActionReviewFormItem,
     SecFiling,
     SecFilingCandidate,
     _main,
@@ -20,6 +22,7 @@ from jusik.research_sec_evidence import (
     parse_sec_filing_candidate,
     parse_sec_submissions,
     parse_sec_ticker_map,
+    validate_sec_action_review_form,
     verify_sec_review_queue_sources,
 )
 
@@ -209,6 +212,64 @@ def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind
             revision_id="3" * 64,
             content_sha256="4" * 64,
         )
+
+
+def test_sec_action_review_form_is_batch_fail_closed_before_manifest(
+    tmp_path: Path,
+) -> None:
+    accession = "0001045810-24-000144"
+    raw = b"declared a cash dividend"
+    raw_path = tmp_path / (
+        f"sec-filing-{accession}-{hashlib.sha256(raw).hexdigest()}.html"
+    )
+    raw_path.write_bytes(raw)
+    base = {
+        "symbol": "TEST",
+        "accession_number": accession,
+        "review_key": f"sec:{accession}:dividend",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/1045810/event.htm",
+        "raw_sha256": hashlib.sha256(raw).hexdigest(),
+    }
+    blank = SecActionReviewForm(
+        items=(SecActionReviewFormItem(**base),),
+    )
+    report = validate_sec_action_review_form(blank, candidate_dir=tmp_path)
+    assert report.ready is False
+    assert set(report.missing_fields[blank.items[0].review_key]) == {
+        "amount",
+        "comparable_share_basis",
+        "content_sha256",
+        "currency",
+        "event_type",
+        "ex_dividend_date",
+        "manual_classification",
+        "operator_verified",
+        "pit_link",
+        "revision_id",
+    }
+
+    ready = SecActionReviewForm(
+        items=(
+            SecActionReviewFormItem(
+                **base,
+                operator_verified=True,
+                revision_id="1" * 64,
+                content_sha256="2" * 64,
+                manual_classification="direct_cash_dividend",
+                event_type="dividend",
+                pit_link="sec:0001045810-24-000144",
+                extracted_facts=ExtractedFacts(
+                    amount="0.10",
+                    currency="USD",
+                    ex_dividend_date=datetime(2024, 6, 7, tzinfo=UTC).date(),
+                    comparable_share_basis=True,
+                ),
+            ),
+        )
+    )
+    ready_report = validate_sec_action_review_form(ready, candidate_dir=tmp_path)
+    assert ready_report.ready is True
+    assert ready_report.automatic_ledger_application is False
 
 
 def test_sec_review_queue_binds_symbols_deterministically_without_promotion() -> None:
