@@ -2547,8 +2547,10 @@
 - 상태: 기술 parser 완료·catalog/경제 acceptance 연결 보류.
 - 구현: `backend/jusik/research_sec_etf_identity.py`와 focused test를 추가했습니다.
   SEC index raw 하나에서 symbol·title·CIK·accession provenance를 검증하고 credential
-  URL·누락·malformed 입력을 fail-closed합니다.
-- 검증: focused pytest 5개, Ruff check/format, strict mypy, diff check 통과.
+  URL·누락·malformed 입력을 fail-closed합니다. 여러 identity의 CIK↔symbol conflict도
+  거부합니다.
+- 검증: focused pytest 8개, 기존 catalog pytest, Ruff check/format, strict mypy, diff
+  check와 보존 raw mapping replay 통과.
 - 제한: 기존 SEC ticker map/catalog를 자동 변경하지 않으며 filing coverage, PIT,
   R1-05 acceptance와 원장·성과를 승격하지 않습니다.
 - 보존 raw 2개를 새 parser로 offline replay해 identity 2/2 재현을 확인했습니다.

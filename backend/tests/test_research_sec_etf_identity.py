@@ -2,7 +2,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from jusik.research_sec_etf_identity import parse_sec_etf_identity
+from jusik.research_sec_etf_identity import (
+    build_sec_identity_mapping,
+    parse_sec_etf_identity,
+)
 
 BODY = b"""
 <html><body>
@@ -56,3 +59,22 @@ def test_parse_sec_etf_identity_rejects_credentials_in_url() -> None:
             source_url="https://user:secret@www.sec.gov/index.htm",
             observed_at=datetime(2026, 9, 20, tzinfo=UTC),
         )
+
+
+def test_build_sec_identity_mapping_deduplicates_and_sorts() -> None:
+    identity = _parse()
+    assert build_sec_identity_mapping((identity, identity)) == {"0001424958": "SOXL"}
+
+
+def test_build_sec_identity_mapping_rejects_cik_conflict() -> None:
+    identity = _parse()
+    conflict = identity.model_copy(update={"symbol": "OTHER"})
+    with pytest.raises(ValueError, match="^sec_etf_identity_cik_conflict$"):
+        build_sec_identity_mapping((identity, conflict))
+
+
+def test_build_sec_identity_mapping_rejects_symbol_conflict() -> None:
+    identity = _parse()
+    conflict = identity.model_copy(update={"cik": "0001174610"})
+    with pytest.raises(ValueError, match="^sec_etf_identity_symbol_conflict$"):
+        build_sec_identity_mapping((identity, conflict))

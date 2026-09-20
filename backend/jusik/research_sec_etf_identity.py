@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import html
 import re
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from urllib.parse import parse_qsl, urlsplit
 
@@ -106,4 +107,26 @@ def parse_sec_etf_identity(
     )
 
 
-__all__ = ["SecEtfIdentity", "parse_sec_etf_identity"]
+def build_sec_identity_mapping(
+    identities: Iterable[SecEtfIdentity],
+) -> dict[str, str]:
+    """Build a CIK-to-symbol map while rejecting identity conflicts."""
+    by_cik: dict[str, str] = {}
+    by_symbol: dict[str, str] = {}
+    for identity in identities:
+        prior_symbol = by_cik.get(identity.cik)
+        if prior_symbol is not None and prior_symbol != identity.symbol:
+            raise ValueError("sec_etf_identity_cik_conflict")
+        prior_cik = by_symbol.get(identity.symbol)
+        if prior_cik is not None and prior_cik != identity.cik:
+            raise ValueError("sec_etf_identity_symbol_conflict")
+        by_cik[identity.cik] = identity.symbol
+        by_symbol[identity.symbol] = identity.cik
+    return dict(sorted(by_cik.items()))
+
+
+__all__ = [
+    "SecEtfIdentity",
+    "build_sec_identity_mapping",
+    "parse_sec_etf_identity",
+]

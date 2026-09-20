@@ -9,6 +9,9 @@
 symbol·title·CIK가 모두 존재하고 accession/HTTPS provenance가 유효할 때만 identity
 candidate를 반환하며, 누락·credential URL·비정상 입력은 fail-closed 합니다. 기존
 catalog에는 자동 병합하지 않습니다.
+candidate 여러 건을 결합하는 CIK↔symbol mapping도 추가해 동일 CIK의 다른 symbol이나
+동일 symbol의 다른 CIK 충돌을 거부합니다. 보존 raw 2건의 실제 mapping은
+`{"0001174610": "TQQQ", "0001424958": "SOXL"}`로 재현했습니다.
 
 ## 결과
 
@@ -34,6 +37,7 @@ ETF series/class identity를 별도 evidence source로 분리했습니다. 이 �
 
 - SEC 공식 index bounded GET 2회, raw SHA·크기·symbol/CIK 문자열 대조를 통과했습니다.
 - identity parser focused pytest 5개, Ruff check/format, strict mypy를 통과했습니다.
+- mapping 충돌 경계 포함 focused pytest 8개와 실제 raw mapping replay를 통과했습니다.
 - 실제 주문, PAPER/live, runner 재개, 원격 push, Windows 종료는 없습니다.
 
 ## CIK submissions inventory
