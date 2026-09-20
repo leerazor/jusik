@@ -11,12 +11,14 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from jusik.research_action_review import (
+    EvidenceInput,
     ExtractedFacts,
     ReviewInput,
     ReviewManifest,
@@ -76,6 +78,82 @@ class SecFilingCandidate(BaseModel):
     @classmethod
     def observed_at_utc(cls, value: datetime) -> datetime:
         return _utc(value)
+
+
+SEC_REVIEW_QUEUE_REQUIRED_FIELDS: tuple[str, ...] = (
+    "manual_classification",
+    "event_type",
+    "effective_date",
+    "amount_or_ratio",
+    "share_basis",
+    "pit_link",
+)
+
+
+class SecReviewQueueItem(BaseModel):
+    """Non-authoritative SEC candidate awaiting action review."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    symbol: str = Field(pattern=r"^[A-Z0-9][A-Z0-9.\-/]{0,19}$")
+    accession_number: str = Field(pattern=r"^\d{10}-\d{2}-\d{6}$")
+    source_url: str = Field(min_length=1, max_length=500)
+    raw_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_kinds: tuple[str, ...]
+    candidate_snippets: tuple[str, ...]
+    status: Literal["unsupported_candidate"] = "unsupported_candidate"
+    required_fields: tuple[str, ...] = SEC_REVIEW_QUEUE_REQUIRED_FIELDS
+    automatic_ledger_application: Literal[False] = False
+
+
+class SecReviewQueue(BaseModel):
+    """Deterministic queue; it cannot represent an approved action."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal[1] = 1
+    promotion: Literal["forbidden_until_action_review"] = (
+        "forbidden_until_action_review"
+    )
+    source: Literal["sec_edgar_event_near_candidates"] = (
+        "sec_edgar_event_near_candidates"
+    )
+    items: tuple[SecReviewQueueItem, ...] = Field(min_length=1, max_length=100)
+
+
+def build_sec_review_queue(
+    candidates: Iterable[SecFilingCandidate],
+    *,
+    filing_symbols: Mapping[str, str],
+) -> SecReviewQueue:
+    """Bind SEC candidates to tickers without inferring action facts."""
+    items: list[SecReviewQueueItem] = []
+    seen_accessions: set[str] = set()
+    for candidate in candidates:
+        symbol = filing_symbols.get(candidate.cik)
+        if symbol is None:
+            raise ValueError("sec_review_queue_symbol_missing")
+        symbol = symbol.upper()
+        if candidate.accession_number in seen_accessions:
+            raise ValueError("sec_review_queue_duplicate_accession")
+        seen_accessions.add(candidate.accession_number)
+        items.append(
+            SecReviewQueueItem(
+                symbol=symbol,
+                accession_number=candidate.accession_number,
+                source_url=candidate.source_url,
+                raw_sha256=candidate.raw_sha256,
+                candidate_kinds=tuple(candidate.candidate_kinds),
+                candidate_snippets=tuple(candidate.candidate_snippets),
+            )
+        )
+    if not items:
+        raise ValueError("sec_review_queue_empty")
+    return SecReviewQueue(
+        items=tuple(
+            sorted(items, key=lambda item: (item.symbol, item.accession_number))
+        )
+    )
 
 
 _FILING_CANDIDATE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -152,14 +230,14 @@ def build_sec_action_review_input(
         revision_id=revision_id,
         content_sha256=content_sha256,
         operator_verified=True,
-        evidence={
-            "local_file": local_file,
-            "sha256": candidate.raw_sha256,
-            "source_url": candidate.source_url,
-            "publisher": "SEC EDGAR",
-            "locator": candidate.accession_number,
-            "captured_at": candidate.observed_at,
-        },
+        evidence=EvidenceInput(
+            local_file=local_file,
+            sha256=candidate.raw_sha256,
+            source_url=candidate.source_url,
+            publisher="SEC EDGAR",
+            locator=candidate.accession_number,
+            captured_at=candidate.observed_at,
+        ),
         extracted_facts=extracted_facts,
     )
 

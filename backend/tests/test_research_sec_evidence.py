@@ -12,6 +12,7 @@ from jusik.research_sec_evidence import (
     SecFilingCandidate,
     build_sec_action_review_input,
     build_sec_review_manifest,
+    build_sec_review_queue,
     collect_sec_filing_candidates,
     filing_document_url,
     parse_sec_filing_candidate,
@@ -183,6 +184,68 @@ def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind
             revision_id="3" * 64,
             content_sha256="4" * 64,
         )
+
+
+def test_sec_review_queue_binds_symbols_deterministically_without_promotion() -> None:
+    candidates = (
+        SecFilingCandidate(
+            cik="0000000002",
+            accession_number="0000000002-25-000002",
+            form="8-K",
+            source_url="https://www.sec.gov/Archives/edgar/data/2/two.htm",
+            observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+            raw_sha256="2" * 64,
+            candidate_kinds=("split",),
+            candidate_snippets=("stock split",),
+        ),
+        SecFilingCandidate(
+            cik="0000000001",
+            accession_number="0000000001-25-000001",
+            form="8-K",
+            source_url="https://www.sec.gov/Archives/edgar/data/1/one.htm",
+            observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+            raw_sha256="1" * 64,
+            candidate_kinds=("dividend",),
+            candidate_snippets=("declared a dividend",),
+        ),
+    )
+
+    queue = build_sec_review_queue(
+        candidates, filing_symbols={"0000000001": "ONE", "0000000002": "TWO"}
+    )
+
+    assert [item.symbol for item in queue.items] == ["ONE", "TWO"]
+    assert all(item.status == "unsupported_candidate" for item in queue.items)
+    assert all(item.automatic_ledger_application is False for item in queue.items)
+    assert queue.items[0].required_fields == (
+        "manual_classification",
+        "event_type",
+        "effective_date",
+        "amount_or_ratio",
+        "share_basis",
+        "pit_link",
+    )
+
+
+def test_sec_review_queue_rejects_unknown_symbol_and_duplicate_accession() -> None:
+    candidate = SecFilingCandidate(
+        cik="0000000001",
+        accession_number="0000000001-25-000001",
+        form="8-K",
+        source_url="https://www.sec.gov/Archives/edgar/data/1/one.htm",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        raw_sha256="1" * 64,
+        candidate_kinds=("dividend",),
+        candidate_snippets=("dividend",),
+    )
+    with pytest.raises(ValueError, match="symbol_missing"):
+        build_sec_review_queue((candidate,), filing_symbols={})
+    with pytest.raises(ValueError, match="duplicate_accession"):
+        build_sec_review_queue(
+            (candidate, candidate), filing_symbols={"0000000001": "ONE"}
+        )
+    with pytest.raises(ValueError, match="queue_empty"):
+        build_sec_review_queue((), filing_symbols={})
 
 
 def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> None:

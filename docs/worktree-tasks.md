@@ -38,7 +38,11 @@
   `5d22bf07625916859cb42c56fa2e3929caeae946e2f67248a634931b4c96f90f`). 모든 항목은
   `unsupported_candidate`, 수동 분류·event/effective/금액·비율/share-basis/PIT link 필요,
   `automatic_ledger_application=false`입니다.
-- SEC/evidence/action 관련 focused pytest `36 passed` (경고 2건)로 기존 fail-closed 계약을 재확인했습니다.
+- `research_sec_evidence.py`에 `SecReviewQueue`/`build_sec_review_queue()`를 추가해 CIK→symbol
+  결속, accession 중복·누락 거부, 결정적 정렬, 자동 ledger 적용 금지를 코드로 고정했습니다.
+  기존 queue를 builder로 재생성해 payload와 SHA가 동일함을 확인했습니다.
+- SEC/evidence/action 관련 focused pytest `38 passed` (경고 2건), Ruff·strict mypy 통과로
+  fail-closed 계약을 재확인했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-us-action-sec-candidate-preflight.md`
 
 ## r6-krx-zero-adjacent-recheck-20260920

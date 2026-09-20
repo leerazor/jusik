@@ -22,7 +22,10 @@
 - 후보 52건을 `event-near-review-queue.json`으로 결속했습니다. queue SHA-256은
   `5d22bf07625916859cb42c56fa2e3929caeae946e2f67248a634931b4c96f90f`이며 모든 item은
   `unsupported_candidate`와 `automatic_ledger_application=false`를 가집니다.
-- 검증: SEC/evidence/action focused pytest `36 passed` (비차단 warning 2건)
+- `research_sec_evidence.py`의 `SecReviewQueue`/`build_sec_review_queue()`가 CIK→symbol,
+  accession 중복·누락, 결정적 정렬과 자동 ledger 금지를 검증합니다. builder로 기존 queue를
+  재생성한 payload SHA도 동일했습니다.
+- 검증: SEC/evidence/action focused pytest `38 passed` (비차단 warning 2건), Ruff·strict mypy 통과
 
 ## 판정
 
