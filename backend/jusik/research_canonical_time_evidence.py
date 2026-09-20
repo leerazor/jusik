@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Final, cast
 
 from .market_performance_readiness import (
+    CALENDAR_BYTES_SHA256,
     CANONICAL_MANIFEST_SHA256,
     CANONICAL_PERIOD,
     CANONICAL_RUN_SHA256,
@@ -55,6 +56,14 @@ DEFAULT_OUTPUT = (
     AUDIT_ROOT
     / "canonical-time-evidence-candidate-20260920"
     / "canonical-time-evidence-sidecar.json"
+)
+DEFAULT_ATTACHMENT_MANIFEST = (
+    AUDIT_ROOT
+    / "canonical-time-evidence-candidate-20260920"
+    / "attachment-manifest.json"
+)
+ATTACHMENT_MANIFEST_SHA256: Final = (
+    "59ba9f4c719681286bb487555336194a08bdbe35c7054d021227ea4387f69fe8"
 )
 
 
@@ -148,6 +157,10 @@ def _equity(value: object, label: str) -> list[dict[str, object]]:
         ):
             raise CanonicalTimeEvidenceError(f"{label}_timestamp_missing")
         try:
+            date.fromisoformat(session)
+        except ValueError as exc:
+            raise CanonicalTimeEvidenceError(f"{label}_session_invalid") from exc
+        try:
             parsed = datetime.fromisoformat(at.replace("Z", "+00:00"))
         except ValueError as exc:
             raise CanonicalTimeEvidenceError(f"{label}_timestamp_invalid") from exc
@@ -201,6 +214,7 @@ def _build(
     replay_path: Path,
     time_evidence_path: Path,
     calendar_path: Path,
+    attachment_manifest_path: Path,
     output_path: Path,
 ) -> dict[str, object]:
     paths = {
@@ -210,6 +224,7 @@ def _build(
         "replay": replay_path,
         "time_evidence": time_evidence_path,
         "calendar": calendar_path,
+        "attachment_manifest": attachment_manifest_path,
     }
     raw: dict[str, bytes] = {}
     hashes: dict[str, str] = {}
@@ -219,6 +234,12 @@ def _build(
         raise CanonicalTimeEvidenceError("canonical_run_sha_mismatch")
     if hashes["canonical_manifest"] != CANONICAL_MANIFEST_SHA256:
         raise CanonicalTimeEvidenceError("canonical_manifest_sha_mismatch")
+    if calendar_path.resolve() != TRACKED_CALENDAR_PATH.resolve():
+        raise CanonicalTimeEvidenceError("calendar_path_not_tracked")
+    if hashes["calendar"] != CALENDAR_BYTES_SHA256:
+        raise CanonicalTimeEvidenceError("calendar_sha_mismatch")
+    if hashes["attachment_manifest"] != ATTACHMENT_MANIFEST_SHA256:
+        raise CanonicalTimeEvidenceError("attachment_manifest_sha_mismatch")
     manifest = _json(raw["canonical_manifest"], "canonical_manifest")
     artifacts = _mapping(manifest.get("artifacts"), "manifest_artifacts_invalid")
     run_artifact = _mapping(artifacts.get("run"), "manifest_run_invalid")
@@ -241,6 +262,18 @@ def _build(
     candidate = _json(raw["candidate_run"], "candidate_run")
     replay = _json(raw["replay"], "replay")
     evidence = _json(raw["time_evidence"], "time_evidence")
+    attachment = _json(raw["attachment_manifest"], "attachment_manifest")
+    if attachment.get("schema") != "market-time-evidence-attachment/v1":
+        raise CanonicalTimeEvidenceError("attachment_manifest_schema_invalid")
+    expected_attachment = {
+        "canonical_run_sha256": hashes["canonical_run"],
+        "candidate_run_sha256": hashes["candidate_run"],
+        "replay_sha256": hashes["replay"],
+        "time_evidence_result_sha256": hashes["time_evidence"],
+    }
+    for key, expected in expected_attachment.items():
+        if attachment.get(key) != expected:
+            raise CanonicalTimeEvidenceError("attachment_manifest_identity_mismatch")
     comparison = _mapping(replay.get("comparison"), "replay_comparison_missing")
     if comparison.get("all") is not True:
         raise CanonicalTimeEvidenceError("replay_not_exact")
@@ -259,6 +292,10 @@ def _build(
         _mapping(canonical.get("result"), "canonical_result_invalid").get("equity"),
         "canonical_equity",
     )
+    candidate_rows = _canonical_rows(candidate_result.get("equity"), "candidate_equity")
+    replay_rows = _canonical_rows(replay_result.get("equity"), "replay_equity")
+    if candidate_rows != canonical_rows or replay_rows != canonical_rows:
+        raise CanonicalTimeEvidenceError("replay_equity_mismatch")
     evidence_rows = _equity(evidence.get("equity"), "time_evidence_equity")
     if [(r["session"], r["nav_krw"]) for r in evidence_rows] != canonical_rows:
         raise CanonicalTimeEvidenceError("canonical_equity_mismatch")
@@ -266,7 +303,11 @@ def _build(
     if not calendar.available or calendar.artifact_sha256 != hashes["calendar"]:
         raise CanonicalTimeEvidenceError("calendar_invalid")
     for row in evidence_rows:
-        lookup = calendar.lookup("NMS", date.fromisoformat(cast(str, row["session"])))
+        try:
+            session_date = date.fromisoformat(cast(str, row["session"]))
+        except ValueError as exc:
+            raise CanonicalTimeEvidenceError("time_evidence_session_invalid") from exc
+        lookup = calendar.lookup("NMS", session_date)
         if (
             lookup.state != "session"
             or lookup.session is None
@@ -277,9 +318,11 @@ def _build(
         ):
             raise CanonicalTimeEvidenceError("calendar_timestamp_mismatch")
     initial = evidence.get("initial_capital_at")
-    first_lookup = calendar.lookup(
-        "NMS", date.fromisoformat(cast(str, evidence_rows[0]["session"]))
-    )
+    try:
+        first_date = date.fromisoformat(cast(str, evidence_rows[0]["session"]))
+    except ValueError as exc:
+        raise CanonicalTimeEvidenceError("time_evidence_session_invalid") from exc
+    first_lookup = calendar.lookup("NMS", first_date)
     expected_initial = (
         first_lookup.session.open_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
         if first_lookup.session
@@ -313,6 +356,7 @@ def build_canonical_time_evidence(
     time_evidence_path: Path = DEFAULT_TIME_EVIDENCE,
     calendar_path: Path = TRACKED_CALENDAR_PATH,
     output_path: Path = DEFAULT_OUTPUT,
+    attachment_manifest_path: Path = DEFAULT_ATTACHMENT_MANIFEST,
 ) -> dict[str, object]:
     """Validate inputs, then atomically write a new sidecar."""
     result = _build(
@@ -325,6 +369,7 @@ def build_canonical_time_evidence(
                 replay_path,
                 time_evidence_path,
                 calendar_path,
+                attachment_manifest_path,
                 output_path,
             )
         )
@@ -366,6 +411,7 @@ def verify_canonical_time_evidence(
         "replay",
         "time_evidence",
         "calendar",
+        "attachment_manifest",
     }
     if set(sources) != required:
         raise CanonicalTimeEvidenceError("sidecar_sources_incomplete")
@@ -385,6 +431,7 @@ def verify_canonical_time_evidence(
         source_paths["replay"],
         source_paths["time_evidence"],
         source_paths["calendar"],
+        source_paths["attachment_manifest"],
         Path("/tmp/canonical-time-evidence-verify-output.json"),
     )
     if result["identity"] != sidecar.get("identity") or result[

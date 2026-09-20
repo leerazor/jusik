@@ -7,6 +7,7 @@ import pytest
 
 from jusik.research_canonical_time_evidence import (
     CanonicalTimeEvidenceError,
+    _equity,
     build_canonical_time_evidence,
     verify_canonical_time_evidence,
 )
@@ -43,7 +44,23 @@ def test_build_rejects_non_exact_replay(tmp_path: Path) -> None:
     replay_payload["comparison"]["all"] = False
     replay.write_text(json.dumps(replay_payload))
 
-    with pytest.raises(CanonicalTimeEvidenceError, match="replay_not_exact"):
+    with pytest.raises(
+        CanonicalTimeEvidenceError, match="attachment_manifest_identity_mismatch"
+    ):
         build_canonical_time_evidence(
             replay_path=replay, output_path=tmp_path / "out.json"
         )
+
+
+def test_malformed_session_is_fail_closed() -> None:
+    rows = [
+        {
+            "session": "not-a-date",
+            "nav_krw": "1",
+            "evaluation_at": "2025-01-01T00:00:00Z",
+        }
+    ]
+    with pytest.raises(
+        CanonicalTimeEvidenceError, match="time_evidence_session_invalid"
+    ):
+        _equity(rows, "time_evidence")
