@@ -24,6 +24,17 @@
   PAPER/live 승격, 실주문, remote push, Windows 종료는 수행하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-regression-recheck.md`
 
+## r2-03-fred-bounded-probe-20260920
+
+- 상태: 원천 응답 확보·PIT/economic acceptance 미완료
+- FRED DEXKOUS를 2025-09-01~2025-09-15로 bounded 조회해 10개 관측(`2025-09-02`~`2025-09-15`)과
+  parser 통과를 확인했습니다. response SHA는 `c9d5735c...ea401c48`, manifest SHA는
+  `c2577dfc...a2ce4d6`입니다.
+- 관측값은 publication/first-seen timestamp를 증명하지 않으므로 FX application, Sharpe,
+  canonical NAV, 경제 승격에는 연결하지 않았습니다. Alpha/주문/PAPER/live/Windows 종료는 없습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fred-bounded-probe/`
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fred-bounded-probe.md`
+
 ## r1-public-evidence-catalog-integrity-gate-20260920
 
 - 상태: 기술 무결성 gate 완료·R1-05 coverage/PIT 미완료
