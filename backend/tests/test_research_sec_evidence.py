@@ -11,6 +11,7 @@ from jusik.research_action_review import ExtractedFacts
 from jusik.research_sec_evidence import (
     SecFiling,
     SecFilingCandidate,
+    _main,
     build_sec_action_review_input,
     build_sec_review_manifest,
     build_sec_review_queue,
@@ -303,6 +304,54 @@ def test_sec_review_queue_source_verification_is_hash_bound(tmp_path: Path) -> N
     report = verify_sec_review_queue_sources(queue, candidate_dir=tmp_path)
     assert report.ready is False
     assert report.sha_mismatch_accessions == (candidate.accession_number,)
+
+
+def test_sec_review_queue_cli_is_fail_closed(tmp_path: Path, capsys) -> None:
+    raw = b"declared a dividend"
+    candidate = SecFilingCandidate(
+        cik="0000000001",
+        accession_number="0000000001-25-000001",
+        form="8-K",
+        source_url="https://www.sec.gov/Archives/edgar/data/1/one.htm",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        raw_sha256=hashlib.sha256(raw).hexdigest(),
+        candidate_kinds=("dividend",),
+        candidate_snippets=("dividend",),
+    )
+    queue = build_sec_review_queue((candidate,), filing_symbols={"0000000001": "ONE"})
+    queue_path = tmp_path / "queue.json"
+    queue_path.write_text(queue.model_dump_json(), encoding="utf-8")
+    candidate_dir = tmp_path / "candidates"
+    candidate_dir.mkdir()
+
+    assert (
+        _main(
+            [
+                "--verify-queue",
+                str(queue_path),
+                "--candidate-dir",
+                str(candidate_dir),
+            ]
+        )
+        == 2
+    )
+    assert json.loads(capsys.readouterr().out)["ready"] is False
+
+    (candidate_dir / f"sec-filing-{candidate.accession_number}-raw.html").write_bytes(
+        raw
+    )
+    assert (
+        _main(
+            [
+                "--verify-queue",
+                str(queue_path),
+                "--candidate-dir",
+                str(candidate_dir),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["ready"] is True
 
 
 def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> None:

@@ -9,6 +9,9 @@
 - 실제 검증: `event-near-review-queue.json` 52개와 `event-near-candidates/`를 대조해
   `queue_items=52`, `verified_items=52`, `missing_accessions=[]`,
   `sha_mismatch_accessions=[]`, `ready=true`를 확인했습니다.
+- CLI 검증: `python -m jusik.research_sec_evidence --verify-queue <queue> --candidate-dir
+  <event-near-candidates>`가 동일한 JSON을 출력하고 exit `0`으로 종료했습니다. 누락·불일치
+  입력은 exit `2`로 fail-closed 처리합니다.
 - 회귀: SEC evidence/action 관련 pytest `32 passed`(경고 2건), Ruff, strict mypy,
   `git diff --check` 통과.
 - 제한: source-ready는 원문 보존만 의미합니다. `unsupported_candidate` 및

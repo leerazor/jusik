@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,6 +29,7 @@ SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 SEC_TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_MIN_REQUEST_INTERVAL_SECONDS = 0.2
 MAX_SEC_REVIEW_EVIDENCE_BYTES = 4 * 1024 * 1024
+MAX_SEC_REVIEW_QUEUE_BYTES = 2 * 1024 * 1024
 
 
 def _utc(value: datetime) -> datetime:
@@ -222,6 +224,20 @@ def verify_sec_review_queue_sources(
         sha_mismatch_accessions=tuple(mismatched),
         ready=verified == len(queue.items),
     )
+
+
+def load_sec_review_queue(path: Path) -> SecReviewQueue:
+    """Load a bounded queue file for offline source verification."""
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise ValueError("sec_review_queue_unavailable") from exc
+    if len(raw) > MAX_SEC_REVIEW_QUEUE_BYTES:
+        raise ValueError("sec_review_queue_too_large")
+    try:
+        return SecReviewQueue.model_validate_json(raw)
+    except ValueError as exc:
+        raise ValueError("sec_review_queue_invalid") from exc
 
 
 _FILING_CANDIDATE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -606,9 +622,29 @@ async def collect_sec_filing_candidates(
 
 def _main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Collect SEC filing evidence")
-    parser.add_argument("--cik", action="append", required=True)
-    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--cik", action="append")
+    parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--verify-queue", type=Path)
+    parser.add_argument("--candidate-dir", type=Path)
     args = parser.parse_args(argv)
+    if args.verify_queue is not None:
+        if args.cik or args.output_dir is not None or args.candidate_dir is None:
+            parser.error(
+                "--verify-queue requires --candidate-dir and cannot be combined "
+                "with collection arguments"
+            )
+        try:
+            queue = load_sec_review_queue(args.verify_queue)
+            report = verify_sec_review_queue_sources(
+                queue, candidate_dir=args.candidate_dir
+            )
+        except (OSError, ValueError):
+            print("SEC review queue verification failed", file=sys.stderr)
+            return 1
+        print(json.dumps(report.model_dump(mode="json"), sort_keys=True))
+        return 0 if report.ready else 2
+    if not args.cik or args.output_dir is None or args.candidate_dir is not None:
+        parser.error("collection requires --cik and --output-dir")
     filings = asyncio.run(
         collect_sec_submissions(ciks=args.cik, output_dir=args.output_dir)
     )
