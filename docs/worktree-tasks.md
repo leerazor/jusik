@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## mandate-symbol-cap-pin-sync-20260920
+
+- 상태: 완료
+- 목표: current `docs/research-mandate.json` SHA와 symbol-cap archive replay의 hard-coded
+  mandate pin을 동기화합니다.
+- 수정: `research_portfolio_symbol_cap_episodes.py`의 pin을
+  `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`로 갱신했습니다.
+- 검증: fixed archive test, mandate governance 16개, Ruff, diff 검사 통과.
+- 제한: historical artifact bytes·전략·성과·runner 실행 상태는 변경하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-mandate-symbol-cap-pin-sync.md`
+
 ## r6-krx-diagnostics-20260920
 
 - 상태: 기술 진단 계약 완료·readiness insufficient
