@@ -289,6 +289,17 @@ def test_sec_action_review_form_is_batch_fail_closed_before_manifest(
     assert ready_report.ready is True
     assert ready_report.automatic_ledger_application is False
 
+    tampered = SecActionReviewForm(
+        items=(ready.items[0].model_copy(update={"symbol": "EVIL"}),)
+    )
+    tampered_report = validate_sec_action_review_form(
+        tampered, candidate_dir=tmp_path, reference_queue=reference_queue
+    )
+    assert tampered_report.ready is False
+    assert "symbol_reference" in tampered_report.missing_fields[
+        tampered.items[0].review_key
+    ]
+
 
 def test_sec_review_queue_binds_symbols_deterministically_without_promotion() -> None:
     candidates = (
