@@ -7,6 +7,15 @@
 - 결론: 전략 retuning·한국 성과 확장보다 미국 evidence/회계 gate를 먼저 닫고 동일 정책을 한 번 재실행합니다. 자료 gate 후에도 MDD가 20%를 넘으면 PAPER 후보에서 제외합니다.
 - 정리 문서: `docs/research-current-state.md`
 
+## canonical-readiness-input-gap-20260921
+
+- 상태: 완료·자료 gate 차단 유지
+- 등록된 US pilot을 기존 readiness verifier로 재진단해 7개 metrics 입력 누락을 고정했습니다. 계산·전략·기존 artifact는 변경하지 않았습니다.
+- 결과: `status=blocked`, `ready_for_metrics=false`, `economic_evaluation=not-evaluated`.
+- 개발 기록: `docs/development-records/2026-09-21-readiness-input-gap.md`
+- FRED `DEXKOUS` 262행을 조회했지만 `realtime_start`가 vintage 날짜뿐이라 intraday PIT 증거로 승격하지 않았습니다. 개발 기록: `docs/development-records/2026-09-21-fred-fx-vintage-check.md`
+- 다음: 동일 frozen input/기간의 FX publication timestamp, PIT 기업행사, 회계·세션·KOFR 증빙을 확보할 수 있는지 조사합니다.
+
 ## sec-assisted-draft-kis-cost-krx-status-20260920
 
 - 상태: SEC 4 action/4 exclude 검증 완료·한투 뱅키스 온라인 범위 선택·KRX 상태 자료 추가 수집 대기

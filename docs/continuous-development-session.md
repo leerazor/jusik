@@ -3,8 +3,8 @@
 ## Session
 
 - status: active
-- started_at: 2026-09-20T13:33:00+09:00
-- deadline_at: 2026-09-20T16:33:00+09:00
+- started_at: 2026-09-21T07:29:59+09:00
+- deadline_at: 2026-09-21T10:29:59+09:00
 - requested_shutdown: none
 
 The previous bounded session ended at its deadline after the Korea Exim
@@ -40,8 +40,8 @@ when the data supports them.
 Stop dispatching at `deadline_at`, on a user pause, or when continuing would
 require missing external evidence or a safety-policy exception. Before stopping,
 write the current status and next evidence requirement to the task register and
-durable audit artifacts. Windows shutdown is requested for this session only and
-must occur after final state and validation are recorded.
+durable audit artifacts. Do not shut down Windows; the user explicitly cancelled
+the earlier shutdown request.
 
 ## Current external evidence requirements
 
