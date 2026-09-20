@@ -1,5 +1,20 @@
 # 워크트리 작업 등록부
 
+## r1-public-evidence-catalog-integrity-audit-20260920
+
+- 상태: 차단 진단 완료·재구축 필요
+- 목표: 현재 v2 public-evidence catalog가 요청 universe 경계를 실제로 지키는지 읽기 전용
+  검증하고, unresolved identity와 out-of-universe 항목을 조용히 승격하지 않습니다.
+- 입력: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-v2/catalog.json`
+  (source SHA `0c7b6b568ef87e9c752204a8974434767ba0460ead76ac7b4cc3f15a8a2c31f3`)
+- 결과: requested 10개·items 1,597개 중 27개가 요청 universe 밖이며 `SOXL`·`TQQQ` identity가
+  unresolved로 남아 `status=blocked`입니다. 기존 catalog를 수정하지 않았습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r1-catalog-integrity-audit/report.json`,
+  report SHA `c36ce6ffc982c8f8afa4b5da0d8e9dace6ab9a18ee93533b8f068dd8de0830e1`.
+- 다음: cached raw SEC/Nasdaq/Alpha 원문을 현재 fail-closed builder로 재구축하고, 모든 source
+  item의 requested-symbol 경계를 통과한 새 catalog를 별도 artifact로 만들기 전까지 R1-05와
+  경제 acceptance를 승격하지 않습니다.
+
 ## r2-04-drawdown-chronology-preflight-20260920
 
 - 상태: 기술 preflight 완료·경제 승격 차단
