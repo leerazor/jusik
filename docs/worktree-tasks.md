@@ -16,6 +16,11 @@
 - audit: 진단 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r1-catalog-integrity-audit/report.json`,
   재구축 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-rebuilt-20260920/`.
   새 catalog semantic SHA `0ffb17730ad4fe98e808ff6f3973359f67aa6f2665b28dc53ca51fc7b638e03b`.
+- symbol coverage: 재구축 catalog의 종목별 source count를 별도 보고서로 고정했습니다.
+  report SHA `f3faa820050e150978a3cc78d8792a0dbd17ec6ffb14e5f2f996c8cd85556d49`.
+  SEC는 10개 종목 모두 관측됐고 Alpha는 GEV/GOOGL/MSFT/NVDA/SOXL/TQQQ/VRT 등 7개만
+  관측됐으며, Nasdaq Trader는 요청 universe에 남은 항목이 없어 10개 모두 누락입니다.
+  AMD/ARM/COHR는 Alpha도 누락이고 SOXL/TQQQ는 SEC도 누락입니다.
 - 다음: 새 catalog는 identity/symbol boundary만 보강합니다. provider 전체 coverage, PIT, 권리·가격
   경계가 없으므로 R1-05와 경제 acceptance는 계속 보류합니다.
 

@@ -20,6 +20,11 @@
 - 새 catalog는 1,570개 item, out-of-universe 0, unresolved 0, `coverage=incomplete`입니다.
   Nasdaq raw의 비요청 halt 27개는 rejected 목록으로 manifest에 보존했습니다.
 - SEC identity candidate `SOXL→0001424958`, `TQQQ→0001174610`을 새 mapping에 결속했습니다.
+- 종목별 source coverage 보고서도 별도 artifact로 생성했습니다. report SHA는
+  `f3faa820050e150978a3cc78d8792a0dbd17ec6ffb14e5f2f996c8cd85556d49`이며, SEC는 10/10 종목,
+  Alpha는 7/10 종목, Nasdaq Trader는 0/10 종목이었습니다. AMD/ARM/COHR는 Alpha가 없고
+  SOXL/TQQQ는 SEC evidence가 없습니다. 이는 source availability 확인일 뿐 provider 전체
+  coverage·PIT·기업행사 권리 증명이 아닙니다.
 
 ## 문서·계약 영향
 
@@ -33,6 +38,8 @@
 - source catalog SHA: `0c7b6b568ef87e9c752204a8974434767ba0460ead76ac7b4cc3f15a8a2c31f3`
 - report SHA: `c36ce6ffc982c8f8afa4b5da0d8e9dace6ab9a18ee93533b8f068dd8de0830e1`
 - rebuilt catalog semantic SHA: `0ffb17730ad4fe98e808ff6f3973359f67aa6f2665b28dc53ca51fc7b638e03b`
+- symbol coverage report: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-rebuilt-20260920/symbol-coverage.json`
+- symbol coverage report SHA: `f3faa820050e150978a3cc78d8792a0dbd17ec6ffb14e5f2f996c8cd85556d49`
 
 ## 안전·운영 상태
 
