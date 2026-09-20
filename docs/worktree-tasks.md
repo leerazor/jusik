@@ -17,6 +17,8 @@
   0건이고, fee/tax/slippage 독립 집계가 일치했지만 결과 `blocked`, 경제 평가는 `not-evaluated`입니다.
 - 휴장일·실제 체결 timestamp/order identity·partial fill·법정 세목/유효기간/공식 세율이 없으므로
   R2-01/02 또는 경제 지표 승격을 하지 않습니다.
+- 후속 회귀: `test_market_cost_diagnostics.py`와 `test_market_data_collector.py`에서
+  `160 passed` (2026-09-20)이며 collector 계약·비용 진단 회귀는 유지됩니다.
 - 개발 기록: `docs/development-records/2026-09-20-market-cost-diagnostic-reverification.md`
 
 ## r2-02-official-cost-source-audit-20260920
