@@ -133,6 +133,65 @@ def test_membership_gap_diagnostics_union_and_legacy_omission() -> None:
             CollectionDiagnostics.model_validate(tampered)
 
 
+def test_all_failed_diagnostics_require_evidence_and_round_trip() -> None:
+    coverage = CollectionCoverage(
+        expected_sessions=2,
+        actual_sessions=0,
+        missing_sessions=2,
+        retained_sessions=0,
+        event_excluded_sessions=0,
+    )
+    empty_payload = {
+        "requested_start": "2026-01-01",
+        "requested_end": "2026-01-02",
+        "warmup_start": "2025-12-01",
+        "coverage": {
+            "expected_sessions": 0,
+            "actual_sessions": 0,
+            "missing_sessions": 0,
+            "retained_sessions": 0,
+            "event_excluded_sessions": 0,
+        },
+        "symbols": [],
+        "reason_counts": {},
+        "request_excluded_symbols": [],
+        "request_excluded_symbol_count": 0,
+        "all_failed": True,
+    }
+    with pytest.raises(ValueError, match="require requested symbols"):
+        CollectionDiagnostics.model_validate(empty_payload)
+
+    diagnostics = CollectionDiagnostics(
+        requested_start=date(2026, 1, 1),
+        requested_end=date(2026, 1, 2),
+        warmup_start=date(2025, 12, 1),
+        coverage=CollectionCoverage(
+            expected_sessions=4,
+            actual_sessions=0,
+            missing_sessions=4,
+            retained_sessions=0,
+            event_excluded_sessions=0,
+        ),
+        symbols=tuple(
+            CollectionSymbolDiagnostic(
+                symbol=symbol,
+                reasons=("identity_mismatch", "all_failure"),
+                coverage=coverage,
+                request_excluded=True,
+            )
+            for symbol in ("AAA", "BBB")
+        ),
+        reason_counts={"identity_mismatch": 2, "all_failure": 2},
+        request_excluded_symbols=("AAA", "BBB"),
+        request_excluded_symbol_count=2,
+        all_failed=True,
+    )
+    assert (
+        CollectionDiagnostics.model_validate_json(diagnostics.model_dump_json())
+        == diagnostics
+    )
+
+
 def test_deterministic_pool_is_bounded_and_seeded() -> None:
     rows = tuple(
         ApproximateUniverseRow(

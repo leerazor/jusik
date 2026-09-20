@@ -287,6 +287,8 @@ class CollectionDiagnostics(BaseModel):
         aggregate = _aggregate_coverage(item.coverage for item in symbols)
         if aggregate != self.coverage:
             raise ValueError("diagnostic aggregate coverage does not match symbols")
+        if self.all_failed and not symbols:
+            raise ValueError("all-failure diagnostics require requested symbols")
         if (
             self.all_failed
             and symbols
