@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## regression-bundle-recheck-20260920
+
+- 상태: 기술 회귀 재검증 완료·경제 acceptance 차단 유지
+- 경제 gate 인접 cross-domain pytest bundle `290 passed`(경고 2건)를 재실행했습니다. 자료 완전성,
+  FRED PIT, SEC operator facts, KRX readiness, PAPER/live 승격 상태는 변경하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-regression-bundle-recheck.md`
+
 ## canonical-runner-resume-safety-recheck-20260920
 
 - 상태: 운영 상태 재검증 완료·dispatch paused 유지
