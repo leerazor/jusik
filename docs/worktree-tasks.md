@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## governance-economic-gate-recheck-20260920
+
+- 상태: 기술 회귀 통과·경제 acceptance 차단 유지
+- 최근 R1-02 변경 후 runner/planning/roadmap, engine/risk, DD chronology, independent
+  accounting, approximate PIT 경계를 묶어 `132 passed, 2 warnings` 재검증했습니다.
+- bounded `run-once`는 paused/no task/no attempt, service inactive, timer disabled입니다.
+- 개발 기록: `docs/development-records/2026-09-20-governance-economic-gate-recheck.md`
+
 ## r1-02-future-event-invariance-20260920
 
 - 상태: 기술 slice 완료·R1-02 전체 미완료
