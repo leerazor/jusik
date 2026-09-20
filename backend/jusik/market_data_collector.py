@@ -313,12 +313,25 @@ class CacheEntry(BaseModel):
     byte_count: int = Field(ge=0)
 
 
+class CacheCheckpointBinding(BaseModel):
+    """Explicitly bind a cached response key to its causal checkpoint."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: str = Field(pattern=r"^[0-9a-f]{64}$")
+    checkpoint: str = Field(min_length=1, max_length=120)
+
+
 class CacheManifest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     version: Literal["collector-cache-v2"] = CACHE_CONTRACT_VERSION
     entries: tuple[CacheEntry, ...] = ()
     checkpoints: tuple[str, ...] = ()
+    # Optional for legacy manifests. New writes always include bindings when
+    # a checkpoint is supplied, while old multi-entry manifests remain
+    # fail-closed during diagnostics.
+    checkpoint_bindings: tuple[CacheCheckpointBinding, ...] = ()
 
 
 class KrxCacheDiagnosticEntry(BaseModel):
@@ -458,11 +471,16 @@ def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
     # with multiple entries it could attach a response to the wrong session.
     # Keep the diagnostic fail-closed until the manifest carries an explicit
     # key-to-checkpoint binding.
-    checkpoint_by_key = (
-        {krx_entries[0].key: krx_checkpoints[0]}
-        if len(krx_entries) == len(krx_checkpoints) == 1
-        else {}
-    )
+    explicit_bindings = {
+        binding.key: binding.checkpoint for binding in manifest.checkpoint_bindings
+    }
+    checkpoint_by_key = {
+        item.key: explicit_bindings[item.key]
+        for item in krx_entries
+        if item.key in explicit_bindings
+    }
+    if not checkpoint_by_key and len(krx_entries) == len(krx_checkpoints) == 1:
+        checkpoint_by_key = {krx_entries[0].key: krx_checkpoints[0]}
     for item in krx_entries:
         status_key = str(item.status_code)
         status_counts[status_key] = status_counts.get(status_key, 0) + 1
@@ -632,7 +650,18 @@ class AtomicResponseCache:
             if checkpoint is not None
             else manifest.checkpoints
         )
-        updated = CacheManifest(entries=entries, checkpoints=checkpoints)
+        bindings = tuple(
+            item
+            for item in manifest.checkpoint_bindings
+            if item.key != key
+        )
+        if checkpoint is not None:
+            bindings += (CacheCheckpointBinding(key=key, checkpoint=checkpoint),)
+        updated = CacheManifest(
+            entries=entries,
+            checkpoints=checkpoints,
+            checkpoint_bindings=bindings,
+        )
         self._atomic_write(
             self.manifest_path,
             updated.model_dump_json(indent=2).encode(),

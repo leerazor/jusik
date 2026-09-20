@@ -269,6 +269,13 @@ def test_krx_cache_diagnostic_does_not_zip_unbound_multiple_entries(
             checkpoint=f"krx:daily:STK:{session}",
         )
 
+    # Simulate a legacy manifest that has independent arrays but no explicit
+    # key-to-checkpoint binding.
+    manifest_path = tmp_path / "cache" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop("checkpoint_bindings", None)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
     report = diagnose_krx_cache(cache)
 
     assert report.readiness == "insufficient"

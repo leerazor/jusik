@@ -8,19 +8,20 @@
 
 ## 변경과 결정
 
-- `diagnose_krx_cache()`가 여러 entry를 정렬된 `zip`으로 임의 결속하지 않도록 변경했습니다.
-- manifest가 명시적 key-to-checkpoint binding을 제공하지 않는 현재 계약에서는 다중 entry를 `unbound:<key>`와 `cache_integrity=false`로 보존합니다.
-- 기존 cache schema를 소급 변경하거나 날짜·board를 추정하지 않았습니다.
+- `CacheCheckpointBinding`을 추가해 새 cache write가 response key와 causal checkpoint를 명시적으로 함께 보존하도록 했습니다.
+- `diagnose_krx_cache()`는 explicit binding을 우선 사용하고, legacy manifest의 다중 entry는 정렬된 `zip`으로 임의 결속하지 않고 `unbound:<key>`·`cache_integrity=false`로 보존합니다.
+- 기존 manifest는 optional field omission으로 계속 읽히며, 날짜·board를 추정하지 않습니다.
 
 ## 문서·계약 영향
 
 - 사용자 문서: 해당 없음. 읽기 전용 진단의 fail-closed 동작만 강화했습니다.
 - 운영 문서: `docs/worktree-tasks.md`에 후속 hardening을 등록합니다.
-- API·설정·데이터 계약: legacy manifest는 유지하며, 향후 explicit binding field가 필요하다는 제한을 기록합니다.
+- API·설정·데이터 계약: `checkpoint_bindings` optional field를 추가했습니다. legacy manifest는
+  호환되지만 다중 entry 진단은 binding 없이는 승격되지 않습니다.
 
 ## 검증
 
-- `backend/.venv/bin/python -m pytest backend/tests/test_market_data_collector.py -k 'krx_cache_diagnostic' -q` — `2 passed`.
+- `backend/.venv/bin/python -m pytest backend/tests/test_market_data_collector.py -k 'krx_cache_diagnostic' -q` — `3 passed`.
 - 후속 `backend/.venv/bin/python -m pytest backend/tests/test_market_data_collector.py -q` — `140 passed`.
 - SEC/action/metrics 인접 회귀 묶음 — `179 passed`, 경고 2건.
 - `backend/.venv/bin/python -m ruff check backend/jusik/market_data_collector.py backend/tests/test_market_data_collector.py` — 통과.
@@ -35,5 +36,5 @@
 ## 증거와 재개
 
 - audit: 기존 KRX diagnostics audit; 새 원시 자료 없음.
-- 남은 작업·차단 조건: manifest에 explicit entry/checkpoint binding과 전체 PIT coverage가 없으면 한국 경제 평가를 승격하지 않습니다.
+- 남은 작업·차단 조건: legacy manifest의 explicit entry/checkpoint binding과 전체 PIT coverage가 없으면 한국 경제 평가를 승격하지 않습니다.
 - 다음 시작: KRX manifest binding 설계가 승인되거나, 더 우선인 R1 SEC manual review/FX·비용 자료 gate를 해소할 수 있는지 확인합니다.
