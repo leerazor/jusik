@@ -3181,6 +3181,15 @@
   상태를 변경하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-secondary-metrics-realized-pnl-audit.md`.
 
+## external-evidence-request-20260920
+
+- 상태: 입력 경로 문서화 완료; 외부 증거 확보 전 경제 승격 보류
+- SEC 8개 operator form의 정확한 파일 위치·필수 필드·정본 queue 연결 검증 명령을
+  `docs/external-evidence-request.md`에 고정했습니다.
+- Korea Eximbank 서비스키는 `.env`의 `KOREAEXIM_API_KEY` 또는 alias에만 저장하고,
+  realized P&L은 명시적 `realized_pnl_krw`와 lot/청산 원가 근거가 있을 때만 계산합니다.
+- 비밀값·원격·runner·PAPER/live·실주문은 변경하지 않았습니다.
+
 ## r2-03-koreaexim-optional-transport-20260920
 
 - 상태: 완료 (parser/선택형 transport 계약); FX PIT application·경제 acceptance는 차단
