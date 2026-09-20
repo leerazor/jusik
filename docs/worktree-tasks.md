@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## kiwoom-settings-typing-20260920
+
+- 상태: 완료
+- pydantic-settings `_env_file` runtime option의 타입 시그니처 차이를 국소적으로 처리해
+  Kiwoom settings loader strict 검사를 통과시켰습니다.
+- 검증: Kiwoom config strict mypy·Ruff 통과, 관련 테스트 `28 passed`
+- 개발 기록: `docs/development-records/2026-09-20-kiwoom-settings-typing.md`
+
 ## alert-signal-strict-typing-20260920
 
 - 상태: 완료
