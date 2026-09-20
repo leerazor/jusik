@@ -321,6 +321,183 @@ class CacheManifest(BaseModel):
     checkpoints: tuple[str, ...] = ()
 
 
+class KrxCacheDiagnosticEntry(BaseModel):
+    """Read-only diagnosis of one cached KRX response."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    checkpoint: str = Field(min_length=1, max_length=80)
+    status_code: int = Field(ge=100, lt=600)
+    byte_count: int = Field(ge=0)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cache_integrity: bool
+    parse_status: Literal["ok", "auth", "parse", "coverage", "unknown"]
+    response_date_matches: bool | None = None
+    membership_rows: int = Field(ge=0)
+    valid_bar_rows: int = Field(ge=0)
+    zero_ohlcv_rows: int = Field(ge=0)
+    reason: str | None = None
+
+
+class KrxCacheDiagnostics(BaseModel):
+    """Fail-closed cache/service split for KRX collection readiness."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: Literal["krx-cache-diagnostics-v1"] = "krx-cache-diagnostics-v1"
+    cache_dir: str = Field(min_length=1, max_length=1000)
+    entries: tuple[KrxCacheDiagnosticEntry, ...] = ()
+    http_status_counts: dict[str, int] = Field(default_factory=dict)
+    auth_observed: bool = False
+    parse_failures: int = Field(ge=0)
+    coverage_failures: int = Field(ge=0)
+    zero_ohlcv_rows: int = Field(ge=0)
+    cache_integrity: bool
+    readiness: Literal["ready", "insufficient"]
+    readiness_reasons: tuple[str, ...] = ()
+
+
+def diagnose_krx_cache(cache: AtomicResponseCache) -> KrxCacheDiagnostics:
+    """Inspect cached KRX responses without network calls or cache mutation."""
+    manifest = cache._read_manifest()
+    entries: list[KrxCacheDiagnosticEntry] = []
+    status_counts: dict[str, int] = {}
+    reasons: list[str] = []
+    integrity_ok = True
+    parse_failures = 0
+    coverage_failures = 0
+    zero_rows_total = 0
+    krx_entries = sorted(
+        (item for item in manifest.entries if item.source == "krx"),
+        key=lambda value: value.key,
+    )
+    krx_checkpoints = sorted(
+        value for value in manifest.checkpoints if value.startswith("krx:daily:")
+    )
+    checkpoint_by_key = (
+        dict(zip((item.key for item in krx_entries), krx_checkpoints, strict=True))
+        if len(krx_entries) == len(krx_checkpoints)
+        else {}
+    )
+    for item in krx_entries:
+        status_key = str(item.status_code)
+        status_counts[status_key] = status_counts.get(status_key, 0) + 1
+        checkpoint = checkpoint_by_key.get(item.key)
+        # A manifest entry without a matching request checkpoint cannot prove
+        # which session/board the raw body belongs to.
+        if checkpoint is None:
+            integrity_ok = False
+            parse_failures += 1
+            entries.append(
+                KrxCacheDiagnosticEntry(
+                    checkpoint=f"unbound:{item.key}",
+                    status_code=item.status_code,
+                    byte_count=item.byte_count,
+                    content_sha256=item.content_sha256,
+                    cache_integrity=False,
+                    parse_status="parse",
+                    membership_rows=0,
+                    valid_bar_rows=0,
+                    zero_ohlcv_rows=0,
+                    reason="cache entry is not bound to a KRX checkpoint",
+                )
+            )
+            continue
+        raw_path = cache.raw_root / f"{item.key}.bin"
+        try:
+            body = raw_path.read_bytes()
+        except OSError:
+            body = b""
+        entry_integrity = (
+            len(body) == item.byte_count
+            and hashlib.sha256(body).hexdigest() == item.content_sha256
+        )
+        integrity_ok = integrity_ok and entry_integrity
+        board = checkpoint.split(":")[2] if len(checkpoint.split(":")) == 4 else "STK"
+        session_text = checkpoint.rsplit(":", 1)[-1]
+        reason: str | None
+        try:
+            parsed = parse_krx_daily_trade_response(
+                body,
+                checkpoint=date.fromisoformat(session_text),
+                market_board=cast(Literal["STK", "KSQ"], board),
+            )
+        except CollectorAuthenticationError as exc:
+            parse_status: Literal["ok", "auth", "parse", "coverage", "unknown"] = "auth"
+            parse_failures += 1
+            reason = str(exc)
+            parsed = None
+        except CollectorCoverageError as exc:
+            parse_status = "coverage"
+            coverage_failures += 1
+            reason = str(exc)
+            parsed = None
+        except CollectorError as exc:
+            parse_status = "parse"
+            parse_failures += 1
+            reason = str(exc)
+            parsed = None
+        else:
+            parse_status = "ok"
+            reason = None
+        membership_rows = len(parsed.universe) if parsed is not None else 0
+        valid_bar_rows = len(parsed.bars) if parsed is not None else 0
+        zero_ohlcv_rows = membership_rows - valid_bar_rows
+        zero_rows_total += max(zero_ohlcv_rows, 0)
+        if zero_ohlcv_rows > 0:
+            reasons.append(
+                f"{checkpoint}: {zero_ohlcv_rows} membership rows lack complete OHLCV"
+            )
+        entries.append(
+            KrxCacheDiagnosticEntry(
+                checkpoint=checkpoint,
+                status_code=item.status_code,
+                byte_count=item.byte_count,
+                content_sha256=item.content_sha256,
+                cache_integrity=entry_integrity,
+                parse_status=parse_status,
+                response_date_matches=parsed is not None,
+                membership_rows=membership_rows,
+                valid_bar_rows=valid_bar_rows,
+                zero_ohlcv_rows=max(zero_ohlcv_rows, 0),
+                reason=reason,
+            )
+        )
+    if not entries:
+        reasons.append("no KRX cache entries")
+    auth_observed = any(code in status_counts for code in ("401", "403"))
+    if auth_observed:
+        reasons.append("authentication response observed in cache")
+    if not integrity_ok:
+        reasons.append("one or more cached response bytes failed hash/size validation")
+    if parse_failures or coverage_failures:
+        reasons.append(
+            "one or more cached responses failed parser or coverage validation"
+        )
+    if zero_rows_total:
+        reasons.append("one or more membership rows lack complete OHLCV")
+    ready = (
+        bool(entries)
+        and integrity_ok
+        and parse_failures == 0
+        and coverage_failures == 0
+        and not auth_observed
+        and zero_rows_total == 0
+    )
+    return KrxCacheDiagnostics(
+        cache_dir=str(cache.root),
+        entries=tuple(entries),
+        http_status_counts=status_counts,
+        auth_observed=auth_observed,
+        parse_failures=parse_failures,
+        coverage_failures=coverage_failures,
+        zero_ohlcv_rows=zero_rows_total,
+        cache_integrity=integrity_ok,
+        readiness="ready" if ready else "insufficient",
+        readiness_reasons=tuple(reasons),
+    )
+
+
 class CompletedCollection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -2519,6 +2696,8 @@ __all__ = [
     "CompletedCollection",
     "CollectorSettings",
     "FreeMarketDataCollector",
+    "KrxCacheDiagnosticEntry",
+    "KrxCacheDiagnostics",
     "KRXDailyResponse",
     "KRX_KSQ_URL",
     "KRX_STK_URL",
@@ -2529,6 +2708,7 @@ __all__ = [
     "parse_alpha_vantage_listing_status_detailed",
     "collect_market_data",
     "completed_collection_is_valid",
+    "diagnose_krx_cache",
     "estimate_network_requests",
     "load_collector_settings",
     "parse_alpha_vantage_listing_status",

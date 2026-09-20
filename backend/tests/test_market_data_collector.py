@@ -31,6 +31,7 @@ from jusik.market_data_collector import (
     _normalize_alpha_exchange,
     collect_market_data,
     completed_collection_is_valid,
+    diagnose_krx_cache,
     estimate_network_requests,
     load_collector_settings,
     parse_alpha_vantage_listing_status,
@@ -176,6 +177,57 @@ def test_krx_daily_trade_preserves_zero_valued_membership_without_bar() -> None:
     assert len(parsed.universe) == 1
     assert parsed.universe[0].symbol == "000300"
     assert parsed.bars == ()
+
+
+def test_krx_cache_diagnostic_separates_zero_ohlcv_from_http_success(
+    tmp_path: Path,
+) -> None:
+    cache = AtomicResponseCache(tmp_path / "cache")
+    body = json.dumps(
+        {
+            "OutBlock_1": [
+                {
+                    "BAS_DD": "20260914",
+                    "ISU_CD": "000300",
+                    "ISU_NM": "거래정지종목",
+                    "MKT_NM": "KOSPI",
+                    "TDD_OPNPRC": "0",
+                    "TDD_HGPRC": "0",
+                    "TDD_LWPRC": "0",
+                    "TDD_CLSPRC": "100",
+                    "ACC_TRDVOL": "0",
+                },
+                {
+                    "BAS_DD": "20260914",
+                    "ISU_CD": "005930",
+                    "ISU_NM": "정상종목",
+                    "MKT_NM": "KOSPI",
+                    "TDD_OPNPRC": "100",
+                    "TDD_HGPRC": "110",
+                    "TDD_LWPRC": "90",
+                    "TDD_CLSPRC": "105",
+                    "ACC_TRDVOL": "1000",
+                },
+            ]
+        }
+    ).encode()
+    cache.put(
+        source="krx",
+        endpoint="https://example.test/krx",
+        request_key="fixture",
+        body=body,
+        status_code=200,
+        captured_at=datetime(2026, 9, 14, tzinfo=UTC),
+        checkpoint="krx:daily:STK:2026-09-14",
+    )
+    report = diagnose_krx_cache(cache)
+    assert report.readiness == "insufficient"
+    assert report.http_status_counts == {"200": 1}
+    assert report.auth_observed is False
+    assert report.zero_ohlcv_rows == 1
+    assert report.entries[0].membership_rows == 2
+    assert report.entries[0].valid_bar_rows == 1
+    assert report.entries[0].parse_status == "ok"
 
 
 def test_krx_daily_trade_rejects_negative_trade_values() -> None:

@@ -12,6 +12,7 @@ from jusik.market_data_collector import (
     CollectorError,
     collect_market_data,
     completed_collection_is_valid,
+    diagnose_krx_cache,
     load_collector_settings,
 )
 from jusik.market_history_approximate import (
@@ -54,6 +55,10 @@ def parser() -> argparse.ArgumentParser:
     collect_status.add_argument("--end")
     collect_status.add_argument("--sample-size", type=int, default=100)
     collect_status.add_argument("--output", type=Path)
+    krx_diagnose = subcommands.add_parser(
+        "diagnose-krx-cache", help="diagnose cached KRX responses without network"
+    )
+    krx_diagnose.add_argument("--cache", type=Path, required=True)
     collect = subcommands.add_parser(
         "collect", help="collect and validate a prepared approximate dataset"
     )
@@ -90,6 +95,23 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
+    if args.command == "diagnose-krx-cache":
+        try:
+            report = diagnose_krx_cache(AtomicResponseCache(args.cache))
+        except CollectorError:
+            print(
+                json.dumps(
+                    {
+                        "status": "unavailable",
+                        "cache_dir": str(args.cache),
+                        "reason": "cache manifest or raw response is invalid",
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 2
+        print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False))
+        return 0 if report.readiness == "ready" else 2
     if args.command == "collect-status":
         try:
             settings = load_collector_settings(args.env_file)
