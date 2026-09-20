@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## research-direction-checkpoint-20260921
+
+- 상태: 완료·미국 자료 gate 우선으로 방향 고정
+- 기존 미국 기준 결과는 순수익 `-16.933%`, MDD `26.463%`, 거래 `106`건으로 MDD 20% hard filter를 실패했습니다. 그러나 FX publication timestamp, 기업행사 PIT, complete accounting evidence가 부족해 전략 탈락을 즉시 확정하지 않고 `not-evaluated`를 유지합니다.
+- 결론: 전략 retuning·한국 성과 확장보다 미국 evidence/회계 gate를 먼저 닫고 동일 정책을 한 번 재실행합니다. 자료 gate 후에도 MDD가 20%를 넘으면 PAPER 후보에서 제외합니다.
+- 정리 문서: `docs/research-current-state.md`
+
 ## sec-assisted-draft-kis-cost-krx-status-20260920
 
 - 상태: SEC 4 action/4 exclude 검증 완료·한투 뱅키스 온라인 범위 선택·KRX 상태 자료 추가 수집 대기
