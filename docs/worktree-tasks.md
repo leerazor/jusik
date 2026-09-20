@@ -9,6 +9,15 @@
 - 자동 resume·성과 승격·PAPER/live·remote push·Windows 종료는 하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-canonical-governance-sync-recheck.md`
 
+## r6-krx-zero-row-classification-20260920
+
+- 상태: zero-row signature 분류 완료·readiness insufficient 유지
+- 기존 2026-06-29 KRX raw의 29 zero/missing 행은 모두 KOSPI이며 종가·시총·상장주식수는 양수지만
+  OHLC/거래량/거래대금/전일대비는 0입니다. 무거래/거래정지 가능성을 기록하되 별도 상태 원문 없이
+  확정하지 않았습니다.
+- 보간·정상 bar 승격·한국 benchmark/경제 평가를 하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r6-krx-zero-row-classification.md`
+
 ## market-data-readiness-recheck-20260920
 
 - 상태: read-only 확인 완료·미국 재실행 blocked 유지
