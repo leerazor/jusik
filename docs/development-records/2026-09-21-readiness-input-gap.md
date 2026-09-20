@@ -45,3 +45,11 @@ point-in-time 및 overfitting 통제가 깨지므로 허용하지 않습니다. 
   과거 `research_portfolio_engine.py` SHA와 현재 source SHA가 달라진
   `engine_source_mismatch`입니다. historical bundle 또는 hash를 임의로 갱신하지
   않았으며, 별도 재생성·재등록이 필요한 기존 provenance 문제로 남겼습니다.
+
+추가 대조 결과, bundle이 요구하는 SHA
+`2a91ef9621fcb96b52179fb8fd22df7f74d6aab385b798333dd354594e61f70c`는 Git
+commit `cb1d12f2e68d370985f0e5b167a9f443edbcee88`의 source와 정확히 일치합니다.
+현재 `main`의 source SHA는
+`2e48b0bcedb740210a6dd58f6b15e99e2b2e1c416aacf553569ec0ea98166653`이며 이후
+`3a955c4` 변경을 포함합니다. 따라서 이번 실패는 verifier 결함이 아니라
+재현 환경 identity mismatch입니다.
