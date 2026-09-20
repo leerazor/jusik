@@ -19,6 +19,15 @@
   계속 차단합니다. DB는 수정하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-action-review-state-recheck.md`
 
+## r2-03-fx-calendar-reconciliation-20260920
+
+- 상태: 날짜 대사 완료·R2-03 blocked 유지
+- canonical US equity 252 sessions와 기존 ALFRED sampled FX 251 dates를 비교했습니다. 교집합은
+  250/252이며 canonical 누락은 `2025-10-13`, `2025-11-11`, FX-only 날짜는 `2026-04-03`입니다.
+- FX first-seen은 exact publication timestamp가 아니므로 carry-forward·삭제·추정을 하지 않았습니다.
+  R2-03와 USD/KRW NAV 경제 평가는 달력/application/PIT 근거 확보 전까지 보류합니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-calendar-reconciliation.md`
+
 ## market-cost-diagnostic-reverification-20260920
 
 - 상태: 독립 산술 pass·법정/체결 자료 unavailable
