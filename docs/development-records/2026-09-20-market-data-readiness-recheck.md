@@ -22,3 +22,10 @@
 - R4 재실행과 R2-03 economic acceptance는 FRED/alternative FX evidence, completion marker, PIT/action
   coverage and broker cost contract requirements until fulfilled remain blocked.
 - This check does not alter roadmap checkboxes or claim economic readiness.
+
+## 후속 상태
+
+이 기록 이후 `.env`의 현재 자격증명 상태를 다시 확인했고, 별도 audit 경로에서 bounded collection을
+실행했습니다. 최신 결과는 [2026-09-20 US collection recheck](2026-09-20-us-market-collection-recheck.md)에
+기록합니다. FRED 자격증명 누락은 최신 실행에서 해소됐지만, 기업행사 관측시각 불확실성으로 pilot
+readiness는 여전히 `insufficient`입니다.
