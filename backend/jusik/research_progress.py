@@ -16,7 +16,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 from urllib.parse import quote
 
 from pydantic import (
@@ -688,7 +688,7 @@ def _read_runner(
             and isinstance(planning, bool)
         ):
             policy = RunnerPolicy(
-                daily_launch_limit=daily,
+                daily_launch_limit=cast(int | None, daily),
                 launches_today=int(launch_row["count"]),
                 task_timeout_seconds=timeout,
                 cooldown_seconds=cooldown,

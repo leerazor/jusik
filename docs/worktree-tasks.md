@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## runner-progress-strict-typing-20260920
+
+- 상태: 완료
+- read-only runner progress의 검증된 `daily_launches`를 `int | None`으로 좁혔습니다.
+- 검증: progress strict mypy·Ruff 통과, 관련 테스트 `20 passed`
+- 개발 기록: `docs/development-records/2026-09-20-runner-progress-strict-typing.md`
+
 ## fx-currency-strict-typing-20260920
 
 - 상태: 완료
