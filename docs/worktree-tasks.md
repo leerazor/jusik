@@ -7,6 +7,8 @@
   JSON/envelope/row type은 수치화하고, auth/HTTP 실패는 malformed row와 구분하며 기존
   parser의 fail-closed 동작을 보존합니다.
 - 구현 커밋: `7301cd1`; collector pytest `144 passed`, Ruff·strict mypy·diff 검사 통과.
+- aggregate 회귀 테스트 커밋 `0d68dd5`에서 cache-level `malformed_rows` 합산과 parse failure를
+  직접 검증했으며 collector pytest `145 passed`로 재확인했습니다.
 - zero/missing OHLCV 29건, provider 전체 PIT coverage 및 경제 승격 차단은 변경하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r6-krx-diagnostics-binding-hardening.md`
 
