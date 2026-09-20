@@ -143,6 +143,9 @@ R1은 데이터가 당시 알 수 있었던 universe를 표현하는지 확인�
 - [x] **R1-03** stock type을 구조화된 분류로 정규화해 보통주, ETF, warrant와 비대상 상품을 구분하고, `NCM`은 상품 종류가 아닌 거래소 alias로 별도 정규화한다.
   - 증거: 내부 5분류·NASDAQ alias, 고정 신규 fixture40개, main pytest63·Ruff·strict mypy·보존37검사 및 Terra 재검토 통과. 통합 `dc59347261e41ca232f2b50dc41dabb0d08e6c63`; `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-03-9bd64c13/integration-verification.json` (SHA-256 `0f58bb5d1cc0939c90fd664c2bd4cbd63086d38bcee75328626641212d087c16`). 경제 평가는 `not-evaluated`; R1 전체 완료는 아닙니다.
 - [ ] **R1-04** split와 dividend actions를 가격·현금흐름 모델에 연결해 배당 중복 계상을 0으로 만들고 분할 전후 자산을 보존하며, 자료가 없을 때의 missing 정책을 결과에 남긴다.
+  - 2026-09-20 SEC 제출 원문 후보 52건(text 후보 dividend 6·split 6 등)을 확보했지만, ex-date·금액·권리수량을
+    operator-verified facts로 추출하지 않았습니다. 후보는 action ledger·성과 계산에 적용하지 않고 R1-04를
+    미완료로 유지합니다. [후보 preflight](development-records/2026-09-20-us-action-sec-candidate-preflight.md)
 - [ ] **R1-05** 부분 이력·identity 불일치·상장폐지 심볼은 원인과 coverage로 기록하며 조용히 삭제하지 않는다.
 - [x] **R1-06** safe provider response fixture로 정상, null, quota, auth, parse, coverage 실패를 서로 다른 오류로 회귀 검증한다.
   - 증거: 합성 provider fixture17개(각1심볼/1세션, seed0), 정상/null/quota/auth/parse/coverage·실패 cache 차단·CLI insufficient 보존. 통합 `e335342829a50cd56f57c782ec12edb25764bb72`, main pytest143·Ruff·configured mypy·Terra 독립 재검토 PASS. [개발 기록](development-records/2026-09-16-r1-provider-response-fixtures.md); audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-06-518dc0fb/integration-verification.json` (SHA-256 `ac982d059e5ff974572bcc98405d923df4cdc1b91b7f0e13f456bbe4d28688ab`). 기존 format 부채는 동일하며 경제 평가는 `not-evaluated`; R1 전체 완료는 아닙니다.
