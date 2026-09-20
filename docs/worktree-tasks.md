@@ -2510,6 +2510,18 @@
   action-review manifest·성과 계산은 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-target-period-filing-evidence.md`.
 
+## nvda-issuer-action-evidence-20260920
+
+- 상태: 단일 issuer evidence candidate 확보·R1-04/R1-05 승격 보류.
+- 결과: SEC 공식 accession `0001045810-25-000207`의 `q2fy26pr.htm`에서 NVDA
+  `2025-09-11` record/ex-date, `2025-10-02` payment, USD `0.01`을 확인했고 Alpha
+  원문과 일치시켰습니다. raw SHA는
+  `caea50c56d2c63a13fe844e165267d038a1649575d1a50e6830c031d58175826`입니다.
+- 제한: 전체 coverage, operator verification, 보유수량·가격·세금·다른 action의 근거가
+  없으므로 자동 ledger·성과·readiness에는 연결하지 않습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-nvda-issuer-action-evidence/`.
+- 개발 기록: `docs/development-records/2026-09-20-nvda-issuer-action-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
