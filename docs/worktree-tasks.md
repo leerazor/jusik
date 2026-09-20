@@ -2615,7 +2615,7 @@
 
 ## roadmap-resume-dirty-gate-20260920
 
-- 상태: 진행
+- 상태: 완료 (runner 기술 slice)
 - 목표와 완료 조건: roadmap scope의 `resume`가 mandate만 확인하고 dirty worktree를
   해제하는 결함을 수정합니다. `_roadmap_documents_ready()`와 `_roadmap_dispatch_gate()`
   및 git readiness를 모두 통과하기 전에는 paused 상태를 유지합니다.
@@ -2631,3 +2631,10 @@
   pytest, Ruff, strict mypy, diff check.
 - 중지 조건: 기존 operator hold·scope binding·mandate identity 의미가 바뀌거나 실제
   runner resume가 필요하면 중단합니다.
+- 결과 커밋: 구현 `6ecc577`, local `main` 통합 커밋 `545b26efb2261f2c5ad4e3f06175e87c1d54f4b0`.
+- 독립 검토: material finding 없음. tracked dirty, untracked 필수 문서, clean resume과
+  paused 상태 보존을 각각 확인했습니다.
+- 통합 검증: runner/roadmap/mandate `97 passed`, Ruff check/format, 변경 모듈 strict
+  mypy, `git diff --check` 통과. 실제 운영 runner resume/dispatch는 수행하지 않았습니다.
+- 정리: 통합 검증 후 worktree와 브랜치를 제거합니다. 기존 미추적 `HANDOFF.md`는 보존합니다.
+- 제한: 경제 readiness·R1/R2 checkbox·PAPER/live·원격 push는 변경하지 않았습니다.
