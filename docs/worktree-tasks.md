@@ -2680,6 +2680,15 @@
   여전히 미확정이며 source/NAV 적용·Sharpe/readiness는 변경하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
 
+## kofr-application-policy-proposal-20260920
+
+- 상태: 설계 완료·선택/적용 보류.
+- 결정: 현재는 strict exact-date fail-closed(A)를 유지하고, prior-observation
+  carry-forward(B)는 provider 규칙·publication instant·NAV ordering·매핑 hash가
+  확보된 뒤 별도 승인/구현하도록 정리했습니다.
+- 제한: 이 문서는 Sharpe/readiness를 계산하거나 KOFR를 적용하지 않습니다.
+- 정본: `docs/research/kofr-application-policy-proposal.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
