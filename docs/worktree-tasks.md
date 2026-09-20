@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## forward-intent-strict-typing-20260920
+
+- 상태: 완료
+- R5 forward intent의 buy/sell 방향을 typed literal로 고정했습니다. worker는 계속 PAPER
+  관찰·가상 fill 전용입니다.
+- 검증: forward strict mypy·Ruff 통과, forward/readiness `27 passed`
+- 개발 기록: `docs/development-records/2026-09-20-forward-intent-strict-typing.md`
+
 ## prospective-readiness-strict-typing-20260920
 
 - 상태: 완료

@@ -836,7 +836,9 @@ class ForwardCoordinator:
                 target_weight=target_weight,
             ):
                 continue
-            side = "buy" if target_weight > current_weight else "sell"
+            side: Literal["buy", "sell"] = (
+                "buy" if target_weight > current_weight else "sell"
+            )
             budget = abs(target_weight - current_weight) * nav
             if budget <= 0:
                 continue
