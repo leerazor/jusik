@@ -3193,6 +3193,16 @@
   realized P&L은 명시적 `realized_pnl_krw`와 lot/청산 원가 근거가 있을 때만 계산합니다.
 - 비밀값·원격·runner·PAPER/live·실주문은 변경하지 않았습니다.
 
+## r2-04-drawdown-contract-recheck-20260920
+
+- 상태: 기술 계약 재검증 완료; 경제 acceptance 보류
+- initial capital을 포함한 full NAV chronology와 `MDD <= 20%` hard filter 경계를
+  재확인했습니다. canonical corrected bundle의 approximate MDD는
+  `0.073743511705833131472595651962985278354913557870`입니다.
+- 실제 출력은 `0.073743511705833131472595651962985278354913557870`이며 hard filter는
+  `passed=true`입니다. KOFR/PIT/비용·FX readiness 부족으로 경제 승격은 하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-04-drawdown-contract-recheck.md`.
+
 ## r2-03-koreaexim-optional-transport-20260920
 
 - 상태: 완료 (parser/선택형 transport 계약); FX PIT application·경제 acceptance는 차단
