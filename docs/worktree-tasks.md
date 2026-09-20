@@ -2582,6 +2582,7 @@
 - 상태: 기술 gate 재검증 완료; 실제 pilot/경제 평가는 실행하지 않음.
 - readiness/외부 자료/근사 시장 이력 테스트 90개 통과. strict·approximate grade,
   provenance·coverage·future/FX 누락을 분리하고 approximate→strict 승격을 차단함을 확인했습니다.
+- performance/readiness/prospective registration·readiness 묶음도 `88 passed`(경고 2건)로 재검증했습니다.
 
 ## r5-preregistration-verification-20260920
 
@@ -2590,6 +2591,7 @@
   52개 통과. signal 날짜와 prospective `observing` 상태가 현재 fixed window와 일치합니다.
 - 후보 기간 freeze·MDD hard filter·자동 winner 금지 계약은 유지하며 전략 실행과 PAPER/live
   승격은 하지 않습니다.
+- 2026-09-20 재실행에서 registration/readiness와 성과 입력 회귀를 포함해 `88 passed`를 확인했습니다.
 
 ## r5-primary-metrics-verification-20260920
 
