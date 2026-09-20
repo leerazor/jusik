@@ -2679,3 +2679,16 @@
 - 제한: 기존 canonical artifact/상수/manifest는 변경하지 않았고, 경제 성과·Sharpe·PAPER/live를
   승격하지 않았습니다. 개발 기록:
   `docs/development-records/2026-09-20-canonical-time-evidence-candidate.md`.
+
+## kofr-application-preflight-20260920
+
+- 상태: 오프라인 진단 완료·실제 적용 차단 유지.
+- 입력: KOFR source evidence 245행(SHA `995f9630…0337`)과 canonical time-evidence
+  candidate NAV 252개(`2025-09-11~2026-09-11`).
+- 결과: application manifest의 provider completeness가 `unknown`이면
+  `business_date_completeness_unverified`로 fail-closed 됐습니다. NAV에만 있는 13일과
+  source에만 있는 6일을 확인했으며, 기간 축소·carry-forward·0 대체는 하지 않았습니다.
+- 제한: `PUBN_DTTM` timezone/instant, provider 전체 business-date 목록, 미국-only 날짜
+  적용 정책이 여전히 없습니다. `missing_risk_free_evidence`, Sharpe, readiness 상태는
+  변경하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
