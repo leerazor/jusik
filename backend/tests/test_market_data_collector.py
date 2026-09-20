@@ -720,6 +720,29 @@ def test_fred_parser_rejects_empty_range_and_preserves_decimal_values() -> None:
         parse_fred_observations(body, start=date(2026, 9, 14), end=date(2026, 9, 14))
 
 
+def test_fred_parser_uses_realtime_start_as_conservative_availability_bound() -> None:
+    body = json.dumps(
+        {
+            "observations": [
+                {
+                    "date": "2025-09-11",
+                    "value": "1388.97",
+                    "realtime_start": "2025-09-15",
+                    "realtime_end": "9999-12-31",
+                }
+            ]
+        }
+    ).encode()
+
+    rows = parse_fred_observations(
+        body,
+        start=date(2025, 9, 1),
+        end=date(2025, 9, 30),
+    )
+
+    assert rows[0].available_at == datetime(2025, 9, 16, tzinfo=UTC)
+
+
 def test_fred_csv_parser_preserves_decimal_and_explicit_availability() -> None:
     available_at = datetime(2026, 9, 20, 1, 2, 3, tzinfo=UTC)
     rows = parse_fred_csv_observations(

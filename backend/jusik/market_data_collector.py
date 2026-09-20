@@ -1689,9 +1689,23 @@ def parse_fred_observations(
             continue
         session = _date(row.get("date"), "FRED")
         if start <= session <= end:
-            row_available_at = available_at or datetime.combine(
-                session + timedelta(days=1), time(), UTC
-            )
+            if available_at is not None:
+                row_available_at = available_at
+            else:
+                # FRED's realtime_start is a date, not an intraday
+                # publication timestamp.  Use the following UTC midnight as
+                # a conservative upper bound; never treat the observation
+                # date itself as proof of availability.
+                realtime_start = row.get("realtime_start")
+                if realtime_start not in (None, ""):
+                    vintage_date = _date(realtime_start, "FRED realtime_start")
+                    row_available_at = datetime.combine(
+                        vintage_date + timedelta(days=1), time(), UTC
+                    )
+                else:
+                    row_available_at = datetime.combine(
+                        session + timedelta(days=1), time(), UTC
+                    )
             result.append(
                 ApproximateFXRow(
                     session=session,

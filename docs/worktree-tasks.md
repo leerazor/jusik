@@ -35,6 +35,17 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fred-bounded-probe/`
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fred-bounded-probe.md`
 
+## r2-03-fred-vintage-availability-20260920
+
+- 상태: 기술 parser 보강·historical PIT/economic acceptance 미완료
+- FRED JSON `realtime_start`를 다음 UTC 자정의 보수적 availability bound로 반영하고,
+  legacy 응답 fallback을 유지했습니다. collector 테스트 `141 passed`, Ruff·strict mypy·diff 통과.
+- canonical 경계 4개 vintage를 확인했습니다. 9/11 값은 9/15, 4/3 값은 4/6에 처음 realtime
+  범위에 나타났으며 10/13·11/11은 missing value였습니다. summary SHA
+  `c0a324f3...89c8cde8`; 경제 승격은 하지 않았습니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fred-vintage-probe/`
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fred-vintage-availability.md`
+
 ## r1-public-evidence-catalog-integrity-gate-20260920
 
 - 상태: 기술 무결성 gate 완료·R1-05 coverage/PIT 미완료
