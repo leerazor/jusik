@@ -11,6 +11,16 @@
 - 제한: historical artifact bytes·전략·성과·runner 실행 상태는 변경하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-mandate-symbol-cap-pin-sync.md`
 
+## r6-prepared-path-contract-sync-20260920
+
+- 상태: 기술 계약 확인·경제 not-evaluated
+- 목표: 시장별 prepared path와 원화 초기자본·단위 계약을 roadmap 증거와 동기화합니다.
+- 확인: KRX/US collector provider 경로 분리, prepared file market mismatch 거부, KRW reporting
+  및 KR/US native currency/account 계약과 `100000000` 초기자본 검증을 기존 테스트와 R6 자료
+  경로 기록에서 재확인했습니다. 새 raw 자료나 성과 계산은 수행하지 않았습니다.
+- 결과: R6-03 기술 `pass`; R6-02의 zero/missing OHLCV로 한국 readiness insufficient은 유지합니다.
+- 개발 기록: `docs/development-records/2026-09-20-r6-krx-path-verification.md`
+
 ## r6-krx-diagnostics-20260920
 
 - 상태: 기술 진단 계약 완료·readiness insufficient

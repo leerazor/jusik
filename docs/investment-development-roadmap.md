@@ -217,7 +217,13 @@ R6는 미국 우선 진단이 끝난 뒤 한국의 zero-OHLC 문제를 별도 �
     membership 946, valid bars 917, zero/missing 29, parser/coverage 실패 0, readiness
     `insufficient`을 확인했습니다. zero 행은 보간하지 않으며 R6 전체 완료·한국 성과 승격을 뜻하지 않습니다.
     [개발 기록](development-records/2026-09-20-r6-krx-diagnostics.md)
-- [ ] **R6-03** 한국과 미국 prepared path를 분리하고 각 시장에 원화 `1e8` 초기 자본과 단위를 명시한다.
+- [x] **R6-03** 한국과 미국 prepared path를 분리하고 각 시장에 원화 `1e8` 초기 자본과 단위를 명시한다.
+  - 기술 `pass`, 경제 `not-evaluated`: KRX와 US collector가 서로의 provider 경로를 호출하지
+    않고, prepared file import가 요청 시장과 dataset market mismatch를 거부합니다. 결과 계약은
+    시장별 native currency(KR=KRW, US=USD), reporting currency(KRW), 독립 simulated account와
+    초기 원화 자본 `100000000`을 고정합니다. 관련 collector/approximate/readiness 테스트와
+    [R6 자료 경로 재검증 기록](development-records/2026-09-20-r6-krx-path-verification.md)을
+    확인했습니다. 실제 한국 성과·benchmark 승격은 R6-02 readiness insufficient 때문에 보류합니다.
 - [ ] **R6-04** 같은 정책·비용·달력의 한국 결과를 미국 결과와 섞지 않고 별도 benchmark와 경제 평가로 기록한다.
 
 저장된 KOSPI200 증거가 있다고 한국 OHLC 수집이 준비됐다고 표시하지 않는다. zero-OHLC readiness가 해소될 때까지 한국 단계는 `blocked` 또는 `not-evaluated`로 남긴다.
