@@ -76,7 +76,7 @@
 | R0 | 완료 | 기준 실행·공통 결과/자료 계약·replay | not-evaluated | 없음 | main b950266; 테스트61개·두 checkpoint exact replay·독립 review 통과 |
 | R1 | 진행 | 미국 PIT universe와 기업행사 정책 교정 | 평가 불가 | R0 계약 | R1-01·03·06과 fail-closed 기술 slices 일부 완료; 실제 PIT 행사·권리/가격·coverage 부족으로 R1-02·04·05 및 경제 acceptance 보류 |
 | R2 | 진행 | 손실·비용·FX·DD 독립 계산과 NAV 대사 | not-evaluated | R0 (기존 자료로 독립 착수) | R2-05만 canonical approximate 기술 pass; R2-01~04·06은 미완료이고 readiness는 blocked |
-| R3 | 예정 | 기존 자료의 결과 화면과 fixture API | 평가 불가 | R0 계약 | R1/R2와 독립적인 읽기 전용 UI 작업 |
+| R3 | 완료 | 기존 자료의 결과 화면과 fixture API | not-evaluated | R0 계약 | R3-01~04 기술 pass; 경제 성과·benchmark는 자료 부족으로 평가하지 않음 |
 | R4 | 예정 | 고정 정책 미국 1년·조건부 3년 재실행 | 순수익·DD20·회전율 평가 | R1, R2와 독립 review | R3는 결과 게시·UX 검증에만 필요; 같은 정책·통화·비용·달력의 비교 |
 | R5 | 예정 | 사전등록 후보와 미래 held-out 검증 | 기준 충족 여부 평가 | R4 | 후보 최대 3개, 기준 선고정 |
 | R6 | 진행 | 한국 zero-OHLC 진단 및 분리 자료 경로 | 한국 자료로 별도 평가 | R1, R4 이후 우선 | R6-02 기술 진단 pass지만 실제 readiness insufficient; E-08~E-10 유지 |
