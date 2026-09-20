@@ -1,0 +1,36 @@
+# R2-03 대체 FX 원천 audit
+
+- 상태: ECB 원천 확인·PIT application 미승격
+- 기록 시각: 2026-09-20T00:00:00Z
+- 작업 slug: `r2-03-fx-alternative-source-audit-20260920`
+- 기준/통합: `b268cde` / 통합 예정
+- 범위: ECB Data API의 KRW/EUR·USD/EUR reference rates를 키 없이 bounded 조회해 USD/KRW 파생 가능성과 publication metadata를 확인했습니다. 원장·NAV·기존 FX DB는 변경하지 않았습니다.
+
+## 변경과 결정
+
+- `2025-09-11`, `2025-10-13`, `2025-11-11`에는 두 reference rate가 있어 Decimal USD/KRW 파생값을 계산할 수 있었습니다. `2026-04-03`은 두 시계열 모두 관측이 없었습니다.
+- ECB CSV에는 관측일·값·상태는 있으나 publication timestamp/first-seen 시각 필드가 없어 거래일 cutoff에 사용 가능했다고 증명할 수 없습니다.
+- ECB 파생값은 exploratory evidence로만 보존하며 R2-03 FX application, canonical NAV, Sharpe에는 연결하지 않습니다. ECOS/BOK는 더 직접적인 KRW/USD 원천 후보지만 별도 API key와 source contract가 필요합니다.
+
+## 문서·계약 영향
+
+- 사용자 문서: 해당 없음. 기존 FRED-only collector 계약과 readiness를 변경하지 않았습니다.
+- 운영 문서: `docs/worktree-tasks.md`에 대체 원천 조사와 차단 조건을 등록합니다.
+- API·설정·데이터 계약: 변경 없음.
+
+## 검증
+
+- ECB Data API bounded requests — HTTP 성공, 3개 경계 날짜 파생 가능, 1개 날짜 missing.
+- summary SHA-256: `2d465e7eb8597ad50fcc9d787998327f51b5833cc7cbfb3f6b6e3f63234bb83d`.
+- raw KRW/EUR SHA-256: `efcac27cb5f816b82239e4df6de15463dfa34ab6a271e439809028a29cbe3ce1`.
+- raw USD/EUR SHA-256: `616edab84efe9d11ccda72f0f874630f7b4680777ef5e3d6cda4c379a2753d2c`.
+
+## 안전·운영 상태
+
+- 실주문·PAPER/live 승격·remote push·Windows 종료를 수행하지 않았습니다.
+- raw/summary는 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fx-alternative-source-audit/`에만 저장했습니다.
+
+## 증거와 재개
+
+- 남은 작업·차단 조건: publication/availability timestamp가 있는 FX 원천 또는 승인된 보수적 publication policy가 필요합니다. ECOS API key를 확보하면 BOK 원/달러 종가 계약을 별도로 검증할 수 있습니다.
+- 다음 시작: 사용자가 ECOS Open API key를 제공하면 bounded canonical probe를 수행하고, 그 전에는 SEC action review를 계속 진행합니다.

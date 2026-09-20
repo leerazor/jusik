@@ -56,6 +56,17 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fred-vintage-canonical/`
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fred-canonical-vintage-audit.md`
 
+## r2-03-fx-alternative-source-audit-20260920
+
+- 상태: ECB 원천 확인·PIT application 미승격
+- ECB KRW/EUR·USD/EUR bounded 조회에서 3개 경계 날짜는 USD/KRW 파생 가능했지만,
+  CSV에 publication/first-seen timestamp가 없어 거래일 cutoff 증명은 불가했습니다.
+  `2026-04-03`은 두 시계열 모두 missing입니다.
+- summary SHA `2d465e7e...34bb83d`; raw SHA는 개발 기록에 고정했습니다. ECOS/BOK는 API key와
+  별도 계약이 필요한 다음 후보입니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fx-alternative-source-audit/`
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`
+
 ## r1-public-evidence-catalog-integrity-gate-20260920
 
 - 상태: 기술 무결성 gate 완료·R1-05 coverage/PIT 미완료
