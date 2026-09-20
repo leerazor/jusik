@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## canonical-bundle-post-typing-recheck-20260920
+
+- 상태: 완료
+- 최근 타입 변경 후 canonical contract bundle `243 passed`, governance/runner/mandate
+  bundle `117 passed`를 재검증했습니다.
+- bounded runner는 paused/no task/no attempt, service inactive, timer disabled입니다.
+- 개발 기록: `docs/development-records/2026-09-20-canonical-bundle-post-typing-recheck.md`
+
 ## boundary-capture-issue-typing-20260920
 
 - 상태: 완료
