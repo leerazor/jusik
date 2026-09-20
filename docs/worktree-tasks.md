@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## sec-action-review-triage-20260920
+
+- 상태: 부분 triage 완료·operator verification 대기
+- SEC priority 8건 원문을 read-only로 확인해 BMRC/RWT dividend와 ATXG/IMUX split의 확인 필요 필드를 분류했습니다. 보상/옵션 문서 false-positive 가능성이 있어 자동 사실·ledger 입력은 하지 않았습니다.
+- source SHA 8/8 verified, missing/mismatch 0/0; `automatic_ledger_application=false` 유지.
+- 개발 기록: `docs/development-records/2026-09-20-sec-action-review-triage.md`
+
 ## historical-source-provenance-recheck-20260920
 
 - 상태: 완료·격리 replay 대기
