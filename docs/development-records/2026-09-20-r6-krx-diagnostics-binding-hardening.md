@@ -19,7 +19,7 @@
   `malformed_rows`를 추가했습니다. JSON/envelope가 깨졌거나 `OutBlock_1`의 행 타입이
   잘못된 응답을 원문 내용으로 수치화하되, 기존 parser의 fail-closed 판정은 유지합니다.
 - HTTP auth/비-2xx 응답은 행 malformed로 오인하지 않고 `0`으로 기록합니다. unbound cache
-  entry는 결속 자체가 입증되지 않으므로 `malformed_rows=1`과 parse failure로 남깁니다.
+  entry도 행 손상과 구분해 `malformed_rows=0`으로 두고 parse failure·무결성 실패로 남깁니다.
 
 ## 문서·계약 영향
 
