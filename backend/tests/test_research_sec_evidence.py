@@ -552,6 +552,73 @@ def test_sec_action_review_form_cli_requires_reference_queue(
     assert output["automatic_ledger_application"] is False
 
 
+def test_sec_action_review_form_cli_returns_zero_for_complete_manual_review(
+    tmp_path: Path, capsys
+) -> None:
+    raw = b"declared a cash dividend"
+    accession = "0000000001-25-000001"
+    source_url = "https://www.sec.gov/Archives/edgar/data/1/one.htm"
+    candidate_dir = tmp_path / "candidates"
+    candidate_dir.mkdir()
+    (candidate_dir / f"sec-filing-{accession}-raw.html").write_bytes(raw)
+    form = SecActionReviewForm(
+        items=(
+            SecActionReviewFormItem(
+                symbol="ONE",
+                accession_number=accession,
+                review_key=f"sec:{accession}:dividend",
+                source_url=source_url,
+                raw_sha256=hashlib.sha256(raw).hexdigest(),
+                operator_verified=True,
+                revision_id="1" * 64,
+                content_sha256="2" * 64,
+                manual_classification="direct_cash_dividend",
+                event_type="dividend",
+                pit_link=f"sec:{accession}",
+                extracted_facts=ExtractedFacts(
+                    amount="0.10",
+                    currency="USD",
+                    ex_dividend_date=datetime(2025, 6, 7, tzinfo=UTC).date(),
+                    comparable_share_basis=True,
+                ),
+            ),
+        )
+    )
+    form_path = tmp_path / "form.json"
+    form_path.write_text(form.model_dump_json(), encoding="utf-8")
+    queue = SecReviewQueue(
+        items=(
+            SecReviewQueueItem(
+                symbol="ONE",
+                accession_number=accession,
+                source_url=source_url,
+                raw_sha256=hashlib.sha256(raw).hexdigest(),
+                candidate_kinds=("dividend",),
+                candidate_snippets=("declared a cash dividend",),
+            ),
+        )
+    )
+    queue_path = tmp_path / "queue.json"
+    queue_path.write_text(queue.model_dump_json(), encoding="utf-8")
+
+    assert (
+        _main(
+            [
+                "--validate-review-form",
+                str(form_path),
+                "--review-candidate-dir",
+                str(candidate_dir),
+                "--review-reference-queue",
+                str(queue_path),
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["ready"] is True
+    assert output["automatic_ledger_application"] is False
+
+
 def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> None:
     evidence_body = b"declared a dividend"
     evidence_path = tmp_path / "doc.htm"
