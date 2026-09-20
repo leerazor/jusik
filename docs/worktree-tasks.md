@@ -2565,3 +2565,21 @@
 - 정리: 통합 검증 후 worktree와 브랜치를 제거합니다. 기존 미추적 `HANDOFF.md`는 보존합니다.
 - 제한: 자료 coverage/PIT publication/권리·가격 근거는 보강하지 않았고, R1 checkbox·원장·
   NAV·성과·PAPER/live는 변경하지 않았습니다.
+
+## r1-diagnostics-all-failed-boundary-20260920
+
+- 상태: 진행
+- 목표와 완료 조건: `CollectionDiagnostics` 직렬화 입력에서 `all_failed=true`인데
+  `symbols`·실패 원인·제외 정보가 모두 비어 있는 payload를 fail-closed로 거부합니다.
+  정상 diagnostics와 coverage/incomplete 의미를 보존하며 R1-05 경제 acceptance와
+  checkbox는 변경하지 않습니다.
+- 담당: 단일 Luna 구현, Astra 통합, 독립 Terra 검토
+- 워크트리·브랜치: `/home/kwl/projects/jusik-r1-diagnostics-all-failed-boundary` /
+  `fix/r1-diagnostics-all-failed-boundary`
+- 기준 커밋·통합 대상: `8554aae`, local `main`
+- 입력과 선행 작업: `market_history_approximate.py`의 CollectionDiagnostics validator와
+  관련 round-trip tests. runner는 pause/service/timer inactive를 유지합니다.
+- 수정 허용 범위: 해당 모델·테스트·개발 기록만. collector/network/원장/PAPER/live/remote는 변경하지 않습니다.
+- 검증: 빈 all-failed payload 거부와 정상/aggregate coverage 회귀, focused pytest, Ruff,
+  strict mypy, diff check. 자료 coverage와 경제 not-evaluated를 유지합니다.
+- 중지 조건: 기존 prepared artifact hash나 R0 계약 변경이 필요하면 중단하고 원인과 재개 조건을 기록합니다.
