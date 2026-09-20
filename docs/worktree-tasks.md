@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## r2-02-official-cost-source-audit-20260920
+
+- 상태: 부분 근거 확보·R2-02 blocked 유지
+- 확인: 국가법령정보센터의 2026-03-20 시행 증권거래세법 시행규칙에서 KOSPI
+  `5/10,000`, KOSDAQ/K-OTC `20/10,000`을 확인했고, SEC FY2026 advisory에서 2026-04-04
+  이후 Section 31 covered-sale rate `$20.60 / $1,000,000`을 확인했습니다.
+- 결정: 한국 board별 세금은 현재 `market=KR` 계약만으로 적용하지 않습니다. 미국 Section 31은
+  SRO 부담금이며 broker 고객 요율을 직접 정하지 않으므로 `sell_tax_rate=0.0018` 또는
+  broker fee를 공식값으로 대체하지 않습니다.
+- 남은 조건: broker/계좌 fee schedule, 적용 시장·상품·기간, 체결/결제 시점, 한국 농특세 등
+  세목 범위를 별도 계약으로 고정해야 R2-02를 완료할 수 있습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-02-official-cost-source-audit.md`
+
 ## r3-phase-status-sync-20260920
 
 - 상태: 완료
