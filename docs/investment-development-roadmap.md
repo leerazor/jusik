@@ -79,7 +79,7 @@
 | R3 | 완료 | 기존 자료의 결과 화면과 fixture API | not-evaluated | R0 계약 | R3-01~04 기술 pass; 경제 성과·benchmark는 자료 부족으로 평가하지 않음 |
 | R4 | 예정 | 고정 정책 미국 1년·조건부 3년 재실행 | 순수익·DD20·회전율 평가 | R1, R2와 독립 review | R3는 결과 게시·UX 검증에만 필요; 같은 정책·통화·비용·달력의 비교 |
 | R5 | 예정 | 사전등록 후보와 미래 held-out 검증 | 기준 충족 여부 평가 | R4 | 후보 최대 3개, 기준 선고정 |
-| R6 | 진행 | 한국 zero-OHLC 진단 및 분리 자료 경로 | 한국 자료로 별도 평가 | R1, R4 이후 우선 | R6-02 기술 진단 pass지만 실제 readiness insufficient; E-08~E-10 유지 |
+| R6 | 진행 | 한국 zero-OHLC 진단 및 분리 자료 경로 | 한국 자료로 별도 평가 | R1, R4 이후 우선 | R6-01~03 기술 계약 pass; R6-02 zero/missing 29행으로 실제 readiness insufficient, R6-04 benchmark·경제 평가는 보류 |
 | R7 | 예정 | 격리 시뮬레이션과 PAPER 결정 | PAPER 승인 여부 평가 | R5, 한국은 R6 | 기존 PAPER 계약 유지, 실주문은 별도 승인 영역 |
 
 ## 공통 산출물과 기록 규칙
