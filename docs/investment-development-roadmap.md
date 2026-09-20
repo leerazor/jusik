@@ -79,7 +79,7 @@
 | R3 | 예정 | 기존 자료의 결과 화면과 fixture API | 평가 불가 | R0 계약 | R1/R2와 독립적인 읽기 전용 UI 작업 |
 | R4 | 예정 | 고정 정책 미국 1년·조건부 3년 재실행 | 순수익·DD20·회전율 평가 | R1, R2와 독립 review | R3는 결과 게시·UX 검증에만 필요; 같은 정책·통화·비용·달력의 비교 |
 | R5 | 예정 | 사전등록 후보와 미래 held-out 검증 | 기준 충족 여부 평가 | R4 | 후보 최대 3개, 기준 선고정 |
-| R6 | 예정 | 한국 zero-OHLC 진단 및 분리 자료 경로 | 한국 자료로 별도 평가 | R1, R4 이후 우선 | E-08~E-10, 미국 진단을 막지 않음 |
+| R6 | 진행 | 한국 zero-OHLC 진단 및 분리 자료 경로 | 한국 자료로 별도 평가 | R1, R4 이후 우선 | R6-02 기술 진단 pass지만 실제 readiness insufficient; E-08~E-10 유지 |
 | R7 | 예정 | 격리 시뮬레이션과 PAPER 결정 | PAPER 승인 여부 평가 | R5, 한국은 R6 | 기존 PAPER 계약 유지, 실주문은 별도 승인 영역 |
 
 ## 공통 산출물과 기록 규칙
@@ -209,7 +209,14 @@ R5는 R4 결과를 본 뒤 임의로 전략을 고르는 단계가 아니다. �
 R6는 미국 우선 진단이 끝난 뒤 한국의 zero-OHLC 문제를 별도 자료 경로에서 해결한다. 한국 실패가 미국 원인 분석의 선행 조건은 아니다.
 
 - [ ] **R6-01** KRX cache와 서비스 응답을 분리해 HTTP 상태, auth, parse, coverage, readiness를 독립 진단한다.
-- [ ] **R6-02** zero-OHLC와 volume 0의 원인을 재현하고 정상 OHLC·행 수·날짜 coverage 계약을 추가한다.
+- [x] **R6-02** zero-OHLC와 volume 0의 원인을 재현하고 정상 OHLC·행 수·날짜 coverage 계약을 추가한다.
+  - 기술 `pass`, 자료 readiness `insufficient`, 경제 `not-evaluated`: `diagnose-krx-cache`가
+    실제 cache에서 HTTP status·raw SHA/size·parser·coverage·membership·valid bar·zero/missing
+    OHLCV를 분리 기록합니다. artifact `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r6-krx-diagnostics/report.json`
+    (SHA-256 `8c9fa160e597eba627ae27f7353ccfb8f59f7ff55157c7040f822a79650815bb`)에서 HTTP 200,
+    membership 946, valid bars 917, zero/missing 29, parser/coverage 실패 0, readiness
+    `insufficient`을 확인했습니다. zero 행은 보간하지 않으며 R6 전체 완료·한국 성과 승격을 뜻하지 않습니다.
+    [개발 기록](development-records/2026-09-20-r6-krx-diagnostics.md)
 - [ ] **R6-03** 한국과 미국 prepared path를 분리하고 각 시장에 원화 `1e8` 초기 자본과 단위를 명시한다.
 - [ ] **R6-04** 같은 정책·비용·달력의 한국 결과를 미국 결과와 섞지 않고 별도 benchmark와 경제 평가로 기록한다.
 

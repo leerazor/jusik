@@ -1,5 +1,21 @@
 # 워크트리 작업 등록부
 
+## r6-krx-diagnostics-20260920
+
+- 상태: 기술 진단 계약 완료·readiness insufficient
+- 목표: KRX cache와 서비스 응답의 관측 상태를 분리하고 zero-OHLC/volume 0 원인을
+  재현 가능한 수치·coverage·readiness로 보존합니다.
+- 구현: `KrxCacheDiagnostics`, `diagnose_krx_cache()`와 `diagnose-krx-cache` CLI를
+  추가했습니다. raw cache는 읽기 전용이며, zero/missing OHLCV는 membership으로만
+  집계하고 readiness를 승격하지 않습니다.
+- 검증: focused pytest 2개, Ruff, strict mypy, 실제 cache CLI, diff 검사 통과.
+- 실제 artifact `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r6-krx-diagnostics/report.json`
+  SHA-256 `8c9fa160e597eba627ae27f7353ccfb8f59f7ff55157c7040f822a79650815bb`.
+  HTTP 200 1건, membership 946, valid bars 917, zero/missing 29, readiness insufficient.
+- 제한: provider 전체 coverage/PIT·경제 acceptance·한국 benchmark는 미증명이며 R6-03/R6-04와
+  미국 결과 결합을 진행하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r6-krx-diagnostics.md`
+
 ## r3-01-market-curves-20260920
 
 - 상태: 기술 UI 계약 완료·benchmark 자료 확인 불가
