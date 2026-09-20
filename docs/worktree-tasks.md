@@ -3181,6 +3181,15 @@
   않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`.
 
+## research-reference-status-sync-20260920
+
+- 상태: 완료 (중복 backend reference 상태 문서 동기화)
+- `docs/research.md`의 오래된 mandate 미동기화·운영자 보류 문구를 현재 canonical
+  `docs/research-mandate.json` SHA와 runner 수동 pause/inactive 상태로 갱신했습니다.
+- 투자 roadmap의 fail-closed gate, 자동 PAPER/live 승격 금지, 실주문 금지와 일반 research
+  scope 분리 설명은 유지했습니다.
+- 검증: `git diff --check`; 비밀값·코드·연구 결과·runner 상태 변경 없음.
+
 ## kofr-repeat-response-evidence-20260920
 
 - 상태: 반복 원문 대조 완료·application 승격 보류.

@@ -4,7 +4,7 @@
 
 ## 정본 계획과 적용 범위
 
-투자 연구의 실행 순서·승격 게이트·현재 운영 상태는 [투자 개발 로드맵](investment-development-roadmap.md)을 canonical execution plan으로 따릅니다. 현재 로드맵은 `일시 중지 — 운영자 보류`이며, `docs/research-mandate.json`과 문서의 SHA-256을 동기화하기 전에는 새 연구 dispatch를 승인하지 않습니다. 이 문서는 기존 optimizer mechanics와 전진 PAPER10% 계약을 설명하는 backend reference로 남으며, 로드맵의 새 후보 설계나 PAPER 결과를 자동으로 적용하지 않습니다. versioned governance와 fail-closed dispatch validator는 investment-roadmap scope에만 적용되고 일반 research scope의 기존 실행·재생 계약은 보존합니다.
+투자 연구의 실행 순서·승격 게이트·현재 운영 상태는 [투자 개발 로드맵](investment-development-roadmap.md)을 canonical execution plan으로 따릅니다. 현재 `docs/research-mandate.json` SHA-256은 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`이며 Markdown·checksum과 동기화되어 있습니다. 전용 roadmap runner는 fail-closed 검증을 유지한 채 수동 pause/inactive 상태로 운영 중이고, 새 dispatch·PAPER/live 승격·실주문은 자동으로 수행하지 않습니다. 이 문서는 기존 optimizer mechanics와 전진 PAPER10% 계약을 설명하는 backend reference로 남으며, 로드맵의 새 후보 설계나 PAPER 결과를 자동으로 적용하지 않습니다. versioned governance와 fail-closed dispatch validator는 investment-roadmap scope에만 적용되고 일반 research scope의 기존 실행·재생 계약은 보존합니다.
 
 ## 실행
 
