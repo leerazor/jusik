@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## us-market-collection-recheck-20260920
+
+- 상태: bounded 수집 완료·pilot 자료 게이트 차단
+- 기존 frozen cache 복사본에서 `.env`를 명시해 1년 US collection을 `--resume`, request budget 405로
+  재실행했습니다. Alpha/FRED/SEC 자격증명 누락은 없었고, 별도 audit 경로에 prepared dataset을
+  생성했습니다.
+- 결과: universe 17,310, bars 17,263, FX 272, events 104; request-excluded 17개. 수집은 성공했지만
+  coverage와 기업행사 자료의 불확실성은 readiness를 충족하지 않습니다.
+- isolated approximate pilot은 `status=insufficient`, `completeness=incomplete`, `ready=false`,
+  trades/equity/metrics `0`으로 fail-closed 종료했습니다. 35개 심볼의 기업행사 발생·관측시각이
+  불확실해 action capability가 partial입니다. 기존 review를 다른 심볼에 전이하지 않았습니다.
+- artifact: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/`
+  (`us-prepared-fullsample.json` SHA `2bb7ff36a95714b4c419f51ac9d09252120f044e7ab4f859e37417b2f23da9eb`,
+  `pilot-run.json` SHA `449f7869991fd9034e6c1b13e22c81f7bef94c2b87a8896d263b87e18b22841a`,
+  cache manifest SHA `8fb89945ababeb39eea017963582e64dabc1b37d72a4a52710cd8530bb1e9006`)
+- R4-01~05, 경제 지표, PAPER/live 승격은 보류합니다.
+- 개발 기록: `docs/development-records/2026-09-20-us-market-collection-recheck.md`
+
 ## canonical-runner-state-recheck-20260920
 
 - 상태: 완료·자동 dispatch 중지 유지
