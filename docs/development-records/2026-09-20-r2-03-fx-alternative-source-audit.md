@@ -25,6 +25,7 @@
 - raw KRW/EUR SHA-256: `efcac27cb5f816b82239e4df6de15463dfa34ab6a271e439809028a29cbe3ce1`.
 - raw USD/EUR SHA-256: `616edab84efe9d11ccda72f0f874630f7b4680777ef5e3d6cda4c379a2753d2c`.
 - Korea Exim parser fixture — collector pytest `142 passed`; Ruff·strict mypy·diff 통과.
+- 후속 FX/provenance/accounting/SEC/action/metrics 회귀 bundle — `213 passed`, 경고 2건.
 
 ## 안전·운영 상태
 
