@@ -28,10 +28,10 @@
 ## 검증
 
 - `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest backend/tests/test_research_public_evidence_catalog.py -q` — 4 passed
-- `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest backend/tests/test_research_public_evidence_catalog.py backend/tests/test_research_public_evidence.py backend/tests/test_research_alpha_actions.py backend/tests/test_research_sec_evidence.py -q` — 15 passed
+- `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest backend/tests/test_research_public_evidence_catalog.py backend/tests/test_research_public_evidence.py backend/tests/test_research_alpha_actions.py backend/tests/test_research_sec_evidence.py -q` — 18 passed
 - `.../bin/python -m ruff check backend/jusik/research_public_evidence_catalog.py backend/tests/test_research_public_evidence_catalog.py` — 통과
 - `.../bin/python -m ruff format --check backend/jusik/research_public_evidence_catalog.py backend/tests/test_research_public_evidence_catalog.py` — 2 files already formatted
-- `.../bin/python -m mypy --config-file backend/pyproject.toml backend/jusik/research_public_evidence_catalog.py` — 기존 imported module 오류로 실패; 변경 모듈의 loop-variable 오류는 교정했고, 남은 오류는 `research_public_evidence.py`, `research_alpha_actions.py`, `research_sec_evidence.py`의 기존 오류입니다.
+- `/home/kwl/projects/jusik/backend/.venv/bin/python -m mypy --config-file backend/pyproject.toml backend/jusik/research_public_evidence_catalog.py` — 변경 모듈 자체 진단 0건. imported source module의 기존 진단 5건(`research_public_evidence.py`, `research_alpha_actions.py`, `research_sec_evidence.py`)은 이 작업 범위에 포함하지 않았습니다.
 - `git diff --check` — 통과
 
 ## 안전·운영 상태
