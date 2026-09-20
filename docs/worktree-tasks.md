@@ -2538,7 +2538,7 @@
 
 ## r1-public-evidence-symbol-boundary-20260920
 
-- 상태: 진행
+- 상태: 완료 (기술 slice); R1-05 경제 acceptance는 미완료
 - 목표와 완료 조건: PublicEvidenceCatalog가 요청 universe 밖의 Nasdaq halt, Alpha
   action, SEC filing을 조용히 포함하지 않고 `evidence_symbol_not_requested`로
   fail-closed 거부하도록 보강합니다. 정상 catalog·unresolved identity·중복 제거
@@ -2555,3 +2555,13 @@
   `coverage=incomplete`, 경제 `not-evaluated`를 유지합니다.
 - 중지 조건: 기존 catalog identity/hash가 바뀌거나 fixed artifact 재생성이 필요하면 중단하고
   원인과 재개 조건을 기록합니다.
+- 결과 커밋: 구현 `bf8fd26`, 범위 밖·날짜 필터 순서 회귀 `dcf6510`, 기록 정정 `d1f642e`.
+- 독립 검토: material finding 없음. 날짜 필터 이전의 Nasdaq/Alpha/SEC 요청 심볼 검증과
+  범위 밖 날짜 회귀를 확인했습니다.
+- 통합: local `main` 병합 커밋 `e100372796b28984c2293fe3a4247c963842f50d`.
+- 통합 검증: catalog/provider/collector `155 passed`; Ruff check/format과 `git diff --check`
+  통과. 변경 catalog 코드 자체의 strict mypy 진단은 없으며, imported 기존 source 모듈의
+  기존 진단 5건은 이번 범위 밖입니다.
+- 정리: 통합 검증 후 worktree와 브랜치를 제거합니다. 기존 미추적 `HANDOFF.md`는 보존합니다.
+- 제한: 자료 coverage/PIT publication/권리·가격 근거는 보강하지 않았고, R1 checkbox·원장·
+  NAV·성과·PAPER/live는 변경하지 않았습니다.
