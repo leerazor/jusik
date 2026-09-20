@@ -33,3 +33,17 @@ SEC filing exhibit의 배당 금액·record/payment 날짜가 Alpha 원문과 �
 - SEC bounded GET 1회와 로컬 텍스트 대조를 수행했습니다.
 - raw SHA·크기·accession을 request manifest에 고정했습니다.
 - 실제 주문, PAPER/live, runner 재개, 원격 push, Windows 종료는 없습니다.
+
+## 후속 batch
+
+동일한 절차로 SEC exhibit 두 건을 추가 대조했습니다.
+
+- `q3fy26pr.htm`: `2025-12-04` record/ex-date, `2025-12-26` payment, USD `0.01`, SHA
+  `54b34964b16fe5c6ebee427a80806226c7e9cdaa877a6e9d722606a9f275f158`
+- `q4fy26pr.htm`: `2026-03-11` record/ex-date, `2026-04-01` payment, USD `0.01`, SHA
+  `b61e6e66c346a7a3ce0ab17090432ec87d87cb6ad7b9e4fe9153693bf3c541e7`
+
+세 event 모두 Alpha 원문과 amount/date가 일치하며 batch audit은
+`/home/kwl/.local/share/jusik/portfolio-audit/20260920-nvda-issuer-action-evidence-batch/`
+에 보존했습니다. 이는 issuer evidence 후보 범위를 3건으로 넓힌 것이며, 전체 coverage나
+operator verification을 대신하지 않습니다.

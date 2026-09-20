@@ -2522,6 +2522,16 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-nvda-issuer-action-evidence/`.
 - 개발 기록: `docs/development-records/2026-09-20-nvda-issuer-action-evidence.md`.
 
+## nvda-issuer-action-evidence-batch-20260920
+
+- 상태: NVDA issuer evidence candidate 3건 확보·자동 적용 보류.
+- 결과: SEC `q2fy26pr.htm`, `q3fy26pr.htm`, `q4fy26pr.htm`의 배당 3건을 Alpha
+  원문과 amount/date exact match했습니다. audit:
+  `/home/kwl/.local/share/jusik/portfolio-audit/20260920-nvda-issuer-action-evidence-batch/`.
+- 제한: 전체 심볼/기간 coverage, operator verification, 보유수량·가격·세금 경계가
+  없으므로 R1-04/R1-05 checkbox, ledger, 성과, readiness는 변경하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-nvda-issuer-action-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
