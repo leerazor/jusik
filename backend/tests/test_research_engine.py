@@ -316,6 +316,27 @@ def test_afternoon_event_does_not_retroactively_block_morning_fill() -> None:
     assert result.affected_decisions == []
 
 
+def test_event_known_after_morning_fill_does_not_block_that_fill() -> None:
+    request, snapshot = fixture()
+    open_utc = datetime.combine(request.start_date, datetime.min.time(), tzinfo=UTC)
+    event = MarketEvent(
+        kind="circuit_breaker",
+        market="KOSPI",
+        direction="down",
+        stage=1,
+        occurred_at=open_utc - timedelta(minutes=1),
+        known_at=open_utc + timedelta(minutes=5),
+        source_url="https://example.com/late-known-event",
+    )
+    request.events = [event]
+    snapshot = snapshot.model_copy(update={"events": [event]})
+
+    result = run_backtest(request, snapshot).candidate
+
+    assert result.trades[0].date == request.start_date
+    assert result.affected_decisions == []
+
+
 def test_unresolved_matching_circuit_breaker_makes_execution_insufficient() -> None:
     request, snapshot = fixture()
     open_utc = datetime.combine(request.start_date, datetime.min.time(), tzinfo=UTC)

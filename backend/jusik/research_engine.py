@@ -124,9 +124,14 @@ def _validate_execution_window(
         if event.kind != "circuit_breaker" or event.market != market:
             continue
         occurred_at = _event_time(event, "occurred_at")
+        known_at = _event_time(event, "known_at")
         resumed_at = _event_time(event, "resumed_at")
-        assert occurred_at is not None
-        if occurred_at <= fill_at and (resumed_at is None or resumed_at > fill_at):
+        assert occurred_at is not None and known_at is not None
+        if (
+            occurred_at <= fill_at
+            and known_at <= fill_at
+            and (resumed_at is None or resumed_at > fill_at)
+        ):
             raise DataInsufficientError(
                 "출처가 있는 서킷브레이커 중단 구간이 가정한 시가 체결과 "
                 "겹쳐 일봉만으로 체결을 복원할 수 없습니다."
