@@ -5,6 +5,8 @@
 - 상태: 완료 audit 작성·경제 acceptance 미완료
 - mandate/runner/source/metrics/KRX/FX/cost/SEC 각 gate를 current main 기준으로 대조했습니다.
   SEC operator facts, KoreaExim/PIT FX, broker 비용 계약이 준비되기 전에는 성과 승격을 하지 않습니다.
+- 최신 SEC 재검증에서 전체 queue `52/52` source-ready, priority form `8/8` source-ready였지만
+  operator 입력 부족으로 `ready=false`, exit `2`, 자동 ledger 적용 `false`를 재확인했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-roadmap-completion-audit.md`
 
 ## r2-03-ecb-publication-policy-audit-20260920

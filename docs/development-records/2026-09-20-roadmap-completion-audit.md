@@ -27,3 +27,11 @@
 
 현재 자료가 없는 항목을 합성하거나 기존 approximate 결과를 strict/economic acceptance로 승격하지
 않습니다.
+
+## 최신 SEC source 재검증
+
+- 전체 event-near queue는 `52/52` verified, missing accession `0`, SHA mismatch `0`,
+  `ready=true`였습니다.
+- priority form은 source `8/8`, reference missing/unexpected `0/0`이지만 operator facts와
+  verification/revision/content fields가 비어 있어 `ready=false`, exit `2`입니다.
+  `automatic_ledger_application=false`는 유지됩니다.
