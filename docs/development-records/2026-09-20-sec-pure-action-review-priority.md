@@ -9,6 +9,9 @@
 ## 변경과 결정
 
 - 52개 중 순수 `dividend`/`split` 후보 8개를 symbol·accession·raw SHA·snippet·source URL·required fields와 함께 packet으로 보존했습니다.
+- 원문 snippet의 검토 범위를 줄이기 위한 비권위 hint도 별도 보존했습니다. 직접 현금배당 3개,
+  effective split 2개, approval-only split 1개, compensation/dividend-equivalent 2개이며 이는
+  사실 판정이나 ledger action이 아닙니다.
 - merger/suspension/delisting 및 다중 kind 후보는 packet에서 제외했지만 queue 원본은 변경하지 않았습니다.
 - 모든 항목은 `unsupported_candidate`, operator review 필요, `automatic_ledger_application=false` 상태입니다.
 
@@ -16,6 +19,7 @@
 
 - queue source gate 기존 검증: 52/52 source-ready, exit 0.
 - priority packet SHA-256: `fad944da3774a5edaf2f315c861fd70ae615791510874d4c1b13aa2e805cbfb1`.
+- heuristic hint SHA-256: `70f8f228d9f42b8be06b48c0bfe689976af9b32cedf08635e80768af224f1a62`.
 
 ## 안전·운영 상태
 
@@ -24,5 +28,6 @@
 ## 증거와 재개
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-priority.json`.
+- review hint: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-hints.json`.
 - 남은 조건: operator가 event/effective date, amount/ratio, share basis, PIT link를 확인해 `ReviewManifest`를 작성해야 R1-04 적용 검토가 가능합니다.
 - 다음 시작: priority 8개 원문을 operator review하거나 ECOS API key가 제공되면 FX probe를 수행합니다.

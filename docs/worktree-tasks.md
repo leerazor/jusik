@@ -112,6 +112,9 @@
   정렬했습니다. 원문·queue는 변경하지 않았고, 모든 항목은 operator review와
   `automatic_ledger_application=false`를 유지합니다.
 - artifact SHA-256 `fad944da3774a5edaf2f315c861fd70ae615791510874d4c1b13aa2e805cbfb1`.
+- 원문 snippet 기반 비권위 hint를 추가해 직접 현금배당 3, effective split 2, approval-only split 1,
+  compensation/dividend-equivalent 2개로 검토 범위를 나눴습니다. hint SHA
+  `70f8f228...f1a62`; 자동 사실/ledger 적용은 하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-pure-action-review-priority.md`
 
 ## sec-review-queue-integrity-recheck-20260920
