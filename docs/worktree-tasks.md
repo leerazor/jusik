@@ -6,7 +6,8 @@
 - legacy KRX manifest의 entry/checkpoint 독립 배열을 정렬 `zip`으로 결속하지 않도록 보강했습니다.
   다중 entry는 명시적 binding이 없으면 `unbound`·`cache_integrity=false`로 fail-closed이며,
   단일 entry 동작은 유지합니다.
-- focused KRX diagnostics pytest `2 passed`, Ruff, strict mypy, diff 검사를 통과했습니다.
+- focused KRX diagnostics pytest `2 passed`, collector 전체 `140 passed`, SEC/action/metrics 인접
+  회귀 `179 passed`, Ruff, strict mypy, diff 검사를 통과했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r6-krx-diagnostics-binding-hardening-20260920.md`
 
 ## r2-03-regression-recheck-20260920

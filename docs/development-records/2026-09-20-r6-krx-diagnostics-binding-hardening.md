@@ -21,6 +21,8 @@
 ## 검증
 
 - `backend/.venv/bin/python -m pytest backend/tests/test_market_data_collector.py -k 'krx_cache_diagnostic' -q` — `2 passed`.
+- 후속 `backend/.venv/bin/python -m pytest backend/tests/test_market_data_collector.py -q` — `140 passed`.
+- SEC/action/metrics 인접 회귀 묶음 — `179 passed`, 경고 2건.
 - `backend/.venv/bin/python -m ruff check backend/jusik/market_data_collector.py backend/tests/test_market_data_collector.py` — 통과.
 - `backend/.venv/bin/python -m mypy --strict backend/jusik/market_data_collector.py` — 통과.
 - `git diff --check` — 통과.
