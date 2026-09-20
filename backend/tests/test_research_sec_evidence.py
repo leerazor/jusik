@@ -138,19 +138,22 @@ def test_collect_sec_filing_candidates_is_bounded_and_persists_raw(
 def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind(
     tmp_path: Path,
 ) -> None:
+    evidence_body = b"declared a dividend"
+    evidence_path = tmp_path / "doc.htm"
+    evidence_path.write_bytes(evidence_body)
     candidate = SecFilingCandidate(
         cik="0001045810",
         accession_number="0001045810-24-000144",
         form="8-K",
         source_url="https://www.sec.gov/Archives/edgar/data/1045810/doc.htm",
         observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
-        raw_sha256="1" * 64,
+        raw_sha256=hashlib.sha256(evidence_body).hexdigest(),
         candidate_kinds=("dividend",),
         candidate_snippets=("declared a dividend",),
     )
     review = build_sec_action_review_input(
         candidate,
-        local_file=tmp_path / "doc.htm",
+        local_file=evidence_path,
         extracted_facts=ExtractedFacts(
             amount="0.10",
             currency="USD",
@@ -164,10 +167,29 @@ def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind
     assert review.operator_verified is True
     assert review.review_key.endswith(":dividend")
 
+    with pytest.raises(ValueError, match="evidence_hash_mismatch"):
+        build_sec_action_review_input(
+            candidate.model_copy(update={"raw_sha256": "1" * 64}),
+            local_file=evidence_path,
+            extracted_facts=ExtractedFacts(),
+            operator_verified=True,
+            revision_id="3" * 64,
+            content_sha256="4" * 64,
+        )
+    with pytest.raises(ValueError, match="evidence_file_missing"):
+        build_sec_action_review_input(
+            candidate,
+            local_file=tmp_path / "missing.htm",
+            extracted_facts=ExtractedFacts(),
+            operator_verified=True,
+            revision_id="3" * 64,
+            content_sha256="4" * 64,
+        )
+
     with pytest.raises(ValueError, match="operator_verification"):
         build_sec_action_review_input(
             candidate,
-            local_file=tmp_path / "doc.htm",
+            local_file=evidence_path,
             extracted_facts=ExtractedFacts(),
             operator_verified=False,
             revision_id="3" * 64,
@@ -180,7 +202,7 @@ def test_sec_candidate_adapter_requires_manual_facts_and_rejects_unresolved_kind
     with pytest.raises(ValueError, match="action_kind"):
         build_sec_action_review_input(
             unresolved,
-            local_file=tmp_path / "doc.htm",
+            local_file=evidence_path,
             extracted_facts=ExtractedFacts(),
             operator_verified=True,
             revision_id="3" * 64,
@@ -284,13 +306,16 @@ def test_sec_review_queue_source_verification_is_hash_bound(tmp_path: Path) -> N
 
 
 def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> None:
+    evidence_body = b"declared a dividend"
+    evidence_path = tmp_path / "doc.htm"
+    evidence_path.write_bytes(evidence_body)
     candidate = SecFilingCandidate(
         cik="0001045810",
         accession_number="0001045810-24-000144",
         form="8-K",
         source_url="https://www.sec.gov/Archives/edgar/data/1045810/doc.htm",
         observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
-        raw_sha256="2" * 64,
+        raw_sha256=hashlib.sha256(evidence_body).hexdigest(),
         candidate_kinds=("dividend",),
         candidate_snippets=("declared a dividend",),
     )
@@ -302,7 +327,7 @@ def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> 
     )
     manifest = build_sec_review_manifest(
         (candidate,),
-        local_files={candidate.accession_number: tmp_path / "doc.htm"},
+        local_files={candidate.accession_number: evidence_path},
         extracted_facts={candidate.accession_number: facts},
         revision_ids={candidate.accession_number: "3" * 64},
         content_hashes={candidate.accession_number: "4" * 64},

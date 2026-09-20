@@ -27,6 +27,7 @@ from jusik.research_action_review import (
 SEC_SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 SEC_TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json"
 SEC_MIN_REQUEST_INTERVAL_SECONDS = 0.2
+MAX_SEC_REVIEW_EVIDENCE_BYTES = 4 * 1024 * 1024
 
 
 def _utc(value: datetime) -> datetime:
@@ -286,6 +287,19 @@ def build_sec_action_review_input(
         raise ValueError("sec_candidate_collection_revision_invalid")
     if not re.fullmatch(r"[0-9a-f]{64}", content_sha256):
         raise ValueError("sec_candidate_collection_content_hash_invalid")
+    try:
+        if local_file.is_symlink() or not local_file.is_file():
+            raise ValueError("sec_candidate_evidence_file_missing")
+        if local_file.stat().st_size > MAX_SEC_REVIEW_EVIDENCE_BYTES:
+            raise ValueError("sec_candidate_evidence_file_too_large")
+        with local_file.open("rb") as source:
+            body = source.read(MAX_SEC_REVIEW_EVIDENCE_BYTES + 1)
+    except OSError as exc:
+        raise ValueError("sec_candidate_evidence_file_unavailable") from exc
+    if len(body) > MAX_SEC_REVIEW_EVIDENCE_BYTES:
+        raise ValueError("sec_candidate_evidence_file_too_large")
+    if hashlib.sha256(body).hexdigest() != candidate.raw_sha256:
+        raise ValueError("sec_candidate_evidence_hash_mismatch")
     kinds = tuple(
         kind for kind in candidate.candidate_kinds if kind in {"split", "dividend"}
     )

@@ -5,7 +5,7 @@
 - 상태: 기술 source gate 완료·수동 action review 대기
 - `verify_sec_review_queue_sources()`를 추가해 queue accession별 bounded raw HTML 존재와
   SHA 일치를 fail-closed로 검증합니다. 실제 52/52 source-ready와 SEC 관련 pytest 32개 통과를
-  확인했습니다.
+  확인했습니다. manifest 생성 경로도 evidence 파일 존재·크기·SHA를 재검증합니다.
 - source-ready는 action 승인이나 ledger 적용을 뜻하지 않으며, 기존 unsupported/자동 적용 금지
   상태를 유지합니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-review-source-gate.md`

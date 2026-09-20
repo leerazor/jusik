@@ -3,7 +3,9 @@
 - 상태: 기술 구현·검증 완료, action 사실 및 경제 적용 보류
 - 구현: `verify_sec_review_queue_sources()`가 queue의 각 accession에 대해 bounded local
   HTML을 읽고 `raw_sha256`와 대조합니다. 원문 누락·크기 초과·심볼릭 링크·SHA 불일치는
-  `ready=false`로 남기며, 이 함수는 operator approval이나 ledger application을 수행하지 않습니다.
+  `ready=false`로 남깁니다. `build_sec_action_review_input()`도 manifest 생성 시 evidence
+  파일 존재·크기·SHA를 재검증하며, 두 경로 모두 operator approval이나 ledger application을
+  수행하지 않습니다.
 - 실제 검증: `event-near-review-queue.json` 52개와 `event-near-candidates/`를 대조해
   `queue_items=52`, `verified_items=52`, `missing_accessions=[]`,
   `sha_mismatch_accessions=[]`, `ready=true`를 확인했습니다.
