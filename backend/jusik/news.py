@@ -10,6 +10,7 @@ from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from html import unescape
 from html.parser import HTMLParser
+from typing import Literal
 from urllib.parse import urlsplit
 
 import httpx
@@ -28,6 +29,13 @@ TRUTH_RSS_URL = (
 TRUTH_ARCHIVE_RSS_URL = "https://www.trumpstruth.org/feed"
 TRUTH_NAMESPACE = "https://truthsocial.com/ns"
 MAX_RESPONSE_BYTES = 1_000_000
+NewsCategory = Literal[
+    "korea_rate",
+    "us_rate",
+    "geopolitics",
+    "truth_social",
+    "truth_social_post",
+]
 
 
 class _TextExtractor(HTMLParser):
@@ -101,7 +109,7 @@ def _published(value: str | None) -> datetime | None:
         return None
 
 
-def _assessment(category: str, title: str) -> str:
+def _assessment(category: NewsCategory, title: str) -> str:
     lower = title.lower()
     if category in {"korea_rate", "us_rate"}:
         if any(word in lower for word in ("인상", "raise", "higher", "tighten")):
@@ -117,7 +125,9 @@ def _assessment(category: str, title: str) -> str:
     return "Truth Social 원문과 공식 발표를 교차 확인한 뒤 관련 업종 노출을 점검하세요."
 
 
-def parse_rss(xml: str, category: str, source: str, limit: int = 5) -> list[NewsItem]:
+def parse_rss(
+    xml: str, category: NewsCategory, source: str, limit: int = 5
+) -> list[NewsItem]:
     root = ET.fromstring(xml)
     result: list[NewsItem] = []
     for item in root.findall(".//item")[:limit]:
@@ -318,7 +328,7 @@ class NewsService:
             us_rate = None
             us_date = None
             news: list[NewsItem] = []
-            parsers = (
+            parsers: tuple[tuple[str, NewsCategory, str], ...] = (
                 ("bok_news", "korea_rate", "한국은행"),
                 ("fed_news", "us_rate", "Federal Reserve"),
                 ("world", "geopolitics", "BBC News"),

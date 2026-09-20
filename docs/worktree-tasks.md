@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## news-category-strict-typing-20260920
+
+- 상태: 완료
+- RSS/news category를 `NewsCategory` literal과 typed parser tuple로 고정했습니다.
+- 검증: news strict mypy·Ruff 통과, 관련 테스트 `9 passed`
+- 개발 기록: `docs/development-records/2026-09-20-news-category-strict-typing.md`
+
 ## receipt-journal-validation-typing-20260920
 
 - 상태: 완료
