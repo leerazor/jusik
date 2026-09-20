@@ -1,5 +1,15 @@
 # 워크트리 작업 등록부
 
+## contract-regression-bundle-20260920
+
+- 상태: 기술 계약 재검증 완료·경제 평가 보류
+- KRX 진단, SEC action review queue, 비용 evidence와 성과 metrics의 관련 회귀를 한 번에
+  읽기 전용으로 실행해 `231 passed`를 확인했습니다. Ruff, strict mypy, diff 검사도 통과했습니다.
+- KRX zero/missing, SEC 수동 review 대기, broker/시장별 비용 계약 부재의 fail-closed 상태는
+  변경하지 않았습니다. Alpha key rotation 전 보조 수집은 재시도하지 않습니다.
+- 새 자료·성과 승격·PAPER/live·주문·remote push·Windows 종료는 수행하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-contract-regression-bundle.md`
+
 ## alpha-action-rate-limit-recheck-20260920
 
 - 상태: 공급자 한도 차단·SEC 후보 경로 유지
