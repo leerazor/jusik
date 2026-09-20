@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## dividend-overlay-strict-typing-20260920
+
+- 상태: 완료
+- R1-04 dividend overlay의 source manifest/result SHA identity를 명시적 문자열로
+  좁혔습니다. 배당 사실·ledger 내용은 변경하지 않았습니다.
+- 검증: overlay strict mypy·Ruff 통과, 관련 테스트 `6 passed`
+- 개발 기록: `docs/development-records/2026-09-20-dividend-overlay-strict-typing.md`
+
 ## forward-intent-strict-typing-20260920
 
 - 상태: 완료
