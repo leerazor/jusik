@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## full-regression-provenance-recheck-20260920
+
+- 상태: 차단 원인 확인·historical artifact 수정 보류
+- backend 기준 전체 회귀 `1702 passed, 6 failed, 2 warnings`를 재실행했습니다. 실패는 현재 코드와 고정 archive의 engine/variant/calendar SHA identity 불일치이며, archive overwrite나 pin 갱신으로 숨기지 않았습니다.
+- canonical contract `243 passed`, governance/runner/mandate `117 passed`, strict mypy `150 source files`는 통과했습니다.
+- 개발 기록: `docs/development-records/2026-09-20-full-regression-provenance-recheck.md`
+
 ## investor-session-fixture-determinism-20260920
 
 - 상태: 완료
