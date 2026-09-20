@@ -34,6 +34,12 @@
 `write_symbol_coverage()`로 동일 계약 JSON을 재현할 수 있으며 writer 보강은 main
 `875b071`에 기록했습니다.
 
+추가로 cached raw receipt만 읽어 source receipt audit을 생성했습니다. 20개 Alpha 요청,
+8개 SEC submissions, SEC ticker map 1개, Nasdaq halt response 1개가 모두 parser 성공했고,
+SEC target symbol `SOXL`·`TQQQ`는 receipt 자체가 없습니다. audit report SHA는
+`33605dd0377840c8460a5a9f915f05b2159a6c819c43e053c5cbdf2265fe41ad`입니다. 이는 raw
+응답 존재·파싱 결과만 증명하며 provider 전체 coverage·PIT publication은 증명하지 않습니다.
+
 ## 제한
 
 - 이 계약은 source availability 요약일 뿐 provider 전체 coverage, PIT completeness,

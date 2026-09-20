@@ -16,6 +16,10 @@
 - 실제 재구축 catalog 1,570개 item을 새 계약으로 재생성한 artifact
   `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-catalog-rebuilt-20260920/symbol-coverage-contract-v1.json`
   의 SHA는 `d76d1980a63dca9074c3576651a5639143dee523a368a2eb13b53daeca05329a`입니다.
+- cached raw receipt audit `/home/kwl/.local/share/jusik/portfolio-audit/20260920-public-evidence-receipt-audit-20260920/report.json`
+  (SHA `33605dd0377840c8460a5a9f915f05b2159a6c819c43e053c5cbdf2265fe41ad`)에서 Alpha 20건,
+  SEC submissions 8건, SEC ticker map 1건, Nasdaq 1건의 parser 성공을 확인했습니다.
+  SOXL/TQQQ SEC receipt 부재와 provider 전체 coverage/PIT 미증명은 유지합니다.
 - 제한: provider 전체 coverage, PIT, 기업행사 권리·가격 증거는 여전히 없습니다.
   R1-05 checkbox·경제 acceptance·성과/원장/PAPER/live 승격은 변경하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r1-symbol-source-coverage-contract.md`
