@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## r2-04-drawdown-chronology-preflight-20260920
+
+- 상태: 기술 preflight 완료·경제 승격 차단
+- 목표와 완료 조건: frozen approximate US pilot의 저장 NAV·거래·dataset을 strategy/engine
+  재실행 없이 독립 Decimal chronology로 검산하고, 초기자본 포함 peak/MDD·20% latch·다음
+  available open liquidation을 기록합니다. MDD가 hard filter를 넘으면 후보 승격을 하지
+  않고, calendar/benchmark/future evidence 누락도 명시합니다.
+- 담당: Astra read-only preflight
+- 워크트리/브랜치: 없음 (기존 production code 변경 없음)
+- 입력과 선행 작업: frozen pilot SHA chain, stable dataset, `backend/jusik/drawdown_chronology.py`
+- 수정 허용 범위: 외부 audit report와 개발 기록·등록부만. 전략·성과 evaluator·runner·artifact는 변경하지 않습니다.
+- 검증: `python -m jusik.drawdown_chronology` 실행 성공; chronology status `success`, independent MDD
+  `26.463097776467786...%`, latch `2026-02-12`, 5개 보유 심볼 모두 다음 open `2026-02-13`에 관찰된 매도.
+- 결과: audit `/home/kwl/.local/share/jusik/portfolio-audit/20260920-r2-04-drawdown-chronology/report.json`, SHA-256 `ae439ad63585ea075211a1c10e7b0cb527d3da741daf59197f438ccc31248d39`.
+- 판정: `blocked`; MDD `>20%` hard filter 실패. 저장 결과의 latch 날짜·release chronology도 없어 `stored_match=false`이며 calendar/benchmark/future evidence는 unavailable입니다.
+- 다음: R2-04 경제 완료나 R4 승격을 주장하지 않고, 독립 결과를 후보 비교 입력으로만 보존합니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-04-drawdown-chronology-preflight.md`
+
 ## canonical-time-evidence-sidecar-20260920
 
 - 상태: 완료
