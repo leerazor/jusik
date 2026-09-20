@@ -3167,15 +3167,18 @@
 
 ## secondary-metrics-realized-pnl-audit-20260920
 
-- 상태: 자료 계약 확인 완료; Profit Factor·최대 연속 손실 계산은 unavailable 유지
+- 상태: 자료 계약 확인 및 명시적 P&L 전용 계산 경로 완료; canonical 결과는 unavailable 유지
 - canonical simulation의 `trades` 171건(매수 66·매도 105)을 읽기 전용 점검했습니다.
   trade별 realized P&L, lot/position close identity, realized cost basis가 없어 FIFO나
   평균법을 추정하지 않았습니다.
 - 결과: 기존 `missing_realized_trade_pnl` 판정을 유지하고, NAV chronology 기반 MDD
   recovery duration과 trade count만 사용합니다. simulation SHA는
   `7d30263562fdab6edb3c27ff5c6812dd66bd0c29b9d3d8ba991bf9204229954e`입니다.
-- 검증: 관련 metrics/readiness/SEC 회귀 `95 passed`; 코드·원장·PAPER/live·runner 상태
-  변경 없음.
+- `realized_trade_metrics()`는 모든 row의 명시적 `realized_pnl_krw`가 있을 때만 Profit
+  Factor와 최대 연속 손실을 계산하며, 누락·비정상 값은 fail-closed합니다.
+- 검증: explicit-P&L performance metrics `10 passed`, strict mypy·Ruff·diff check;
+  기존 metrics/readiness/SEC 회귀 `95 passed`. 코드 외부에서는 원장·PAPER/live·runner
+  상태를 변경하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-secondary-metrics-realized-pnl-audit.md`.
 
 ## r2-03-koreaexim-optional-transport-20260920

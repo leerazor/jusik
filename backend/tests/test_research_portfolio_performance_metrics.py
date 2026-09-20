@@ -64,6 +64,23 @@ def test_synthetic_metrics_preserve_anchor_first_return_and_full_drawdown() -> N
     assert report.calmar.value is not None
 
 
+def test_realized_trade_metrics_require_explicit_pnl_and_preserve_streaks() -> None:
+    missing = adapter.realized_trade_metrics(({"side": "sell"},))
+    assert missing["profit_factor"]["reason"] == "missing_realized_trade_pnl"
+    result = adapter.realized_trade_metrics(
+        (
+            {"realized_pnl_krw": "10"},
+            {"realized_pnl_krw": "-4"},
+            {"realized_pnl_krw": "-2"},
+            {"realized_pnl_krw": "0"},
+            {"realized_pnl_krw": "3"},
+        )
+    )
+    assert result["profit_factor"]["availability"] == "available"
+    assert result["profit_factor"]["value"] == Decimal("13") / Decimal("6")
+    assert result["max_consecutive_loss"]["value"] == 2
+
+
 def test_synthetic_recovery_duration_uses_utc_peak_to_recovery_seconds() -> None:
     anchor = datetime(2024, 1, 1, tzinfo=UTC)
     points = (

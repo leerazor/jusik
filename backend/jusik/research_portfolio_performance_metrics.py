@@ -487,6 +487,63 @@ def maximum_mdd_recovery_duration(
     }
 
 
+def realized_trade_metrics(
+    rows: Sequence[Mapping[str, object]],
+) -> dict[str, dict[str, object]]:
+    """Calculate trade diagnostics only from explicit realized P&L fields.
+
+    The simulation bundle currently has no such field, so callers must preserve
+    the unavailable result rather than infer lot accounting from buy/sell rows.
+    """
+    if not rows or any("realized_pnl_krw" not in row for row in rows):
+        unavailable: dict[str, object] = {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "missing_realized_trade_pnl",
+        }
+        return {"profit_factor": unavailable, "max_consecutive_loss": unavailable}
+    values: list[Decimal] = []
+    try:
+        for row in rows:
+            values.append(_decimal(row["realized_pnl_krw"], "realized_pnl_krw"))
+    except PortfolioPerformanceError:
+        unavailable = {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "invalid_realized_trade_pnl",
+        }
+        return {"profit_factor": unavailable, "max_consecutive_loss": unavailable}
+    gross_profit = sum((value for value in values if value > 0), Decimal(0))
+    gross_loss = -sum((value for value in values if value < 0), Decimal(0))
+    if gross_loss == 0:
+        profit_factor: dict[str, object] = {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "zero_realized_losses",
+        }
+    else:
+        profit_factor = {
+            "availability": "available",
+            "value": gross_profit / gross_loss,
+            "reason": None,
+        }
+    longest = current = 0
+    for value in values:
+        if value < 0:
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    return {
+        "profit_factor": profit_factor,
+        "max_consecutive_loss": {
+            "availability": "available",
+            "value": longest,
+            "reason": None,
+        },
+    }
+
+
 def evaluate_corrected_bundle(
     bundle_dir: Path = BUNDLE_PATH,
     accounting_report_path: Path = ACCOUNTING_REPORT_PATH,
@@ -517,21 +574,15 @@ def evaluate_corrected_bundle(
     output = result.as_dict()
     output["schema"] = RESULT_SCHEMA
     simulation_metrics = _mapping(simulation["metrics"])
+    trades = simulation.get("trades")
+    trade_rows = trades if isinstance(trades, list) else []
+    realized = realized_trade_metrics(tuple(_mapping(row) for row in trade_rows))
     secondary_metrics = {
         "trade_count": int(_decimal(simulation_metrics["trade_count"])),
         "maximum_mdd_recovery_duration": maximum_mdd_recovery_duration(
             projection.full, initial=initial, anchor=anchor
         ),
-        "profit_factor": {
-            "availability": "unavailable",
-            "value": None,
-            "reason": "missing_realized_trade_pnl",
-        },
-        "max_consecutive_loss": {
-            "availability": "unavailable",
-            "value": None,
-            "reason": "missing_realized_trade_pnl",
-        },
+        **realized,
         "sortino": {
             "availability": "unavailable",
             "value": None,

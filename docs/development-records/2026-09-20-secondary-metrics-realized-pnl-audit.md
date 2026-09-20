@@ -1,6 +1,6 @@
 # Secondary metrics realized-P&L audit
 
-- 상태: 자료 계약 확인 완료; Profit Factor·최대 연속 손실 계산은 계속 unavailable
+- 상태: 자료 계약 확인 및 명시적 P&L 전용 계산 경로 완료; canonical 결과는 unavailable
 - 기록 시각: 2026-09-20T05:10:00Z
 - 범위: canonical corrected portfolio simulation의 trade schema를 읽기 전용으로 점검해
   secondary metric을 임의로 합성하지 않는 근거를 고정합니다.
@@ -14,6 +14,10 @@
 - 각 trade에 realized P&L, lot/position close identity, realized cost basis가 없습니다.
   따라서 FIFO·평균법·세금·환전 원가를 추정해 Profit Factor나 최대 연속 손실을 만들지
   않습니다.
+- `realized_trade_metrics()`를 추가했지만 `realized_pnl_krw`가 모든 trade에 명시된 경우만
+  계산합니다. 누락·비정상 값은 각각 `missing_realized_trade_pnl`·
+  `invalid_realized_trade_pnl`로 fail-closed합니다. 현재 canonical bundle 결과는 기존과
+  동일하게 unavailable입니다.
 
 ## 판정과 재개 조건
 
@@ -27,4 +31,5 @@
 ## 안전·검증
 
 - 네트워크·원장·전략·PAPER/live·실주문·runner 상태는 변경하지 않았습니다.
-- 관련 metrics/readiness/SEC 회귀 묶음은 `95 passed`로 재검증했습니다.
+- 관련 metrics/readiness/SEC 회귀 묶음은 `95 passed`로 재검증했고, 새 explicit-P&L
+  fixture를 포함한 performance-metrics 테스트는 `10 passed`입니다.
