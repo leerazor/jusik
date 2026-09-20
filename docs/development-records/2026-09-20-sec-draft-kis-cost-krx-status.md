@@ -1,15 +1,15 @@
 # SEC assisted draft, KIS cost source audit, and KRX zero-status boundary
 
 - 상태: SEC action/exclude 검증 완료·외부 KRX status evidence 대기
-- 기록 시각: 2026-09-20T00:00:00Z
+- 기록 시각: 2026-09-20T12:00:00Z
 - 작업 slug: `sec-assisted-draft-kis-cost-krx-status-20260920`
-- 기준/통합: `d66249e` / 다음 통합 커밋
-- 범위: SEC 수동 검토를 위한 보조 패킷과 유효한 미완성 form 초안을 생성하고, 한국투자증권 공식 비용·세금 표와 KRX 상태 자료 경계를 기록했습니다. 사실 자동 추출, 원장 적용, 비용 가정 교체, zero bar 보간은 하지 않았습니다.
+- 기준/통합: `d66249e` / `ec1c4c2`
+- 범위: SEC 수동 검토 패킷을 완결하고, 한국투자증권 공식 비용·세금 표와 KRX 상태 자료 경계를 기록했습니다. SEC 사실은 정본 원문과 Nasdaq 보조 근거를 결속했지만 원장 자동 적용·비용 가정 교체·zero bar 보간은 하지 않았습니다.
 
 ## 변경과 결정
 
 - SEC `pure-action-review-assistance.json`은 priority 8건의 accession/symbol/kind/source URL/raw SHA/후보 문맥을 보존합니다. 명백한 false positive 4건은 `exclude`와 사유를 기록했고, BMRC/RWT/ATXG/IMUX 4건은 SEC 원문과 Nasdaq 근거를 확인해 ex-date·비율·적용일·검증 hash를 채웠습니다. form validator는 `ready=true`를 반환하지만 ledger 자동 적용은 금지됩니다.
-- 한투 뱅키스 국내 온라인 표는 2025-10-27 기준 KRX 0.0140527%, NXT 0.0130527%이고, 미국 온라인은 0.25% 및 매도 SEC fee 0.00206%입니다. 국내 KRX 매도 세금 표시는 증권거래세 0.08% + 농어촌특별세 0.15% = 0.23%입니다. 계좌·주문채널·거래일·상품에 대한 연구 계약 결속이 없으므로 기존 modeled rate를 공식값으로 대체하지 않았습니다.
+- 한투 뱅키스 국내 온라인 표는 2025-10-27 기준 KRX 0.0140527%, NXT 0.0130527%이고, 미국 온라인은 0.25% 및 매도 SEC fee 0.00206%입니다. 국내 KRX 매도 세금 표시는 증권거래세 0.08% + 농어촌특별세 0.15% = 0.23%입니다. 사용자가 BanKIS online 범위(A)를 선택했지만, 과거 frozen backtest와 modeled rate는 보존하고 새 PAPER 비용 계약에만 적용할 수 있습니다.
 - KRX zero OHLCV 29건은 KRX 관리종목 지정 내역 화면이 제공하는 일자·종목·지정사유·시세 컬럼과 정규장 09:00~15:30 설명을 근거로 별도 status 원문이 필요한 상태로 남겼습니다. 상태 원문 없이 거래정지/무거래를 확정하거나 bar를 보간하지 않습니다.
 
 ## 문서·계약 영향
@@ -22,7 +22,7 @@
 
 - SEC assisted draft validator — `source_verified_items=8`, `source_missing_accessions=[]`, `missing_fields={}`, `ready=true`, `excluded_accessions=4`, `automatic_ledger_application=false`
 - KIS/KRX 공식 페이지 확인: [한국투자증권 수수료 안내](https://m.truefriend.com/main/customer/guide/_static/TF04ae010000.jsp), [매매관련 세금](https://www.truefriend.com/main/customer/guide/_static/TF04ae050000.shtm), [해외주식 시장별 안내](https://m.truefriend.com/main/bond/research/_static/TF03ca050000.jsp), [KRX 관리종목 지정 내역](https://data.krx.co.kr/contents/MDC/STAT/issue/MDCSTAT215.jsp)
-- 실행하지 않은 검사: 실주문·PAPER 승격·KRX 상태 API의 무제한 수집. 계좌/기간과 상태 원문이 확정되지 않았기 때문입니다.
+- 실행하지 않은 검사: 실주문·PAPER 승격·KRX 상태 API의 무제한 수집. KRX 일별시세 키는 HTTP 200으로 확인했지만 상태 자료는 별도 서비스 권한·API ID 결속이 필요합니다.
 
 ## 안전·운영 상태
 

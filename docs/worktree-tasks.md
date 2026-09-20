@@ -5,9 +5,15 @@
 - 상태: SEC 4 action/4 exclude 검증 완료·한투 뱅키스 온라인 범위 선택·KRX 상태 자료 추가 수집 대기
 - SEC priority 8건 중 ADAMI/AVX/IMUX 관련 filing/RWT compensation filing 4건은 false positive 사유로 exclude하고, BMRC/RWT dividend·ATXG/IMUX split 4건은 SEC 원문과 Nasdaq 근거를 결속했습니다. validator `ready=true`, `automatic_ledger_application=false`입니다.
 - 한투 공식 표에서 뱅키스 국내 온라인 KRX 0.0140527%, NXT 0.0130527%(2025-10-27 기준), 미국 온라인 0.25%와 매도 SEC fee 0.00206%, 국내 KRX 매도 세금 합계 0.23%를 확인했습니다. 사용자 선택 A(뱅키스 온라인)를 audit 범위로 고정했지만 과거 frozen modeled rate는 변경하지 않습니다.
-- KRX 2026-06-29 zero OHLCV 29건은 공식 관리종목 지정 내역의 별도 상태 자료와 대조해야 하므로 보간·거래정지 추론 없이 `insufficient`를 유지합니다.
+- KRX `.env`에는 `KRX_API_KEY`가 있고 공식 일별시세 endpoint(2026-06-29, HTTP 200)를 재확인했습니다. 다만 zero OHLCV 29건의 거래정지/관리종목 상태 API는 별도 서비스 권한·API ID가 필요할 수 있어, 상태 원문 확인 전까지 보간·거래정지 추론 없이 `insufficient`를 유지합니다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-form.assisted-draft.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260920-kis-cost-source-audit/sources.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260920-krx-zero-status-source-audit/report.json`
 - 개발 기록: `docs/development-records/2026-09-20-sec-draft-kis-cost-krx-status.md`
+
+## documentation-consistency-audit-20260920
+
+- 상태: 완료
+- 최근 SEC/KIS/KRX audit 결과, 실제 `.env` KRX 키 검증, 최신 커밋과 개발 기록의 상태·hash·다음 작업을 대조했습니다. SEC `ready=true`, KIS BanKIS online 선택, KRX daily API HTTP 200 및 별도 status 권한 대기를 정본 문서에 반영했습니다.
+- 개발 기록: `docs/development-records/2026-09-20-documentation-consistency-audit.md`
 
 ## sec-explicit-exclusion-disposition-20260920
 
