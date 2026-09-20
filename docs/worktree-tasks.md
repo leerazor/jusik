@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## koreaexim-key-probe-20260920
+
+- 상태: 원천 응답 확보·PIT application 차단 유지
+- `.env` KoreaExim 키로 2026-09-18 bounded probe를 실행해 23행/USD 1행/환율 필드를 확인했습니다. 응답에는 publication/availability timestamp가 없어 FX/NAV/Sharpe 적용은 승격하지 않습니다.
+- response SHA: `d5188e57510fba1b15c685ce8793ca6cf08bdf277c6cf90a68538a660a0145b3`; audit와 개발 기록에 보존했습니다.
+- 개발 기록: `docs/development-records/2026-09-20-koreaexim-key-probe.md`
+
 ## sec-visible-text-parser-20260920
 
 - 상태: 완료·operator review gate 유지
