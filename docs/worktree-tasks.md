@@ -2315,6 +2315,8 @@
 - accounting evidence/FX provenance/FX signal 테스트 46개 통과. USD/KRW as-of, stale/future
   거부, Decimal 반올림 경계를 확인했습니다.
 - 실제 historical FX coverage와 거래 timestamp가 부족해 R2-03 경제 승격은 하지 않습니다.
+- ALFRED 주간 vintage 251개도 관측일 이전 availability가 `0/251`이고 first-seen
+  upper-bound lag가 7~11일이어서 PIT FX 적용 근거로 승격하지 않습니다.
 
 ## r2-dd-chronology-verification-20260920
 

@@ -6,4 +6,8 @@
   Decimal 기반 원화 반올림 경계를 독립 fixture로 확인했습니다.
 - 한계: complete historical FX source coverage와 실제 거래 timestamp/비용·세금 근거가
   없어 경제 성과 계산을 승격하지 않습니다.
+- 추가 대사: ALFRED 주간 vintage의 251개 관측을 관측일별 first-seen upper bound와
+  비교했습니다. 같은 날짜 또는 이전 vintage로 증명된 관측은 `0/251`이고, first-seen
+  lag는 `7~11일`이었습니다. 이 자료는 historical source evidence이지만 US session
+  평가 시각 이전 availability를 증명하지 않으므로 FX/NAV 입력으로 연결하지 않습니다.
 - 안전: 실제 주문·PAPER/live·운영 DB·원격 push 없음.
