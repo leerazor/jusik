@@ -2669,6 +2669,17 @@
   `missing_risk_free_evidence`와 자동 적용을 유지합니다.
 - 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
 
+## kofr-carry-forward-policy-review-20260920
+
+- 상태: 검토 완료·정책 적용 보류.
+- 결과: KRX 검색 결과의 “미산출일 직전 KOFR 대리” 문구는 선물 복리 산식 문맥으로
+  확인했지만 NAV risk-free application의 carry-forward 근거로 확장하지 않았습니다.
+  표준 설명서 직접 URL은 PDF 대신 MenuSearch HTML을 반환해 evidence로 채택하지
+  않았습니다.
+- 제한: 미국-only 날짜 정책, provider completeness, 행별 publication instant는
+  여전히 미확정이며 source/NAV 적용·Sharpe/readiness는 변경하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료

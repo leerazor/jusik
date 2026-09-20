@@ -75,3 +75,12 @@ provider의 실제 completeness가 `unknown`이면 `business_date_completeness_u
 - 반복 응답은 provider 반환의 결정성을 보강할 뿐 completeness·publication instant를
   증명하지 않으므로 application status는 변하지 않습니다.
 - 실제 네트워크 요청, 연구 실행, 주문, runner 재개, readiness 승격은 없었습니다.
+
+## carry-forward 자료 검토
+
+- KRX 공식 검색 결과에는 KOFR 미산출일에 직전 KOFR을 대리 사용하는 선물 산식 설명이
+  노출되지만, 이는 선물 복리 산식의 문맥이며 이 NAV application에 자동 확장하지
+  않았습니다.
+- 연결된 KRX 표준 설명서 URL의 직접 요청은 PDF가 아닌 MenuSearch HTML을 반환하여
+  raw evidence로 채택하지 않았습니다. carry-forward 정책과 미국-only 날짜 적용은
+  별도 계약·검토 없이는 추가하지 않습니다.
