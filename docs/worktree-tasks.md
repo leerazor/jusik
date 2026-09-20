@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## canonical-runner-resume-safety-recheck-20260920
+
+- 상태: 운영 상태 재검증 완료·dispatch paused 유지
+- investment-roadmap runner `run-once`는 paused로 종료했습니다. resume gate 경로를 bounded 시험한
+  뒤 즉시 pause를 복원했고, 최종 `paused=true`, service inactive, timer disabled, running 0을
+  확인했습니다. child dispatch·자료 수집·주문은 없습니다.
+- mandate digest `22efba...c264ab1`, roadmap digest `17a93d...f1e9048`을 확인했습니다.
+- 개발 기록: `docs/development-records/2026-09-20-canonical-runner-resume-safety-recheck.md`
+
 ## r6-krx-diagnostics-binding-hardening-20260920
 
 - 상태: 기술 hardening 완료·한국 readiness insufficient 유지
