@@ -13,6 +13,14 @@
 - 진단 결과에 요청·관측·누락 session과 `date_coverage`를 추가해 cache 내부 요청 범위의 날짜 대사를 명시합니다. 이는 provider 전체 기간 coverage나 PIT completeness를 의미하지 않습니다.
 - 기존 manifest는 optional field omission으로 계속 읽히며, 날짜·board를 추정하지 않습니다.
 
+## 후속 malformed-row 진단
+
+- 통합 커밋 `7301cd1`에서 `KrxCacheDiagnosticEntry`와 `KrxCacheDiagnostics`에
+  `malformed_rows`를 추가했습니다. JSON/envelope가 깨졌거나 `OutBlock_1`의 행 타입이
+  잘못된 응답을 원문 내용으로 수치화하되, 기존 parser의 fail-closed 판정은 유지합니다.
+- HTTP auth/비-2xx 응답은 행 malformed로 오인하지 않고 `0`으로 기록합니다. unbound cache
+  entry는 결속 자체가 입증되지 않으므로 `malformed_rows=1`과 parse failure로 남깁니다.
+
 ## 문서·계약 영향
 
 - 사용자 문서: 해당 없음. 읽기 전용 진단의 fail-closed 동작만 강화했습니다.
@@ -28,6 +36,8 @@
 - `backend/.venv/bin/python -m ruff check backend/jusik/market_data_collector.py backend/tests/test_market_data_collector.py` — 통과.
 - `backend/.venv/bin/python -m mypy --strict backend/jusik/market_data_collector.py` — 통과.
 - `git diff --check` — 통과.
+- 후속 malformed-row 구현 후 collector 전체 pytest — `144 passed`; Ruff·strict mypy·diff
+  검사 통과.
 - 실제 cache CLI — requested/observed `2026-06-29`, missing `[]`, `date_coverage=complete`, zero/missing `29`, readiness `insufficient`, exit 2.
 
 ## 안전·운영 상태

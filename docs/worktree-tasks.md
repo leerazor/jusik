@@ -1,5 +1,15 @@
 # 워크트리 작업 등록부
 
+## r6-krx-malformed-row-diagnostics-20260920
+
+- 상태: 기술 진단 보강 완료·한국 readiness insufficient 유지
+- KRX cache/service diagnostic entry와 aggregate에 `malformed_rows`를 추가했습니다. invalid
+  JSON/envelope/row type은 수치화하고, auth/HTTP 실패는 malformed row와 구분하며 기존
+  parser의 fail-closed 동작을 보존합니다.
+- 구현 커밋: `7301cd1`; collector pytest `144 passed`, Ruff·strict mypy·diff 검사 통과.
+- zero/missing OHLCV 29건, provider 전체 PIT coverage 및 경제 승격 차단은 변경하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r6-krx-diagnostics-binding-hardening.md`
+
 ## secondary-metrics-canonical-evaluation-20260920
 
 - 상태: canonical 재평가 완료·경제 acceptance 차단 유지
