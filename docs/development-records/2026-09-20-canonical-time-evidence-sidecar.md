@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-09-20T01:00:00Z
 - 작업 slug: `canonical-time-evidence-sidecar-20260920`
-- 기준/통합: `206e1fa` / `fe4b1a5`
+- 기준/통합: `206e1fa` / `fe4b1a5`, path pin 보강 통합 `c6fdf4f`
 - 범위: frozen R0 run을 변경하지 않고, tracked XNYS calendar에서 파생한 시간 증거를 별도 sidecar로 생성·검증했습니다.
 
 ## 변경과 결정
@@ -11,6 +11,8 @@
 - `research_canonical_time_evidence.py`는 canonical run/manifest의 SHA chain, candidate/replay identity와 exact replay, canonical equity session/NAV 일치, UTC timestamp 순서와 XNYS open/close 일치를 fail-closed로 검증합니다.
 - sidecar는 원본 historical observation 또는 point-in-time 증거로 승격하지 않으며 readiness 기본값과 canonical artifact는 변경하지 않습니다.
 - source path는 absolute regular file만 허용하고 symlink와 크기 초과를 거부하며, 생성 출력은 임시 파일에서 원자적으로 교체합니다.
+- canonical run과 manifest는 고정된 canonical 경로에서만 읽도록 추가로 묶었습니다. 복사본 경로는
+  `canonical_run_path_not_pinned` 또는 `canonical_manifest_path_not_pinned`로 fail-closed합니다.
 
 ## 문서·계약 영향
 
@@ -20,10 +22,11 @@
 
 ## 검증
 
-- `PYTHONPATH=backend pytest -q backend/tests/test_research_canonical_time_evidence.py` — 3 passed
+- `PYTHONPATH=backend pytest -q backend/tests/test_research_canonical_time_evidence.py` — 6 passed
 - `mypy --strict backend/jusik/research_canonical_time_evidence.py` — 통과
 - `ruff check ...` — 통과
 - `git diff --check` — 통과
+- 실제 builder/verifier — 252개 NAV, `2025-09-11T13:30:00Z` initial anchor, `verified`
 
 ## 안전·운영 상태
 

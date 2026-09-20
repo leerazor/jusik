@@ -1,26 +1,5 @@
 # 워크트리 작업 등록부
 
-## canonical-time-evidence-sidecar-20260920
-
-- 상태: 준비
-- 목표와 완료 조건: frozen canonical US run을 수정하지 않고 공식 XNYS calendar-derived timestamp sidecar를 생성·검증합니다. run/manifest/calendar/dependency identity와 SHA를 고정하고, NAV/session exact-match·단조 증가·tamper/path mismatch fail-closed 테스트를 통과시킵니다. 이 slice는 실제 PIT 관측 증거나 readiness 승격을 주장하지 않습니다.
-- 담당 Luna: `/root/time_evidence_attachment_explore`
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-canonical-time-evidence-sidecar`
-- 작업 브랜치: `feat/canonical-time-evidence-sidecar`
-- 기준 커밋 SHA: `a73067d9cd32033b6a81495e7af5f7fa8cdc6020`
-- 통합 대상 브랜치: `main`
-- 입력과 선행 작업: frozen US pilot run, R0 manifest, canonical session evidence, tracked XNYS calendar. 원본 artifact와 외부 DB는 read-only입니다.
-- 수정 허용 범위: 신규 sidecar builder/verifier와 focused tests, 개발 기록. frozen artifact, readiness 승격, broker/live 경로는 수정하지 않습니다.
-- 포트·테스트 DB·출력 경로: 해당 없음; sidecar는 별도 portfolio-audit 하위 경로를 사용합니다.
-- 검증 명령과 결과: 작업자 구현 후 기록
-- 결과 커밋 SHA: 미정
-- 검토 결과와 남은 문제: 독립 검토 후 기록
-- 병합 직전 main SHA: 미정
-- 통합 커밋 SHA와 정리 여부: 미정
-- 통합 검증 실패 원인과 복구 결과: 해당 없음
-- 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-20-canonical-time-evidence-sidecar.md`, 구현 시 갱신
-- handoff 저장 경로와 갱신 여부: 현재 세션 handoff에 갱신
-
 ## canonical-governance-sync-recheck-20260920
 
 - 상태: 완료·운영 dispatch는 계속 paused/inactive
@@ -262,19 +241,19 @@
 - 담당 Luna: canonical_time_sidecar_code
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-canonical-time-evidence-sidecar`
 - 작업 브랜치: `feat/canonical-time-evidence-sidecar`
-- 기준 커밋 SHA: `206e1fa`
+- 기준 커밋 SHA: `206e1fa` (기존 작업 등록 기준; 이번 경로 보강 기준 main `0fb382c`)
 - 통합 대상 브랜치: `main`
 - 입력과 선행 작업: canonical time-evidence candidate 20260920, frozen canonical
   run/manifest, tracked XNYS calendar, existing canonical NAV reconciliation contract
 - 수정 허용 범위: 새 sidecar builder/verifier, focused tests, 개발 기록. 기존
   canonical artifact·readiness 정책·runner·network/order/PAPER/live는 변경하지 않습니다.
 - 포트·테스트 DB·출력 경로: 별도 audit 디렉터리, DB/서비스 해당 없음
-- 검증 명령과 결과: `pytest -q backend/tests/test_research_canonical_time_evidence.py` 4개 통과,
-  Ruff·strict mypy·diff check 통과, 실제 252개 sidecar build/verify 통과
-- 결과 커밋 SHA: `3c6dbef`
+- 검증 명령과 결과: `pytest -q backend/tests/test_research_canonical_time_evidence.py` 6개 통과,
+  Ruff·strict mypy·diff check 통과, 실제 252개 sidecar build/verify와 path pin fail-closed 통과
+- 결과 커밋 SHA: `3c6dbef`, path pin 보강 `ff980e7`
 - 검토 결과와 남은 문제: 독립 review PASS. readiness 연결 및 경제 acceptance는 별도 작업
-- 병합 직전 main SHA: `cf99086`
-- 통합 커밋 SHA와 정리 여부: `fe4b1a5`; 검증 후 전용 워크트리 정리 예정
+- 병합 직전 main SHA: `0fb382c`
+- 통합 커밋 SHA와 정리 여부: 기존 통합 `fe4b1a5`, 추가 통합 `c6fdf4f`; 전용 워크트리는 검증 후 정리 예정
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-20-canonical-time-evidence-sidecar.md` 갱신 완료
 - handoff 저장 경로와 갱신 여부: `HANDOFF.md` 갱신 완료
