@@ -33,6 +33,18 @@
   `candidate-summary.json` SHA `efe2f2668755095518c8b0454e9f4963b774d83e4c0dc559d74200d98656d054`)
 - 개발 기록: `docs/development-records/2026-09-20-us-action-sec-candidate-preflight.md`
 
+## r6-krx-zero-adjacent-recheck-20260920
+
+- 상태: 전후 날짜 read-only 대사 완료·readiness insufficient 유지
+- 공식 KRX STK 응답을 별도 cache에서 `2026-06-26`, `2026-06-29`, `2026-06-30`에 대조했습니다.
+  대상 29개 zero-row 심볼은 6/26과 6/29에 모두 membership에는 있었지만 valid bar가 0이었고,
+  6/30에는 28개가 계속 zero였습니다. `011330`만 6/30에 정상 bar로 재개됐습니다.
+- 반복 signature는 provider의 no-trade/status 표현을 강하게 시사하지만 거래정지·상장상태를
+  확정하지 않습니다. 보간·정상 bar 승격·benchmark/경제 평가는 하지 않았습니다.
+- artifact: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-krx-zero-adjacent-recheck/`
+  (`diagnostic-summary.json` SHA `db2b63fdf6ea427e44ed49ccae943c42a02661c3cbb242b2d3e415881a414a57`)
+- 개발 기록: `docs/development-records/2026-09-20-r6-krx-zero-adjacent-recheck.md`
+
 ## canonical-runner-state-recheck-20260920
 
 - 상태: 완료·자동 dispatch 중지 유지
