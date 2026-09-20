@@ -54,3 +54,7 @@ catalog coverage를 승격하지 않습니다.
 
 초기 sidecar의 TQQQ SHA 오타를 발견해 실제 raw bytes SHA로 교정했고, 이후 두 파일의
 크기·SHA 검증을 다시 통과했습니다.
+
+`research_sec_etf_coverage.py`의 inventory-only report로 두 submissions를 재생성해
+SOXL 771건·TQQQ 1,063건과 form 분포를 확인했습니다. report는 source/identity SHA를
+함께 pin하지만 completeness·PIT·기업행사 의미를 주장하지 않습니다.

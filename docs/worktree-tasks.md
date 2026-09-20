@@ -2566,6 +2566,21 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-etf-submissions/`.
 - 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
 
+## sec-etf-coverage-report-20260920
+
+- 상태: 기술 inventory report 완료·기업행사/PIT 승격 보류.
+- 구현: `research_sec_etf_coverage.py`가 identity와 CIK가 일치하는 submissions만 기간
+  내 form/count/date로 집계하고 `inventory_only` 상태를 강제합니다. CIK mismatch, 기간
+  역전, source SHA 오류는 fail-closed입니다.
+- 결과: 실제 raw replay에서 SOXL 771건, TQQQ 1,063건을 재현했습니다. report와 form
+  분포는 `/home/kwl/.local/share/jusik/portfolio-audit/20260920-sec-etf-submissions/coverage-report.json`에 보존합니다.
+- 검증: focused coverage/identity/catalog pytest 20개, Ruff check/format, diff check
+  통과. configured mypy는 신규 코드 오류 없이 기존 `research_sec_evidence.py`의 선행
+  2개 오류를 보고했으며, 그 파일은 변경 범위 밖입니다.
+- 제한: filing inventory는 corporate-action coverage·PIT·R1-05 acceptance·원장·성과를
+  승격하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-sec-etf-identity-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
