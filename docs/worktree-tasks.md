@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## canonical-governance-digest-recheck-20260920
+
+- 상태: 현재 정본 digest 재검증 완료·dispatch paused/inactive 유지
+- mandate SHA `22efba...c264ab1`과 roadmap 40개 항목을 검증했습니다. 최신 roadmap digest는
+  `ca5da89078bcc956259e4704b7ae46d02f22140c6ed9eed7b991dd34ce014f16`입니다.
+- governance/roadmap loader pytest `37 passed`, service inactive, timer disabled를 확인했습니다.
+  과거 `17a93d...` digest는 당시 기록 보존용이며 현재 gate는 실행 시점에 다시 계산합니다.
+- 개발 기록: `docs/development-records/2026-09-20-canonical-governance-digest-recheck.md`
+
 ## r6-krx-malformed-row-diagnostics-20260920
 
 - 상태: 기술 진단 보강 완료·한국 readiness insufficient 유지
