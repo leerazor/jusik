@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## historical-source-provenance-recheck-20260920
+
+- 상태: 완료·격리 replay 대기
+- 고정 portfolio engine과 signal calendar source SHA가 Git commit 및 audit snapshot에 존재함을 read-only로 확인했습니다. 과거 source를 현재 main에 주입하지 않았습니다.
+- 검증: engine `cb1d12f2`, calendar `c67e6e27` hash 일치; 임시 archive 추출 후 삭제; runner/service 상태 불변.
+- 개발 기록: `docs/development-records/2026-09-20-historical-source-provenance-recheck.md`
+
 ## full-regression-provenance-recheck-20260920
 
 - 상태: 차단 원인 확인·historical artifact 수정 보류
