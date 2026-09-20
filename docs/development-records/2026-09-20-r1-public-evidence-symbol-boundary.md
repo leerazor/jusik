@@ -27,7 +27,7 @@
 
 ## 검증
 
-- `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest backend/tests/test_research_public_evidence_catalog.py -q` — 4 passed
+- `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest backend/tests/test_research_public_evidence_catalog.py -q` — 7 passed
 - `PYTHONPATH=backend /home/kwl/projects/jusik/backend/.venv/bin/python -m pytest backend/tests/test_research_public_evidence_catalog.py backend/tests/test_research_public_evidence.py backend/tests/test_research_alpha_actions.py backend/tests/test_research_sec_evidence.py -q` — 18 passed
 - `.../bin/python -m ruff check backend/jusik/research_public_evidence_catalog.py backend/tests/test_research_public_evidence_catalog.py` — 통과
 - `.../bin/python -m ruff format --check backend/jusik/research_public_evidence_catalog.py backend/tests/test_research_public_evidence_catalog.py` — 2 files already formatted
