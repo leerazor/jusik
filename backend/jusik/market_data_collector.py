@@ -230,6 +230,7 @@ class CollectorSettings(BaseModel):
     krx_auth_key: SecretStr | None = None
     alpha_vantage_api_key: SecretStr | None = None
     fred_api_key: SecretStr | None = None
+    koreaexim_api_key: SecretStr | None = None
     request_budget: int = Field(default=DEFAULT_REQUEST_BUDGET, ge=1, le=10_000)
     timeout_seconds: int = Field(default=30, ge=1, le=60)
     max_retries: int = Field(default=MAX_RETRIES, ge=0, le=MAX_RETRIES)
@@ -296,6 +297,7 @@ def load_collector_settings(env_path: Path | None = None) -> CollectorSettings:
             krx_auth_key=secret("KRX_AUTH_KEY", "KRX_API_KEY"),
             alpha_vantage_api_key=secret("ALPHA_VANTAGE_API_KEY", "ALPHA_VANTAGE_KEY"),
             fred_api_key=secret("FRED_API_KEY", "FRED_KEY"),
+            koreaexim_api_key=secret("KOREAEXIM_API_KEY", "KOREA_EXIM_API_KEY"),
             request_budget=parsed_budget,
         )
     except ValidationError as exc:
@@ -804,7 +806,7 @@ class HttpFetcher:
             return {
                 key: value
                 for key, value in values.items()
-                if key.lower() not in {"auth_key", "api_key", "apikey"}
+                if key.lower() not in {"auth_key", "api_key", "apikey", "authkey"}
             }
 
         cache_params = cache_safe(params)
@@ -1824,6 +1826,8 @@ class CollectorTransport(Protocol):
 
     async def fred(self, start: date, end: date) -> bytes: ...
 
+    async def koreaexim(self, session: date) -> bytes: ...
+
 
 class NetworkCollectorTransport:
     def __init__(self, fetcher: HttpFetcher, settings: CollectorSettings) -> None:
@@ -1957,6 +1961,26 @@ class NetworkCollectorTransport:
                 "observation_end": end.isoformat(),
             },
             checkpoint=f"fred:{start}:{end}",
+            validator=validate,
+        )
+
+    async def koreaexim(self, session: date) -> bytes:
+        key = self.settings.koreaexim_api_key
+        if key is None:
+            raise CollectorError("KOREAEXIM_API_KEY is not configured")
+
+        def validate(body: bytes) -> None:
+            parse_koreaexim_exchange_response(body, session=session)
+
+        return await self.fetcher.get(
+            source="koreaexim",
+            url=KOREAEXIM_URL,
+            params={
+                "authkey": key.get_secret_value(),
+                "searchdate": session.strftime("%Y%m%d"),
+                "data": "AP01",
+            },
+            checkpoint=f"koreaexim:{session}",
             validator=validate,
         )
 

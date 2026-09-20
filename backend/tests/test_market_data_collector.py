@@ -3237,3 +3237,62 @@ def test_network_krx_uses_official_get_daily_shape(tmp_path: Path) -> None:
     assert isinstance(headers, dict)
     assert headers["AUTH_KEY"] == "test-key"
     assert "strtDd" not in params and "endDd" not in params
+
+
+def test_network_koreaexim_uses_daily_query_and_never_caches_authkey(
+    tmp_path: Path,
+) -> None:
+    client = _RecordingHttpClient()
+    settings = CollectorSettings(koreaexim_api_key="test-key")
+    client_response = json.dumps(
+        [{"result": 1, "cur_unit": "USD", "deal_bas_r": "1,388.97"}]
+    ).encode()
+
+    class KoreaEximClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            client.calls.append((method, url, kwargs))
+            return httpx.Response(200, content=client_response)
+
+    transport = NetworkCollectorTransport(
+        HttpFetcher(
+            client=KoreaEximClient(),
+            cache=AtomicResponseCache(tmp_path),
+            settings=settings,
+        ),
+        settings,
+    )
+    assert asyncio.run(transport.koreaexim(date(2026, 9, 14))) == client_response
+    assert [call[0] for call in client.calls] == ["GET"]
+    request = client.calls[0][2]
+    params = request["params"]
+    assert isinstance(params, dict)
+    assert params == {
+        "authkey": "test-key",
+        "searchdate": "20260914",
+        "data": "AP01",
+    }
+    manifest = (tmp_path / "manifest.json").read_text(encoding="utf-8")
+    assert "test-key" not in manifest
+
+
+def test_network_koreaexim_requires_explicit_api_key(tmp_path: Path) -> None:
+    settings = CollectorSettings()
+
+    class UnexpectedNetworkClient:
+        async def request(
+            self, method: str, url: str, **kwargs: object
+        ) -> httpx.Response:
+            raise AssertionError("Korea Exim must not be called without an API key")
+
+    transport = NetworkCollectorTransport(
+        HttpFetcher(
+            client=UnexpectedNetworkClient(),
+            cache=AtomicResponseCache(tmp_path),
+            settings=settings,
+        ),
+        settings,
+    )
+    with pytest.raises(CollectorError, match="KOREAEXIM_API_KEY"):
+        asyncio.run(transport.koreaexim(date(2026, 9, 14)))

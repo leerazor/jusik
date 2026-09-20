@@ -3163,6 +3163,22 @@
   Sharpe/readiness 및 자동 적용은 유지합니다.
 - 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
 
+## r2-03-koreaexim-optional-transport-20260920
+
+- 상태: 완료 (parser/선택형 transport 계약); FX PIT application·경제 acceptance는 차단
+- 목표와 완료 조건: Korea Eximbank 신규 endpoint의 성공 USD row를 fail-closed로 파싱하고,
+  서비스키가 명시된 경우에만 일별 요청을 준비합니다. 캐시 key에서 `authkey`를 제거하고
+  키 미설정 시 네트워크를 호출하지 않음을 테스트합니다. 실제 API key를 저장하거나
+  경제 결과·NAV·원장에 연결하지 않습니다.
+- 수정 범위: `backend/jusik/market_data_collector.py`, 해당 collector 테스트와 개발 기록.
+  기존 FRED/US 수집·readiness·서비스·PAPER/live·remote는 변경하지 않습니다.
+- 검증: `backend/tests/test_market_data_collector.py` — `144 passed`; Ruff·strict mypy·diff
+  검사를 통과했습니다.
+- 제한: 현재 `.env`에 Korea Eximbank 서비스키가 없어 실제 자료 수집은 수행하지 않았습니다.
+  publication timestamp 계약이 확인될 때까지 R2-03 FX application과 성과 산출은 승격하지
+  않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`.
+
 ## kofr-repeat-response-evidence-20260920
 
 - 상태: 반복 원문 대조 완료·application 승격 보류.
