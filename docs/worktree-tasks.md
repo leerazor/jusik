@@ -3198,11 +3198,15 @@
 - 상태: 완료 (batch operator form fail-closed validator); action/NAV/economic acceptance는
   미승격
 - `SecActionReviewForm`과 `validate_sec_action_review_form()` 및 CLI를 추가했습니다. 8개
-  priority row를 한 번에 검증하며 accession/review-key identity, raw SHA, operator flag,
-  revision/content hash, event-specific facts와 PIT link를 확인합니다.
+  priority row를 한 번에 검증하며 정본 queue와 symbol/source URL/raw SHA/required-fields를
+  exact-match하고 accession/review-key identity, operator flag, revision/content hash,
+  event-specific facts와 PIT link를 확인합니다. source URL은 credential-free HTTPS 규칙을
+  재사용합니다.
 - 실제 blank form 결과: source verified `8/8`, missing `0`, SHA mismatch `0`, `ready=false`,
   exit `2`. 원문 gate는 통과했고 operator 입력만 남았습니다.
-- 검증: SEC evidence pytest `11 passed`, Ruff·strict mypy·diff check 통과.
+- 검증: SEC evidence pytest `11 passed`, 실제 CLI에 정본 queue를 연결해 `8/8` source
+  verified·`ready=false` exit `2`, Ruff·strict mypy·diff check 통과. 독립 review에서
+  지적된 self-consistent identity 우회를 수정했습니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-action-review-form-validator.md`.
 
 ## kofr-repeat-response-evidence-20260920

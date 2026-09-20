@@ -10,8 +10,10 @@
 
 ## 변경
 
-- `research_sec_evidence --validate-review-form FORM --review-candidate-dir DIR` CLI를
-  추가했습니다. source file이 누락되거나 SHA가 다르면 `ready=false`로 fail-closed합니다.
+- `research_sec_evidence --validate-review-form FORM --review-candidate-dir DIR
+  --review-reference-queue QUEUE` CLI를 추가했습니다. 정본 queue의 symbol, source URL,
+  raw SHA, required fields와 form을 exact-match하고 credential-free HTTPS URL 규칙도
+  재사용합니다. source file이 누락되거나 SHA가 다르면 `ready=false`로 fail-closed합니다.
 - 기존 blank form과 호환되도록 `schema_version=1`, `status=operator_input_required`,
   `required_fields`를 허용합니다. 자동 ledger 적용 플래그는 항상 `false`입니다.
 

@@ -13,6 +13,8 @@ from jusik.research_sec_evidence import (
     SecActionReviewFormItem,
     SecFiling,
     SecFilingCandidate,
+    SecReviewQueue,
+    SecReviewQueueItem,
     _main,
     build_sec_action_review_input,
     build_sec_review_manifest,
@@ -233,7 +235,21 @@ def test_sec_action_review_form_is_batch_fail_closed_before_manifest(
     blank = SecActionReviewForm(
         items=(SecActionReviewFormItem(**base),),
     )
-    report = validate_sec_action_review_form(blank, candidate_dir=tmp_path)
+    reference_queue = SecReviewQueue(
+        items=(
+            SecReviewQueueItem(
+                symbol="TEST",
+                accession_number=accession,
+                source_url=base["source_url"],
+                raw_sha256=base["raw_sha256"],
+                candidate_kinds=("dividend",),
+                candidate_snippets=("declared a cash dividend",),
+            ),
+        )
+    )
+    report = validate_sec_action_review_form(
+        blank, candidate_dir=tmp_path, reference_queue=reference_queue
+    )
     assert report.ready is False
     assert set(report.missing_fields[blank.items[0].review_key]) == {
         "amount",
@@ -267,7 +283,9 @@ def test_sec_action_review_form_is_batch_fail_closed_before_manifest(
             ),
         )
     )
-    ready_report = validate_sec_action_review_form(ready, candidate_dir=tmp_path)
+    ready_report = validate_sec_action_review_form(
+        ready, candidate_dir=tmp_path, reference_queue=reference_queue
+    )
     assert ready_report.ready is True
     assert ready_report.automatic_ledger_application is False
 

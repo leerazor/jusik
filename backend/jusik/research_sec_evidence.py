@@ -296,6 +296,7 @@ def validate_sec_action_review_form(
     form: SecActionReviewForm,
     *,
     candidate_dir: Path,
+    reference_queue: SecReviewQueue,
     max_source_bytes: int = MAX_SEC_REVIEW_EVIDENCE_BYTES,
 ) -> SecActionReviewFormValidation:
     """Validate a filled batch form and its raw files, without approving actions."""
@@ -307,6 +308,9 @@ def validate_sec_action_review_form(
     source_missing: list[str] = []
     source_mismatch: list[str] = []
     source_verified = 0
+    reference_items = {
+        item.accession_number: item for item in reference_queue.items
+    }
     seen_accessions: set[str] = set()
     seen_review_keys: set[str] = set()
     for item in form.items:
@@ -316,6 +320,29 @@ def validate_sec_action_review_form(
         if item.accession_number in seen_accessions:
             missing_fields.append("duplicate_accession_number")
         seen_accessions.add(item.accession_number)
+        reference = reference_items.get(item.accession_number)
+        if reference is None:
+            missing_fields.append("reference_queue_item")
+        else:
+            if item.symbol != reference.symbol:
+                missing_fields.append("symbol_reference")
+            if item.source_url != reference.source_url:
+                missing_fields.append("source_url_reference")
+            if item.raw_sha256 != reference.raw_sha256:
+                missing_fields.append("raw_sha256_reference")
+            if item.required_fields != reference.required_fields:
+                missing_fields.append("required_fields_reference")
+        try:
+            EvidenceInput(
+                local_file=Path("."),
+                sha256=item.raw_sha256,
+                source_url=item.source_url,
+                publisher="SEC",
+                locator=item.accession_number,
+                captured_at=datetime(1970, 1, 1, tzinfo=UTC),
+            )
+        except ValueError:
+            missing_fields.append("source_url_format")
         if key in seen_review_keys:
             missing_fields.append("duplicate_review_key")
         seen_review_keys.add(key)
@@ -794,6 +821,7 @@ def _main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--candidate-dir", type=Path)
     parser.add_argument("--validate-review-form", type=Path)
     parser.add_argument("--review-candidate-dir", type=Path)
+    parser.add_argument("--review-reference-queue", type=Path)
     args = parser.parse_args(argv)
     if args.validate_review_form is not None:
         if (
@@ -802,15 +830,18 @@ def _main(argv: Sequence[str] | None = None) -> int:
             or args.verify_queue is not None
             or args.candidate_dir is not None
             or args.review_candidate_dir is None
+            or args.review_reference_queue is None
         ):
             parser.error(
-                "--validate-review-form requires --review-candidate-dir and cannot "
+                "--validate-review-form requires --review-candidate-dir and "
+                "--review-reference-queue and cannot "
                 "be combined with collection or queue verification arguments"
             )
         try:
             form_report = validate_sec_action_review_form(
                 load_sec_action_review_form(args.validate_review_form),
                 candidate_dir=args.review_candidate_dir,
+                reference_queue=load_sec_review_queue(args.review_reference_queue),
             )
         except (OSError, ValueError):
             print("SEC action review form validation failed", file=sys.stderr)
