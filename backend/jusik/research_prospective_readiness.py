@@ -4,7 +4,7 @@ import hashlib
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -285,9 +285,15 @@ def prospective_readiness(
             start_at=start_at,
             end_at=end_at,
         )
+    raw_status = registration_status.status
+    if raw_status not in {"planned", "observing", "window_elapsed"}:
+        raise ValueError("prospective registration status is not readiness-eligible")
+    readiness_status = cast(
+        Literal["planned", "observing", "window_elapsed"], raw_status
+    )
     return ProspectiveReadiness(
         checked_at=checked_at,
-        registration_status=registration_status.status,
+        registration_status=readiness_status,
         session_id=session_id,
         evaluation_start_at=start_at,
         evaluation_end_at=end_at,
