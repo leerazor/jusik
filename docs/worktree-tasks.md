@@ -3205,6 +3205,15 @@
   `passed=true`입니다. KOFR/PIT/비용·FX readiness 부족으로 경제 승격은 하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r2-04-drawdown-contract-recheck.md`.
 
+## sec-priority-context-audit-20260920
+
+- 상태: 비권위 검토 보조 완료; operator verification 전 action 적용 보류
+- SEC priority 8개 원문을 읽기 전용으로 대조해 multi-class dividend, compensation-only
+  split, approval-range split, dividend-equivalent rights 등 자동 확정이 위험한 경계를
+  기록했습니다.
+- form/queue/raw는 변경하지 않았고 `operator_verified=false`를 유지합니다.
+- 개발 기록: `docs/development-records/2026-09-20-sec-priority-context-audit.md`.
+
 ## r2-03-koreaexim-optional-transport-20260920
 
 - 상태: 완료 (parser/선택형 transport 계약); FX PIT application·경제 acceptance는 차단
