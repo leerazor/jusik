@@ -115,6 +115,8 @@
 - 원문 snippet 기반 비권위 hint를 추가해 직접 현금배당 3, effective split 2, approval-only split 1,
   compensation/dividend-equivalent 2개로 검토 범위를 나눴습니다. hint SHA
   `70f8f228...f1a62`; 자동 사실/ledger 적용은 하지 않습니다.
+- 8개 후보의 blank extracted-facts/operator 입력 양식도 생성했습니다(SHA
+  `880fc7e6...454f7`). 이는 `ReviewManifest`가 아니며 operator 검증 전에는 사용할 수 없습니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-pure-action-review-priority.md`
 
 ## sec-review-queue-integrity-recheck-20260920

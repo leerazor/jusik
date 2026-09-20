@@ -29,5 +29,6 @@
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-priority.json`.
 - review hint: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-hints.json`.
+- operator 입력 양식: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/pure-action-review-form.json`; SHA-256 `880fc7e6970b1391f61d82cb54b5919385420a0acb348a131fc6b646252454f7`. 이 양식은 `ReviewManifest`가 아니며 빈 facts를 자동 승인하지 않습니다.
 - 남은 조건: operator가 event/effective date, amount/ratio, share basis, PIT link를 확인해 `ReviewManifest`를 작성해야 R1-04 적용 검토가 가능합니다.
 - 다음 시작: priority 8개 원문을 operator review하거나 ECOS API key가 제공되면 FX probe를 수행합니다.
