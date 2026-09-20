@@ -31,6 +31,9 @@
 - artifact: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-us-market-collection-recheck/sec-evidence/`
   (`submission-summary.json` SHA `ffbf5711eb6a2105e0c240a390e11cb43a7230b59a9c8424ad42c84ec4a43995`,
   `candidate-summary.json` SHA `efe2f2668755095518c8b0454e9f4963b774d83e4c0dc559d74200d98656d054`)
+- 이벤트 발생일과 가까운 8-K를 심볼별 최대 2건으로 추가 선별해 52개 후보를 확보했습니다.
+  text 후보는 dividend 6, split 6, merger 8, suspension 3, delisting 2이며
+  `event-near-candidate-summary.json` SHA는 `520496776ba844a20d90ca650e34454a52fd55db2a91cee2c5c65f814916ce73`입니다.
 - 개발 기록: `docs/development-records/2026-09-20-us-action-sec-candidate-preflight.md`
 
 ## r6-krx-zero-adjacent-recheck-20260920

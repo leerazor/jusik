@@ -15,6 +15,10 @@
   `ffbf5711eb6a2105e0c240a390e11cb43a7230b59a9c8424ad42c84ec4a43995`
 - `candidate-summary.json` SHA-256:
   `efe2f2668755095518c8b0454e9f4963b774d83e4c0dc559d74200d98656d054`
+- 이벤트 발생일 인접 8-K를 심볼별 최대 2건으로 추가 수집한 52개 후보에서 text 후보는
+  dividend `6`, split `6`, merger `8`, suspension `3`, delisting `2`였습니다.
+- `event-near-candidate-summary.json` SHA-256:
+  `520496776ba844a20d90ca650e34454a52fd55db2a91cee2c5c65f814916ce73`
 
 ## 판정
 
