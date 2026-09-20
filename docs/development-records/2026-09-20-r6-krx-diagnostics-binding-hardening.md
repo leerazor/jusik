@@ -40,6 +40,8 @@
   검사 통과.
 - 후속 aggregate 회귀 테스트 커밋 `0d68dd5`에서 cache 진단의 malformed row 합산 경로를
   고정했습니다. collector 전체 pytest는 `145 passed`로 재검증했습니다.
+- 현재 canonical cache CLI 재실행에서도 `malformed_rows=0`, parser/coverage failure `0`,
+  `date_coverage=complete`, zero/missing OHLCV `29`, readiness `insufficient`을 확인했습니다.
 - 실제 cache CLI — requested/observed `2026-06-29`, missing `[]`, `date_coverage=complete`, zero/missing `29`, readiness `insufficient`, exit 2.
 
 ## 안전·운영 상태

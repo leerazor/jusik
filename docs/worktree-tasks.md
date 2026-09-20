@@ -18,6 +18,8 @@
 - 구현 커밋: `7301cd1`; collector pytest `144 passed`, Ruff·strict mypy·diff 검사 통과.
 - aggregate 회귀 테스트 커밋 `0d68dd5`에서 cache-level `malformed_rows` 합산과 parse failure를
   직접 검증했으며 collector pytest `145 passed`로 재확인했습니다.
+- canonical cache CLI 재실행 결과 `malformed_rows=0`, parser/coverage failure `0`,
+  `date_coverage=complete`, zero/missing `29`, readiness `insufficient`입니다.
 - zero/missing OHLCV 29건, provider 전체 PIT coverage 및 경제 승격 차단은 변경하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r6-krx-diagnostics-binding-hardening.md`
 
