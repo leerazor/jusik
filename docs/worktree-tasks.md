@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## sec-explicit-exclusion-disposition-20260920
+
+- 상태: 완료·operator review gate 보강
+- SEC form에 false-positive 후보를 `exclude`와 필수 사유로 명시하는 fail-closed disposition을 추가했습니다. source identity 검증과 자동 ledger 금지는 유지합니다.
+- 검증: SEC evidence/action/public catalog `50 passed`, 기존 action form 호환 및 exclusion fixture 통과.
+- 개발 기록: `docs/development-records/2026-09-20-sec-explicit-exclusion-disposition.md`
+
 ## koreaexim-key-probe-20260920
 
 - 상태: 원천 응답 확보·PIT application 차단 유지

@@ -177,6 +177,8 @@ class SecActionReviewFormItem(BaseModel):
     source_url: str = Field(min_length=1, max_length=500)
     raw_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     required_fields: tuple[str, ...] = SEC_REVIEW_QUEUE_REQUIRED_FIELDS
+    operator_disposition: Literal["action", "exclude"] = "action"
+    exclusion_reason: str | None = Field(default=None, min_length=1, max_length=500)
     operator_verified: bool = False
     automatic_ledger_application: Literal[False] = False
     revision_id: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
@@ -212,6 +214,7 @@ class SecActionReviewFormValidation(BaseModel):
     reference_unexpected_accessions: tuple[str, ...] = ()
     source_missing_accessions: tuple[str, ...] = ()
     source_sha_mismatch_accessions: tuple[str, ...] = ()
+    excluded_accessions: tuple[str, ...] = ()
     ready: bool
     automatic_ledger_application: Literal[False] = False
 
@@ -339,6 +342,7 @@ def validate_sec_action_review_form(
     source_missing: list[str] = []
     source_mismatch: list[str] = []
     source_verified = 0
+    excluded_accessions: list[str] = []
     reference_items = {
         item.accession_number: item for item in reference_queue.items
     }
@@ -382,34 +386,8 @@ def validate_sec_action_review_form(
         seen_review_keys.add(key)
         if item.review_key != f"sec:{item.accession_number}:{kind}":
             missing_fields.append("review_key_identity")
-        if item.event_type != kind:
-            missing_fields.append("event_type")
         if not item.operator_verified:
             missing_fields.append("operator_verified")
-        if item.revision_id is None:
-            missing_fields.append("revision_id")
-        if item.content_sha256 is None:
-            missing_fields.append("content_sha256")
-        if item.manual_classification is None:
-            missing_fields.append("manual_classification")
-        if item.pit_link is None:
-            missing_fields.append("pit_link")
-        facts = item.extracted_facts
-        if kind == "dividend":
-            required_facts: tuple[tuple[str, object], ...] = (
-                ("amount", facts.amount),
-                ("currency", facts.currency),
-                ("ex_dividend_date", facts.ex_dividend_date),
-                ("comparable_share_basis", facts.comparable_share_basis),
-            )
-        else:
-            required_facts = (
-                ("numerator", facts.numerator),
-                ("denominator", facts.denominator),
-                ("legal_effective_date", facts.legal_effective_date),
-                ("comparable_share_basis", facts.comparable_share_basis),
-            )
-        missing_fields.extend(name for name, value in required_facts if value is None)
         matches = sorted(
             candidate_dir.glob(f"sec-filing-{item.accession_number}-*.html")
         )
@@ -435,6 +413,39 @@ def validate_sec_action_review_form(
             source_mismatch.append(item.accession_number)
         else:
             source_missing.append(item.accession_number)
+        if item.operator_disposition == "exclude":
+            excluded_accessions.append(item.accession_number)
+            if item.exclusion_reason is None:
+                missing_fields.append("exclusion_reason")
+            if missing_fields:
+                missing[key] = tuple(sorted(set(missing_fields)))
+            continue
+        if item.revision_id is None:
+            missing_fields.append("revision_id")
+        if item.content_sha256 is None:
+            missing_fields.append("content_sha256")
+        if item.manual_classification is None:
+            missing_fields.append("manual_classification")
+        if item.pit_link is None:
+            missing_fields.append("pit_link")
+        if item.event_type != kind:
+            missing_fields.append("event_type")
+        facts = item.extracted_facts
+        if kind == "dividend":
+            required_facts: tuple[tuple[str, object], ...] = (
+                ("amount", facts.amount),
+                ("currency", facts.currency),
+                ("ex_dividend_date", facts.ex_dividend_date),
+                ("comparable_share_basis", facts.comparable_share_basis),
+            )
+        else:
+            required_facts = (
+                ("numerator", facts.numerator),
+                ("denominator", facts.denominator),
+                ("legal_effective_date", facts.legal_effective_date),
+                ("comparable_share_basis", facts.comparable_share_basis),
+            )
+        missing_fields.extend(name for name, value in required_facts if value is None)
         if missing_fields:
             missing[key] = tuple(sorted(set(missing_fields)))
     ready = (
@@ -453,6 +464,7 @@ def validate_sec_action_review_form(
         reference_unexpected_accessions=reference_unexpected,
         source_missing_accessions=tuple(source_missing),
         source_sha_mismatch_accessions=tuple(source_mismatch),
+        excluded_accessions=tuple(sorted(excluded_accessions)),
         ready=ready,
     )
 

@@ -642,6 +642,64 @@ def test_sec_action_review_form_cli_returns_zero_for_complete_manual_review(
     assert output["automatic_ledger_application"] is False
 
 
+def test_sec_action_review_form_allows_explicit_operator_exclusion(
+    tmp_path: Path,
+) -> None:
+    raw = b"compensation plan references a prior stock split"
+    accession = "0000000001-25-000001"
+    source_url = "https://www.sec.gov/Archives/edgar/data/1/one.htm"
+    candidate_dir = tmp_path / "candidates"
+    candidate_dir.mkdir()
+    (candidate_dir / f"sec-filing-{accession}-raw.html").write_bytes(raw)
+    excluded = SecActionReviewForm(
+        items=(
+            SecActionReviewFormItem(
+                symbol="ONE",
+                accession_number=accession,
+                review_key=f"sec:{accession}:split",
+                source_url=source_url,
+                raw_sha256=hashlib.sha256(raw).hexdigest(),
+                operator_disposition="exclude",
+                exclusion_reason="보상 문서의 과거 사건 언급으로 현재 action 아님",
+                operator_verified=True,
+            ),
+        )
+    )
+    reference = SecReviewQueue(
+        items=(
+            SecReviewQueueItem(
+                symbol="ONE",
+                accession_number=accession,
+                source_url=source_url,
+                raw_sha256=hashlib.sha256(raw).hexdigest(),
+                candidate_kinds=("split",),
+                candidate_snippets=("prior stock split",),
+            ),
+        )
+    )
+    report = validate_sec_action_review_form(
+        excluded, candidate_dir=candidate_dir, reference_queue=reference
+    )
+    assert report.ready is True
+    assert report.excluded_accessions == (accession,)
+    assert report.automatic_ledger_application is False
+
+    incomplete = excluded.model_copy(
+        update={
+            "items": (
+                excluded.items[0].model_copy(update={"exclusion_reason": None}),
+            )
+        }
+    )
+    incomplete_report = validate_sec_action_review_form(
+        incomplete, candidate_dir=candidate_dir, reference_queue=reference
+    )
+    assert incomplete_report.ready is False
+    assert "exclusion_reason" in incomplete_report.missing_fields[
+        incomplete.items[0].review_key
+    ]
+
+
 def test_sec_review_manifest_requires_complete_manual_inputs(tmp_path: Path) -> None:
     evidence_body = b"declared a dividend"
     evidence_path = tmp_path / "doc.htm"
