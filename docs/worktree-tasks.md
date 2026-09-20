@@ -249,11 +249,13 @@
   canonical artifact·readiness 정책·runner·network/order/PAPER/live는 변경하지 않습니다.
 - 포트·테스트 DB·출력 경로: 별도 audit 디렉터리, DB/서비스 해당 없음
 - 검증 명령과 결과: `pytest -q backend/tests/test_research_canonical_time_evidence.py` 6개 통과,
-  Ruff·strict mypy·diff check 통과, 실제 252개 sidecar build/verify와 path pin fail-closed 통과
+  통합 readiness/NAV 대사 포함 62개 통과, Ruff·strict mypy·diff check 통과, 실제 252개
+  sidecar build/verify와 path pin fail-closed 통과
 - 결과 커밋 SHA: `3c6dbef`, path pin 보강 `ff980e7`
 - 검토 결과와 남은 문제: 독립 review PASS. readiness 연결 및 경제 acceptance는 별도 작업
 - 병합 직전 main SHA: `0fb382c`
-- 통합 커밋 SHA와 정리 여부: 기존 통합 `fe4b1a5`, 추가 통합 `c6fdf4f`; 전용 워크트리는 검증 후 정리 예정
+- 통합 커밋 SHA와 정리 여부: 기존 통합 `fe4b1a5`, 추가 통합 `c6fdf4f`; 전용 워크트리는
+  통합 검증 후 정상 제거 완료
 - 통합 검증 실패 원인과 복구 결과: 해당 없음
 - 개발 기록 경로와 갱신 여부: `docs/development-records/2026-09-20-canonical-time-evidence-sidecar.md` 갱신 완료
 - handoff 저장 경로와 갱신 여부: `HANDOFF.md` 갱신 완료

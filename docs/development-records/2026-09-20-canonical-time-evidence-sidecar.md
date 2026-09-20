@@ -27,6 +27,7 @@
 - `ruff check ...` — 통과
 - `git diff --check` — 통과
 - 실제 builder/verifier — 252개 NAV, `2025-09-11T13:30:00Z` initial anchor, `verified`
+- 통합 회귀: canonical sidecar·NAV reconciliation·performance readiness 62개 통과
 
 ## 안전·운영 상태
 
