@@ -33,4 +33,5 @@
 ## 증거와 재개
 
 - 남은 작업·차단 조건: publication/availability timestamp가 있는 FX 원천 또는 승인된 보수적 publication policy가 필요합니다. ECOS API key를 확보하면 BOK 원/달러 종가 계약을 별도로 검증할 수 있습니다. 한국수출입은행 환율 Open API도 무료 대안 후보이며, 신규 `oapi.koreaexim.go.kr` endpoint와 서비스키 신청이 필요하고 실제 공표시각 계약은 별도 확인해야 합니다.
+- 서비스키 없이 신규 endpoint를 bounded 호출한 결과는 HTTP 200이지만 `result=3`이고 모든 환율 필드가 null이었습니다. 이는 인증키 부족 증거이며 자료 관측으로 사용하지 않습니다. 응답 SHA-256은 `737f0e0235e82006eaabd9a2fa91dd30f42167d655335fe0cc3b6c24511023e2`입니다.
 - 다음 시작: 사용자가 ECOS Open API key를 제공하면 bounded canonical probe를 수행하고, 그 전에는 SEC action review를 계속 진행합니다.

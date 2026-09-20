@@ -80,6 +80,8 @@
   `2026-04-03`은 두 시계열 모두 missing입니다.
 - summary SHA `2d465e7e...34bb83d`; raw SHA는 개발 기록에 고정했습니다. ECOS/BOK는 API key와
   별도 계약이 필요한 다음 후보입니다.
+- 수출입은행 endpoint를 빈 key로 호출한 결과는 HTTP 200/`result=3`/환율 필드 null이었으며,
+  인증 실패를 정상 자료로 저장하지 않았습니다(SHA `737f0e02...1023e2`).
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fx-alternative-source-audit/`
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`
 
