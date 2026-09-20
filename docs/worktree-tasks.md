@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## receipt-journal-validation-typing-20260920
+
+- 상태: 완료
+- visibility receipt를 dynamic kwargs가 아닌 `model_validate` payload로 생성하도록 정리해
+  timestamp/hash/clock schema 검증을 보존했습니다.
+- 검증: receipt journal strict mypy·Ruff 통과, 관련 테스트 `21 passed`
+- 개발 기록: `docs/development-records/2026-09-20-receipt-journal-validation-typing.md`
+
 ## kis-stream-contract-typing-20260920
 
 - 상태: 완료

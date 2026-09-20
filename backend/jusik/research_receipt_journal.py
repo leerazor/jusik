@@ -562,7 +562,9 @@ class ReceiptJournal:
             "utc_reversed": sample.observed_at < entry.precommit_observed_at,
         }
         receipt_id = _sha256(_canonical(receipt_content))
-        receipt = VisibilityReceipt(id=receipt_id, **receipt_content)
+        receipt = VisibilityReceipt.model_validate(
+            {"id": receipt_id, **receipt_content}
+        )
         connection = self._write_connection()
         try:
             connection.execute("BEGIN IMMEDIATE")
