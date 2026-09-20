@@ -15,7 +15,7 @@ from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path
 from typing import Any
 
-MANDATE_SHA256 = "ceca2ee1d3e86cf79822b6b4a1606ac6699405f93eaf302fcf3842247f5de7ac"
+MANDATE_SHA256 = "22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1"
 REPORT_SHA256 = "663ea3345b609d76f08676c56783512c943e37437a92cf06e9ac3a390d8253b8"
 MANIFEST_SHA256 = "b7306e276f66d773af9b4d029ffdee20c368c474044f1209dadd7852c068df1c"
 RESULTS_SHA256 = "cada27b0e5518b8384e521235bc6fc1e4c5a029b9c4f8ff3db173cde41f2670d"
