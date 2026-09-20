@@ -2602,6 +2602,19 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-tqqq-issuer-split-evidence/`.
 - 개발 기록: `docs/development-records/2026-09-20-tqqq-issuer-split-evidence.md`.
 
+## soxl-issuer-dividend-evidence-20260920
+
+- 상태: issuer evidence candidate 미확보·R1-04 승격 보류.
+- 결과: Direxion 공식 검색 색인에서 SOXL `2025-09-23` record/ex, `2025-09-30`
+  pay, `0.01008` 후보를 확인했지만 공식 두 URL의 bounded GET이 Cloudflare
+  `403` challenge를 반환해 raw/SHA를 보존하지 못했습니다.
+- 판정: 검색 색인은 원문 evidence로 승격하지 않고 operator_verified=false,
+  automatic_ledger_application=false를 유지합니다. R1-04/R1-05 checkbox, 원장,
+  성과, readiness는 변경하지 않았습니다.
+- 후속 조건: credential-free Direxion 원문 또는 SEC/공식 배포 문서 raw 확보 후
+  Alpha exact match와 SHA 고정을 재시도합니다.
+- 개발 기록: `docs/development-records/2026-09-20-soxl-issuer-dividend-evidence.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
