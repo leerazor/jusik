@@ -2638,3 +2638,17 @@
   mypy, `git diff --check` 통과. 실제 운영 runner resume/dispatch는 수행하지 않았습니다.
 - 정리: 통합 검증 후 worktree와 브랜치를 제거합니다. 기존 미추적 `HANDOFF.md`는 보존합니다.
 - 제한: 경제 readiness·R1/R2 checkbox·PAPER/live·원격 push는 변경하지 않았습니다.
+
+## canonical-time-evidence-attachment-audit-20260920
+
+- 상태: 완료 (읽기 전용 대조); canonical readiness 승격은 차단
+- 목표: 기존 official time-evidence bundle을 등록된 canonical US run에 연결할 수 있는지
+  기간·candidate·policy·input identity를 비교해 재사용 가능성을 판정합니다.
+- 결과: 기존 bundle manifest `eec4aae8ed3c0366e9d15fa84657004d0e25429e2815b05e8a4870727718520b`
+  은 timestamp/initial-capital 기술 근거를 갖지만 `2024-04-24..2026-09-08` 및 별도
+  input/candidate/policy라 canonical `2025-09-11..2026-09-11` run에 연결할 수 없습니다.
+- 검증: pinned bundle identity, canonical readiness 직접 진단, manifest/config/request
+  read-only 대조. 기존 run·bundle·readiness·runner는 변경하지 않았습니다.
+- 남은 조건: canonical과 동일한 frozen input/strategy/period로 생성한 새 bundle과 KOFR
+  application evidence가 필요합니다. 개발 기록:
+  `docs/development-records/2026-09-20-canonical-time-evidence-attachment-audit.md`.
