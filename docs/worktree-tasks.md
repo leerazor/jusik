@@ -52,7 +52,7 @@
 
 - 상태: 완료·자동 dispatch 중지 유지
 - `validate_mandate` digest `22efba...c264ab1`, roadmap 40개/complete 16개와 현재 roadmap digest
-  `a689662f443f6bb58d2d864dd953609b305e8a5ed21003facf752cb92aeca1cf`를 재확인했습니다.
+  `19efe30e41d1b3bc8a2ebecc77128fdcc3578be00d91b2881cab7ffac8be0df1`를 재확인했습니다.
 - runner `tasks` 상태는 blocked 9/completed 75/failed 12이며 running task는 없습니다. user service는
   `inactive`, timer는 `disabled`입니다. `attempts`의 과거 interrupted/failed 이력은 보존하며 재시도하지
   않았습니다.
