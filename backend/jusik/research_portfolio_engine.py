@@ -18,7 +18,9 @@ from jusik.research_portfolio_models import (
     PortfolioCandidate,
     PortfolioConfig,
     PortfolioEquityPoint,
+    PortfolioGate,
     PortfolioInput,
+    PortfolioMethod,
     PortfolioMetrics,
     PortfolioMonthlyDiagnostics,
     PortfolioPolicy,
@@ -84,10 +86,16 @@ def _conservative_nav_floor(
 
 
 def candidates() -> tuple[PortfolioCandidate, ...]:
+    methods: tuple[PortfolioMethod, ...] = (
+        "equal",
+        "inverse_volatility",
+        "momentum_top4",
+    )
+    gates: tuple[PortfolioGate, ...] = ("none", "rates", "fx_vix", "stress")
     return tuple(
         PortfolioCandidate(id=f"portfolio_{method}_{gate}_v1", method=method, gate=gate)
-        for method in ("equal", "inverse_volatility", "momentum_top4")
-        for gate in ("none", "rates", "fx_vix", "stress")
+        for method in methods
+        for gate in gates
     )
 
 
