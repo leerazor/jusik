@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## canonical-governance-sync-recheck-20260920
+
+- 상태: 완료·운영 dispatch는 계속 paused/inactive
+- mandate digest `22efba...c264ab1`, policy version, dispatch flag와 roadmap 40개 checklist/complete
+  16개를 parser로 재확인했습니다. runner DB는 blocked 9/completed 75/failed 12/running 0이며
+  service inactive, timer not-found입니다.
+- 자동 resume·성과 승격·PAPER/live·remote push·Windows 종료는 하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-canonical-governance-sync-recheck.md`
+
 ## market-data-readiness-recheck-20260920
 
 - 상태: read-only 확인 완료·미국 재실행 blocked 유지
