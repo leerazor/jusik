@@ -1,5 +1,15 @@
 # 워크트리 작업 등록부
 
+## alpha-action-rate-limit-recheck-20260920
+
+- 상태: 공급자 한도 차단·SEC 후보 경로 유지
+- SEC 불확실 31개 심볼의 Alpha Vantage `DIVIDENDS`/`SPLITS` 보조 수집을 별도 audit에서
+  시작했지만 첫 요청에서 provider의 일일 25회 rate-limit 응답을 받아 즉시 중단했습니다.
+- rate-limit 응답 raw는 provider가 API key를 본문에 재노출했으므로 보존하지 않고 삭제했습니다.
+  기존 cache·원본 자료·`.env`는 변경하지 않았습니다.
+- Alpha key rotation 후에만 재시도하며, 그 전에는 SEC review queue를 자동 승격하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-20-alpha-action-rate-limit-recheck.md`
+
 ## us-market-collection-recheck-20260920
 
 - 상태: bounded 수집 완료·pilot 자료 게이트 차단
