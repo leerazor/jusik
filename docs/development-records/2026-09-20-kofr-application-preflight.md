@@ -45,6 +45,8 @@ provider의 실제 completeness가 `unknown`이면 `business_date_completeness_u
 - 이 조건이 충족되기 전에는 application manifest를 정본으로 만들거나 성과 계산에
   연결하지 않습니다.
 
+한국거래소의 [표준 KOFR 설명서](https://open.krx.co.kr/contents/OPN/01/01040505/%ED%91%9C%EC%A4%80_%ED%95%9C%EA%B5%AD%EB%AC%B4%EC%9C%84%ED%97%98%EC%A7%80%EA%B8%88%EB%A6%AC%5BKOFR%5D_%EC%84%A4%EB%AA%85%EC%84%9C.pdf)는 산출 절차와 공시 주기·방법 변경, 비상시 대체금리를 설명하지만, 이 application에 필요한 행별 `PUBN_DTTM` timezone/instant 의미나 provider 전체 business-date 목록은 제공하지 않습니다. 비상시 직전 KOFR 대체금리 규정도 일반적인 미국-only NAV 날짜의 carry-forward 근거로 확장하지 않습니다.
+
 ## 검증
 
 - source SHA와 schema를 읽기 전용으로 확인했습니다.
