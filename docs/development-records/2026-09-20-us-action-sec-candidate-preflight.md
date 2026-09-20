@@ -19,6 +19,9 @@
   dividend `6`, split `6`, merger `8`, suspension `3`, delisting `2`였습니다.
 - `event-near-candidate-summary.json` SHA-256:
   `520496776ba844a20d90ca650e34454a52fd55db2a91cee2c5c65f814916ce73`
+- 후보 52건을 `event-near-review-queue.json`으로 결속했습니다. queue SHA-256은
+  `5d22bf07625916859cb42c56fa2e3929caeae946e2f67248a634931b4c96f90f`이며 모든 item은
+  `unsupported_candidate`와 `automatic_ledger_application=false`를 가집니다.
 
 ## 판정
 

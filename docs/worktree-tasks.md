@@ -34,6 +34,10 @@
 - 이벤트 발생일과 가까운 8-K를 심볼별 최대 2건으로 추가 선별해 52개 후보를 확보했습니다.
   text 후보는 dividend 6, split 6, merger 8, suspension 3, delisting 2이며
   `event-near-candidate-summary.json` SHA는 `520496776ba844a20d90ca650e34454a52fd55db2a91cee2c5c65f814916ce73`입니다.
+- 52개를 `event-near-review-queue.json`으로 결속했습니다(SHA
+  `5d22bf07625916859cb42c56fa2e3929caeae946e2f67248a634931b4c96f90f`). 모든 항목은
+  `unsupported_candidate`, 수동 분류·event/effective/금액·비율/share-basis/PIT link 필요,
+  `automatic_ledger_application=false`입니다.
 - 개발 기록: `docs/development-records/2026-09-20-us-action-sec-candidate-preflight.md`
 
 ## r6-krx-zero-adjacent-recheck-20260920
