@@ -170,6 +170,12 @@ def create_r7_isolation_workspace(
             "automatic_promotion_eligible": False,
             "retrospective_write_access": False,
             "source_identities": dict(sorted(source_identities.items())),
+            "source_hashes": {
+                str(path.resolve(strict=True)): digest
+                for path, digest in sorted(
+                    source_hashes.items(), key=lambda item: str(item[0])
+                )
+            },
             "paths": {name: name for name in (*CHILDREN, "workspace.json")},
         }
         _write_manifest_at(root_fd, "workspace.json", payload)

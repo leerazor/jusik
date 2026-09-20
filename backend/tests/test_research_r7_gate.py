@@ -122,6 +122,19 @@ def test_gate_blocks_tampered_manifest(tmp_path: Path) -> None:
     assert "isolated_workspace_manifest_unavailable" in result.reasons
 
 
+def test_gate_blocks_mutated_retrospective_source(tmp_path: Path) -> None:
+    workspace = _workspace(tmp_path)
+    source = tmp_path / "source.txt"
+    source.write_bytes(b"mutated")
+    result = evaluate_r7_gate(
+        prospective=_prospective(complete=True),
+        workspace=workspace,
+        evidence=R7ReviewEvidence(),
+    )
+    assert result.state == "blocked"
+    assert "isolated_workspace_manifest_unavailable" in result.reasons
+
+
 def test_gate_blocks_symlink_manifest(tmp_path: Path) -> None:
     workspace = _workspace(tmp_path)
     source = tmp_path / "manifest-copy"

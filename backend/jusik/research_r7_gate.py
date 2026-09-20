@@ -11,11 +11,12 @@ import hashlib
 import json
 import os
 import stat
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from jusik.research_r7_isolation import R7IsolationWorkspace
+from jusik.research_r7_isolation import R7IsolationWorkspace, _sha256_path
 
 if TYPE_CHECKING:
     from jusik.research_prospective_readiness import ProspectiveReadiness
@@ -151,6 +152,25 @@ def _manifest_sha256(workspace: R7IsolationWorkspace) -> str | None:
         for key, value in identities.items()
     ):
         return None
+    source_hashes = payload.get("source_hashes")
+    if not isinstance(source_hashes, dict) or not source_hashes:
+        return None
+    if set(source_hashes.values()) != set(identities.values()):
+        return None
+    for path, expected in source_hashes.items():
+        if (
+            not isinstance(path, str)
+            or not os.path.isabs(path)
+            or not isinstance(expected, str)
+            or len(expected) != 64
+            or any(character not in "0123456789abcdef" for character in expected)
+        ):
+            return None
+        try:
+            if _sha256_path(Path(path)) != expected:
+                return None
+        except (OSError, ValueError):
+            return None
     return hashlib.sha256(manifest_bytes).hexdigest()
 
 

@@ -2627,6 +2627,17 @@
   승격하지 않습니다. broker partial/cancel/reject와 자료 완전성은 미해결입니다.
 - 개발 기록: `docs/development-records/2026-09-20-portfolio-session-calendar-stress.md`.
 
+## r7-source-identity-binding-20260920
+
+- 상태: 완료된 fail-closed 보강.
+- 변경: R7 isolation manifest에 canonical source path→SHA-256을 저장하고 gate가
+  identity/hash 집합과 실제 source 재해시를 검증하도록 했습니다. 생성 후 source
+  변조는 `isolated_workspace_manifest_unavailable`로 차단합니다.
+- 검증: R7 isolation/gate pytest 11 passed, Ruff 및 diff check 통과. strict mypy는
+  변경 범위 밖 기존 import 오류 10개로 실패했습니다.
+- 제한: R7 경제 평가·PAPER 승격·실주문은 수행하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-20-r7-source-identity-binding.md`.
+
 ## r1-action-receipt-time-order-20260920
 
 - 상태: 완료 (기술 slice); R1-04/R1-05 경제 acceptance는 미완료
