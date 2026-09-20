@@ -17,6 +17,13 @@
   FX·NAV·Sharpe에 연결하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`
 
+## r2-03-koreaexim-availability-bound-clarification-20260920
+
+- 상태: parser 계약 명확화·FX application 미승격
+- KoreaExim parser의 다음 UTC 자정 availability를 publication evidence가 아닌 policy bound로
+  명시했습니다. collector pytest `145 passed`, Ruff·strict mypy 통과.
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fx-alternative-source-audit.md`
+
 ## current-contract-bundle-recheck-20260920
 
 - 상태: 현재 계약 회귀 재검증 완료·경제 acceptance 차단 유지

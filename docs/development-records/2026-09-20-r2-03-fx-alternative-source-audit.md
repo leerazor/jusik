@@ -48,4 +48,7 @@
   `oapi.koreaexim.go.kr`로 변경되었습니다. 발급·약관 상태의 근거는
   [한국수출입은행 환율 정보](https://www.data.go.kr/data/3068846/openapi.do)입니다.
 - 향후 키가 제공될 때의 재사용을 위해 `parse_koreaexim_exchange_response()`와 `KOREAEXIM_URL` 상수를 추가했습니다. parser는 성공한 단일 USD row만 허용하고 키 오류·누락·비수치 rate를 fail-closed하며 기본 availability를 다음 UTC 자정으로 둡니다. 선택형 network collector는 일별 `searchdate` 요청만 준비하며, 실제 키가 없으면 호출하지 않습니다. 경제 결과에는 아직 연결하지 않았습니다.
+- parser docstring을 보강해 다음 UTC 자정은 publication 사실이 아닌 보수적 policy bound임을
+  명시했습니다. caller는 PIT 성과 적용 전에 availability 근거를 별도로 검증해야 합니다.
+- 변경 후 collector pytest `145 passed`, Ruff·strict mypy·diff 검사를 재확인했습니다.
 - 다음 시작: 사용자가 ECOS Open API key를 제공하면 bounded canonical probe를 수행하고, 그 전에는 SEC action review를 계속 진행합니다.
