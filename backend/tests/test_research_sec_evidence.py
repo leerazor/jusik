@@ -106,6 +106,29 @@ def test_filing_document_url_and_candidate_parser_are_fail_closed() -> None:
         filing_document_url(missing_document)
 
 
+def test_parse_sec_filing_candidate_uses_visible_html_text_only() -> None:
+    filing = SecFiling(
+        cik="0001045810",
+        accession_number="0001045810-24-000144",
+        form="8-K",
+        filing_date="2024-06-07",
+        primary_document="event.htm",
+        source_url="https://data.sec.gov/submissions/CIK0001045810.json",
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        raw_sha256="0" * 64,
+    )
+    result = parse_sec_filing_candidate(
+        b"<html><head><title>dividend metadata</title><style>.split{}</style></head>"
+        b"<body><p>Declared a cash dividend.</p>"
+        b"<script>stock split should not be a candidate</script></body></html>",
+        filing=filing,
+        observed_at=datetime(2026, 9, 19, 12, tzinfo=UTC),
+        source_url="https://www.sec.gov/Archives/edgar/data/1045810/event.htm",
+    )
+    assert result.candidate_kinds == ("dividend",)
+    assert result.candidate_snippets == ("Declared a cash dividend.",)
+
+
 def test_collect_sec_filing_candidates_is_bounded_and_persists_raw(
     tmp_path: Path,
 ) -> None:

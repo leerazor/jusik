@@ -11,6 +11,7 @@ import re
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -511,6 +512,43 @@ _FILING_CANDIDATE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+class _SecVisibleTextParser(HTMLParser):
+    """Extract bounded visible filing text without inferring action facts."""
+
+    _IGNORED_TAGS = frozenset({"script", "style", "head", "title"})
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._ignored_depth = 0
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, _attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() in self._IGNORED_TAGS:
+            self._ignored_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in self._IGNORED_TAGS and self._ignored_depth:
+            self._ignored_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self._ignored_depth:
+            self.parts.append(data)
+
+
+def _sec_visible_text(body: bytes) -> str:
+    try:
+        text = body.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise ValueError("sec_filing_invalid_utf8") from exc
+    parser = _SecVisibleTextParser()
+    try:
+        parser.feed(text)
+        parser.close()
+    except ValueError as exc:
+        raise ValueError("sec_filing_invalid_html") from exc
+    return " ".join(" ".join(parser.parts).split())
+
+
 def filing_document_url(filing: SecFiling) -> str:
     if not filing.primary_document:
         raise ValueError("sec_filing_primary_document_missing")
@@ -524,10 +562,7 @@ def filing_document_url(filing: SecFiling) -> str:
 def parse_sec_filing_candidate(
     body: bytes, *, filing: SecFiling, observed_at: datetime, source_url: str
 ) -> SecFilingCandidate:
-    try:
-        text = body.decode("utf-8", errors="strict")
-    except UnicodeDecodeError as exc:
-        raise ValueError("sec_filing_invalid_utf8") from exc
+    text = _sec_visible_text(body)
     matches = [
         (kind, match)
         for kind, pattern in _FILING_CANDIDATE_PATTERNS

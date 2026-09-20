@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## sec-visible-text-parser-20260920
+
+- 상태: 완료·operator review gate 유지
+- SEC HTML candidate parser가 태그/스크립트/메타데이터를 후보 문맥으로 오인하지 않도록 visible-text 추출을 추가했습니다. 사실 추론·operator verification·ledger 적용은 변경하지 않았습니다.
+- 검증: SEC evidence/action/public catalog `49 passed`, strict mypy/Ruff 통과.
+- 개발 기록: `docs/development-records/2026-09-20-sec-visible-text-parser.md`
+
 ## sec-action-review-triage-20260920
 
 - 상태: 부분 triage 완료·operator verification 대기
