@@ -2537,6 +2537,7 @@
 - 상태: 기술 계약 재검증 완료; 실제 자료 acceptance와 경제 평가는 `not-evaluated`.
 - counterfactual/independent accounting pytest 45개 통과. scenario별 cost·dividend·FX를
   분리 보존하고 unavailable을 0으로 바꾸지 않는 계약을 재확인했습니다.
+- 2026-09-20 재실행 명령도 동일하게 `45 passed`를 확인했습니다.
 - complete fills/corporate-action evidence 부재로 R2-06과 R4 승격은 하지 않습니다.
 
 ## r2-fx-boundary-verification-20260920
