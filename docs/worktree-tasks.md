@@ -96,6 +96,15 @@
   상태를 유지합니다.
 - 개발 기록: `docs/development-records/2026-09-20-sec-review-source-gate.md`
 
+## sec-pure-action-review-priority-20260920
+
+- 상태: review 보조 packet 완료·operator facts/ledger 적용 차단
+- 52개 SEC event-near 후보 중 단일 dividend/split kind 8개를 별도 priority packet으로
+  정렬했습니다. 원문·queue는 변경하지 않았고, 모든 항목은 operator review와
+  `automatic_ledger_application=false`를 유지합니다.
+- artifact SHA-256 `fad944da3774a5edaf2f315c861fd70ae615791510874d4c1b13aa2e805cbfb1`.
+- 개발 기록: `docs/development-records/2026-09-20-sec-pure-action-review-priority.md`
+
 ## sec-review-queue-integrity-recheck-20260920
 
 - 상태: 원문 무결성 재검증 완료·수동 review 대기
