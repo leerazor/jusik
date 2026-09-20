@@ -46,6 +46,16 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fred-vintage-probe/`
 - 개발 기록: `docs/development-records/2026-09-20-r2-03-fred-vintage-availability.md`
 
+## r2-03-fred-canonical-vintage-audit-20260920
+
+- 상태: canonical vintage evidence 완료·FX PIT application 차단
+- FRED DEXKOUS canonical 기간에서 HTTP 200, 263 rows, numeric 252개를 확인했지만
+  `realtime_start <= observation date`는 `0/252`였습니다. current vintage를 거래일 FX나
+  canonical NAV/Sharpe에 연결하지 않습니다.
+- response SHA `d8c76764...28e8341`, summary SHA `906e5e20...cb04e177`.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260920-fred-vintage-canonical/`
+- 개발 기록: `docs/development-records/2026-09-20-r2-03-fred-canonical-vintage-audit.md`
+
 ## r1-public-evidence-catalog-integrity-gate-20260920
 
 - 상태: 기술 무결성 gate 완료·R1-05 coverage/PIT 미완료
