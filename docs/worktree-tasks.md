@@ -2,11 +2,17 @@
 
 ## roadmap-r1-04-eodhd-sec-pit-v1
 
-- 상태: 차단. attempt `cd71193683a14c5596f60728189bc0fa`; 승인 세션 마감 2026-09-21 10:29:59 KST 경과를 확인하여 dispatch·구현을 시작하지 않았습니다.
-- 구현 worktree·통합 SHA: 없음. 테스트·독립 review·통합 검사 미실행. R1-04 미체크 및 경제 `not-evaluated` 유지.
+- 상태: 진행. attempt `914a85ba9e31429b82d8b397403da5c8`; 새 승인 세션 마감 2026-09-21 18:30:46 KST.
+- 이전 attempt `cd71193683a14c5596f60728189bc0fa`는 당시 세션 마감으로 구현 전에 차단됐습니다. 기존 기록과 audit를 보존합니다.
+- 목표: EODHD dividend/split 응답과 SEC filing identity를 읽기 전용으로 검증하고, publication time·coverage 누락을 명시합니다. R1-04 checkbox와 경제 `not-evaluated`를 유지합니다.
+- 담당: Astra 감독, Luna 단일 구현, Terra 독립 review.
+- worktree: `/home/kwl/projects/jusik-r1-04-eodhd-sec-pit`; branch: `feat/r1-04-eodhd-sec-pit`; 통합 대상: local `main`. 준비 전 HEAD `cb5a700`.
+- 수정 범위: 새 evidence adapter와 focused tests, 관련 계약·개발 기록. 전략·legacy replay·운영 ledger·PAPER/live·brokerage API는 변경하지 않습니다.
+- 예산: CPU only, 신규 fixed local fixture 최대 20개. EODHD AAPL/BMRC/RWT/ATXG/IMUX의 div/splits GET 최대 10회, 재시도 없음. 기존 SEC cache는 읽기 전용입니다. focused check는 실행당 180초, 신규 audit artifact는 20 MB 이내입니다.
+- 검증: schema, duplicate/missing dates, UTC, source SHA/SEC identity, 자동 ledger 적용 금지, 기존 action/SEC focused tests, Ruff, strict mypy, local-main 통합 검사.
+- audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-914a85ba/`.
 - 개발 기록: `docs/development-records/2026-09-21-roadmap-r1-04-eodhd-sec-pit-v1.md`.
-- evidence/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-cd711936/stop-evidence.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-cd711936/HANDOFF.md`.
-- 다음: 새 실행 기한 승인 후 동일 bounded slice를 재개합니다. PIT publication time·complete coverage와 initial state/price/entitlement/effective/payment UTC 근거를 확인해야 합니다.
+- 운영: 현재 runner DB에는 이 attempt 하나만 running입니다. 서비스·설정 변경 없이 runner-owned attempt로 수행합니다.
 
 ## research-direction-checkpoint-20260921
 
