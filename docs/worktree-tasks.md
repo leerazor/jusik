@@ -2,17 +2,16 @@
 
 ## roadmap-r1-04-eodhd-sec-pit-v1
 
-- 상태: 진행. attempt `914a85ba9e31429b82d8b397403da5c8`; 새 승인 세션 마감 2026-09-21 18:30:46 KST.
-- 이전 attempt `cd71193683a14c5596f60728189bc0fa`는 당시 세션 마감으로 구현 전에 차단됐습니다. 기존 기록과 audit를 보존합니다.
-- 목표: EODHD dividend/split 응답과 SEC filing identity를 읽기 전용으로 검증하고, publication time·coverage 누락을 명시합니다. R1-04 checkbox와 경제 `not-evaluated`를 유지합니다.
-- 담당: Astra 감독, Luna 단일 구현, Terra 독립 review.
-- worktree: `/home/kwl/projects/jusik-r1-04-eodhd-sec-pit`; branch: `feat/r1-04-eodhd-sec-pit`; 통합 대상: local `main`. 준비 전 HEAD `cb5a700`.
-- 수정 범위: 새 evidence adapter와 focused tests, 관련 계약·개발 기록. 전략·legacy replay·운영 ledger·PAPER/live·brokerage API는 변경하지 않습니다.
-- 예산: CPU only, 신규 fixed local fixture 최대 20개. EODHD AAPL/BMRC/RWT/ATXG/IMUX의 div/splits GET 최대 10회, 재시도 없음. 기존 SEC cache는 읽기 전용입니다. focused check는 실행당 180초, 신규 audit artifact는 20 MB 이내입니다.
-- 검증: schema, duplicate/missing dates, UTC, source SHA/SEC identity, 자동 ledger 적용 금지, 기존 action/SEC focused tests, Ruff, strict mypy, local-main 통합 검사.
-- audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-914a85ba/`.
-- 개발 기록: `docs/development-records/2026-09-21-roadmap-r1-04-eodhd-sec-pit-v1.md`.
-- 운영: 현재 runner DB에는 이 attempt 하나만 running입니다. 서비스·설정 변경 없이 runner-owned attempt로 수행합니다.
+- 상태: 기술 슬라이스 완료·전체 R1-04 자료 acceptance 차단. attempt `914a85ba9e31429b82d8b397403da5c8`. publication time·complete coverage·initial state/price/entitlement/effective/payment UTC 증거가 없어 경제 `not-evaluated`와 checkbox 미체크를 유지합니다.
+- 구현: 읽기 전용 EODHD parser와 SEC exact identity/hash/관측시각 validator. 원장·전략·legacy replay·PAPER/live·brokerage API 연결 없음.
+- 증거: EODHD 5종목 GET 10회, 배당 20건·분할 2건; 기존 SEC 4참조 결속; 기존 source 39개 SHA 보존. fixed synthetic inputs 12개와 reviewer 재현 1개로 최대 13/20.
+- 검증: 동일 Luna의 SEC 시각·중복 결함 2건 수정 후 Terra 독립 재검토 PASS. local main focused pytest 59 passed, Ruff check/format, strict mypy, diff check와 실제 원문 검증 모두 통과.
+- 기준/구현/수정/통합: `12c2525` / `229dfb7` / `10c4cd5` / `5f250dd3b234d9276d48bc164773bf499252c071`. 병합 직전 main `c9390da`.
+- 정리: `/home/kwl/projects/jusik-r1-04-eodhd-sec-pit`와 `feat/r1-04-eodhd-sec-pit`를 evidence·SHA·handoff 보존 후 제거했습니다. 다른 worktree와 사용자 `HANDOFF.md`는 보존했습니다.
+- 개발 기록: `docs/development-records/2026-09-21-roadmap-r1-04-eodhd-sec-pit-v1.md`; 계약: `docs/eodhd-action-evidence.md`.
+- evidence/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-914a85ba/integration-verification.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-914a85ba/HANDOFF.md`; 전체 hash 목록 `audit-manifest.json`.
+- 이전 attempt `cd71193683a14c5596f60728189bc0fa`의 세션 만료와 이번 최초 review 실패는 역사적 기록으로 보존합니다. 자동 복구 요청은 없습니다.
+- 다음: 누락된 원천 publication/coverage·회계 입력 증거를 확보한 뒤 별도 검증합니다. 기술 구현 또는 GET 반복만으로 전체 R1-04를 승인하지 않습니다.
 
 ## research-direction-checkpoint-20260921
 

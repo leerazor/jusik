@@ -1,4 +1,6 @@
-# R1-04 EODHD·SEC 증거 경계 작업 중단
+# R1-04 EODHD·SEC 증거 경계
+
+## 이전 attempt: 세션 마감으로 구현 전 중단
 
 - 상태: 차단. Task `roadmap-r1-04-eodhd-sec-pit-v1`, attempt `cd71193683a14c5596f60728189bc0fa`.
 - 기록 시각: 2026-09-21T04:04:43.971062+00:00
@@ -29,7 +31,7 @@ Git 상태, worktree 목록, 정책 마감 및 R1-04 미체크 상태만 확인�
 
 - Task: `roadmap-r1-04-eodhd-sec-pit-v1`; attempt: `914a85ba9e31429b82d8b397403da5c8`.
 - 새 승인 마감: 2026-09-21 18:30:46 KST. 이전 시도의 시간 만료는 당시 기록으로 보존합니다.
-- 상태: 구현·검증 진행 중. 전체 R1-04 및 경제 평가는 계속 `blocked` / `not-evaluated`입니다.
+- 상태: 기술 슬라이스 완료. 외부 자료가 필요한 전체 R1-04 및 경제 평가는 계속 `blocked` / `not-evaluated`입니다.
 - 기준: `12c2525`; 구현 worktree: `/home/kwl/projects/jusik-r1-04-eodhd-sec-pit`; branch: `feat/r1-04-eodhd-sec-pit`.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-914a85ba/`.
 
@@ -57,6 +59,23 @@ Python 3.13.15의 독립 worktree venv를 requirements.lock으로 준비했습�
 
 ## 완료 검증
 
-Luna 구현 커밋은 `229dfb7e3061314c32eb05e1bf6d86af75073eaf`입니다. 감독이 별도 `verify_captured_sources.py`로 실제 원문 10개, 배당 20건, 분할 2건, SEC 연결 4건을 검증했고 기존 source 39개 hash가 유지됨을 확인했습니다. 결과는 `supervisor-source-validation.json`에 저장했습니다. 독립 review와 main 통합 검사는 아직 대기 중입니다.
+Luna 구현 커밋은 `229dfb7e3061314c32eb05e1bf6d86af75073eaf`입니다. 감독이 별도 `verify_captured_sources.py`로 실제 원문 10개, 배당 20건, 분할 2건, SEC 연결 4건을 검증했고 기존 source 39개 hash가 유지됨을 확인했습니다. 결과는 `supervisor-source-validation.json`에 저장했습니다. 최초 독립 review에서 SEC 관측시각·원시 중복 accession 결함 2건이 확인됐고, 같은 Luna가 `10c4cd589a8800db6a30d64d290d7edace82f01a`에서 수정했습니다. 필수 submissions 관측시각을 분리하고 접수시각을 두 관측시각 모두와 비교하며, 기존 parser가 행을 건너뛰기 전에 원시 accession 수를 검증합니다. 독립 재검토는 PASS입니다.
 
 고정 synthetic raw fixture는 구현 보고 기준 10개입니다. 사용자 상한은 신규 fixed local test fixture 20개이며 네트워크 원문은 별도 source receipt입니다. 추가로 부과했던 synthetic 10 제한은 필수 회귀 검증을 빠뜨리지 않도록 실행 전에 prospective 20으로 정정했습니다. 원본 응답을 테스트 fixture로 복사하지 않았고, 현재 보고된 실제 fixture 수는 이전의 보수적 제한에도 맞습니다.
+
+
+## 최종 검증·통합·정리
+
+- local main 통합 커밋: `5f250dd3b234d9276d48bc164773bf499252c071`; 병합 직전 `c9390da895f840f0957c5548ef552c1003dc7ddd`.
+- main에서 `python -m pytest -q tests/test_research_eodhd_evidence.py tests/test_research_sec_evidence.py tests/test_research_action_review.py tests/test_research_corporate_actions.py tests/test_research_action_collection.py` — 59 passed, 기존 third-party deprecation warning 2건.
+- 새 모듈·테스트 Ruff check 및 format check, 새 모듈 configured strict mypy, `git diff --check` — 통과.
+- 수정본 및 main에서 실제 원문 10개/배당 20건/분할 2건/SEC 4건과 기존 source 39개 hash 보존 — 통과. `main-source-validation.json`에 전체 정규화 증거를 기록했습니다.
+- 기존 테스트 입력 bytes만 계측한 결과 distinct synthetic input 12개였습니다. reviewer의 독립 재현 1개까지 포함해 최대 13/20이며 새 성과 실험이나 추가 네트워크 호출은 없습니다. `fixture-budget-verified.json`을 참조하십시오.
+- frontend 변경이 없어 frontend build는 해당 없습니다. full financial acceptance는 실행하지 않았으며 명시적으로 차단합니다.
+- code와 review의 parent/child·model·receipt post-audit를 모두 통과했습니다. opaque host mode의 message 무결성은 미검증임을 그대로 기록했습니다.
+- `pre-cleanup-manifest.json`에 71개 보존 파일의 hash를 확인한 뒤, 미커밋·미병합 작업이 없는 worktree와 branch를 `--force` 없이 제거했습니다. dependency environment/cache도 해당 worktree와 함께 제거했습니다. 기존 사용자 HANDOFF hash와 다른 worktree를 보존했습니다.
+- 최종 handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-914a85ba/HANDOFF.md`. 최종 hash 목록: 같은 디렉터리 `audit-manifest.json`.
+
+## 문서·계약 및 최종 자료 상태
+
+새 offline adapter의 계약을 `docs/eodhd-action-evidence.md`에 기록했습니다. API·서비스·설정·운영 데이터·기존 결과 계약은 변경하지 않았습니다. 로드맵 파일 자체가 기준 `cb5a700`과 동일함을 확인했고 R1-04는 미체크입니다. 구현과 통합 검사는 완료했지만, 사용자 stop condition에 따라 provider publication time과 complete coverage 및 회계 입력 누락을 최종 `blocked` / `not-evaluated`로 보고합니다. recovery label이나 후속 자동 작업은 지정하지 않습니다. 다음 행동은 누락 원천 증거를 확보하는 것이며, synthetic fixture나 현재 조회시각으로 대체할 수 없습니다.
