@@ -279,6 +279,23 @@ def test_cash_is_unavailable_when_dividend_evidence_is_incomplete() -> None:
     assert report.cash_balance.diagnostic_value == Decimal("900")
 
 
+@pytest.mark.parametrize("dividends", ({}, {"OTHER": Decimal("0")}))
+def test_cash_is_unavailable_when_dividend_mapping_omits_held_symbol(
+    dividends: dict[str, Decimal],
+) -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100")],
+        final_marks={"AAA": Decimal("100")},
+        complete_history=True,
+        dividends=dividends,
+        dividend_evidence_complete=True,
+        initial_cash=Decimal("1000"),
+    )
+    assert not report.cash_balance.available
+    assert report.cash_balance.diagnostic_value == Decimal("900")
+    assert "AAA" in " ".join(report.cash_balance.evidence)
+
+
 @pytest.mark.parametrize(
     ("initial_cash", "complete_history", "dividend_complete"),
     (

@@ -484,6 +484,14 @@ def account_trades(
             value < 0 for value in normalised_dividends.values()
         ):
             raise ValueError("dividends must be non-negative")
+        held_symbols = {trade.symbol for trade in normalised_trades} | {
+            lot.symbol for lot in normalised_positions
+        }
+        missing_dividend_symbols = (
+            held_symbols - set(normalised_dividends)
+            if normalised_dividends is not None
+            else set()
+        )
         fifo = _fifo(normalised_trades, marks, normalised_positions)
         dividends_value = (
             sum(normalised_dividends.values(), Decimal(0))
@@ -572,7 +580,11 @@ def account_trades(
                 f"complete dividend evidence supplied in {currency_label}",
                 currency=accounting_currency,
             )
-            if normalised_dividends is not None and dividend_evidence_complete
+            if (
+                normalised_dividends is not None
+                and not missing_dividend_symbols
+                and dividend_evidence_complete
+            )
             else _unavailable(
                 reason=(
                     "dividend evidence is absent or incomplete; zero is not inferred"
@@ -625,6 +637,12 @@ def account_trades(
             cash_resume_inputs.append(
                 "provide a dividend mapping covering all held symbols"
             )
+        elif missing_dividend_symbols:
+            missing = ", ".join(sorted(missing_dividend_symbols))
+            cash_missing_reasons.append(
+                f"dividend mapping is missing held symbols: {missing}"
+            )
+            cash_resume_inputs.append("provide dividend evidence for every held symbol")
         if not dividend_evidence_complete:
             cash_missing_reasons.append(
                 "dividend evidence is absent or incomplete; zero is not inferred"
