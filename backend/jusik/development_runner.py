@@ -172,11 +172,23 @@ class RunnerConfig(BaseModel):
     history_db: Path = DEFAULT_HISTORY_DB
     artifact_dir: Path = DEFAULT_ARTIFACTS
     timeout_seconds: int = Field(default=5400, ge=60, le=5400)
+    idle_timeout_seconds: int = Field(default=900, ge=60, le=5400)
     daily_launches: int | None = Field(default=8, ge=1, le=24)
     cooldown_seconds: int = Field(default=60, ge=0, le=86400)
     planning_enabled: bool = False
     automatic_recovery: bool = False
     scope: Literal["research", "investment-roadmap"] = "research"
+
+
+def _child_idle_expired(
+    stdout_path: Path, stderr_path: Path, started_at: float, timeout_seconds: int
+) -> bool:
+    """Fail closed when a child produces no observable output for too long."""
+    try:
+        latest = max(stdout_path.stat().st_mtime, stderr_path.stat().st_mtime)
+    except OSError:
+        latest = started_at
+    return time.time() - max(started_at, latest) >= timeout_seconds
 
 
 class Evidence(BaseModel):
@@ -987,6 +999,7 @@ def _run_planning(
         if group_id is not None:
             store.set_process_group(attempt_id, group_id)
         deadline = time.monotonic() + config.timeout_seconds
+        child_started_at = time.time()
         data: bytes | None = prompt.encode()
         while True:
             if store.is_paused() or (stop_requested is not None and stop_requested()):
@@ -1007,6 +1020,15 @@ def _run_planning(
                 _stop_process(process)
                 store.finish(attempt_id, task.id, "failed", failure_code="timeout")
                 return RunResult("failed", task.id, attempt_id, "timeout")
+            if _child_idle_expired(
+                stdout_path,
+                stderr_path,
+                child_started_at,
+                config.idle_timeout_seconds,
+            ):
+                _stop_process(process)
+                store.finish(attempt_id, task.id, "failed", failure_code="idle_timeout")
+                return RunResult("failed", task.id, attempt_id, "idle_timeout")
             try:
                 process.communicate(data, timeout=min(1, remaining))
                 data = None
@@ -1526,6 +1548,7 @@ def run_once(
             if process_group_id is not None:
                 store.set_process_group(attempt_id, process_group_id)
             deadline = time.monotonic() + config.timeout_seconds
+            child_started_at = time.time()
             input_payload: bytes | None = prompt.encode()
             while True:
                 if store.is_paused() or (
@@ -1550,6 +1573,18 @@ def run_once(
                     store.finish(attempt_id, task.id, "failed", failure_code="timeout")
                     _safe_history_flush(store, config)
                     return RunResult("failed", task.id, attempt_id, "timeout")
+                if _child_idle_expired(
+                    stdout_path,
+                    stderr_path,
+                    child_started_at,
+                    config.idle_timeout_seconds,
+                ):
+                    _stop_process(process)
+                    store.finish(
+                        attempt_id, task.id, "failed", failure_code="idle_timeout"
+                    )
+                    _safe_history_flush(store, config)
+                    return RunResult("failed", task.id, attempt_id, "idle_timeout")
                 try:
                     process.communicate(input_payload, timeout=min(1, remaining))
                     input_payload = None

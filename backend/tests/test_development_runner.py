@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 import subprocess
 import threading
@@ -17,6 +18,7 @@ from jusik.development_runner import (
     RunnerConfig,
     RunResult,
     _attempt_environment,
+    _child_idle_expired,
     _git_common,
     _next_task,
     _prepare_artifact_dir,
@@ -718,6 +720,22 @@ def test_timeout_marks_attempt_failed_without_retrying_implicitly(
     task = RunnerStore(state / "runner.db", history).task("task-a")
     assert task is not None and task.status == "failed"
     assert _next_task(RunnerStore(state / "runner.db", history)) is None
+
+
+def test_child_idle_timeout_uses_stdout_or_stderr_activity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stdout = tmp_path / "stdout.jsonl"
+    stderr = tmp_path / "stderr.log"
+    stdout.write_text("event\n", encoding="utf-8")
+    stderr.write_text("", encoding="utf-8")
+    old = 100.0
+    os.utime(stdout, (old, old))
+    os.utime(stderr, (old, old))
+    monkeypatch.setattr("jusik.development_runner.time.time", lambda: 200.0)
+    assert _child_idle_expired(stdout, stderr, 100.0, 60)
+    os.utime(stderr, (199.0, 199.0))
+    assert not _child_idle_expired(stdout, stderr, 100.0, 60)
 
 
 def _run_nonzero_codex(
