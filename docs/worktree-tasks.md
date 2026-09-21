@@ -22,6 +22,8 @@
 - 완료 조건: fixture 16개 이하, focused pytest/Ruff/strict mypy·독립 review·main 통합 검증, 비용·배당·FX·세금 입력 부족 시 경제 평가는 `not-evaluated`로 유지하고 증거·handoff를 보존한다.
 - 다음: complete fills/opening positions/terminal marks·PIT action/FX 자료가 확보된 뒤에만 경제 acceptance와 R4 재실행을 검토한다.
 
+- 2026-09-22 bounded US collection: 기존 frozen cache와 분리한 표본 3개·request budget 10회 수집은 Alpha/Yahoo/FRED 원문을 저장했으나, FRED `realtime_start`가 현재 vintage라 `FRED FX observation unavailable before 2025-09-11 open`으로 `insufficient` 종료했습니다. historical PIT·R1-05 coverage로 승격하지 않았습니다. 개발 기록: `docs/development-records/2026-09-22-r1-bounded-us-collection.md`; cache manifest: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-us-collection-r1-05/cache/manifest.json`.
+
 ## roadmap-r1-04-eodhd-sec-pit-v1
 
 - 상태: 기술 슬라이스 완료·전체 R1-04 자료 acceptance 차단. attempt `914a85ba9e31429b82d8b397403da5c8`. publication time·complete coverage·initial state/price/entitlement/effective/payment UTC 증거가 없어 경제 `not-evaluated`와 checkbox 미체크를 유지합니다.
