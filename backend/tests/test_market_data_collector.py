@@ -39,6 +39,7 @@ from jusik.market_data_collector import (
     parse_alpha_vantage_listing_status_detailed,
     parse_fred_csv_observations,
     parse_fred_observations,
+    parse_fred_vintage_dates,
     parse_koreaexim_exchange_response,
     parse_krx_daily_response,
     parse_krx_daily_trade_response,
@@ -767,6 +768,15 @@ def test_fred_parser_uses_realtime_start_as_conservative_availability_bound() ->
     )
 
     assert rows[0].available_at == datetime(2025, 9, 16, tzinfo=UTC)
+
+
+def test_fred_vintage_dates_are_sorted_and_bounded() -> None:
+    body = json.dumps(
+        {"vintage_dates": ["2025-09-15", "2025-09-08", "2026-01-05"]}
+    ).encode()
+    assert parse_fred_vintage_dates(
+        body, start=date(2025, 9, 1), end=date(2025, 12, 31)
+    ) == (date(2025, 9, 8), date(2025, 9, 15))
 
 
 def test_fred_csv_parser_preserves_decimal_and_explicit_availability() -> None:
@@ -3054,9 +3064,9 @@ def test_us_network_request_estimate_includes_cumulative_admission_bound() -> No
     three_year_full = estimate_network_requests(
         market="US", start=date(2023, 9, 14), end=date(2026, 9, 14), sample_size=100
     )
-    assert one_year == 5
-    assert one_year_full == 203
-    assert three_year_full == 405
+    assert one_year == 65
+    assert one_year_full == 263
+    assert three_year_full == 569
 
 
 @pytest.mark.parametrize("resume", [False, True])

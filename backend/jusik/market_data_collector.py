@@ -57,6 +57,7 @@ KRX_KSQ_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/ksq_bydd_trd"
 ALPHA_VANTAGE_URL = "https://www.alphavantage.co/query"
 YAHOO_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
 FRED_URL = "https://api.stlouisfed.org/fred/series/observations"
+FRED_VINTAGE_DATES_URL = "https://api.stlouisfed.org/fred/series/vintagedates"
 KOREAEXIM_URL = "https://oapi.koreaexim.go.kr/site/program/financial/exchangeJSON"
 MAX_RETRIES = 3
 MAX_RETRY_DELAY_SECONDS = 30
@@ -1751,6 +1752,31 @@ def parse_fred_observations(
 
 
 @_parse_boundary
+def parse_fred_vintage_dates(
+    body: bytes, *, start: date, end: date
+) -> tuple[date, ...]:
+    """Parse FRED vintage dates used to prevent current-vintage look-ahead."""
+    _provider_envelope_error("fred", body)
+    try:
+        payload = json.loads(body)
+        raw_dates = payload["vintage_dates"]
+    except (KeyError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CollectorError("FRED vintage-date response is malformed") from exc
+    if not isinstance(raw_dates, list):
+        raise CollectorError("FRED vintage dates are missing")
+    result: list[date] = []
+    for value in raw_dates:
+        parsed = _date(value, "FRED vintage date")
+        if parsed <= end:
+            result.append(parsed)
+    if not result:
+        raise CollectorCoverageError("FRED response contains no usable vintage dates")
+    if len(set(result)) != len(result):
+        raise CollectorError("FRED vintage dates contain duplicates")
+    return tuple(sorted(result))
+
+
+@_parse_boundary
 def parse_koreaexim_exchange_response(
     body: bytes, *, session: date, available_at: datetime | None = None
 ) -> ApproximateFXRow:
@@ -1996,6 +2022,58 @@ class NetworkCollectorTransport:
             validator=validate,
         )
 
+    async def fred_vintage_dates(self, end: date) -> bytes:
+        key = self.settings.fred_api_key
+        if key is None:
+            raise CollectorError("FRED_API_KEY is not configured")
+
+        def validate(body: bytes) -> None:
+            _provider_envelope_error("fred", body)
+            parse_fred_vintage_dates(body, start=date.min, end=end)
+
+        return await self.fetcher.get(
+            source="fred",
+            url=FRED_VINTAGE_DATES_URL,
+            params={
+                "series_id": "DEXKOUS",
+                "api_key": key.get_secret_value(),
+                "file_type": "json",
+            },
+            checkpoint=f"fred-vintage-dates:{end}",
+            validator=validate,
+        )
+
+    async def fred_vintage(
+        self, vintage: date, start: date, end: date
+    ) -> bytes:
+        key = self.settings.fred_api_key
+        if key is None:
+            raise CollectorError("FRED_API_KEY is not configured")
+        query_start = start - timedelta(days=30)
+        available_at = datetime.combine(vintage + timedelta(days=1), time(), UTC)
+
+        def validate(body: bytes) -> None:
+            _provider_envelope_error("fred", body)
+            parse_fred_observations(
+                body, start=query_start, end=end, available_at=available_at
+            )
+
+        return await self.fetcher.get(
+            source="fred",
+            url=FRED_URL,
+            params={
+                "series_id": "DEXKOUS",
+                "api_key": key.get_secret_value(),
+                "file_type": "json",
+                "observation_start": query_start.isoformat(),
+                "observation_end": end.isoformat(),
+                "realtime_start": vintage.isoformat(),
+                "realtime_end": vintage.isoformat(),
+            },
+            checkpoint=f"fred:{start}:{end}:vintage:{vintage}",
+            validator=validate,
+        )
+
     async def koreaexim(self, session: date) -> bytes:
         key = self.settings.koreaexim_api_key
         if key is None:
@@ -2066,11 +2144,15 @@ def estimate_network_requests(
         # Two boards each require one date-specific daily trade response.
         return len(sessions) * 2
     checkpoint_count = len(_listing_checkpoints(sessions))
-    return (
+    base = (
         checkpoint_count
         + min(MAX_UNIQUE_SYMBOLS, sample_size * checkpoint_count)
-        + 1
     )
+    # US PIT FX uses one vintage-date request plus approximately weekly
+    # historical-vintage requests. Keep the estimate conservative before
+    # network I/O so a small budget cannot hide look-ahead-prone data.
+    vintage_requests = ((end - (start - timedelta(days=30))).days // 7) + 4
+    return base + 1 + vintage_requests
 
 
 def completed_collection_is_valid(
@@ -2721,11 +2803,56 @@ class FreeMarketDataCollector:
             limitations.extend(alpha_limitations)
         if market == "US":
             fred_start = warmup_start - timedelta(days=7)
-            fx = parse_fred_observations(
-                await self.transport.fred(fred_start, end),
-                start=fred_start,
-                end=end,
-            )
+            if isinstance(self.transport, NetworkCollectorTransport):
+                vintage_dates = parse_fred_vintage_dates(
+                    await self.transport.fred_vintage_dates(end),
+                    start=fred_start,
+                    end=end,
+                )
+                usable_vintages = tuple(
+                    vintage
+                    for index, vintage in enumerate(vintage_dates)
+                    if vintage <= end
+                    and (
+                        vintage >= fred_start
+                        or index == max(
+                            (
+                                candidate_index
+                                for candidate_index, candidate in enumerate(
+                                    vintage_dates
+                                )
+                                if candidate <= fred_start
+                            ),
+                            default=-1,
+                        )
+                    )
+                )
+                if not usable_vintages:
+                    raise CollectorCoverageError(
+                        "FRED has no vintage available for requested period"
+                    )
+                vintage_rows: list[ApproximateFXRow] = []
+                for vintage in usable_vintages:
+                    vintage_query_start = fred_start - timedelta(days=30)
+                    vintage_rows.extend(
+                        parse_fred_observations(
+                            await self.transport.fred_vintage(
+                                vintage, fred_start, end
+                            ),
+                            start=vintage_query_start,
+                            end=end,
+                            available_at=datetime.combine(
+                                vintage + timedelta(days=1), time(), UTC
+                            ),
+                        )
+                    )
+                fx = tuple(vintage_rows)
+            else:
+                fx = parse_fred_observations(
+                    await self.transport.fred(fred_start, end),
+                    start=fred_start,
+                    end=end,
+                )
             fx_by_session: list[ApproximateFXRow] = []
             for session in sessions:
                 lookup = self.calendar.lookup("NMS", session)
@@ -2929,6 +3056,7 @@ __all__ = [
     "KOREAEXIM_URL",
     "MAX_KRX_ROWS_PER_DAY",
     "NetworkCollectorTransport",
+    "FRED_VINTAGE_DATES_URL",
     "NORMALIZATION_VERSION",
     "RequestBudgetExceeded",
     "parse_alpha_vantage_listing_status_detailed",
@@ -2940,6 +3068,7 @@ __all__ = [
     "load_collector_settings",
     "parse_alpha_vantage_listing_status",
     "parse_fred_observations",
+    "parse_fred_vintage_dates",
     "parse_koreaexim_exchange_response",
     "parse_krx_daily_response",
     "parse_krx_daily_trade_response",
