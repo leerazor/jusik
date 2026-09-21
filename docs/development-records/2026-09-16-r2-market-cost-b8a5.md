@@ -1,5 +1,17 @@
 # R2-02 시장별 비용 진단 — 중단 이력과 복구
 
+## 2026-09-22 재시도 입력 조사
+
+- task/attempt: `roadmap-r2-02-v1` / `d98449289d754f179359561afa76c65c`; 요청 및 확인 main은 `da8e87830e9ef5010e3d248d0be2f95b03dde55c`입니다.
+- 이전 completion 증거 3개의 SHA와 manifest가 참조한 파일 및 동결 manifest/pilot/mandate 총 45개의 SHA를 확인했으며 불일치는 없었습니다. 증거는 `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-02-d9844928/input-verification.json`에 보존합니다.
+- 기존 복구 구현과 원본 보호는 이미 main에 통합되어 있고 소유 worktree/branch는 정상 정리된 상태입니다. 다른 격리 작업 또는 R2-01을 재개하거나 복사하지 않았습니다. 기존 저장값 mismatch 차단·literal Decimal 기대값·현지 날짜 및 세션 순서 검증을 읽기 전용으로 확인했습니다.
+- 전체 R2-02의 남은 조건은 공식 비용 계약입니다. `2026-09-20-r2-02-official-cost-source-audit.md`와 `2026-09-20-r2-02-kiwoom-source-audit.md`도 시장 board·상품·broker/계좌 적용 fee schedule, 세목과 유효기간, 체결/결제 시점의 결속 부족을 기록합니다. 현재 요율을 공식 비용으로 승격하지 않았습니다.
+- 이번 시도는 외부 근거 부족으로 blocked입니다. 과거 기술 복구 완료는 유지하되 새 기술 검증 성공으로 재기록하지 않습니다. 신규 fixture, 저장 pilot 진단, pytest/Ruff/mypy, 독립 review 및 구현 통합 검사는 실행하지 않았으므로 이번 completion의 tests_passed/review_passed는 false이며 integrated_commit은 null입니다. 기존 실패는 역사적 기록으로 보존하며 fixture 개수를 영구 차단 사유로 사용하지 않습니다.
+- 최초 읽기 전용 조사 agent는 model-only adapter의 prepare/pre를 사용했습니다. 실제 host의 spawn message가 opaque 형식인 것을 이후 확인했으므로 plaintext 준비 자료를 post 감사 통과로 주장하지 않습니다. 올바른 opaque 모드 prepare/pre 자료는 별도로 보존했지만 외부 자료 차단 판단 후 추가 agent는 실행하지 않았습니다.
+- bounded 결정: 기존 구현을 중복 생성하지 않고 상태·증거·handoff만 남깁니다. 제품 계약, 전략, 공유 모델, 요율, 전체 checkbox는 변경하지 않습니다. 네트워크·simulation/replay·GPU·PAPER/live·주문·운영 DB·서비스·설정·remote 변경은 0회입니다. 새 성과가 없어 웹 공개도 하지 않았습니다.
+- 재개 입력: 해당 역사적 기간의 시장 board·상품·broker별 비용표와 적용 대상, fee/slippage 가정과 공식 세목의 구분, 각 세목의 유효기간·근거 SHA·side·통화·체결/결제 시점, 실제 체결 timestamp/order/부분체결·취소·거절 이력 및 거래소 달력 근거입니다. 근거 확보 후 같은 기술 모듈을 대상으로 별도 bounded 계획, Luna worktree, fresh 검사, 독립 review, local main 통합 검사를 수행합니다.
+- handoff는 audit의 `HANDOFF.md`입니다. 기존 루트 `HANDOFF.md`와 다른 7개 worktree는 보존했습니다. 이번 시도에 새 worktree 또는 정리 대상은 없습니다.
+
 현재 상태: 기술 복구·독립 검토·local main 통합 검증 완료. 실제 자료 근거 부족으로 전체 로드맵 항목은 미완료입니다. 아래 최초 상태는 과거 시도 이력입니다.
 
 - 상태: 차단·미통합. 기술 slice 미완료, 경제 평가 not-evaluated.
