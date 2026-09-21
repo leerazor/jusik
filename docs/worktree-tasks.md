@@ -2,6 +2,12 @@
 
 ## roadmap-r2-01-accounting-v2
 
+- 현재 재시도 진행 (2026-09-22, attempt `0ce0e3b0aaa549c79181a26576fcee39`): 재승인 시작 main `d3cc0e32c1e3a3eaad9c294d33baaa62764693c0` 일치. 동결 manifest·연결 artifact 4개·raw 84개·최신 mandate SHA 검증 통과. 기존 소유 R2 worktree/branch 없음; 다른 작업과 사용자 `HANDOFF.md` 보존.
+- 이번 범위: 기존 독립 `market_loss_accounting.py`의 현금 availability·누락 FX 진단값 수정과 focused 오프라인 회귀, 한국어 계약·개발 기록. 기존 전략·collector·shared model은 읽기 전용.
+- 구현 소유자/경로/브랜치: 단일 Luna `/root/r2_code`, `/home/kwl/projects/jusik-r2-accounting-0ce0`, `fix/r2-accounting-0ce0`; 생성 기준은 이 감독 등록 커밋, 통합 대상은 local `main`.
+- 제한과 검증: CPU·seed 0, 신규 fixture 최대 16개(각 8심볼/40세션), 저장 US pilot 최대 1개(300세션/200거래), 새 simulation/replay/GPU 0회, focused pytest/Ruff/configured strict mypy·독립 Terra review·main 검사 총 900초, 신규 audit 최대 20MiB. 과거 테스트 호출 횟수 제한은 새 제한으로 소급 승인하지 않으며 역사로 보존.
+- 증거·handoff 예정: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-0ce0e3b0`. benchmark·미래 관측 및 완전한 회계 자료 부족은 경제 `not-evaluated`/전체 R2-01 미체크로 유지. 완료 전 검토·통합·검사·보존·정리 gate를 순서대로 수행.
+
 - 현재 재시도 차단 (2026-09-22, attempt `bbfa6245fcc34c95afb5063dee2aea9c`): 요청 시작 SHA `52ed4b7`와 관측 main `0eb4b60`의 identity가 다릅니다. 세션 마감은 경과하지 않았습니다. 기존 진단 모듈·과거 통합은 확인했으나 이번 구현·검사·review·통합은 미수행입니다. 현재 기준을 결속한 task 입력 확인 후 재개하며 자동 복구 사유는 지정하지 않습니다. R2-01 미체크·경제 `not-evaluated` 유지. 개발 기록: `docs/development-records/2026-09-22-roadmap-r2-01-accounting-v2.md`. 증거·handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-bbfa6245`. 다른 worktree와 사용자 handoff는 보존합니다.
 
 - 재시도 중단 기록 (2026-09-22, attempt `fbf26c8e760a4de0b9ca2a5b0c6b3857`): 실행 시 세션 마감 `09:57:53 KST`가 경과하여 신규 dispatch를 중단했습니다. 현재 main `f3ee4e793568f40275329172d5c6a02d7acb5a26`는 요청의 시작 SHA와 다릅니다. 구현·검사·review·통합은 미수행이며 기존 준비 상태와 전체 acceptance 미충족을 유지합니다. 새 세션 시간 및 기준 identity 확인 후 이전 branch/artifact 소유권과 frozen 입력 SHA를 검증해야 합니다. 증거와 인계: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-fbf26c8e/state.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-fbf26c8e/HANDOFF.md`. 과거 시험 횟수 관련 중단은 역사로 보존하며 영구 차단 근거로 삼지 않습니다.
