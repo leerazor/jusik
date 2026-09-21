@@ -24,6 +24,7 @@
 
 - 2026-09-22 bounded US collection: 기존 frozen cache와 분리한 표본 3개·request budget 10회 수집은 Alpha/Yahoo/FRED 원문을 저장했으나, FRED `realtime_start`가 현재 vintage라 `FRED FX observation unavailable before 2025-09-11 open`으로 `insufficient` 종료했습니다. historical PIT·R1-05 coverage로 승격하지 않았습니다. 개발 기록: `docs/development-records/2026-09-22-r1-bounded-us-collection.md`; cache manifest: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-us-collection-r1-05/cache/manifest.json`.
 - 후속 vintage 구현·검증 (2026-09-22): FRED vintage-date와 기간별 historical vintage 요청을 추가하고, request budget 70으로 US 표본 3개를 `collected`했습니다. 62 cache entries·FX 272행을 생성했으며 `available_at <= NMS session open` 위반은 0건입니다. approximate·기업행사 전체 coverage·benchmark/future 부족으로 경제 acceptance는 승격하지 않습니다. 개발 기록: `docs/development-records/2026-09-22-fred-historical-vintage.md`; cache manifest: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-us-vintage-collection-2/cache/manifest.json`.
+- 후속 100-symbol coverage (2026-09-22): 같은 기간을 표본 100·request budget 300으로 수집해 bars 20,306·FX 272·events 121·제외 25개를 얻었습니다. FX 시가 전 availability 위반 0건이며 제외/parse/identity/partial 사유를 보존했습니다. approximate와 event PIT 검토 미완료로 R1-05/경제 acceptance는 미승격. 결과 SHA `a42fd8b4f53f1f05f39637dcff34806fa0fad17de6ad467acc40e0ae2a11ed7f`; 개발 기록 및 cache 경로는 FRED vintage 기록을 참조합니다.
 
 ## roadmap-r1-04-eodhd-sec-pit-v1
 

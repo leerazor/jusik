@@ -35,3 +35,16 @@
   포맷 전체 재작성하지 않았습니다.
 
 Audit cache: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-us-vintage-collection-2/cache/manifest.json`.
+
+## 100-symbol coverage run
+
+- 같은 1년 기간을 mandate 표본 상한 100개와 request budget 300으로 재실행했습니다.
+- 결과: `collected`; bars 20,306, FX 272, events 121, 제외 심볼 25개.
+- diagnostics reason counts: `unknown` 56, `parse` 3, `identity_mismatch` 2,
+  `partial_history` 2. 이 사유는 보존하며 실패 심볼을 조용히 삭제하지 않습니다.
+- FX availability 검산은 272행 모두 세션 시가 이전이며 위반 0건입니다.
+- completed marker SHA: `a42fd8b4f53f1f05f39637dcff34806fa0fad17de6ad467acc40e0ae2a11ed7f`.
+- Audit cache: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-us-vintage-collection-100/cache/manifest.json`.
+
+이 자료는 approximate이며 25개 제외·121개 event의 issuer/PIT 의미를 별도 검토하지 않았으므로
+R1-05 전체 coverage나 경제 성과 acceptance로 승격하지 않습니다.
