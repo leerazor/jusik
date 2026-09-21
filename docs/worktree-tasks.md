@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## roadmap-r1-05-cached-receipt-reconciliation-v1
+
+- 상태: 진행 (attempt `1f24778b67fa40dd8f345a10ebeac0ed`). 승인 시작 main `31ed0ad204992a64316f4afc8c8fc1d7b3bd8b58` 일치, R0 다섯 항목 완료와 R1-05 미체크 확인.
+- 목표: 저장된 100-symbol result의 제외 25개와 unknown 56건을 원문에 대사하는 오프라인 기술 감사 한 건. 전체 coverage/PIT·경제 acceptance는 승격하지 않습니다.
+- 담당: Astra 감독/통합, Luna `receipt_code` 단일 구현, Terra 독립 review. worktree `/home/kwl/projects/jusik-r1-receipts-1f24778b`, branch `docs/r1-receipts-1f24778b`, 통합 대상 local `main`.
+- 입력: `20260922-us-vintage-collection-100/result.json` SHA `a42fd8b4f53f1f05f39637dcff34806fa0fad17de6ad467acc40e0ae2a11ed7f`, cache manifest SHA `361e8de4fbdc8e66cc683a09109ac980ba5045991a65d93c5315b7dcd142c759`; 원문 137개 SHA/size 일치. 입력 pins와 검증은 아래 audit에 보존합니다.
+- 제한: CPU 900초(이번 attempt 시작 2026-09-21T23:06:53Z 기준), 입력 32MiB, manifest 137개, diagnostic 101행, 신규 artifact 20MiB. 네트워크·연구·simulation·GPU·PAPER/live·주문·서비스·설정·remote 변경 없음.
+- 수정 허용: 작업별 개발 기록과 별도 audit artifact만. collector와 입력 불변, root 사용자 HANDOFF와 다른 worktree 보존. Astra만 이 등록부를 갱신합니다.
+- 검증: 입력 SHA/size/checkpoint binding, 제외 목록/reason counts/coverage, 필수 증거·누락 열, 결정성, 독립 검토, local main 통합 검사. observed_at 누락을 captured_at으로 채우지 않습니다.
+- audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-1f24778b`.
+- 운영 확인: runner DB 읽기 전용 조회에서 현재 attempt만 running입니다. 본 작업은 runner child이며 paused=0을 관측했습니다. 서비스 조회는 sandbox bus 부재로 불가했고 상태 변경은 하지 않았습니다.
+
 ## roadmap-r2-01-accounting-v2
 
 - 최신 상태 (2026-09-22): bounded technical slice는 local `main`에 `769251c`로 통합했습니다. 보유 종목이 누락된 빈/무관 배당 mapping을 `unavailable`로 차단하는 회귀 2건을 포함해 focused pytest 37 passed, Ruff·mypy·diff check 통과. 독립 검토: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-5adc0d62/review.md`. 완전한 회계·benchmark/future 자료 부족으로 경제 acceptance와 R2-01 checklist는 미평가/미체크입니다.
