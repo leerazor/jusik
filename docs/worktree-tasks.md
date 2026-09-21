@@ -2,6 +2,8 @@
 
 ## roadmap-r2-01-accounting-v2
 
+- 최신 상태 (2026-09-22): bounded technical slice는 local `main`에 `769251c`로 통합했습니다. 보유 종목이 누락된 빈/무관 배당 mapping을 `unavailable`로 차단하는 회귀 2건을 포함해 focused pytest 37 passed, Ruff·mypy·diff check 통과. 독립 검토: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-5adc0d62/review.md`. 완전한 회계·benchmark/future 자료 부족으로 경제 acceptance와 R2-01 checklist는 미평가/미체크입니다.
+
 - 재개 진행 (2026-09-22, attempt `5adc0d62d9b245df9d01b0a72193f66d`): 직전 동일 작업의 main `f03ab94`와 소유 worktree `/home/kwl/projects/jusik-r2-accounting-0ce0`, branch `fix/r2-accounting-0ce0`의 미통합 수정 `570d242`를 확인했습니다. 승인 시작 `d3cc0e3` 이후 변경은 이 작업의 등록·구현·통합입니다. 새 worktree 없이 Luna `/root/r2_resume_code`가 이어받습니다. 입력 90개 SHA 재검증 통과. 기존 14개와 추가 coverage 2개로 fixture 16개를 유지하며 새 입력은 추가하지 않습니다. fresh focused pytest/Ruff/configured mypy, Terra review, Astra local main 통합 검사를 수행합니다. audit·handoff 경로는 `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-5adc0d62`입니다. 이전 중단·오류는 역사로 보존하며 전체 자료 acceptance는 blocked, 경제 `not-evaluated`를 유지합니다.
 
 - 현재 재시도 진행 (2026-09-22, attempt `0ce0e3b0aaa549c79181a26576fcee39`): 재승인 시작 main `d3cc0e32c1e3a3eaad9c294d33baaa62764693c0` 일치. 동결 manifest·연결 artifact 4개·raw 84개·최신 mandate SHA 검증 통과. 기존 소유 R2 worktree/branch 없음; 다른 작업과 사용자 `HANDOFF.md` 보존.

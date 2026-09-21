@@ -73,3 +73,18 @@
   없어 R2-01 checkbox는 미체크이며 economic evaluation은 `not-evaluated`입니다.
 - 다음 시작: 독립 review 결과와 최종 worker commit을 확인한 뒤 supervisor가 local main
   통합 focused gate를 실행합니다.
+
+## retry-coverage-fix-20260922
+
+- 상태: 기술 수정 통합·독립 검토 완료; 경제 acceptance는 미평가
+- 통합 커밋: `769251c`
+- 추가 변경: 거래 또는 초기 포지션의 보유 종목이 배당 mapping에 하나라도 누락되면,
+  `dividend_evidence_complete=True`여도 배당·현금 결과를 `unavailable`로 유지합니다.
+  빈 mapping과 무관 종목 mapping 회귀 테스트 2건을 추가했습니다.
+- 검증: focused pytest `37 passed`, Ruff check/format, configured mypy, `git diff --check`
+  통과.
+- 독립 review: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-5adc0d62/review.md`
+- 안전 상태: 주문, PAPER/live, 네트워크 수집, simulation/replay, GPU, DB/service 설정,
+  remote push를 수행하지 않았습니다.
+- 남은 조건: 완전한 체결·초기 포지션·기업행위·FX·benchmark/future 자료가 없어
+  R2-01 경제 checklist와 성과 평가는 계속 미평가입니다.
