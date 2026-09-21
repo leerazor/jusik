@@ -2,6 +2,8 @@
 
 ## roadmap-r2-01-accounting-v2
 
+- 재개 진행 (2026-09-22, attempt `5adc0d62d9b245df9d01b0a72193f66d`): 직전 동일 작업의 main `f03ab94`와 소유 worktree `/home/kwl/projects/jusik-r2-accounting-0ce0`, branch `fix/r2-accounting-0ce0`의 미통합 수정 `570d242`를 확인했습니다. 승인 시작 `d3cc0e3` 이후 변경은 이 작업의 등록·구현·통합입니다. 새 worktree 없이 Luna `/root/r2_resume_code`가 이어받습니다. 입력 90개 SHA 재검증 통과. 기존 14개와 추가 coverage 2개로 fixture 16개를 유지하며 새 입력은 추가하지 않습니다. fresh focused pytest/Ruff/configured mypy, Terra review, Astra local main 통합 검사를 수행합니다. audit·handoff 경로는 `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-5adc0d62`입니다. 이전 중단·오류는 역사로 보존하며 전체 자료 acceptance는 blocked, 경제 `not-evaluated`를 유지합니다.
+
 - 현재 재시도 진행 (2026-09-22, attempt `0ce0e3b0aaa549c79181a26576fcee39`): 재승인 시작 main `d3cc0e32c1e3a3eaad9c294d33baaa62764693c0` 일치. 동결 manifest·연결 artifact 4개·raw 84개·최신 mandate SHA 검증 통과. 기존 소유 R2 worktree/branch 없음; 다른 작업과 사용자 `HANDOFF.md` 보존.
 - 이번 범위: 기존 독립 `market_loss_accounting.py`의 현금 availability·누락 FX 진단값 수정과 focused 오프라인 회귀, 한국어 계약·개발 기록. 기존 전략·collector·shared model은 읽기 전용.
 - 구현 소유자/경로/브랜치: 단일 Luna `/root/r2_code`, `/home/kwl/projects/jusik-r2-accounting-0ce0`, `fix/r2-accounting-0ce0`; 생성 기준은 이 감독 등록 커밋, 통합 대상은 local `main`.
