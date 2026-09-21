@@ -279,6 +279,93 @@ def test_cash_is_unavailable_when_dividend_evidence_is_incomplete() -> None:
     assert report.cash_balance.diagnostic_value == Decimal("900")
 
 
+@pytest.mark.parametrize(
+    ("initial_cash", "complete_history", "dividend_complete"),
+    (
+        (None, False, False),
+        (None, False, True),
+        (None, True, False),
+        (None, True, True),
+        (Decimal("1000"), False, False),
+        (Decimal("1000"), False, True),
+        (Decimal("1000"), True, False),
+        (Decimal("1000"), True, True),
+    ),
+)
+def test_cash_requires_all_presence_history_and_dividend_dependencies(
+    initial_cash: Decimal | None,
+    complete_history: bool,
+    dividend_complete: bool,
+) -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100")],
+        final_marks={"AAA": Decimal("100")},
+        complete_history=complete_history,
+        dividends={"AAA": Decimal("0")},
+        dividend_evidence_complete=dividend_complete,
+        initial_cash=initial_cash,
+    )
+    if initial_cash is not None and complete_history and dividend_complete:
+        assert report.cash_balance.value == Decimal("900")
+        return
+    assert not report.cash_balance.available
+    assert report.cash_balance.diagnostic_value == (
+        None if initial_cash is None else Decimal("900")
+    )
+    if initial_cash is None:
+        assert "initial cash was not supplied" in report.cash_balance.evidence
+        assert (
+            "provide the opening cash balance in the same currency"
+            in report.cash_balance.resume_inputs
+        )
+    if not complete_history:
+        assert (
+            "complete trade history and initial positions are unproven"
+            in report.cash_balance.evidence
+        )
+        assert (
+            "provide a complete, ordered fill ledger and opening positions"
+            in report.cash_balance.resume_inputs
+        )
+    if not dividend_complete:
+        assert (
+            "dividend evidence is absent or incomplete; zero is not inferred"
+            in report.cash_balance.evidence
+        )
+        assert (
+            "provide complete ex-date, quantity, and cash dividend evidence"
+            in report.cash_balance.resume_inputs
+        )
+
+
+def test_cash_reports_absent_dividend_mapping() -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100")],
+        final_marks={"AAA": Decimal("100")},
+        complete_history=True,
+        dividends=None,
+        dividend_evidence_complete=True,
+        initial_cash=Decimal("1000"),
+    )
+    assert not report.cash_balance.available
+    assert report.cash_balance.diagnostic_value == Decimal("900")
+    assert "dividend mapping is absent" in report.cash_balance.evidence[0]
+    assert (
+        "provide a dividend mapping covering all held symbols"
+        in report.cash_balance.resume_inputs
+    )
+
+
+def test_missing_fx_has_no_zero_diagnostic() -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100")],
+        final_marks={"AAA": Decimal("100")},
+    )
+    assert not report.fx.available
+    assert report.fx.value is None
+    assert report.fx.diagnostic_value is None
+
+
 def test_initial_position_with_iso_session_is_supported() -> None:
     report = account_trades(
         [_trade("sell", "1", "110", "108.9", session="2026-01-02")],
@@ -325,6 +412,28 @@ def test_cli_rejects_order_or_timestamp_metadata(
 ) -> None:
     path = tmp_path / "unsupported.json"
     payload: dict[str, object] = {"result": {}, **metadata}
+    body = json.dumps(payload).encode()
+    path.write_bytes(body)
+    with pytest.raises(ValueError, match="unsupported order or timestamp"):
+        diagnose_saved_pilot(path, expected_sha256=hashlib.sha256(body).hexdigest())
+
+
+@pytest.mark.parametrize(
+    "timestamp",
+    ("2026-01-01T09:00:00+09:00", "2026-01-01T00:00:00-05:00"),
+)
+def test_cli_rejects_offset_timestamp_metadata(tmp_path: Path, timestamp: str) -> None:
+    path = tmp_path / "offset-timestamp.json"
+    payload: dict[str, object] = {"result": {}, "order_timestamp": timestamp}
+    body = json.dumps(payload).encode()
+    path.write_bytes(body)
+    with pytest.raises(ValueError, match="unsupported order or timestamp"):
+        diagnose_saved_pilot(path, expected_sha256=hashlib.sha256(body).hexdigest())
+
+
+def test_cli_rejects_cancelled_order_metadata(tmp_path: Path) -> None:
+    path = tmp_path / "cancelled-order.json"
+    payload: dict[str, object] = {"result": {}, "order_status": "cancelled"}
     body = json.dumps(payload).encode()
     path.write_bytes(body)
     with pytest.raises(ValueError, match="unsupported order or timestamp"):
@@ -381,3 +490,11 @@ def test_saved_equity_is_unique_chronological_and_contains_fill_sessions() -> No
     )
     with pytest.raises(ValueError, match="absent from equity"):
         account_result(_saved_result((_equity(date(2026, 1, 1)),), (trade,)))
+
+
+def test_holiday_date_gap_is_not_inferred_as_missing() -> None:
+    report = account_result(
+        _saved_result((_equity(date(2026, 1, 1)), _equity(date(2026, 1, 5))))
+    )
+    assert report.status == "blocked"
+    assert report.session_count == 2

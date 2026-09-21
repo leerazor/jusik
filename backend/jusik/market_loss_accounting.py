@@ -604,35 +604,55 @@ def account_trades(
             - fifo.taxes
         )
         fill_net = fifo.fill_realized + fifo.fill_unrealized - fifo.fees - fifo.taxes
-        cash = (
-            _available(
+        cash_missing_reasons: list[str] = []
+        cash_resume_inputs: list[str] = []
+        if initial_cash_value is None:
+            cash_missing_reasons.append("initial cash was not supplied")
+            cash_resume_inputs.append(
+                "provide the opening cash balance in the same currency"
+            )
+        if not complete_history:
+            cash_missing_reasons.append(
+                "complete trade history and initial positions are unproven"
+            )
+            cash_resume_inputs.append(
+                "provide a complete, ordered fill ledger and opening positions"
+            )
+        if normalised_dividends is None:
+            cash_missing_reasons.append(
+                "dividend mapping is absent; zero is not inferred"
+            )
+            cash_resume_inputs.append(
+                "provide a dividend mapping covering all held symbols"
+            )
+        if not dividend_evidence_complete:
+            cash_missing_reasons.append(
+                "dividend evidence is absent or incomplete; zero is not inferred"
+            )
+            cash_resume_inputs.append(
+                "provide complete ex-date, quantity, and cash dividend evidence"
+            )
+        if not cash_missing_reasons:
+            assert initial_cash_value is not None
+            cash = _available(
                 initial_cash_value + fifo.cash_delta + dividends_value,
                 f"initial cash and trade cashflows in {currency_label}, "
                 "plus complete dividends",
                 currency=accounting_currency,
             )
-            if initial_cash_value is not None
-            and normalised_dividends is not None
-            and dividend_evidence_complete
-            else _unavailable(
-                diagnostic=(
+        else:
+            cash = AccountingComponent(
+                "unavailable",
+                None,
+                tuple(cash_missing_reasons),
+                tuple(cash_resume_inputs),
+                (
                     None
                     if initial_cash_value is None
                     else initial_cash_value + fifo.cash_delta
                 ),
-                reason=(
-                    "initial cash was not supplied"
-                    if initial_cash_value is None
-                    else "cash depends on complete dividend evidence"
-                ),
-                resume=(
-                    "provide the opening cash balance in the same currency"
-                    if initial_cash_value is None
-                    else "provide complete dividend cashflow evidence"
-                ),
-                currency=accounting_currency,
+                accounting_currency,
             )
-        )
         raw_net_available = (
             raw_realized.available
             and raw_unrealized.available
@@ -661,7 +681,6 @@ def account_trades(
             taxes=taxes,
             slippage=slippage,
             fx=_unavailable(
-                diagnostic=Decimal(0),
                 reason="no FX observations supplied",
                 resume="provide opening and closing native values and FX rates",
             ),
