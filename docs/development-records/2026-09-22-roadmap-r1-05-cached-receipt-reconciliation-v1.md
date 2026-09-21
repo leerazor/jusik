@@ -1,16 +1,17 @@
 # R1-05 저장 영수증 대사 v1
 
-- 상태: 완료 (오프라인 기술 감사; 전체 R1-05/PIT/경제 acceptance 미승격)
-- 기록 시각: 2026-09-22T23:17:00Z
+- 상태: 검증 완료·통합 대기 (오프라인 기술 감사; 전체 R1-05/PIT/경제 acceptance 미승격)
+- 기록 시각: 2026-09-21T23:37:00Z
 - 작업 slug: `roadmap-r1-05-cached-receipt-reconciliation-v1`
-- 기준/통합: `31ed0ad204992a64316f4afc8c8fc1d7b3bd8b58` / 통합 전
+- 기준/통합: `4fd23fb` / 통합 전
 - 범위: 고정 result와 cache manifest, 연결된 137개 원문의 SHA/크기와 checkpoint 결속을 검증하고 101개 진단 행을 대사했다. 원문 본문·collector·입력·운영 상태는 변경하지 않았다.
 
 ## 변경과 결정
 
-- audit `20260922-r1-05-1f24778b/reconciliation.json`·`reconciliation.csv`에 요청 기간/warmup, request·response exchange/currency 근거, Yahoo raw chart.meta·timestamp coverage, checkpoint/raw path·SHA·size·captured_at, coverage, 원인 근거·누락 증거와 외부 receipt 필요사항을 기록했다.
+- 새 audit `20260922-r1-05-c48dee28`에 기존 helper를 보존하고 출력 경로를 고정했다. CSV의 정규화 event 시각 열을 `normalized_event_occurrence_*`로 명명하고 raw exchange/currency와 request/session 누락 증거를 별도 열로 기록했다.
+- result/manifest 6개 pin과 manifest raw 137개의 SHA·크기, checkpoint key/set 결속, 101개 진단 행, 25개 제외, reason counts와 행별·전체 coverage 산술을 검증했다.
 - `unknown`은 그대로 보존했다. 원문이 없는 parse/identity 진단은 provider receipt 없이는 원인을 확정하지 않았다. captured_at, 정규화 session, event occurrence_at, historical observed_at(null)을 구분했다.
-- 100개 저장 표본과 101개 진단 행의 차이는 기존 checkpoint 표본 교체와 request-excluded 진단 보존으로 설명했으며 새 표본을 만들지 않았다.
+- 저장 result 100개 심볼과 진단 101개 행의 차이는 관측 사실만 기록하고 이 입력만으로 원인을 확정하지 않았다. unknown 56건은 raw 결속 36건과 request-excluded 20건으로 대사했다.
 
 ## 문서·계약 영향
 
@@ -20,10 +21,13 @@
 
 ## 검증
 
-- 고정 Python helper — 입력 pin, raw SHA/size 137/137, checkpoint binding 137, 진단 101행, 제외 25개, reason counts, coverage 산술 통과.
-- 생성 산출물 결정성은 동일 helper 2회 실행 후 산출물 SHA 비교로 통과했으며, 결과·manifest·raw는 재생성하지 않는다.
+- 소유 offline Python 3.13.15 환경에서 helper 2회 실행 — raw SHA/size 137/137, checkpoint binding/set 137, 진단 101행, 제외 25개, reason counts, coverage 산술 통과.
+- `determinism.json`에 JSON/CSV/요약/로그 4종의 두 실행 SHA pair를 보존했고 모두 일치했다. 결과·manifest·raw는 재생성하지 않았다.
+- focused helper tests — 7 passed. 변조 pin과 checkpoint binding을 실제 helper가 거부하는 회귀를 포함한다.
+- Ruff check/format — 통과. strict mypy (`backend/pyproject.toml`) — 통과.
+- 입력 16,626,647 bytes <= 32 MiB, 신규 audit 산출물 1,167,243 bytes <= 20 MiB.
 - 네트워크 호출 0, raw 본문 복사 0, simulation/GPU/PAPER/live/order/service 변경 0.
-- Ruff/strict mypy: helper가 저장소 밖 임시 경로에만 있어 project source 검사 대상이 아니며, 실행 파일을 확인하지 못해 실행하지 않았다.
+- 이전 attempt의 결정성 증거·helper 보존 누락과 premature 완료 표기는 역사적 실패로 보존하며 이번 재시도로 보완했다.
 
 ## 안전·운영 상태
 
@@ -31,6 +35,6 @@
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-1f24778b`; manifest/result pin SHA와 산출물 해시는 `hashes.sha256`에 보존했다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-c48dee28`; helper, tests, 두 run, `determinism.json`, `audit-verification.json`과 logs를 보존했다.
 - 남은 작업·차단 조건: provider request/response receipt와 historical observed_at/publication timestamp가 없어 PIT·경제 acceptance는 미평가다.
 - 다음 시작: Terra 독립 검토 후 audit 해시·결정성을 확인하고 local main 통합 검사를 수행한다.
