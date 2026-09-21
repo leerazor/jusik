@@ -738,6 +738,66 @@ def test_child_idle_timeout_uses_stdout_or_stderr_activity(
     assert not _child_idle_expired(stdout, stderr, 100.0, 60)
 
 
+def test_idle_child_is_failed_without_implicit_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    assert store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    config = RunnerConfig(
+        repo=repo,
+        codex="unused",
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        timeout_seconds=120,
+        idle_timeout_seconds=60,
+        cooldown_seconds=0,
+    )
+
+    class IdleProcess:
+        pid = 100_002
+        returncode = None
+
+        def poll(self) -> None:
+            return None
+
+        def communicate(self, _prompt: bytes, timeout: int) -> None:
+            raise subprocess.TimeoutExpired("fake", timeout)
+
+        def wait(self, timeout: int) -> None:
+            return None
+
+    def launch(*args: object, **kwargs: object) -> IdleProcess:
+        for stream_name in ("stdout", "stderr"):
+            stream = kwargs[stream_name]
+            assert hasattr(stream, "name")
+            os.utime(stream.name, (0.0, 0.0))
+        return IdleProcess()
+
+    monkeypatch.setattr("jusik.development_runner.subprocess.Popen", launch)
+    monkeypatch.setattr(
+        "jusik.development_runner._git_common", lambda _repo: repo / ".git"
+    )
+    monkeypatch.setattr("jusik.development_runner._git_ready", lambda _repo: (True, ""))
+    monkeypatch.setattr("jusik.development_runner.os.getpgid", lambda _pid: 100_002)
+    monkeypatch.setattr(
+        "jusik.development_runner._terminate_group", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        "jusik.development_runner.time.time", iter((1000.0, 1100.0)).__next__
+    )
+    monkeypatch.setattr("jusik.development_runner.time.monotonic", lambda: 0.0)
+    result = run_once(config)
+    assert result.status == "failed"
+    assert result.reason == "idle_timeout"
+    task = RunnerStore(state / "runner.db", history).task("task-a")
+    assert task is not None and task.status == "failed"
+
+
 def _run_nonzero_codex(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
