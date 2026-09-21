@@ -19,3 +19,57 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-bbfa6245`
 - manifest: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-bbfa6245/manifest.json`
 - 구현 통합 커밋: 없음. 감독 기록 커밋은 제품 통합이 아닙니다.
+
+## retry-implementation-20260922
+
+- 상태: 구현 완료·focused gate 통과·독립 review와 local main 통합 대기
+- 기록 시각: 2026-09-21T22:16:16Z
+- 작업 slug: `roadmap-r2-01-accounting-v2`
+- 기준/통합: `75ba3a4` / worker commit pending
+- 범위: 계산 현금의 complete history gate와 누락 dependency별 evidence/resume 입력을
+  보강하고, FX 관측이 없는 명시적 거래 진단의 0 placeholder를 제거했습니다. 승인된
+  네 파일만 변경했으며 저장된 observed cash와 account result의 관측 FX 분해는
+  보존했습니다.
+
+## 변경과 결정
+
+- `account_trades()`의 계산 cash는 initial cash, complete history, dividend mapping,
+  complete dividend evidence가 모두 있을 때만 `available`입니다. 누락된 조건은
+  각각 기록하고, 기존 partial cash diagnostic arithmetic은 유지합니다.
+- 신규 fixed input은 14개입니다: cash dependency 8개, absent dividend mapping 1개,
+  missing FX 1개, holiday date gap 1개, offset timestamp 2개, cancelled metadata
+  1개입니다. 달력 추론이나 주문 lifecycle 기능은 추가하지 않았습니다.
+
+## 문서·계약 영향
+
+- 사용자 문서: `docs/research/market-loss-accounting.md`에 cash availability와
+  missing-FX null 계약을 갱신했습니다.
+- 운영 문서: 해당 없음.
+- API·설정·데이터 계약: 명시적 거래 report의 FX unavailable diagnostic이
+  `Decimal(0)`에서 `null`로 바뀌었고, observed saved-result FX/cash 계약은 유지됩니다.
+
+## 검증
+
+- `backend/.venv/bin/python -m pytest -q tests/test_market_loss_accounting.py` — 통과,
+  `35 passed in 0.10s` (wall `0.26s`)
+- `backend/.venv/bin/ruff check jusik/market_loss_accounting.py tests/test_market_loss_accounting.py` — 통과 (`0.00s`)
+- `backend/.venv/bin/ruff format --check jusik/market_loss_accounting.py tests/test_market_loss_accounting.py` — 통과, 2 files already formatted (`0.00s`)
+- `backend/.venv/bin/mypy --config-file pyproject.toml jusik/market_loss_accounting.py tests/test_market_loss_accounting.py` — 통과, no issues in 2 source files (`0.20s`)
+- 초기 포맷 및 mypy 실패는 범위 내 수정 후 재검증했으며, `git diff --check`는 commit 직전에 실행합니다.
+- 실행하지 않은 검사: saved pilot, simulation/replay, network collection, GPU/PAPER/live,
+  DB/services/configuration/orders/push, 전체 회귀 및 economic evaluation.
+
+## 안전·운영 상태
+
+- 코드·fixture·문서만 변경했습니다. 실주문·PAPER/live·서비스·DB·원격 push·네트워크
+  collection은 수행하지 않았습니다.
+
+## 증거와 재개
+
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-0ce0e3b0/worker`
+- manifest: 없음
+- 남은 작업·차단 조건: Terra 독립 review, supervisor local main 통합 검증, SHA-pinned
+  단일 pilot은 감독 범위입니다. 완전한 financial inputs와 benchmark/future evidence가
+  없어 R2-01 checkbox는 미체크이며 economic evaluation은 `not-evaluated`입니다.
+- 다음 시작: 독립 review 결과와 최종 worker commit을 확인한 뒤 supervisor가 local main
+  통합 focused gate를 실행합니다.
