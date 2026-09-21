@@ -2,6 +2,8 @@
 
 ## roadmap-r1-05-cached-receipt-reconciliation-v1
 
+- 최종 정정: attempt `c48dee28567d4e6f9737933cdb5b0082`는 runtime900초 초과로 blocked입니다. main 통합·검사·review는 통과했지만 최종 증거 보존이23:39:37 한도를 넘었습니다. worktree는 정리됐으며 review 최종 요약은 정리 후 보존됐습니다. 아래 기술 완료 문구는 예산 gate까지 통과한 attempt 성공을 뜻하지 않습니다. 새 audit HANDOFF의 예산 중단 정정을 우선 적용합니다.
+
 - 최신 종료: attempt `c48dee28567d4e6f9737933cdb5b0082` 기술 slice 완료. 독립 review PASS, local main `7f00473` 통합 후 pytest7/Ruff/strict mypy/diff 통과. 전체 R1-05/PIT·경제 acceptance는 미완료/미체크. 영구 evidence·handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-c48dee28`; 보존 후 병합 worktree 정리. 원래 amend 이전 c9006de는 archive branch로 보존합니다. 아래 이전 시도 상태는 역사 기록입니다.
 
 - 재시도 진행: attempt `c48dee28567d4e6f9737933cdb5b0082`. 현재 main `101dc3f`는 승인 기준 `31ed0ad` 이후 이전 등록·중단 기록만 포함합니다. 동일 소유 worktree/branch와 최신 `4fd23fb`를 보존·재사용합니다. 입력 6개 SHA/size 및 R0 완료/R1-05 미체크를 재확인했습니다. runner 읽기 전용 조회에서 이 attempt만 running입니다. CPU 900초, 입력32MiB, raw137/진단101, 신규 artifact20MiB와 금지 경계를 그대로 적용합니다. 새 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-c48dee28`. 이전 검토의 결정성·생성 도구 검사 증거 누락을 보완하며 전체 acceptance는 승격하지 않습니다.

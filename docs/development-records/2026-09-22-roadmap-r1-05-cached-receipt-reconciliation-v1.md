@@ -42,3 +42,7 @@
 ## 통합 및 이력 보존
 
 이전 main의 중단 기록은 새 audit의 `previous-main-development-record.md`와 이전 attempt audit에 보존했습니다. 독립 Terra 검토에서 metadata P1 수정 후 기술 PASS를 확인했습니다. Luna가 metadata 수정 중 직전 미통합 commit을 amend했으므로 원래 `c9006de`를 `archive/r1-receipts-c9006de`에 보존했습니다. 이는 승인된 이력 재작성으로 소급 해석하지 않습니다. 통합 검사·최종 commit·handoff는 같은 audit에서 확인합니다.
+
+## 최종 attempt 상태 정정
+
+Attempt c48dee28567d4e6f9737933cdb5b0082는 최종 증거 보존 중900초 runtime을 초과하여 blocked입니다. 기술 검사와 독립 review 및 local main 통합은 통과했으나 모든 완료 gate를 충족한 성공은 아닙니다. 정리 후 review 요약 보존도 발생했습니다. 자세한 시각·재개 조건은 영구 audit HANDOFF를 따릅니다.
