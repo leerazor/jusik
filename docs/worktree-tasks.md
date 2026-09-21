@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## roadmap-r1-04-eodhd-sec-pit-v1
+
+- 상태: 차단. attempt `cd71193683a14c5596f60728189bc0fa`; 승인 세션 마감 2026-09-21 10:29:59 KST 경과를 확인하여 dispatch·구현을 시작하지 않았습니다.
+- 구현 worktree·통합 SHA: 없음. 테스트·독립 review·통합 검사 미실행. R1-04 미체크 및 경제 `not-evaluated` 유지.
+- 개발 기록: `docs/development-records/2026-09-21-roadmap-r1-04-eodhd-sec-pit-v1.md`.
+- evidence/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-cd711936/stop-evidence.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-cd711936/HANDOFF.md`.
+- 다음: 새 실행 기한 승인 후 동일 bounded slice를 재개합니다. PIT publication time·complete coverage와 initial state/price/entitlement/effective/payment UTC 근거를 확인해야 합니다.
+
 ## research-direction-checkpoint-20260921
 
 - 상태: 완료·미국 자료 gate 우선으로 방향 고정
