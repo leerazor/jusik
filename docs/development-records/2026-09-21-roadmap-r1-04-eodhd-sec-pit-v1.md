@@ -23,3 +23,40 @@ Git 상태, worktree 목록, 정책 마감 및 R1-04 미체크 상태만 확인�
 - handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-cd711936/HANDOFF.md`.
 - 재개 조건: 새로운 실행 기한 승인 후 현재 상태와 소유 worktree를 다시 확인합니다. Luna 구현, 독립 review, local-main 통합 검사와 durable evidence 보존을 거칩니다.
 - 이후 확인할 자료: dividend declaration/record/payment dates, split ratio, retrieval UTC, response SHA-256, 가능한 SEC filing identity/accepted timestamp. 전체 R1-04에는 initial state, fixed price, entitled quantity, effective/payment UTC boundaries, complete symbol/period coverage가 추가로 필요합니다. 이번 시도에서 provider 결측 필드를 실측했다고 주장하지 않습니다.
+
+
+# 2026-09-21 재개: EODHD·SEC 읽기 전용 증거 경계
+
+- Task: `roadmap-r1-04-eodhd-sec-pit-v1`; attempt: `914a85ba9e31429b82d8b397403da5c8`.
+- 새 승인 마감: 2026-09-21 18:30:46 KST. 이전 시도의 시간 만료는 당시 기록으로 보존합니다.
+- 상태: 구현·검증 진행 중. 전체 R1-04 및 경제 평가는 계속 `blocked` / `not-evaluated`입니다.
+- 기준: `12c2525`; 구현 worktree: `/home/kwl/projects/jusik-r1-04-eodhd-sec-pit`; branch: `feat/r1-04-eodhd-sec-pit`.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260921-r1-04-eodhd-sec-914a85ba/`.
+
+## 확정 범위와 수집 결과
+
+새로운 독립 evidence parser만 추가합니다. 배당 ex/declaration/record/payment date, 조정·비조정 금액, 분할 비율, 원문 응답 SHA-256과 조회 UTC를 분리합니다. SEC는 기존 submissions parser와 filing 모델을 재사용하여 명시적으로 선택한 accession·CIK·hash를 결속합니다. 기존 strategy, legacy replay, action ledger, PAPER/live, brokerage API에는 연결하지 않습니다.
+
+[EODHD 공식 계약](https://eodhd.com/financial-apis/api-splits-dividends)에 따라 JSON `div`와 `splits` endpoint를 사용했습니다. AAPL/BMRC/RWT/ATXG/IMUX의 2025-01-01~2026-09-11 구간에 GET 10회를 실행했고 재시도는 하지 않았습니다. 배당 20건과 분할 2건을 확보했으며 새 원문 응답 10개를 immutable 파일로 저장했습니다. 배당 20건의 declaration/record/payment 날짜는 모두 있었지만 publication timestamp는 응답에 없습니다. 이 구간은 source field audit이며 새로운 backtest 또는 성과 실험이 아닙니다.
+
+기존 SEC cache의 ATXG/BMRC/IMUX/RWT 4건은 review form·filing body·submissions의 accession, CIK 및 SHA-256을 대조했습니다. 접수 UTC는 각각 `2026-03-27T20:15:27Z`, `2025-10-27T12:53:25Z`, `2026-04-23T12:30:43Z`, `2025-09-11T20:15:40Z`입니다. 기존 관측시각도 보존하며 이번 조회시각으로 바꾸지 않습니다. AAPL SEC reference는 이번 범위에서 평가하지 않았습니다.
+
+IMUX의 EODHD split 거래일은 2026-04-27이고 기존 SEC 검토의 법적 효력일은 2026-04-22입니다. 날짜 의미를 합치거나 자정 UTC를 만들어내지 않습니다. SEC 접수시각이 있어도 배당·분할 사실의 PIT 검증이나 전체 coverage를 자동 승인하지 않습니다.
+
+## 자료 차단 조건
+
+`source-gap-audit.json`에 다음 누락을 기록했습니다: EODHD event publication timestamp, complete symbol/period coverage receipt, initial portfolio state, fixed valuation price, entitled quantity, effective UTC boundary, payment UTC boundary. 빈 응답도 “행사 없음” 또는 complete coverage의 증거가 아닙니다. 전체 R1-04 checkbox는 변경하지 않습니다.
+
+## 운영·라우팅 및 예산
+
+현재 runner DB의 running attempt는 이 시도 하나였습니다. 실제 DB의 paused 값은 `0`이므로 세션 문구의 paused 설명을 현재 상태로 재주장하지 않았습니다. systemctl user bus는 접근할 수 없었고, runner-owned child 규칙에 따라 pause·서비스·설정을 변경하지 않았습니다.
+
+첫 read-only explore는 host가 message를 opaque envelope로 기록하여 plaintext post-audit에 실패했습니다. 실패 기록을 유지한 뒤 실제 envelope 구조를 확인하고 문서화된 encrypted-message adapter로 새 read-only explore를 실행했습니다. 새 explore와 plan의 receipt/parent-child/model 검사가 통과했습니다. raw message 무결성을 검증했다고 주장하지 않습니다.
+
+Python 3.13.15의 독립 worktree venv를 requirements.lock으로 준비했습니다. dependency cache가 일시적으로 audit 하위에서 107 MiB를 차지한 사실은 `environment-budget-note.json`에 보존했습니다. cache는 owned worktree로 이동했고, 이후 disposable environment 512 MiB와 durable evidence 20 MB의 별도 prospective budget을 적용합니다. 과거 초과를 소급 승인하지 않습니다. 사용자 fixture·네트워크·CPU 한도는 변경하지 않았습니다.
+
+## 완료 검증
+
+Luna 구현 커밋은 `229dfb7e3061314c32eb05e1bf6d86af75073eaf`입니다. 감독이 별도 `verify_captured_sources.py`로 실제 원문 10개, 배당 20건, 분할 2건, SEC 연결 4건을 검증했고 기존 source 39개 hash가 유지됨을 확인했습니다. 결과는 `supervisor-source-validation.json`에 저장했습니다. 독립 review와 main 통합 검사는 아직 대기 중입니다.
+
+고정 synthetic raw fixture는 구현 보고 기준 10개입니다. 사용자 상한은 신규 fixed local test fixture 20개이며 네트워크 원문은 별도 source receipt입니다. 추가로 부과했던 synthetic 10 제한은 필수 회귀 검증을 빠뜨리지 않도록 실행 전에 prospective 20으로 정정했습니다. 원본 응답을 테스트 fixture로 복사하지 않았고, 현재 보고된 실제 fixture 수는 이전의 보수적 제한에도 맞습니다.
