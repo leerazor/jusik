@@ -2,6 +2,8 @@
 
 ## roadmap-r1-05-cached-receipt-reconciliation-v1
 
+- 재시도 진행: attempt `c48dee28567d4e6f9737933cdb5b0082`. 현재 main `101dc3f`는 승인 기준 `31ed0ad` 이후 이전 등록·중단 기록만 포함합니다. 동일 소유 worktree/branch와 최신 `4fd23fb`를 보존·재사용합니다. 입력 6개 SHA/size 및 R0 완료/R1-05 미체크를 재확인했습니다. runner 읽기 전용 조회에서 이 attempt만 running입니다. CPU 900초, 입력32MiB, raw137/진단101, 신규 artifact20MiB와 금지 경계를 그대로 적용합니다. 새 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-c48dee28`. 이전 검토의 결정성·생성 도구 검사 증거 누락을 보완하며 전체 acceptance는 승격하지 않습니다.
+
 - 종료 상태: 차단·미통합. 초안 commit `da4841c`는 소유 worktree에 보존합니다. 원문137개와101행/제외25개/reason/coverage 대사는 통과했지만, 정규화 event 시각의 raw 표기와 원문 exchange/currency 근거 보강이 필요합니다. 결정성 재생성 및 보조 생성 코드의 검사 증거도 완료되지 않았습니다. 900초 예산 내 종료를 위해 구현을 중단했으며 기술 완료·review PASS·통합 검증을 주장하지 않습니다. 이 중단은 향후 승인된 재시도를 영구 차단하지 않습니다.
 - 보존: `/home/kwl/projects/jusik-r1-receipts-1f24778b`, `docs/r1-receipts-1f24778b`; 미통합이므로 정리하지 않습니다. audit `HANDOFF.md`와 최종 evidence manifest를 먼저 읽고 같은 소유 branch를 재사용해야 합니다. 다른 task는 재개하지 않습니다.
 
