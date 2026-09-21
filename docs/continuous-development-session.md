@@ -4,7 +4,7 @@
 
 - status: active
 - started_at: 2026-09-22T06:57:53+09:00
-- deadline_at: 2026-09-22T09:57:53+09:00
+- deadline_at: 2026-09-22T23:59:59+09:00
 - requested_shutdown: none
 
 The previous bounded session ended at its deadline after the Korea Exim
