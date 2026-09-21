@@ -1436,6 +1436,8 @@
 
 ## r2-market-cost-b8a5
 
+- 재시도 `a079c03aed754c4c9372536266603369` (2026-09-22): 요청 main `da8e87830e9ef5010e3d248d0be2f95b03dde55c`와 현재 main `cd1ca0f4355f68243af9dceb22ae0f49d760d75c`가 달라 hash 중단 조건을 적용했습니다. 요청 SHA가 조상인 점과 BanKIS source audit SHA 일치를 확인했으며 검증 프로필은 보존합니다. 구현·fresh 검사·review·통합은 미실행입니다. 전체 R2-02 미체크와 경제 not-evaluated를 유지합니다. audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-02-a079c03a/`. 기존 worktree와 루트 handoff를 보존하고 이번 기록은 미커밋 상태입니다. 재개에는 승인 기준 SHA의 정합성이 필요합니다.
+
 - 재시도 `d98449289d754f179359561afa76c65c` (2026-09-22): 요청 main `da8e87830e9ef5010e3d248d0be2f95b03dde55c`와 이전 completion 증거 3개 및 manifest 참조·동결 입력·mandate 45개 SHA가 일치했습니다. 기존 기술 복구는 이미 main에 있고 소유 worktree/branch는 정리된 상태입니다. 새 구현·실험은 하지 않았으며 과거 검사 결과를 이번 시도의 통과로 재사용하지 않습니다. 시장·board·상품·broker 비용, 세목·유효기간·적용 시점의 결속 근거 부족으로 이번 시도는 blocked입니다. 전체 R2-02 미체크와 경제 not-evaluated를 유지합니다. 현재 audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-02-d9844928/`. 새 worktree는 없고 다른 작업은 보존합니다. 조사 agent의 최초 plaintext routing은 host의 opaque message 형식과 달라 완료 감사 근거로 사용하지 않습니다. 개발 기록은 기존 `2026-09-16-r2-market-cost-b8a5.md`의 재시도 절을 참조합니다.
 - 상태: 기술 복구와 원본 파일 보호 후속 보완까지 main 통합 검증 완료. 전체 R2-02는 실제 자료 근거 부족으로 미완료, 과거 blocked 시도 보존.
 - 변경: 저장 비용 불일치의 성공 처리·현지 체결일·시간 순서·독립 금액 기대값을 수정했습니다. 전략·가정 요율·시장 자료·PAPER/live·운영DB·성과 수치 변경 없음.

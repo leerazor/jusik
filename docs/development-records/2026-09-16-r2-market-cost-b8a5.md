@@ -79,3 +79,16 @@ network·simulation/replay·GPU 실행0회입니다. PAPER/live 활성화·실�
 - main focused pytest21·Ruff check/format·configured strict mypy·diff check PASS. 비용 산술은 그대로이며 실제pilot 재실행 없이 합성 CLI 입력으로 경로 보호를 검증했습니다.
 - audit `20260916-cost-recovery/output-guard`의 checks·integration·source를 보존한 뒤 후속 worktree와 branch도 정상 제거했습니다.
 - 최초 재사용 review agent의 전체 native post 감사는 과거 turn_context 누락으로 실패했습니다. 이를 `20260916-loss-recovery/role-audit.json`에 보존하고, 현재 native reviewer로 재검토하여 원본 보호 결함 발견·해소와 최종 수용을 확인했습니다.
+
+## 2026-09-22 기준 SHA 중단 — a079c03a
+
+- 작업: `roadmap-r2-02-v1`; 시도: `a079c03aed754c4c9372536266603369`.
+- 확인 시각: 2026-09-21T22:42:53.111273+00:00; 저장소: `/home/kwl/projects/jusik`, 브랜치: `main`.
+- 요청 main: `da8e87830e9ef5010e3d248d0be2f95b03dde55c`; 실제 main: `cd1ca0f4355f68243af9dceb22ae0f49d760d75c`. 요청 SHA는 조상이지만 현재 HEAD와 다르므로 명시된 hash 불일치 중단 조건을 적용했습니다.
+- 공식 BanKIS source audit SHA는 요청값과 일치합니다. 선택한 검증 프로필을 폐기하지 않았습니다. 법정 유효기간 및 계좌별 적용 범위는 이번 시도에서 추가 검증하지 않았습니다.
+- 이전 completion의 증거 SHA 3개를 대조했습니다. 결과는 `input-verification.json`에 있습니다. 기존 작업 등록부 및 worktree 목록에서 현재 R2-02 소유 worktree가 없음을 확인했습니다.
+- 새 구현, fixture, pilot 진단, pytest, Ruff, mypy, 독립 review, 병합 및 정리는 실행하지 않았습니다. 과거 통과를 이번 시도 통과로 재사용하지 않습니다.
+- 기술 slice는 이번 시도에서 미완료이며 전체 R2-02 체크박스는 유지합니다. 경제 평가는 not-evaluated입니다. 성과 공개 대상이 없습니다.
+- 네트워크, simulation/replay, GPU, PAPER/live, 운영 원장/DB, 서비스, 설정, remote 변경은 없습니다. 기존 untracked `HANDOFF.md`와 다른 worktree는 보존했습니다.
+- 작업 등록부 및 기존 개발 기록에 이번 중단 사실만 미커밋으로 추가했습니다. 코드 변경이나 통합 커밋은 없습니다.
+- 재개: 이 handoff와 `input-verification.json`을 읽고 현재 main을 다시 확인하십시오. 승인된 기준 SHA를 현재 지시와 일치시킨 새 시도에서 bounded plan, Luna 구현, 독립 review, local main 통합 검사를 진행하십시오. SHA 불일치는 자동 복구 사유가 아닙니다.
