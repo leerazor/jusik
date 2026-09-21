@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## roadmap-r2-01-accounting-v2
+
+- 상태: 준비·자동 runner dispatch 대기
+- 목표: R2-01의 독립 가격손익·배당·FX·수수료·slippage·세금·현금 잔액 구성요소 검산 기술 slice를 기존 전략·원장과 분리해 구현한다.
+- 범위: 고정 local fixture와 기존 canonical run의 read-only 입력만 사용하며 기존 결과·legacy replay·PAPER/live·broker API를 변경하지 않는다. 각 구성요소와 missing/unavailable를 명시하고 합성 0 대체를 금지한다.
+- 완료 조건: fixture 16개 이하, focused pytest/Ruff/strict mypy·독립 review·main 통합 검증, 비용·배당·FX·세금 입력 부족 시 경제 평가는 `not-evaluated`로 유지하고 증거·handoff를 보존한다.
+- 다음: complete fills/opening positions/terminal marks·PIT action/FX 자료가 확보된 뒤에만 경제 acceptance와 R4 재실행을 검토한다.
+
 ## roadmap-r1-04-eodhd-sec-pit-v1
 
 - 상태: 기술 슬라이스 완료·전체 R1-04 자료 acceptance 차단. attempt `914a85ba9e31429b82d8b397403da5c8`. publication time·complete coverage·initial state/price/entitlement/effective/payment UTC 증거가 없어 경제 `not-evaluated`와 checkbox 미체크를 유지합니다.
