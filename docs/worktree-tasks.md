@@ -2,9 +2,11 @@
 
 ## roadmap-r2-01-accounting-v2
 
+- 현재 재시도 차단 (2026-09-22, attempt `bbfa6245fcc34c95afb5063dee2aea9c`): 요청 시작 SHA `52ed4b7`와 관측 main `0eb4b60`의 identity가 다릅니다. 세션 마감은 경과하지 않았습니다. 기존 진단 모듈·과거 통합은 확인했으나 이번 구현·검사·review·통합은 미수행입니다. 현재 기준을 결속한 task 입력 확인 후 재개하며 자동 복구 사유는 지정하지 않습니다. R2-01 미체크·경제 `not-evaluated` 유지. 개발 기록: `docs/development-records/2026-09-22-roadmap-r2-01-accounting-v2.md`. 증거·handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-bbfa6245`. 다른 worktree와 사용자 handoff는 보존합니다.
+
 - 재시도 중단 기록 (2026-09-22, attempt `fbf26c8e760a4de0b9ca2a5b0c6b3857`): 실행 시 세션 마감 `09:57:53 KST`가 경과하여 신규 dispatch를 중단했습니다. 현재 main `f3ee4e793568f40275329172d5c6a02d7acb5a26`는 요청의 시작 SHA와 다릅니다. 구현·검사·review·통합은 미수행이며 기존 준비 상태와 전체 acceptance 미충족을 유지합니다. 새 세션 시간 및 기준 identity 확인 후 이전 branch/artifact 소유권과 frozen 입력 SHA를 검증해야 합니다. 증거와 인계: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-fbf26c8e/state.json`, `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-fbf26c8e/HANDOFF.md`. 과거 시험 횟수 관련 중단은 역사로 보존하며 영구 차단 근거로 삼지 않습니다.
 
-- 상태: 준비·자동 runner dispatch 대기
+- 상태: 차단·시작 기준 identity 확인 대기
 - 목표: R2-01의 독립 가격손익·배당·FX·수수료·slippage·세금·현금 잔액 구성요소 검산 기술 slice를 기존 전략·원장과 분리해 구현한다.
 - 범위: 고정 local fixture와 기존 canonical run의 read-only 입력만 사용하며 기존 결과·legacy replay·PAPER/live·broker API를 변경하지 않는다. 각 구성요소와 missing/unavailable를 명시하고 합성 0 대체를 금지한다.
 - 완료 조건: fixture 16개 이하, focused pytest/Ruff/strict mypy·독립 review·main 통합 검증, 비용·배당·FX·세금 입력 부족 시 경제 평가는 `not-evaluated`로 유지하고 증거·handoff를 보존한다.
