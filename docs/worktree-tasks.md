@@ -2,7 +2,10 @@
 
 ## roadmap-r1-05-cached-receipt-reconciliation-v1
 
-- 상태: 진행 (attempt `1f24778b67fa40dd8f345a10ebeac0ed`). 승인 시작 main `31ed0ad204992a64316f4afc8c8fc1d7b3bd8b58` 일치, R0 다섯 항목 완료와 R1-05 미체크 확인.
+- 종료 상태: 차단·미통합. 초안 commit `da4841c`는 소유 worktree에 보존합니다. 원문137개와101행/제외25개/reason/coverage 대사는 통과했지만, 정규화 event 시각의 raw 표기와 원문 exchange/currency 근거 보강이 필요합니다. 결정성 재생성 및 보조 생성 코드의 검사 증거도 완료되지 않았습니다. 900초 예산 내 종료를 위해 구현을 중단했으며 기술 완료·review PASS·통합 검증을 주장하지 않습니다. 이 중단은 향후 승인된 재시도를 영구 차단하지 않습니다.
+- 보존: `/home/kwl/projects/jusik-r1-receipts-1f24778b`, `docs/r1-receipts-1f24778b`; 미통합이므로 정리하지 않습니다. audit `HANDOFF.md`와 최종 evidence manifest를 먼저 읽고 같은 소유 branch를 재사용해야 합니다. 다른 task는 재개하지 않습니다.
+
+- 시작 상태: 진행 (attempt `1f24778b67fa40dd8f345a10ebeac0ed`). 승인 시작 main `31ed0ad204992a64316f4afc8c8fc1d7b3bd8b58` 일치, R0 다섯 항목 완료와 R1-05 미체크 확인.
 - 목표: 저장된 100-symbol result의 제외 25개와 unknown 56건을 원문에 대사하는 오프라인 기술 감사 한 건. 전체 coverage/PIT·경제 acceptance는 승격하지 않습니다.
 - 담당: Astra 감독/통합, Luna `receipt_code` 단일 구현, Terra 독립 review. worktree `/home/kwl/projects/jusik-r1-receipts-1f24778b`, branch `docs/r1-receipts-1f24778b`, 통합 대상 local `main`.
 - 입력: `20260922-us-vintage-collection-100/result.json` SHA `a42fd8b4f53f1f05f39637dcff34806fa0fad17de6ad467acc40e0ae2a11ed7f`, cache manifest SHA `361e8de4fbdc8e66cc683a09109ac980ba5045991a65d93c5315b7dcd142c759`; 원문 137개 SHA/size 일치. 입력 pins와 검증은 아래 audit에 보존합니다.
