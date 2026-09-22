@@ -18,4 +18,5 @@
 
 - 요청 25회, 네트워크 재시도 없음.
 - raw SHA와 바이트 크기는 `receipt.json`에 고정했다.
+- SEC/Alpha/Yahoo 결과를 심볼별로 결합한 보조 대사표 `supplementary-reconciliation.json`을 추가했다. 25행 모두 `cause_status=unconfirmed`이며 자동 승격은 0건이다.
 - 주문·PAPER/live·원장·DB·서비스·remote 변경 0회.
