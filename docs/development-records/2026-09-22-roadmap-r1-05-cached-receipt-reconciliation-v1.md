@@ -1,5 +1,13 @@
 # R1-05 저장 영수증 대사 v1
 
+## 최신 재시도 차단 — 621e02047dc24fa0bc393969f86d5d1c
+
+2026-09-22 UTC 재시도는 소유 Python 3.13 환경 준비 실패로 중단했다. `python --version`은 명령을 찾지 못했고, `python3 -m venv .venv`는 Debian `ensurepip` 부재로 실패했다. 오프라인 `uv venv --offline .venv`도 캐시된 Python 3.13.15 인터프리터가 없어 실패했다. 마지막 대체 경로인 `/usr/bin/python3` 기반 자체 `.venv`는 생성됐지만 실제 버전은 Python 3.12.3이므로 승인된 Python 3.13 검증 환경이 아니다. 오프라인 `uv pip install`은 pytest가 캐시에 없어 해결하지 못했다.
+
+새 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-621e0204`에 기존 helper·focused tests·input pins를 복사하고 두 run을 생성했다. helper가 관측한 raw 137개, 진단 101행, 제외 25개, unknown 56개, coverage 27472/20306/7166 및 입력 총 16,626,647 bytes는 보존했으나, Python 3.13 setup gate 실패 때문에 이번 시도의 완료 증거로 승격하지 않는다. 다른 worktree 도구를 사용한 초기 `pytest 7 passed` 결과는 소유 3.13 환경의 fresh PASS가 아니므로 제외했다. 이후 소유 3.12.3 환경에 복사한 pytest의 7 passed도 같은 이유로 제외하며, Ruff·format·mypy의 소유 환경 검증은 완료하지 못했다.
+
+이번 시도는 기술-only blocked 상태이며 전체 R1-05/PIT·경제 acceptance는 미평가·미체크로 유지한다. 원문·result·manifest·collector·제품 코드는 변경하지 않았고, 네트워크·simulation·GPU·PAPER/live·주문·DB·서비스·설정·remote 변경도 없었다. setup gate가 충족되는 새 승인 재시도 전에는 결정성·focused tests·Ruff·strict mypy·독립 review·통합을 완료로 주장하지 않는다.
+
 ## 최신 재시도 중단 — 13d842d0596243f9ab1ef20998c2255f
 
 2026-09-22 UTC에 시작 identity를 확인한 결과 요청 main `31ed0ad204992a64316f4afc8c8fc1d7b3bd8b58`와 실제 `7f211de04641bb760c79265d6071245fc8ae5781`이 달랐습니다. 이후 이력에는 이전 감사 통합과 추가 조사 기록이 포함되어 있습니다. 명시된 identity 불일치 중단 조건을 적용했으며 현재 main을 임의로 새 기준으로 채택하지 않았습니다.
