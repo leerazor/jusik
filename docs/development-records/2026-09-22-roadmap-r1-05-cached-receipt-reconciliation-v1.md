@@ -1,5 +1,15 @@
 # R1-05 저장 영수증 대사 v1
 
+## 최신 재시도 중단 — 13d842d0596243f9ab1ef20998c2255f
+
+2026-09-22 UTC에 시작 identity를 확인한 결과 요청 main `31ed0ad204992a64316f4afc8c8fc1d7b3bd8b58`와 실제 `7f211de04641bb760c79265d6071245fc8ae5781`이 달랐습니다. 이후 이력에는 이전 감사 통합과 추가 조사 기록이 포함되어 있습니다. 명시된 identity 불일치 중단 조건을 적용했으며 현재 main을 임의로 새 기준으로 채택하지 않았습니다.
+
+첨부 roadmap·mandate·개발 기록·result·cache manifest의 SHA 5개는 모두 일치합니다. R0 다섯 checkbox 완료와 R1-05 미체크를 확인했습니다. 이번 원문 검증·checkpoint 대사·결정성·focused tests·Ruff·typecheck·독립 review·구현 통합은 시작 gate에서 차단되어 실행하지 않았습니다. 과거 성공 검사 결과를 이번 시도의 fresh PASS로 사용하지 않습니다.
+
+기존 소유 worktree는 이미 정리된 상태였으며 새 worktree나 agent를 생성하지 않았습니다. 다른 작업과 사용자 root HANDOFF를 보존했습니다. 네트워크·simulation·GPU·PAPER/live·주문·운영 DB·서비스·설정·remote 변경은 없습니다. 웹 성과 공개 및 API·사용자 계약 변경은 해당 없습니다. 이번 변경은 중단 기록뿐이며 전체 coverage/PIT·R1-05·경제 acceptance는 승격하지 않습니다.
+
+증거와 handoff는 `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-13d842d0`에 보존합니다. 재개하려면 현재 main identity에 결속한 task 입력이 필요합니다. 기존 입력·기간·warmup·표본·seed·예산은 그대로 유지해야 합니다. 아래 이전 기록의 예산 및 보존 순서 위반은 소급 승인하지 않습니다.
+
 - 상태: 검증 완료·통합 대기 (오프라인 기술 감사; 전체 R1-05/PIT/경제 acceptance 미승격)
 - 기록 시각: 2026-09-21T23:37:00Z
 - 작업 slug: `roadmap-r1-05-cached-receipt-reconciliation-v1`
