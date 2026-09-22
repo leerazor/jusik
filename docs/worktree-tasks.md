@@ -3,6 +3,7 @@
 ## roadmap-r1-05-cached-receipt-reconciliation-v1
 
 - 보조 조사 (2026-09-22): SEC `SEC_USER_AGENT`로 request-excluded 25개를 bounded 조회했다. ticker map 4개 CIK 연결(`BERZ`, `FNGS`, `GPACW`, `TNMG`), 21개 현재 map 미연결을 `unresolved`로 보존했다. raw 6개/2,196,377 bytes/parsed submissions 8,664행의 SHA·크기는 `/home/kwl/.local/share/jusik/portfolio-audit/20260922-sec-excluded-receipts-20260922/receipt-manifest.json`에 보존했다. SEC retrieval 시각은 historical publication/observed_at이 아니므로 R1-05·PIT·경제 acceptance는 미승격한다. 개발 기록: `docs/development-records/2026-09-22-sec-excluded-symbol-receipts.md`.
+- 보조 조사 (2026-09-22): Alpha Vantage `LISTING_STATUS(date=2025-09-11)` 1회(HTTP 200, raw 867,056 bytes)에서 제외 25개 중 24개가 원문에 존재하고 모두 `Active`, `DYNX`만 미일치였다. 이를 Yahoo 실패 원인·거래중단·PIT publication으로 추정하지 않는다. receipt `/home/kwl/.local/share/jusik/portfolio-audit/20260922-alpha-excluded-listing-20260922/receipt.json`, 기록 `docs/development-records/2026-09-22-alpha-excluded-listing-receipt.md`.
 
 - 최종 정정: attempt `c48dee28567d4e6f9737933cdb5b0082`는 runtime900초 초과로 blocked입니다. main 통합·검사·review는 통과했지만 최종 증거 보존이23:39:37 한도를 넘었습니다. worktree는 정리됐으며 review 최종 요약은 정리 후 보존됐습니다. 아래 기술 완료 문구는 예산 gate까지 통과한 attempt 성공을 뜻하지 않습니다. 새 audit HANDOFF의 예산 중단 정정을 우선 적용합니다.
 
