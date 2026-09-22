@@ -17,6 +17,8 @@
 
 이 역할표는 오래 설치된 개인 supervisor skill의 모델 매핑보다 최신 프로젝트 기준으로 우선합니다. 자세한 공식 설정 문서는 [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)와 [Configuration Reference](https://learn.chatgpt.com/docs/config-file/config-reference)를 참조합니다.
 
+`read-only`는 작업 지시와 요청된 기본 설정이며 부모의 live sandbox/approval override나 default fallback 때문에 실제 OS 권한 격리를 보장하지 않습니다. `escalate`에는 쓰기 작업을 배정하지 않고, 실효 권한은 host에 따라 별도로 확인합니다. 자세한 custom-agent 권한 경계는 [Subagents custom agents](https://learn.chatgpt.com/docs/agent-configuration/subagents)를 참조합니다.
+
 이미 로드된 역할의 모델을 덮어쓸 수 없으면 그 agent를 기대 역할로 부르지 않습니다. host가 지원하는 경우 `agent_type=default` worker에 기대 `model`, `reasoning_effort`, `fork_turns=none`을 모두 명시하고, dispatch 전후에 role 이름·`task_name`·모델·추론 수준을 대조합니다. 실행기가 모델 자체를 지정할 수 없으면 실제 모델을 알 수 없거나 제한된 fallback이라고 보고합니다. 이는 roleless model-only adapter의 exact-five 인자/helper 계약을 바꾸지 않습니다.
 
 현재 로드된 code agent의 실제 모델은 `gpt-5.6-luna`로 확인되었고, 이 변경의 `.codex` 역할 설정은 다음 세션부터 `gpt-6-luna`를 기대합니다. 설정은 이미 로드된 agent에 hot-reload되지 않으며, 실행 중인 agent의 사실과 다음 세션의 역할 설정을 혼동하지 않습니다.

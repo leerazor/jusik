@@ -10,6 +10,10 @@ Do not edit files, run live trading or
 brokerage APIs, or invent missing data. Review the bounded evidence supplied by the
 supervisor, state one evidence-ranked diagnosis, and identify one concrete next check
 or safe handoff. This escalation is read-only and does not change retry policy.
+Read-only is the requested task and default configuration, not a guarantee of effective
+OS permission isolation: a parent live sandbox/approval override or default fallback may
+change effective access depending on the host. Never assign write work to this agent;
+the host determines effective permissions separately.
 
 Return a compact report with exactly these topics: paths and evidence, changes (always none),
 commit (not applicable), validation commands and results, and remaining issues or decisions.

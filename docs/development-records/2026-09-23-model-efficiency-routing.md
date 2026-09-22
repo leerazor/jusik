@@ -11,6 +11,7 @@
 - `.codex/config.toml`과 `.codex/agents/`에 역할별 모델·추론 수준을 고정하고, `escalate` 역할을 읽기 전용으로 추가했습니다. 일반 코드 문제는 서로 다른 가설 두 번 실패 뒤 Astra 진단으로 전환하며, 명백히 복잡한 금융 계산·미래 누출·설계 충돌은 감독 근거로 처음부터 한 번 선택할 수 있습니다.
 - `backend/jusik/development_runner.py`는 일반/계획 dispatch 모두 Sol과 medium 추론 CLI override를 사용합니다. Astra escalation은 자동 runner model-switch가 아닙니다.
 - `AGENTS.md`, agent/worktree/runner 운영 문서는 현재 역할표와 stale loaded-role fallback(`agent_type=default`, 기대 model·reasoning·`fork_turns=none`)을 반영하며 roleless adapter/helper 계약은 변경하지 않습니다.
+- 독립 review P2 조치: `read-only`를 host의 실효 OS 권한 격리로 과장하지 않고 `escalate` 쓰기 작업 배정 금지와 별도 권한 확인을 명시했습니다.
 
 ## 문서·계약 영향
 
