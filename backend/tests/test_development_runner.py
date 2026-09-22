@@ -108,6 +108,23 @@ def test_interrupted_attempt_is_quarantined_until_explicit_retry(
     assert len(store.outbox_pending()) == 4
 
 
+def test_rebase_requires_quarantined_task_and_records_current_baseline(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    task = store.task("task-a")
+    assert task is not None
+    store.claim(task, "attempt-a", tmp_path / "out", tmp_path / "err")
+    store.finish("attempt-a", "task-a", "blocked", failure_code="identity")
+    assert store.rebase("task-a", "a" * 40)
+    rebased = store.task("task-a")
+    assert rebased is not None
+    assert rebased.status == "queued"
+    assert "a" * 40 in rebased.prompt
+    assert store.rebase("task-a", "b" * 40) is False
+
+
 def test_persisted_dependency_keeps_small_entry_task_behind_distribution(
     tmp_path: Path,
 ) -> None:

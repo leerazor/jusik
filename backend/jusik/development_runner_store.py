@@ -521,6 +521,39 @@ class RunnerStore:
             db.commit()
         return cur.rowcount == 1
 
+    def rebase(self, task_id: str, baseline: str) -> bool:
+        """Queue a quarantined task with an explicit current-main baseline."""
+        now = utc_now()
+        marker = (
+            "\n\nFresh rebase baseline (operator-verified current main): "
+            f"{baseline}. This baseline supersedes stale prior identity values "
+            "for this retry only.\n"
+        )
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT status,prompt,last_attempt_id FROM tasks WHERE id=?",
+                (task_id,),
+            ).fetchone()
+            if row is None or row["status"] not in {
+                "failed",
+                "retryable",
+                "interrupted",
+                "blocked",
+            }:
+                db.rollback()
+                return False
+            prompt = str(row["prompt"])
+            if marker not in prompt:
+                prompt += marker
+            db.execute(
+                "UPDATE tasks SET status='queued',prompt=?,next_allowed_at=NULL,"
+                "previous_attempt_id=?,updated_at=? WHERE id=?",
+                (prompt, row["last_attempt_id"], now, task_id),
+            )
+            db.commit()
+        return True
+
     def record_launch(self, launched_at: str) -> None:
         with self._connect() as db:
             db.execute("INSERT INTO launch_log(launched_at) VALUES(?)", (launched_at,))

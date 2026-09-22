@@ -1756,6 +1756,10 @@ def _parser() -> argparse.ArgumentParser:
     retry = sub.add_parser("retry")
     retry.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     retry.add_argument("task_id")
+    rebase = sub.add_parser("rebase")
+    rebase.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    rebase.add_argument("task_id")
+    rebase.add_argument("--base-commit", required=True)
     return parser
 
 
@@ -1827,6 +1831,30 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "retry":
         print(json.dumps({"retried": store.retry(args.task_id)}, ensure_ascii=False))
+        return 0
+    if args.command == "rebase":
+        current = _git(config.repo, "rev-parse", "main").stdout.strip()
+        if current != args.base_commit:
+            print(
+                json.dumps(
+                    {
+                        "rebased": False,
+                        "reason": "base commit does not match current main",
+                        "current_main": current,
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            return 2
+        print(
+            json.dumps(
+                {
+                    "rebased": store.rebase(args.task_id, current),
+                    "base_commit": current,
+                },
+                ensure_ascii=False,
+            )
+        )
         return 0
     if args.command == "pause":
         pause_runner(config)
