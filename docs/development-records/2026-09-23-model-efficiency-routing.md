@@ -1,9 +1,9 @@
 # 모델 효율 라우팅
 
-- 상태: 완료 (local `main` 통합 대기)
-- 기록 시각: 2026-09-22T23:16:52Z
+- 상태: 완료
+- 기록 시각: 2026-09-22T23:22:11Z
 - 작업 slug: `model-efficiency-routing`
-- 기준/통합: worktree 기준 등록 커밋 `32f6ef8`; 검토 시작 source `54dcf22` / 통합 없음
+- 기준/통합: worktree 기준 등록 커밋 `32f6ef8`; 검토 시작 source `54dcf22` / local main `23e2b2a`
 - 범위: 프로젝트 기본 supervisor·planner·review는 Sol, 조사·구현은 Luna, 제한된 읽기 전용 난제 진단은 Astra로 명시하고 runner의 고정 Astra 호출을 Sol medium으로 교체합니다. 금융·권한·재시도 계약과 역사 기록은 보존합니다.
 
 ## 변경과 결정
@@ -30,10 +30,12 @@
 
 ## 안전·운영 상태
 
-- 실제 주문·provider 호출·원격 push·서비스·운영 DB·전역 설정 변경은 수행하지 않습니다.
+- 실제 주문·provider 호출·원격 push·금융 운영 DB·전역 설정은 변경하지 않았습니다. 수동 통합 충돌 방지를 위해 roadmap runner를 일시 pause하고 service를 stop했습니다. 작업 전 timer는 active/enabled, pause는 false였으며 최종 복구 상태는 audit handoff에 기록합니다.
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-model-efficiency-7k7GWF/worker`; manifest: 없음.
-- 남은 작업·차단 조건: supervisor의 독립 diff 검토와 local `main` 통합이 필요합니다.
-- 다음 시작: 독립 검토 결과와 이 커밋을 대조한 뒤 local `main` 통합 검사를 수행합니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-model-efficiency-7k7GWF`; `integration-verification.md`, `METHODOLOGY_REVIEW.md`, `HANDOFF.md`를 보존했습니다.
+- 통합 검증: main에서 focused pytest `124 passed`, Ruff check/format, configured mypy, 역할 5개와 기본 모델·추론 TOML assertion이 통과했습니다. 독립 Sol high 검토의 권한 설명 P2는 `23e2b2a`에서 수정하고 재검토 PASS를 받았습니다. native routing post와 child metadata에서 이번 실제 구현 모델 `gpt-5.6-luna high`, review 모델 `gpt-6-sol high`를 확인했습니다.
+- 정리: 필요한 증거·인계 보존 후 병합된 소유 worktree/branch와 임시 환경만 제거했습니다. 기존 사용자 `HANDOFF.md`와 다른 worktree는 보존했습니다.
+- 남은 작업: 모델 설정은 완료했습니다. 방법론의 자동 복구 활성화·반복 대기 억제·새 end-to-end 연구 입력·자동매매 로드맵은 검토안이며 이번 변경에 포함하지 않았습니다. 실제 모델별 비용·지연 개선율은 측정하지 않았습니다.
+- 다음 시작: audit의 방법론 검토와 현재 운영 상태를 대조하고 최우선 운영 개선을 별도 범위로 실행합니다. 이미 완료한 receipt 감사를 재수행하지 않습니다.

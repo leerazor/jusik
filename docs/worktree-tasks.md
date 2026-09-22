@@ -2,7 +2,7 @@
 
 ## model-efficiency-routing
 
-- 상태: 진행
+- 상태: 완료
 - 목표와 완료 조건: 일반 감독·계획은 Sol, 조사·구현은 Luna, 독립 검토는 Sol, 제한된 난제 진단은 Astra로 명시하고 runner의 고정 Astra 호출을 제거한다. 금융·권한·재시도 계약은 보존한다.
 - 담당: 감독은 현재 주 agent, 구현은 Luna 단일 소유자.
 - 워크트리: `/home/kwl/projects/jusik-model-efficiency-routing`; 브랜치: `fix/model-efficiency-routing`; 기준: `54dcf22`; 통합: local `main`.
@@ -11,6 +11,9 @@
 - 격리: worktree 소유 `.venv`, pytest 임시 DB와 별도 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260923-model-efficiency-7k7GWF`.
 - 운영: 변경 전 roadmap runner `paused=0`, service inactive, timer active/enabled. 수동 수정 중 runner pause 및 service stop 완료; 통합 뒤 현재 gate를 확인하고 기존 상태로 복구한다.
 - 개발 기록: `docs/development-records/2026-09-23-model-efficiency-routing.md`; handoff는 audit에 별도 보존한다.
+- 결과: 구현 `feef4ea`, 독립 검토 지적 수정 `23e2b2a`를 local main에 fast-forward 통합했다. main의 focused pytest 124개·Ruff check/format·configured mypy·모델/추론 TOML assertion 및 독립 Sol review와 native routing post가 통과했다.
+- 정리: 검증과 handoff를 audit에 보존한 뒤 소유 worktree/branch 및 재생성 가능한 환경만 정상 제거했다. 기존 사용자 `HANDOFF.md`와 다른 task는 보존했다. 모델 성능·비용의 실측, 금융 성과·PAPER/live 승격은 수행하지 않았다.
+- 검토 결과: 같은 audit의 `METHODOLOGY_REVIEW.md`에 수익 개선·개발 속도·검증·자동매매 관점의 근거와 우선순위를 기록했다. 자동 복구 활성화·의존성 재설계·금융 mandate 변경은 미적용 개선안이다. 최종 운영 복구 상태는 audit `HANDOFF.md`에 기록한다.
 
 ## roadmap-r1-05-cached-receipt-reconciliation-v1
 
