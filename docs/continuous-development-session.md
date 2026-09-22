@@ -3,17 +3,18 @@
 ## Session
 
 - status: active
-- started_at: 2026-09-22T06:57:53+09:00
-- deadline_at: 2026-09-22T23:59:59+09:00
+- started_at: 2026-09-23T07:40:49+09:00
+- deadline_at: 2026-09-23T12:40:49+09:00
 - requested_shutdown: none
 
 The previous bounded session ended at its deadline after the Korea Exim
 optional transport slice and regression verification. This continuation is a
-new three-hour bounded session; it preserves the same fail-closed gates and
+new five-hour bounded session; it preserves the same fail-closed gates and
 does not request Windows shutdown.
 
 This is a new bounded session approved by the continuing roadmap objective.
-The runner remains paused; work is performed manually with the same gates.
+The runner is enabled for repeated bounded cycles; each cycle keeps the same
+fail-closed gates and stops at the session deadline.
 
 ## Operating policy
 
