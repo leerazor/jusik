@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## model-efficiency-routing
+
+- 상태: 진행
+- 목표와 완료 조건: 일반 감독·계획은 Sol, 조사·구현은 Luna, 독립 검토는 Sol, 제한된 난제 진단은 Astra로 명시하고 runner의 고정 Astra 호출을 제거한다. 금융·권한·재시도 계약은 보존한다.
+- 담당: 감독은 현재 주 agent, 구현은 Luna 단일 소유자.
+- 워크트리: `/home/kwl/projects/jusik-model-efficiency-routing`; 브랜치: `fix/model-efficiency-routing`; 기준: `54dcf22`; 통합: local `main`.
+- 허용 범위: `.codex/`, runner 모델 호출과 관련 테스트, `AGENTS.md`, agent/worktree/runner 운영 문서, 이번 개발 기록. 연구 mandate·금융 계산·운영 DB·사용자 HANDOFF는 제외한다.
+- 검증: 모델·추론 설정 TOML 파싱, runner/planning/routing focused pytest, 변경 Python Ruff/configured mypy, 독립 review, main 통합 검사.
+- 격리: worktree 소유 `.venv`, pytest 임시 DB와 별도 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260923-model-efficiency-7k7GWF`.
+- 운영: 변경 전 roadmap runner `paused=0`, service inactive, timer active/enabled. 수동 수정 중 runner pause 및 service stop 완료; 통합 뒤 현재 gate를 확인하고 기존 상태로 복구한다.
+- 개발 기록: `docs/development-records/2026-09-23-model-efficiency-routing.md`; handoff는 audit에 별도 보존한다.
+
 ## roadmap-r1-05-cached-receipt-reconciliation-v1
 
 - 기술 slice 완료 (`5afa52b443fd48f281a9a1f623d100a8`): 승인 시작 main `bf7905e9fd7daab363d7cdc56114ed278965f4ea`, Luna `a501e725ccfb8457fc032f67d6139bcc8b6cae3e`를 local main `6f65a2fa71cbfac95099372650fe94e4a9cc30ab`에 통합했습니다. 입력6개 및 원문137개 SHA/size·checkpoint, 진단101·제외25·unknown56·reason/coverage·필수 근거/누락 열과 결정성 통과. 소유 Python3.13.15 fresh pytest7/Ruff/format/configured mypy와 독립 Terra review, main 통합 동일 검사 모두 통과했습니다. 기술 감사만 완료하며 전체 R1-05 checkbox/PIT/경제 acceptance는 미승격입니다. 원본 provider request/session·cause·historical observed_at·전체 coverage receipt가 여전히 필요합니다. 증거·해시·인계를 `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r1-05-5afa52b4`에 보존한 뒤 소유 worktree/branch와 임시 환경만 정상 정리했습니다. 다른 task·사용자 HANDOFF·collector·입력·운영 상태는 보존했습니다. 개발 기록: `docs/development-records/2026-09-22-roadmap-r1-05-cached-receipt-reconciliation-v1.md`; 인계: audit `HANDOFF.md`. 웹 성과 공개는 해당 없습니다.
