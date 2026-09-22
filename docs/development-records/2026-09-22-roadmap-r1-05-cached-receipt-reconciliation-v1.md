@@ -4,7 +4,7 @@
 
 Attempt `5afa52b443fd48f281a9a1f623d100a8`의 오프라인 기술 slice를 완료했습니다. 승인 main `bf7905e9fd7daab363d7cdc56114ed278965f4ea`에서 재개하여 소유 branch를 local main `6f65a2fa71cbfac95099372650fe94e4a9cc30ab`에 병합했습니다. 독립 Terra review 및 병합 충돌 해결의 양쪽 이력 보존 검토가 통과했습니다. main의 소유 Python3.13.15에서 helper·pytest7·Ruff·format·configured strict mypy를 새로 통과했으며 핵심 산출물4종은 세 실행 모두 일치합니다. 기존 실패는 역사로 유지합니다.
 
-입력6개와137개 원문의 합계는16,625,554 bytes이며 한도32MiB 이내입니다. 산출물·로그·해시·인계를 영구 audit에 저장하고 검증한 뒤 소유 worktree/branch와 재생성 가능한 환경만 정리했습니다. 최종 예산·hash는 audit `evidence-manifest.json`과 `final-verification.json`, 정리는 `cleanup.json`에 보존합니다. 인계는 `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r1-05-5afa52b4/HANDOFF.md`입니다.
+입력6개와137개 원문의 합계는16,626,647 bytes이며 한도32MiB 이내입니다. 산출물·로그·해시·인계를 영구 audit에 저장하고 검증한 뒤 소유 worktree/branch와 재생성 가능한 환경만 정리했습니다. 최종 예산·hash는 audit `evidence-manifest.json`과 `final-verification.json`, 정리는 `cleanup.json`에 보존합니다. 인계는 `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r1-05-5afa52b4/HANDOFF.md`입니다.
 
 전체 R1-05 checkbox/PIT/경제 acceptance는 미승격이며 외부 provider causal receipt 및 historical observed/publication timestamp와 전체 coverage는 여전히 필요합니다. 사용자 동작·API·설정·collector·입력·운영 상태·웹 성과 공개는 변경하지 않았습니다. 다음 행동은 전체 acceptance를 판단할 원본 외부 receipt 확보이며 이 기술 slice의 반복 실행은 필요하지 않습니다. 아래 기록은 각 시점의 상태를 보존합니다.
 
