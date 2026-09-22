@@ -9,6 +9,7 @@
 - request-excluded 25개 중 24개가 Alpha 원문에 존재했다.
 - 24개 모두 해당 요청 날짜 기준 `Active`이고, 21개는 SEC ticker map에 없던 심볼이다.
 - `DYNX`는 Alpha 원문에도 없으므로 `unresolved`로 유지한다.
+- 인접 날짜 `2025-09-10`, `2025-09-12`도 추가 조회했으나 `DYNX` 행이 없었다. 이는 Alpha listing 부재 근거일 뿐 상장폐지·거래중단·Yahoo 실패 원인은 아니다.
 - raw CSV SHA, endpoint, request parameter, HTTP status, captured time, matched row와 누락 목록을 receipt에 보존했다.
 
 ## 해석 경계
