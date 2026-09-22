@@ -1,10 +1,59 @@
 # R1-05 저장 영수증 대사 v1
 
+## 기술-only 재시도 — 20260923-r1-05-5afa52b4
+
+- 상태: 기술 검증 완료·전체 R1-05/PIT/경제 acceptance 미승격
+- 기록 시각: 2026-09-22T22:48:57Z
+- 작업 slug: `roadmap-r1-05-cached-receipt-reconciliation-v1`
+- 기준/통합: `b4692e5` / 통합 전
+- 범위: 이전 audit의 helper·focused tests·6개 input pin만 current audit로 복사하고, 고정 result/manifest와 기존 원문을 오프라인 대사했다. 원문 본문·collector·입력·작업 등록부·root HANDOFF는 변경하지 않았다.
+
+## 변경과 결정
+
+- `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r1-05-5afa52b4`에 두 fresh run, 결정성 SHA 증거, 검증 요약, 실행 로그를 보존했다. 원문을 current audit에 복제하지 않았다.
+- Python 3.13.15에서 helper를 두 번 실행해 raw SHA/size 137/137, checkpoint binding/set 137, 대사 행 101, request-excluded 25, `unknown` 56을 확인했다. reason counts는 `unknown=56`, `parse=3`, `identity_mismatch=2`, `partial_history=2`로 유지됐다.
+- `run-a`와 `run-b`의 `reconciliation.json`, CSV, 요약, verification log가 모두 byte-identical이며 `determinism.json`에 SHA pair를 기록했다. captured_at은 historical observed_at으로 승격하지 않았고 unknown 원인은 추론하지 않았다.
+
+## 문서·계약 영향
+
+- 사용자 문서: 해당 없음 — 저장 감사 산출물과 기존 개발 기록만 갱신했다.
+- 운영 문서: 해당 없음 — 서비스·runner·설정은 변경하지 않았다.
+- API·설정·데이터 계약: 해당 없음 — collector와 입력은 읽기 전용으로 사용했다.
+
+## 검증
+
+- `/home/kwl/projects/jusik-r1-receipts-621e0204/.venv/bin/python --version` — `Python 3.13.15`
+- `python r1_receipt_audit.py --output run-a` 및 `--output run-b` — raw/checkpoint 137/137, rows 101, exclusions 25, unknown 56, coverage 산술 통과
+- `python -m pytest -p no:cacheprovider --basetemp=<current-audit>/pytest-temp tests/test_r1_receipt_audit.py` — 7 passed
+- `python -m ruff check <helper> <tests>` — 통과
+- `python -m ruff format --check <helper> <tests>` — 2 files already formatted
+- `python -m mypy --no-incremental --cache-dir=/dev/null --config-file backend/pyproject.toml <helper> <tests>` — 2 source files, no issues
+- 입력 6개 pin 일치. current audit 산출물은 9,122,136 bytes로 20MiB 제한 이내이며 모든 실행 cache는 current audit 아래에 두었다.
+- 네트워크 호출 0, raw 본문 복제 0, simulation/GPU/PAPER/live/order/DB/service/config/remote 변경 0.
+
+## 안전·운영 상태
+
+- 실제 주문, 외부 배포, 원격 push, 서비스·DB·설정 변경은 수행하지 않았다.
+
+## 증거와 재개
+
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r1-05-5afa52b4`; `determinism.json`, `audit-verification.json`, run logs와 SHA/size summaries를 보존했다.
+- 남은 작업·차단 조건: provider request/response causal receipt와 historical observed_at/publication timestamp가 없어 전체 R1-05/PIT·경제 acceptance는 미평가·미체크다.
+- 다음 시작: Terra 독립 검토에서 current audit의 입력 pin·결정성·로그를 확인한 후 Astra가 local main 통합 검사를 수행한다.
+
 ## 세션 마감 중단 — f3d2d034e7fd4cbd943b60eb304af79f
 
 이번 시도 `f3d2d034e7fd4cbd943b60eb304af79f`는 세션 마감 `2026-09-22T23:59:59+09:00`이 지난 뒤 시작되어 중단했습니다. 최초 clock 관측은 `2026-09-22 22:38:39 UTC`이며 승인 baseline `1fedd08e7e432f161c27cc3d6d5ac20a271aa891`과 실제 main은 일치합니다. R0 다섯 항목 완료와 R1-05 미체크를 확인했습니다. 원문 SHA/size·checkpoint 대사·환경 복구·테스트·독립 review·구현 통합은 실행하지 않았으며 이전 PASS를 재사용하지 않습니다. 소유 worktree `/home/kwl/projects/jusik-r1-receipts-621e0204`는 clean, HEAD `b4692e5e9c96fa1362d472fd9d8dc98fcd4845ec`로 보존합니다. 다른 작업과 기존 untracked `HANDOFF.md`를 보존했습니다. 네트워크·simulation·GPU·주문·PAPER/live·DB·서비스·설정·remote 변경은 없습니다. 전체 coverage/PIT·R1-05·경제 acceptance는 미승격입니다. 새 마감 시각을 승인받은 뒤 동일 branch에서 소유 Python3.13 환경을 먼저 확인하고 고정 입력 검증부터 재개해야 합니다. 외부 provider receipt에는 심볼·기간·거래소·통화·request/session identity·cause·historical observed_at·전체 coverage가 필요하며 captured_at으로 대체하지 않습니다. 증거와 인계: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r1-05-f3d2d034`. 이번 중단은 자동 복구 label에 해당하지 않습니다.
 
 이번 변경은 중단 기록뿐입니다. 사용자 동작·API·운영 계약·웹 성과 공개 변경은 해당 없습니다. 개발 테스트는 기한 gate에서 미실행이며 문서 diff 검사만 수행합니다.
+
+## 최신 재시도 차단 — 621e02047dc24fa0bc393969f86d5d1c
+
+2026-09-22 UTC 재시도는 소유 Python 3.13 환경 준비 실패로 중단했다. `python --version`은 명령을 찾지 못했고, `python3 -m venv .venv`는 Debian `ensurepip` 부재로 실패했다. 오프라인 `uv venv --offline .venv`도 캐시된 Python 3.13.15 인터프리터가 없어 실패했다. 마지막 대체 경로인 `/usr/bin/python3` 기반 자체 `.venv`는 생성됐지만 실제 버전은 Python 3.12.3이므로 승인된 Python 3.13 검증 환경이 아니다. 오프라인 `uv pip install`은 pytest가 캐시에 없어 해결하지 못했다.
+
+새 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r1-05-621e0204`에 기존 helper·focused tests·input pins를 복사하고 두 run을 생성했다. helper가 관측한 raw 137개, 진단 101행, 제외 25개, unknown 56개, coverage 27472/20306/7166 및 입력 총 16,626,647 bytes는 보존했으나, Python 3.13 setup gate 실패 때문에 이번 시도의 완료 증거로 승격하지 않는다. 다른 worktree 도구를 사용한 초기 `pytest 7 passed` 결과는 소유 3.13 환경의 fresh PASS가 아니므로 제외했다. 이후 소유 3.12.3 환경에 복사한 pytest의 7 passed도 같은 이유로 제외하며, Ruff·format·mypy의 소유 환경 검증은 완료하지 못했다.
+
+이번 시도는 기술-only blocked 상태이며 전체 R1-05/PIT·경제 acceptance는 미평가·미체크로 유지한다. 원문·result·manifest·collector·제품 코드는 변경하지 않았고, 네트워크·simulation·GPU·PAPER/live·주문·DB·서비스·설정·remote 변경도 없었다. setup gate가 충족되는 새 승인 재시도 전에는 결정성·focused tests·Ruff·strict mypy·독립 review·통합을 완료로 주장하지 않는다.
 
 ## 최신 재시도 중단 — 13d842d0596243f9ab1ef20998c2255f
 
