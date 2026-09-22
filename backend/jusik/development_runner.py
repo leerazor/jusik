@@ -91,9 +91,19 @@ RESEARCH_MANDATE_REQUIRED_FIELDS = frozenset(
 )
 COMMON_PROMPT = (
     "Follow the repository workflow: explore relevant code and AGENTS.md, write a "
-    "bounded plan, assign at most four Luna worktrees, review the implementation, "
-    "then Astra merges to local main and runs checks and handoff/web publication "
-    "when applicable. Preserve unrelated work and never use real orders, remote "
+    "bounded plan, assign at most four Luna worktrees, have an independent Sol-based "
+    "reviewer inspect the implementation, then have the Sol-based supervisor "
+    "integrate it to local main and run checks and "
+    "handoff/web publication when applicable. Astra is read-only escalation for one "
+    "unresolved critical diagnosis only; it is not an automatic model switch. For an "
+    "explicitly complex financial calculation, future-leakage, or design-conflict "
+    "issue, the supervisor may choose one initial Astra diagnosis with bounded "
+    "evidence; otherwise, after two distinct failed code hypotheses, provide bounded "
+    "evidence to Astra. "
+    "When "
+    "external evidence is missing, use a source alternative or independent task "
+    "instead of repeating escalation. Preserve unrelated work and never use real "
+    "orders, remote "
     "push, PAPER engine or PAPER database mutation, arbitrary service changes, "
     "or unapproved GPU changes. GPU use is opt-in and on-demand only: for portfolio "
     "stress work use "
@@ -486,11 +496,13 @@ def _codex_command(
         "exec",
         "--ignore-user-config",
         "-m",
-        "gpt-6-astra",
+        "gpt-6-sol",
         "-c",
         f'default_permissions="{permission}"',
         "-c",
         profile,
+        "-c",
+        'model_reasoning_effort="medium"',
         "--json",
         "--output-schema",
         str(schema_path),

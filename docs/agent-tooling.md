@@ -6,15 +6,20 @@
 
 저장소의 역할 이름과 실제 모델 이름을 한 쌍으로 관리합니다. `task_name`은 `spawn_agent`에 전달하는 작업 이름이고 모델 선택과 무관하며, `model`은 agent 설정의 모델 식별자입니다. 두 값을 서로 대체하거나 보고서에 혼동해서 쓰지 않습니다.
 
-| 역할 | 모델 | 권한 | 책임 |
-| --- | --- | --- | --- |
-| `explore` | `gpt-5.6-luna` | read-only | 코드·데이터 흐름·관례를 조사하고 근거를 제시 |
-| `plan` | `gpt-6-astra` | read-only | 조사 근거를 제한된 계획과 완료 조건으로 정리 |
-| `code` | `gpt-5.6-luna` | workspace-write | 확정 계획을 구현하고 focused 검사를 실행 |
-| `review` | `gpt-5.6-terra` | read-only | diff의 회귀·보안·검증 누락을 독립 검토 |
-| supervisor | Astra | 감독 | 범위·순서·통합·최종 판단을 조율 |
+| 역할 | 모델 | 추론 수준 | 권한 | 책임 |
+| --- | --- | --- | --- | --- |
+| `explore` | `gpt-6-luna` | medium | read-only | 코드·데이터 흐름·관례를 조사하고 근거를 제시 |
+| `plan` | `gpt-6-sol` | high | read-only | 조사 근거를 제한된 계획과 완료 조건으로 정리 |
+| `code` | `gpt-6-luna` | high | workspace-write | 확정 계획을 구현하고 focused 검사를 실행 |
+| `review` | `gpt-6-sol` | high | read-only | diff의 회귀·보안·검증 누락을 독립 검토 |
+| `supervisor` | `gpt-6-sol` | medium | 감독 | 범위·순서·통합·최종 판단을 조율 |
+| `escalate` | `gpt-6-astra` | xhigh | read-only | unresolved critical issue 하나를 제한된 근거로 진단 |
 
-`code` 설정에 이미 `gpt-5.6-sol`이 로드된 환경이 있으면 라우팅이 자동으로 바뀐 것으로 간주하지 않습니다. loaded agent의 모델을 덮어쓸 수 없을 때는 기존 agent를 Luna라고 부르지 말고, 일반(default) worker에 `model=gpt-5.6-luna`와 `fork_turns=none`을 명시해 실행합니다. 실행기가 모델 자체를 지정할 수 없으면 Luna라고 주장하지 말고 실제 모델을 알 수 없거나 제한된 fallback이라고 보고합니다. role 이름, `task_name`, 모델 이름은 dispatch 전후에 각각 기록하고 일치 여부를 확인합니다.
+이 역할표는 오래 설치된 개인 supervisor skill의 모델 매핑보다 최신 프로젝트 기준으로 우선합니다. 자세한 공식 설정 문서는 [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)와 [Configuration Reference](https://learn.chatgpt.com/docs/config-file/config-reference)를 참조합니다.
+
+이미 로드된 역할의 모델을 덮어쓸 수 없으면 그 agent를 기대 역할로 부르지 않습니다. host가 지원하는 경우 `agent_type=default` worker에 기대 `model`, `reasoning_effort`, `fork_turns=none`을 모두 명시하고, dispatch 전후에 role 이름·`task_name`·모델·추론 수준을 대조합니다. 실행기가 모델 자체를 지정할 수 없으면 실제 모델을 알 수 없거나 제한된 fallback이라고 보고합니다. 이는 roleless model-only adapter의 exact-five 인자/helper 계약을 바꾸지 않습니다.
+
+현재 로드된 code agent의 실제 모델은 `gpt-5.6-luna`로 확인되었고, 이 변경의 `.codex` 역할 설정은 다음 세션부터 `gpt-6-luna`를 기대합니다. 설정은 이미 로드된 agent에 hot-reload되지 않으며, 실행 중인 agent의 사실과 다음 세션의 역할 설정을 혼동하지 않습니다.
 
 ## 압축 보고 계약
 
@@ -85,7 +90,7 @@ python3 backend/jusik/agent_routing.py post \
 
 ## supervisor 검사와 작업 경계
 
-개인 supervisor skill의 기준 경로는 `/home/kwl/.codex/skills/jusik-supervisor`이고, routing helper는 그 경로의 `scripts/check_routing.py`에 있습니다. helper pre/post 검사는 모델·role·fork만 확인합니다. helper가 없거나 CLI 계약을 확인할 수 없으면 설치된 `SKILL.md`와 `--help`를 먼저 확인하고, 그래도 불명확하면 실행을 보류합니다. cwd·worktree와 필요한 도구의 실제 사용 가능성은 helper 범위가 아니며 supervisor가 수동 검증합니다. runner root의 Astra는 설계상 supervisor 역할이므로 그 역할 매핑을 유지합니다.
+개인 supervisor skill의 기준 경로는 `/home/kwl/.codex/skills/jusik-supervisor`이고, routing helper는 그 경로의 `scripts/check_routing.py`에 있습니다. helper pre/post 검사는 모델·role·fork만 확인합니다. helper가 없거나 CLI 계약을 확인할 수 없으면 설치된 `SKILL.md`와 `--help`를 먼저 확인하고, 그래도 불명확하면 실행을 보류합니다. cwd·worktree와 필요한 도구의 실제 사용 가능성은 helper 범위가 아니며 기본 supervisor(Sol)가 수동 검증합니다. Astra는 unresolved critical issue 하나에 대한 읽기 전용 escalation 예외이며 자동 runner model-switch가 아닙니다.
 
 helper는 prompt와 secret을 출력하지 않고, 호출 전 verifier 결과와 호출 후 audit 결과만 남깁니다. verifier는 실제 spawn hook 자체를 차단하지 않습니다. 즉 helper를 우회한 spawn을 기술적으로 막는 경계가 아니므로 supervisor가 절차를 지켜야 합니다.
 
@@ -93,9 +98,9 @@ helper는 prompt와 secret을 출력하지 않고, 호출 전 verifier 결과와
 
 ## 사용 흐름
 
-1. `spawn_agent` 직전에 helper preflight로 role, 요청 model, `fork_turns='none'`을 확인합니다. role을 지정한 spawn에도 이 값을 명시하며, `all`·생략·부분 fork는 검증 실패로 처리합니다. supervisor는 별도로 `task_name`, cwd/worktree와 필요한 도구의 실제 사용 가능성을 수동 확인합니다.
+1. `spawn_agent` 직전에 helper preflight로 role, 기대 model, `fork_turns='none'`을 확인합니다. stale loaded-role fallback이면 `agent_type=default`와 기대 model·reasoning effort·fork 값을 명시합니다. helper가 확인하지 않는 reasoning effort는 supervisor가 role 파일·spawn 인자·child metadata를 별도로 대조합니다. role을 지정한 spawn에도 fork 값을 명시하며, `all`·생략·부분 fork는 검증 실패로 처리합니다. supervisor는 별도로 `task_name`, cwd/worktree와 필요한 도구의 실제 사용 가능성을 수동 확인합니다.
 2. preflight 반환 결과와 실제 tool 계약을 대조한 뒤에만 spawn을 호출합니다. 계약이 불명확하거나 모델을 지정할 수 없으면 fallback과 제한을 보고하고 작업을 보류합니다.
 3. child가 반환한 압축 보고의 `paths/evidence`, `commit`, `validation`을 실제 파일·Git 상태·명령 결과와 대조합니다.
 4. 종료 후 child audit에서 model 불일치, role·작업 이름 불일치, 증거 누락 또는 검증 실패가 발견되면 완료 처리를 보류하고 재검토·재실행 조건을 남깁니다.
 
-작업 경계에서 기존 [verify-and-stop skill](/home/kwl/.agents/skills/verify-and-stop/SKILL.md)을 사용해 요구된 검사를 통과한 뒤 종료합니다. 이 종료는 Astra의 local `main` 통합 검사와 handoff를 생략하는 뜻이 아닙니다. 통합이 필요한 개발 작업은 워크트리 절차의 순차 통합 검증을 보존합니다. 세션이 작업 경계에서 끝나거나 재개될 때는 [handoff skill](/home/kwl/.agents/skills/handoff/SKILL.md)의 저장 규칙에 따라 목표·결정·검사·남은 문제·다음 시작점을 기록합니다.
+작업 경계에서 기존 [verify-and-stop skill](/home/kwl/.agents/skills/verify-and-stop/SKILL.md)을 사용해 요구된 검사를 통과한 뒤 종료합니다. 이 종료는 기본 supervisor(Sol)의 local `main` 통합 검사와 handoff를 생략하는 뜻이 아닙니다. 통합이 필요한 개발 작업은 워크트리 절차의 순차 통합 검증을 보존합니다. 세션이 작업 경계에서 끝나거나 재개될 때는 [handoff skill](/home/kwl/.agents/skills/handoff/SKILL.md)의 저장 규칙에 따라 목표·결정·검사·남은 문제·다음 시작점을 기록합니다.

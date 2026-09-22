@@ -1,6 +1,6 @@
 name = "plan"
 description = "Read-only technical planner that turns requirements and exploration evidence into a bounded implementation plan."
-model = "gpt-6-astra"
+model = "gpt-6-sol"
 model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = """

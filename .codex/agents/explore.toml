@@ -1,6 +1,6 @@
 name = "explore"
 description = "Read-only codebase explorer that maps relevant architecture, execution paths, and existing conventions before planning starts."
-model = "gpt-5.6-luna"
+model = "gpt-6-luna"
 model_reasoning_effort = "medium"
 sandbox_mode = "read-only"
 developer_instructions = """

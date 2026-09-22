@@ -38,7 +38,7 @@ systemctl --user enable --now jusik-development-runner.timer
 
 ## 병렬 개발과 정리
 
-실행기는 supervisor 사이클을 한 번에 하나만 실행합니다. 각 supervisor는 독립적인 하위 작업이 있으면 작업별 워크트리와 Luna 담당자를 배정해 최대 4명까지 병렬로 진행합니다. 선행 결과가 필요한 작업은 순서대로 실행하고, `main` 병합과 통합 검증은 감독이 순차 수행합니다. 병합한 워크트리는 [워크트리 운영 절차](worktree-workflow.md#정리)에 따라 결과물을 보관한 뒤 제거합니다. 이 원칙은 현재 큐와 이후 후속 작업에 동일하게 적용됩니다.
+실행기는 기본 supervisor(Sol) 사이클을 한 번에 하나만 실행합니다. supervisor는 독립적인 하위 작업이 있으면 작업별 워크트리와 Luna 담당자를 배정해 최대 4명까지 병렬로 진행합니다. 선행 결과가 필요한 작업은 순서대로 실행하고, `main` 병합과 통합 검증은 Sol 기반 supervisor가 순차 수행합니다. Astra는 unresolved critical issue 하나에 대한 읽기 전용 진단 예외이며 자동 runner model-switch가 아닙니다. 병합한 워크트리는 [워크트리 운영 절차](worktree-workflow.md#정리)에 따라 결과물을 보관한 뒤 제거합니다. 이 원칙은 현재 큐와 이후 후속 작업에 동일하게 적용됩니다.
 
 ## 상태와 수동 제어
 
@@ -79,7 +79,7 @@ cd backend
 
 각 runtime prompt는 통합 검사가 끝난 뒤 병합 worktree를 제거하기 전에 필요한 evidence, SHA-256 hash, handoff를 허용된 durable root에 보관하도록 요구합니다. completion JSON은 worktree 정리 뒤에도 남아 있는 파일만 참조해야 합니다. worktree 생성·통합·검증·정리의 전체 절차는 [워크트리 운영 절차](worktree-workflow.md#정리)를 따릅니다.
 
-실제 spawn CLI가 role 필드를 제공하지 않는 환경의 명시적 model/fork routing과 receipt 기반 parent/child 감사는 [agent tooling의 roleless CLI 절차](agent-tooling.md#roleless-cli-routing)를 따르고 `backend/jusik/agent_routing.py` adapter를 사용합니다.
+실제 spawn CLI가 role 필드를 제공하지 않는 환경의 명시적 model/fork routing과 receipt 기반 parent/child 감사는 [agent tooling의 roleless CLI 절차](agent-tooling.md#roleless-cli-routing)를 따르고 `backend/jusik/agent_routing.py` adapter를 사용합니다. stale loaded-role fallback에서는 host가 지원하는 경우 `agent_type=default`, 기대 model·reasoning effort, `fork_turns=none`을 명시하며 adapter/helper의 exact-five 계약은 바꾸지 않습니다. 일반 코드 문제는 서로 다른 가설이 두 번 실패한 뒤 Astra 진단을 제한적으로 사용하고, 명백히 복잡한 금융 계산·미래 데이터 누출·설계 충돌은 감독 근거를 남기고 처음부터 한 번 선택할 수 있습니다. 외부 근거 부족은 source alternative 또는 독립 task로 전환합니다.
 
 ## 빈 큐 자동 연구 계획
 

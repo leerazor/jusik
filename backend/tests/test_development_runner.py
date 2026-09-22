@@ -19,6 +19,7 @@ from jusik.development_runner import (
     RunResult,
     _attempt_environment,
     _child_idle_expired,
+    _codex_command,
     _git_common,
     _next_task,
     _prepare_artifact_dir,
@@ -393,6 +394,24 @@ output.write_text(json.dumps({{
     assert "reuse a matching owned branch" in captured_prompt.read_text(
         encoding="utf-8"
     )
+
+
+@pytest.mark.parametrize("planning", [False, True])
+def test_codex_command_uses_sol_medium_routing(tmp_path: Path, planning: bool) -> None:
+    config = RunnerConfig(repo=tmp_path / "repo")
+    command = _codex_command(
+        config,
+        tmp_path / "common",
+        tmp_path / "schema.json",
+        tmp_path / "attempt" / "output.json",
+        planning=planning,
+    )
+
+    assert command[command.index("-m") + 1] == "gpt-6-sol"
+    overrides = [
+        command[index + 1] for index, value in enumerate(command[:-1]) if value == "-c"
+    ]
+    assert overrides[-1] == 'model_reasoning_effort="medium"'
 
 
 def test_run_once_prepares_absent_custom_artifact_before_child_dispatch(
