@@ -2,12 +2,12 @@
 
 ## runner-recovery-wait-gate
 
-- 상태: 준비. 기준 local `main` `3bda50a`; 통합 대상 local `main`.
+- 상태: 구현·독립 검토·local `main` 통합 검증 완료. 기준 `11de6f8`, 구현 `2f15b1c`·검토 수정 `f55a762`, 통합 `f55a762`.
 - 목표: 로드맵 planner의 동일 입력 `waiting` 반복 호출을 억제하고, 기존 허용 목록과 재시도 한도를 보존한 자동 복구를 전용 설치에 활성화한다.
 - 담당: Sol 감독·계획·검토, Luna 단일 구현. 워크트리 `/home/kwl/projects/jusik-runner-recovery-wait-gate`, 브랜치 `fix/runner-recovery-wait-gate`.
 - 입력·범위: 2026-09-23 방법론 검토 인계와 기존 runner 코드·테스트. planner fingerprint/수동 재판단, 전용 runner 문서·focused 테스트만 수정한다. 금융 mandate·PAPER/live·주문 경계와 다른 작업은 보존한다.
-- 격리·검증: 작업별 `.venv`와 임시 테스트 DB; audit `/home/kwl/.local/share/jusik/portfolio-audit/20260923-runner-recovery-wait`. focused pytest, Ruff, configured mypy, 독립 review와 main 통합 검사.
-- 운영: 수동 작업 전 roadmap runner pause·service stop 완료, active attempt 0. 통합 뒤 전용 config만 제한적 복구 활성화하고 runner 상태를 확인한다. 사용자 소유 미추적 `HANDOFF.md`는 보존한다.
+- 격리·검증: 작업별 `.venv`와 임시 테스트 DB; audit `/home/kwl/.local/share/jusik/portfolio-audit/20260923-runner-recovery-wait`. 워크트리 focused pytest 111개·수정 후 47개, main 통합 pytest 112개·Ruff·변경 모듈 mypy·diff check 통과. 독립 Sol 검토 P2 1건은 후속 수정·재검토 통과. 전체 mypy는 범위 밖 기존 오류 3건으로 실패.
+- 운영: roadmap runner pause·service stop 완료, active attempt 0. 전용 설치 `automatic_recovery=true`를 원자적으로 설정하고 이전 설정을 audit에 보존했다. 금융 mandate·PAPER/live·실주문·remote 상태는 변경하지 않았다. 사용자 소유 미추적 `HANDOFF.md` 보존.
 - 개발 기록·인계: `docs/development-records/2026-09-23-runner-recovery-wait-gate.md`, 위 audit의 `HANDOFF.md`.
 
 ## model-efficiency-routing
