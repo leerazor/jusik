@@ -47,6 +47,9 @@ def _repo(tmp_path: Path, roadmap_content: str | None = None) -> Path:
     repo = tmp_path / "repo"
     docs = repo / "docs"
     docs.mkdir(parents=True)
+    code = repo / "backend" / "jusik"
+    code.mkdir(parents=True)
+    (code / "__init__.py").write_text("\n", encoding="utf-8")
     source = Path(__file__).parents[2] / "docs"
     live_roadmap = (
         roadmap_content

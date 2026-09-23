@@ -351,6 +351,7 @@ class RunnerStore:
         current_fingerprint: str | None = None,
         proposal: tuple[str, str, str] | None = None,
         scope: str = "research",
+        proposal_head_matches: bool = True,
     ) -> bool:
         """Finish planner and enqueue proposal in one locked transaction."""
         now = utc_now()
@@ -396,10 +397,11 @@ class RunnerStore:
             )
             expected = json.dumps(sorted(expected_tasks), sort_keys=True)
             if (
-                current_fingerprint is not None and current_fingerprint != fingerprint
-            ) or hashlib.sha256(expected.encode()).hexdigest() != hashlib.sha256(
-                actual.encode()
-            ).hexdigest():
+                (current_fingerprint is not None and current_fingerprint != fingerprint)
+                or (proposal is not None and not proposal_head_matches)
+                or hashlib.sha256(expected.encode()).hexdigest()
+                != hashlib.sha256(actual.encode()).hexdigest()
+            ):
                 db.execute(
                     "UPDATE attempts SET status='failed',ended_at=?,failure_code=? WHERE id=?",  # noqa: E501
                     (now, "planning_stale", attempt_id),
@@ -520,6 +522,29 @@ class RunnerStore:
             )
             db.commit()
         return cur.rowcount == 1
+
+    def retry_planning_waiting(self, task_id: str) -> bool:
+        """Retry only a completed planner whose latest result was waiting."""
+        now = utc_now()
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT tasks.last_attempt_id, attempts.failure_code "
+                "FROM tasks JOIN attempts ON attempts.id=tasks.last_attempt_id "
+                "WHERE tasks.id=? AND tasks.area='__planning__' "
+                "AND tasks.status='completed' AND attempts.status='completed'",
+                (task_id,),
+            ).fetchone()
+            if row is None or row["failure_code"] != "planning_waiting":
+                db.rollback()
+                return False
+            db.execute(
+                "UPDATE tasks SET status='queued',next_allowed_at=NULL,"
+                "previous_attempt_id=?,updated_at=? WHERE id=?",
+                (row["last_attempt_id"], now, task_id),
+            )
+            db.commit()
+        return True
 
     def rebase(self, task_id: str, baseline: str) -> bool:
         """Queue a quarantined task with an explicit current-main baseline."""

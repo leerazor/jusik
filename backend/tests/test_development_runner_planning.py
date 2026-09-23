@@ -12,14 +12,22 @@ import pytest
 from jusik.development_runner import (
     RunnerConfig,
     _codex_command,
+    _planning_task,
     _tracked_research_mandate,
+    main,
+    save_config,
 )
 from jusik.development_runner_planning import (
     PLANNING_AREA,
     fingerprint,
     validate_planning_result,
 )
-from jusik.development_runner_roadmap import ROADMAP_SCOPE
+from jusik.development_runner_roadmap import (
+    ROADMAP_SCOPE,
+    Roadmap,
+    load_roadmap,
+    roadmap_fingerprint,
+)
 from jusik.development_runner_store import RunnerStore
 from jusik.research_mandate_governance import validate_mandate
 
@@ -46,6 +54,71 @@ def test_planning_area_is_private_and_fingerprint_excludes_planner_state(
     assert fingerprint(research, "a" * 40, "2026-09-12") == fingerprint(
         research, "a" * 40, "2026-09-12"
     )
+
+
+def test_roadmap_planning_identity_tracks_semantic_inputs_only() -> None:
+    repo = Path(__file__).parents[2]
+    roadmap = load_roadmap(repo)
+    tasks = [("research", "blocked", "attempt-1")]
+    digest = roadmap_fingerprint(tasks, roadmap, "mandate-a", "code-a")
+
+    assert roadmap_fingerprint(tasks, roadmap, "mandate-a", "code-a") == digest
+    assert (
+        roadmap_fingerprint(
+            [*tasks, ("research-2", "completed", "attempt-2")],
+            roadmap,
+            "mandate-a",
+            "code-a",
+        )
+        != digest
+    )
+    changed_roadmap = Roadmap(roadmap.path, roadmap.content + "\n", roadmap.items)
+    assert roadmap_fingerprint(tasks, changed_roadmap, "mandate-a", "code-a") != digest
+    assert roadmap_fingerprint(tasks, roadmap, "mandate-b", "code-a") != digest
+    assert roadmap_fingerprint(tasks, roadmap, "mandate-a", "code-b") != digest
+
+
+def test_roadmap_waiting_candidate_survives_head_and_date_changes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import jusik.development_runner as development_runner
+
+    repo = tmp_path / "repo"
+    docs = repo / "docs"
+    docs.mkdir(parents=True)
+    source = Path(__file__).parents[2] / "docs/investment-development-roadmap.md"
+    (docs / source.name).write_bytes(source.read_bytes())
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    head = "a" * 40
+
+    def fake_git(_repo: Path, *args: str, **_kwargs: Any) -> Any:
+        output = head if args == ("rev-parse", "main") else "code-tree"
+        return type("Result", (), {"stdout": output})()
+
+    class Clock:
+        day = "2026-09-23"
+
+        @classmethod
+        def now(cls, _tz: object) -> datetime:
+            return datetime.fromisoformat(f"{cls.day}T00:00:00+00:00")
+
+    monkeypatch.setattr(
+        development_runner, "_roadmap_documents_ready", lambda _repo: (True, "")
+    )
+    monkeypatch.setattr(
+        development_runner, "_roadmap_dispatch_gate", lambda *_args: None
+    )
+    monkeypatch.setattr(development_runner, "_git", fake_git)
+    monkeypatch.setattr(development_runner, "datetime", Clock)
+
+    first = _planning_task(store, repo, ROADMAP_SCOPE, "mandate")
+    assert first is not None
+    Clock.day = "2026-09-24"
+    head = "b" * 40
+    second = _planning_task(store, repo, ROADMAP_SCOPE, "mandate")
+    assert second is not None
+    assert second[0].id == first[0].id
+    assert second[1] == first[1]
 
 
 def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
@@ -305,6 +378,83 @@ def test_finish_planning_is_atomic_and_exact_replay_is_idempotent(
     )
     assert store.outbox_pending() == before
     assert len([item for item in store.tasks() if item.area != PLANNING_AREA]) == 1
+
+
+def test_planner_proposal_is_rejected_when_main_head_changes(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.enqueue("planner-task", PLANNING_AREA, "internal")
+    task = store.task("planner-task")
+    assert task is not None
+    store.claim(
+        task,
+        "attempt",
+        tmp_path / "out",
+        tmp_path / "err",
+        history_outcome="planning_started",
+    )
+    snapshot: list[tuple[str, str, str | None]] = []
+    digest = hashlib.sha256(b"[]").hexdigest()
+
+    assert not store.finish_planning(
+        "attempt",
+        "planner-task",
+        "proposed",
+        {"status": "proposed"},
+        digest,
+        snapshot,
+        proposal=("next-research-v1", "portfolio-stress-robustness", "prompt"),
+        proposal_head_matches=False,
+    )
+    assert store.task("planner-task").status == "failed"  # type: ignore[union-attr]
+    assert store.last_failure_code("planner-task") == "planning_stale"
+    assert store.task("next-research-v1") is None
+
+
+def test_cli_planning_wait_retry_is_roadmap_waiting_only(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = _config(tmp_path).model_copy(update={"scope": ROADMAP_SCOPE})
+    config_path = tmp_path / "config.json"
+    save_config(config, config_path)
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    store.enqueue("roadmap-planner", PLANNING_AREA, "internal")
+    task = store.task("roadmap-planner")
+    assert task is not None
+    store.claim(
+        task,
+        "waiting-attempt",
+        tmp_path / "out",
+        tmp_path / "err",
+        history_outcome="planning_started",
+    )
+    assert store.finish_planning(
+        "waiting-attempt",
+        task.id,
+        "waiting",
+        {"status": "waiting"},
+        hashlib.sha256(b"[]").hexdigest(),
+        [],
+        scope=ROADMAP_SCOPE,
+    )
+
+    assert main(["retry", "--config", str(config_path), task.id]) == 0
+    assert json.loads(capsys.readouterr().out) == {"retried": False}
+    assert (
+        main(["retry", "--planning-wait", "--config", str(config_path), task.id]) == 0
+    )
+    assert json.loads(capsys.readouterr().out) == {"retried": True}
+    retried = store.task(task.id)
+    assert retried is not None
+    assert retried.status == "queued"
+    with store._connect() as db:
+        previous_attempt_id = db.execute(
+            "SELECT previous_attempt_id FROM tasks WHERE id=?", (task.id,)
+        ).fetchone()["previous_attempt_id"]
+    assert previous_attempt_id == "waiting-attempt"
+    assert not store.retry_planning_waiting(task.id)
 
 
 def test_roadmap_finish_planning_cap_ignores_legacy_blocked_tasks(

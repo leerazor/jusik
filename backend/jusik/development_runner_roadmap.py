@@ -96,18 +96,16 @@ def load_roadmap(repo: Path) -> Roadmap:
 
 def roadmap_fingerprint(
     tasks: list[tuple[str, str, str | None]],
-    main_head: str,
-    utc_date: str,
     roadmap: Roadmap,
-    mandate_digest: str | None = None,
+    mandate_digest: str,
+    code_tree_sha: str,
 ) -> str:
     value = {
         "scope": ROADMAP_SCOPE,
         "tasks": sorted(tasks),
-        "main_head": main_head,
-        "utc_date": utc_date,
         "roadmap_sha256": roadmap.digest,
         "mandate_digest": mandate_digest,
+        "code_tree_sha256": code_tree_sha,
     }
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()

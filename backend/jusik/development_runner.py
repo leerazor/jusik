@@ -740,6 +740,8 @@ def _planning_task(
             roadmap = load_roadmap(repo)
         except RoadmapError:
             return None
+        if mandate_digest is None:
+            mandate_digest = _roadmap_dispatch_gate(repo).digest
         tasks = _research_snapshot(store)
         if any(status == "running" for _, status, _ in tasks):
             return None
@@ -758,9 +760,10 @@ def _planning_task(
         )
         if not eligible:
             return None
-        head = _git(repo, "rev-parse", "main").stdout.strip()
-        day = datetime.now(UTC).date().isoformat()
-        digest = roadmap_fingerprint(tasks, head, day, roadmap, mandate_digest)
+        code_tree_sha = _git(repo, "rev-parse", "main:backend/jusik").stdout.strip()
+        digest = roadmap_fingerprint(
+            tasks, roadmap, mandate_digest or "", code_tree_sha
+        )
         existing = store.task(planner_task_id(digest))
         if existing is not None:
             ready = not existing.next_allowed_at or (
@@ -1171,6 +1174,7 @@ def _run_planning(
             current_digest,
             proposal,
             scope=config.scope,
+            proposal_head_matches=current_head == main_head,
         )
     except MandateGovernanceError as exc:
         store.finish(attempt_id, task.id, "blocked", failure_code="mandate_stale")
@@ -1416,12 +1420,15 @@ def run_once(
                         + "\n\nOperator session policy:\n"
                         + (session_policy or "")
                     ),
-                    "fingerprint_factory": lambda tasks, head, day: roadmap_fingerprint(
-                        tasks,
-                        head,
-                        day,
-                        load_roadmap(config.repo),
-                        governance.digest if governance is not None else None,
+                    "fingerprint_factory": lambda tasks, _head, _day: (
+                        roadmap_fingerprint(
+                            tasks,
+                            load_roadmap(config.repo),
+                            governance.digest if governance is not None else "",
+                            _git(
+                                config.repo, "rev-parse", "main:backend/jusik"
+                            ).stdout.strip(),
+                        )
                     ),
                 }
             result = _run_planning(
@@ -1767,6 +1774,11 @@ def _parser() -> argparse.ArgumentParser:
     enqueue.add_argument("--prompt", required=True)
     retry = sub.add_parser("retry")
     retry.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    retry.add_argument(
+        "--planning-wait",
+        action="store_true",
+        help="retry a completed investment-roadmap planner waiting result",
+    )
     retry.add_argument("task_id")
     rebase = sub.add_parser("rebase")
     rebase.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
@@ -1842,7 +1854,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if args.command == "retry":
-        print(json.dumps({"retried": store.retry(args.task_id)}, ensure_ascii=False))
+        if args.planning_wait:
+            retried = config.scope == ROADMAP_SCOPE and store.retry_planning_waiting(
+                args.task_id
+            )
+        else:
+            retried = store.retry(args.task_id)
+        print(json.dumps({"retried": retried}, ensure_ascii=False))
         return 0
     if args.command == "rebase":
         current = _git(config.repo, "rev-parse", "main").stdout.strip()
