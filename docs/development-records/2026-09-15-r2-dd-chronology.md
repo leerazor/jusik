@@ -52,4 +52,4 @@ Audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-04-cb6b03f1`. �
 - MDD가 20% hard filter를 초과하고 필수 chronology·시장 근거가 없어 R2-04는 미체크 상태로 유지합니다. 경제 acceptance를 완료하거나 approximate 등급을 승격하지 않습니다.
 - 이번 재검증에서 전략, R1, PAPER/live, 운영 원장, 서비스, 설정, remote, GPU, network 및 시장 입력은 변경하지 않았습니다.
 - 새 pilot 결과: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r2-04-9d4a546c/drawdown-chronology-pilot.json`, SHA-256 `ae439ad63585ea075211a1c10e7b0cb527d3da741daf59197f438ccc31248d39`.
-- 검증 요약: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r2-04-9d4a546c/verification-summary.json`, SHA-256 `1aa7801af2237a3004a65c61f0492df442a7b3ee74654088ca4d658adf0b8385e`.
+- 검증 요약: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r2-04-9d4a546c/verification-summary.json`, SHA-256 `1aa7801af2237a3004a65c61f0492df442a7b3ee74654088ca4d658adf0b8385`.
