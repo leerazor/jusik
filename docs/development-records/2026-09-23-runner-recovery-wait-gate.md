@@ -27,7 +27,7 @@
 
 ## 안전·운영 상태
 
-- 수동 수정 전 roadmap runner를 pause하고 service inactive, running attempt 0을 확인했다. 전용 설정 이외의 운영 DB·서비스·금융 상태는 변경하지 않았다.
+- 수동 수정 전 roadmap runner를 pause하고 service inactive, running attempt 0을 확인했다. 검증에는 운영 DB를 쓰지 않았다. 재개 후 timer가 남긴 planner attempt 외에 금융 원장·PAPER/live 상태는 변경하지 않았다.
 - 통합 후 runner를 재개했다. 최종 `paused=0`, running attempt 0, queued task 0, service inactive, timer active/enabled를 확인했다. 통합된 worktree/branch와 재생성 가능한 환경·캐시는 근거 보존 후 정상 정리했다.
 - 새 fingerprint를 적용한 첫 timer 주기에서 planner가 `planning_waiting`으로 끝났다. 다음 timer 주기 후에도 planner 총 93개와 최신 planner attempt 1회가 유지되어 같은 입력의 반복 dispatch가 없음을 읽기 전용 DB 조회로 확인했다.
 - 실제 주문, PAPER/live 승격, 원격 push, Windows 종료는 수행하지 않았다.
