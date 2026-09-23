@@ -1468,6 +1468,7 @@
 
 ## r2-counterfactual-fe92
 
+- 2026-09-23 재시도 `a1a3452f9eb947269eda5062467778b3` 중단: 승인된 세션 마감 21:26 KST 이후 21:58 KST에 확인하여 새 개발 dispatch를 중단했습니다. 관측 main `073c0ccd74106b099e1399e51bb0b0005360450c`는 이번 재시도 기준과 일치하며 요청 원래 기준 `d0d0299`의 자손입니다. 기존 비교 모듈은 이미 main에 통합되어 있지만 이번 attempt의 fresh 검사·독립 review·main 통합 검사는 실행하지 않았습니다. 기술 slice의 과거 완료 기록과 이번 attempt 차단을 구분하고 R2-06 checkbox·경제 평가를 승격하지 않습니다. 새 승인된 세션에서 원본 SHA/현재 main 재확인, 실제 준비 결과의 complete fills·배당 corporate-action·FX 근거와 동일 계약, benchmark·미래 관찰 자료를 확보한 뒤 재개합니다. audit/handoff는 `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r2-06-a1a3452f`입니다.
 - 상태: 기술 모듈·CLI 완료, main 통합·검증 완료. 실제 비용/배당/환율 준비 결과의 자료 acceptance와 전체 R2-06은 미완료이며 checkbox는 그대로입니다.
 - 구현: 기존 f4070f2를 재사용해 hardlink 원본 보호와 없는 경로/null 혼동을8fc46d4에서 수정했습니다. 독립 Terra review 중요 지적 해소. main 통합5ec8f2f.
 - 검증: worker/main focused pytest52개, Ruff check/format·configured strict mypy·diff check PASS. 합성 CLI 결과 동일, input SHA 보존, unavailable dividend/FX 및 economic not-evaluated 유지.
