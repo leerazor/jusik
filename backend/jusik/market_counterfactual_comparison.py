@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_EVEN, Context, Decimal, InvalidOperation, localcontext
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal, NoReturn, cast
 
 PRECISION = 50
 DECIMAL_CONTEXT = Context(prec=PRECISION, rounding=ROUND_HALF_EVEN)
@@ -88,6 +88,20 @@ class _DuplicateKey(ValueError):
     pass
 
 
+class _InvalidJsonNumber(ValueError):
+    pass
+
+
+def _reject_decimal_number(value: str) -> NoReturn:
+    raise _InvalidJsonNumber(
+        f"non-integer JSON number {value!r} must be encoded as a decimal string"
+    )
+
+
+def _reject_nonstandard_constant(value: str) -> NoReturn:
+    raise _InvalidJsonNumber(f"non-standard JSON numeric constant {value} is invalid")
+
+
 def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> JsonObject:
     result: JsonObject = {}
     for key, value in pairs:
@@ -100,10 +114,18 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> JsonObject:
 def _parse_json(body: bytes, label: str) -> JsonObject:
     try:
         parsed = json.loads(
-            body.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys
+            body.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_float=_reject_decimal_number,
+            parse_constant=_reject_nonstandard_constant,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError, _DuplicateKey) as exc:
-        raise ValueError(f"{label} is invalid JSON") from exc
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        _DuplicateKey,
+        _InvalidJsonNumber,
+    ) as exc:
+        raise ValueError(f"{label} is invalid JSON: {exc}") from exc
     if not isinstance(parsed, dict):
         raise ValueError(f"{label} must contain an object")
     return parsed

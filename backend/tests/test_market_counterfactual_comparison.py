@@ -626,6 +626,30 @@ def test_duplicate_json_key_is_rejected_before_report_validation(
         )
 
 
+def test_json_decimal_numbers_must_be_encoded_as_strings(tmp_path: Path) -> None:
+    path = tmp_path / "decimal-number.json"
+    path.write_text(
+        '{"schema":"market-counterfactual-comparison/v1",'
+        '"value":0.123456789012345678901234567890123456789}'
+    )
+
+    with pytest.raises(ValueError, match="must be encoded as a decimal string"):
+        load_comparison_envelope(path)
+
+
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_nonstandard_json_numeric_constants_are_rejected(
+    tmp_path: Path, constant: str
+) -> None:
+    path = tmp_path / "nonstandard-number.json"
+    path.write_text(
+        f'{{"schema":"market-counterfactual-comparison/v1","value":{constant}}}'
+    )
+
+    with pytest.raises(ValueError, match="non-standard JSON numeric constant"):
+        load_comparison_envelope(path)
+
+
 def test_hash_is_checked_before_parsing_and_scenario_limit_is_bounded(
     tmp_path: Path,
 ) -> None:
