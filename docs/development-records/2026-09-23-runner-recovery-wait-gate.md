@@ -1,6 +1,6 @@
 # 로드맵 실행기 자동 복구와 반복 대기 억제
 
-- 상태: 기술 구현·로컬 통합 완료
+- 상태: 완료
 - 기록 시각: 2026-09-23T03:24:00Z
 - 작업 slug: `runner-recovery-wait-gate`
 - 기준/통합: `11de6f8` / `f55a762`
@@ -28,10 +28,11 @@
 ## 안전·운영 상태
 
 - 수동 수정 전 roadmap runner를 pause하고 service inactive, running attempt 0을 확인했다. 전용 설정 이외의 운영 DB·서비스·금융 상태는 변경하지 않았다.
+- 통합 후 runner를 재개했다. 최종 `paused=0`, running attempt 0, queued task 0, service inactive, timer active/enabled를 확인했다. 통합된 worktree/branch와 재생성 가능한 환경·캐시는 근거 보존 후 정상 정리했다.
 - 실제 주문, PAPER/live 승격, 원격 push, Windows 종료는 수행하지 않았다.
 
 ## 증거와 재개
 
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-runner-recovery-wait`; 설치 설정 이전 사본과 현재 작업 인계 참조.
-- 남은 작업: 현재 세션 기한과 tracked 상태를 확인한 뒤 runner를 resume하고 service/timer 상태를 확인한다. 기술 동작의 운영 재현에는 새로운 실제 환경 오류 또는 새 외부 근거가 필요하다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-runner-recovery-wait`; 설치 설정 이전 사본, `integration-summary.json`, `HANDOFF.md` 참조.
+- 남은 작업: 기술 동작의 운영 재현에는 새로운 실제 환경 오류 또는 새 외부 근거가 필요하다. 이를 만들기 위한 인위적 운영 실패는 실행하지 않는다.
 - 다음 시작: audit `HANDOFF.md`와 운영 DB의 최신 planner 상태를 읽고, 같은 자료 부족을 재시도하지 말고 다음 독립 작업을 고른다.
