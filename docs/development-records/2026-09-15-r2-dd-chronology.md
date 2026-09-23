@@ -44,3 +44,12 @@ Audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r2-04-cb6b03f1`. �
 이 slice는 기술 산출물 통합·검사까지 마쳤지만 필수 증거 부족으로 task는 blocked이며 R2-04 checkbox는 변경하지 않습니다. 재개 시 audit/HANDOFF.md와 최종 보고서를 먼저 읽고 독립 달력·벤치마크·미래 관찰·저장 latch 시점/해제 이력의 확보 가능성을 판단해야 합니다. 신규 연구나 전략 변경은 이번 범위에서 수행하지 않습니다.
 
 증거64파일의 SHA와 handoff를 durable audit에 보존·검증한 뒤 이번 merged worktree와 branch만 정리했습니다. 기존 root HANDOFF.md와 다른 worktree는 보존합니다.
+
+## 2026-09-23 재검증 (attempt `9d4a546c`)
+
+- 기존 독립 Decimal 구현과 고정 fixture 12개를 소유 worktree에서 재검증했습니다. Python 3.13.15 환경에서 focused pytest 6개, Ruff check/format, strict mypy가 모두 통과했고 독립 review도 PASS(P1/P2 없음)입니다.
+- frozen pilot 및 dataset SHA가 2026-09-16 `input-verification.json`과 일치했습니다. 저장 파일럿 CLI 결과는 기존 보고서와 동일합니다: 계산 MDD `26.463097...%`, latch `2026-02-12`, 5개 보유 종목이 다음 available open인 `2026-02-13`에 청산 관측. 저장 latch date/release chronology와 calendar/benchmark/future evidence는 없습니다.
+- MDD가 20% hard filter를 초과하고 필수 chronology·시장 근거가 없어 R2-04는 미체크 상태로 유지합니다. 경제 acceptance를 완료하거나 approximate 등급을 승격하지 않습니다.
+- 이번 재검증에서 전략, R1, PAPER/live, 운영 원장, 서비스, 설정, remote, GPU, network 및 시장 입력은 변경하지 않았습니다.
+- 새 pilot 결과: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r2-04-9d4a546c/drawdown-chronology-pilot.json`, SHA-256 `ae439ad63585ea075211a1c10e7b0cb527d3da741daf59197f438ccc31248d39`.
+- 검증 요약: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r2-04-9d4a546c/verification-summary.json`, SHA-256 `1aa7801af2237a3004a65c61f0492df442a7b3ee74654088ca4d658adf0b8385e`.
