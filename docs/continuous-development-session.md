@@ -30,6 +30,22 @@ identity checks, place real orders, mutate PAPER/live trading state, push
 remotely, or expand permissions. Preserve unrelated user changes and record
 decisions, evidence hashes, tests, and handoff artifacts in durable files.
 
+### Continuous execution rule
+
+After every completed, failed, interrupted, or blocked cycle, the runner must
+immediately inspect the roadmap and durable attempt evidence for the next
+existing actionable item. If a blocked item is safely retryable, rebase it to
+the observed current `main` with an explicit identity check, commit any
+runner-generated audit record, and enqueue the next bounded attempt. Repair
+owned environments and tooling when the repair is reversible and in scope.
+Do not leave the runner silently idle merely because the previous cycle ended.
+
+If no existing item is actionable, record the exact reservation, missing
+evidence, or safety condition that prevents dispatch, and return that reason to
+the operator. Do not fabricate a new roadmap area, weaken a gate, or claim that
+an active timer alone means development is progressing. The timer may remain
+enabled, but every idle cycle must have a durable reason and a next-check time.
+
 The preferred research path remains: in-sample backtest -> hard filter ->
 out-of-sample test -> walk-forward test -> stress test -> paper-trading
 candidate. Prioritize CAGR, MDD, Sharpe, and Calmar; also retain Sortino,
