@@ -1691,6 +1691,7 @@
 
 ## r2-dd-chronology
 
+- 재시도 중단 (2026-09-23, attempt `33e11fa3b24b41678143f6613e28e7bd`): 승인 기준 `3b490f05708b46f373dea646f16ade1f0f78556d`와 관측 main이 일치합니다. 최초 시각 확인 `2026-09-23 05:44:27 UTC`는 세션 마감 `2026-09-23 03:40:49 UTC` 이후입니다. 기존 독립 검산 모듈·12개 fixture·이전 통합 기록과 이전 `blocked` 판정을 확인했으나, 이번 시도의 Luna 배정·새 검산·fresh pytest/Ruff/mypy·독립 review·main 통합은 수행하지 않았습니다. 지난 PASS를 이번 PASS로 재사용하지 않습니다. R2-04는 미체크이며 저장 latch 최초 시점·해제 이력과 독립 달력·benchmark·미래 관측 자료가 필요합니다. 새 승인 세션 시간에 기준 SHA와 동결 입력 hash를 재확인한 뒤 같은 기술 범위에서 재개합니다. 다른 worktree와 사용자 `HANDOFF.md`를 보존했습니다. audit·인계: `/home/kwl/.local/share/jusik/portfolio-audit/20260923-r2-04-33e11fa3`. 자동 복구 label은 해당하지 않습니다.
 - 상태: 차단(필수 증거 부족); 독립 검산 기술 slice는 local main 통합·검사·Terra review PASS
 - task/attempt: roadmap-r2-04-v1 / cb6b03f16c8f438cb4c55cfc551fe089
 - 목표: 초기 자본 포함 KRW peak/DD/20% latch 독립 Decimal 검산 및 저장 파일럿 대조
