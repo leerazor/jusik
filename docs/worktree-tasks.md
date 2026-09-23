@@ -8,6 +8,7 @@
 - 입력·범위: 2026-09-23 방법론 검토 인계와 기존 runner 코드·테스트. planner fingerprint/수동 재판단, 전용 runner 문서·focused 테스트만 수정한다. 금융 mandate·PAPER/live·주문 경계와 다른 작업은 보존한다.
 - 격리·검증: 작업별 `.venv`와 임시 테스트 DB; audit `/home/kwl/.local/share/jusik/portfolio-audit/20260923-runner-recovery-wait`. 워크트리 focused pytest 111개·수정 후 47개, main 통합 pytest 112개·Ruff·변경 모듈 mypy·diff check 통과. 독립 Sol 검토 P2 1건은 후속 수정·재검토 통과. 전체 mypy는 범위 밖 기존 오류 3건으로 실패.
 - 운영·정리: 전용 설치 `automatic_recovery=true` 설정 후 runner를 재개했다. 최종 `paused=0`, running attempt·queued task 각 0, service inactive, timer active/enabled. 이전 설정·검증 요약은 audit에 보존하고 통합 worktree/branch와 재생성 가능한 환경은 정상 정리했다. 금융 mandate·PAPER/live·실주문·remote 상태와 사용자 소유 미추적 `HANDOFF.md` 보존.
+- 운영 재확인: 새 fingerprint의 planner 1회가 `planning_waiting`으로 종료됐다. 다음 timer 주기 후 planner 총 93개, 최신 planner attempt 1회가 그대로여서 동일 입력 재호출은 없었다.
 - 개발 기록·인계: `docs/development-records/2026-09-23-runner-recovery-wait-gate.md`, 위 audit의 `HANDOFF.md`.
 
 ## model-efficiency-routing
