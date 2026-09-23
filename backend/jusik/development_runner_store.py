@@ -523,7 +523,11 @@ class RunnerStore:
             db.commit()
         return cur.rowcount == 1
 
-    def retry_planning_waiting(self, task_id: str) -> bool:
+    def retry_planning_waiting(
+        self,
+        task_id: str,
+        expected_tasks: list[tuple[str, str, str | None]],
+    ) -> bool:
         """Retry only a completed planner whose latest result was waiting."""
         now = utc_now()
         with self._connect() as db:
@@ -536,6 +540,17 @@ class RunnerStore:
                 (task_id,),
             ).fetchone()
             if row is None or row["failure_code"] != "planning_waiting":
+                db.rollback()
+                return False
+            snapshot = db.execute(
+                "SELECT id,status,last_attempt_id FROM tasks "
+                "WHERE area != '__planning__' ORDER BY id"
+            ).fetchall()
+            actual_tasks = [
+                (str(item["id"]), str(item["status"]), item["last_attempt_id"])
+                for item in snapshot
+            ]
+            if actual_tasks != sorted(expected_tasks):
                 db.rollback()
                 return False
             db.execute(

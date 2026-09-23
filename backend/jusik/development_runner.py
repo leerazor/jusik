@@ -642,6 +642,29 @@ def _research_snapshot(store: RunnerStore) -> list[tuple[str, str, str | None]]:
     )
 
 
+def _roadmap_waiting_identity(
+    store: RunnerStore, repo: Path
+) -> tuple[str, list[tuple[str, str, str | None]]] | None:
+    """Return the current roadmap planner ID and snapshot without enqueueing."""
+    documents_ready, _ = _roadmap_documents_ready(repo)
+    if not documents_ready:
+        return None
+    try:
+        mandate = _roadmap_dispatch_gate(repo)
+        roadmap = load_roadmap(repo)
+        tasks = _research_snapshot(store)
+        code_tree_sha = _git(repo, "rev-parse", "main:backend/jusik").stdout.strip()
+    except (
+        MandateGovernanceError,
+        RoadmapError,
+        OSError,
+        subprocess.CalledProcessError,
+    ):
+        return None
+    digest = roadmap_fingerprint(tasks, roadmap, mandate.digest, code_tree_sha)
+    return planner_task_id(digest), tasks
+
+
 def _tracked_research_mandate(
     repo: Path, expected_digest: str | None = None
 ) -> str | None:
@@ -1855,8 +1878,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "retry":
         if args.planning_wait:
-            retried = config.scope == ROADMAP_SCOPE and store.retry_planning_waiting(
-                args.task_id
+            identity = (
+                _roadmap_waiting_identity(store, config.repo)
+                if config.scope == ROADMAP_SCOPE
+                else None
+            )
+            retried = (
+                identity is not None
+                and identity[0] == args.task_id
+                and store.retry_planning_waiting(args.task_id, identity[1])
             )
         else:
             retried = store.retry(args.task_id)

@@ -12,6 +12,7 @@ import pytest
 from jusik.development_runner import (
     RunnerConfig,
     _bind_scope,
+    _roadmap_waiting_identity,
     init_config,
     main,
     resume_runner,
@@ -198,6 +199,87 @@ def test_planner_ignores_blocked_dependency_and_keeps_independent_phases(
     assert "r2-01" in candidate[0].prompt
     assert "r3-01" in candidate[0].prompt
     assert "r4-01" not in candidate[0].prompt
+
+
+def test_cli_wait_retry_requires_current_roadmap_fingerprint(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _tracked_repo(tmp_path)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+    )
+    config_path = tmp_path / "config.json"
+    save_config(config, config_path)
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    identity = _roadmap_waiting_identity(store, repo)
+    assert identity is not None
+    current_id, expected_tasks = identity
+
+    for task_id, attempt_id in (
+        ("stale-roadmap-planner", "stale-attempt"),
+        (current_id, "current-attempt"),
+    ):
+        assert store.enqueue(task_id, "__planning__", "internal")
+        task = store.task(task_id)
+        assert task is not None
+        store.claim(
+            task,
+            attempt_id,
+            tmp_path / f"{attempt_id}.out",
+            tmp_path / f"{attempt_id}.err",
+            history_outcome="planning_started",
+        )
+        assert store.finish_planning(
+            attempt_id,
+            task_id,
+            "waiting",
+            {"status": "waiting"},
+            "fingerprint",
+            expected_tasks,
+            scope=ROADMAP_SCOPE,
+        )
+
+    before_tasks = store.tasks()
+    with store._connect() as db:
+        before_attempts = db.execute("SELECT COUNT(*) FROM attempts").fetchone()[0]
+    assert (
+        main(
+            [
+                "retry",
+                "--planning-wait",
+                "--config",
+                str(config_path),
+                "stale-roadmap-planner",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out) == {"retried": False}
+    assert store.tasks() == before_tasks
+    with store._connect() as db:
+        assert (
+            db.execute("SELECT COUNT(*) FROM attempts").fetchone()[0] == before_attempts
+        )
+
+    assert (
+        main(["retry", "--planning-wait", "--config", str(config_path), current_id])
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out) == {"retried": True}
+    retried = store.task(current_id)
+    assert retried is not None
+    assert retried.status == "queued"
+    with store._connect() as db:
+        previous_attempt_id = db.execute(
+            "SELECT previous_attempt_id FROM tasks WHERE id=?", (current_id,)
+        ).fetchone()["previous_attempt_id"]
+    assert previous_attempt_id == "current-attempt"
 
 
 @pytest.mark.parametrize("missing", [True, False])

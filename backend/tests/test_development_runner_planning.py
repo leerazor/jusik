@@ -412,16 +412,16 @@ def test_planner_proposal_is_rejected_when_main_head_changes(
     assert store.task("next-research-v1") is None
 
 
-def test_cli_planning_wait_retry_is_roadmap_waiting_only(
+def test_cli_planning_wait_retry_is_disabled_for_research_scope(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    config = _config(tmp_path).model_copy(update={"scope": ROADMAP_SCOPE})
+    config = _config(tmp_path)
     config_path = tmp_path / "config.json"
     save_config(config, config_path)
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
-    store.set_meta("scope", ROADMAP_SCOPE)
-    store.enqueue("roadmap-planner", PLANNING_AREA, "internal")
-    task = store.task("roadmap-planner")
+    store.set_meta("scope", "research")
+    store.enqueue("research-planner", PLANNING_AREA, "internal")
+    task = store.task("research-planner")
     assert task is not None
     store.claim(
         task,
@@ -437,24 +437,14 @@ def test_cli_planning_wait_retry_is_roadmap_waiting_only(
         {"status": "waiting"},
         hashlib.sha256(b"[]").hexdigest(),
         [],
-        scope=ROADMAP_SCOPE,
+        scope="research",
     )
 
-    assert main(["retry", "--config", str(config_path), task.id]) == 0
-    assert json.loads(capsys.readouterr().out) == {"retried": False}
     assert (
         main(["retry", "--planning-wait", "--config", str(config_path), task.id]) == 0
     )
-    assert json.loads(capsys.readouterr().out) == {"retried": True}
-    retried = store.task(task.id)
-    assert retried is not None
-    assert retried.status == "queued"
-    with store._connect() as db:
-        previous_attempt_id = db.execute(
-            "SELECT previous_attempt_id FROM tasks WHERE id=?", (task.id,)
-        ).fetchone()["previous_attempt_id"]
-    assert previous_attempt_id == "waiting-attempt"
-    assert not store.retry_planning_waiting(task.id)
+    assert json.loads(capsys.readouterr().out) == {"retried": False}
+    assert store.task(task.id).status == "completed"  # type: ignore[union-attr]
 
 
 def test_roadmap_finish_planning_cap_ignores_legacy_blocked_tasks(
