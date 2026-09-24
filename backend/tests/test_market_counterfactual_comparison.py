@@ -1,7 +1,7 @@
 import copy
 import hashlib
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from decimal import ROUND_DOWN, Context, Decimal, localcontext
 from pathlib import Path
@@ -354,6 +354,32 @@ def test_zero_negative_and_high_precision_values_are_decimal_safe(
         _object(_object(_array(result["comparisons"])[0])["deltas"])["fees"]
     )
     assert delta["value"] == "-1E-19"
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda envelope: envelope["initial_capital"].update(
+                {"value": 0.123456789123456789}
+            ),
+            "binary floating-point",
+        ),
+        (
+            lambda envelope: envelope["fixed_assumptions"].update(
+                {"cost": float("nan")}
+            ),
+            "binary floating-point",
+        ),
+    ],
+)
+def test_public_mapping_rejects_binary_float_numbers(
+    tmp_path: Path, mutate: Callable[[dict[str, object]], None], message: str
+) -> None:
+    envelope_data = _envelope(tmp_path)
+    mutate(envelope_data)
+    with pytest.raises(ValueError, match=message):
+        ComparisonEnvelope.from_mapping(envelope_data, base_dir=tmp_path)
 
 
 def test_explicit_weekend_session_is_preserved_and_timezone_is_not_a_date(

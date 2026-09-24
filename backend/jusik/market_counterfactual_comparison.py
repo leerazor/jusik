@@ -56,7 +56,7 @@ def _string(value: object, label: str) -> str:
 
 
 def _decimal(value: object, label: str) -> Decimal:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or isinstance(value, float):
         raise ValueError(f"{label} must be a finite decimal")
     try:
         result = Decimal(str(value))
@@ -65,6 +65,21 @@ def _decimal(value: object, label: str) -> Decimal:
     if not result.is_finite():
         raise ValueError(f"{label} must be a finite decimal")
     return result
+
+
+def _reject_in_memory_numbers(value: object, label: str) -> None:
+    """Reject binary floats before they can lose decimal precision."""
+
+    if isinstance(value, float):
+        raise ValueError(f"{label} must not contain binary floating-point numbers")
+    if isinstance(value, Decimal) and not value.is_finite():
+        raise ValueError(f"{label} must contain only finite decimals")
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            _reject_in_memory_numbers(item, f"{label}.{key}")
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            _reject_in_memory_numbers(item, f"{label}[{index}]")
 
 
 def _iso_date(value: object, label: str) -> str:
@@ -316,6 +331,7 @@ class ComparisonEnvelope:
     def from_mapping(
         cls, value: object, *, base_dir: Path = Path(".")
     ) -> ComparisonEnvelope:
+        _reject_in_memory_numbers(value, "comparison envelope")
         data = _object(value, "comparison envelope")
         if data.get("schema") != "market-counterfactual-comparison/v1":
             raise ValueError("comparison envelope schema is unsupported")
