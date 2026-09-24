@@ -279,6 +279,9 @@ COMPLETION_SCHEMA: dict[str, Any] = {
         "blocked_reason",
         "followup",
         "recovery_kind",
+        "blocker",
+        "engineering_status",
+        "investment_status",
     ],
     "properties": {
         "task_id": {"type": "string"},
@@ -329,6 +332,7 @@ COMPLETION_SCHEMA: dict[str, Any] = {
                 "blocker_reason",
                 "attempted_actions",
                 "dependency",
+                "dependency_identity",
                 "resume_condition",
                 "retry_policy",
                 "next_eligible_retry",
@@ -367,10 +371,8 @@ def _completion_schema(
     allowed_areas: set[str], *, engineering: bool = False
 ) -> dict[str, Any]:
     schema = copy.deepcopy(COMPLETION_SCHEMA)
-    if engineering:
-        schema["required"].extend(
-            ["blocker", "engineering_status", "investment_status"]
-        )
+    # The Codex JSON-schema contract requires every declared key, including
+    # nullable fields, for both investment and engineering completions.
     followup = schema["properties"]["followup"]
     if isinstance(followup, dict) and isinstance(followup.get("properties"), dict):
         area = followup["properties"].get("area")

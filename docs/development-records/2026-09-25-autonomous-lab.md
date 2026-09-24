@@ -28,6 +28,7 @@
 ## 운영 경계
 
 - 수동 변경 시작 전에 roadmap runner pause와 service inactive를 확인했다. timer와 `jusik-research-optimizer.service`, prospective monitor는 유지했다. 검증·문서 커밋 뒤 고정 오프라인 spec 하나를 READY로 등록하고 roadmap runner를 `paused=False`로 재개했다. timer active, 연구 optimizer와 prospective monitor active를 확인했다. 병합된 신규 worktree 두 개는 감사 후 일반 `git worktree remove`로 정리했다.
+- 첫 timer 실행은 Codex 요청의 `invalid_json_schema`로 종료 코드 1, 결과 파일 없이 `FAILED(codex_exit)`가 됐다. 비밀값은 출력하지 않았다. `Blocker.dependency_identity`와 top-level nullable 3개가 schema `required`에서 빠진 것이 원인이다. 실제 API 오류와 focused RED 2개를 확인한 뒤 `COMPLETION_SCHEMA`의 필수 목록만 고쳤다. 통합 후 focused pytest 142 passed, 변경 2파일 Ruff check/format, runner strict mypy 통과. 실패 attempt는 보존하고 명시적 retry로만 재개한다.
 - 사용자 소유 미추적 `HANDOFF.md`와 기존 worktree는 보존한다.
 - 실제 주문, 추가 결제, 권한 확대, credential 정책·투자 기준 완화, Windows 종료는 수행하지 않는다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260925-autonomous-lab-42fsGz`.

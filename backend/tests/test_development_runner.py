@@ -21,6 +21,7 @@ from jusik.development_runner import (
     _attempt_environment,
     _child_idle_expired,
     _codex_command,
+    _completion_schema,
     _empty_receiver_wait_detected,
     _git_common,
     _next_task,
@@ -69,6 +70,14 @@ def test_runtime_prompt_forbids_unbounded_empty_receiver_wait() -> None:
     assert "blocked completion" in RUNTIME_PROMPT_SUFFIX
     assert "followup to null" in RUNTIME_PROMPT_SUFFIX
     assert "A child self-review is not independent review" in RUNTIME_PROMPT_SUFFIX
+
+
+@pytest.mark.parametrize("engineering", [False, True])
+def test_completion_schema_requires_every_declared_property(engineering: bool) -> None:
+    schema = _completion_schema(set(), engineering=engineering)
+    assert set(schema["required"]) == set(schema["properties"])
+    blocker = schema["properties"]["blocker"]
+    assert set(blocker["required"]) == set(blocker["properties"])
 
 
 @pytest.mark.parametrize("mode", [0o750, 0o770])
