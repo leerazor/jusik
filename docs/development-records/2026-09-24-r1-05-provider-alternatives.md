@@ -42,6 +42,7 @@ Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해
 - 두 가격 테이블의 현재 반환 구간은 각각 2018-09-04~2018-12-31, 2017-09-01~2017-10-31로 제한적이었다. 2020년·2024년 date filter는 0행이었다. 따라서 가격 테이블 접근은 확인했지만 R1-05 complete historical/PIT evidence는 미충족이다.
 - ticker를 AAPL·MSFT·TSLA로 바꿔도 `SHARADAR/SEP`의 동일 2018-09-04~2018-12-31 샘플이 반환됐다. ticker 선택 오류보다는 테이블 entitlement/샘플 제한으로 분류한다. probe 결과에 `first_date`·`last_date`를 보존한다.
 - Nasdaq 공식 API 소개의 Bars 상품(`NDAQ/BAR`)도 SDK로 bounded 조회했지만 현재 계정에서는 `404 QECx02 datatable does not exist`였다. 문서상 상품 존재와 계정별 실제 테이블 entitlement를 동일하게 취급하지 않는다.
+- Alpaca IEX 일봉도 AAPL·LIME·MDA에 대해 2016/2020/2024/2026 구간을 bounded 조회했다. AAPL은 2024·2026만, LIME은 2026-07-01부터, MDA는 2026-03-12부터 반환됐고 이전 구간은 0행이었다. 기존 Yahoo 부분 이력 누락을 보완하지 못하므로 canonical source로 승격하지 않는다.
 
 재현 명령:
 
