@@ -34,7 +34,7 @@ _SIDES = frozenset(("buy", "sell"))
 
 
 def _decimal(value: object, label: str) -> Decimal:
-    if isinstance(value, bool):
+    if isinstance(value, (bool, float)):
         raise ValueError(f"{label} must be a finite decimal")
     try:
         result = Decimal(str(value))
@@ -487,6 +487,17 @@ def account_trades(
         held_symbols = {trade.symbol for trade in normalised_trades} | {
             lot.symbol for lot in normalised_positions
         }
+        unexpected_dividend_symbols = (
+            set(normalised_dividends) - held_symbols
+            if normalised_dividends is not None
+            else set()
+        )
+        if unexpected_dividend_symbols:
+            unexpected = ", ".join(sorted(unexpected_dividend_symbols))
+            raise ValueError(
+                "dividend mapping contains symbols without held positions: "
+                f"{unexpected}"
+            )
         missing_dividend_symbols = (
             held_symbols - set(normalised_dividends)
             if normalised_dividends is not None
@@ -688,7 +699,9 @@ def account_trades(
         )
         return LossAccountingReport(
             status=(
-                "complete" if raw_net_available and fill_net_available else "blocked"
+                "complete"
+                if raw_net_available and fill_net_available and cash.available
+                else "blocked"
             ),
             raw_realized_pnl=raw_realized,
             fill_realized_pnl=fill_realized,

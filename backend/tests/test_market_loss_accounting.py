@@ -1,5 +1,6 @@
 import hashlib
 import json
+from dataclasses import replace
 from datetime import date
 from decimal import ROUND_DOWN, Context, Decimal, getcontext, localcontext
 from pathlib import Path
@@ -238,6 +239,36 @@ def test_zero_negative_missing_duplicate_and_rounding_boundaries() -> None:
     assert missing.raw_unrealized_pnl.value is None
 
 
+def test_float_financial_values_are_rejected_before_decimal_conversion() -> None:
+    trade = replace(_trade("buy", "1", "100", "100"), fill_price=0.1)
+    with pytest.raises(ValueError, match="finite decimal"):
+        account_trades([trade], final_marks={"AAA": Decimal("100")})
+
+
+def test_dividends_for_unheld_symbols_are_rejected() -> None:
+    with pytest.raises(ValueError, match="without held positions"):
+        account_trades(
+            [_trade("buy", "1", "100", "100")],
+            final_marks={"AAA": Decimal("100")},
+            complete_history=True,
+            dividends={"AAA": Decimal("0"), "OTHER": Decimal("50")},
+            dividend_evidence_complete=True,
+            initial_cash=Decimal("1000"),
+        )
+
+
+def test_missing_initial_cash_blocks_report_status() -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100")],
+        final_marks={"AAA": Decimal("100")},
+        complete_history=True,
+        dividends={"AAA": Decimal("0")},
+        dividend_evidence_complete=True,
+    )
+    assert report.cash_balance.available is False
+    assert report.status == "blocked"
+
+
 def test_currency_side_and_iso_session_validation_is_explicit() -> None:
     with pytest.raises(ValueError, match="side"):
         account_trades([_trade("hold", "1", "100", "100")], final_marks={})
@@ -279,7 +310,7 @@ def test_cash_is_unavailable_when_dividend_evidence_is_incomplete() -> None:
     assert report.cash_balance.diagnostic_value == Decimal("900")
 
 
-@pytest.mark.parametrize("dividends", ({}, {"OTHER": Decimal("0")}))
+@pytest.mark.parametrize("dividends", ({},))
 def test_cash_is_unavailable_when_dividend_mapping_omits_held_symbol(
     dividends: dict[str, Decimal],
 ) -> None:

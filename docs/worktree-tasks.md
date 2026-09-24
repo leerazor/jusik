@@ -1555,6 +1555,7 @@
 
 ## r2-loss-accounting-2760
 
+- 2026-09-24 boundary fixes: 독립 review가 찾은 unheld dividend 합산, initial cash 결측인데 complete 표시, float 정밀도 수용 결함을 수정했습니다. R2-01 focused pytest 39개·Ruff·strict mypy 통과. 전체 R2-01 checkbox와 경제 acceptance는 자료 부족으로 유지합니다. 기록 `docs/development-records/2026-09-24-r2-01-accounting-boundary-fixes.md`.
 - 상태: 기술 복구 완료·main 통합 검증 완료. 전체 R2-01은 실제 배당·완전체결·초기 포지션·기업행사 근거 부족으로 미완료. 과거 blocked 시도 유지.
 - 변경: 혼합 통화 거절, 구조화된 currency/unit, Decimal context 고정, 매수세금/배당 현금 반영, 의존 자료 availability, 날짜/중복/metadata 검증.
 - 담당: loss_recovery_code Luna, loss_recovery_review Terra, Astra 통합. 최종 구현 `93a6211`, 통합 `20ee636`.
