@@ -23,3 +23,9 @@
 ## 다음 시작
 
 Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해 인증과 dataset entitlement를 분리하고, 성공하더라도 대상 심볼의 기간·거래소·관측시점·완전성을 별도로 검증한다. Alpaca는 보조 진단 소스로만 유지한다.
+
+## Nasdaq 재시도 결과
+
+- 데이터 endpoint에 API key를 query parameter로 전달하거나 `X-API-Key` header로 전달하는 두 방식을 재시도했지만 모두 HTTP 403 HTML이었다.
+- 동일 호스트의 잘못된 API 경로는 JSON `QECx01`을 반환했으므로 DNS/전체 네트워크 단절은 아니다. 데이터 경로의 WAF/edge 차단과 키 entitlement를 분리할 수 없어 키 무효로 판정하지 않는다.
+- 추가적인 키 재발급은 요구하지 않는다. 다음 검증은 허용 네트워크 또는 Nasdaq 공식 클라이언트 경로에서 수행한다.
