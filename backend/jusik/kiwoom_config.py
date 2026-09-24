@@ -88,6 +88,4 @@ def load_kiwoom_settings(
 ) -> KiwoomSettings | None:
     if not env_file.is_file():
         return None
-    # pydantic-settings consumes this private constructor option at runtime;
-    # its generated type signature does not expose the option to mypy.
-    return KiwoomSettings(_env_file=env_file)  # type: ignore[call-arg]
+    return KiwoomSettings(_env_file=env_file)

@@ -27,10 +27,7 @@ from jusik.telegram import TelegramNotifier
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
-        # BaseSettings loads required fields from .env.prod at runtime; the
-        # generated type signature incorrectly treats env-backed fields as
-        # constructor-required.
-        settings = Settings()  # type: ignore[call-arg]
+        settings = Settings()
         kiwoom_settings = load_kiwoom_settings()
     except (SettingsError, ValidationError):
         raise RuntimeError(

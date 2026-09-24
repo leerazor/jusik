@@ -3976,3 +3976,4 @@
   변경하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
 - 2026-09-24 전체 백엔드 baseline: 최초 `pytest -q`는 1,770 passed·3 failed였다. 날짜 경계 fixture를 `UTC today - 1 day`로 보정해 targeted API 회귀를 통과시켰고, 재검증 후 남은 고정 fixture 실패는 held-band variant SHA와 immutable timestamp-forensics calendar hash 2건이다. strict hash/date safety 경계를 완화하지 않았고 실거래·PAPER/live·DB 운영 데이터는 변경하지 않았다. 상세 기록 `docs/development-records/2026-09-24-full-suite-baseline.md`; 새 pre-registration/아카이브 없이는 green·경제 acceptance로 승격하지 않는다.
+- 2026-09-24 strict mypy 정리: `kiwoom_config.py`와 `main.py`의 실제 오류가 없는 `type: ignore[call-arg]` 2건을 제거했습니다. 설정 로딩/secret 경계는 변경하지 않았고 strict mypy 153개 source·Ruff·Kiwoom/research config pytest 32개가 통과했습니다. 기록 `docs/development-records/2026-09-24-mypy-ignore-cleanup.md`; 전체 suite의 held-band/immutable archive provenance drift는 별도로 유지합니다.
