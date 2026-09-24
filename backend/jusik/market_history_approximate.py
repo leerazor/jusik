@@ -168,6 +168,7 @@ class CollectionSymbolDiagnostic(BaseModel):
     reasons: tuple[CollectionDiagnosticReason, ...] = ()
     coverage: CollectionCoverage
     request_excluded: bool = False
+    first_observed_session: date | None = None
     occurrence_at: datetime | None = None
     observed_at: datetime | None = None
 

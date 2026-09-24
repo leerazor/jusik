@@ -2777,6 +2777,11 @@ class FreeMarketDataCollector:
                             event_excluded_sessions=event_excluded_sessions,
                         ),
                         request_excluded=request_excluded,
+                        first_observed_session=(
+                            min(item.session for item in raw_symbol_bars)
+                            if raw_symbol_bars
+                            else None
+                        ),
                         occurrence_at=(
                             observed.occurrence_at if observed is not None else None
                         ),

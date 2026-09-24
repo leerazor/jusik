@@ -8,11 +8,14 @@ fresh US receipt의 `missing_sessions=7166`에는 request-excluded 25개 심볼�
 
 `market_data_collector.py`의 US diagnostics에서 `request_excluded` 심볼은 `expected_sessions=0`, `missing_sessions=0`으로 집계하고 제외 목록·원인은 별도로 유지한다. 비제외 심볼의 partial history 진단은 기존대로 유지한다. 회귀 테스트에서 excluded coverage를 확인한다.
 
+추가로 심볼별 `first_observed_session`을 진단에 보존한다. 이는 provider 응답에서 실제로 관측된 첫 거래 세션일 뿐이며 historical publication/observed_at 또는 상장·상폐 원인을 의미하지 않는다. 따라서 LIME(2026-07-01)와 MDA(2026-03-12)의 366개 누락을 자동 제외하거나 PIT 근거로 승격하지 않는다.
+
 ## 검증
 
 - collector pytest: 146 passed
 - Ruff check: passed
 - strict mypy: passed
+- symbol diagnostic first-observation regression: passed
 - Ruff format 전체 check는 파일의 기존 unrelated formatting 차이로 실패했으며 대량 포맷은 하지 않았다.
 
 ## 판정

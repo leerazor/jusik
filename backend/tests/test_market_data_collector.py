@@ -1476,6 +1476,7 @@ def test_us_collection_diagnostics_reconcile_and_round_trip(mode: str) -> None:
     if mode == "partial":
         assert "partial_history" in symbol.reasons
         assert symbol.coverage.missing_sessions == 1
+        assert symbol.first_observed_session == date(2026, 1, 16)
     else:
         assert "observed_delisting" in symbol.reasons
         assert symbol.occurrence_at is not None
