@@ -42,3 +42,26 @@ def test_paper_contract_manifest_round_trips_and_rejects_tampering() -> None:
     tampered["profile_hash"] = "0" * 64
     with pytest.raises(ValueError, match="hash_mismatch"):
         validate_paper_cost_contract_manifest(tampered)
+
+    tampered_id = contract.manifest()
+    tampered_id["contract_id"] = "kis-bankis-online-paper-v1:wrong"
+    with pytest.raises(ValueError, match="id_mismatch"):
+        validate_paper_cost_contract_manifest(tampered_id)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "error"),
+    [
+        ("currency", "USD", "profile_invalid"),
+        ("online_fee_rate", "NaN", "profile_invalid"),
+        ("source_urls", ["http://insecure.example"], "profile_invalid"),
+        ("source_as_of", "not-a-date", "profile_invalid"),
+    ],
+)
+def test_manifest_rejects_invalid_profile_evidence(
+    field: str, value: object, error: str
+) -> None:
+    manifest = build_bankis_paper_cost_contract(("KRX",)).manifest()
+    manifest["profiles"][0][field] = value  # type: ignore[index]
+    with pytest.raises(ValueError, match=error):
+        validate_paper_cost_contract_manifest(manifest)

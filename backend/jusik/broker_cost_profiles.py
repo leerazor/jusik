@@ -10,6 +10,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
@@ -59,6 +60,27 @@ class PaperCostContract:
                 for profile in self.profiles
             ],
         }
+
+
+def _validate_profile(profile: BrokerCostProfile) -> None:
+    """Reject malformed or ambiguous cost evidence before it is hash-bound."""
+    expected_currency = "KRW" if profile.market in {"KRX", "NXT"} else "USD"
+    if profile.currency != expected_currency:
+        raise ValueError("paper_cost_contract_currency_invalid")
+    for name, rate in (
+        ("online_fee_rate", profile.online_fee_rate),
+        ("sell_tax_rate", profile.sell_tax_rate),
+    ):
+        if not rate.is_finite() or rate < 0 or rate > 1:
+            raise ValueError(f"paper_cost_contract_{name}_invalid")
+    if not profile.source_urls or any(
+        not url.startswith("https://") for url in profile.source_urls
+    ):
+        raise ValueError("paper_cost_contract_source_invalid")
+    try:
+        date.fromisoformat(profile.source_as_of)
+    except ValueError as exc:
+        raise ValueError("paper_cost_contract_source_as_of_invalid") from exc
 
 
 KIS_BANKIS_ONLINE_PROFILES: tuple[BrokerCostProfile, ...] = (
@@ -153,18 +175,18 @@ def validate_paper_cost_contract_manifest(
         if not isinstance(raw, Mapping):
             raise ValueError("paper_cost_contract_profile_invalid")
         try:
-            parsed.append(
-                BrokerCostProfile(
-                    broker=str(raw["broker"]),
-                    account_scope=str(raw["account_scope"]),
-                    market=raw["market"],
-                    currency=raw["currency"],
-                    online_fee_rate=Decimal(str(raw["online_fee_rate"])),
-                    sell_tax_rate=Decimal(str(raw["sell_tax_rate"])),
-                    source_urls=tuple(str(url) for url in raw["source_urls"]),
-                    source_as_of=str(raw["source_as_of"]),
-                )
+            profile = BrokerCostProfile(
+                broker=str(raw["broker"]),
+                account_scope=str(raw["account_scope"]),
+                market=raw["market"],
+                currency=raw["currency"],
+                online_fee_rate=Decimal(str(raw["online_fee_rate"])),
+                sell_tax_rate=Decimal(str(raw["sell_tax_rate"])),
+                source_urls=tuple(str(url) for url in raw["source_urls"]),
+                source_as_of=str(raw["source_as_of"]),
             )
+            _validate_profile(profile)
+            parsed.append(profile)
         except (KeyError, TypeError, ValueError, ArithmeticError) as exc:
             raise ValueError("paper_cost_contract_profile_invalid") from exc
     contract = PaperCostContract(
@@ -177,6 +199,8 @@ def validate_paper_cost_contract_manifest(
     )
     if contract.profile_hash != expected.profile_hash:
         raise ValueError("paper_cost_contract_hash_mismatch")
+    if contract.contract_id != expected.contract_id:
+        raise ValueError("paper_cost_contract_id_mismatch")
     return contract
 
 

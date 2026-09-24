@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## roadmap-r2-02-cost-contract-validation-20260924
+
+- 상태: 완료·경제 acceptance 대기
+- PAPER 비용 계약 manifest의 통화/시장, 유한 범위, HTTPS 출처, ISO 기준일, contract id를 fail-closed 검증하도록 보강했습니다. 기존 역사 실행과 비용률은 변경하지 않았습니다.
+- 검증: broker cost profile 8개 pytest, Ruff, 단일 모듈 mypy 통과.
+- 실제 계좌별 수수료·체결/ECN·SEC 최소수수료 근거가 없어 R2-02 경제 acceptance는 미승격입니다. 기록: `docs/development-records/2026-09-24-r2-02-cost-contract-validation.md`.
+
 ## runner-recovery-wait-gate
 
 - 상태: 완료. 기준 `11de6f8`, 구현 `2f15b1c`·검토 수정 `f55a762`, 통합 `f55a762`, 기록 `80215de`.
