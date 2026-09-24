@@ -2732,6 +2732,8 @@ class FreeMarketDataCollector:
             for symbol in sorted(symbols):
                 raw_symbol_bars = us_raw_bars.get(symbol, ())
                 actual_sessions = len(raw_symbol_bars)
+                request_excluded = symbol in excluded
+                symbol_expected_sessions = 0 if request_excluded else expected_sessions
                 cutoff = us_event_cutoffs.get(symbol)
                 event_excluded_sessions = sum(
                     1
@@ -2749,7 +2751,11 @@ class FreeMarketDataCollector:
                     for gap_symbol in gap.symbols
                 }:
                     reasons.append("membership_unknown")
-                if symbol in us_raw_bars and actual_sessions < expected_sessions:
+                if (
+                    symbol in us_raw_bars
+                    and not request_excluded
+                    and actual_sessions < symbol_expected_sessions
+                ):
                     reasons.append("partial_history")
                 observed = us_observed_delistings.get(symbol)
                 if observed is not None:
@@ -2764,13 +2770,13 @@ class FreeMarketDataCollector:
                         symbol=symbol,
                         reasons=deduped_reasons,
                         coverage=CollectionCoverage(
-                            expected_sessions=expected_sessions,
+                            expected_sessions=symbol_expected_sessions,
                             actual_sessions=actual_sessions,
-                            missing_sessions=expected_sessions - actual_sessions,
+                            missing_sessions=symbol_expected_sessions - actual_sessions,
                             retained_sessions=retained_sessions,
                             event_excluded_sessions=event_excluded_sessions,
                         ),
-                        request_excluded=symbol in excluded,
+                        request_excluded=request_excluded,
                         occurrence_at=(
                             observed.occurrence_at if observed is not None else None
                         ),

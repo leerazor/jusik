@@ -1553,6 +1553,8 @@ def test_us_mixed_success_failure_reconciles_request_exclusions() -> None:
     assert diagnostics.reason_counts["unknown"] == 1
     excluded = next(item for item in diagnostics.symbols if item.symbol == "BBB")
     assert excluded.request_excluded is True
+    assert excluded.coverage.expected_sessions == 0
+    assert excluded.coverage.missing_sessions == 0
     assert "unknown" in excluded.reasons
     retained = next(item for item in diagnostics.symbols if item.symbol == "AAA")
     assert retained.request_excluded is False
