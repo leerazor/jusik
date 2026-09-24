@@ -100,8 +100,7 @@ def _json_safe(value: object, label: str) -> object:
         return result
     if isinstance(value, (list, tuple)):
         return [
-            _json_safe(item, f"{label}[{index}]")
-            for index, item in enumerate(value)
+            _json_safe(item, f"{label}[{index}]") for index, item in enumerate(value)
         ]
     if value is None or isinstance(value, (str, int, bool)):
         return value

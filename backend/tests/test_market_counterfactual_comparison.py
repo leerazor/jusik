@@ -427,10 +427,7 @@ def test_direct_envelope_decimal_metadata_is_serializable(tmp_path: Path) -> Non
     )
     result = compare_prepared_reports(replace(envelope, scenarios=(updated,)))
     comparison = _object(_array(result["comparisons"])[0])
-    assert (
-        _object(comparison["change"])["description"]
-        == "0.123456789012345678901"
-    )
+    assert _object(comparison["change"])["description"] == "0.123456789012345678901"
     json.dumps(result)
 
 
