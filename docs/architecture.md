@@ -10,6 +10,7 @@
 | 연구 백엔드 | 모의 연구, 시장 자료 준비 상태, PAPER 관찰과 연구 이력 API | `backend/jusik/research_app.py`, `backend/jusik/market_research_api.py` | `docs/research.md`, `docs/market-research.md`, `docs/research-mandate.md` |
 | 프런트엔드 | Next.js 화면과 두 백엔드의 서버 측 호출 | `frontend/app/`, `frontend/lib/investor.ts`, `frontend/lib/research.ts` | `frontend/AGENTS.md`, 관련 기능 문서 |
 | 개발 실행기 | 제한된 연구 작업의 큐·증거·상태 관리 | `docs/development-runner.md`, `deploy/systemd/` | `docs/development-runner.md`, `docs/worktree-workflow.md` |
+| 자율 연구소 제어 계층 | 역할 분담·작업 대기 분리·전략 전이 보호의 확장 기준 | `docs/autonomous-trading-lab.md` | 해당 설계의 현재 구현/후속 구현 구분 |
 
 `start.sh`는 포트폴리오 백엔드, 연구 백엔드, 프런트엔드를 함께 준비합니다. 프런트엔드는 투자자 요청에 `backendUrl()`을, 연구 요청에 `researchBackendUrl()`을 사용합니다. 두 API 경계를 임의로 합치거나 한쪽 URL을 다른 기능에 재사용하지 않습니다.
 

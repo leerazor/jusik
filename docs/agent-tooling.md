@@ -10,7 +10,8 @@
 | --- | --- | --- | --- | --- |
 | `explore` | `gpt-6-luna` | medium | read-only | 코드·데이터 흐름·관례를 조사하고 근거를 제시 |
 | `plan` | `gpt-6-sol` | high | read-only | 조사 근거를 제한된 계획과 완료 조건으로 정리 |
-| `code` | `gpt-6-luna` | high | workspace-write | 확정 계획을 구현하고 focused 검사를 실행 |
+| `code` | `gpt-6-sol` | high | workspace-write | 복잡한 상태·저장·모듈 경계 변경과 focused 검사 |
+| `code_small` | `gpt-6-luna` | high | workspace-write | 범위가 좁고 반복적인 구현과 focused 검사 |
 | `review` | `gpt-6-sol` | high | read-only | diff의 회귀·보안·검증 누락을 독립 검토 |
 | `supervisor` | `gpt-6-sol` | medium | 감독 | 범위·순서·통합·최종 판단을 조율 |
 | `escalate` | `gpt-6-astra` | xhigh | read-only | unresolved critical issue 하나를 제한된 근거로 진단 |
@@ -21,7 +22,9 @@
 
 이미 로드된 역할의 모델을 덮어쓸 수 없으면 그 agent를 기대 역할로 부르지 않습니다. host가 지원하는 경우 `agent_type=default` worker에 기대 `model`, `reasoning_effort`, `fork_turns=none`을 모두 명시하고, dispatch 전후에 role 이름·`task_name`·모델·추론 수준을 대조합니다. 실행기가 모델 자체를 지정할 수 없으면 실제 모델을 알 수 없거나 제한된 fallback이라고 보고합니다. 이는 roleless model-only adapter의 exact-five 인자/helper 계약을 바꾸지 않습니다.
 
-현재 로드된 code agent의 실제 모델은 `gpt-5.6-luna`로 확인되었고, 이 변경의 `.codex` 역할 설정은 다음 세션부터 `gpt-6-luna`를 기대합니다. 설정은 이미 로드된 agent에 hot-reload되지 않으며, 실행 중인 agent의 사실과 다음 세션의 역할 설정을 혼동하지 않습니다.
+현재 설정은 복잡한 구현에 Sol, 제한된 반복 구현에 Luna를 사용합니다. 과거 세션의 로드된 모델 기록은 현재 실행 사실이 아닙니다. 설정은 이미 로드된 agent에 hot-reload되지 않으므로 실제 tool schema와 spawn metadata를 대조합니다. [자율 연구소 역할](autonomous-trading-lab.md)은 논리적 작업 프로필이며, 프로필마다 상주 agent나 TOML을 만들지 않습니다.
+
+동시 active agent는 planner 포함 4개입니다. Codex의 `agents.max_concurrent_threads_per_session`은 주 agent를 제외하므로 저장소 값은 `3`으로 둡니다. 중첩 위임은 기본 금지하고 supervisor가 전체 작업자 수와 파일 소유권을 관리합니다. 이 설정은 OS 권한·DB 접근 제어를 대신하지 않습니다.
 
 ## 압축 보고 계약
 

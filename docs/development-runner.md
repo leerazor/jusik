@@ -38,7 +38,7 @@ systemctl --user enable --now jusik-development-runner.timer
 
 ## 병렬 개발과 정리
 
-실행기는 기본 supervisor(Sol) 사이클을 한 번에 하나만 실행합니다. supervisor는 독립적인 하위 작업이 있으면 작업별 워크트리와 Luna 담당자를 배정해 최대 4명까지 병렬로 진행합니다. 선행 결과가 필요한 작업은 순서대로 실행하고, `main` 병합과 통합 검증은 Sol 기반 supervisor가 순차 수행합니다. Astra는 unresolved critical issue 하나에 대한 읽기 전용 진단 예외이며 자동 runner model-switch가 아닙니다. 병합한 워크트리는 [워크트리 운영 절차](worktree-workflow.md#정리)에 따라 결과물을 보관한 뒤 제거합니다. 이 원칙은 현재 큐와 이후 후속 작업에 동일하게 적용됩니다.
+실행기는 기본 supervisor(Sol) 사이클을 한 번에 하나만 실행합니다. 대화형 supervisor의 전체 한도는 planner 포함 4명(하위 3명)이며 모델은 [agent tooling](agent-tooling.md)을 따릅니다. 현재 자동 runner child는 host의 검토 호출 정체를 막기 위해 중첩 spawn을 금지합니다. 독립 검토가 확보되지 않으면 스스로 독립 검토를 통과했다고 표시하지 않고 해당 작업만 대기시킵니다. 선행 결과가 필요한 작업과 `main` 병합은 순차 처리합니다. Astra는 선택적인 읽기 전용 진단이며 자동 model-switch가 아닙니다. 병합한 워크트리는 [워크트리 운영 절차](worktree-workflow.md#정리)에 따라 정리합니다.
 
 ## 상태와 수동 제어
 

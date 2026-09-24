@@ -2,7 +2,7 @@
 
 ## Session
 
-- status: active
+- status: historical_window_closed
 - started_at: 2026-09-24T19:28:00+09:00
 - deadline_at: 2026-09-24T22:28:00+09:00
 - requested_shutdown: none
@@ -53,11 +53,17 @@ when the data supports them.
 
 ## Stop conditions
 
-Stop dispatching at `deadline_at`, on a user pause, or when continuing would
-require missing external evidence or a safety-policy exception. Before stopping,
-write the current status and next evidence requirement to the task register and
-durable audit artifacts. When a later operator explicitly requests shutdown,
-record it here and use a cancellable Windows timer.
+The timestamps above describe the completed historical window, not a new
+authorization or an active deadline. The current task is the autonomous lab
+architecture and its bounded implementation, authorized on 2026-09-25.
+
+Stop global dispatch on an explicit user pause, an active authorized deadline,
+exhausted configured budget, or an infrastructure integrity failure affecting
+all tasks. Missing external evidence blocks only tasks that depend on it.
+Record structured blocker metadata and select another independent READY task,
+following [the lab policy](autonomous-trading-lab.md). An expired historical
+window must not silently replace a newer explicit user instruction. Do not
+schedule Windows shutdown without a new explicit request.
 
 ## Current external evidence requirements
 

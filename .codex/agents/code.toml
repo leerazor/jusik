@@ -1,6 +1,6 @@
 name = "code"
-description = "Implementation agent that applies an agreed plan with focused production-ready changes and validation."
-model = "gpt-6-luna"
+description = "Sol implementation agent for cross-module changes, state machines, persistence, and complex correctness."
+model = "gpt-6-sol"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 developer_instructions = """
