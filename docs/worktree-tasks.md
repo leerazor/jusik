@@ -77,6 +77,8 @@
 
 ## roadmap-r2-01-accounting-v2
 
+- 2026-09-24 재검증 `ce25634c52914eba91cbca4dca5e88d9`: 승인 시작 `d3cc0e3`은 관측 main `67fb232`의 조상이며, 기존 Luna 구현과 경계 수정은 이미 local main에 통합됐다. 기존 소유 worktree/branch를 확인하고 새 구현을 중복하지 않았다. 고정 입력 90개 SHA 일치, 소유 Python 3.13.15에서 main focused pytest 40·Ruff check/format·strict mypy PASS, 미국 pilot 1개 252세션/106거래 `blocked`, supervisor turn의 새 읽기 전용 review P1/P2 없음. 기술 slice는 검증 완료지만 완전 체결·초기 포지션·기업행사/배당·FX·benchmark·미래 관측 부족으로 전체 R2-01 checkbox 미체크, 경제 `not-evaluated`를 유지한다. 증거·handoff `/home/kwl/.local/share/jusik/portfolio-audit/20260924-r2-01-ce25634c/`; 기록 `docs/development-records/2026-09-24-r2-01-ce25634c-verification.md`. 과거 중단/실패는 보존하고 PAPER/live·주문·원장/DB·서비스·설정·remote는 변경하지 않았다.
+
 - 최신 상태 (2026-09-22): bounded technical slice는 local `main`에 `769251c`로 통합했습니다. 보유 종목이 누락된 빈/무관 배당 mapping을 `unavailable`로 차단하는 회귀 2건을 포함해 focused pytest 37 passed, Ruff·mypy·diff check 통과. 독립 검토: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-5adc0d62/review.md`. 완전한 회계·benchmark/future 자료 부족으로 경제 acceptance와 R2-01 checklist는 미평가/미체크입니다.
 
 - 재개 진행 (2026-09-22, attempt `5adc0d62d9b245df9d01b0a72193f66d`): 직전 동일 작업의 main `f03ab94`와 소유 worktree `/home/kwl/projects/jusik-r2-accounting-0ce0`, branch `fix/r2-accounting-0ce0`의 미통합 수정 `570d242`를 확인했습니다. 승인 시작 `d3cc0e3` 이후 변경은 이 작업의 등록·구현·통합입니다. 새 worktree 없이 Luna `/root/r2_resume_code`가 이어받습니다. 입력 90개 SHA 재검증 통과. 기존 14개와 추가 coverage 2개로 fixture 16개를 유지하며 새 입력은 추가하지 않습니다. fresh focused pytest/Ruff/configured mypy, Terra review, Astra local main 통합 검사를 수행합니다. audit·handoff 경로는 `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-01-5adc0d62`입니다. 이전 중단·오류는 역사로 보존하며 전체 자료 acceptance는 blocked, 경제 `not-evaluated`를 유지합니다.
