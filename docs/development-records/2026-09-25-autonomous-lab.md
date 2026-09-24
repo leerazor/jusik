@@ -18,7 +18,7 @@
 - 설계 독립 Sol review가 8개 프로필의 16항목·18후보 처리·TOML 7개 파싱을 확인했다. 세션 시각/외부 재시도/PAUSED 그림의 불일치 3건을 지적했고 문서를 수정했다.
 - explore 2개와 plan 1개의 native routing 사후 감사는 역할·모델·독립 turn 기준 PASS였다.
 - 변경 후 focused 검사, 코드 독립 review와 main 통합 결과는 후속 기록한다. 아직 실행하지 않은 검사를 통과로 표시하지 않는다.
-- lifecycle 구현 `fec44e9`: worker focused pytest 16개, Ruff check/format, mypy 통과. 초기 연구/PAUSED/RETIRED 전이, SQL guard와 append-only history를 구현했으며 독립 검토·main 통합 전이다.
+- lifecycle 구현 `fec44e9`, main 통합 `62e229b`: worker/main 각각 focused pytest 16개, Ruff check/format, mypy 통과. 초기 연구/PAUSED/RETIRED 전이, SQL guard와 append-only history를 구현했다. 독립 Sol review에서 IDEA pause 대상의 문서 불일치를 수정한 뒤 통합 가능 판정을 받았다.
 - 운영 DB의 변경 전 snapshot을 private audit `runner-before.db`에 보존했다. mandate JSON SHA는 기존 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`과 동일하다.
 
 ## 운영 경계
