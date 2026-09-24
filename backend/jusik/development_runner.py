@@ -133,7 +133,11 @@ RUNTIME_PROMPT_SUFFIX = (
     "owned virtual environment or attempt cache only as a routine local fix: run "
     "the owned environment's python --version once before checks and stop the "
     "attempt if setup fails instead of batching past the failed setup. A previous "
-    "attempt stop is historical state, not a permanent current block."
+    "attempt stop is historical state, not a permanent current block. "
+    "Never call collaboration.wait when no receiver agent is present or when the "
+    "receiver list is empty: perform the bounded read-only review in the current "
+    "supervisor turn, or return a finite review-unavailable result with evidence "
+    "and stop. Do not leave the task in an unbounded wait state."
     f" {DEVELOPMENT_DELIVERY_POLICY}"
 )
 BACKLOG = (
