@@ -64,6 +64,19 @@ backend/.venv/bin/python -m jusik.research_alpha_price_probe LIME --env-file .en
 backend/.venv/bin/python -m jusik.research_alpha_price_probe MDA --env-file .env
 ```
 
+## MarketParquet free-window 확인
+
+- [MarketParquet의 공식 안내](https://marketparquet.com/guides/free-historical-stock-data)는
+  무료 계정에 최근 약 365일의 US stock/ETF daily 파일과 delisted symbol 포함을
+  설명하지만, 무료 계정 이전 날짜와 전체 archive는 별도 범위라고 명시한다.
+- 2026-09-24 KST에 인증 없이 `stock_daily/2026-09-23.parquet`와 `2026-09-17.parquet`를
+  각각 1회 읽기 전용으로 요청했다. 두 파일 모두 HTTP 200 Parquet 응답이었다.
+  `2026-01-10`은 HTTP 401, `2025-09-11`은 HTTP 403으로 인증/범위 제한을 확인했다.
+  응답 원문은 저장하지 않았고 SHA만 임시 진단에 사용했다.
+- 이 원천은 canonical history에 자동 연결하지 않았다. 무료 계정 key가 있으면 최근
+  365일 범위의 LIME/MDA 보완 후보로 별도 검증할 수 있지만, 기존 R1-05가 요구하는
+  PIT publication/complete coverage와 배당·기업행사 근거를 자동으로 충족하지 않는다.
+
 재현 명령:
 
 ```text
