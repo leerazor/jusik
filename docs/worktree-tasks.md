@@ -1,5 +1,11 @@
 # 워크트리 작업 등록부
 
+## full-suite-r2-02-regression-20260924
+
+- R2-02 통합 후 backend 전체 pytest 재검증: `1776 passed, 2 failed, 2 warnings`.
+- 실패는 guarded portfolio variant SHA drift와 immutable timestamp-forensics calendar SHA drift이며, 기존 strict provenance gate가 차단했습니다. archive/variant를 덮어쓰거나 hash를 갱신하지 않았습니다.
+- 기록: `docs/development-records/2026-09-24-full-suite-r2-02-regression.md`. 경제 acceptance와 historical replay 승격은 미실행입니다.
+
 ## roadmap-r2-02-cost-contract-validation-20260924
 
 - 상태: 완료·경제 acceptance 대기
