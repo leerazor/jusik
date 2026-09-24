@@ -13,3 +13,13 @@
 새 provider를 자동 추가하거나 기존 결과를 합치지 않았다. R1-05 승격에는 여전히 symbol/period/exchange/currency, request/session identity, cause, historical observed time, complete coverage가 필요하다. Nasdaq Data Link를 bounded probe하려면 별도 `NASDAQ_DATA_LINK_API_KEY`가 필요하고, probe 성공 후에도 dataset entitlement와 PIT 필드를 별도 검증해야 한다.
 
 실거래·PAPER/live·전략 성과·기존 canonical cache 변경은 없었다.
+
+## 키 추가 후 bounded probe
+
+- 2026-09-24 KST에 `.env`의 `NASDAQ_DATA_LINK_API_KEY`, `ALPACA_API_KEY`, `ALPACA_API_SECRET` 변수 존재만 확인했다. 값은 출력·기록하지 않았다.
+- Alpaca `data.alpaca.markets`의 AAPL IEX 일봉 과거 범위(2024-01-02~2024-01-05, limit=1)는 HTTP 200과 bar 1건을 반환했다. 이는 인증·기본 IEX 조회 성공 증거이지 전체 거래소·delisted·PIT 완전성 증거가 아니다.
+- Nasdaq Data Link의 `FRED/GDP` 및 `WIKI/GOOG` bounded endpoint는 HTTP 403 HTML을 반환했다. JSON 권한 오류가 아닌 실행 환경의 edge/bot 차단으로 분류했으며, 키 무효나 premium entitlement로 단정하지 않는다. 재시도 가능한 probe로 남긴다.
+
+## 다음 시작
+
+Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해 인증과 dataset entitlement를 분리하고, 성공하더라도 대상 심볼의 기간·거래소·관측시점·완전성을 별도로 검증한다. Alpaca는 보조 진단 소스로만 유지한다.
