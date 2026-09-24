@@ -7,18 +7,17 @@
 - deadline_at: 2026-09-24T22:28:00+09:00
 - requested_shutdown: none
 
-The previous bounded session ended at its deadline after the R2-02 current-main
-identity and session-deadline gates. This continuation is a new three-hour
-bounded session; it preserves the same fail-closed gates.
-
-This is a new bounded session approved by the continuing roadmap objective.
-The runner is enabled for repeated bounded cycles; each cycle keeps the same
-fail-closed gates and stops at the session deadline.
+These timestamps are historical records of a completed three-hour session.
+They do not authorize another three-hour session or impose its expired deadline
+on later user requests. The current bounded task is the autonomous lab design
+and implementation requested on 2026-09-25, plus explicitly registered follow-up
+work under the user's continuing development authorization.
 
 ## Operating policy
 
-Continue the investment-roadmap work until `deadline_at`. When a
-task fails, inspect the durable attempt evidence, distinguish an actionable
+Apply the latest explicit user scope and any currently authorized budget or
+deadline. The historical `deadline_at` above is not active. When a task fails,
+inspect the durable attempt evidence, distinguish an actionable
 code/test/tool defect from missing external evidence, and repair actionable
 defects before retrying. Do not wait for another manual instruction for bounded
 decisions that preserve the project safety rules.
@@ -45,9 +44,10 @@ the operator. Do not fabricate a new roadmap area, weaken a gate, or claim that
 an active timer alone means development is progressing. The timer may remain
 enabled, but every idle cycle must have a durable reason and a next-check time.
 
-The preferred research path remains: in-sample backtest -> hard filter ->
-out-of-sample test -> walk-forward test -> stress test -> paper-trading
-candidate. Prioritize CAGR, MDD, Sharpe, and Calmar; also retain Sortino,
+The canonical research sequence is defined by research-mandate.json: bounded
+IS, separate validation hard filter, chronological walk-forward, one untouched
+OOS go/no-go, stress, isolated simulation and separate PAPER review.
+Prioritize CAGR, MDD, Sharpe, and Calmar; also retain Sortino,
 Profit Factor, trade count, MDD recovery period, and maximum consecutive losses
 when the data supports them.
 

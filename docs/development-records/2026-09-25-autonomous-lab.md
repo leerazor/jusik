@@ -14,7 +14,10 @@
 
 ## 실행과 검증
 
-구현 전 재현, 변경 후 focused 검사, 독립 review와 main 통합 결과를 이 절에 기록한다. 아직 실행하지 않은 검사를 통과로 표시하지 않는다.
+- 제품 수정 전 `test_run_once_quarantines_stale_head_and_dispatches_independent_ready`가 1 failed로 결함을 재현했다. 실제 run_once와 fake child를 사용했고, 독립 작업 completed 기대와 달리 오래된 선두에서 blocked를 반환했다.
+- 설계 독립 Sol review가 8개 프로필의 16항목·18후보 처리·TOML 7개 파싱을 확인했다. 세션 시각/외부 재시도/PAUSED 그림의 불일치 3건을 지적했고 문서를 수정했다.
+- explore 2개와 plan 1개의 native routing 사후 감사는 역할·모델·독립 turn 기준 PASS였다.
+- 변경 후 focused 검사, 코드 독립 review와 main 통합 결과는 후속 기록한다. 아직 실행하지 않은 검사를 통과로 표시하지 않는다.
 
 ## 운영 경계
 

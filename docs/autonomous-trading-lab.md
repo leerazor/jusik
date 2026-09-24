@@ -265,7 +265,7 @@ stateDiagram-v2
   RUNNING --> WAITING_EXTERNAL: missing external evidence
   RUNNING --> WAITING_HUMAN: explicit approval required
   BLOCKED --> READY: verified resume condition
-  WAITING_EXTERNAL --> READY: changed evidence and retry policy
+  WAITING_EXTERNAL --> READY: changed evidence or permitted retry time
   WAITING_HUMAN --> READY: authenticated decision
   FAILED --> READY: bounded repair or explicit retry
 ```
@@ -278,25 +278,24 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-  [*] --> IDEA
-  IDEA --> RESEARCHING
-  RESEARCHING --> BACKTESTED
-  BACKTESTED --> ROBUSTNESS_TEST
-  ROBUSTNESS_TEST --> PAPER_READY
-  PAPER_READY --> PAPER_TRADING
-  PAPER_TRADING --> REAL_MONEY_CANDIDATE
-  REAL_MONEY_CANDIDATE --> HUMAN_APPROVED
-  HUMAN_APPROVED --> LIVE
-  RESEARCHING --> PAUSED
-  BACKTESTED --> PAUSED
-  ROBUSTNESS_TEST --> PAUSED
-  PAPER_READY --> PAUSED
-  PAPER_TRADING --> PAUSED
-  REAL_MONEY_CANDIDATE --> PAUSED
-  HUMAN_APPROVED --> PAUSED
-  LIVE --> PAUSED
+  state Active {
+    [*] --> IDEA
+    IDEA --> RESEARCHING
+    RESEARCHING --> BACKTESTED
+    BACKTESTED --> ROBUSTNESS_TEST
+    ROBUSTNESS_TEST --> PAPER_READY
+    PAPER_READY --> PAPER_TRADING
+    PAPER_TRADING --> REAL_MONEY_CANDIDATE
+    REAL_MONEY_CANDIDATE --> HUMAN_APPROVED
+    HUMAN_APPROVED --> LIVE
+  }
+  Active --> PAUSED: record prior state
+  PAUSED --> Active: restore exact prior state after fresh gates
+  Active --> RETIRED: retain evidence and reason
   PAUSED --> RETIRED
 ```
+
+`Active`는 그림의 묶음이며 DB 상태가 아니다. resume은 IDEA부터 다시 시작하거나 원하는 상태를 고르는 동작이 아니라 기록된 직전 상태만 재검증해 복원한다. 미구현 전이는 resume 경로에서도 차단한다.
 
 | 전이 | 필수 증거 / deterministic guard |
 | --- | --- |
@@ -391,6 +390,9 @@ engineering lane은 기존 runner 안에서 명시적으로 등록된 고정 sco
 | 오래된 HANDOFF의 pause/shutdown | 역사 증거로 보존. 최신 사용자 요청 우선, 컴퓨터 종료하지 않음 |
 | 기본 PostgreSQL 선호 vs 현행 SQLite | 이번에는 SQLite 재사용. 단일 writer queue에 불필요한 DB migration 금지 |
 | read-only agent 명칭 vs unrestricted host | 작업 지시상의 read-only일 뿐 OS 격리 보장 아님. production 권한 경계는 별도 service로 구현 |
+| 개인 Codex 기본 Astra/xhigh vs 프로젝트 Sol/medium | 개인 설정을 수정하지 않는다. 프로젝트와 명시적 spawn 설정을 사용하고 실행 metadata로 실제 모델을 확인한다. |
+
+적용 지침 조사에는 사용자 제공 global/project 규칙, 실제 루트 AGENTS, 관련 운영/mandate 문서, `.codex/config.toml`과 역할 TOML, 선택한 supervisor·검증·handoff 스킬을 포함했다. 상위 디렉터리의 추가 AGENTS는 없었다. 프런트엔드 전용 AGENTS는 이번 변경 범위가 아니므로 적용하지 않는다. 호스트의 실제 실행 권한이 문서의 기본 sandbox보다 우선하므로 설정 파일만 보고 격리를 보장하지 않는다.
 
 ## 16. 실제 적용과 후속 순서
 

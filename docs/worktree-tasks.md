@@ -2,12 +2,14 @@
 
 ## autonomous-lab
 
-- 상태: 설계 완료, 구현 준비.
+- 상태: 설계 완료, 재현 실패 확인 후 구현 진행.
 - 목표: blocked/waiting 작업과 독립 READY의 진행을 분리하고 기존 코드·금융 게이트를 보존한다.
 - 담당: planner 감독, Sol 구현 단일 소유자/작업, 별도 Sol review. 동시 총 4개 이하.
 - 기준: `01d7901`, 통합 대상 local `main`.
 - 범위 A: runner/store/roadmap·관련 테스트, 고정 engineering task 계약. 범위 B: 신규 offline lifecycle 모듈/테스트. 공유 지침·설정·문서는 감독 소유.
 - 격리: 별도 worktree/venv/임시 DB, audit `/home/kwl/.local/share/jusik/portfolio-audit/20260925-autonomous-lab-42fsGz`.
+- A 소유: `lab_scheduler_code` (Sol), `/home/kwl/projects/jusik-lab-task-scheduling`, `feat/lab-task-scheduling`, 기준 `3fe759d`.
+- B 소유: `lab_lifecycle_code` (Sol), `/home/kwl/projects/jusik-lab-strategy-lifecycle`, `feat/lab-strategy-lifecycle`, 기준 `3fe759d`. 두 작업의 제품 파일·출력 경로는 겹치지 않는다.
 - 완료 조건: 실제 run_once red-green, 필수 상태·blocker·legacy 보존, lifecycle SQL guard, 관련 pytest/Ruff/mypy, 독립 검토·main 통합.
 - 기록: `docs/development-records/2026-09-25-autonomous-lab.md`, 설계 `docs/autonomous-trading-lab.md`.
 - 운영: 수동 작업 중 roadmap runner paused/service inactive, timer와 CUDA optimizer 유지. 사용자 HANDOFF·기존 worktree 보존.
