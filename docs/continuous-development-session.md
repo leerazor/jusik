@@ -3,14 +3,13 @@
 ## Session
 
 - status: active
-- started_at: 2026-09-23T22:09:53+09:00
-- deadline_at: 2026-09-24T01:09:53+09:00
-- requested_shutdown: 2026-09-24T01:09:53+09:00 KST (Windows shutdown timer)
+- started_at: 2026-09-24T09:01:09+09:00
+- deadline_at: 2026-09-24T12:01:09+09:00
+- requested_shutdown: none
 
 The previous bounded session ended at its deadline after the Korea Exim
 optional transport slice and regression verification. This continuation is a
-new three-hour bounded session; it preserves the same fail-closed gates and
-requests Windows shutdown only after the bounded development window.
+new three-hour bounded session; it preserves the same fail-closed gates.
 
 This is a new bounded session approved by the continuing roadmap objective.
 The runner is enabled for repeated bounded cycles; each cycle keeps the same
@@ -57,8 +56,8 @@ when the data supports them.
 Stop dispatching at `deadline_at`, on a user pause, or when continuing would
 require missing external evidence or a safety-policy exception. Before stopping,
 write the current status and next evidence requirement to the task register and
-durable audit artifacts. When `requested_shutdown` is set, allow the scheduled
-Windows shutdown after the bounded window; cancel it if the session ends early.
+durable audit artifacts. When a later operator explicitly requests shutdown,
+record it here and use a cancellable Windows timer.
 
 ## Current external evidence requirements
 
