@@ -697,10 +697,16 @@ def account_trades(
             and fees.available
             and taxes.available
         )
+        fx_required = accounting_currency == "USD"
         return LossAccountingReport(
             status=(
                 "complete"
-                if raw_net_available and fill_net_available and cash.available
+                if (
+                    raw_net_available
+                    and fill_net_available
+                    and cash.available
+                    and not fx_required
+                )
                 else "blocked"
             ),
             raw_realized_pnl=raw_realized,

@@ -80,6 +80,19 @@ def test_manual_decimal_accounting_matches_registered_example() -> None:
     assert cash_payload["currency"] == "KRW"
 
 
+def test_usd_accounting_requires_fx_evidence_before_complete_status() -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100", currency="USD")],
+        final_marks={"AAA": Decimal("110")},
+        complete_history=True,
+        dividends={"AAA": Decimal("0")},
+        dividend_evidence_complete=True,
+        initial_cash=Decimal("1000"),
+    )
+    assert report.status == "blocked"
+    assert report.fx.availability == "unavailable"
+
+
 def test_slippage_is_side_aware_and_fill_net_does_not_charge_twice() -> None:
     buy = _trade("buy", "2", "100", "101", "2.02")
     sell = _trade("sell", "1", "110", "108.9", "1.089", "0.19602", "2026-01-02")

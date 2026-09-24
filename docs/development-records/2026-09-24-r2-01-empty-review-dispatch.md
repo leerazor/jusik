@@ -6,6 +6,8 @@ runner의 `_empty_receiver_wait_detected` guard가 해당 stdout envelope을 감
 
 attempt에서 함께 드러난 테스트 타입 오류(`fill_price=0.1`)는 runtime float 거부 의미를 유지하면서 `cast(Decimal, 0.1)`로 정적 타입 경계만 명시했다. accounting focused pytest 39개, Ruff check/format, strict mypy가 모두 통과했다.
 
+독립 review가 추가로 발견한 USD 상태 gate 결함도 수정했다. FX 관측 입력을 받지 않는 현재 API에서는 USD 회계를 `complete`로 표시하지 않고 `blocked`로 유지한다. KRW native 회계의 기존 완료 의미는 보존한다. 회귀 포함 accounting pytest 40개, Ruff check/format, strict mypy가 통과했다.
+
 근거:
 
 - attempt stdout: `/home/kwl/.local/share/jusik/roadmap-development-runner/attempts/d554a02dec5749b796134dfa5f9ee436/stdout.jsonl`
