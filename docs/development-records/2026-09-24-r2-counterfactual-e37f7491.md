@@ -9,7 +9,7 @@
 
 - 기존 별도 비교 모듈·CLI와 한국어 계약이 이미 main에 통합되어 있음을 확인했습니다. 저장된 준비 report만 SHA-256 확인 후 읽고, 단일 atomic assumption 변경과 동일 계약을 검사합니다. 비용·배당·FX의 기준 대비 delta를 각각 보존하며 비가산 합계나 경제적 성공 판정을 출력하지 않습니다.
 - 공개 mapping의 float/비유한 숫자 경계, 중복 JSON key, 배당·FX의 누락 근거를 확인했습니다. 준비 report의 `unavailable`과 `diagnostic_value`는 delta로 승격하지 않습니다.
-- 기존 소유 worktree의 미커밋 차이는 main에 이미 존재하는 Ruff 포맷 두 건뿐입니다. 삭제 전 patch와 SHA를 외부 audit에 보존합니다. runner child의 agent spawn 금지 조건에 따라 새 작업자를 만들지 않고, 구현에 참여하지 않은 현재 supervisor가 읽기 전용 검토를 수행했습니다.
+- 기존 소유 worktree의 미커밋 차이는 main에 이미 존재하는 Ruff 포맷 두 건뿐이었습니다. patch와 SHA를 외부 audit에 보존한 뒤, 동일 바이트와 branch 조상 관계를 확인하고 해당 worktree·branch를 정리했습니다. runner child의 agent spawn 금지 조건에 따라 새 작업자를 만들지 않고, 구현에 참여하지 않은 현재 supervisor가 읽기 전용 검토를 수행했습니다.
 - 전체 R2-06 체크박스는 유지합니다. 실제 complete fills, corporate-action/배당, FX, 동일 계약의 준비 결과, benchmark 및 미래 관찰이 없어 경제 평가는 `not-evaluated`입니다.
 
 ## 문서·계약 영향
