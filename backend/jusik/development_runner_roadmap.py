@@ -151,7 +151,15 @@ def pending_task_count(tasks: Iterable[Any]) -> int:
 
 def reserved_areas(tasks: Iterable[Any]) -> set[str]:
     """Areas unavailable to a new slice until an explicit retry."""
-    quarantined = {"queued", "running", "failed", "blocked", "interrupted"}
+    quarantined = {
+        "queued",
+        "running",
+        "failed",
+        "blocked",
+        "interrupted",
+        "waiting_external",
+        "waiting_human",
+    }
     return {
         str(task.area).lower()
         for task in tasks
@@ -165,7 +173,15 @@ def _task_by_area(tasks: Iterable[Any], area: str) -> list[Any]:
         for task in tasks
         if getattr(task, "area", "").lower() == area
         and getattr(task, "status", None)
-        in {"queued", "running", "failed", "blocked", "interrupted"}
+        in {
+            "queued",
+            "running",
+            "failed",
+            "blocked",
+            "interrupted",
+            "waiting_external",
+            "waiting_human",
+        }
     ]
 
 

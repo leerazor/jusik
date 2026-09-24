@@ -22,6 +22,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from jusik.development_runner_contract import (
+    ENGINEERING_SPEC_AREA,
+    ENGINEERING_SPEC_ID,
+    ENGINEERING_SPEC_PROMPT,
+    Blocker,
+    unknown_blocker,
+)
 from jusik.development_runner_planning import (
     PLANNING_AREA,
     PLANNING_SCHEMA,
@@ -34,6 +41,7 @@ from jusik.development_runner_planning import (
 from jusik.development_runner_roadmap import (
     DEVELOPMENT_DELIVERY_POLICY,
     ROADMAP_SCOPE,
+    Roadmap,
     RoadmapError,
     eligible_areas,
     load_roadmap,
@@ -135,11 +143,10 @@ RUNTIME_PROMPT_SUFFIX = (
     "attempt if setup fails instead of batching past the failed setup. A previous "
     "attempt stop is historical state, not a permanent current block. "
     "Never call collaboration.wait when no receiver agent is present or when the "
-    "receiver list is empty: perform the bounded read-only review in the current "
-    "supervisor turn, or return a finite review-unavailable result with evidence "
+    "receiver list is empty: return a finite review-unavailable result with evidence "
     "and stop. A runner child must not call collaboration.spawn_agent: the runner "
-    "does not provision receiver agents for that child. Perform the bounded review "
-    "in the current supervisor turn, or return finite review-unavailable evidence. "
+    "does not provision receiver agents for that child. A child self-review is not "
+    "independent review; do not report review_passed without independent evidence. "
     "Do not leave the task in an unbounded wait state. When reporting a blocked "
     "completion for missing evidence, set followup to null; followup is reserved "
     "for completed results that enqueue a separately validated task."
@@ -240,7 +247,7 @@ class Completion(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     task_id: str
     attempt_id: str
-    status: Literal["completed", "blocked"]
+    status: Literal["completed", "blocked", "waiting_external", "waiting_human"]
     integrated_commit: str | None = Field(default=None, pattern=r"^[a-f0-9]{7,64}$")
     evidence: list[Evidence] = Field(default_factory=list, max_length=20)
     tests_passed: bool
@@ -249,6 +256,9 @@ class Completion(BaseModel):
     blocked_reason: str | None = Field(default=None, min_length=1, max_length=2000)
     followup: Followup | None = None
     recovery_kind: Literal["environment", "implementation"] | None = None
+    blocker: Blocker | None = None
+    engineering_status: Literal["ENGINEERING_COMPLETE"] | None = None
+    investment_status: Literal["NOT_EVALUATED"] | None = None
 
 
 COMPLETION_SCHEMA: dict[str, Any] = {
@@ -270,7 +280,10 @@ COMPLETION_SCHEMA: dict[str, Any] = {
     "properties": {
         "task_id": {"type": "string"},
         "attempt_id": {"type": "string"},
-        "status": {"type": "string", "enum": ["completed", "blocked"]},
+        "status": {
+            "type": "string",
+            "enum": ["completed", "blocked", "waiting_external", "waiting_human"],
+        },
         "integrated_commit": {
             "type": ["string", "null"],
             "pattern": "^[a-f0-9]{7,64}$",
@@ -306,12 +319,54 @@ COMPLETION_SCHEMA: dict[str, Any] = {
             "type": ["string", "null"],
             "enum": ["environment", "implementation", None],
         },
+        "blocker": {
+            "type": ["object", "null"],
+            "additionalProperties": False,
+            "required": [
+                "blocker_reason",
+                "attempted_actions",
+                "dependency",
+                "resume_condition",
+                "retry_policy",
+                "next_eligible_retry",
+                "alternative_ready_tasks",
+            ],
+            "properties": {
+                "blocker_reason": {"type": "string", "minLength": 1, "maxLength": 2000},
+                "attempted_actions": {"type": "array", "items": {"type": "string"}},
+                "dependency": {"type": ["string", "null"]},
+                "resume_condition": {"type": "string", "minLength": 1},
+                "retry_policy": {
+                    "type": "string",
+                    "enum": ["none", "manual", "event", "bounded"],
+                },
+                "next_eligible_retry": {"type": ["string", "null"]},
+                "alternative_ready_tasks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                },
+            },
+        },
+        "engineering_status": {
+            "type": ["string", "null"],
+            "enum": ["ENGINEERING_COMPLETE", None],
+        },
+        "investment_status": {
+            "type": ["string", "null"],
+            "enum": ["NOT_EVALUATED", None],
+        },
     },
 }
 
 
-def _completion_schema(allowed_areas: set[str]) -> dict[str, Any]:
+def _completion_schema(
+    allowed_areas: set[str], *, engineering: bool = False
+) -> dict[str, Any]:
     schema = copy.deepcopy(COMPLETION_SCHEMA)
+    if engineering:
+        schema["required"].extend(
+            ["blocker", "engineering_status", "investment_status"]
+        )
     followup = schema["properties"]["followup"]
     if isinstance(followup, dict) and isinstance(followup.get("properties"), dict):
         area = followup["properties"].get("area")
@@ -558,12 +613,41 @@ def validate_completion(
         raise ValueError("completion schema invalid") from exc
     if completion.task_id != task.id or completion.attempt_id != attempt_id:
         raise ValueError("completion identity mismatch")
-    if completion.status == "blocked":
+    if completion.status != "completed":
         if not completion.blocked_reason or completion.followup is not None:
             raise ValueError("blocked completion needs a reason and no followup")
+        if (
+            completion.engineering_status is not None
+            or completion.investment_status is not None
+        ):
+            raise ValueError("unfinished task cannot claim completion outcome")
+        if completion.status != "blocked" and completion.recovery_kind is not None:
+            raise ValueError("waiting completion cannot request recovery")
+        if (
+            completion.status in {"waiting_external", "waiting_human"}
+            and completion.blocker is None
+        ):
+            raise ValueError("waiting completion needs a structured blocker")
+        if completion.status == "waiting_human" and (
+            completion.blocker is None
+            or completion.blocker.retry_policy != "manual"
+            or completion.blocker.next_eligible_retry is not None
+        ):
+            raise ValueError("human wait requires manual release")
         return completion
     if completion.recovery_kind is not None:
         raise ValueError("completed result cannot request recovery")
+    if task.task_kind == "engineering" and (
+        completion.engineering_status != "ENGINEERING_COMPLETE"
+        or completion.investment_status != "NOT_EVALUATED"
+        or completion.followup is not None
+    ):
+        raise ValueError("engineering completion has invalid outcome")
+    if task.task_kind != "engineering" and (
+        completion.engineering_status is not None
+        or completion.investment_status is not None
+    ):
+        raise ValueError("investment completion cannot claim engineering outcome")
     if not completion.tests_passed or not completion.review_passed:
         raise ValueError("independent checks are not reported passed")
     if completion.integrated_commit is None or not completion.evidence:
@@ -637,11 +721,18 @@ def _bind_scope(store: RunnerStore, scope: str) -> tuple[bool, str]:
 
 
 def _next_task(
-    store: RunnerStore, scope: Literal["research", "investment-roadmap"] = "research"
+    store: RunnerStore,
+    scope: Literal["research", "investment-roadmap"] = "research",
+    *,
+    exclude: set[str] | None = None,
 ) -> RunnerTask | None:
     now = datetime.now(UTC)
     for task in store.tasks():
-        if task.status != "queued" or task.area == PLANNING_AREA:
+        if (
+            task.status != "queued"
+            or task.area == PLANNING_AREA
+            or (exclude is not None and task.id in exclude)
+        ):
             continue
         if task.depends_on is not None:
             dependency = store.task(task.depends_on)
@@ -650,9 +741,73 @@ def _next_task(
             )
             if dependency is None or dependency.status not in accepted:
                 continue
-        if task.next_allowed_at and datetime.fromisoformat(task.next_allowed_at) > now:
-            continue
+        if task.next_allowed_at:
+            try:
+                due = datetime.fromisoformat(task.next_allowed_at)
+            except ValueError:
+                return task
+            if due.tzinfo is None or due.utcoffset() != timedelta(0):
+                return task
+            if due > now:
+                continue
         return task
+    return None
+
+
+def _select_task(
+    store: RunnerStore,
+    scope: Literal["research", "investment-roadmap"],
+    roadmap: Roadmap | None,
+) -> RunnerTask | None:
+    """Quarantine invalid task contracts without stopping independent work."""
+    while (task := _next_task(store, scope)) is not None:
+        reason: str | None = None
+        if task.next_allowed_at:
+            try:
+                due = datetime.fromisoformat(task.next_allowed_at)
+                if due.tzinfo is None or due.utcoffset() != timedelta(0):
+                    reason = "retry timestamp is not UTC"
+            except ValueError:
+                reason = "retry timestamp is invalid"
+        if reason is None and task.task_kind == "engineering":
+            if (
+                scope != ROADMAP_SCOPE
+                or task.id != ENGINEERING_SPEC_ID
+                or task.area != ENGINEERING_SPEC_AREA
+                or task.prompt != ENGINEERING_SPEC_PROMPT
+                or task.depends_on is not None
+            ):
+                reason = "engineering task does not match registered spec"
+        elif reason is None and task.task_kind not in {"research", "investment"}:
+            reason = "task kind is not registered"
+        elif reason is None and roadmap is not None and task.task_kind != "engineering":
+            item = roadmap.by_id.get(task.area.lower())
+            if item is None:
+                reason = "queued roadmap area is not tracked"
+            elif item.complete:
+                reason = "queued roadmap area is already complete"
+        if reason is None:
+            return task
+        blocker = unknown_blocker(reason, dependency=task.depends_on)
+        alternative = _next_task(store, scope, exclude={task.id})
+        if alternative is not None and (
+            roadmap is None
+            or (
+                alternative.task_kind == "engineering"
+                and alternative.id == ENGINEERING_SPEC_ID
+                and alternative.area == ENGINEERING_SPEC_AREA
+                and alternative.prompt == ENGINEERING_SPEC_PROMPT
+            )
+            or (
+                alternative.area.lower() in roadmap.by_id
+                and not roadmap.by_id[alternative.area.lower()].complete
+            )
+        ):
+            blocker = blocker.model_copy(
+                update={"alternative_ready_tasks": [alternative.id]}
+            )
+        if not store.quarantine(task.id, "blocked", blocker.model_dump(mode="json")):
+            return None
     return None
 
 
@@ -792,13 +947,7 @@ def _planning_task(
             return None
         if _next_task(store, ROADMAP_SCOPE) is not None:
             return None
-        if (
-            sum(
-                status not in {"completed", "failed", "blocked", "interrupted"}
-                for _, status, _ in tasks
-            )
-            >= 8
-        ):
+        if sum(status in {"queued", "running"} for _, status, _ in tasks) >= 8:
             return None
         eligible = eligible_areas(roadmap) - reserved_areas(
             task for task in store.tasks() if task.area != PLANNING_AREA
@@ -832,7 +981,13 @@ def _planning_task(
     tasks = _research_snapshot(store)
     if any(status in {"queued", "running"} for _, status, _ in tasks):
         return None
-    if sum(status not in {"completed", "failed"} for _, status, _ in tasks) >= 8:
+    if (
+        sum(
+            status not in {"completed", "failed", "waiting_external", "waiting_human"}
+            for _, status, _ in tasks
+        )
+        >= 8
+    ):
         return None
     head = _git(repo, "rev-parse", "main").stdout.strip()
     day = datetime.now(UTC).date().isoformat()
@@ -1422,7 +1577,8 @@ def run_once(
             seconds=config.cooldown_seconds
         ):
             return RunResult("cooldown")
-        task = _next_task(store, config.scope)
+        store.release_due_waiting(now)
+        task = _select_task(store, config.scope, roadmap)
         if task is None:
             if not config.planning_enabled:
                 return RunResult("idle")
@@ -1489,7 +1645,7 @@ def run_once(
             _safe_history_flush(store, config)
             return result
         roadmap_prompt_text = ""
-        if roadmap is not None:
+        if roadmap is not None and task.task_kind != "engineering":
             try:
                 if governance is None:
                     return RunResult(
@@ -1577,7 +1733,8 @@ def run_once(
             (
                 json.dumps(
                     _completion_schema(
-                        set(roadmap.by_id) if roadmap is not None else ALLOWED_AREAS
+                        set(roadmap.by_id) if roadmap is not None else ALLOWED_AREAS,
+                        engineering=task.task_kind == "engineering",
                     ),
                     sort_keys=True,
                 )
@@ -1698,7 +1855,7 @@ def run_once(
                 config,
                 allowed_areas=set(roadmap.by_id) if roadmap is not None else None,
             )
-            if roadmap is not None:
+            if roadmap is not None and task.task_kind != "engineering":
                 validate_roadmap_completion(load_roadmap(config.repo), task, completion)
         except (OSError, json.JSONDecodeError, RoadmapError, ValueError):
             store.finish(
@@ -1711,26 +1868,63 @@ def run_once(
             store.finish(attempt_id, task.id, "failed", failure_code="postcheck_dirty")
             _safe_history_flush(store, config)
             return RunResult("failed", task.id, attempt_id, post_reason)
-        if completion.status == "blocked":
-            recovery_eligible = (
-                completion.recovery_kind == "environment"
-                and completion.blocked_reason in ENVIRONMENT_RECOVERY_LABELS
-            ) or (
-                completion.recovery_kind == "implementation"
-                and completion.blocked_reason in IMPLEMENTATION_RECOVERY_LABELS
+        if completion.status != "completed":
+            blocker = completion.blocker or unknown_blocker(
+                completion.blocked_reason or "unknown", dependency=task.depends_on
+            )
+            if blocker.blocker_reason != completion.blocked_reason:
+                store.finish(
+                    attempt_id, task.id, "failed", failure_code="completion_invalid"
+                )
+                _safe_history_flush(store, config)
+                return RunResult("failed", task.id, attempt_id, "completion_invalid")
+            if (
+                completion.status == "waiting_external"
+                and blocker.retry_policy == "bounded"
+                and task.attempt_count >= 2
+            ):
+                blocker = blocker.model_copy(
+                    update={
+                        "retry_policy": "manual",
+                        "next_eligible_retry": None,
+                        "resume_condition": "bounded retry exhausted; explicit review",
+                    }
+                )
+            recovery_eligible = completion.status == "blocked" and (
+                (
+                    completion.recovery_kind == "environment"
+                    and completion.blocked_reason in ENVIRONMENT_RECOVERY_LABELS
+                )
+                or (
+                    completion.recovery_kind == "implementation"
+                    and completion.blocked_reason in IMPLEMENTATION_RECOVERY_LABELS
+                )
             )
             store.finish(
                 attempt_id,
                 task.id,
-                "blocked",
-                evidence=completion.model_dump(),
+                completion.status,
+                evidence=completion.model_dump(mode="json"),
                 automatic_retry=_automatic_retry_requested(
                     config, eligible=recovery_eligible
                 ),
+                blocker=blocker.model_dump(mode="json"),
+                next_allowed_at=(
+                    blocker.next_eligible_retry.isoformat()
+                    if blocker.next_eligible_retry is not None
+                    else None
+                ),
             )
             _safe_history_flush(store, config)
-            return RunResult("blocked", task.id, attempt_id, completion.blocked_reason)
-        store.finish(attempt_id, task.id, "completed", evidence=completion.model_dump())
+            return RunResult(
+                completion.status, task.id, attempt_id, completion.blocked_reason
+            )
+        store.finish(
+            attempt_id,
+            task.id,
+            "completed",
+            evidence=completion.model_dump(mode="json"),
+        )
         if completion.followup is not None:
             if config.scope == ROADMAP_SCOPE:
                 if governance is None:
@@ -1826,9 +2020,13 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     enqueue = sub.add_parser("enqueue")
     enqueue.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    enqueue.add_argument("--id", required=True)
-    enqueue.add_argument("--area", required=True)
-    enqueue.add_argument("--prompt", required=True)
+    enqueue.add_argument("--id")
+    enqueue.add_argument("--area")
+    enqueue.add_argument("--prompt")
+    enqueue.add_argument(
+        "--kind", choices=["existing", "engineering"], default="existing"
+    )
+    enqueue.add_argument("--spec")
     retry = sub.add_parser("retry")
     retry.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     retry.add_argument(
@@ -1880,17 +2078,100 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"status": "blocked", "reason": scope_reason}))
         return 2
     if args.command == "status":
+        snapshot = store.tasks()
+        by_id = {task.id: task for task in snapshot}
+        tasks = []
+        for task in snapshot:
+            view = {**asdict(task), "canonical_state": task.canonical_state}
+            if task.status == "queued" and task.depends_on is not None:
+                dependency = by_id.get(task.depends_on)
+                accepted = (
+                    {"completed"}
+                    if config.scope == ROADMAP_SCOPE
+                    else {"completed", "blocked"}
+                )
+                if dependency is None or dependency.status not in accepted:
+                    view["canonical_state"] = "BLOCKED"
+                    view["blocker"] = Blocker(
+                        blocker_reason="dependency not complete",
+                        attempted_actions=[],
+                        dependency=task.depends_on,
+                        resume_condition="dependency reaches accepted state",
+                        retry_policy="event",
+                        alternative_ready_tasks=[],
+                    ).model_dump(mode="json")
+            if task.status == "queued" and task.next_allowed_at is not None:
+                try:
+                    due = datetime.fromisoformat(task.next_allowed_at)
+                    valid = due.tzinfo is not None and due.utcoffset() == timedelta(0)
+                except ValueError:
+                    valid = False
+                if not valid:
+                    view["canonical_state"] = "BLOCKED"
+                    view["blocker"] = unknown_blocker(
+                        "retry timestamp is invalid"
+                    ).model_dump(mode="json")
+                elif due > datetime.now(UTC) and view["canonical_state"] == "READY":
+                    view["canonical_state"] = "WAITING_EXTERNAL"
+                    if view["blocker"] is None:
+                        view["blocker"] = Blocker(
+                            blocker_reason="legacy_unknown",
+                            attempted_actions=[],
+                            dependency=None,
+                            resume_condition="UTC retry deadline",
+                            retry_policy="bounded",
+                            next_eligible_retry=due,
+                            alternative_ready_tasks=[],
+                        ).model_dump(mode="json")
+            tasks.append(view)
         print(
             json.dumps(
                 {
                     "paused": store.is_paused(),
-                    "tasks": [asdict(task) for task in store.tasks()],
+                    "tasks": tasks,
                 },
                 ensure_ascii=False,
             )
         )
         return 0
     if args.command == "enqueue":
+        if args.kind == "engineering":
+            if (
+                config.scope != ROADMAP_SCOPE
+                or args.spec != ENGINEERING_SPEC_ID
+                or any(value is not None for value in (args.id, args.area, args.prompt))
+            ):
+                print(
+                    json.dumps(
+                        {
+                            "enqueued": False,
+                            "reason": "engineering spec is not registered",
+                        }
+                    )
+                )
+                return 2
+            print(
+                json.dumps(
+                    {
+                        "enqueued": store.enqueue(
+                            ENGINEERING_SPEC_ID,
+                            ENGINEERING_SPEC_AREA,
+                            ENGINEERING_SPEC_PROMPT,
+                            task_kind="engineering",
+                        )
+                    }
+                )
+            )
+            return 0
+        if args.spec is not None or not all(
+            value is not None for value in (args.id, args.area, args.prompt)
+        ):
+            print(
+                json.dumps(
+                    {"enqueued": False, "reason": "id, area, and prompt are required"}
+                )
+            )
+            return 2
         if config.scope == ROADMAP_SCOPE:
             try:
                 roadmap = load_roadmap(config.repo)
@@ -1905,7 +2186,16 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
         print(
             json.dumps(
-                {"enqueued": store.enqueue(args.id, area, args.prompt)},
+                {
+                    "enqueued": store.enqueue(
+                        args.id,
+                        area,
+                        args.prompt,
+                        task_kind="investment"
+                        if config.scope == ROADMAP_SCOPE
+                        else "research",
+                    )
+                },
                 ensure_ascii=False,
             )
         )

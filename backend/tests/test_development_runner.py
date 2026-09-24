@@ -68,6 +68,7 @@ def test_runtime_prompt_forbids_unbounded_empty_receiver_wait() -> None:
     )
     assert "blocked completion" in RUNTIME_PROMPT_SUFFIX
     assert "followup to null" in RUNTIME_PROMPT_SUFFIX
+    assert "A child self-review is not independent review" in RUNTIME_PROMPT_SUFFIX
 
 
 @pytest.mark.parametrize("mode", [0o750, 0o770])
