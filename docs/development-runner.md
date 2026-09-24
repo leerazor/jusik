@@ -9,6 +9,41 @@
 
 ## 초기 설정
 
+자율 연구소의 task/strategy 상태와 역할은 [설계 정본](autonomous-trading-lab.md)을
+따릅니다. `blocked`·외부/사람 대기는 해당 작업의 상태이며 독립 READY 작업의 종료
+조건이 아닙니다. 전역 Git/mandate/lock/명시적 pause 실패는 계속 전체 dispatch를 막습니다.
+
+## Engineering 작업과 호환 상태
+
+기존 투자 roadmap 작업은 체크리스트와 phase gate를 유지합니다. engineering 작업은
+고정된 spec으로만 등록하고 같은 runner의 claim·증거·commit·review 검증을 사용합니다.
+자료 없는 실제 투자 검증을 engineering으로 바꾸어 우회할 수 없습니다. 공학 완료는
+`ENGINEERING_COMPLETE`, 투자 판정은 `NOT_EVALUATED`이며 roadmap checkbox를 올리지 않습니다.
+
+```bash
+cd backend
+.venv/bin/python -m jusik.development_runner enqueue \
+  --config /home/kwl/.config/jusik/roadmap-development-runner.json \
+  --kind engineering --spec lab-paper-execution-contract-v1
+```
+
+이 spec은 오프라인 execution interface와 fake-broker의 중복/부분체결/취소/재시도/대사
+계약만 허용합니다. KIS 호출·계정 변경·PAPER/live activation은 포함하지 않습니다.
+arbitrary spec이나 자유문장 prompt로 범위를 늘릴 수 없습니다. 새 scope의 추가는
+검토된 코드·문서 변경으로 등록해야 합니다.
+
+canonical task state는 READY/RUNNING/BLOCKED/WAITING_EXTERNAL/WAITING_HUMAN/FAILED/DONE이며
+legacy 소문자 상태와 과거 attempt를 보존합니다. 구조화된 blocker는 사유, 시도한 조치,
+의존성, 재개 조건, retry 정책·최초 허용 시각, 대안 task를 기록합니다. 과거 기록에 없는
+정보는 unknown과 빈 attempted_actions로 표현하고 새 사실을 만들지 않습니다.
+기존 완료 이력만으로 ENGINEERING_COMPLETE 또는 INVESTMENT_VALIDATED를 추론하지 않습니다.
+
+외부·사람 대기는 active queue 상한을 점유하지 않습니다. 사람 승인은 자동 retry로
+만들지 않습니다. 자세한 CLI/DB 검사 결과와 이번 구현 범위는
+[개발 기록](development-records/2026-09-25-autonomous-lab.md)을 확인합니다.
+
+## 기존 연구 큐 초기화
+
 백엔드 개발 의존성을 설치한 뒤 저장소 루트에서 설정 파일과 고정 초기 큐를 만듭니다.
 
 ```bash

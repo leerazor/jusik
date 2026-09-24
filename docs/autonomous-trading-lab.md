@@ -272,6 +272,8 @@ stateDiagram-v2
 
 `READY`는 미완료와 동의어가 아니다. 의존성·권한·필수 입력·resource lease·retry 시각을 충족해야 claim한다. 기존 소문자 `queued/running/blocked/failed/completed`는 호환 저장 표현으로 유지할 수 있고 canonical state를 별도 출력한다. `interrupted/retryable`은 FAILED 계열이며 이전 attempt를 지우지 않는다. 상태 전이는 단일 store transaction으로 처리한다.
 
+과거 일반 `research` scope에는 blocked 선행 작업을 terminal 순서 조건으로 인정하는 호환 경로가 있다. 이를 새 자료 검증 통과로 해석하지 않는다. investment-roadmap과 그 engineering lane의 필수 선행 작업은 DONE이어야 하며, 이전 scope의 실행 의미를 자동 변경하거나 새 투자 증거로 재분류하지 않는다.
+
 `ENGINEERING_COMPLETE`와 `INVESTMENT_VALIDATED`는 task state에 섞지 않는 별도 판정 축이다. fixture로 deterministic backtest correctness를 검증한 task는 `DONE + ENGINEERING_COMPLETE + NOT_EVALUATED`가 가능하다. 투자 검증은 real evidence와 독립 gate를 통과한 해당 strategy version의 판정이며, task DONE이나 checklist checkbox에서 추론하지 않는다.
 
 ## 8. Strategy state machine
@@ -289,13 +291,13 @@ stateDiagram-v2
     REAL_MONEY_CANDIDATE --> HUMAN_APPROVED
     HUMAN_APPROVED --> LIVE
   }
-  Active --> PAUSED: record prior state
+  Active --> PAUSED: RESEARCHING or later; record prior state
   PAUSED --> Active: restore exact prior state after fresh gates
   Active --> RETIRED: retain evidence and reason
   PAUSED --> RETIRED
 ```
 
-`Active`는 그림의 묶음이며 DB 상태가 아니다. resume은 IDEA부터 다시 시작하거나 원하는 상태를 고르는 동작이 아니라 기록된 직전 상태만 재검증해 복원한다. 미구현 전이는 resume 경로에서도 차단한다.
+`Active`는 그림의 묶음이며 DB 상태가 아니다. IDEA는 RESEARCHING 또는 RETIRED로만 이동하고 pause 대상이 아니다. resume은 IDEA부터 다시 시작하거나 원하는 상태를 고르는 동작이 아니라 기록된 직전 상태만 재검증해 복원한다. 미구현 전이는 resume 경로에서도 차단한다.
 
 | 전이 | 필수 증거 / deterministic guard |
 | --- | --- |

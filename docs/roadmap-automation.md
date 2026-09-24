@@ -14,6 +14,17 @@ phase gate는 R0 완료 후 R1·R2·R3를 독립적으로 허용하고, R1과 R2
 
 ## 현재 설치 상태와 제어
 
+### 독립적인 공학 작업
+
+`kind=engineering`으로 명시적으로 등록한 고정 spec은 투자 phase와 area 예약을
+공유하지 않습니다. 기존 runner의 Git·mandate·pause·lock·claim·증거·review 검증은
+그대로 통과해야 합니다. 투자 task 8개가 blocked여도 허용된 공학 READY는 선택할 수
+있어야 합니다. 공학 결과는 투자 checklist·성과·PAPER/live 승인에 사용하지 않습니다.
+허용 spec, CLI와 상태 계약은 [실행기 문서](development-runner.md#engineering-작업과-호환-상태)를
+따르고 전체 정책은 [자율 연구소 설계](autonomous-trading-lab.md)에 둡니다.
+
+### 운영 제어
+
 전용 config는 `~/.config/jusik/roadmap-development-runner.json`, state는 `~/.local/share/jusik/roadmap-development-runner`입니다. 기존 `jusik-research` scope와 state는 재개하지 않고, `investment-roadmap` scope만 사용합니다. `planning_enabled=true`와 `dispatch_enabled=true`는 현재 승인 설계와 checksum 검증을 통과한 뒤 적용하며, 한 cycle은 하나의 bounded slice만 처리합니다. 실제 시작 여부·attempt ID·확인 시각은 audit와 runner status를 기준으로 확인합니다.
 
 수동 작업 전에는 backend에서 `.venv/bin/python -m jusik.development_runner pause --config ~/.config/jusik/roadmap-development-runner.json`을 실행하고, `systemctl --user stop jusik-development-runner.service`와 inactive 확인을 수행합니다. `status`, `resume`, `retry`에도 같은 config를 명시합니다. 자동 child는 자기 service를 중지하지 않습니다. WSL이 종료되면 자동 실행도 멈춥니다.
