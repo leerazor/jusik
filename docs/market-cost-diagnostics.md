@@ -10,7 +10,7 @@
 - 고정 요율과 시가 100·수량 10의 독립 검산은 매수 `fill=100.1`, `notional=1001`, `fee=0.15015`, `tax=0`, `slippage=1`, `cash_delta=-1001.15015`, 매도 `fill=99.9`, `notional=999`, `fee=0.14985`, `tax=1.7982`, `slippage=1`, `cash_delta=997.05195`입니다. 왕복 현금 변동은 `-4.09820`, slippage 합계는 `2`이며 이를 현금에서 다시 차감하지 않습니다.
 - 모든 저장 `fill_price`, `notional`, `fee`, `tax`를 독립 결과와 대조합니다. 저장값 mismatch나 구조 오류는 `invalid`와 `stored_match=false`로 닫고, 오류 없는 `partial`·취소·거절 상태만 `blocked`로 남깁니다.
 - 거래 session은 입력 순서에서 감소하지 않아야 하며, equity session은 중복 없이 엄격히 증가하고 모든 fill session을 포함해야 합니다. 동일 session의 서로 다른 체결은 허용하고, session·symbol·side·quantity·가격·비용·통화·제공시각이 모두 같은 관측만 중복으로 거절합니다.
-- supplied `executed_at`·`timestamp`는 timezone-aware ISO timestamp여야 하며 US `America/New_York`, KR `Asia/Seoul` 현지 날짜가 거래 session과 일치해야 합니다. 저장 pilot처럼 timestamp가 없으면 실제 시각을 추정하지 않고 unavailable로 둡니다.
+- supplied `executed_at`·`timestamp`는 timezone-aware ISO timestamp여야 하며 US `America/New_York`, KR `Asia/Seoul` 현지 날짜가 거래 session과 일치해야 합니다. 둘 다 있으면 같은 UTC 시각이어야 하고, 제공된 체결 시각은 저장 순서에서 감소하면 `invalid`입니다. 저장 pilot처럼 timestamp가 없으면 실제 시각을 추정하지 않고 unavailable로 둡니다.
 - KR은 KRW, US는 USD 계약을 사용합니다. 저장 자료에 주문 ID, 부분체결·취소·거절의 완전한 이력이 없으므로 이를 추정하지 않습니다.
 
 고정된 미국 파일럿 하나만 읽습니다. SHA-256은 `cc9150f8b77a27ffd6b001449c0475933ff744a37011801923f87cbdc5558275`이고, 252 평가 세션·106 거래가 아니면 실행을 거부합니다. 새 연구 실행, 네트워크, DB, 서비스, GPU, 주문은 사용하지 않습니다. 오프라인 회귀 inventory는 16개 이름(KR/US 매수·매도, zero, negative, missing, duplicate, rounding, holiday, timezone, partial, cancelled, rejected, chronology, stored mismatch)이며 timestamp·equity·assumptions 경계는 해당 이름 안에서 합성 자료로 검증합니다.
@@ -22,5 +22,7 @@ PYTHONPATH=backend backend/.venv/bin/python -m jusik.market_cost_diagnostics \
 ```
 
 CLI 결과는 독립 산술과 저장값 대조를 기록하지만 항상 `economic_evaluation=not-evaluated`로 남깁니다. 거래소 휴장일 달력 검증, 실제 체결 시각, 법정 세목·관할·유효기간·공식 세율 근거는 unavailable이며, 해당 입력이 확보되기 전에는 R2-02 전체 체크를 완료했다고 해석하지 않습니다.
+
+저장값 불일치나 구조 오류는 최상위 `status=invalid`로 반환합니다. 산술이 일치해도 법정 적용 계약이 없으면 최상위 `status=blocked`입니다. 선택된 BanKIS online 공식 프로필은 [비용 프로필 기록](development-records/2026-09-20-bankis-cost-profile.md)과 SHA 고정된 source audit에 보존되어 있습니다. 해당 프로필의 표시 요율은 현재 범위의 근거로 유지하되 이 동결 파일럿의 `0.0018` 모델 가정에 소급 적용하지 않습니다. 시장 board·상품·계좌별 실제 적용 범위, 법정 유효기간, 체결 또는 결제 기준과 receipt가 결속되기 전까지 법정 검증과 경제 평가는 unavailable입니다.
 
 CLI는 진단 전에 `--pilot`과 `--output`이 동일 파일이거나 기존 symlink/hardlink 별칭인지 확인합니다. 별칭이면 exit 2로 거부하고 pilot 원본을 보존합니다. 별도 output 경로만 진단 JSON을 기록합니다.

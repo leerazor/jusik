@@ -187,6 +187,18 @@ def test_fixed_scenarios(scenario: str) -> None:
         assert (
             diagnose_trades([bad_boundary], assumptions=ASSUMPTIONS).status == "invalid"
         )
+        first = trade()
+        first["timestamp"] = "2025-01-03T15:00:00Z"
+        second = trade()
+        second["symbol"] = "SECOND"
+        second["timestamp"] = "2025-01-03T14:59:59Z"
+        reverse_time = diagnose_trades([first, second], assumptions=ASSUMPTIONS)
+        assert reverse_time.status == "invalid"
+        assert "trade[1] timestamp chronology decreases" in reverse_time.reasons
+        first["executed_at"] = "2025-01-03T15:00:01Z"
+        disagreeing_fields = diagnose_trades([first], assumptions=ASSUMPTIONS)
+        assert disagreeing_fields.status == "invalid"
+        assert "trade[0] timestamp fields disagree" in disagreeing_fields.reasons
 
     if scenario == "missing chronology":
         reverse = [trade(session="2025-01-04"), trade(session="2025-01-03")]
@@ -307,6 +319,27 @@ def test_stored_pilot_contract_uses_small_synthetic_json(
     assert result["stored_session_count"] == 2
     assert result["stored_match"] is True
     assert result["statutory_validation"] == "unavailable"
+
+
+def test_stored_pilot_mismatch_is_invalid_at_top_level(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    row = trade()
+    row["fee"] = "999"
+    path = _write_pilot(
+        tmp_path,
+        monkeypatch,
+        _pilot_payload([row], [{"session": "2025-01-02"}, {"session": "2025-01-03"}]),
+        count=1,
+        sessions=2,
+    )
+    result = diagnose_stored_pilot(path)
+    assert result["status"] == "invalid"
+    assert result["diagnostic_status"] == "invalid"
+    assert result["stored_match"] is False
+    mismatches = result["mismatches"]
+    assert isinstance(mismatches, list)
+    assert "trade[0] stored fee mismatch" in mismatches
 
 
 def test_synthetic_pilot_rejects_equity_and_fill_boundaries(

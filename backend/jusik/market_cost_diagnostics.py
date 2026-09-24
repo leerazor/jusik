@@ -12,7 +12,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation, localcontext
 from pathlib import Path
 from typing import Literal
@@ -54,7 +54,9 @@ def _date(value: object, label: str) -> date:
         raise ValueError(f"{label} must be an ISO date") from exc
 
 
-def _aware_timestamp(value: object, label: str, *, market: str, session: date) -> None:
+def _aware_timestamp(
+    value: object, label: str, *, market: str, session: date
+) -> datetime:
     if not isinstance(value, str):
         raise ValueError(f"{label} must be an aware ISO timestamp")
     try:
@@ -63,9 +65,10 @@ def _aware_timestamp(value: object, label: str, *, market: str, session: date) -
         raise ValueError(f"{label} must be an aware ISO timestamp") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError(f"{label} must be an aware ISO timestamp")
-    timezone = ZoneInfo("America/New_York" if market == "US" else "Asia/Seoul")
-    if parsed.astimezone(timezone).date() != session:
+    market_timezone = ZoneInfo("America/New_York" if market == "US" else "Asia/Seoul")
+    if parsed.astimezone(market_timezone).date() != session:
         raise ValueError(f"{label} local date does not match session")
+    return parsed.astimezone(UTC)
 
 
 @dataclass(frozen=True)
@@ -181,6 +184,7 @@ def diagnose_trades(
     seen: set[tuple[object, ...]] = set()
     unsupported = False
     previous_session: date | None = None
+    previous_timestamp: datetime | None = None
     with localcontext() as context:
         context.prec = PRECISION
         for index, row in enumerate(rows):
@@ -239,14 +243,29 @@ def diagnose_trades(
                     )
                 elif row_status not in {None, "filled", "executed"}:
                     raise ValueError(f"trade[{index}] has unsupported status")
+                row_timestamps: list[datetime] = []
                 for timestamp_key in ("executed_at", "timestamp"):
                     if timestamp_key in row and row[timestamp_key] is not None:
-                        _aware_timestamp(
-                            row[timestamp_key],
-                            f"trade[{index}].{timestamp_key}",
-                            market=assumptions.market,
-                            session=session,
+                        row_timestamps.append(
+                            _aware_timestamp(
+                                row[timestamp_key],
+                                f"trade[{index}].{timestamp_key}",
+                                market=assumptions.market,
+                                session=session,
+                            )
                         )
+                if len(set(row_timestamps)) > 1:
+                    raise ValueError(f"trade[{index}] timestamp fields disagree")
+                if row_timestamps:
+                    timestamp = row_timestamps[0]
+                    if (
+                        previous_timestamp is not None
+                        and timestamp < previous_timestamp
+                    ):
+                        raise ValueError(
+                            f"trade[{index}] timestamp chronology decreases"
+                        )
+                    previous_timestamp = timestamp
                 fill_price = market_open * (
                     1 + assumptions.slippage_rate
                     if side == "buy"
@@ -483,7 +502,7 @@ def diagnose_stored_pilot(path: Path) -> dict[str, object]:
     output = diagnostic.as_dict()
     output.update(
         {
-            "status": "blocked",
+            "status": "invalid" if diagnostic.status == "invalid" else "blocked",
             "diagnostic_status": diagnostic.status,
             "input_sha256": digest,
             "source": str(path),
