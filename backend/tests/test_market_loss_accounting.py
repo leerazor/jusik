@@ -240,7 +240,12 @@ def test_zero_negative_missing_duplicate_and_rounding_boundaries() -> None:
 
 
 def test_float_financial_values_are_rejected_before_decimal_conversion() -> None:
-    trade = replace(_trade("buy", "1", "100", "100"), fill_price=0.1)
+    trade = replace(
+        _trade("buy", "1", "100", "100"),
+        # Keep the runtime float to verify the fail-closed boundary while
+        # satisfying the statically typed dataclass field contract.
+        fill_price=cast(Decimal, 0.1),
+    )
     with pytest.raises(ValueError, match="finite decimal"):
         account_trades([trade], final_marks={"AAA": Decimal("100")})
 
