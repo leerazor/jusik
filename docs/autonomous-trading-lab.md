@@ -405,7 +405,7 @@ engineering lane은 기존 runner 안에서 명시적으로 등록된 고정 sco
 후속 우선순위는 다음과 같다.
 
 1. 검증된 receipt adapter를 lifecycle에 연결하고 기존 strategy version과 명시적으로 결속한다. 기존 결과 자동 이관 금지.
-2. `lab-paper-execution-contract-v1`: 실제 주문 없이 execution interface와 idempotency/partial-fill/cancel/retry/reconciliation fixture를 검증한다.
+2. `lab-paper-execution-contract-v1`: 실제 주문 없이 execution interface와 idempotency/partial-fill/cancel/reject/retry/reconciliation fixture를 검증한다.
 3. KIS 공식 모의주문 계약·권한·계정 환경을 확인하고 별도 sandbox adapter를 연결한다. 내부 PAPER와 KIS paper를 다른 source로 기록한다.
 4. prospective 실제 관찰 수집과 실시간 비용/PnL 대사를 완성한다.
 5. 검증된 후보 보고, 독립 최종 검토, 인증된 인간 승인·deterministic risk/execution 경계를 연결한다. 실계좌 주문은 별도 승인 전 실행하지 않는다.

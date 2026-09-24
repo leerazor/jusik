@@ -27,7 +27,7 @@ cd backend
   --kind engineering --spec lab-paper-execution-contract-v1
 ```
 
-이 spec은 오프라인 execution interface와 fake-broker의 중복/부분체결/취소/재시도/대사
+이 spec은 오프라인 execution interface와 fake-broker의 중복/부분체결/취소/거절/재시도/대사
 계약만 허용합니다. KIS 호출·계정 변경·PAPER/live activation은 포함하지 않습니다.
 arbitrary spec이나 자유문장 prompt로 범위를 늘릴 수 없습니다. 새 scope의 추가는
 검토된 코드·문서 변경으로 등록해야 합니다.
