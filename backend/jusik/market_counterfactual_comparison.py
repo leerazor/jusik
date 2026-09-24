@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_EVEN, Context, Decimal, InvalidOperation, localcontext
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal, NoReturn, cast
 
 PRECISION = 50
 DECIMAL_CONTEXT = Context(prec=PRECISION, rounding=ROUND_HALF_EVEN)
@@ -56,7 +56,7 @@ def _string(value: object, label: str) -> str:
 
 
 def _decimal(value: object, label: str) -> Decimal:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or isinstance(value, float):
         raise ValueError(f"{label} must be a finite decimal")
     try:
         result = Decimal(str(value))
@@ -65,6 +65,23 @@ def _decimal(value: object, label: str) -> Decimal:
     if not result.is_finite():
         raise ValueError(f"{label} must be a finite decimal")
     return result
+
+
+def _reject_in_memory_numbers(value: object, label: str) -> None:
+    """Reject binary floats before they can lose decimal precision."""
+
+    if isinstance(value, float):
+        raise ValueError(f"{label} must not contain binary floating-point numbers")
+    if isinstance(value, Decimal) and not value.is_finite():
+        raise ValueError(f"{label} must contain only finite decimals")
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError(f"{label} mapping keys must be strings")
+            _reject_in_memory_numbers(item, f"{label}.{key}")
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _reject_in_memory_numbers(item, f"{label}[{index}]")
 
 
 def _iso_date(value: object, label: str) -> str:
@@ -88,6 +105,20 @@ class _DuplicateKey(ValueError):
     pass
 
 
+class _InvalidJsonNumber(ValueError):
+    pass
+
+
+def _reject_decimal_number(value: str) -> NoReturn:
+    raise _InvalidJsonNumber(
+        f"non-integer JSON number {value!r} must be encoded as a decimal string"
+    )
+
+
+def _reject_nonstandard_constant(value: str) -> NoReturn:
+    raise _InvalidJsonNumber(f"non-standard JSON numeric constant {value} is invalid")
+
+
 def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> JsonObject:
     result: JsonObject = {}
     for key, value in pairs:
@@ -100,10 +131,18 @@ def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> JsonObject:
 def _parse_json(body: bytes, label: str) -> JsonObject:
     try:
         parsed = json.loads(
-            body.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys
+            body.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_float=_reject_decimal_number,
+            parse_constant=_reject_nonstandard_constant,
         )
-    except (UnicodeDecodeError, json.JSONDecodeError, _DuplicateKey) as exc:
-        raise ValueError(f"{label} is invalid JSON") from exc
+    except (
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        _DuplicateKey,
+        _InvalidJsonNumber,
+    ) as exc:
+        raise ValueError(f"{label} is invalid JSON: {exc}") from exc
     if not isinstance(parsed, dict):
         raise ValueError(f"{label} must contain an object")
     return parsed
@@ -294,6 +333,7 @@ class ComparisonEnvelope:
     def from_mapping(
         cls, value: object, *, base_dir: Path = Path(".")
     ) -> ComparisonEnvelope:
+        _reject_in_memory_numbers(value, "comparison envelope")
         data = _object(value, "comparison envelope")
         if data.get("schema") != "market-counterfactual-comparison/v1":
             raise ValueError("comparison envelope schema is unsupported")
@@ -651,6 +691,7 @@ def _validate_envelope(envelope: ComparisonEnvelope) -> None:
     _string(envelope.policy_contract, "policy_contract")
     if not isinstance(envelope.fixed_assumptions, Mapping):
         raise ValueError("fixed_assumptions must be an object")
+    _reject_in_memory_numbers(envelope.fixed_assumptions, "fixed_assumptions")
     if set(envelope.fixed_assumptions) != set(_ASSUMPTION_KINDS):
         raise ValueError("fixed_assumptions must contain cost, dividend, and fx")
     if not 1 <= len(envelope.scenarios) <= MAX_SCENARIOS:
@@ -669,6 +710,8 @@ def _validate_envelope(envelope: ComparisonEnvelope) -> None:
             raise ValueError("scenario.change must be an object")
         if not isinstance(item.assumptions, Mapping):
             raise ValueError("scenario.assumptions must be an object")
+        _reject_in_memory_numbers(item.change, f"{item.scenario_id}.change")
+        _reject_in_memory_numbers(item.assumptions, f"{item.scenario_id}.assumptions")
         _sha256(item.source.sha256, "source.sha256")
     _validate_assumptions(envelope.baseline, envelope.scenarios)
 

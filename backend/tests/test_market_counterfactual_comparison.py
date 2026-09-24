@@ -1,8 +1,9 @@
 import copy
 import hashlib
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
+from dataclasses import replace
 from decimal import ROUND_DOWN, Context, Decimal, localcontext
 from pathlib import Path
 
@@ -356,6 +357,64 @@ def test_zero_negative_and_high_precision_values_are_decimal_safe(
     assert delta["value"] == "-1E-19"
 
 
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda envelope: envelope["initial_capital"].update(
+                {"value": 0.123456789123456789}
+            ),
+            "binary floating-point",
+        ),
+        (
+            lambda envelope: envelope["fixed_assumptions"].update(
+                {"cost": float("nan")}
+            ),
+            "binary floating-point",
+        ),
+        (
+            lambda envelope: envelope["fixed_assumptions"].update(
+                {"cost": ("nested", 0.123456789123456789)}
+            ),
+            "binary floating-point",
+        ),
+        (
+            lambda envelope: envelope["fixed_assumptions"].update(
+                {"cost": ("nested", float("nan"))}
+            ),
+            "binary floating-point",
+        ),
+    ],
+)
+def test_public_mapping_rejects_binary_float_numbers(
+    tmp_path: Path, mutate: Callable[[dict[str, object]], None], message: str
+) -> None:
+    envelope_data = _envelope(tmp_path)
+    mutate(envelope_data)
+    with pytest.raises(ValueError, match=message):
+        ComparisonEnvelope.from_mapping(envelope_data, base_dir=tmp_path)
+
+
+def test_public_mapping_rejects_non_string_nested_mapping_keys(
+    tmp_path: Path,
+) -> None:
+    envelope_data = _envelope(tmp_path)
+    assumptions = _object(_object(_array(envelope_data["scenarios"])[0])["assumptions"])
+    assumptions["nested"] = {float("nan"): "invalid"}
+    with pytest.raises(ValueError, match="mapping keys must be strings"):
+        ComparisonEnvelope.from_mapping(envelope_data, base_dir=tmp_path)
+
+
+def test_direct_envelope_validation_rejects_nested_binary_float(
+    tmp_path: Path,
+) -> None:
+    envelope = ComparisonEnvelope.from_mapping(_envelope(tmp_path), base_dir=tmp_path)
+    invalid_baseline = replace(envelope.baseline, change={"description": float("nan")})
+    invalid_envelope = replace(envelope, baseline=invalid_baseline)
+    with pytest.raises(ValueError, match="binary floating-point"):
+        compare_prepared_reports(invalid_envelope)
+
+
 def test_explicit_weekend_session_is_preserved_and_timezone_is_not_a_date(
     tmp_path: Path,
 ) -> None:
@@ -624,6 +683,30 @@ def test_duplicate_json_key_is_rejected_before_report_validation(
         compare_prepared_reports(
             ComparisonEnvelope.from_mapping(envelope, base_dir=tmp_path)
         )
+
+
+def test_json_decimal_numbers_must_be_encoded_as_strings(tmp_path: Path) -> None:
+    path = tmp_path / "decimal-number.json"
+    path.write_text(
+        '{"schema":"market-counterfactual-comparison/v1",'
+        '"value":0.123456789012345678901234567890123456789}'
+    )
+
+    with pytest.raises(ValueError, match="must be encoded as a decimal string"):
+        load_comparison_envelope(path)
+
+
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+def test_nonstandard_json_numeric_constants_are_rejected(
+    tmp_path: Path, constant: str
+) -> None:
+    path = tmp_path / "nonstandard-number.json"
+    path.write_text(
+        f'{{"schema":"market-counterfactual-comparison/v1","value":{constant}}}'
+    )
+
+    with pytest.raises(ValueError, match="non-standard JSON numeric constant"):
+        load_comparison_envelope(path)
 
 
 def test_hash_is_checked_before_parsing_and_scenario_limit_is_bounded(
