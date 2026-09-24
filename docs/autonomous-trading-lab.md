@@ -404,10 +404,11 @@ engineering lane은 기존 runner 안에서 명시적으로 등록된 고정 sco
 
 후속 우선순위는 다음과 같다.
 
-1. 검증된 receipt adapter를 lifecycle에 연결하고 기존 strategy version과 명시적으로 결속한다. 기존 결과 자동 이관 금지.
-2. `lab-paper-execution-contract-v1`: 실제 주문 없이 execution interface와 idempotency/partial-fill/cancel/reject/retry/reconciliation fixture를 검증한다.
-3. KIS 공식 모의주문 계약·권한·계정 환경을 확인하고 별도 sandbox adapter를 연결한다. 내부 PAPER와 KIS paper를 다른 source로 기록한다.
-4. prospective 실제 관찰 수집과 실시간 비용/PnL 대사를 완성한다.
-5. 검증된 후보 보고, 독립 최종 검토, 인증된 인간 승인·deterministic risk/execution 경계를 연결한다. 실계좌 주문은 별도 승인 전 실행하지 않는다.
+1. 공학 작업의 별도 읽기 전용 reviewer dispatch와 정확한 attempt/commit에 결속한 receipt 검증을 구현한다. reviewer 실행은 전용 review attempt journal에 기록하고 timeout·중단·재시작을 유한 상태로 복구한다. PASS receipt는 원래 task/implementation attempt, 시작 HEAD·현재 main HEAD, 두 소유 파일 hash에 결속해 완료 직전에 재검증한다. PASS일 때만 원래 시도를 원자적으로 `DONE + ENGINEERING_COMPLETE + NOT_EVALUATED`로 확정한다. 실패·무응답·불가용은 해당 작업만 대기시키고 독립 READY를 계속 실행한다. 일반 event 재시도·child의 자기 보고·새 구현 attempt는 review를 대체하지 않는다. 그 전에는 검토 대기를 유지하며 완료를 주장하지 않는다.
+2. 검증된 receipt adapter를 lifecycle에 연결하고 기존 strategy version과 명시적으로 결속한다. 기존 결과 자동 이관 금지.
+3. `lab-paper-execution-contract-v1`: 실제 주문 없이 execution interface와 idempotency/partial-fill/cancel/reject/retry/reconciliation fixture를 검증한다.
+4. KIS 공식 모의주문 계약·권한·계정 환경을 확인하고 별도 sandbox adapter를 연결한다. 내부 PAPER와 KIS paper를 다른 source로 기록한다.
+5. prospective 실제 관찰 수집과 실시간 비용/PnL 대사를 완성한다.
+6. 검증된 후보 보고, 독립 최종 검토, 인증된 인간 승인·deterministic risk/execution 경계를 연결한다. 실계좌 주문은 별도 승인 전 실행하지 않는다.
 
 이 후속 목록이 모두 구현됐거나 unattended 수익 창출이 가능하다는 의미는 아니다. 이번 최소 구현의 통과와 전체 autonomous trading lab 완성은 별도로 보고한다.

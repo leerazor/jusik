@@ -16,9 +16,12 @@
 ## Engineering 작업과 호환 상태
 
 기존 투자 roadmap 작업은 체크리스트와 phase gate를 유지합니다. engineering 작업은
-고정된 spec으로만 등록하고 같은 runner의 claim·증거·commit·review 검증을 사용합니다.
+고정된 spec으로만 등록하고 같은 runner의 claim·증거·commit 검증을 사용합니다.
 자료 없는 실제 투자 검증을 engineering으로 바꾸어 우회할 수 없습니다. 공학 완료는
-`ENGINEERING_COMPLETE`, 투자 판정은 `NOT_EVALUATED`이며 roadmap checkbox를 올리지 않습니다.
+독립 review receipt가 검증된 뒤에만 `ENGINEERING_COMPLETE`, 투자 판정은
+`NOT_EVALUATED`이며 roadmap checkbox를 올리지 않습니다. 현재 별도 reviewer dispatch와
+receipt 확정 경로는 후속 구현이므로 완료 후보는 `WAITING_EXTERNAL`에 보수적으로
+머뭅니다. 이 대기는 일반 `retry --event-evidence`로 해제할 수 없고 다른 READY를 막지 않습니다.
 
 ```bash
 cd backend
