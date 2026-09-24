@@ -84,7 +84,10 @@ def probe_table(
     table: str,
     api_key: str | None,
     *,
+    ticker: str | None = None,
     compnumber: str | None = None,
+    date_gte: str | None = None,
+    date_lte: str | None = None,
 ) -> NasdaqDataLinkProbeResult:
     """Fetch a bounded Nasdaq Data Link table through the official SDK."""
 
@@ -92,6 +95,13 @@ def probe_table(
         raise ValueError("table identifier is invalid")
     if compnumber is not None and not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", compnumber):
         raise ValueError("compnumber is invalid")
+    for name, value in (
+        ("ticker", ticker),
+        ("date_gte", date_gte),
+        ("date_lte", date_lte),
+    ):
+        if value is not None and not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", value):
+            raise ValueError(f"{name} is invalid")
     if not api_key:
         return NasdaqDataLinkProbeResult(table, "missing_key", error="key_missing")
 
@@ -111,8 +121,14 @@ def probe_table(
     config.api_base = SDK_BASE_URL
     config.api_key = api_key
     parameters: dict[str, object] = {"paginate": True}
+    if ticker is not None:
+        parameters["ticker"] = ticker
     if compnumber is not None:
         parameters["compnumber"] = compnumber
+    if date_gte is not None:
+        parameters["date.gte"] = date_gte
+    if date_lte is not None:
+        parameters["date.lte"] = date_lte
     try:
         frame = getter(table, **parameters)
         columns = tuple(str(value) for value in getattr(frame, "columns", ()))
@@ -151,13 +167,23 @@ def main(argv: list[str] | None = None) -> int:
     target = parser.add_mutually_exclusive_group()
     target.add_argument("--dataset")
     target.add_argument("--table")
+    parser.add_argument("--ticker")
     parser.add_argument("--compnumber")
+    parser.add_argument("--date-gte")
+    parser.add_argument("--date-lte")
     parser.add_argument("--rows", type=int, default=1)
     parser.add_argument("--env-file", type=Path, default=Path(".env"))
     args = parser.parse_args(argv)
     api_key = _api_key_from_env(args.env_file)
     if args.table is not None:
-        result = probe_table(args.table, api_key, compnumber=args.compnumber)
+        result = probe_table(
+            args.table,
+            api_key,
+            ticker=args.ticker,
+            compnumber=args.compnumber,
+            date_gte=args.date_gte,
+            date_lte=args.date_lte,
+        )
     else:
         result = probe_dataset(args.dataset or "FRED/GDP", api_key, rows=args.rows)
     print(json.dumps(asdict(result), ensure_ascii=False, sort_keys=True))

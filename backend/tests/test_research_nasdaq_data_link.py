@@ -80,8 +80,10 @@ def test_table_probe_uses_paginated_sdk(monkeypatch) -> None:
     )
     monkeypatch.setitem(sys.modules, "nasdaqdatalink", sdk)
 
-    result = probe_table("MER/F1", "secret", compnumber="39102")
+    result = probe_table("MER/F1", "secret", compnumber="39102", ticker="AAPL")
 
     assert result.status == "ready"
     assert result.rows == 2
-    assert calls == [("MER/F1", {"paginate": True, "compnumber": "39102"})]
+    assert calls == [
+        ("MER/F1", {"paginate": True, "ticker": "AAPL", "compnumber": "39102"})
+    ]

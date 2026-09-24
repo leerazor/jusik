@@ -38,6 +38,8 @@ Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해
 - 실제 `.env` 키로 `FRED/GDP`를 SDK 조회한 결과는 `DataLinkError`로 실패했다. SDK 호출 방식 자체는 검증됐지만 현재 환경의 403 edge 차단은 해결되지 않았다.
 - 사용자가 검증한 방식에 맞춰 `get_table()` 경로도 추가했다. 실제 `.env` 키로 `MER/F1`, `compnumber=39102`, `paginate=True`를 조회해 HTTP 계층을 거치지 않고 1,314행·32열을 반환했다.
 - `MER/F1`은 재무 데이터 테이블이므로 이 성공을 OHLCV·delisted·PIT 가격 데이터의 완전성 증거로 해석하지 않는다.
+- 가격 후보 bounded probe도 추가했다. `SHARADAR/SEP`, `ticker=AAPL`은 OHLCV 필드 10개와 82행을 반환했고, `QUOTEMEDIA/PRICES`, `ticker=AAPL`은 OHLCV·조정가격 필드와 42행을 반환했다.
+- 두 가격 테이블의 현재 반환 구간은 각각 2018-09-04~2018-12-31, 2017-09-01~2017-10-31로 제한적이었다. 2020년·2024년 date filter는 0행이었다. 따라서 가격 테이블 접근은 확인했지만 R1-05 complete historical/PIT evidence는 미충족이다.
 
 재현 명령:
 
@@ -45,4 +47,5 @@ Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해
 backend/.venv/bin/python -m pip install -e 'backend[nasdaq]'
 backend/.venv/bin/python -m jusik.research_nasdaq_data_link --dataset FRED/GDP --rows 1 --env-file .env
 backend/.venv/bin/python -m jusik.research_nasdaq_data_link --table MER/F1 --compnumber 39102 --env-file .env
+backend/.venv/bin/python -m jusik.research_nasdaq_data_link --table SHARADAR/SEP --ticker AAPL --env-file .env
 ```
