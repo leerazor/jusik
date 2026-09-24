@@ -66,6 +66,8 @@ def test_runtime_prompt_forbids_unbounded_empty_receiver_wait() -> None:
         "A runner child must not call collaboration.spawn_agent"
         in RUNTIME_PROMPT_SUFFIX
     )
+    assert "blocked completion" in RUNTIME_PROMPT_SUFFIX
+    assert "followup to null" in RUNTIME_PROMPT_SUFFIX
 
 
 @pytest.mark.parametrize("mode", [0o750, 0o770])

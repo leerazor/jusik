@@ -23,6 +23,8 @@ R2-06 재시도에서 supervisor가 독립 review를 요청했지만 수신 agen
 
 후속 문구를 더 엄격히 고쳐 runner child의 `collaboration.spawn_agent` 자체를 금지하고, child 내부 bounded review 또는 finite unavailable evidence만 허용했다. 이는 receiver capability를 추정하지 않도록 하는 fail-closed 계약이다.
 
+R2-06 재시도에서 자료 부족을 `blocked`로 보고하면서 `followup`을 함께 넣어 runner completion schema와 충돌한 사례도 확인했다. blocked completion은 `followup=null`이어야 하므로 runtime prompt에 이 계약을 명시하고 development runner focused pytest 67개·Ruff·strict mypy를 재확인했다.
+
 후속 독립 review에서 직접 생성 envelope의 finite `Decimal` metadata가 JSON 직렬화 전에 남는 P2가 발견되어, `market_counterfactual_comparison.py`에서 metadata를 lossless decimal string으로 정규화하고 회귀를 추가했다. 해당 focused suite는 42 passed, Ruff와 strict mypy도 통과했다.
 
 최신 재시도는 현재 main 기준 counterfactual/accounting focused pytest 79개와 mypy를 통과했고, 포맷 보정 후 counterfactual 42개·Ruff도 통과했다. 독립 review dispatch는 여전히 receiver 없는 `collaboration.wait`에서 멈춰 attempt를 interrupted로 보존했으며, 이를 성공으로 승격하지 않는다.

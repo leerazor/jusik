@@ -140,7 +140,9 @@ RUNTIME_PROMPT_SUFFIX = (
     "and stop. A runner child must not call collaboration.spawn_agent: the runner "
     "does not provision receiver agents for that child. Perform the bounded review "
     "in the current supervisor turn, or return finite review-unavailable evidence. "
-    "Do not leave the task in an unbounded wait state."
+    "Do not leave the task in an unbounded wait state. When reporting a blocked "
+    "completion for missing evidence, set followup to null; followup is reserved "
+    "for completed results that enqueue a separately validated task."
     f" {DEVELOPMENT_DELIVERY_POLICY}"
 )
 BACKLOG = (
