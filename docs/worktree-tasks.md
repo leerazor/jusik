@@ -1538,6 +1538,7 @@
 
 ## r2-market-cost-b8a5
 
+- 재시도 `b3a175c44dff4f93a2d0f7d598cda330` (2026-09-24): 요청한 새 기준과 현재 main `c33e53848be24c8161171ec4f140337a3e55bad7` 및 BanKIS source audit SHA가 일치했습니다. 그러나 확인 시각 12:06 KST는 연속 개발 세션 마감 12:01:09 KST 이후여서 새 구현을 시작하지 않았습니다. 검사·독립 검토·통합은 미실행입니다. 전체 R2-02 미체크와 경제 not-evaluated를 유지합니다. 새 세션 승인과 마감 시각 갱신 후 동일 기준을 다시 확인해야 재개할 수 있습니다. 기존 worktree와 미추적 루트 handoff는 보존했습니다.
 - 재시도 `0ca64cfee7234717b9be0d35b180ccb1` (2026-09-24): 요청 main `cd1ca0f4355f68243af9dceb22ae0f49d760d75c`와 실제 main `a08d483e760cc30cea30db063e79a04abc7483fd`가 달라 SHA 중단 조건을 적용했습니다. 요청 SHA는 조상이며 이전 증거 3개의 SHA는 일치합니다. 구현·검사·review·통합은 미실행, R2-02 전체 미체크·경제 not-evaluated 유지. audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260924-r2-02-0ca64cfe/`. 재개에는 현재 main을 기준으로 한 명시적 입력 동일성 승인이 필요합니다.
 
 - 재시도 `a079c03aed754c4c9372536266603369` (2026-09-22): 요청 main `da8e87830e9ef5010e3d248d0be2f95b03dde55c`와 현재 main `cd1ca0f4355f68243af9dceb22ae0f49d760d75c`가 달라 hash 중단 조건을 적용했습니다. 요청 SHA가 조상인 점과 BanKIS source audit SHA 일치를 확인했으며 검증 프로필은 보존합니다. 구현·fresh 검사·review·통합은 미실행입니다. 전체 R2-02 미체크와 경제 not-evaluated를 유지합니다. audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260922-r2-02-a079c03a/`. 기존 worktree와 루트 handoff를 보존하고 이번 기록은 미커밋 상태입니다. 재개에는 승인 기준 SHA의 정합성이 필요합니다.
