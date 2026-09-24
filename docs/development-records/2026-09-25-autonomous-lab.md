@@ -20,6 +20,7 @@
 - 변경 후 focused 검사, 코드 독립 review와 main 통합 결과는 후속 기록한다. 아직 실행하지 않은 검사를 통과로 표시하지 않는다.
 - lifecycle 구현 `fec44e9`, main 통합 `62e229b`: worker/main 각각 focused pytest 16개, Ruff check/format, mypy 통과. 초기 연구/PAUSED/RETIRED 전이, SQL guard와 append-only history를 구현했다. 독립 Sol review에서 IDEA pause 대상의 문서 불일치를 수정한 뒤 통합 가능 판정을 받았다.
 - 운영 DB의 변경 전 snapshot을 private audit `runner-before.db`에 보존했다. mandate JSON SHA는 기존 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`과 동일하다.
+- runner A 첫 구현 `f6000d4`: RED 실제 run_once 회귀 뒤 focused 119개·Ruff·strict mypy 통과. 독립 Sol review에서 공학 완료의 자기 보고 PASS, 새 commit/소유 경로 증거 부재(P1 2건), blocker 원자 기록·외부 event 재개·공통 프롬프트(P2 3건)을 지적했다. main 통합을 보류하고 같은 구현 소유자에게 수정을 돌렸다. 이 버전의 engineering DONE 결과를 신뢰 가능한 완료로 보고하지 않는다.
 
 ## 운영 경계
 
