@@ -44,6 +44,26 @@ Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해
 - Nasdaq 공식 API 소개의 Bars 상품(`NDAQ/BAR`)도 SDK로 bounded 조회했지만 현재 계정에서는 `404 QECx02 datatable does not exist`였다. 문서상 상품 존재와 계정별 실제 테이블 entitlement를 동일하게 취급하지 않는다.
 - Alpaca IEX 일봉도 AAPL·LIME·MDA에 대해 2016/2020/2024/2026 구간을 bounded 조회했다. AAPL은 2024·2026만, LIME은 2026-07-01부터, MDA는 2026-03-12부터 반환됐고 이전 구간은 0행이었다. 기존 Yahoo 부분 이력 누락을 보완하지 못하므로 canonical source로 승격하지 않는다.
 
+## Alpha Vantage 가격 endpoint 재검증
+
+- `jusik.research_alpha_price_probe`와 6개 회귀 테스트를 추가했다. probe는
+  `TIME_SERIES_DAILY`의 응답 shape·행 수·첫/마지막 날짜만 보존하고 API key나 원문
+  provider 메시지는 출력하지 않는다. `ALPHA_VANTAGE_API_KEY`와 기존 호환 alias
+  `ALPHA_VANTAGE_KEY`를 모두 읽는다.
+- 2026-09-24 KST에 `.env` 키로 LIME·MDA·AAPL을 각각 1회 bounded 조회했다. 세 요청 모두
+  HTTP 200이었지만 `Information` envelope로 분류되어 가격 행은 0개였다. 이는 무료
+  entitlement 또는 endpoint 정책 제한 가능성을 보여 주지만 원문 메시지를 보존하지
+  않았으므로 원인을 premium/invalid key로 단정하지 않는다.
+- 따라서 Alpha Vantage도 LIME/MDA의 누락 기간을 보완하는 historical/PIT source가
+  아니며, 기존 canonical cache·성과·거래 설정은 변경하지 않았다.
+
+재현 명령:
+
+```text
+backend/.venv/bin/python -m jusik.research_alpha_price_probe LIME --env-file .env
+backend/.venv/bin/python -m jusik.research_alpha_price_probe MDA --env-file .env
+```
+
 재현 명령:
 
 ```text
