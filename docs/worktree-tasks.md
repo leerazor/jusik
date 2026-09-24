@@ -1483,6 +1483,7 @@
 
 ## r2-counterfactual-fe92
 
+- 2026-09-24 attempt `e37f74911f5e496483ce810832a11663`: 최신 기준 `4c1e162`의 자손인 main에서 기존 비교 모듈·CLI를 재검증했습니다. focused pytest 82개, Ruff check/format, strict mypy와 구현에 참여하지 않은 supervisor의 읽기 전용 검토가 통과했습니다. 기술 slice는 기존 main 통합 상태로 완료, 전체 R2-06의 실제 자료 acceptance와 체크박스는 미완료입니다. 소유 worktree의 main과 동일한 포맷 차이는 audit patch로 보존 후 정리합니다. 기록 `docs/development-records/2026-09-24-r2-counterfactual-e37f7491.md`, audit `/home/kwl/.local/share/jusik/portfolio-audit/20260924-r2-06-e37f7491/`.
 - 2026-09-24 runner guard: 빈 review receiver에서 `collaboration.wait`로 무기한 대기하지 않도록 runtime prompt 계약과 회귀를 추가했습니다. focused runner pytest 66개·Ruff·strict mypy 통과. 기존 R2-06 retry는 새 prompt가 아니므로 승격하지 않으며 fresh retry가 필요합니다. 기록 `docs/development-records/2026-09-24-runner-empty-review-dispatch.md`.
 - 2026-09-24 독립 review 후속: 직접 생성 envelope의 finite Decimal metadata가 결과 JSON 직렬화를 깨는 P2를 수정해 lossless string 정규화와 회귀를 추가했습니다. counterfactual focused pytest 42개·Ruff·strict mypy 통과. 경제 acceptance와 checkbox는 유지합니다.
 - 최신 main 검증: counterfactual/accounting focused pytest 79개, 포맷 보정 후 counterfactual pytest 42개·Ruff·strict mypy 통과. 독립 review dispatch의 receiver 없는 wait는 반복되어 interrupted로 기록하며 성공 승격하지 않습니다.
