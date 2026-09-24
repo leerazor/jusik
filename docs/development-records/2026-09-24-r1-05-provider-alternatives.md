@@ -40,6 +40,7 @@ Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해
 - `MER/F1`은 재무 데이터 테이블이므로 이 성공을 OHLCV·delisted·PIT 가격 데이터의 완전성 증거로 해석하지 않는다.
 - 가격 후보 bounded probe도 추가했다. `SHARADAR/SEP`, `ticker=AAPL`은 OHLCV 필드 10개와 82행을 반환했고, `QUOTEMEDIA/PRICES`, `ticker=AAPL`은 OHLCV·조정가격 필드와 42행을 반환했다.
 - 두 가격 테이블의 현재 반환 구간은 각각 2018-09-04~2018-12-31, 2017-09-01~2017-10-31로 제한적이었다. 2020년·2024년 date filter는 0행이었다. 따라서 가격 테이블 접근은 확인했지만 R1-05 complete historical/PIT evidence는 미충족이다.
+- ticker를 AAPL·MSFT·TSLA로 바꿔도 `SHARADAR/SEP`의 동일 2018-09-04~2018-12-31 샘플이 반환됐다. ticker 선택 오류보다는 테이블 entitlement/샘플 제한으로 분류한다. probe 결과에 `first_date`·`last_date`를 보존한다.
 
 재현 명령:
 

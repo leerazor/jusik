@@ -9,7 +9,7 @@
 ## roadmap-r1-05-provider-alternatives-20260924
 
 - Nasdaq Data Link와 Alpaca 공식 문서를 read-only 조사했습니다. 무료 Nasdaq key의 호출 한도와 subscriber historical Bars 범위를 구분했고, Alpaca IEX-only 무료 tier는 전체 US/PIT 대체 근거로 채택하지 않았습니다.
-- `nasdaq-data-link` 선택 의존성과 공식 Python SDK bounded probe(`jusik.research_nasdaq_data_link`)를 추가했습니다. 일반 `get()`은 `DataLinkError`였지만 `get_table()` 방식으로 `MER/F1` 1,314행, `SHARADAR/SEP` AAPL 82행, `QUOTEMEDIA/PRICES` AAPL 42행 조회에 성공했습니다. 가격 테이블은 2017~2018 제한 구간만 반환하고 2020/2024 필터는 0행이어서 complete PIT coverage로 승격하지 않았습니다. Alpaca IEX 과거 bar 1건은 인증 성공했습니다.
+- `nasdaq-data-link` 선택 의존성과 공식 Python SDK bounded probe(`jusik.research_nasdaq_data_link`)를 추가했습니다. 일반 `get()`은 `DataLinkError`였지만 `get_table()` 방식으로 `MER/F1` 1,314행, `SHARADAR/SEP` AAPL 82행, `QUOTEMEDIA/PRICES` AAPL 42행 조회에 성공했습니다. 가격 테이블은 2017~2018 제한 구간만 반환하고 ticker 변경에도 동일 샘플이어서 entitlement 제한으로 분류했습니다. 2020/2024 필터는 0행이어서 complete PIT coverage로 승격하지 않았습니다. Alpaca IEX 과거 bar 1건은 인증 성공했습니다.
 - 기록: `docs/development-records/2026-09-24-r1-05-provider-alternatives.md`.
 
 ## full-suite-r2-02-regression-20260924

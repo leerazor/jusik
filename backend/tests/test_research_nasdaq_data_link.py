@@ -84,6 +84,8 @@ def test_table_probe_uses_paginated_sdk(monkeypatch) -> None:
 
     assert result.status == "ready"
     assert result.rows == 2
+    assert result.first_date is None
+    assert result.last_date is None
     assert calls == [
         ("MER/F1", {"paginate": True, "ticker": "AAPL", "compnumber": "39102"})
     ]

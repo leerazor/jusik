@@ -30,6 +30,8 @@ class NasdaqDataLinkProbeResult:
     status: ProbeStatus
     rows: int = 0
     columns: tuple[str, ...] = ()
+    first_date: str | None = None
+    last_date: str | None = None
     error: str | None = None
 
 
@@ -132,17 +134,32 @@ def probe_table(
     try:
         frame = getter(table, **parameters)
         columns = tuple(str(value) for value in getattr(frame, "columns", ()))
+        first_date, last_date = _date_bounds(frame)
         return NasdaqDataLinkProbeResult(
             table,
             "ready",
             rows=len(frame),
             columns=columns,
+            first_date=first_date,
+            last_date=last_date,
         )
     except Exception as exc:  # SDK has provider-specific exception classes.
         error = "nasdaq_data_link_table_request_failed"
         if type(exc).__name__ == "DataLinkError":
             error = "nasdaq_data_link_error"
         return NasdaqDataLinkProbeResult(table, "error", error=error)
+
+
+def _date_bounds(frame: object) -> tuple[str | None, str | None]:
+    """Extract safe date-only bounds without depending on pandas types."""
+
+    try:
+        values = frame["date"]  # type: ignore[index]
+        first = str(values.min())[:10]
+        last = str(values.max())[:10]
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None, None
+    return (first or None), (last or None)
 
 
 async def probe_dataset_async(
