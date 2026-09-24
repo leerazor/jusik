@@ -1,5 +1,13 @@
 # R2-02 시장별 비용 진단 — 중단 이력과 복구
 
+## 2026-09-24 기준 SHA 중단 — 0ca64cfe
+
+- 요청 main `cd1ca0f4355f68243af9dceb22ae0f49d760d75c`와 확인한 `main` HEAD `a08d483e760cc30cea30db063e79a04abc7483fd`가 다릅니다. 요청 SHA는 조상이지만 명시된 hash 불일치 중단 조건을 적용했습니다.
+- 이전 시도 증거 2개 및 BanKIS source audit SHA `9ee18ab9d8e7fabef1a96accdc9ec0b566a2da5d64ed9101cf4519e5069e826d`가 일치합니다. 선택한 검증 프로필을 유지합니다.
+- 신규 코드·fixture·pilot 진단·pytest·Ruff·mypy·review·병합은 실행하지 않았습니다. 기존 R2-02 기술 복구 및 과거 위반 이력은 보존합니다. 전체 체크박스는 미체크, 경제 평가는 not-evaluated입니다.
+- audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260924-r2-02-0ca64cfe/`. 다음 시도는 현재 main 기준의 명시적 입력 동일성 확인 후 시작해야 합니다. 법정 유효기간·계좌별 범위는 여전히 unavailable입니다.
+- 네트워크·simulation/replay·GPU·PAPER/live·주문·운영 DB·서비스·설정·remote 변경은 없습니다. 기존 루트 `HANDOFF.md`와 타 작업 worktree를 보존합니다.
+
 ## 2026-09-22 재시도 입력 조사
 
 - task/attempt: `roadmap-r2-02-v1` / `d98449289d754f179359561afa76c65c`; 요청 및 확인 main은 `da8e87830e9ef5010e3d248d0be2f95b03dde55c`입니다.
