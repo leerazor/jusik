@@ -68,6 +68,7 @@ COMPLETION_CONTRACT_VERSION: Literal["collector-completed-v2"] = (
     "collector-completed-v2"
 )
 CACHE_CONTRACT_VERSION: Literal["collector-cache-v2"] = "collector-cache-v2"
+_SENSITIVE_REQUEST_KEYS = frozenset({"auth_key", "api_key", "apikey", "authkey"})
 
 
 class CollectorError(RuntimeError):
@@ -311,6 +312,7 @@ class CacheEntry(BaseModel):
     key: str = Field(pattern=r"^[0-9a-f]{64}$")
     source: str = Field(min_length=1, max_length=40)
     endpoint: str = Field(min_length=1, max_length=240)
+    request_descriptor: str | None = Field(default=None, max_length=4000)
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     captured_at: datetime
     status_code: int = Field(ge=200, lt=600)
@@ -646,6 +648,31 @@ class CompletedCollection(BaseModel):
     completed_at: datetime
 
 
+def _safe_request_descriptor(request_key: str) -> str | None:
+    """Keep a secret-free, reproducible request identity in cache metadata."""
+
+    try:
+        value = json.loads(request_key)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(value, Mapping):
+        return None
+
+    def scrub(item: object) -> object:
+        if isinstance(item, Mapping):
+            return {
+                str(key): scrub(child)
+                for key, child in item.items()
+                if str(key).lower() not in _SENSITIVE_REQUEST_KEYS
+            }
+        if isinstance(item, list):
+            return [scrub(child) for child in item]
+        return item
+
+    descriptor = json.dumps(scrub(value), sort_keys=True, separators=(",", ":"))
+    return descriptor if len(descriptor) <= 4000 else None
+
+
 class AtomicResponseCache:
     """Content-addressed raw cache with atomic files and a resumable manifest."""
 
@@ -698,6 +725,7 @@ class AtomicResponseCache:
             key=key,
             source=source,
             endpoint=endpoint,
+            request_descriptor=_safe_request_descriptor(request_key),
             content_sha256=digest,
             captured_at=captured_at,
             status_code=status_code,

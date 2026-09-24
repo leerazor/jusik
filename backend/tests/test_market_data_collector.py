@@ -859,6 +859,8 @@ def test_atomic_cache_verifies_raw_hash_and_does_not_expose_request_secret(
     assert cache.get('{"source":"krx","apikey":"secret"}')[1] == b"response"
     raw_manifest = (tmp_path / "manifest.json").read_text(encoding="utf-8")
     assert "secret" not in raw_manifest
+    manifest_entry = json.loads(raw_manifest)["entries"][0]
+    assert manifest_entry["request_descriptor"] == '{"source":"krx"}'
     (tmp_path / "raw" / f"{entry.key}.bin").write_bytes(b"tampered")
     with pytest.raises(CollectorError, match="hash mismatch"):
         cache.get('{"source":"krx","apikey":"secret"}')
