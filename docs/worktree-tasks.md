@@ -1,5 +1,11 @@
 # 워크트리 작업 등록부
 
+## optimizer-metric-priority-gap-20260924
+
+- 상세 지표 계산은 존재하지만 optimizer 후보 점수는 현재 `total_return_pct - max_drawdown_pct`만 사용함을 확인했습니다.
+- CAGR·MDD·Sharpe·Calmar 우선 ranking을 임의로 소급하지 않고, prospective weighting·OOS/WFA·필수 입력 계약이 먼저 필요하다는 gap을 기록했습니다.
+- 기록: `docs/development-records/2026-09-24-optimizer-metric-priority-gap.md`.
+
 ## roadmap-r1-05-provider-alternatives-20260924
 
 - Nasdaq Data Link와 Alpaca 공식 문서를 read-only 조사했습니다. 무료 Nasdaq key의 호출 한도와 subscriber historical Bars 범위를 구분했고, Alpaca IEX-only 무료 tier는 전체 US/PIT 대체 근거로 채택하지 않았습니다.
