@@ -21,6 +21,7 @@ from jusik.development_runner import (
     _attempt_environment,
     _child_idle_expired,
     _codex_command,
+    _empty_receiver_wait_detected,
     _git_common,
     _next_task,
     _prepare_artifact_dir,
@@ -779,6 +780,18 @@ def test_child_idle_timeout_uses_stdout_or_stderr_activity(
     assert _child_idle_expired(stdout, stderr, 100.0, 60)
     os.utime(stderr, (199.0, 199.0))
     assert not _child_idle_expired(stdout, stderr, 100.0, 60)
+
+
+def test_empty_receiver_wait_is_detected_from_child_events(tmp_path: Path) -> None:
+    stdout = tmp_path / "stdout.jsonl"
+    stdout.write_text(
+        '{"type":"item.started","item":{"type":"collab_tool_call",'
+        '"tool":"wait","receiver_thread_ids":[]}}\n',
+        encoding="utf-8",
+    )
+    assert _empty_receiver_wait_detected(stdout)
+    stdout.write_text('{"tool":"wait","receiver_thread_ids":["agent"]}\n')
+    assert not _empty_receiver_wait_detected(stdout)
 
 
 def test_idle_child_is_failed_without_implicit_retry(

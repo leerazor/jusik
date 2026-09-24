@@ -205,6 +205,19 @@ def _child_idle_expired(
     return time.time() - max(started_at, latest) >= timeout_seconds
 
 
+def _empty_receiver_wait_detected(stdout_path: Path) -> bool:
+    """Detect a child blocked in collaboration.wait with no receiver agent."""
+
+    try:
+        with stdout_path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            handle.seek(max(0, handle.tell() - 131_072))
+            tail = handle.read().decode("utf-8", errors="ignore")
+    except OSError:
+        return False
+    return '"tool":"wait"' in tail and '"receiver_thread_ids":[]' in tail
+
+
 class Evidence(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     path: str = Field(min_length=1)
@@ -1631,6 +1644,18 @@ def run_once(
                     )
                     _safe_history_flush(store, config)
                     return RunResult("failed", task.id, attempt_id, "idle_timeout")
+                if _empty_receiver_wait_detected(stdout_path):
+                    _stop_process(process)
+                    store.finish(
+                        attempt_id,
+                        task.id,
+                        "failed",
+                        failure_code="empty_review_dispatch",
+                    )
+                    _safe_history_flush(store, config)
+                    return RunResult(
+                        "failed", task.id, attempt_id, "empty_review_dispatch"
+                    )
                 try:
                     process.communicate(input_payload, timeout=min(1, remaining))
                     input_payload = None

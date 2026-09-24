@@ -22,3 +22,5 @@ R2-06 재시도에서 supervisor가 독립 review를 요청했지만 수신 agen
 후속 독립 review에서 직접 생성 envelope의 finite `Decimal` metadata가 JSON 직렬화 전에 남는 P2가 발견되어, `market_counterfactual_comparison.py`에서 metadata를 lossless decimal string으로 정규화하고 회귀를 추가했다. 해당 focused suite는 42 passed, Ruff와 strict mypy도 통과했다.
 
 최신 재시도는 현재 main 기준 counterfactual/accounting focused pytest 79개와 mypy를 통과했고, 포맷 보정 후 counterfactual 42개·Ruff도 통과했다. 독립 review dispatch는 여전히 receiver 없는 `collaboration.wait`에서 멈춰 attempt를 interrupted로 보존했으며, 이를 성공으로 승격하지 않는다.
+
+후속 runner 보완으로 child stdout의 구조화된 `collaboration.wait` 이벤트에 빈 `receiver_thread_ids`가 나타나면 131 KiB tail 범위에서 감지해 child를 종료하고 `empty_review_dispatch`로 격리하도록 했다. 개발 runner focused pytest 67개·Ruff·strict mypy가 통과했다. 이는 무기한 대기를 실패로 바꾸는 fail-closed 보호이며 review 성공을 대신하지 않는다.
