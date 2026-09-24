@@ -18,3 +18,5 @@ fresh US receipt의 `missing_sessions=7166`에는 request-excluded 25개 심볼�
 ## 판정
 
 이 변경은 coverage 계산의 중복 집계만 교정한다. LIME/MDA 366개 실제 누락, 전체 PIT completeness, R1-05 checkbox와 경제 acceptance는 여전히 미승격이다.
+
+수정된 collector로 기존 `fresh-cache-0945`를 재사용해 새 결과를 생성했다. 결과 `/home/kwl/.local/share/jusik/portfolio-audit/20260924-r1-05-receipt/fresh-result-1010.json`의 SHA-256은 `b659c38676d531b70c3ea172fdcb5e2680bd4eb0ec6a1f2a2f9f913ba50c5d0e`이며 coverage는 `20672/20306`, missing `366`이다. 새 네트워크 수집은 하지 않았다.
