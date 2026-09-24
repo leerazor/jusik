@@ -7,7 +7,8 @@
 ## 실행
 
 - 명령: `backend/.venv/bin/python -m pytest -q`
-- 결과: `1770 passed, 3 failed`
+- 최초 결과: `1770 passed, 3 failed`
+- 후속 보정 후 전체 재검증: `1771 passed, 2 failed`
 - 실패는 모두 기존 고정 fixture와 현재 시점/코드 identity의 불일치이며, 실거래·PAPER/live·브로커 API·DB 운영 데이터는 변경하지 않았다.
 
 ## 판정
@@ -21,14 +22,13 @@
    - immutable timestamp-forensics archive가 보존한 `research_market_calendar.py` SHA와 현재 코드 SHA가 다르다.
    - strict replay가 `imported_code_hash_mismatch`로 거부한 것은 archive 오염/미검증 재생을 막는 정상 fail-closed 동작이다.
 
-3. `test_robustness_repository_and_validation_api_are_bounded`
-   - fixture가 `2026-09-14`를 요청했으나 현재 날짜 `2026-09-24` 기준 최근 7일 경계를 벗어난다.
-   - `validate_signal_store`의 날짜 제한을 완화하지 않고, 날짜를 현재 시점에 맞춘 fresh fixture가 필요하다.
+3. `test_robustness_repository_and_validation_api_are_bounded` (해결)
+   - fixture가 `2026-09-14`를 요청했으나 현재 날짜 `2026-09-24` 기준 최근 7일 경계를 벗어났다.
+   - 테스트 요청 날짜를 `UTC today - 1 day`로 동적으로 바꾸고 `validate_signal_store`의 날짜 제한은 그대로 유지했다. targeted test가 통과했다.
 
 ## 후속 조건
 
 - 고정 실험을 재실행하려면 새 pre-registration, source/evidence manifest, code hash와 독립 검토를 새로 생성한다.
 - immutable archive는 현재 코드로 덮어쓰지 않는다.
-- 날짜 경계 fixture는 production 안전 경계를 유지한 채 실행 시점에 맞춘다.
+- 날짜 경계 fixture는 production 안전 경계를 유지한 채 실행 시점에 맞춘다. 현재 테스트는 이를 반영했다.
 - 위 세 조건이 충족되기 전에는 전체 suite green 또는 경제 acceptance로 승격하지 않는다.
-
