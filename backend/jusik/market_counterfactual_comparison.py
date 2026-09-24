@@ -84,6 +84,30 @@ def _reject_in_memory_numbers(value: object, label: str) -> None:
             _reject_in_memory_numbers(item, f"{label}[{index}]")
 
 
+def _json_safe(value: object, label: str) -> object:
+    """Convert accepted metadata values to deterministic JSON-compatible values."""
+
+    if isinstance(value, Decimal):
+        if not value.is_finite():
+            raise ValueError(f"{label} must contain only finite decimals")
+        return str(value)
+    if isinstance(value, Mapping):
+        result: dict[str, object] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError(f"{label} mapping keys must be strings")
+            result[key] = _json_safe(item, f"{label}.{key}")
+        return result
+    if isinstance(value, (list, tuple)):
+        return [
+            _json_safe(item, f"{label}[{index}]")
+            for index, item in enumerate(value)
+        ]
+    if value is None or isinstance(value, (str, int, bool)):
+        return value
+    raise ValueError(f"{label} contains a value that is not JSON-compatible")
+
+
 def _iso_date(value: object, label: str) -> str:
     text = _string(value, label)
     try:
@@ -750,8 +774,13 @@ def compare_prepared_reports(envelope: ComparisonEnvelope) -> dict[str, object]:
                     "path": str(scenario.source.path),
                     "sha256": report.source_sha256,
                 },
-                "change": _change_record(envelope.baseline, scenario),
-                "assumptions": copy.deepcopy(dict(scenario.assumptions)),
+                "change": _json_safe(
+                    _change_record(envelope.baseline, scenario),
+                    f"{scenario.scenario_id}.change",
+                ),
+                "assumptions": _json_safe(
+                    scenario.assumptions, f"{scenario.scenario_id}.assumptions"
+                ),
                 "metadata": copy.deepcopy(report.metadata),
                 "report": copy.deepcopy(report.payload),
                 "deltas": deltas,

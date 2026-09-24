@@ -18,3 +18,5 @@ R2-06 재시도에서 supervisor가 독립 review를 요청했지만 수신 agen
 ## 제한
 
 현재 R2-06 runner attempt는 이 변경 전 prompt로 이미 실행 중이었으므로 성공으로 재해석하지 않는다. 다음 cycle에서 fresh retry가 새 prompt를 사용해야 한다. R2-06의 complete fills·배당/FX·benchmark·미래 관찰 자료 및 경제 acceptance는 여전히 미완료다.
+
+후속 독립 review에서 직접 생성 envelope의 finite `Decimal` metadata가 JSON 직렬화 전에 남는 P2가 발견되어, `market_counterfactual_comparison.py`에서 metadata를 lossless decimal string으로 정규화하고 회귀를 추가했다. 해당 focused suite는 42 passed, Ruff와 strict mypy도 통과했다.

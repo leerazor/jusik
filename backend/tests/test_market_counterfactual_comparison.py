@@ -415,6 +415,25 @@ def test_direct_envelope_validation_rejects_nested_binary_float(
         compare_prepared_reports(invalid_envelope)
 
 
+def test_direct_envelope_decimal_metadata_is_serializable(tmp_path: Path) -> None:
+    envelope = ComparisonEnvelope.from_mapping(_envelope(tmp_path), base_dir=tmp_path)
+    scenario = envelope.scenarios[0]
+    updated = replace(
+        scenario,
+        change={
+            **scenario.change,
+            "description": Decimal("0.123456789012345678901"),
+        },
+    )
+    result = compare_prepared_reports(replace(envelope, scenarios=(updated,)))
+    comparison = _object(_array(result["comparisons"])[0])
+    assert (
+        _object(comparison["change"])["description"]
+        == "0.123456789012345678901"
+    )
+    json.dumps(result)
+
+
 def test_explicit_weekend_session_is_preserved_and_timezone_is_not_a_date(
     tmp_path: Path,
 ) -> None:
