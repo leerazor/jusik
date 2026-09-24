@@ -124,6 +124,23 @@ def test_interrupted_attempt_is_quarantined_until_explicit_retry(
     assert len(store.outbox_pending()) == 4
 
 
+def test_blocked_failure_code_survives_reopen_as_structured_blocker(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "state" / "runner.db"
+    store = RunnerStore(db_path)
+    assert store.enqueue("task-a", "entry-amount-distribution", "prompt")
+    task = store.task("task-a")
+    assert task is not None
+    store.claim(task, "attempt-a", tmp_path / "out", tmp_path / "err")
+    store.finish("attempt-a", "task-a", "blocked", failure_code="missing_evidence")
+    reopened = RunnerStore(db_path).task("task-a")
+    assert reopened is not None and reopened.blocker is not None
+    assert reopened.blocker["blocker_reason"] == "missing_evidence"
+    assert reopened.blocker["attempted_actions"] == []
+    assert reopened.blocker["resume_condition"] == "unknown"
+
+
 def test_rebase_requires_quarantined_task_and_records_current_baseline(
     tmp_path: Path,
 ) -> None:

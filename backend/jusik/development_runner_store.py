@@ -54,6 +54,7 @@ class RunnerAttempt:
     status: str
     process_group_id: int | None
     output_path: str | None
+    baseline_head: str | None = None
 
 
 class RunnerStore:
@@ -83,7 +84,7 @@ class RunnerStore:
                     status TEXT NOT NULL, started_at TEXT NOT NULL,
                     ended_at TEXT, process_group_id INTEGER,
                     output_path TEXT, stderr_path TEXT, evidence_json TEXT,
-                    failure_code TEXT
+                    failure_code TEXT, baseline_head TEXT
                 );
                 CREATE TABLE IF NOT EXISTS history_outbox (
                     id TEXT PRIMARY KEY, task_id TEXT NOT NULL,
@@ -112,6 +113,12 @@ class RunnerStore:
                 db.execute("ALTER TABLE tasks ADD COLUMN engineering_status TEXT")
             if "investment_status" not in columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN investment_status TEXT")
+            attempt_columns = {
+                str(row["name"])
+                for row in db.execute("PRAGMA table_info(attempts)").fetchall()
+            }
+            if "baseline_head" not in attempt_columns:
+                db.execute("ALTER TABLE attempts ADD COLUMN baseline_head TEXT")
             legacy_blocker = unknown_blocker("legacy_unknown").model_dump(mode="json")
             db.execute(
                 "UPDATE tasks SET blocker_json=? WHERE blocker_json IS NULL "
@@ -250,6 +257,46 @@ class RunnerStore:
             db.commit()
         return released
 
+    def release_event(self, task_id: str, evidence_path: Path) -> bool:
+        """Explicitly release an external wait when its bound file identity changes."""
+        if not evidence_path.is_file() or evidence_path.is_symlink():
+            return False
+        resolved = evidence_path.resolve()
+        try:
+            current_identity = hashlib.sha256(resolved.read_bytes()).hexdigest()
+        except OSError:
+            return False
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT status,blocker_json,last_attempt_id FROM tasks WHERE id=?",
+                (task_id,),
+            ).fetchone()
+            if row is None or row["status"] != "waiting_external":
+                db.rollback()
+                return False
+            try:
+                blocker = Blocker.model_validate_json(str(row["blocker_json"]))
+            except (ValueError, TypeError):
+                db.rollback()
+                return False
+            if (
+                blocker.retry_policy != "event"
+                or blocker.dependency != str(resolved)
+                or blocker.dependency_identity is None
+                or blocker.dependency_identity == current_identity
+            ):
+                db.rollback()
+                return False
+            db.execute(
+                "UPDATE tasks SET status='queued',next_allowed_at=NULL,"
+                "blocker_json=NULL,previous_attempt_id=last_attempt_id,updated_at=? "
+                "WHERE id=? AND status='waiting_external'",
+                (utc_now(), task_id),
+            )
+            db.commit()
+        return True
+
     def active_attempt(self) -> RunnerAttempt | None:
         with self._connect() as db:
             row = db.execute(
@@ -266,6 +313,7 @@ class RunnerStore:
             status=str(row["status"]),
             process_group_id=row["process_group_id"],
             output_path=row["output_path"],
+            baseline_head=row["baseline_head"],
         )
 
     def recover_running(self) -> list[RunnerAttempt]:
@@ -305,6 +353,7 @@ class RunnerStore:
         stderr_path: Path,
         launched_at: str | None = None,
         history_outcome: str = "started",
+        baseline_head: str | None = None,
     ) -> RunnerAttempt:
         now = utc_now()
         with self._connect() as db:
@@ -322,9 +371,16 @@ class RunnerStore:
             )
             db.execute(
                 "INSERT INTO attempts "
-                "(id,task_id,status,started_at,output_path,stderr_path) "
-                "VALUES(?,?, 'running',?,?,?)",
-                (attempt_id, task.id, now, str(output_path), str(stderr_path)),
+                "(id,task_id,status,started_at,output_path,stderr_path,baseline_head) "
+                "VALUES(?,?, 'running',?,?,?,?)",
+                (
+                    attempt_id,
+                    task.id,
+                    now,
+                    str(output_path),
+                    str(stderr_path),
+                    baseline_head,
+                ),
             )
             if launched_at is not None:
                 db.execute(
@@ -342,7 +398,9 @@ class RunnerStore:
                 (identity, task.id, attempt_id, history_outcome),
             )
             db.commit()
-        return RunnerAttempt(attempt_id, task.id, "running", None, str(output_path))
+        return RunnerAttempt(
+            attempt_id, task.id, "running", None, str(output_path), baseline_head
+        )
 
     def set_process_group(self, attempt_id: str, process_group_id: int) -> None:
         with self._connect() as db:
@@ -367,7 +425,8 @@ class RunnerStore:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             task = db.execute(
-                "SELECT status,attempt_count,last_attempt_id,previous_attempt_id "
+                "SELECT status,attempt_count,last_attempt_id,"
+                "previous_attempt_id,depends_on "
                 "FROM tasks WHERE id=?",
                 (task_id,),
             ).fetchone()
@@ -396,6 +455,18 @@ class RunnerStore:
                 ),
             )
             task_status = "completed" if status == "completed" else status
+            if blocker is None and status in {
+                "blocked",
+                "waiting_external",
+                "waiting_human",
+            }:
+                known_reason = (
+                    evidence.get("blocked_reason") if evidence is not None else None
+                )
+                blocker = unknown_blocker(
+                    failure_code or known_reason or "unknown",
+                    dependency=task["depends_on"],
+                ).model_dump(mode="json")
             retry_at = next_allowed_at
             retry_attempt = None
             previous_attempt = None if task is None else task["previous_attempt_id"]

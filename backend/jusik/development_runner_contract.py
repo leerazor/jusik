@@ -9,6 +9,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 ENGINEERING_SPEC_ID = "lab-paper-execution-contract-v1"
 ENGINEERING_SPEC_AREA = "__engineering__"
+ENGINEERING_OWNED_PATHS = frozenset(
+    {
+        "backend/jusik/paper_execution_contract.py",
+        "backend/tests/test_paper_execution_contract.py",
+    }
+)
 ENGINEERING_SPEC_PROMPT = (
     "Implement only an offline deterministic execution interface and fake-broker "
     "contract tests for idempotency, partial fills, cancellations, rejected orders, "
@@ -31,6 +37,9 @@ class Blocker(BaseModel):
     blocker_reason: str = Field(min_length=1, max_length=2000)
     attempted_actions: list[str] = Field(default_factory=list, max_length=20)
     dependency: str | None = None
+    dependency_identity: str | None = Field(
+        default=None, pattern=r"^(missing|[a-f0-9]{64})$"
+    )
     resume_condition: str = Field(min_length=1, max_length=1000)
     retry_policy: Literal["none", "manual", "event", "bounded"]
     next_eligible_retry: datetime | None = None

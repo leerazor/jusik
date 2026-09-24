@@ -23,6 +23,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jusik.development_runner_contract import (
+    ENGINEERING_OWNED_PATHS,
     ENGINEERING_SPEC_AREA,
     ENGINEERING_SPEC_ID,
     ENGINEERING_SPEC_PROMPT,
@@ -99,7 +100,9 @@ RESEARCH_MANDATE_REQUIRED_FIELDS = frozenset(
 )
 COMMON_PROMPT = (
     "Follow the repository workflow: explore relevant code and AGENTS.md, write a "
-    "bounded plan, assign at most four Luna worktrees, have an independent Sol-based "
+    "bounded plan, use at most four active agents including the planner and at most "
+    "three workers, assign one Sol or Luna owner per worktree, and have an "
+    "independent Sol-based "
     "reviewer inspect the implementation, then have the Sol-based supervisor "
     "integrate it to local main and run checks and "
     "handoff/web publication when applicable. Astra is read-only escalation for one "
@@ -335,6 +338,7 @@ COMPLETION_SCHEMA: dict[str, Any] = {
                 "blocker_reason": {"type": "string", "minLength": 1, "maxLength": 2000},
                 "attempted_actions": {"type": "array", "items": {"type": "string"}},
                 "dependency": {"type": ["string", "null"]},
+                "dependency_identity": {"type": ["string", "null"]},
                 "resume_condition": {"type": "string", "minLength": 1},
                 "retry_policy": {
                     "type": "string",
@@ -599,6 +603,22 @@ def _hash_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _bind_event_dependency(blocker: Blocker, config: RunnerConfig) -> Blocker:
+    if blocker.retry_policy != "event" or blocker.dependency is None:
+        return blocker
+    path = Path(blocker.dependency)
+    roots = [config.repo, config.state_dir, config.history_dir, config.artifact_dir]
+    if not path.is_absolute() or not _allowed_path(path, roots) or path.is_symlink():
+        return blocker.model_copy(update={"dependency_identity": None})
+    if path.exists() and not path.is_file():
+        return blocker.model_copy(update={"dependency_identity": None})
+    try:
+        identity = _hash_file(path) if path.is_file() else "missing"
+    except OSError:
+        return blocker.model_copy(update={"dependency_identity": None})
+    return blocker.model_copy(update={"dependency_identity": identity})
+
+
 def validate_completion(
     payload: Any,
     task: RunnerTask,
@@ -606,6 +626,7 @@ def validate_completion(
     config: RunnerConfig,
     *,
     allowed_areas: set[str] | None = None,
+    baseline_head: str | None = None,
 ) -> Completion:
     try:
         completion = Completion.model_validate(payload)
@@ -669,6 +690,28 @@ def validate_completion(
     )
     if ancestor.returncode != 0:
         raise ValueError("integrated commit is not an ancestor of main")
+    if task.task_kind == "engineering":
+        if baseline_head is None or completion.integrated_commit == baseline_head:
+            raise ValueError("engineering commit must be a new descendant")
+        descendant = _git(
+            config.repo,
+            "merge-base",
+            "--is-ancestor",
+            baseline_head,
+            completion.integrated_commit,
+            check=False,
+        )
+        if descendant.returncode != 0:
+            raise ValueError("engineering commit must be a new descendant")
+        changed = _git(
+            config.repo,
+            "diff",
+            "--name-only",
+            baseline_head,
+            completion.integrated_commit,
+        )
+        if set(changed.stdout.splitlines()) != ENGINEERING_OWNED_PATHS:
+            raise ValueError("engineering commit must change exact owned paths")
     roots = [
         config.repo,
         config.repo.parent,
@@ -685,6 +728,14 @@ def validate_completion(
             or _hash_file(path) != evidence.sha256
         ):
             raise ValueError("evidence path or hash invalid")
+    if task.task_kind == "engineering" and not ENGINEERING_OWNED_PATHS.issubset(
+        {
+            str(Path(evidence.path).resolve().relative_to(config.repo.resolve()))
+            for evidence in completion.evidence
+            if config.repo.resolve() in Path(evidence.path).resolve().parents
+        }
+    ):
+        raise ValueError("engineering evidence needs exact owned paths")
     if completion.handoff_path is None:
         raise ValueError("completed result is missing handoff")
     handoff = Path(completion.handoff_path)
@@ -1708,6 +1759,11 @@ def run_once(
                 )
             except MandateGovernanceError as exc:
                 return RunResult("blocked", task.id, reason=str(exc))
+        baseline_head = (
+            _git(config.repo, "rev-parse", "main").stdout.strip()
+            if task.task_kind == "engineering"
+            else None
+        )
         attempt_dir = config.state_dir / "attempts" / attempt_id
         _secure_dir(attempt_dir)
         output_path = attempt_dir / "completion.json"
@@ -1720,7 +1776,14 @@ def run_once(
                 _roadmap_dispatch_gate(
                     config.repo, governance.digest if governance else None
                 )
-            store.claim(task, attempt_id, output_path, stderr_path, now.isoformat())
+            store.claim(
+                task,
+                attempt_id,
+                output_path,
+                stderr_path,
+                now.isoformat(),
+                baseline_head=baseline_head,
+            )
         except MandateGovernanceError as exc:
             for path in attempt_dir.iterdir():
                 path.unlink()
@@ -1854,6 +1917,7 @@ def run_once(
                 attempt_id,
                 config,
                 allowed_areas=set(roadmap.by_id) if roadmap is not None else None,
+                baseline_head=baseline_head,
             )
             if roadmap is not None and task.task_kind != "engineering":
                 validate_roadmap_completion(load_roadmap(config.repo), task, completion)
@@ -1878,6 +1942,7 @@ def run_once(
                 )
                 _safe_history_flush(store, config)
                 return RunResult("failed", task.id, attempt_id, "completion_invalid")
+            blocker = _bind_event_dependency(blocker, config)
             if (
                 completion.status == "waiting_external"
                 and blocker.retry_policy == "bounded"
@@ -1918,6 +1983,40 @@ def run_once(
             _safe_history_flush(store, config)
             return RunResult(
                 completion.status, task.id, attempt_id, completion.blocked_reason
+            )
+        if task.task_kind == "engineering":
+            receipt_path = (
+                config.state_dir / "review-receipts" / f"{task.id}-{attempt_id}.json"
+            ).resolve()
+            alternative = _next_task(store, config.scope)
+            blocker = _bind_event_dependency(
+                Blocker(
+                    blocker_reason="independent_review_pending",
+                    attempted_actions=[
+                        "validated new commit and exact owned file evidence"
+                    ],
+                    dependency=str(receipt_path),
+                    dependency_identity="missing",
+                    resume_condition=(
+                        "separate read-only reviewer PASS receipt bound to this task, "
+                        "attempt, and integrated commit"
+                    ),
+                    retry_policy="event",
+                    alternative_ready_tasks=[alternative.id] if alternative else [],
+                ),
+                config,
+            )
+            store.finish(
+                attempt_id,
+                task.id,
+                "waiting_external",
+                failure_code="independent_review_pending",
+                evidence=completion.model_dump(mode="json"),
+                blocker=blocker.model_dump(mode="json"),
+            )
+            _safe_history_flush(store, config)
+            return RunResult(
+                "waiting_external", task.id, attempt_id, "independent_review_pending"
             )
         store.finish(
             attempt_id,
@@ -2035,6 +2134,7 @@ def _parser() -> argparse.ArgumentParser:
         help="retry a completed investment-roadmap planner waiting result",
     )
     retry.add_argument("task_id")
+    retry.add_argument("--event-evidence", type=Path)
     rebase = sub.add_parser("rebase")
     rebase.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     rebase.add_argument("task_id")
@@ -2201,7 +2301,20 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if args.command == "retry":
-        if args.planning_wait:
+        if args.event_evidence is not None:
+            evidence_path = args.event_evidence
+            roots = [
+                config.repo,
+                config.state_dir,
+                config.history_dir,
+                config.artifact_dir,
+            ]
+            retried = (
+                not args.planning_wait
+                and _allowed_path(evidence_path, roots)
+                and store.release_event(args.task_id, evidence_path)
+            )
+        elif args.planning_wait:
             identity = (
                 _roadmap_waiting_identity(store, config.repo)
                 if config.scope == ROADMAP_SCOPE
