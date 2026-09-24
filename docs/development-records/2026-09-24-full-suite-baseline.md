@@ -32,3 +32,11 @@
 - immutable archive는 현재 코드로 덮어쓰지 않는다.
 - 날짜 경계 fixture는 production 안전 경계를 유지한 채 실행 시점에 맞춘다. 현재 테스트는 이를 반영했다.
 - 위 세 조건이 충족되기 전에는 전체 suite green 또는 경제 acceptance로 승격하지 않는다.
+
+## Alpha Vantage probe 추가 후 재검증
+
+- `c9e2cbb` 반영 후 동일 명령을 다시 실행해 `1786 passed, 2 failed, 2 warnings`
+  를 확인했다. 새 probe 6개 테스트는 모두 통과했다.
+- 남은 두 실패는 위에 기록한 held-band variant SHA 불일치와 immutable
+  timestamp-forensics calendar hash 불일치로 동일하며, 이번 변경과 무관하다.
+  고정 hash를 갱신하거나 검증을 약화하지 않았다.
