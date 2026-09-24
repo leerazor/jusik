@@ -24,6 +24,7 @@ from jusik.development_runner import (
     validate_completion,
 )
 from jusik.development_runner_contract import (
+    ENGINEERING_OWNED_PATHS,
     ENGINEERING_SPEC_AREA,
     ENGINEERING_SPEC_ID,
     ENGINEERING_SPEC_PROMPT,
@@ -618,7 +619,7 @@ def test_engineering_spec_is_exact_and_keeps_completion_gates(
     assert finished.investment_status is None
     assert finished.blocker is not None
     assert finished.blocker["blocker_reason"] == "independent_review_pending"
-    assert finished.blocker["retry_policy"] == "event"
+    assert finished.blocker["retry_policy"] == "none"
     with sqlite3.connect(config.state_dir / "runner.db") as db:
         assert (
             db.execute(
@@ -630,6 +631,25 @@ def test_engineering_spec_is_exact_and_keeps_completion_gates(
             "SELECT evidence_json FROM attempts WHERE id=?", (result.attempt_id,)
         ).fetchone()[0]
     assert json.loads(evidence_json)["integrated_commit"] != head
+    receipt = Path(finished.blocker["dependency"])
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text("unverified review\n", encoding="utf-8")
+    assert not store.release_event(ENGINEERING_SPEC_ID, receipt)
+    assert (
+        main(
+            [
+                "retry",
+                "--config",
+                str(config_path),
+                ENGINEERING_SPEC_ID,
+                "--event-evidence",
+                str(receipt),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["retried"] is False
+    assert store.task(ENGINEERING_SPEC_ID).status == "waiting_external"  # type: ignore[union-attr]
     unrelated_evidence = json.loads(evidence_json)
     unrelated_evidence["evidence"] = payload["evidence"]
     with pytest.raises(ValueError, match="exact owned paths"):
@@ -687,6 +707,134 @@ def test_engineering_rejects_unrelated_new_commit(tmp_path: Path) -> None:
         "tests_passed": True,
         "review_passed": True,
         "handoff_path": str(unrelated),
+        "blocked_reason": None,
+        "followup": None,
+        "engineering_status": "ENGINEERING_COMPLETE",
+        "investment_status": "NOT_EVALUATED",
+    }
+    with pytest.raises(ValueError, match="owned paths"):
+        validate_completion(
+            payload,
+            task,
+            "attempt",
+            RunnerConfig(repo=repo, scope=ROADMAP_SCOPE),
+            baseline_head=baseline,
+        )
+
+
+def test_engineering_rejects_reported_commit_behind_main(tmp_path: Path) -> None:
+    repo = _tracked_repo(tmp_path)
+    baseline = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    owned = [repo / path for path in sorted(ENGINEERING_OWNED_PATHS)]
+    for path in owned:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("offline fixture\n", encoding="utf-8")
+    subprocess.run(["git", "add", "backend"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "owned"], cwd=repo, check=True)
+    reported = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    (repo / "unrelated.txt").write_text("later\n", encoding="utf-8")
+    subprocess.run(["git", "add", "unrelated.txt"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "later"], cwd=repo, check=True)
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue(
+        ENGINEERING_SPEC_ID,
+        ENGINEERING_SPEC_AREA,
+        ENGINEERING_SPEC_PROMPT,
+        task_kind="engineering",
+    )
+    task = store.task(ENGINEERING_SPEC_ID)
+    assert task is not None
+    payload = {
+        "task_id": task.id,
+        "attempt_id": "attempt",
+        "status": "completed",
+        "integrated_commit": reported,
+        "evidence": [
+            {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            for path in owned
+        ],
+        "tests_passed": True,
+        "review_passed": True,
+        "handoff_path": str(owned[0]),
+        "blocked_reason": None,
+        "followup": None,
+        "engineering_status": "ENGINEERING_COMPLETE",
+        "investment_status": "NOT_EVALUATED",
+    }
+    with pytest.raises(ValueError, match="main HEAD"):
+        validate_completion(
+            payload,
+            task,
+            "attempt",
+            RunnerConfig(repo=repo, scope=ROADMAP_SCOPE),
+            baseline_head=baseline,
+        )
+
+
+def test_engineering_rename_cannot_hide_old_source_path(tmp_path: Path) -> None:
+    repo = _tracked_repo(tmp_path)
+    old = repo / "backend" / "jusik" / "old_execution.py"
+    old.write_text("class Contract: pass\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(old.relative_to(repo))], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "old source"], cwd=repo, check=True)
+    baseline = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    source = repo / "backend" / "jusik" / "paper_execution_contract.py"
+    tests = repo / "backend" / "tests" / "test_paper_execution_contract.py"
+    tests.parent.mkdir(parents=True)
+    subprocess.run(
+        ["git", "mv", str(old.relative_to(repo)), str(source.relative_to(repo))],
+        cwd=repo,
+        check=True,
+    )
+    tests.write_text("def test_contract(): assert True\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(tests.relative_to(repo))], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "rename"], cwd=repo, check=True)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue(
+        ENGINEERING_SPEC_ID,
+        ENGINEERING_SPEC_AREA,
+        ENGINEERING_SPEC_PROMPT,
+        task_kind="engineering",
+    )
+    task = store.task(ENGINEERING_SPEC_ID)
+    assert task is not None
+    payload = {
+        "task_id": task.id,
+        "attempt_id": "attempt",
+        "status": "completed",
+        "integrated_commit": head,
+        "evidence": [
+            {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            for path in (source, tests)
+        ],
+        "tests_passed": True,
+        "review_passed": True,
+        "handoff_path": str(source),
         "blocked_reason": None,
         "followup": None,
         "engineering_status": "ENGINEERING_COMPLETE",

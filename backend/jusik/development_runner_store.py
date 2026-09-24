@@ -258,7 +258,7 @@ class RunnerStore:
         return released
 
     def release_event(self, task_id: str, evidence_path: Path) -> bool:
-        """Explicitly release an external wait when its bound file identity changes."""
+        """Release a data wait on changed evidence; engineering review stays pending."""
         if not evidence_path.is_file() or evidence_path.is_symlink():
             return False
         resolved = evidence_path.resolve()
@@ -269,10 +269,15 @@ class RunnerStore:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
-                "SELECT status,blocker_json,last_attempt_id FROM tasks WHERE id=?",
+                "SELECT status,task_kind,blocker_json,last_attempt_id "
+                "FROM tasks WHERE id=?",
                 (task_id,),
             ).fetchone()
-            if row is None or row["status"] != "waiting_external":
+            if (
+                row is None
+                or row["status"] != "waiting_external"
+                or row["task_kind"] == "engineering"
+            ):
                 db.rollback()
                 return False
             try:
@@ -282,6 +287,7 @@ class RunnerStore:
                 return False
             if (
                 blocker.retry_policy != "event"
+                or blocker.blocker_reason == "independent_review_pending"
                 or blocker.dependency != str(resolved)
                 or blocker.dependency_identity is None
                 or blocker.dependency_identity == current_identity

@@ -691,6 +691,9 @@ def validate_completion(
     if ancestor.returncode != 0:
         raise ValueError("integrated commit is not an ancestor of main")
     if task.task_kind == "engineering":
+        current_main = _git(config.repo, "rev-parse", "main").stdout.strip()
+        if completion.integrated_commit != current_main:
+            raise ValueError("engineering commit must be current main HEAD")
         if baseline_head is None or completion.integrated_commit == baseline_head:
             raise ValueError("engineering commit must be a new descendant")
         descendant = _git(
@@ -706,6 +709,7 @@ def validate_completion(
         changed = _git(
             config.repo,
             "diff",
+            "--no-renames",
             "--name-only",
             baseline_head,
             completion.integrated_commit,
@@ -1985,6 +1989,8 @@ def run_once(
                 completion.status, task.id, attempt_id, completion.blocked_reason
             )
         if task.task_kind == "engineering":
+            # A child completion is a candidate. Only a separate reviewer attempt
+            # may eventually finalize this task; generic event retry cannot do so.
             receipt_path = (
                 config.state_dir / "review-receipts" / f"{task.id}-{attempt_id}.json"
             ).resolve()
@@ -2001,7 +2007,7 @@ def run_once(
                         "separate read-only reviewer PASS receipt bound to this task, "
                         "attempt, and integrated commit"
                     ),
-                    retry_policy="event",
+                    retry_policy="none",
                     alternative_ready_tasks=[alternative.id] if alternative else [],
                 ),
                 config,
