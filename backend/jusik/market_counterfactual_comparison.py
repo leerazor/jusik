@@ -76,6 +76,8 @@ def _reject_in_memory_numbers(value: object, label: str) -> None:
         raise ValueError(f"{label} must contain only finite decimals")
     if isinstance(value, Mapping):
         for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError(f"{label} mapping keys must be strings")
             _reject_in_memory_numbers(item, f"{label}.{key}")
     elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
@@ -689,6 +691,7 @@ def _validate_envelope(envelope: ComparisonEnvelope) -> None:
     _string(envelope.policy_contract, "policy_contract")
     if not isinstance(envelope.fixed_assumptions, Mapping):
         raise ValueError("fixed_assumptions must be an object")
+    _reject_in_memory_numbers(envelope.fixed_assumptions, "fixed_assumptions")
     if set(envelope.fixed_assumptions) != set(_ASSUMPTION_KINDS):
         raise ValueError("fixed_assumptions must contain cost, dividend, and fx")
     if not 1 <= len(envelope.scenarios) <= MAX_SCENARIOS:
@@ -707,6 +710,8 @@ def _validate_envelope(envelope: ComparisonEnvelope) -> None:
             raise ValueError("scenario.change must be an object")
         if not isinstance(item.assumptions, Mapping):
             raise ValueError("scenario.assumptions must be an object")
+        _reject_in_memory_numbers(item.change, f"{item.scenario_id}.change")
+        _reject_in_memory_numbers(item.assumptions, f"{item.scenario_id}.assumptions")
         _sha256(item.source.sha256, "source.sha256")
     _validate_assumptions(envelope.baseline, envelope.scenarios)
 

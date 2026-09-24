@@ -3,6 +3,7 @@ import hashlib
 import json
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
+from dataclasses import replace
 from decimal import ROUND_DOWN, Context, Decimal, localcontext
 from pathlib import Path
 
@@ -392,6 +393,26 @@ def test_public_mapping_rejects_binary_float_numbers(
     mutate(envelope_data)
     with pytest.raises(ValueError, match=message):
         ComparisonEnvelope.from_mapping(envelope_data, base_dir=tmp_path)
+
+
+def test_public_mapping_rejects_non_string_nested_mapping_keys(
+    tmp_path: Path,
+) -> None:
+    envelope_data = _envelope(tmp_path)
+    assumptions = _object(_object(_array(envelope_data["scenarios"])[0])["assumptions"])
+    assumptions["nested"] = {float("nan"): "invalid"}
+    with pytest.raises(ValueError, match="mapping keys must be strings"):
+        ComparisonEnvelope.from_mapping(envelope_data, base_dir=tmp_path)
+
+
+def test_direct_envelope_validation_rejects_nested_binary_float(
+    tmp_path: Path,
+) -> None:
+    envelope = ComparisonEnvelope.from_mapping(_envelope(tmp_path), base_dir=tmp_path)
+    invalid_baseline = replace(envelope.baseline, change={"description": float("nan")})
+    invalid_envelope = replace(envelope, baseline=invalid_baseline)
+    with pytest.raises(ValueError, match="binary floating-point"):
+        compare_prepared_reports(invalid_envelope)
 
 
 def test_explicit_weekend_session_is_preserved_and_timezone_is_not_a_date(
