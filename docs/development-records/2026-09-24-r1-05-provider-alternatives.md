@@ -77,6 +77,19 @@ backend/.venv/bin/python -m jusik.research_alpha_price_probe MDA --env-file .env
   365일 범위의 LIME/MDA 보완 후보로 별도 검증할 수 있지만, 기존 R1-05가 요구하는
   PIT publication/complete coverage와 배당·기업행사 근거를 자동으로 충족하지 않는다.
 
+## MarketParquet key 추가 후 SDK 없는 bounded reader
+
+- `.env`의 `MARKETPARQUET_API_KEY` 존재를 확인하고, `pyarrow`를 backend venv의 선택
+  의존성(`marketparquet`)으로 추가했다. 새 `research_marketparquet` probe는 manifest를
+  읽고 최대 파일 수를 제한하며, 2026-03-27 전후의 `timestamp`/`date` 스키마 차이를
+  모두 처리한다. API key·서명 URL·원문 응답은 결과에 남기지 않는다.
+- `2026-07-01` daily file 1개를 실제 읽기 전용으로 검증했다. Parquet 다운로드는
+  성공했지만 LIME·MDA 행은 0개였다. 이는 해당 날짜의 provider 파일 내 미관측이지
+  전체 이력 부재의 증거가 아니므로 canonical 누락 원인으로 승격하지 않는다.
+- probe 회귀 테스트 4개, Ruff, strict mypy가 통과했다. full-window 수집은 provider
+  요청 한도와 59MB manifest 범위를 고려해 자동으로 실행하지 않았으며, `max-files`로
+  bounded 재현을 제공한다.
+
 재현 명령:
 
 ```text
