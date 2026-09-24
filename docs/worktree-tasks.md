@@ -12,7 +12,7 @@
 - B 소유: `lab_lifecycle_code` (Sol), `/home/kwl/projects/jusik-lab-strategy-lifecycle`, `feat/lab-strategy-lifecycle`, 기준 `3fe759d`, main 병합 `62e229b`. 두 작업의 제품 파일·출력 경로는 겹치지 않는다.
 - 완료 조건: 실제 run_once red-green, 필수 상태·blocker·legacy 보존, lifecycle SQL guard, 관련 pytest/Ruff/mypy, 독립 검토·main 통합.
 - 기록: `docs/development-records/2026-09-25-autonomous-lab.md`, 설계 `docs/autonomous-trading-lab.md`.
-- 운영: 수동 통합 중 roadmap runner paused/service inactive, timer와 연구 optimizer 유지. 사용자 HANDOFF·기존 worktree 보존. 운영 재개 결과는 개발 기록을 확인.
+- 운영: 수동 통합 후 고정 오프라인 spec을 READY로 등록하고 roadmap runner를 재개했다. timer와 연구 optimizer 유지. 신규 A/B worktree는 통합 감사 후 정리하고 사용자 HANDOFF·기존 worktree는 보존했다. 운영 결과는 개발 기록을 확인.
 
 ## optimizer-metric-priority-gap-20260924
 

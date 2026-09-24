@@ -27,7 +27,7 @@
 
 ## 운영 경계
 
-- 수동 변경 시작 전에 roadmap runner pause와 service inactive를 확인했다. timer와 `jusik-research-optimizer.service`, prospective monitor는 유지했다. 최종 재개 상태는 후속 기록한다.
+- 수동 변경 시작 전에 roadmap runner pause와 service inactive를 확인했다. timer와 `jusik-research-optimizer.service`, prospective monitor는 유지했다. 검증·문서 커밋 뒤 고정 오프라인 spec 하나를 READY로 등록하고 roadmap runner를 `paused=False`로 재개했다. timer active, 연구 optimizer와 prospective monitor active를 확인했다. 병합된 신규 worktree 두 개는 감사 후 일반 `git worktree remove`로 정리했다.
 - 사용자 소유 미추적 `HANDOFF.md`와 기존 worktree는 보존한다.
 - 실제 주문, 추가 결제, 권한 확대, credential 정책·투자 기준 완화, Windows 종료는 수행하지 않는다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260925-autonomous-lab-42fsGz`.

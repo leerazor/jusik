@@ -15,7 +15,8 @@
 
 - 다음 고정 READY 개발 과제: 별도 읽기 전용 reviewer attempt journal/timeout·중단 복구, task·implementation attempt·main HEAD·소유 파일 hash 결속 PASS receipt, 원래 attempt의 원자적 `DONE + ENGINEERING_COMPLETE + NOT_EVALUATED` 전이. 일반 event retry·자기 보고·새 구현 attempt는 review를 대체할 수 없다. 상세 acceptance는 설계 정본 16절을 따른다.
 - roadmap runner는 수동 통합 중 `paused=1`, service inactive, timer active였다. `jusik-research-optimizer.service`와 prospective monitor는 active였다. 운영 DB 수정 전 backup은 `/home/kwl/.local/share/jusik/portfolio-audit/20260925-autonomous-lab-42fsGz/runner-before.db`다.
-- 운영 DB additive migration 뒤 backup과 task ID/status 132행이 완전히 일치했다(`completed=111, blocked=8, failed=13`). 고정 공학 READY spec의 enqueue와 runner 복구 결과는 아래 운영 확인에 추가한다.
+- 운영 DB additive migration 뒤 backup과 task ID/status 132행이 완전히 일치했다(`completed=111, blocked=8, failed=13`). 고정 오프라인 spec `lab-paper-execution-contract-v1`을 READY로 등록했고 runner는 `paused=False`로 재개했다. timer는 active이며 다음 실행은 timer가 담당한다. 독립 검토가 없으면 공학 작업은 완료가 아닌 대기 상태에 머문다.
+- 두 신규 작업 worktree는 main 통합·감사 산출물 확인 뒤 `git worktree remove`로 정리했다. 기존 다른 worktree는 유지했다.
 - 사용자 소유 미추적 `HANDOFF.md`와 이전 worktree는 수정·삭제하지 않는다. 전체 backend의 기존 frozen replay 2개 실패를 성공으로 바꾸지 않는다.
 
 다음 세션 시작: 이 파일, `docs/autonomous-trading-lab.md`, `docs/development-records/2026-09-25-autonomous-lab.md`를 읽고 Git/runner 현재 상태·운영 확인을 대조한 뒤 독립 reviewer receipt 구현부터 이어간다. 실제 투자 승격·주문은 여전히 승인되지 않았다.
