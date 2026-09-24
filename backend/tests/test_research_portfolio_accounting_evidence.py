@@ -25,12 +25,13 @@ from jusik.research_portfolio_accounting_evidence import (
 
 BUNDLE = Path(
     "/home/kwl/.local/share/jusik/portfolio-audit/"
-    "forward-simulation-time-evidence-run/run-gr68c4/"
-    "bundle-continuous-official"
+    "forward-simulation-time-evidence-run/run-current-engine-20260924/"
+    "bundle-v2"
 )
 CORRECTED_BUNDLE = Path(
     "/home/kwl/.local/share/jusik/portfolio-audit/"
-    "portfolio-calendar-2026-krx-holiday-correction/run-v3"
+    "portfolio-calendar-2026-krx-holiday-correction/"
+    "run-current-engine-20260924/bundle-v2"
 )
 
 

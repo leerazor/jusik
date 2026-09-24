@@ -46,14 +46,16 @@ SCHEMA: Final = "portfolio-performance-metrics-envelope/v1"
 RESULT_SCHEMA: Final = "market-performance-metrics-result/v1"
 BUNDLE_PATH: Final = Path(
     "/home/kwl/.local/share/jusik/portfolio-audit/"
-    "portfolio-calendar-2026-krx-holiday-correction/run-v3"
+    "portfolio-calendar-2026-krx-holiday-correction/"
+    "run-current-engine-20260924/bundle-v2"
 )
 ACCOUNTING_REPORT_PATH: Final = Path(
     "/home/kwl/.local/share/jusik/portfolio-audit/"
-    "portfolio-calendar-2026-krx-holiday-correction/accounting-report.json"
+    "portfolio-calendar-2026-krx-holiday-correction/"
+    "accounting-report-current-engine.json"
 )
 ACCOUNTING_REPORT_SHA256: Final = (
-    "2f0378214f622b069aa8d2f679ded7bc96600f5348fe91ed5e69b0f283ba9847"
+    "d24811b504263e1c31497007d2747e7d77934d8ab7d3dd5d53b234e1bff02934"
 )
 EXPECTED_DAILY_NAV: Final = 614
 EXPECTED_TRADE_COUNT: Final = 171

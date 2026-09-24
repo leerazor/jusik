@@ -1151,6 +1151,7 @@
 ## forward-simulation-time-evidence-run
 
 - 상태: 완료. 동일 고정 입력과 official timing으로 새 historical time-evidence bundle을 정확히 한 번 생성·검증했습니다.
+- 2026-09-24 artifact refresh: 기존 bundle은 source identity drift를 보존한 채 유지하고, 현재 engine/verifier SHA에 맞춘 `run-current-engine-20260924/bundle-v2` primary·corrected bundle과 accounting report를 별도 경로에 생성했습니다. focused accounting/metrics pytest 25개가 통과했으며 historical/approximate 기술 근거만 유지합니다. 개발 기록 `docs/development-records/2026-09-24-portfolio-time-evidence-refresh.md`.
 - 목표와 완료 조건: 기존 승인된 입력·정책·달력만 사용한 bounded simulation을 정확히 한 번 실행하고, 새 audit 경로의 bundle/manifest/SHA를 검증합니다. 기존 canonical run은 수정하지 않으며 readiness 연결 여부는 별도 판정합니다.
 - 담당: Astra 감독·계획·통합, Luna 단일 실행/필요한 최소 구현, Terra 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-forward-simulation-time-evidence-run` / `feat/forward-simulation-time-evidence-run`.
