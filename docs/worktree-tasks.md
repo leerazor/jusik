@@ -1538,6 +1538,7 @@
 
 ## r2-market-cost-b8a5
 
+- 재시도 `5580d990b8f34a95b78b76393ced3717` (2026-09-24): 현재 main `be5782c`와 BanKIS source audit SHA를 확인하고 기존 소유 워크트리 `fix/r2-market-cost-status-62373df4`를 재사용했습니다. 저장값 불일치의 최상위 `invalid` 전파와 UTC 체결 시각 순서를 보강해 `ee961ce`로 통합했습니다. worktree 및 main의 focused pytest 30개·Ruff·mypy가 통과했고 동결 미국 pilot 1회는 252세션·106거래 저장값 일치, 법정 `unavailable`, 경제 `not-evaluated`였습니다. 리뷰·증거·handoff는 `/home/kwl/.local/share/jusik/portfolio-audit/20260924-r2-02-5580d990/`에 보관합니다. R2-02 전체 checkbox는 미완료이며 법정 유효기간·계좌별 범위·실제 고객 비용 receipt가 재개 입력입니다. 개발 기록: `docs/development-records/2026-09-24-r2-market-cost-status-retry.md`.
 - 재시도 `b3a175c44dff4f93a2d0f7d598cda330` (2026-09-24): 요청한 새 기준과 현재 main `c33e53848be24c8161171ec4f140337a3e55bad7` 및 BanKIS source audit SHA가 일치했습니다. 그러나 확인 시각 12:06 KST는 연속 개발 세션 마감 12:01:09 KST 이후여서 새 구현을 시작하지 않았습니다. 검사·독립 검토·통합은 미실행입니다. 전체 R2-02 미체크와 경제 not-evaluated를 유지합니다. 새 세션 승인과 마감 시각 갱신 후 동일 기준을 다시 확인해야 재개할 수 있습니다. 기존 worktree와 미추적 루트 handoff는 보존했습니다.
 - 재시도 `0ca64cfee7234717b9be0d35b180ccb1` (2026-09-24): 요청 main `cd1ca0f4355f68243af9dceb22ae0f49d760d75c`와 실제 main `a08d483e760cc30cea30db063e79a04abc7483fd`가 달라 SHA 중단 조건을 적용했습니다. 요청 SHA는 조상이며 이전 증거 3개의 SHA는 일치합니다. 구현·검사·review·통합은 미실행, R2-02 전체 미체크·경제 not-evaluated 유지. audit/handoff: `/home/kwl/.local/share/jusik/portfolio-audit/20260924-r2-02-0ca64cfe/`. 재개에는 현재 main을 기준으로 한 명시적 입력 동일성 승인이 필요합니다.
 
