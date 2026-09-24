@@ -77,7 +77,7 @@ def _reject_in_memory_numbers(value: object, label: str) -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
             _reject_in_memory_numbers(item, f"{label}.{key}")
-    elif isinstance(value, list):
+    elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
             _reject_in_memory_numbers(item, f"{label}[{index}]")
 

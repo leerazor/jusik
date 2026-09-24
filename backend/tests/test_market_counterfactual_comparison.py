@@ -371,6 +371,18 @@ def test_zero_negative_and_high_precision_values_are_decimal_safe(
             ),
             "binary floating-point",
         ),
+        (
+            lambda envelope: envelope["fixed_assumptions"].update(
+                {"cost": ("nested", 0.123456789123456789)}
+            ),
+            "binary floating-point",
+        ),
+        (
+            lambda envelope: envelope["fixed_assumptions"].update(
+                {"cost": ("nested", float("nan"))}
+            ),
+            "binary floating-point",
+        ),
     ],
 )
 def test_public_mapping_rejects_binary_float_numbers(
