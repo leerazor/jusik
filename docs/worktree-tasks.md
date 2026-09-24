@@ -1,5 +1,11 @@
 # 워크트리 작업 등록부
 
+## roadmap-r1-05-provider-alternatives-20260924
+
+- Nasdaq Data Link와 Alpaca 공식 문서를 read-only 조사했습니다. 무료 Nasdaq key의 호출 한도와 subscriber historical Bars 범위를 구분했고, Alpaca IEX-only 무료 tier는 전체 US/PIT 대체 근거로 채택하지 않았습니다.
+- 새 provider·cache·성과 계산은 추가하지 않았습니다. Nasdaq bounded probe에는 별도 `NASDAQ_DATA_LINK_API_KEY`가 필요하며 entitlement·historical observed time·complete coverage를 먼저 검증해야 합니다.
+- 기록: `docs/development-records/2026-09-24-r1-05-provider-alternatives.md`.
+
 ## full-suite-r2-02-regression-20260924
 
 - R2-02 통합 후 backend 전체 pytest 재검증: `1776 passed, 2 failed, 2 warnings`.
