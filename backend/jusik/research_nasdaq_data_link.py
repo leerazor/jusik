@@ -80,6 +80,55 @@ def probe_dataset(
         return NasdaqDataLinkProbeResult(dataset, "error", error=error)
 
 
+def probe_table(
+    table: str,
+    api_key: str | None,
+    *,
+    compnumber: str | None = None,
+) -> NasdaqDataLinkProbeResult:
+    """Fetch a bounded Nasdaq Data Link table through the official SDK."""
+
+    if not DATASET_PATTERN.fullmatch(table):
+        raise ValueError("table identifier is invalid")
+    if compnumber is not None and not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", compnumber):
+        raise ValueError("compnumber is invalid")
+    if not api_key:
+        return NasdaqDataLinkProbeResult(table, "missing_key", error="key_missing")
+
+    try:
+        sdk = importlib.import_module("nasdaqdatalink")
+    except ImportError:
+        return NasdaqDataLinkProbeResult(
+            table, "missing_dependency", error="nasdaq_data_link_sdk_missing"
+        )
+
+    config = getattr(sdk, "ApiConfig", None)
+    getter = getattr(sdk, "get_table", None)
+    if config is None or not callable(getter):
+        return NasdaqDataLinkProbeResult(
+            table, "error", error="nasdaq_data_link_table_sdk_invalid"
+        )
+    config.api_base = SDK_BASE_URL
+    config.api_key = api_key
+    parameters: dict[str, object] = {"paginate": True}
+    if compnumber is not None:
+        parameters["compnumber"] = compnumber
+    try:
+        frame = getter(table, **parameters)
+        columns = tuple(str(value) for value in getattr(frame, "columns", ()))
+        return NasdaqDataLinkProbeResult(
+            table,
+            "ready",
+            rows=len(frame),
+            columns=columns,
+        )
+    except Exception as exc:  # SDK has provider-specific exception classes.
+        error = "nasdaq_data_link_table_request_failed"
+        if type(exc).__name__ == "DataLinkError":
+            error = "nasdaq_data_link_error"
+        return NasdaqDataLinkProbeResult(table, "error", error=error)
+
+
 async def probe_dataset_async(
     dataset: str,
     api_key: str | None,
@@ -99,15 +148,18 @@ def _api_key_from_env(path: Path) -> str | None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Probe Nasdaq Data Link via SDK")
-    parser.add_argument("--dataset", default="FRED/GDP")
+    target = parser.add_mutually_exclusive_group()
+    target.add_argument("--dataset")
+    target.add_argument("--table")
+    parser.add_argument("--compnumber")
     parser.add_argument("--rows", type=int, default=1)
     parser.add_argument("--env-file", type=Path, default=Path(".env"))
     args = parser.parse_args(argv)
-    result = probe_dataset(
-        args.dataset,
-        _api_key_from_env(args.env_file),
-        rows=args.rows,
-    )
+    api_key = _api_key_from_env(args.env_file)
+    if args.table is not None:
+        result = probe_table(args.table, api_key, compnumber=args.compnumber)
+    else:
+        result = probe_dataset(args.dataset or "FRED/GDP", api_key, rows=args.rows)
     print(json.dumps(asdict(result), ensure_ascii=False, sort_keys=True))
     return 0 if result.status == "ready" else 2
 

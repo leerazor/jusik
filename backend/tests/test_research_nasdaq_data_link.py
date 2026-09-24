@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 import types
 
-from jusik.research_nasdaq_data_link import probe_dataset
+from jusik.research_nasdaq_data_link import probe_dataset, probe_table
 
 
 def test_probe_uses_sdk_and_returns_schema(monkeypatch) -> None:
@@ -59,3 +59,29 @@ def test_probe_does_not_expose_provider_error(monkeypatch) -> None:
 
     assert result.status == "error"
     assert result.error == "nasdaq_data_link_error"
+
+
+def test_table_probe_uses_paginated_sdk(monkeypatch) -> None:
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class Frame:
+        columns = ("compnumber", "reportdate")
+
+        def __len__(self) -> int:
+            return 2
+
+    def get_table(table: str, **kwargs: object) -> Frame:
+        calls.append((table, kwargs))
+        return Frame()
+
+    sdk = types.SimpleNamespace(
+        ApiConfig=types.SimpleNamespace(api_base="", api_key=None),
+        get_table=get_table,
+    )
+    monkeypatch.setitem(sys.modules, "nasdaqdatalink", sdk)
+
+    result = probe_table("MER/F1", "secret", compnumber="39102")
+
+    assert result.status == "ready"
+    assert result.rows == 2
+    assert calls == [("MER/F1", {"paginate": True, "compnumber": "39102"})]

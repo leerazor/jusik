@@ -36,10 +36,13 @@ Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해
 - probe는 `ApiConfig.api_key`와 공식 `https://data.nasdaq.com/api/v3` base URL을 사용하고, 응답 원문·키를 출력하지 않는다. 성공해도 canonical market history로 자동 승격하지 않는다.
 - `backend/tests/test_research_nasdaq_data_link.py` 3개와 Ruff·strict mypy를 통과했다.
 - 실제 `.env` 키로 `FRED/GDP`를 SDK 조회한 결과는 `DataLinkError`로 실패했다. SDK 호출 방식 자체는 검증됐지만 현재 환경의 403 edge 차단은 해결되지 않았다.
+- 사용자가 검증한 방식에 맞춰 `get_table()` 경로도 추가했다. 실제 `.env` 키로 `MER/F1`, `compnumber=39102`, `paginate=True`를 조회해 HTTP 계층을 거치지 않고 1,314행·32열을 반환했다.
+- `MER/F1`은 재무 데이터 테이블이므로 이 성공을 OHLCV·delisted·PIT 가격 데이터의 완전성 증거로 해석하지 않는다.
 
 재현 명령:
 
 ```text
 backend/.venv/bin/python -m pip install -e 'backend[nasdaq]'
 backend/.venv/bin/python -m jusik.research_nasdaq_data_link --dataset FRED/GDP --rows 1 --env-file .env
+backend/.venv/bin/python -m jusik.research_nasdaq_data_link --table MER/F1 --compnumber 39102 --env-file .env
 ```
