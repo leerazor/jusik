@@ -3975,3 +3975,4 @@
   적용 정책이 여전히 없습니다. `missing_risk_free_evidence`, Sharpe, readiness 상태는
   변경하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-20-kofr-application-preflight.md`.
+- 2026-09-24 전체 백엔드 baseline: `pytest -q`에서 1,770 passed·3 failed를 확인했다. 실패는 held-band 고정 variant SHA 불일치, immutable timestamp-forensics archive의 달력 코드 hash 불일치, 현재 날짜(2026-09-24)에서 2026-09-14를 요청한 최근 7일 검증 fixture 불일치다. strict hash/date safety 경계를 완화하지 않았고 실거래·PAPER/live·DB 운영 데이터는 변경하지 않았다. 상세 기록 `docs/development-records/2026-09-24-full-suite-baseline.md`; 새 pre-registration/아카이브와 fresh 날짜 fixture 없이는 green·경제 acceptance로 승격하지 않는다.
