@@ -137,7 +137,9 @@ RUNTIME_PROMPT_SUFFIX = (
     "Never call collaboration.wait when no receiver agent is present or when the "
     "receiver list is empty: perform the bounded read-only review in the current "
     "supervisor turn, or return a finite review-unavailable result with evidence "
-    "and stop. Do not leave the task in an unbounded wait state."
+    "and stop. Do not call collaboration.spawn_agent unless a concrete receiver "
+    "is available in the current turn; otherwise perform the bounded review in "
+    "the current supervisor turn. Do not leave the task in an unbounded wait state."
     f" {DEVELOPMENT_DELIVERY_POLICY}"
 )
 BACKLOG = (

@@ -62,6 +62,7 @@ def test_runtime_prompt_forbids_unbounded_empty_receiver_wait() -> None:
     assert "Never call collaboration.wait" in RUNTIME_PROMPT_SUFFIX
     assert "receiver list is empty" in RUNTIME_PROMPT_SUFFIX
     assert "finite review-unavailable result" in RUNTIME_PROMPT_SUFFIX
+    assert "Do not call collaboration.spawn_agent" in RUNTIME_PROMPT_SUFFIX
 
 
 @pytest.mark.parametrize("mode", [0o750, 0o770])

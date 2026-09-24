@@ -19,6 +19,8 @@ R2-06 재시도에서 supervisor가 독립 review를 요청했지만 수신 agen
 
 현재 R2-06 runner attempt는 이 변경 전 prompt로 이미 실행 중이었으므로 성공으로 재해석하지 않는다. 다음 cycle에서 fresh retry가 새 prompt를 사용해야 한다. R2-06의 complete fills·배당/FX·benchmark·미래 관찰 자료 및 경제 acceptance는 여전히 미완료다.
 
+후속 retry에서 review 준비 단계가 `collaboration.spawn_agent` 호출로 정체될 수 있음을 확인했다. runtime prompt에 현재 turn에서 실제 receiver가 없으면 spawn을 호출하지 말고 supervisor turn의 bounded read-only review 또는 finite `review-unavailable` 결과로 종료하라는 명시적 guard를 추가했으며, development runner 67개 focused pytest·Ruff·strict mypy가 통과했다.
+
 후속 독립 review에서 직접 생성 envelope의 finite `Decimal` metadata가 JSON 직렬화 전에 남는 P2가 발견되어, `market_counterfactual_comparison.py`에서 metadata를 lossless decimal string으로 정규화하고 회귀를 추가했다. 해당 focused suite는 42 passed, Ruff와 strict mypy도 통과했다.
 
 최신 재시도는 현재 main 기준 counterfactual/accounting focused pytest 79개와 mypy를 통과했고, 포맷 보정 후 counterfactual 42개·Ruff도 통과했다. 독립 review dispatch는 여전히 receiver 없는 `collaboration.wait`에서 멈춰 attempt를 interrupted로 보존했으며, 이를 성공으로 승격하지 않는다.
