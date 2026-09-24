@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sqlite3
 import subprocess
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,11 +15,20 @@ from jusik.development_runner import (
     RunnerConfig,
     _bind_scope,
     _roadmap_waiting_identity,
+    _select_task,
     init_config,
     main,
     resume_runner,
     run_once,
     save_config,
+    validate_completion,
+)
+from jusik.development_runner_contract import (
+    ENGINEERING_OWNED_PATHS,
+    ENGINEERING_SPEC_AREA,
+    ENGINEERING_SPEC_ID,
+    ENGINEERING_SPEC_PROMPT,
+    Blocker,
 )
 from jusik.development_runner_roadmap import (
     ROADMAP_SCOPE,
@@ -199,6 +210,722 @@ def test_planner_ignores_blocked_dependency_and_keeps_independent_phases(
     assert "r2-01" in candidate[0].prompt
     assert "r3-01" in candidate[0].prompt
     assert "r4-01" not in candidate[0].prompt
+
+
+def test_run_once_quarantines_stale_head_and_dispatches_independent_ready(
+    tmp_path: Path,
+) -> None:
+    repo = _tracked_repo(tmp_path)
+    state = tmp_path / "state"
+    history = tmp_path / "history"
+    store = RunnerStore(state / "runner.db", history)
+    store.set_meta("scope", ROADMAP_SCOPE)
+    assert store.enqueue("stale", "r0-01", "already complete")
+    assert store.enqueue("data", "r1-01", "data unavailable")
+    data = store.task("data")
+    assert data is not None
+    store.claim(data, "data-attempt", tmp_path / "data.out", tmp_path / "data.err")
+    store.finish("data-attempt", "data", "blocked")
+    assert store.enqueue("dependent", "r2-01", "needs data", depends_on="data")
+    assert store.enqueue("independent", "r3-01", "offline fixture")
+
+    evidence = repo / "backend" / "jusik" / "__init__.py"
+    digest = hashlib.sha256(evidence.read_bytes()).hexdigest()
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    fake = tmp_path / "fake-child.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "prompt = sys.stdin.read()\n"
+        "fields = {}\n"
+        "for line in prompt.splitlines():\n"
+        "    if ': ' in line:\n"
+        "        key, value = line.split(': ', 1)\n"
+        "        fields[key] = value\n"
+        "output = Path(sys.argv[sys.argv.index('-o') + 1])\n"
+        "payload = {'task_id': fields['Task id'], 'attempt_id': fields['Attempt id'],\n"
+        " 'status': 'completed', 'tests_passed': True, 'review_passed': True,\n"
+        f" 'integrated_commit': {head!r},\n"
+        f" 'evidence': [{{'path': {str(evidence)!r}, 'sha256': {digest!r}}}],\n"
+        f" 'handoff_path': {str(evidence)!r},\n"
+        " 'blocked_reason': None, 'followup': None}\n"
+        "output.write_text(json.dumps(payload), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    config = RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=state,
+        history_dir=history,
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+        cooldown_seconds=0,
+    )
+
+    result = run_once(config)
+
+    assert result.status == "completed" and result.task_id == "independent"
+    assert store.task("stale").status == "blocked"  # type: ignore[union-attr]
+    assert store.task("stale").blocker["alternative_ready_tasks"] == [  # type: ignore[index,union-attr]
+        "independent"
+    ]
+    assert store.task("data").status == "blocked"  # type: ignore[union-attr]
+    assert store.task("dependent").status == "queued"  # type: ignore[union-attr]
+    assert store.task("independent").status == "completed"  # type: ignore[union-attr]
+    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 1
+
+
+def test_wait_states_keep_independent_ready_and_obey_utc_retry_cap(
+    tmp_path: Path,
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue("external", "r1-01", "data")
+    assert store.enqueue("dependent", "r2-01", "dependent", depends_on="external")
+    assert store.enqueue("human", "r2-02", "approval")
+    assert store.enqueue("independent", "r3-01", "offline")
+    due = datetime.now(UTC) + timedelta(minutes=10)
+    external_blocker = Blocker(
+        blocker_reason="source unavailable",
+        attempted_actions=["checked cached receipt"],
+        dependency="source receipt",
+        resume_condition="retry after source deadline",
+        retry_policy="bounded",
+        next_eligible_retry=due,
+        alternative_ready_tasks=["independent"],
+    ).model_dump(mode="json")
+    human_blocker = Blocker(
+        blocker_reason="approval required",
+        attempted_actions=[],
+        dependency="operator decision",
+        resume_condition="authenticated decision",
+        retry_policy="manual",
+        alternative_ready_tasks=["independent"],
+    ).model_dump(mode="json")
+    for task_id, status, blocker in (
+        ("external", "waiting_external", external_blocker),
+        ("human", "waiting_human", human_blocker),
+    ):
+        task = store.task(task_id)
+        assert task is not None
+        store.claim(task, f"{task_id}-1", tmp_path / "out", tmp_path / "err")
+        store.finish(
+            f"{task_id}-1",
+            task_id,
+            status,
+            blocker=blocker,
+            next_allowed_at=blocker["next_eligible_retry"],
+            automatic_retry=True,
+        )
+    assert _select_task(
+        store, ROADMAP_SCOPE, load_roadmap(_repo(tmp_path))
+    ) == store.task("independent")
+    assert store.task("dependent").status == "queued"  # type: ignore[union-attr]
+    assert store.task("human").canonical_state == "WAITING_HUMAN"  # type: ignore[union-attr]
+    assert not store.retry("human")
+    assert store.release_due_waiting(due - timedelta(seconds=1)) == []
+    assert store.release_due_waiting(due) == ["external"]
+    assert store.task("human").status == "waiting_human"  # type: ignore[union-attr]
+    for index in (2, 3):
+        task = store.task("external")
+        assert task is not None
+        store.claim(task, f"external-{index}", tmp_path / "out", tmp_path / "err")
+        store.finish(
+            f"external-{index}",
+            "external",
+            "waiting_external",
+            blocker=external_blocker,
+            next_allowed_at=due.isoformat(),
+        )
+        assert store.release_due_waiting(due) == (["external"] if index == 2 else [])
+    assert store.task("external").attempt_count == 3  # type: ignore[union-attr]
+
+
+def test_wait_completion_requires_utc_blocker_and_manual_human_release(
+    tmp_path: Path,
+) -> None:
+    repo = _tracked_repo(tmp_path)
+    config = RunnerConfig(repo=repo, scope=ROADMAP_SCOPE)
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue("waiting", "r1-01", "wait")
+    task = store.task("waiting")
+    assert task is not None
+    with pytest.raises(ValueError, match="timezone-aware UTC"):
+        Blocker(
+            blocker_reason="external",
+            resume_condition="retry",
+            retry_policy="bounded",
+            next_eligible_retry=datetime(2026, 1, 1),
+        )
+    payload = {
+        "task_id": "waiting",
+        "attempt_id": "attempt",
+        "status": "waiting_human",
+        "integrated_commit": None,
+        "evidence": [],
+        "tests_passed": False,
+        "review_passed": False,
+        "handoff_path": None,
+        "blocked_reason": "approval required",
+        "followup": None,
+        "blocker": Blocker(
+            blocker_reason="approval required",
+            resume_condition="operator decision",
+            retry_policy="manual",
+        ).model_dump(mode="json"),
+    }
+    assert (
+        validate_completion(payload, task, "attempt", config).status == "waiting_human"
+    )
+    payload["blocker"]["retry_policy"] = "event"
+    with pytest.raises(ValueError, match="manual release"):
+        validate_completion(payload, task, "attempt", config)
+
+
+def test_legacy_blocked_migration_preserves_attempt_and_unknown_actions(
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "state" / "runner.db"
+    db_path.parent.mkdir()
+    with sqlite3.connect(db_path) as db:
+        db.execute(
+            "CREATE TABLE tasks (id TEXT PRIMARY KEY, area TEXT NOT NULL, "
+            "prompt TEXT NOT NULL, status TEXT NOT NULL, "
+            "attempt_count INTEGER NOT NULL, "
+            "next_allowed_at TEXT, last_attempt_id TEXT, created_at TEXT NOT NULL, "
+            "updated_at TEXT NOT NULL, previous_attempt_id TEXT)"
+        )
+        db.execute(
+            "CREATE TABLE attempts (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, "
+            "status TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT, "
+            "process_group_id INTEGER, output_path TEXT, stderr_path TEXT, "
+            "evidence_json TEXT, failure_code TEXT)"
+        )
+        db.execute(
+            "INSERT INTO tasks VALUES ('legacy','r1-01','old','blocked',1,NULL,"
+            "'old-attempt','2020-01-01','2020-01-01',NULL)"
+        )
+        db.execute(
+            "INSERT INTO attempts VALUES ('old-attempt','legacy','blocked',"
+            "'2020-01-01','2020-01-01',NULL,NULL,NULL,NULL,'legacy_code')"
+        )
+    store = RunnerStore(db_path)
+    task = store.task("legacy")
+    assert task is not None
+    assert task.canonical_state == "BLOCKED"
+    assert task.blocker is not None
+    assert task.blocker["blocker_reason"] == "legacy_unknown"
+    assert task.blocker["attempted_actions"] == []
+    with sqlite3.connect(db_path) as db:
+        assert (
+            db.execute("SELECT failure_code FROM attempts").fetchone()[0]
+            == "legacy_code"
+        )
+
+
+def test_engineering_spec_is_exact_and_keeps_completion_gates(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo = _tracked_repo(tmp_path)
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        scope=ROADMAP_SCOPE,
+    )
+    config_path = tmp_path / "config.json"
+    save_config(config, config_path)
+    store = RunnerStore(config.state_dir / "runner.db")
+    store.set_meta("scope", ROADMAP_SCOPE)
+    assert store.enqueue("data", "r1-01", "data")
+    data = store.task("data")
+    assert data is not None
+    store.claim(data, "data-attempt", tmp_path / "out", tmp_path / "err")
+    store.finish("data-attempt", "data", "blocked")
+    assert store.enqueue("dependent", "r2-01", "needs data", depends_on="data")
+    assert store.enqueue("delayed", "r3-01", "retry later")
+    with sqlite3.connect(config.state_dir / "runner.db") as db:
+        db.execute(
+            "UPDATE tasks SET next_allowed_at=? WHERE id='delayed'",
+            ((datetime.now(UTC) + timedelta(hours=1)).isoformat(),),
+        )
+    assert (
+        main(
+            [
+                "enqueue",
+                "--config",
+                str(config_path),
+                "--kind",
+                "engineering",
+                "--spec",
+                ENGINEERING_SPEC_ID,
+            ]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    task = store.task(ENGINEERING_SPEC_ID)
+    assert task is not None
+    assert (task.task_kind, task.area, task.prompt) == (
+        "engineering",
+        ENGINEERING_SPEC_AREA,
+        ENGINEERING_SPEC_PROMPT,
+    )
+    assert "rejected orders" in task.prompt
+    assert "Do not call brokerage APIs" in task.prompt
+    assert _select_task(store, ROADMAP_SCOPE, load_roadmap(repo)) == task
+    assert (
+        main(
+            [
+                "enqueue",
+                "--config",
+                str(config_path),
+                "--kind",
+                "engineering",
+                "--spec",
+                ENGINEERING_SPEC_ID,
+                "--area",
+                "r1-01",
+            ]
+        )
+        == 2
+    )
+    capsys.readouterr()
+    assert (
+        main(
+            [
+                "enqueue",
+                "--config",
+                str(config_path),
+                "--kind",
+                "engineering",
+                "--spec",
+                ENGINEERING_SPEC_ID,
+                "--prompt",
+                "changed",
+            ]
+        )
+        == 2
+    )
+    capsys.readouterr()
+    assert main(["status", "--config", str(config_path)]) == 0
+    status = json.loads(capsys.readouterr().out)
+    engineering = next(item for item in status["tasks"] if item["id"] == task.id)
+    dependent = next(item for item in status["tasks"] if item["id"] == "dependent")
+    delayed = next(item for item in status["tasks"] if item["id"] == "delayed")
+    assert engineering["canonical_state"] == "READY"
+    assert engineering["task_kind"] == "engineering"
+    assert engineering["investment_status"] is None
+    assert dependent["status"] == "queued"
+    assert dependent["canonical_state"] == "BLOCKED"
+    assert dependent["blocker"]["dependency"] == "data"
+    assert dependent["blocker"]["attempted_actions"] == []
+    assert delayed["canonical_state"] == "WAITING_EXTERNAL"
+    assert delayed["blocker"]["next_eligible_retry"] is not None
+    forged = RunnerStore(tmp_path / "forged" / "runner.db")
+    assert forged.enqueue(
+        "forged-engineering",
+        "r1-01",
+        ENGINEERING_SPEC_PROMPT,
+        task_kind="engineering",
+    )
+    assert forged.enqueue("safe", "r3-01", "independent")
+    assert _select_task(forged, ROADMAP_SCOPE, load_roadmap(repo)).id == "safe"  # type: ignore[union-attr]
+    assert forged.task("forged-engineering").status == "blocked"  # type: ignore[union-attr]
+    evidence = repo / "backend" / "jusik" / "__init__.py"
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    payload = {
+        "task_id": task.id,
+        "attempt_id": "attempt",
+        "status": "completed",
+        "integrated_commit": head,
+        "evidence": [
+            {
+                "path": str(evidence),
+                "sha256": hashlib.sha256(evidence.read_bytes()).hexdigest(),
+            }
+        ],
+        "tests_passed": True,
+        "review_passed": True,
+        "handoff_path": str(evidence),
+        "blocked_reason": None,
+        "followup": None,
+    }
+    with pytest.raises(ValueError, match="engineering completion"):
+        validate_completion(payload, task, "attempt", config, baseline_head=head)
+    payload.update(
+        engineering_status="ENGINEERING_COMPLETE", investment_status="NOT_EVALUATED"
+    )
+    with pytest.raises(ValueError, match="new descendant"):
+        validate_completion(payload, task, "attempt", config, baseline_head=head)
+    payload["review_passed"] = False
+    with pytest.raises(ValueError, match="independent checks"):
+        validate_completion(payload, task, "attempt", config, baseline_head=head)
+    payload["review_passed"] = True
+    fake = tmp_path / "fake-engineering-child.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import hashlib, json, subprocess, sys\n"
+        "from pathlib import Path\n"
+        "fields = {}\n"
+        "for line in sys.stdin.read().splitlines():\n"
+        "    if ': ' in line:\n"
+        "        key, value = line.split(': ', 1)\n"
+        "        fields[key] = value\n"
+        f"payload = {payload!r}\n"
+        "payload['attempt_id'] = fields['Attempt id']\n"
+        "source = Path('backend/jusik/paper_execution_contract.py')\n"
+        "tests = Path('backend/tests/test_paper_execution_contract.py')\n"
+        "tests.parent.mkdir(parents=True, exist_ok=True)\n"
+        "source.write_text('class ExecutionContract: pass\\n', encoding='utf-8')\n"
+        "tests.write_text('def test_offline(): assert True\\n', encoding='utf-8')\n"
+        "subprocess.run(['git', 'add', str(source), str(tests)], check=True)\n"
+        "subprocess.run(['git', 'commit', '-qm', 'fixture'], check=True)\n"
+        "payload['integrated_commit'] = subprocess.check_output(\n"
+        "    ['git', 'rev-parse', 'HEAD'], text=True).strip()\n"
+        "payload['evidence'] = [\n"
+        "    {'path': str(path.resolve()),\n"
+        "     'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}\n"
+        "    for path in (source, tests)]\n"
+        "payload['handoff_path'] = str(source.resolve())\n"
+        "Path(sys.argv[sys.argv.index('-o') + 1]).write_text(\n"
+        "    json.dumps(payload), encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    result = run_once(
+        config.model_copy(update={"codex": str(fake), "cooldown_seconds": 0})
+    )
+    assert result.status == "waiting_external" and result.task_id == ENGINEERING_SPEC_ID
+    finished = store.task(ENGINEERING_SPEC_ID)
+    assert finished is not None and finished.canonical_state == "WAITING_EXTERNAL"
+    assert finished.engineering_status is None
+    assert finished.investment_status is None
+    assert finished.blocker is not None
+    assert finished.blocker["blocker_reason"] == "independent_review_pending"
+    assert finished.blocker["retry_policy"] == "none"
+    with sqlite3.connect(config.state_dir / "runner.db") as db:
+        assert (
+            db.execute(
+                "SELECT baseline_head FROM attempts WHERE id=?", (result.attempt_id,)
+            ).fetchone()[0]
+            == head
+        )
+        evidence_json = db.execute(
+            "SELECT evidence_json FROM attempts WHERE id=?", (result.attempt_id,)
+        ).fetchone()[0]
+    assert json.loads(evidence_json)["integrated_commit"] != head
+    receipt = Path(finished.blocker["dependency"])
+    receipt.parent.mkdir(parents=True, exist_ok=True)
+    receipt.write_text("unverified review\n", encoding="utf-8")
+    assert not store.release_event(ENGINEERING_SPEC_ID, receipt)
+    assert (
+        main(
+            [
+                "retry",
+                "--config",
+                str(config_path),
+                ENGINEERING_SPEC_ID,
+                "--event-evidence",
+                str(receipt),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["retried"] is False
+    assert store.task(ENGINEERING_SPEC_ID).status == "waiting_external"  # type: ignore[union-attr]
+    unrelated_evidence = json.loads(evidence_json)
+    unrelated_evidence["evidence"] = payload["evidence"]
+    with pytest.raises(ValueError, match="exact owned paths"):
+        validate_completion(
+            unrelated_evidence,
+            task,
+            result.attempt_id or "",
+            config,
+            baseline_head=head,
+        )
+    assert store.task("data").status == "blocked"  # type: ignore[union-attr]
+    assert store.task("dependent").status == "queued"  # type: ignore[union-attr]
+
+
+def test_engineering_rejects_unrelated_new_commit(tmp_path: Path) -> None:
+    repo = _tracked_repo(tmp_path)
+    baseline = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    unrelated = repo / "unrelated.txt"
+    unrelated.write_text("unrelated\n", encoding="utf-8")
+    subprocess.run(["git", "add", "unrelated.txt"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "unrelated"], cwd=repo, check=True)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue(
+        ENGINEERING_SPEC_ID,
+        ENGINEERING_SPEC_AREA,
+        ENGINEERING_SPEC_PROMPT,
+        task_kind="engineering",
+    )
+    task = store.task(ENGINEERING_SPEC_ID)
+    assert task is not None
+    payload = {
+        "task_id": task.id,
+        "attempt_id": "attempt",
+        "status": "completed",
+        "integrated_commit": head,
+        "evidence": [
+            {
+                "path": str(unrelated),
+                "sha256": hashlib.sha256(unrelated.read_bytes()).hexdigest(),
+            }
+        ],
+        "tests_passed": True,
+        "review_passed": True,
+        "handoff_path": str(unrelated),
+        "blocked_reason": None,
+        "followup": None,
+        "engineering_status": "ENGINEERING_COMPLETE",
+        "investment_status": "NOT_EVALUATED",
+    }
+    with pytest.raises(ValueError, match="owned paths"):
+        validate_completion(
+            payload,
+            task,
+            "attempt",
+            RunnerConfig(repo=repo, scope=ROADMAP_SCOPE),
+            baseline_head=baseline,
+        )
+
+
+def test_engineering_rejects_reported_commit_behind_main(tmp_path: Path) -> None:
+    repo = _tracked_repo(tmp_path)
+    baseline = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    owned = [repo / path for path in sorted(ENGINEERING_OWNED_PATHS)]
+    for path in owned:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("offline fixture\n", encoding="utf-8")
+    subprocess.run(["git", "add", "backend"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "owned"], cwd=repo, check=True)
+    reported = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    (repo / "unrelated.txt").write_text("later\n", encoding="utf-8")
+    subprocess.run(["git", "add", "unrelated.txt"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "later"], cwd=repo, check=True)
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue(
+        ENGINEERING_SPEC_ID,
+        ENGINEERING_SPEC_AREA,
+        ENGINEERING_SPEC_PROMPT,
+        task_kind="engineering",
+    )
+    task = store.task(ENGINEERING_SPEC_ID)
+    assert task is not None
+    payload = {
+        "task_id": task.id,
+        "attempt_id": "attempt",
+        "status": "completed",
+        "integrated_commit": reported,
+        "evidence": [
+            {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            for path in owned
+        ],
+        "tests_passed": True,
+        "review_passed": True,
+        "handoff_path": str(owned[0]),
+        "blocked_reason": None,
+        "followup": None,
+        "engineering_status": "ENGINEERING_COMPLETE",
+        "investment_status": "NOT_EVALUATED",
+    }
+    with pytest.raises(ValueError, match="main HEAD"):
+        validate_completion(
+            payload,
+            task,
+            "attempt",
+            RunnerConfig(repo=repo, scope=ROADMAP_SCOPE),
+            baseline_head=baseline,
+        )
+
+
+def test_engineering_rename_cannot_hide_old_source_path(tmp_path: Path) -> None:
+    repo = _tracked_repo(tmp_path)
+    old = repo / "backend" / "jusik" / "old_execution.py"
+    old.write_text("class Contract: pass\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(old.relative_to(repo))], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "old source"], cwd=repo, check=True)
+    baseline = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    source = repo / "backend" / "jusik" / "paper_execution_contract.py"
+    tests = repo / "backend" / "tests" / "test_paper_execution_contract.py"
+    tests.parent.mkdir(parents=True)
+    subprocess.run(
+        ["git", "mv", str(old.relative_to(repo)), str(source.relative_to(repo))],
+        cwd=repo,
+        check=True,
+    )
+    tests.write_text("def test_contract(): assert True\n", encoding="utf-8")
+    subprocess.run(["git", "add", str(tests.relative_to(repo))], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "rename"], cwd=repo, check=True)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue(
+        ENGINEERING_SPEC_ID,
+        ENGINEERING_SPEC_AREA,
+        ENGINEERING_SPEC_PROMPT,
+        task_kind="engineering",
+    )
+    task = store.task(ENGINEERING_SPEC_ID)
+    assert task is not None
+    payload = {
+        "task_id": task.id,
+        "attempt_id": "attempt",
+        "status": "completed",
+        "integrated_commit": head,
+        "evidence": [
+            {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+            for path in (source, tests)
+        ],
+        "tests_passed": True,
+        "review_passed": True,
+        "handoff_path": str(source),
+        "blocked_reason": None,
+        "followup": None,
+        "engineering_status": "ENGINEERING_COMPLETE",
+        "investment_status": "NOT_EVALUATED",
+    }
+    with pytest.raises(ValueError, match="owned paths"):
+        validate_completion(
+            payload,
+            task,
+            "attempt",
+            RunnerConfig(repo=repo, scope=ROADMAP_SCOPE),
+            baseline_head=baseline,
+        )
+
+
+def test_event_wait_releases_only_after_evidence_identity_change(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from jusik.development_runner_contract import Blocker
+
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    receipt = artifact / "receipt.json"
+    receipt.write_text("old\n", encoding="utf-8")
+    old_identity = hashlib.sha256(receipt.read_bytes()).hexdigest()
+    repo = _tracked_repo(tmp_path)
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.set_meta("scope", ROADMAP_SCOPE)
+    config_path = tmp_path / "config.json"
+    save_config(
+        RunnerConfig(
+            repo=repo,
+            state_dir=tmp_path / "state",
+            history_dir=tmp_path / "history",
+            history_db=tmp_path / "history.db",
+            artifact_dir=artifact,
+            scope=ROADMAP_SCOPE,
+        ),
+        config_path,
+    )
+    assert store.enqueue("external", "r1-01", "wait")
+    task = store.task("external")
+    assert task is not None
+    store.claim(task, "external-attempt", tmp_path / "out", tmp_path / "err")
+    blocker = Blocker(
+        blocker_reason="source receipt missing",
+        dependency=str(receipt.resolve()),
+        dependency_identity=old_identity,
+        resume_condition="receipt content changes",
+        retry_policy="event",
+    ).model_dump(mode="json")
+    store.finish("external-attempt", "external", "waiting_external", blocker=blocker)
+    assert not store.release_event("external", receipt)
+    assert (
+        main(
+            [
+                "retry",
+                "--config",
+                str(config_path),
+                "external",
+                "--event-evidence",
+                str(receipt),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["retried"] is False
+    receipt.write_text("new\n", encoding="utf-8")
+    assert (
+        main(
+            [
+                "retry",
+                "--config",
+                str(config_path),
+                "external",
+                "--event-evidence",
+                str(receipt),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["retried"] is True
+    assert store.task("external").status == "queued"  # type: ignore[union-attr]
+    assert not store.release_event("external", receipt)
+    assert store.enqueue("human", "r2-01", "approval")
+    human = store.task("human")
+    assert human is not None
+    store.claim(human, "human-attempt", tmp_path / "out", tmp_path / "err")
+    store.finish("human-attempt", "human", "waiting_human", blocker=blocker)
+    assert not store.release_event("human", receipt)
 
 
 def test_cli_wait_retry_requires_current_roadmap_fingerprint(

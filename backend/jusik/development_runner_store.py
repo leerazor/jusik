@@ -10,6 +10,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from jusik.development_runner_contract import Blocker, unknown_blocker
+
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
@@ -25,6 +27,24 @@ class RunnerTask:
     next_allowed_at: str | None
     last_attempt_id: str | None
     depends_on: str | None
+    task_kind: str = "research"
+    blocker: dict[str, Any] | None = None
+    engineering_status: str | None = None
+    investment_status: str | None = None
+
+    @property
+    def canonical_state(self) -> str:
+        return {
+            "queued": "READY",
+            "running": "RUNNING",
+            "blocked": "BLOCKED",
+            "waiting_external": "WAITING_EXTERNAL",
+            "waiting_human": "WAITING_HUMAN",
+            "completed": "DONE",
+            "failed": "FAILED",
+            "interrupted": "FAILED",
+            "retryable": "FAILED",
+        }.get(self.status, "FAILED")
 
 
 @dataclass(frozen=True)
@@ -34,6 +54,7 @@ class RunnerAttempt:
     status: str
     process_group_id: int | None
     output_path: str | None
+    baseline_head: str | None = None
 
 
 class RunnerStore:
@@ -63,7 +84,7 @@ class RunnerStore:
                     status TEXT NOT NULL, started_at TEXT NOT NULL,
                     ended_at TEXT, process_group_id INTEGER,
                     output_path TEXT, stderr_path TEXT, evidence_json TEXT,
-                    failure_code TEXT
+                    failure_code TEXT, baseline_head TEXT
                 );
                 CREATE TABLE IF NOT EXISTS history_outbox (
                     id TEXT PRIMARY KEY, task_id TEXT NOT NULL,
@@ -81,6 +102,29 @@ class RunnerStore:
             }
             if "depends_on" not in columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN depends_on TEXT")
+            if "task_kind" not in columns:
+                db.execute(
+                    "ALTER TABLE tasks ADD COLUMN task_kind TEXT NOT NULL "
+                    "DEFAULT 'research'"
+                )
+            if "blocker_json" not in columns:
+                db.execute("ALTER TABLE tasks ADD COLUMN blocker_json TEXT")
+            if "engineering_status" not in columns:
+                db.execute("ALTER TABLE tasks ADD COLUMN engineering_status TEXT")
+            if "investment_status" not in columns:
+                db.execute("ALTER TABLE tasks ADD COLUMN investment_status TEXT")
+            attempt_columns = {
+                str(row["name"])
+                for row in db.execute("PRAGMA table_info(attempts)").fetchall()
+            }
+            if "baseline_head" not in attempt_columns:
+                db.execute("ALTER TABLE attempts ADD COLUMN baseline_head TEXT")
+            legacy_blocker = unknown_blocker("legacy_unknown").model_dump(mode="json")
+            db.execute(
+                "UPDATE tasks SET blocker_json=? WHERE blocker_json IS NULL "
+                "AND status IN ('blocked','waiting_external','waiting_human')",
+                (json.dumps(legacy_blocker, sort_keys=True),),
+            )
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.db_path, timeout=2, isolation_level=None)
@@ -104,15 +148,20 @@ class RunnerStore:
         return None if row is None else str(row["value"])
 
     def enqueue(
-        self, task_id: str, area: str, prompt: str, depends_on: str | None = None
+        self,
+        task_id: str,
+        area: str,
+        prompt: str,
+        depends_on: str | None = None,
+        task_kind: str = "research",
     ) -> bool:
         now = utc_now()
         with self._connect() as db:
             cur = db.execute(
                 "INSERT OR IGNORE INTO tasks "
-                "(id,area,prompt,status,created_at,updated_at) "
-                "VALUES(?,?,?,'queued',?,?)",
-                (task_id, area, prompt, now, now),
+                "(id,area,prompt,status,created_at,updated_at,task_kind) "
+                "VALUES(?,?,?,'queued',?,?,?)",
+                (task_id, area, prompt, now, now, task_kind),
             )
             if cur.rowcount == 1 and depends_on is not None:
                 db.execute(
@@ -141,7 +190,118 @@ class RunnerStore:
             next_allowed_at=row["next_allowed_at"],
             last_attempt_id=row["last_attempt_id"],
             depends_on=row["depends_on"],
+            task_kind=str(row["task_kind"]),
+            blocker=(
+                json.loads(str(row["blocker_json"]))
+                if row["blocker_json"] is not None
+                else None
+            ),
+            engineering_status=row["engineering_status"],
+            investment_status=row["investment_status"],
         )
+
+    def quarantine(self, task_id: str, status: str, blocker: dict[str, Any]) -> bool:
+        if status not in {"blocked", "waiting_external", "waiting_human"}:
+            raise ValueError("invalid quarantine state")
+        with self._connect() as db:
+            cur = db.execute(
+                "UPDATE tasks SET status=?,blocker_json=?,updated_at=?,"
+                "next_allowed_at=? WHERE id=? AND status='queued'",
+                (
+                    status,
+                    json.dumps(blocker, sort_keys=True),
+                    utc_now(),
+                    blocker["next_eligible_retry"],
+                    task_id,
+                ),
+            )
+        return cur.rowcount == 1
+
+    def release_due_waiting(self, now: datetime | None = None) -> list[str]:
+        """Release only bounded external waits whose verified UTC deadline passed."""
+        current = now or datetime.now(UTC)
+        if current.tzinfo is None or current.utcoffset() != timedelta(0):
+            raise ValueError("current time must be timezone-aware UTC")
+        released: list[str] = []
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute(
+                "SELECT id,last_attempt_id,blocker_json,next_allowed_at FROM tasks "
+                "WHERE status='waiting_external' AND attempt_count <= 2 "
+                "AND next_allowed_at IS NOT NULL"
+            ).fetchall()
+            for row in rows:
+                try:
+                    blocker = Blocker.model_validate_json(str(row["blocker_json"]))
+                except (ValueError, TypeError):
+                    continue
+                due = blocker.next_eligible_retry
+                try:
+                    scheduled = datetime.fromisoformat(str(row["next_allowed_at"]))
+                except ValueError:
+                    continue
+                if (
+                    blocker.retry_policy != "bounded"
+                    or due is None
+                    or due > current
+                    or scheduled != due
+                ):
+                    continue
+                db.execute(
+                    "UPDATE tasks SET status='queued',next_allowed_at=NULL,"
+                    "previous_attempt_id=last_attempt_id,updated_at=? "
+                    "WHERE id=? AND status='waiting_external'",
+                    (current.isoformat(), row["id"]),
+                )
+                released.append(str(row["id"]))
+            db.commit()
+        return released
+
+    def release_event(self, task_id: str, evidence_path: Path) -> bool:
+        """Release a data wait on changed evidence; engineering review stays pending."""
+        if not evidence_path.is_file() or evidence_path.is_symlink():
+            return False
+        resolved = evidence_path.resolve()
+        try:
+            current_identity = hashlib.sha256(resolved.read_bytes()).hexdigest()
+        except OSError:
+            return False
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT status,task_kind,blocker_json,last_attempt_id "
+                "FROM tasks WHERE id=?",
+                (task_id,),
+            ).fetchone()
+            if (
+                row is None
+                or row["status"] != "waiting_external"
+                or row["task_kind"] == "engineering"
+            ):
+                db.rollback()
+                return False
+            try:
+                blocker = Blocker.model_validate_json(str(row["blocker_json"]))
+            except (ValueError, TypeError):
+                db.rollback()
+                return False
+            if (
+                blocker.retry_policy != "event"
+                or blocker.blocker_reason == "independent_review_pending"
+                or blocker.dependency != str(resolved)
+                or blocker.dependency_identity is None
+                or blocker.dependency_identity == current_identity
+            ):
+                db.rollback()
+                return False
+            db.execute(
+                "UPDATE tasks SET status='queued',next_allowed_at=NULL,"
+                "blocker_json=NULL,previous_attempt_id=last_attempt_id,updated_at=? "
+                "WHERE id=? AND status='waiting_external'",
+                (utc_now(), task_id),
+            )
+            db.commit()
+        return True
 
     def active_attempt(self) -> RunnerAttempt | None:
         with self._connect() as db:
@@ -159,6 +319,7 @@ class RunnerStore:
             status=str(row["status"]),
             process_group_id=row["process_group_id"],
             output_path=row["output_path"],
+            baseline_head=row["baseline_head"],
         )
 
     def recover_running(self) -> list[RunnerAttempt]:
@@ -198,6 +359,7 @@ class RunnerStore:
         stderr_path: Path,
         launched_at: str | None = None,
         history_outcome: str = "started",
+        baseline_head: str | None = None,
     ) -> RunnerAttempt:
         now = utc_now()
         with self._connect() as db:
@@ -215,9 +377,16 @@ class RunnerStore:
             )
             db.execute(
                 "INSERT INTO attempts "
-                "(id,task_id,status,started_at,output_path,stderr_path) "
-                "VALUES(?,?, 'running',?,?,?)",
-                (attempt_id, task.id, now, str(output_path), str(stderr_path)),
+                "(id,task_id,status,started_at,output_path,stderr_path,baseline_head) "
+                "VALUES(?,?, 'running',?,?,?,?)",
+                (
+                    attempt_id,
+                    task.id,
+                    now,
+                    str(output_path),
+                    str(stderr_path),
+                    baseline_head,
+                ),
             )
             if launched_at is not None:
                 db.execute(
@@ -235,7 +404,9 @@ class RunnerStore:
                 (identity, task.id, attempt_id, history_outcome),
             )
             db.commit()
-        return RunnerAttempt(attempt_id, task.id, "running", None, str(output_path))
+        return RunnerAttempt(
+            attempt_id, task.id, "running", None, str(output_path), baseline_head
+        )
 
     def set_process_group(self, attempt_id: str, process_group_id: int) -> None:
         with self._connect() as db:
@@ -254,12 +425,14 @@ class RunnerStore:
         evidence: dict[str, Any] | None = None,
         next_allowed_at: str | None = None,
         automatic_retry: bool = False,
+        blocker: dict[str, Any] | None = None,
     ) -> None:
         now = utc_now()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             task = db.execute(
-                "SELECT status,attempt_count,last_attempt_id,previous_attempt_id "
+                "SELECT status,attempt_count,last_attempt_id,"
+                "previous_attempt_id,depends_on "
                 "FROM tasks WHERE id=?",
                 (task_id,),
             ).fetchone()
@@ -288,6 +461,18 @@ class RunnerStore:
                 ),
             )
             task_status = "completed" if status == "completed" else status
+            if blocker is None and status in {
+                "blocked",
+                "waiting_external",
+                "waiting_human",
+            }:
+                known_reason = (
+                    evidence.get("blocked_reason") if evidence is not None else None
+                )
+                blocker = unknown_blocker(
+                    failure_code or known_reason or "unknown",
+                    dependency=task["depends_on"],
+                ).model_dump(mode="json")
             retry_at = next_allowed_at
             retry_attempt = None
             previous_attempt = None if task is None else task["previous_attempt_id"]
@@ -307,8 +492,42 @@ class RunnerStore:
                 previous_attempt = attempt_id
             db.execute(
                 "UPDATE tasks SET status=?,updated_at=?,next_allowed_at=?,"
-                "previous_attempt_id=? WHERE id=?",
-                (task_status, now, retry_at, previous_attempt, task_id),
+                "previous_attempt_id=?,blocker_json=?,"
+                "engineering_status=?,investment_status=? WHERE id=?",
+                (
+                    task_status,
+                    now,
+                    retry_at,
+                    previous_attempt,
+                    json.dumps(
+                        {
+                            **blocker,
+                            "retry_policy": "bounded"
+                            if retry_attempt
+                            else blocker["retry_policy"],
+                            "resume_condition": (
+                                "bounded recovery deadline"
+                                if retry_attempt
+                                else blocker["resume_condition"]
+                            ),
+                            "next_eligible_retry": retry_at,
+                        },
+                        sort_keys=True,
+                    )
+                    if blocker is not None
+                    else None,
+                    (
+                        evidence.get("engineering_status")
+                        if status == "completed" and evidence is not None
+                        else None
+                    ),
+                    (
+                        evidence.get("investment_status")
+                        if status == "completed" and evidence is not None
+                        else None
+                    ),
+                    task_id,
+                ),
             )
             identity = f"development-runner:{task_id}:{attempt_id}:{status}"
             db.execute(
@@ -515,6 +734,7 @@ class RunnerStore:
             ).fetchone()
             cur = db.execute(
                 "UPDATE tasks SET status='queued',next_allowed_at=NULL, "
+                "blocker_json=NULL, "
                 "previous_attempt_id=?,updated_at=? "
                 "WHERE id=? AND status IN "
                 "('failed','retryable','interrupted','blocked')",
@@ -588,6 +808,7 @@ class RunnerStore:
                 prompt += marker
             db.execute(
                 "UPDATE tasks SET status='queued',prompt=?,next_allowed_at=NULL,"
+                "blocker_json=NULL,"
                 "previous_attempt_id=?,updated_at=? WHERE id=?",
                 (prompt, row["last_attempt_id"], now, task_id),
             )
