@@ -9,7 +9,7 @@
 ## roadmap-r1-05-provider-alternatives-20260924
 
 - Nasdaq Data Link와 Alpaca 공식 문서를 read-only 조사했습니다. 무료 Nasdaq key의 호출 한도와 subscriber historical Bars 범위를 구분했고, Alpaca IEX-only 무료 tier는 전체 US/PIT 대체 근거로 채택하지 않았습니다.
-- 새 provider·cache·성과 계산은 추가하지 않았습니다. 세 키 변수 존재를 확인했고 Alpaca IEX 과거 bar 1건은 인증 성공했습니다. Nasdaq은 query/header 두 방식 모두 데이터 endpoint가 edge/bot HTTP 403을 반환해 재시도했지만, 키 entitlement 판정은 보류했습니다. entitlement·historical observed time·complete coverage를 먼저 검증해야 합니다.
+- `nasdaq-data-link` 선택 의존성과 공식 Python SDK bounded probe(`jusik.research_nasdaq_data_link`)를 추가했습니다. 실제 `.env` SDK 조회도 `DataLinkError`로 실패해 현재 환경의 edge/bot HTTP 403과 entitlement 판정은 보류했습니다. Alpaca IEX 과거 bar 1건은 인증 성공했으며, 어느 provider도 complete PIT coverage로 승격하지 않았습니다.
 - 기록: `docs/development-records/2026-09-24-r1-05-provider-alternatives.md`.
 
 ## full-suite-r2-02-regression-20260924

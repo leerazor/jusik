@@ -29,3 +29,17 @@ Nasdaq endpoint를 공식 클라이언트/허용 네트워크에서 재시도해
 - 데이터 endpoint에 API key를 query parameter로 전달하거나 `X-API-Key` header로 전달하는 두 방식을 재시도했지만 모두 HTTP 403 HTML이었다.
 - 동일 호스트의 잘못된 API 경로는 JSON `QECx01`을 반환했으므로 DNS/전체 네트워크 단절은 아니다. 데이터 경로의 WAF/edge 차단과 키 entitlement를 분리할 수 없어 키 무효로 판정하지 않는다.
 - 추가적인 키 재발급은 요구하지 않는다. 다음 검증은 허용 네트워크 또는 Nasdaq 공식 클라이언트 경로에서 수행한다.
+
+## Python SDK 경로
+
+- `backend/pyproject.toml`에 `nasdaq` 선택 의존성(`nasdaq-data-link>=1,<2`)을 추가하고, `jusik.research_nasdaq_data_link`에 공식 `nasdaqdatalink.get()` bounded probe를 구현했다.
+- probe는 `ApiConfig.api_key`와 공식 `https://data.nasdaq.com/api/v3` base URL을 사용하고, 응답 원문·키를 출력하지 않는다. 성공해도 canonical market history로 자동 승격하지 않는다.
+- `backend/tests/test_research_nasdaq_data_link.py` 3개와 Ruff·strict mypy를 통과했다.
+- 실제 `.env` 키로 `FRED/GDP`를 SDK 조회한 결과는 `DataLinkError`로 실패했다. SDK 호출 방식 자체는 검증됐지만 현재 환경의 403 edge 차단은 해결되지 않았다.
+
+재현 명령:
+
+```text
+backend/.venv/bin/python -m pip install -e 'backend[nasdaq]'
+backend/.venv/bin/python -m jusik.research_nasdaq_data_link --dataset FRED/GDP --rows 1 --env-file .env
+```
