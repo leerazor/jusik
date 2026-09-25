@@ -9,6 +9,7 @@
 - 운영: roadmap runner pause·service inactive, timer 유지. 원본 시도 `f8ee09cfd79845769ae87f3b840952e7`과 제품 커밋 `fc4ddde`는 보존한다. 원격 push·실주문·PAPER/live 활성화·투자 게이트 변경 금지.
 - 구현 워크트리: `/home/kwl/projects/jusik-lab-engineering-failed-candidate-recovery`; 브랜치 `feat/lab-engineering-failed-candidate-recovery`; 기준 `4c888d9`, 통합 `8aef418`. 별도 Sol 검토에서 원본 parse/hash TOCTOU를 지적해 수정했고 최종 PASS. legacy 실패 출력의 과거 원본성은 증명할 수 없으며 현재 SHA pin·transcript 일치·독립 reviewer만 증명한다.
 - 운영 결과: 백업 integrity `ok`, SHA-256 `a23ca1c3ff65924ecef3f04bfcdc5468a18779557b8de9bfb21d22f059f37bc6`. 후보 `6d2f375c0bab42e4aee911d4cb84a440`, review `afc2886778ed4db1a0912ff9d155027e` PASS. 원본 FAILED 불변, task `ENGINEERING_COMPLETE/NOT_EVALUATED`. 개발 기록: `docs/development-records/2026-09-25-lab-engineering-failed-candidate-recovery.md`.
+- handoff: `docs/handoffs/2026-09-25-cancel-claim-recovery.md`.
 
 ## lab-paper-execution-cancel-claim-v1
 
@@ -20,6 +21,7 @@
 - spec 워크트리: `/home/kwl/projects/jusik-lab-paper-execution-cancel-claim-spec`; 브랜치 `feat/lab-paper-execution-cancel-claim-spec`; 기준 `73b4e47`, 통합 `c72aa78`. 이전 두 spec과 신규 spec의 정확한 순서를 테스트로 고정했다. backlog pytest 24개·Ruff·소유 파일 strict mypy 통과, 별도 Sol review PASS.
 - 제품 구현: 자동 자식이 `fc4ddde`에서 정확한 소유 두 파일을 통합했고, 제품 pytest 26개·Ruff·strict mypy·별도 Sol 검토 PASS. 최초 attempt `f8ee09cfd79845769ae87f3b840952e7`는 `status=waiting_external`에 blocker 정보가 없어 `completion_invalid`로 실패했으며 원본은 보존한다. 미래 시도용 완료 상태 안내는 `597ee22`에 보강했다.
 - 운영 결과: 별도 복구 후보 `6d2f375c0bab42e4aee911d4cb84a440`와 reviewer `afc2886778ed4db1a0912ff9d155027e` PASS 후 `ENGINEERING_COMPLETE/NOT_EVALUATED`. 개발 기록: `docs/development-records/2026-09-25-lab-paper-execution-cancel-claim-v1.md`.
+- handoff: `docs/handoffs/2026-09-25-cancel-claim-recovery.md`.
 
 ## lab-paper-execution-restart-journal-race
 
