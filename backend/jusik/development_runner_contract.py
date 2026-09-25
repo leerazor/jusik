@@ -95,10 +95,13 @@ ENGINEERING_SPECS = (
         "cancel and restart tests. Preserve existing order and reconciliation "
         "safety. No real broker adapter, network, credentials, PAPER/live "
         "activation, investment gate, production wiring or dependency changes. "
-        "Use offline pytest, Ruff and strict mypy. Return a candidate with exact "
-        "owned-file evidence, integrated commit, tests_passed=true, "
-        "review_passed=false and null engineering/investment status. A separate "
-        "reviewer decides PASS.",
+        "Use offline pytest, Ruff and strict mypy. Return a candidate with "
+        "status=completed, integrated_commit set to the current main HEAD, "
+        "exact owned-file evidence from canonical main, tests_passed=true, "
+        "review_passed=false and null engineering/investment status. "
+        "status=waiting_external requires blocked_reason and a structured blocker; "
+        "do not use it only for pending independent review. A separate reviewer "
+        "decides PASS.",
         ENGINEERING_OWNED_PATHS,
     ),
 )

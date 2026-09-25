@@ -294,6 +294,18 @@ def test_cancel_claim_spec_releases_exhausted_idle(tmp_path: Path) -> None:
     )
 
 
+def test_cancel_claim_spec_requires_valid_candidate_completion() -> None:
+    spec = ENGINEERING_SPEC_BY_ID["lab-paper-execution-cancel-claim-v1"]
+    assert "status=completed" in spec.prompt
+    assert "current main HEAD" in spec.prompt
+    assert "exact owned-file evidence" in spec.prompt
+    assert "tests_passed=true" in spec.prompt
+    assert "review_passed=false" in spec.prompt
+    assert "null engineering/investment status" in spec.prompt
+    assert "status=waiting_external requires blocked_reason" in spec.prompt
+    assert "and a structured blocker" in spec.prompt
+
+
 @pytest.mark.parametrize("gate", ["disabled", "paused", "quota", "cooldown"])
 def test_backlog_respects_global_gates(tmp_path: Path, gate: str) -> None:
     fake = tmp_path / "must-not-run"
