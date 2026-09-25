@@ -1,6 +1,7 @@
 """Deterministic fake-broker contract tests; no network or credentials."""
 
 from decimal import Decimal, localcontext
+from pathlib import Path
 
 import pytest
 
@@ -212,6 +213,78 @@ def test_lost_response_does_not_retry_submit_and_reconciles() -> None:
         ledger.cancel("k1")
     assert ledger.reconcile("k1").status == "open"
     assert broker.submit_calls == 1
+
+
+def test_restart_keeps_uncertain_submit_and_reconciles(tmp_path: Path) -> None:
+    broker = FakeBroker()
+    broker.fail_after_accept = True
+    path = tmp_path / "orders.sqlite3"
+    with pytest.raises(TimeoutError):
+        ExecutionLedger(broker, path).submit(intent())
+    restarted = ExecutionLedger(broker, path)
+    assert restarted.submit(intent()).status == "pending"
+    with pytest.raises(ValueError, match="idempotency_conflict"):
+        restarted.submit(intent(quantity="11"))
+    assert broker.submit_calls == 1
+    assert restarted.reconcile("k1").status == "open"
+    assert ExecutionLedger(broker, path).submit(intent()).status == "open"
+    assert broker.submit_calls == 1
+
+
+def test_restart_keeps_intent_when_submit_did_not_complete(tmp_path: Path) -> None:
+    class FailingBroker(FakeBroker):
+        def submit(self, intent: OrderIntent) -> OrderSnapshot:
+            raise RuntimeError("submit_unavailable")
+
+    broker = FailingBroker()
+    path = tmp_path / "orders.sqlite3"
+    with pytest.raises(RuntimeError, match="submit_unavailable"):
+        ExecutionLedger(broker, path).submit(intent())
+    restarted = ExecutionLedger(broker, path)
+    assert restarted.submit(intent()).status == "pending"
+    with pytest.raises(ValueError, match="broker_order_missing"):
+        restarted.reconcile("k1")
+
+
+def test_restart_reconciles_partial_cancel_and_late_fill(tmp_path: Path) -> None:
+    broker = FakeBroker()
+    path = tmp_path / "orders.sqlite3"
+    ExecutionLedger(broker, path).submit(intent())
+    first = Fill("f1", Decimal("3"), Decimal("9"))
+    broker.fill("k1", first)
+    assert ExecutionLedger(broker, path).reconcile("k1").status == "partial"
+    restarted = ExecutionLedger(broker, path)
+    assert restarted.submit(intent()).filled_quantity == Decimal("3")
+    assert restarted.cancel("k1").status == "cancelled"
+    second = Fill("f2", Decimal("2"), Decimal("9.25"))
+    broker.orders["k1"] = OrderSnapshot(intent(), "cancelled", (first, second))
+    final = ExecutionLedger(broker, path).reconcile("k1")
+    assert final.filled_quantity == Decimal("5")
+    assert ExecutionLedger(broker, path).cancel("k1") == final
+    assert (broker.submit_calls, broker.cancel_calls) == (1, 1)
+
+
+def test_restart_does_not_retry_uncertain_cancel_or_rejection(tmp_path: Path) -> None:
+    broker = FakeBroker()
+    path = tmp_path / "orders.sqlite3"
+    ExecutionLedger(broker, path).submit(intent())
+    broker.fail_cancel_after_accept = True
+    with pytest.raises(TimeoutError):
+        ExecutionLedger(broker, path).cancel("k1")
+    restarted = ExecutionLedger(broker, path)
+    with pytest.raises(ValueError, match="cancel_outcome_unknown"):
+        restarted.cancel("k1")
+    broker.orders["k1"] = OrderSnapshot(intent(), "open")
+    restarted.reconcile("k1")
+    with pytest.raises(ValueError, match="cancel_outcome_unknown"):
+        ExecutionLedger(broker, path).cancel("k1")
+    assert broker.cancel_calls == 1
+    broker.reject("k1")
+    assert ExecutionLedger(broker, path).reconcile("k1").status == "rejected"
+    final = ExecutionLedger(broker, path)
+    assert final.submit(intent()).status == "rejected"
+    assert final.cancel("k1").status == "rejected"
+    assert (broker.submit_calls, broker.cancel_calls) == (1, 1)
 
 
 def test_missing_or_divergent_broker_state_fails_closed() -> None:
