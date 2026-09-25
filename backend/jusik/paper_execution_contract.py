@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+import json
+import sqlite3
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 from typing import Literal, Protocol
 
 Side = Literal["buy", "sell"]
@@ -130,20 +134,29 @@ def validate_snapshot(snapshot: OrderSnapshot) -> None:
 
 
 class ExecutionLedger:
-    """One process, deterministic ledger; pending means submit outcome is unknown."""
+    """Offline ledger; an optional SQLite journal survives process restarts."""
 
-    def __init__(self, broker: BrokerPort) -> None:
+    def __init__(self, broker: BrokerPort, journal_path: Path | None = None) -> None:
         self._broker = broker
         self._orders: dict[str, OrderSnapshot] = {}
         self._cancel_attempted: set[str] = set()
+        self._journal = (
+            _OrderJournal(journal_path) if journal_path is not None else None
+        )
 
     def submit(self, intent: OrderIntent) -> OrderSnapshot:
-        existing = self._orders.get(intent.key)
+        existing = self._current(intent.key)
         if existing is not None:
             if existing.intent != intent:
                 raise ValueError("idempotency_conflict")
             return existing
         pending = OrderSnapshot(intent, "pending")
+        if self._journal is not None:
+            existing = self._journal.insert_intent(pending)
+            if existing is not None:
+                if existing.intent != intent:
+                    raise ValueError("idempotency_conflict")
+                return existing
         self._orders[intent.key] = pending
         try:
             result = self._broker.submit(intent)
@@ -165,18 +178,27 @@ class ExecutionLedger:
             raise ValueError("order_outcome_unknown")
         if current.status in ("filled", "cancelled", "rejected"):
             return current
-        if key in self._cancel_attempted:
+        if key in self._cancel_attempted or (
+            self._journal is not None and self._journal.cancel_attempted(key)
+        ):
             raise ValueError("cancel_outcome_unknown")
         # A lost response cannot prove the broker did not receive the request.
+        if self._journal is not None and not self._journal.mark_cancel_attempted(key):
+            raise ValueError("cancel_outcome_unknown")
         self._cancel_attempted.add(key)
         result = self._broker.cancel(key)
         return self._accept(key, result)
 
     def _required(self, key: str) -> OrderSnapshot:
-        try:
-            return self._orders[key]
-        except KeyError as exc:
-            raise ValueError("order_unknown") from exc
+        current = self._current(key)
+        if current is None:
+            raise ValueError("order_unknown")
+        return current
+
+    def _current(self, key: str) -> OrderSnapshot | None:
+        if self._journal is not None:
+            return self._journal.get(key)
+        return self._orders.get(key)
 
     def _accept(self, key: str, result: OrderSnapshot) -> OrderSnapshot:
         current = self._required(key)
@@ -201,5 +223,117 @@ class ExecutionLedger:
             raise ValueError("reconciliation_status_regressed")
         if result.filled_quantity < current.filled_quantity:
             raise ValueError("reconciliation_quantity_regressed")
+        if self._journal is not None:
+            self._journal.update(result)
         self._orders[key] = result
         return result
+
+
+class _OrderJournal:
+    """Commit call intent before issuing any externally observable fake-broker call."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        with self._connect() as connection:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS paper_orders ("
+                "key TEXT PRIMARY KEY, snapshot TEXT NOT NULL, "
+                "cancel_attempted INTEGER NOT NULL DEFAULT 0)"
+            )
+
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        connection = sqlite3.connect(self.path, timeout=5)
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
+    def get(self, key: str) -> OrderSnapshot | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT snapshot FROM paper_orders WHERE key=?", (key,)
+            ).fetchone()
+        if row is None:
+            return None
+        snapshot = _decode_snapshot(row[0])
+        if snapshot.intent.key != key:
+            raise ValueError("journal_identity_mismatch")
+        return snapshot
+
+    def insert_intent(self, pending: OrderSnapshot) -> OrderSnapshot | None:
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT snapshot FROM paper_orders WHERE key=?", (pending.intent.key,)
+            ).fetchone()
+            if row is None:
+                connection.execute(
+                    "INSERT INTO paper_orders (key, snapshot) VALUES (?, ?)",
+                    (pending.intent.key, _encode_snapshot(pending)),
+                )
+        if row is None:
+            return None
+        snapshot = _decode_snapshot(row[0])
+        if snapshot.intent.key != pending.intent.key:
+            raise ValueError("journal_identity_mismatch")
+        return snapshot
+
+    def cancel_attempted(self, key: str) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT cancel_attempted FROM paper_orders WHERE key=?", (key,)
+            ).fetchone()
+        return row is not None and bool(row[0])
+
+    def mark_cancel_attempted(self, key: str) -> bool:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE paper_orders SET cancel_attempted=1 "
+                "WHERE key=? AND cancel_attempted=0",
+                (key,),
+            )
+        return cursor.rowcount == 1
+
+    def update(self, snapshot: OrderSnapshot) -> None:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE paper_orders SET snapshot=? WHERE key=?",
+                (_encode_snapshot(snapshot), snapshot.intent.key),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("order_unknown")
+
+
+def _encode_snapshot(snapshot: OrderSnapshot) -> str:
+    return json.dumps(
+        {
+            "key": snapshot.intent.key,
+            "symbol": snapshot.intent.symbol,
+            "side": snapshot.intent.side,
+            "quantity": str(snapshot.intent.quantity),
+            "status": snapshot.status,
+            "fills": [
+                [fill.execution_id, str(fill.quantity), str(fill.price)]
+                for fill in snapshot.fills
+            ],
+        }
+    )
+
+
+def _decode_snapshot(value: str) -> OrderSnapshot:
+    data = json.loads(value)
+    intent = OrderIntent(
+        data["key"], data["symbol"], data["side"], Decimal(data["quantity"])
+    )
+    snapshot = OrderSnapshot(
+        intent,
+        data["status"],
+        tuple(
+            Fill(execution_id, Decimal(quantity), Decimal(price))
+            for execution_id, quantity, price in data["fills"]
+        ),
+    )
+    validate_snapshot(snapshot)
+    return snapshot
