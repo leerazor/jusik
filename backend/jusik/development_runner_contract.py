@@ -104,6 +104,27 @@ ENGINEERING_SPECS = (
         "decides PASS.",
         ENGINEERING_OWNED_PATHS,
     ),
+    EngineeringSpec(
+        "lab-paper-execution-fill-fee-v1",
+        ENGINEERING_SPEC_AREA,
+        "Implement only offline optional per-fill fee preservation for the existing "
+        "fake-broker Fill contract in backend/jusik/paper_execution_contract.py "
+        "and focused tests in backend/tests/test_paper_execution_contract.py. "
+        "Report final fee_amount as an optional Decimal >= 0 and fee_currency as "
+        "an optional KRW or USD value; both fields must be present together, and "
+        "preserve the distinction between None (unknown) and Decimal zero. Keep "
+        "legacy three-field journal records decodable and encode/decode new "
+        "five-field records across restart. Reject adding, removing, or changing "
+        "the fee for an existing execution ID, without mutating the journal. "
+        "Do not estimate fees, calculate PnL, validate actual costs, use brokerage "
+        "network or credentials, activate PAPER/live trading, or change investment "
+        "gates. Use focused offline pytest, Ruff, and strict mypy. Return a "
+        "candidate completion JSON with status=completed, integrated_commit set "
+        "to current main HEAD, exact owned-file evidence from canonical main, "
+        "tests_passed=true, review_passed=false, and null engineering/investment "
+        "status. A separate reviewer decides PASS.",
+        ENGINEERING_OWNED_PATHS,
+    ),
 )
 ENGINEERING_SPEC_BY_ID = {spec.id: spec for spec in ENGINEERING_SPECS}
 AUTOMATIC_ENGINEERING_BACKLOG = ENGINEERING_SPECS[1:]

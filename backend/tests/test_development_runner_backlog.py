@@ -260,20 +260,21 @@ def test_cancel_claim_spec_releases_exhausted_idle(tmp_path: Path) -> None:
         "lab-strategy-lifecycle-receipt-v1",
         "lab-paper-execution-restart-journal-v1",
         "lab-paper-execution-cancel-claim-v1",
+        "lab-paper-execution-fill-fee-v1",
     )
     fake = tmp_path / "fake-child.py"
     _fake_blocked_child(fake)
     config = _config(tmp_path, fake)
     store = _store(config)
     spec = ENGINEERING_SPEC_BY_ID["lab-paper-execution-cancel-claim-v1"]
-    assert AUTOMATIC_ENGINEERING_BACKLOG[-1] == spec
+    assert AUTOMATIC_ENGINEERING_BACKLOG[-2] == spec
     assert spec.owned_paths == frozenset(
         {
             "backend/jusik/paper_execution_contract.py",
             "backend/tests/test_paper_execution_contract.py",
         }
     )
-    for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-1]:
+    for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-2]:
         assert store.enqueue(
             previous.id, previous.area, previous.prompt, task_kind="engineering"
         )
@@ -290,7 +291,7 @@ def test_cancel_claim_spec_releases_exhausted_idle(tmp_path: Path) -> None:
     assert store.get_meta("idle_status") is None
     assert all(
         store.task(previous.id).status == "blocked"  # type: ignore[union-attr]
-        for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-1]
+        for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-2]
     )
 
 
@@ -304,6 +305,67 @@ def test_cancel_claim_spec_requires_valid_candidate_completion() -> None:
     assert "null engineering/investment status" in spec.prompt
     assert "status=waiting_external requires blocked_reason" in spec.prompt
     assert "and a structured blocker" in spec.prompt
+
+
+def test_fill_fee_spec_is_eligible_and_releases_exhausted_idle(
+    tmp_path: Path,
+) -> None:
+    spec = ENGINEERING_SPEC_BY_ID["lab-paper-execution-fill-fee-v1"]
+    assert AUTOMATIC_ENGINEERING_BACKLOG[-1] == spec
+    assert spec.owned_paths == frozenset(
+        {
+            "backend/jusik/paper_execution_contract.py",
+            "backend/tests/test_paper_execution_contract.py",
+        }
+    )
+    for required in (
+        "final fee_amount",
+        "Decimal >= 0",
+        "fee_currency",
+        "KRW or USD",
+        "both fields must be present together",
+        "Decimal zero",
+        "legacy three-field journal records decodable",
+        "new five-field records",
+        "without mutating the journal",
+        "Do not estimate fees",
+        "calculate PnL",
+        "validate actual costs",
+        "brokerage network or credentials",
+        "activate PAPER/live trading",
+        "change investment gates",
+        "status=completed",
+        "exact owned-file evidence from canonical main",
+        "tests_passed=true",
+        "review_passed=false",
+        "null engineering/investment status",
+    ):
+        assert required in spec.prompt
+
+    fake = tmp_path / "fake-child.py"
+    _fake_blocked_child(fake)
+    config = _config(tmp_path, fake)
+    store = _store(config)
+    for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-1]:
+        assert store.enqueue(
+            previous.id, previous.area, previous.prompt, task_kind="engineering"
+        )
+        assert store.quarantine(
+            previous.id,
+            "blocked",
+            {"blocker_reason": "fixture", "next_eligible_retry": None},
+        )
+    _idle(store)
+
+    result = run_once(config)
+
+    assert (result.status, result.task_id) == ("blocked", spec.id)
+    assert store.get_meta("idle_status") is None
+    assert store.task(spec.id).attempt_count == 1  # type: ignore[union-attr]
+    assert all(
+        store.task(previous.id).status == "blocked"  # type: ignore[union-attr]
+        for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-1]
+    )
 
 
 @pytest.mark.parametrize("gate", ["disabled", "paused", "quota", "cooldown"])
