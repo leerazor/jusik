@@ -402,11 +402,18 @@ engineering lane은 기존 runner 안에서 명시적으로 등록된 고정 sco
 
 완료 기준은 blocked/stale task 앞에서도 독립 READY child가 실행되는 증거, WAITING_EXTERNAL/HUMAN·retry 기한 준수, legacy DB 보존, fixture 완료의 투자 미승격, invalid strategy jump의 Python/SQL 거절, 관련 pytest/Ruff/mypy와 독립 review다. 검사 결과와 적용 SHA는 개발 기록에 갱신한다.
 
-후속 우선순위는 다음과 같다.
+2026-09-25 추가 구현: 1번의 별도 reviewer dispatch·journal·결속 receipt 및 원자
+완료 경로를 local main에 통합했다. fake CLI와 임시 DB의 focused 검증 및 독립 Sol
+검토를 통과했다. 기존 차단 시도는 소급 완료하지 않으며 실제 Codex reviewer 운영 호출은
+미검증이다. 3번 오프라인 execution contract도 독립 검토·local main 통합을 마쳤지만
+브로커 연동이나 투자 검증을 뜻하지 않는다. 근거는
+[추가 개발 기록](development-records/2026-09-25-lab-independent-review-receipt.md)을 따른다.
 
-1. 공학 작업의 별도 읽기 전용 reviewer dispatch와 정확한 attempt/commit에 결속한 receipt 검증을 구현한다. reviewer 실행은 전용 review attempt journal에 기록하고 timeout·중단·재시작을 유한 상태로 복구한다. PASS receipt는 원래 task/implementation attempt, 시작 HEAD·현재 main HEAD, 두 소유 파일 hash에 결속해 완료 직전에 재검증한다. PASS일 때만 원래 시도를 원자적으로 `DONE + ENGINEERING_COMPLETE + NOT_EVALUATED`로 확정한다. 실패·무응답·불가용은 해당 작업만 대기시키고 독립 READY를 계속 실행한다. 일반 event 재시도·child의 자기 보고·새 구현 attempt는 review를 대체하지 않는다. 그 전에는 검토 대기를 유지하며 완료를 주장하지 않는다.
+남은 우선순위는 다음과 같다.
+
+1. 실제 Codex reviewer의 제한된 운영 smoke와 기존 차단 attempt의 별도 수동 대사를 수행한다. 기록 없는 과거 시도를 새 receipt로 소급 승인하지 않는다. 재시작 시 프로세스 정체가 불명확하면 해당 검토만 격리하고 다른 READY를 진행한다.
 2. 검증된 receipt adapter를 lifecycle에 연결하고 기존 strategy version과 명시적으로 결속한다. 기존 결과 자동 이관 금지.
-3. `lab-paper-execution-contract-v1`: 실제 주문 없이 execution interface와 idempotency/partial-fill/cancel/reject/retry/reconciliation fixture를 검증한다.
+3. 오프라인 execution contract를 향후 모의 adapter와 연결하기 전 비용·상태·재시작 경계를 추가 검증한다. 현재 코드는 fake-broker 계약만 제공하며 실제 주문을 수행하지 않는다.
 4. KIS 공식 모의주문 계약·권한·계정 환경을 확인하고 별도 sandbox adapter를 연결한다. 내부 PAPER와 KIS paper를 다른 source로 기록한다.
 5. prospective 실제 관찰 수집과 실시간 비용/PnL 대사를 완성한다.
 6. 검증된 후보 보고, 독립 최종 검토, 인증된 인간 승인·deterministic risk/execution 경계를 연결한다. 실계좌 주문은 별도 승인 전 실행하지 않는다.

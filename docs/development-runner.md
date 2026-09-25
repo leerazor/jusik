@@ -19,9 +19,14 @@
 고정된 spec으로만 등록하고 같은 runner의 claim·증거·commit 검증을 사용합니다.
 자료 없는 실제 투자 검증을 engineering으로 바꾸어 우회할 수 없습니다. 공학 완료는
 독립 review receipt가 검증된 뒤에만 `ENGINEERING_COMPLETE`, 투자 판정은
-`NOT_EVALUATED`이며 roadmap checkbox를 올리지 않습니다. 현재 별도 reviewer dispatch와
-receipt 확정 경로는 후속 구현이므로 완료 후보는 `WAITING_EXTERNAL`에 보수적으로
-머뭅니다. 이 대기는 일반 `retry --event-evidence`로 해제할 수 없고 다른 READY를 막지 않습니다.
+`NOT_EVALUATED`이며 roadmap checkbox를 올리지 않습니다. 새 공학 후보는 우선
+`WAITING_EXTERNAL`로 기록합니다. 별도 읽기 전용 reviewer attempt가 고정된 구현 시도,
+시작·현재 main HEAD와 두 소유 파일 hash를 검토하고 PASS receipt를 제출하면 runner가
+같은 입력을 재검증한 뒤 원자적으로 완료합니다. 최대 2회 bounded review이며 실패·
+불가용·정체 불명 프로세스는 해당 task만 대기/격리하고 다른 READY를 계속 선택합니다.
+이 대기는 일반 `retry --event-evidence`로 해제할 수 없습니다. 이전 버전의 검토 없는
+대기/차단 기록은 새 경로가 소급 완료하지 않습니다. 실제 Codex reviewer 운영 호출은
+아직 검증되지 않았으며 fake CLI·임시 DB 검증 결과는 개발 기록을 확인합니다.
 
 ```bash
 cd backend
