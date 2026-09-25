@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 Side = Literal["buy", "sell"]
 OrderStatus = Literal["pending", "open", "partial", "filled", "cancelled", "rejected"]
@@ -68,6 +68,8 @@ class Fill:
     execution_id: str
     quantity: Decimal
     price: Decimal
+    fee_amount: Decimal | None = None
+    fee_currency: Literal["KRW", "USD"] | None = None
 
     def __post_init__(self) -> None:
         if not self.execution_id or not self.execution_id.strip():
@@ -76,6 +78,14 @@ class Fill:
             raise ValueError("fill_quantity_invalid")
         if not self.price.is_finite() or self.price <= 0:
             raise ValueError("fill_price_invalid")
+        if (self.fee_amount is None) != (self.fee_currency is None):
+            raise ValueError("fill_fee_invalid")
+        if self.fee_amount is not None and (
+            not self.fee_amount.is_finite() or self.fee_amount < 0
+        ):
+            raise ValueError("fill_fee_invalid")
+        if self.fee_currency is not None and self.fee_currency not in ("KRW", "USD"):
+            raise ValueError("fill_fee_invalid")
 
 
 @dataclass(frozen=True)
@@ -329,11 +339,36 @@ def _encode_snapshot(snapshot: OrderSnapshot) -> str:
             "quantity": str(snapshot.intent.quantity),
             "status": snapshot.status,
             "fills": [
-                [fill.execution_id, str(fill.quantity), str(fill.price)]
+                [
+                    fill.execution_id,
+                    str(fill.quantity),
+                    str(fill.price),
+                    *(
+                        [str(fill.fee_amount), fill.fee_currency]
+                        if fill.fee_amount is not None
+                        else []
+                    ),
+                ]
                 for fill in snapshot.fills
             ],
         }
     )
+
+
+def _decode_fill(record: list[str]) -> Fill:
+    if len(record) == 3:
+        execution_id, quantity, price = record
+        return Fill(execution_id, Decimal(quantity), Decimal(price))
+    if len(record) == 5:
+        execution_id, quantity, price, fee_amount, fee_currency = record
+        return Fill(
+            execution_id,
+            Decimal(quantity),
+            Decimal(price),
+            Decimal(fee_amount),
+            cast(Literal["KRW", "USD"], fee_currency),
+        )
+    raise ValueError("journal_fill_invalid")
 
 
 def _decode_snapshot(value: str) -> OrderSnapshot:
@@ -344,10 +379,7 @@ def _decode_snapshot(value: str) -> OrderSnapshot:
     snapshot = OrderSnapshot(
         intent,
         data["status"],
-        tuple(
-            Fill(execution_id, Decimal(quantity), Decimal(price))
-            for execution_id, quantity, price in data["fills"]
-        ),
+        tuple(_decode_fill(record) for record in data["fills"]),
     )
     validate_snapshot(snapshot)
     return snapshot

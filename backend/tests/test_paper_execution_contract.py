@@ -1,5 +1,7 @@
 """Deterministic fake-broker contract tests; no network or credentials."""
 
+import json
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, localcontext
 from pathlib import Path
@@ -101,6 +103,86 @@ def test_partial_fills_reconcile_and_preserve_execution_ids() -> None:
     assert ledger.reconcile("k1").status == "filled"
     assert ledger.cancel("k1").status == "filled"
     assert broker.cancel_calls == 0
+
+
+@pytest.mark.parametrize("amount", ["-1", "NaN", "Infinity", "-Infinity"])
+def test_invalid_fill_fee_amount(amount: str) -> None:
+    with pytest.raises(ValueError, match="fill_fee_invalid"):
+        Fill("f1", Decimal("1"), Decimal("10"), Decimal(amount), "USD")
+
+
+@pytest.mark.parametrize(
+    ("amount", "currency"),
+    [(Decimal("0"), None), (None, "USD"), (Decimal("0"), "EUR")],
+)
+def test_fill_fee_requires_amount_and_supported_currency(
+    amount: Decimal | None, currency: str | None
+) -> None:
+    with pytest.raises(ValueError, match="fill_fee_invalid"):
+        Fill("f1", Decimal("1"), Decimal("10"), amount, currency)  # type: ignore[arg-type]
+
+
+def test_fee_round_trip_and_legacy_journal_record(tmp_path: Path) -> None:
+    broker = FakeBroker()
+    path = tmp_path / "orders.sqlite3"
+    ExecutionLedger(broker, path).submit(intent())
+    unknown = Fill("f1", Decimal("3"), Decimal("10"))
+    zero = Fill("f2", Decimal("2"), Decimal("10"), Decimal("0"), "KRW")
+    paid = Fill("f3", Decimal("5"), Decimal("10"), Decimal("0.25"), "USD")
+    broker.orders["k1"] = OrderSnapshot(intent(), "filled", (unknown, zero, paid))
+    assert ExecutionLedger(broker, path).reconcile("k1").fills == (unknown, zero, paid)
+
+    with sqlite3.connect(path) as connection:
+        row = connection.execute(
+            "SELECT snapshot FROM paper_orders WHERE key=?", ("k1",)
+        ).fetchone()
+    assert row is not None
+    records = json.loads(row[0])["fills"]
+    assert records == [
+        ["f1", "3", "10"],
+        ["f2", "2", "10", "0", "KRW"],
+        ["f3", "5", "10", "0.25", "USD"],
+    ]
+    restarted = ExecutionLedger(broker, path).submit(intent())
+    assert restarted.fills == (unknown, zero, paid)
+    assert restarted.fills[0].fee_amount is None
+    assert restarted.fills[1].fee_amount == Decimal("0")
+
+
+@pytest.mark.parametrize(
+    ("original_fee", "changed_fee"),
+    [
+        ((None, None), (Decimal("0"), "USD")),
+        ((Decimal("0"), "USD"), (None, None)),
+        ((Decimal("0"), "USD"), (Decimal("1"), "USD")),
+        ((Decimal("0"), "USD"), (Decimal("0"), "KRW")),
+    ],
+)
+def test_existing_execution_fee_cannot_change_journal(
+    tmp_path: Path,
+    original_fee: tuple[Decimal | None, str | None],
+    changed_fee: tuple[Decimal | None, str | None],
+) -> None:
+    broker = FakeBroker()
+    path = tmp_path / "orders.sqlite3"
+    ledger = ExecutionLedger(broker, path)
+    ledger.submit(intent())
+    original = Fill("f1", Decimal("3"), Decimal("10"), *original_fee)  # type: ignore[arg-type]
+    broker.orders["k1"] = OrderSnapshot(intent(), "partial", (original,))
+    ledger.reconcile("k1")
+    with sqlite3.connect(path) as connection:
+        before = connection.execute(
+            "SELECT snapshot FROM paper_orders WHERE key=?", ("k1",)
+        ).fetchone()
+    changed = Fill("f1", Decimal("3"), Decimal("10"), *changed_fee)  # type: ignore[arg-type]
+    broker.orders["k1"] = OrderSnapshot(intent(), "partial", (changed,))
+    with pytest.raises(ValueError, match="reconciliation_fill_mismatch"):
+        ExecutionLedger(broker, path).reconcile("k1")
+    with sqlite3.connect(path) as connection:
+        after = connection.execute(
+            "SELECT snapshot FROM paper_orders WHERE key=?", ("k1",)
+        ).fetchone()
+    assert after == before
 
 
 def test_cancel_after_partial_fill_is_idempotent() -> None:
