@@ -1,6 +1,6 @@
 # 2026-09-25 자율 개발 handoff: lifecycle receipt revision guard
 
-- 갱신: 2026-09-25T12:19:51Z
+- 갱신: 2026-09-25T12:26:07Z
 - 작업 공간: `/home/kwl/projects/jusik`, `main`; 최종 제품 커밋 `9926ebb` 뒤 문서 정리 중.
 - 목표: 사용자가 `진행/중지`만 지시해도 독립 READY 공학 작업을 이어 가는 trading lab. 실제 주문·투자 검증 승격은 별도 승인과 결정적 게이트를 유지한다.
 
@@ -13,6 +13,7 @@
 ## 경계와 현재 상태
 
 - 현재 receipt는 identity·digest를 보존할 뿐 증거 출처·결과를 판정하지 않는다. 전략 `BACKTESTED` 등 증거 전이를 열지 않았다. 실제 자료 부재를 공학 테스트로 투자 검증 완료 처리하지 않는다.
+- 다섯 고정 공학 spec 소진 뒤 READY/RUNNING은 0건이고 `idle_status=fixed_engineering_backlog_exhausted`다. `planning_enabled=true`여도 runner의 조기 종료가 planner보다 먼저 실행된다. 단순 fallthrough는 자료 준비·사전 검토 없는 roadmap task를 등록할 수 있어 적용하지 않았다. 근거는 `docs/development-records/2026-09-25-lab-runner-backlog-exhaustion-audit.md`.
 - 원격 push·실주문·추가 결제·권한/credential 변경 없음. 사용자 미추적 루트 `HANDOFF.md`와 이전 worktree는 보존했다.
 - 문서 편집 중 roadmap runner는 pause, service inactive, timer active다. 커밋 후 resume하고 READY/idle·timer 상태를 확인해야 한다.
 

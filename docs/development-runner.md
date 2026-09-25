@@ -37,6 +37,10 @@ PASS는 신규 고정 오프라인 공학 작업에서 확인했으며 과거 �
 소급 완료하지 않습니다. 작업별 소유 파일·hash·독립 review가 일치해야 공학 완료이며
 투자 검증은 계속 `NOT_EVALUATED`입니다. 등록된 작업이 모두 소비되면 새로운 LLM 작업을
 임의 생성하지 않고 SQLite `idle_status`에 사유와 다음 UTC 확인 시각을 남깁니다.
+이때 `planning_enabled=true`여도 해당 주기에는 roadmap planner로 넘어가지 않습니다.
+planner 제안은 추적된 area로 제한되지만 개별 자료 준비와 제안의 사전 독립 검토를
+보장하지 않으므로 이 조기 종료를 단순히 제거하지 않습니다. 안전한 연속 기획에는
+검토된 area와 roadmap·mandate identity에 결속된 승인·재검증 계약이 먼저 필요합니다.
 READY 복귀와 소진 기록은 같은 DB 트랜잭션 경계로 관리합니다. 운영 제어는 기존
 `resume`(진행)·`pause`(중지) 명령을 사용합니다. 타이머가 active인 것만으로 개발
 진행이나 투자 검증을 의미하지 않습니다.

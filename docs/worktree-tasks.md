@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## lab-runner-backlog-exhaustion-audit
+
+- 상태: 조사 완료, 자동 planner fallthrough 구현 보류. 고정 공학 backlog 소진이 `planning_enabled=true`에도 roadmap planner 앞에서 `idle`을 반환하는 원인을 확인했다.
+- 판단: 단순 fallthrough는 area 자료 준비와 제안의 사전 독립 검토 없이 신규 roadmap task를 등록할 수 있어 적용하지 않는다. 기존 pause·governance·quota·fingerprint는 유지하고, 다음 READY 독립 공학 작업이 있으면 계속 진행한다.
+- 재개 조건: 검토된 area와 roadmap·mandate identity에 결속한 승인 기록, enqueue 트랜잭션 안의 재검증, 승인 없음·만료·identity 변화·queue full·pause의 거부 테스트를 설계한다. 투자/PAPER/live·credential 게이트는 변경하지 않는다.
+- 대안: 근거를 확인한 좁은 유한 공학 spec을 등록하거나, 실제 자료 증거가 생긴 기존 roadmap blocker만 제한적으로 재개한다. 기록: `docs/development-records/2026-09-25-lab-runner-backlog-exhaustion-audit.md`.
+
 ## lab-lifecycle-receipt-revision-guard-v1
 
 - 상태: 완료. 오프라인 receipt DB의 직접 SQL 삽입이 현재 전략 revision을 우회하는 문제를 고정 공학 backlog에서 검증했다.
