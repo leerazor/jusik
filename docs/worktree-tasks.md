@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## lab-lifecycle-receipt-revision-guard-v1
+
+- 상태: 진행 중. 오프라인 receipt DB의 직접 SQL 삽입이 현재 전략 revision을 우회하는 문제를 고정 공학 backlog에 등록한다.
+- 목표: `lifecycle_evidence_receipts`의 신규 INSERT가 존재하는 전략 ID·버전의 현재 revision과 정확히 일치하도록 DB `BEFORE INSERT` trigger로 강제한다. `PRAGMA foreign_keys=OFF` 연결도 우회할 수 없어야 한다.
+- 범위: spec은 `backend/jusik/development_runner_contract.py`와 `backend/tests/test_development_runner_backlog.py`; 제품은 `backend/jusik/strategy_lifecycle_receipt.py`와 `backend/tests/test_strategy_lifecycle_receipt.py` 두 파일만 소유한다. 기존 legacy receipt·허용 전이·strategy state·투자 판정·PAPER/live·주문은 바꾸지 않는다.
+- 완료 조건: 과거·미래 revision, 없는 전략·잘못된 버전의 직접 INSERT 거부; 현재 revision은 허용; 거부 뒤 receipt/event/state 불변; 기존 API `record/verify`와 revision 충돌·동시성 회귀 통과. focused pytest·Ruff·strict mypy, 별도 Sol 검토, runner `ENGINEERING_COMPLETE/NOT_EVALUATED`.
+- 운영: runner pause·service inactive, timer 유지. 사용자 미추적 `HANDOFF.md`와 기존 작업물 보존; 원격 push·실주문·권한/credential 변경 금지.
+
 ## lab-paper-execution-fill-fee-v1
 
 - 상태: 완료. 유한 공학 backlog에 오프라인 체결 수수료 보존 spec을 등록하고 자동 제품 구현·독립 검토 PASS를 확인했다.
