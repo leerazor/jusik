@@ -267,6 +267,63 @@ def test_restart_reconciles_partial_cancel_and_late_fill(tmp_path: Path) -> None
     assert (broker.submit_calls, broker.cancel_calls) == (1, 1)
 
 
+def test_stale_cancel_does_not_call_broker_after_other_ledger_records_fill(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker = FakeBroker()
+    path = tmp_path / "orders.sqlite3"
+    stale_ledger = ExecutionLedger(broker, path)
+    current_ledger = ExecutionLedger(broker, path)
+    stale = stale_ledger.submit(intent())
+    original_required = stale_ledger._required
+
+    def fill_after_stale_read(key: str) -> OrderSnapshot:
+        assert original_required(key) == stale
+        broker.fill(key, Fill("f1", Decimal("10"), Decimal("9")))
+        assert current_ledger.reconcile(key).status == "filled"
+        return stale
+
+    monkeypatch.setattr(stale_ledger, "_required", fill_after_stale_read)
+    assert stale_ledger.cancel("k1").status == "filled"
+    assert broker.cancel_calls == 0
+    assert ExecutionLedger(broker, path).submit(intent()).status == "filled"
+
+
+def test_stale_duplicate_cancel_returns_persisted_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker = FakeBroker()
+    path = tmp_path / "orders.sqlite3"
+    stale_ledger = ExecutionLedger(broker, path)
+    current_ledger = ExecutionLedger(broker, path)
+    stale = stale_ledger.submit(intent())
+    monkeypatch.setattr(stale_ledger, "_required", lambda _key: stale)
+    cancelled = current_ledger.cancel("k1")
+    assert stale_ledger.cancel("k1") == cancelled
+    assert broker.cancel_calls == 1
+
+
+def test_restart_preserves_cancel_claim_until_filled_reconciliation(
+    tmp_path: Path,
+) -> None:
+    broker = FakeBroker()
+    path = tmp_path / "orders.sqlite3"
+    ExecutionLedger(broker, path).submit(intent())
+    broker.fail_cancel_after_accept = True
+    with pytest.raises(TimeoutError, match="cancel_response_lost"):
+        ExecutionLedger(broker, path).cancel("k1")
+    restarted = ExecutionLedger(broker, path)
+    with pytest.raises(ValueError, match="cancel_outcome_unknown"):
+        restarted.cancel("k1")
+    assert broker.cancel_calls == 1
+    broker.orders["k1"] = OrderSnapshot(
+        intent(), "filled", (Fill("f1", Decimal("10"), Decimal("9")),)
+    )
+    filled = restarted.reconcile("k1")
+    assert ExecutionLedger(broker, path).cancel("k1") == filled
+    assert broker.cancel_calls == 1
+
+
 def test_shared_journal_cannot_overwrite_newer_fills(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

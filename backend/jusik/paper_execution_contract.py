@@ -174,17 +174,17 @@ class ExecutionLedger:
 
     def cancel(self, key: str) -> OrderSnapshot:
         current = self._required(key)
+        if self._journal is not None:
+            current, claimed = self._journal.claim_cancel(key)
+        else:
+            claimed = key not in self._cancel_attempted
         if current.status == "pending":
             raise ValueError("order_outcome_unknown")
         if current.status in ("filled", "cancelled", "rejected"):
             return current
-        if key in self._cancel_attempted or (
-            self._journal is not None and self._journal.cancel_attempted(key)
-        ):
+        if not claimed:
             raise ValueError("cancel_outcome_unknown")
         # A lost response cannot prove the broker did not receive the request.
-        if self._journal is not None and not self._journal.mark_cancel_attempted(key):
-            raise ValueError("cancel_outcome_unknown")
         self._cancel_attempted.add(key)
         result = self._broker.cancel(key)
         return self._accept(key, result)
@@ -283,21 +283,24 @@ class _OrderJournal:
             raise ValueError("journal_identity_mismatch")
         return snapshot
 
-    def cancel_attempted(self, key: str) -> bool:
+    def claim_cancel(self, key: str) -> tuple[OrderSnapshot, bool]:
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
-                "SELECT cancel_attempted FROM paper_orders WHERE key=?", (key,)
-            ).fetchone()
-        return row is not None and bool(row[0])
-
-    def mark_cancel_attempted(self, key: str) -> bool:
-        with self._connect() as connection:
-            cursor = connection.execute(
-                "UPDATE paper_orders SET cancel_attempted=1 "
-                "WHERE key=? AND cancel_attempted=0",
+                "SELECT snapshot, cancel_attempted FROM paper_orders WHERE key=?",
                 (key,),
-            )
-        return cursor.rowcount == 1
+            ).fetchone()
+            if row is None:
+                raise ValueError("order_unknown")
+            current = _decode_snapshot(row[0])
+            if current.intent.key != key:
+                raise ValueError("journal_identity_mismatch")
+            claimed = current.status in ("open", "partial") and not bool(row[1])
+            if claimed:
+                connection.execute(
+                    "UPDATE paper_orders SET cancel_attempted=1 WHERE key=?", (key,)
+                )
+        return current, claimed
 
     def accept(self, key: str, snapshot: OrderSnapshot) -> None:
         with self._connect() as connection:
