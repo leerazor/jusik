@@ -377,6 +377,12 @@ Sol은 planning/cross-module coding/독립 review, Luna는 조사·반복 요약
 
 engineering lane은 기존 runner 안에서 명시적으로 등록된 고정 scope만 허용한다. 투자 phase/checklist와 무관하게 fixture·소프트웨어 계약을 검증할 수 있지만 실제 자료 평가나 PAPER/live activation을 넣지 않는다. 이 분리가 기존 투자 roadmap의 coarse gate를 우회하는 수단이 돼서는 안 된다.
 
+2026-09-25 후속 적용: `automatic_engineering_backlog`는 기본 비활성인 유한 allowlist다.
+기존 BLOCKED 작업을 보존하면서 독립 오프라인 spec 두 개를 순서대로 한 번씩
+등록하고, 소진되면 내구성 있는 idle 사유를 남긴다. 투자 후보 승격이나 무제한
+아이디어 생성 기능은 아니다. 운영 설정과 실제 실행 결과는
+[지속 개발 실행기](development-runner.md)와 작업별 개발 기록을 따른다.
+
 ## 15. 기존 지침·설정과 충돌
 
 | 기존 내용 | 판단과 최소 병합 |
