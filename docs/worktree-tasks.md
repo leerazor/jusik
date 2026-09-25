@@ -13,6 +13,15 @@
 - 백업: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-engineering-discovery/runner-before-discovery.db`, integrity `ok`, SHA-256 `ec3e16f0d05e34eaae3262e53bf64c14c5454c9c19469cdea9722bfc0d1d6fd1`.
 - 기록: `docs/development-records/2026-09-26-lab-engineering-discovery.md`. 실제 DB 복사본에서 기존 6개 테이블·973행 보존과 추가 스키마 무결성을 확인했다. 워크트리는 첫 운영 검증까지 보존한다.
 
+## lab-discovery-c478225b8a11df4e9207f443acec017d
+
+- 상태: 환경 복구 후 재시도 준비. 첫 자동 발굴·범위 검토 PASS로 등록한 시장 달력 오류 계약 수정이다.
+- 소유 범위: `backend/jusik/research_market_calendar.py`, `backend/tests/test_research_market_calendar.py` 두 파일. 투자 상태·달력 자료·일정 계산 변경은 제외한다.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-lab-discovery-calendar-state-c478225b`, `fix/lab-discovery-calendar-state-c478225b`; 최초 기준 `491986b`.
+- 보존 상태: 두 파일의 미커밋 패치를 보존한다. 첫 attempt `24fb6de0a54a40b2a12771ad30f07b7e`는 환경 실패 보고의 형식 오류로 FAILED다. 실패 출력을 다시 쓰지 않는다.
+- 환경 복구: 해당 backend/.venv에 기존 lock과 market-calendar requirements만 설치했고 `pip check`, `exchange_calendars 4.12`, `pytest 9.1.1` 확인을 통과했다. 이 환경을 재사용하고 새 중복 worktree를 만들지 않는다.
+- 다음 담당: runner의 새 단일 구현 child. 재시도 baseline main 변경을 보존·반영하고 focused 검사·통합 후 기존 별도 구현 review를 받는다. 관련 기록은 `docs/development-records/2026-09-26-lab-engineering-discovery.md`다.
+
 ## lab-runner-backlog-exhaustion-audit
 
 - 상태: 조사 완료. 당시 자동 planner fallthrough 구현을 보류했으나, 2026-09-26 명시적 자동 발굴 요청으로 `lab-engineering-discovery`가 후속 구현을 맡는다. 투자 roadmap으로 단순 fallthrough하지 않고 검토된 engineering 제안을 처리한다.
