@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 import subprocess
 from pathlib import Path
@@ -12,7 +13,7 @@ from jusik import development_runner as runner
 from jusik.development_runner import RunnerConfig, _review_command, run_once
 from jusik.development_runner_contract import ENGINEERING_OWNED_PATHS
 from jusik.development_runner_review import review_schema, validate_receipt
-from jusik.development_runner_store import RunnerStore
+from jusik.development_runner_store import ReviewAttempt, RunnerStore
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -255,9 +256,14 @@ def test_review_idle_timeout_has_two_attempt_limit(
     assert store.task("engineering").canonical_state == "WAITING_EXTERNAL"  # type: ignore[union-attr]
     with sqlite3.connect(store.db_path) as db:
         rows = db.execute(
-            "SELECT status,failure_code FROM review_attempts ORDER BY started_at,id"
+            "SELECT status,failure_code,process_group_id,process_id,"
+            "process_starttime FROM review_attempts ORDER BY started_at,id"
         ).fetchall()
-    assert rows == [("failed", "idle_timeout"), ("failed", "idle_timeout")]
+    assert [(row[0], row[1]) for row in rows] == [
+        ("failed", "idle_timeout"),
+        ("failed", "idle_timeout"),
+    ]
+    assert all(row[2] == row[3] and row[4] > 0 for row in rows)
 
 
 def test_rejected_review_dispatches_independent_ready_task(tmp_path: Path) -> None:
@@ -345,7 +351,9 @@ def test_orphaned_review_group_escalates_before_recovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     signals: list[tuple[int, bool]] = []
+    attempt = ReviewAttempt("review", "engineering", 12345, 12345, 77)
     monkeypatch.setattr(runner, "_process_group_alive", lambda _group: True)
+    monkeypatch.setattr(runner, "_review_identity_matches", lambda _attempt: True)
     monkeypatch.setattr(
         runner,
         "_terminate_group",
@@ -353,11 +361,11 @@ def test_orphaned_review_group_escalates_before_recovery(
     )
     monkeypatch.setattr(runner, "_wait_for_group_exit", lambda *_args: False)
 
-    assert not runner._stop_orphaned_review_group(12345)
+    assert not runner._stop_orphaned_review_group(attempt)
     assert signals == [(12345, False), (12345, True)]
 
 
-def test_multiple_running_reviews_preserve_live_journal_and_block_dispatch(
+def test_multiple_running_reviews_quarantine_unknown_and_dispatch_ready(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     config, store, _, _ = _candidate(tmp_path)
@@ -370,7 +378,7 @@ def test_multiple_running_reviews_preserve_live_journal_and_block_dispatch(
         {},
         "2026-01-01T00:00:00+00:00",
     )
-    store.set_review_process_group("review-one", 1001)
+    store.set_review_process_identity("review-one", 1001, 1001, 77)
     with sqlite3.connect(store.db_path) as db:
         db.execute(
             "INSERT INTO review_attempts "
@@ -390,34 +398,24 @@ def test_multiple_running_reviews_preserve_live_journal_and_block_dispatch(
     assert store.enqueue("ready", "entry-amount-distribution", "independent")
     checked: list[int | None] = []
 
-    def stop_group(group_id: int | None) -> bool:
-        checked.append(group_id)
-        return group_id == 1001
+    def stop_group(attempt: ReviewAttempt) -> bool:
+        checked.append(attempt.process_group_id)
+        return attempt.process_group_id == 1001
 
     monkeypatch.setattr(runner, "_stop_orphaned_review_group", stop_group)
     result = run_once(
         config.model_copy(update={"codex": str(tmp_path / "must-not-run")})
     )
 
-    assert result.status == "blocked"
+    assert (result.status, result.task_id) == ("failed", "ready")
     assert set(checked) == {1001, 1002}
-    assert store.task("ready").canonical_state == "READY"  # type: ignore[union-attr]
+    assert store.task("engineering").canonical_state == "WAITING_EXTERNAL"  # type: ignore[union-attr]
+    assert store.review_candidate() is None
     with sqlite3.connect(store.db_path) as db:
         rows = db.execute(
             "SELECT id,status FROM review_attempts ORDER BY id"
         ).fetchall()
-    assert rows == [("review-one", "interrupted"), ("review-two", "running")]
-
-    monkeypatch.setattr(runner, "_stop_orphaned_review_group", lambda _group: True)
-    resumed = run_once(
-        config.model_copy(update={"codex": str(tmp_path / "must-not-run")})
-    )
-    assert (resumed.status, resumed.task_id) == ("failed", "ready")
-    with sqlite3.connect(store.db_path) as db:
-        rows = db.execute(
-            "SELECT id,status FROM review_attempts ORDER BY id"
-        ).fetchall()
-    assert rows == [("review-one", "interrupted"), ("review-two", "interrupted")]
+    assert rows == [("review-one", "interrupted"), ("review-two", "quarantined")]
 
 
 def test_reviewer_environment_does_not_inherit_unlisted_values(
@@ -431,6 +429,131 @@ def test_reviewer_environment_does_not_inherit_unlisted_values(
     assert environment["PATH"] == "/usr/bin:/bin"
     assert "JUSIK_REVIEW_SECRET_MARKER" not in environment
     assert environment["XDG_CACHE_HOME"].startswith(str(tmp_path))
+
+
+def test_unknown_reviewer_identity_quarantines_only_its_task(tmp_path: Path) -> None:
+    config, store, _, _ = _candidate(tmp_path)
+    candidate = store.review_candidate()
+    assert candidate is not None
+    assert store.claim_review(
+        candidate, "unknown", tmp_path / "receipt", {}, "2026-01-01T00:00:00+00:00"
+    )
+    assert store.enqueue("ready", "entry-amount-distribution", "independent")
+    fake = tmp_path / "must-not-run"
+
+    result = run_once(config.model_copy(update={"codex": str(fake)}))
+
+    assert (result.status, result.task_id) == ("failed", "ready")
+    assert store.task("engineering").canonical_state == "WAITING_EXTERNAL"  # type: ignore[union-attr]
+    assert store.review_candidate() is None
+    assert not fake.exists()
+    with sqlite3.connect(store.db_path) as db:
+        assert (
+            db.execute(
+                "SELECT status FROM review_attempts WHERE id='unknown'"
+            ).fetchone()[0]
+            == "quarantined"
+        )
+
+
+def test_reused_reviewer_process_identity_never_signals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempt = ReviewAttempt("review", "engineering", 12345, 12345, 77)
+    signals: list[tuple[int | None, bool]] = []
+    monkeypatch.setattr(runner, "_process_group_alive", lambda _group: True)
+    monkeypatch.setattr(runner, "_read_process_starttime", lambda _pid: 78)
+    monkeypatch.setattr(runner.os, "getpgid", lambda _pid: 12345)
+    monkeypatch.setattr(
+        runner,
+        "_terminate_group",
+        lambda group, force=False: signals.append((group, force)),
+    )
+
+    assert not runner._stop_orphaned_review_group(attempt)
+    assert signals == []
+
+
+def test_reused_group_is_quarantined_without_signalling_or_stopping_ready(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, store, _, _ = _candidate(tmp_path)
+    candidate = store.review_candidate()
+    assert candidate is not None
+    assert store.claim_review(
+        candidate, "reused", tmp_path / "receipt", {}, "2026-01-01T00:00:00+00:00"
+    )
+    store.set_review_process_identity("reused", 12345, 12345, 77)
+    assert store.enqueue("ready", "entry-amount-distribution", "independent")
+    signals: list[tuple[int | None, bool]] = []
+    monkeypatch.setattr(runner, "_process_group_alive", lambda _group: True)
+    monkeypatch.setattr(runner, "_read_process_starttime", lambda _pid: 78)
+    monkeypatch.setattr(runner.os, "getpgid", lambda _pid: 12345)
+    monkeypatch.setattr(
+        runner,
+        "_terminate_group",
+        lambda group, force=False: signals.append((group, force)),
+    )
+
+    result = run_once(
+        config.model_copy(update={"codex": str(tmp_path / "must-not-run")})
+    )
+
+    assert (result.status, result.task_id) == ("failed", "ready")
+    assert signals == []
+    assert store.review_candidate() is None
+    with sqlite3.connect(store.db_path) as db:
+        assert (
+            db.execute(
+                "SELECT status FROM review_attempts WHERE id='reused'"
+            ).fetchone()[0]
+            == "quarantined"
+        )
+
+
+def test_unreadable_reviewer_process_identity_never_signals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempt = ReviewAttempt("review", "engineering", 12345, 12345, 77)
+    signals: list[tuple[int | None, bool]] = []
+    monkeypatch.setattr(runner, "_process_group_alive", lambda _group: True)
+
+    def unreadable(_pid: int) -> int:
+        raise OSError("proc unavailable")
+
+    monkeypatch.setattr(runner, "_read_process_starttime", unreadable)
+    monkeypatch.setattr(
+        runner,
+        "_terminate_group",
+        lambda group, force=False: signals.append((group, force)),
+    )
+
+    assert not runner._stop_orphaned_review_group(attempt)
+    assert signals == []
+
+
+def test_linux_process_starttime_is_readable_without_signalling() -> None:
+    assert runner._read_process_starttime(os.getpid()) > 0
+
+
+def test_old_review_journal_gets_nullable_process_identity_columns(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "state" / "runner.db"
+    database.parent.mkdir()
+    with sqlite3.connect(database) as db:
+        db.execute(
+            "CREATE TABLE review_attempts (id TEXT PRIMARY KEY,task_id TEXT,"
+            "implementation_attempt_id TEXT,status TEXT,started_at TEXT,"
+            "ended_at TEXT,process_group_id INTEGER,output_path TEXT,"
+            "failure_code TEXT,receipt_json TEXT,context_json TEXT)"
+        )
+
+    RunnerStore(database)
+
+    with sqlite3.connect(database) as db:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(review_attempts)")}
+    assert {"process_id", "process_starttime"}.issubset(columns)
 
 
 def test_fake_reviewer_process_cannot_read_unlisted_marker(

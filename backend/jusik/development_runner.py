@@ -59,7 +59,12 @@ from jusik.development_runner_roadmap import (
     validate_planner_area,
     validate_roadmap_completion,
 )
-from jusik.development_runner_store import ReviewCandidate, RunnerStore, RunnerTask
+from jusik.development_runner_store import (
+    ReviewAttempt,
+    ReviewCandidate,
+    RunnerStore,
+    RunnerTask,
+)
 from jusik.research_history import HistoryRepository
 from jusik.research_mandate_governance import (
     MandateGovernanceError,
@@ -1609,13 +1614,70 @@ def _wait_for_group_exit(group_id: int | None, timeout_seconds: float) -> bool:
     return True
 
 
-def _stop_orphaned_review_group(group_id: int | None) -> bool:
-    """Escalate within a fixed limit and confirm exit before journal recovery."""
+def _read_process_starttime(process_id: int) -> int:
+    """Read Linux /proc field 22, stable across reuse of a numeric PID."""
+    raw = (Path("/proc") / str(process_id) / "stat").read_text(encoding="utf-8")
+    closing = raw.rfind(")")
+    if (
+        not raw.startswith(f"{process_id} (")
+        or closing < 0
+        or raw[closing + 1 : closing + 2] != " "
+    ):
+        raise ValueError("reviewer process stat invalid")
+    fields = raw[closing + 2 :].split()
+    if len(fields) <= 19:
+        raise ValueError("reviewer process stat incomplete")
+    starttime = int(fields[19])
+    if starttime <= 0:
+        raise ValueError("reviewer process starttime invalid")
+    return starttime
+
+
+def _review_identity_matches(attempt: ReviewAttempt) -> bool:
+    group_id = attempt.process_group_id
+    process_id = attempt.process_id
+    starttime = attempt.process_starttime
+    if (
+        group_id is None
+        or process_id is None
+        or starttime is None
+        or group_id <= 1
+        or group_id == os.getpgrp()
+        or group_id != process_id
+        or starttime <= 0
+    ):
+        return False
+    try:
+        return (
+            os.getpgid(process_id) == group_id
+            and _read_process_starttime(process_id) == starttime
+        )
+    except (OSError, ValueError):
+        return False
+
+
+def _stop_orphaned_review_group(attempt: ReviewAttempt) -> bool:
+    """Signal only a verified original group; unknown identity stays quarantined."""
+    group_id = attempt.process_group_id
+    if (
+        group_id is None
+        or attempt.process_id is None
+        or attempt.process_starttime is None
+        or group_id <= 1
+        or group_id == os.getpgrp()
+        or group_id != attempt.process_id
+        or attempt.process_starttime <= 0
+    ):
+        return False
     if not _process_group_alive(group_id):
         return True
+    if not _review_identity_matches(attempt):
+        return False
     _terminate_group(group_id)
     if _wait_for_group_exit(group_id, 2.0):
         return True
+    if not _review_identity_matches(attempt):
+        return False
     _terminate_group(group_id, force=True)
     return _wait_for_group_exit(group_id, 1.0)
 
@@ -1716,10 +1778,14 @@ def _run_review(
             return None
         try:
             group_id = os.getpgid(process.pid)
-        except ProcessLookupError:
-            group_id = None
-        if group_id is not None:
-            store.set_review_process_group(review_id, group_id)
+            starttime = _read_process_starttime(process.pid)
+        except (OSError, ValueError):
+            pass
+        else:
+            if group_id == process.pid:
+                store.set_review_process_identity(
+                    review_id, group_id, process.pid, starttime
+                )
         deadline = time.monotonic() + config.timeout_seconds
         started_at = time.time()
         input_payload: bytes | None = prompt.encode()
@@ -1856,21 +1922,14 @@ def run_once(
                 "previous attempt process group is still alive",
             )
         recoverable_reviews: list[str] = []
-        surviving_reviews = []
+        uncertain_reviews: list[str] = []
         for active_review in store.running_reviews():
-            if _stop_orphaned_review_group(active_review.process_group_id):
+            if _stop_orphaned_review_group(active_review):
                 recoverable_reviews.append(active_review.id)
             else:
-                surviving_reviews.append(active_review)
+                uncertain_reviews.append(active_review.id)
         store.recover_running_reviews(recoverable_reviews)
-        if surviving_reviews:
-            survivor = surviving_reviews[0]
-            return RunResult(
-                "blocked",
-                survivor.task_id,
-                survivor.id,
-                "previous review process group is still alive",
-            )
+        store.quarantine_reviews(uncertain_reviews)
         _safe_history_flush(store, config)
         interrupted = store.recover_running()
         if interrupted:

@@ -70,6 +70,8 @@ class ReviewAttempt:
     id: str
     task_id: str
     process_group_id: int | None
+    process_id: int | None
+    process_starttime: int | None
 
 
 class RunnerStore:
@@ -117,6 +119,8 @@ class RunnerStore:
                     started_at TEXT NOT NULL,
                     ended_at TEXT,
                     process_group_id INTEGER,
+                    process_id INTEGER,
+                    process_starttime INTEGER,
                     output_path TEXT NOT NULL,
                     failure_code TEXT,
                     receipt_json TEXT,
@@ -147,6 +151,16 @@ class RunnerStore:
             }
             if "baseline_head" not in attempt_columns:
                 db.execute("ALTER TABLE attempts ADD COLUMN baseline_head TEXT")
+            review_columns = {
+                str(row["name"])
+                for row in db.execute("PRAGMA table_info(review_attempts)").fetchall()
+            }
+            if "process_id" not in review_columns:
+                db.execute("ALTER TABLE review_attempts ADD COLUMN process_id INTEGER")
+            if "process_starttime" not in review_columns:
+                db.execute(
+                    "ALTER TABLE review_attempts ADD COLUMN process_starttime INTEGER"
+                )
             legacy_blocker = unknown_blocker("legacy_unknown").model_dump(mode="json")
             db.execute(
                 "UPDATE tasks SET blocker_json=? WHERE blocker_json IS NULL "
@@ -342,11 +356,18 @@ class RunnerStore:
     def running_reviews(self) -> list[ReviewAttempt]:
         with self._connect() as db:
             rows = db.execute(
-                "SELECT id,task_id,process_group_id FROM review_attempts "
+                "SELECT id,task_id,process_group_id,process_id,process_starttime "
+                "FROM review_attempts "
                 "WHERE status='running' ORDER BY started_at,id"
             ).fetchall()
         return [
-            ReviewAttempt(str(row["id"]), str(row["task_id"]), row["process_group_id"])
+            ReviewAttempt(
+                str(row["id"]),
+                str(row["task_id"]),
+                row["process_group_id"],
+                row["process_id"],
+                row["process_starttime"],
+            )
             for row in rows
         ]
 
@@ -377,6 +398,41 @@ class RunnerStore:
                     recovered.append(review_id)
             db.commit()
         return recovered
+
+    def quarantine_reviews(self, attempt_ids: list[str]) -> list[str]:
+        """Exclude uncertain reviewer processes without claiming they exited."""
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            quarantined: list[str] = []
+            blocker = unknown_blocker("review_process_needs_manual_reconciliation")
+            for review_id in attempt_ids:
+                row = db.execute(
+                    "SELECT task_id,implementation_attempt_id "
+                    "FROM review_attempts WHERE id=? AND status='running'",
+                    (review_id,),
+                ).fetchone()
+                if row is None:
+                    continue
+                db.execute(
+                    "UPDATE review_attempts SET status='quarantined',"
+                    "failure_code='review_process_needs_manual_reconciliation' "
+                    "WHERE id=? AND status='running'",
+                    (review_id,),
+                )
+                db.execute(
+                    "UPDATE tasks SET blocker_json=?,updated_at=? "
+                    "WHERE id=? AND status='waiting_external' "
+                    "AND last_attempt_id=?",
+                    (
+                        json.dumps(blocker.model_dump(mode="json"), sort_keys=True),
+                        utc_now(),
+                        row["task_id"],
+                        row["implementation_attempt_id"],
+                    ),
+                )
+                quarantined.append(review_id)
+            db.commit()
+        return quarantined
 
     def review_candidate(self) -> ReviewCandidate | None:
         """Only new, validated candidate envelopes can enter this path."""
@@ -531,12 +587,17 @@ class RunnerStore:
             db.commit()
         return True
 
-    def set_review_process_group(self, review_id: str, group_id: int) -> None:
+    def set_review_process_identity(
+        self, review_id: str, group_id: int, process_id: int, starttime: int
+    ) -> None:
+        if group_id <= 1 or group_id != process_id or starttime <= 0:
+            raise ValueError("invalid reviewer process identity")
         with self._connect() as db:
             db.execute(
-                "UPDATE review_attempts SET process_group_id=? "
+                "UPDATE review_attempts SET process_group_id=?,process_id=?,"
+                "process_starttime=? "
                 "WHERE id=? AND status='running'",
-                (group_id, review_id),
+                (group_id, process_id, starttime, review_id),
             )
 
     def finish_review(
