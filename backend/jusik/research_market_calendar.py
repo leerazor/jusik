@@ -335,6 +335,8 @@ def _parse_day(calendar: CalendarCode, row: object) -> tuple[date, _Day]:
     except (TypeError, ValueError) as exc:
         raise MarketCalendarError("calendar_day_invalid") from exc
     state = row["state"]
+    if not isinstance(state, str):
+        raise MarketCalendarError("calendar_day_invalid")
     if state in {"closed", "unavailable"}:
         if set(row) != {"date", "state"}:
             raise MarketCalendarError("calendar_closed_day_invalid")

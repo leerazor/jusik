@@ -4,7 +4,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -18,7 +18,9 @@ from scripts.generate_market_calendar import build_payload
 
 
 def _payload() -> dict[str, Any]:
-    return json.loads(DEFAULT_CALENDAR_PATH.read_text(encoding="utf-8"))
+    return cast(
+        dict[str, Any], json.loads(DEFAULT_CALENDAR_PATH.read_text(encoding="utf-8"))
+    )
 
 
 def _encoded(payload: dict[str, Any]) -> bytes:
@@ -136,6 +138,23 @@ def test_corrupt_or_incomplete_calendars_fail_closed(mutate: Any, code: str) -> 
     mutate(payload)
     with pytest.raises(MarketCalendarError, match=code):
         MarketCalendar.from_bytes(_encoded(payload))
+
+
+@pytest.mark.parametrize("state", [[], {}])
+def test_invalid_day_state_fails_closed(state: object, tmp_path: Path) -> None:
+    payload = _payload()
+    payload["calendars"]["XNYS"][0]["state"] = state
+    raw = _encoded(payload)
+
+    with pytest.raises(MarketCalendarError, match="^calendar_day_invalid$"):
+        MarketCalendar.from_bytes(raw)
+
+    path = tmp_path / "invalid-calendar.json"
+    path.write_bytes(raw)
+    calendar = load_market_calendar(path)
+    assert not calendar.available
+    assert calendar.error == "calendar_day_invalid"
+    assert calendar.lookup("NYS", datetime(2023, 1, 2).date()).state == "unavailable"
 
 
 def test_missing_or_out_of_range_calendar_is_unavailable(tmp_path: Path) -> None:
