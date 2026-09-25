@@ -37,7 +37,7 @@ def _config(tmp_path: Path, fake: Path, *, enabled: bool = True) -> RunnerConfig
         cooldown_seconds=0,
         planning_enabled=True,
         automatic_engineering_backlog=enabled,
-        scope="investment-roadmap",
+        scope=ROADMAP_SCOPE,
     )
 
 
@@ -255,6 +255,11 @@ def test_blocked_legacy_is_preserved_and_new_specs_dispatch_once(
 
 
 def test_cancel_claim_spec_releases_exhausted_idle(tmp_path: Path) -> None:
+    assert tuple(spec.id for spec in AUTOMATIC_ENGINEERING_BACKLOG) == (
+        "lab-strategy-lifecycle-receipt-v1",
+        "lab-paper-execution-restart-journal-v1",
+        "lab-paper-execution-cancel-claim-v1",
+    )
     fake = tmp_path / "fake-child.py"
     _fake_blocked_child(fake)
     config = _config(tmp_path, fake)
