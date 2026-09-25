@@ -26,7 +26,7 @@
 
 ## 안전·운영 상태
 
-- 실주문·PAPER/live activation·추가 결제·권한/credential 변경·원격 push 없음. runner를 tracked main 편집 중 pause했고, 기록 완료 후 resume한다. timer는 active, 사용자 미추적 루트 `HANDOFF.md`는 보존했다.
+- 실주문·PAPER/live activation·추가 결제·권한/credential 변경·원격 push 없음. runner를 tracked main 편집 중 pause했고 12:00 UTC 재개 후 `paused=false`, READY/RUNNING 없음과 timer active를 확인했다. 최종 문서 교정으로 잠시 pause한 뒤 재개한다. 사용자 미추적 루트 `HANDOFF.md`는 보존했다.
 
 ## 증거와 재개
 
