@@ -320,7 +320,9 @@ def test_fill_fee_spec_is_eligible_and_releases_exhausted_idle(
     )
     for required in (
         "final fee_amount",
-        "Decimal >= 0",
+        "finite Decimal >= 0",
+        "fee_amount.is_finite()",
+        "reject NaN and Infinity",
         "fee_currency",
         "KRW or USD",
         "both fields must be present together",
