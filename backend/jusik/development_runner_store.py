@@ -493,6 +493,9 @@ class RunnerStore:
         now = utc_now()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            paused = db.execute(
+                "SELECT value FROM runner_meta WHERE key='paused'"
+            ).fetchone()
             row = db.execute(
                 "SELECT tasks.status,tasks.last_attempt_id,tasks.attempt_count,"
                 "attempts.status AS attempt_status,attempts.failure_code,"
@@ -502,7 +505,9 @@ class RunnerStore:
                 (source.task.id,),
             ).fetchone()
             if (
-                row is None
+                paused is None
+                or paused["value"] != "1"
+                or row is None
                 or row["status"] != "failed"
                 or row["last_attempt_id"] != source.attempt_id
                 or row["attempt_status"] != "failed"
@@ -511,6 +516,19 @@ class RunnerStore:
                 or row["baseline_head"] != source.baseline_head
                 or row["evidence_json"] is not None
             ):
+                db.rollback()
+                return False
+            try:
+                source_path = Path(source.output_path)
+                source_intact = (
+                    not source_path.is_symlink()
+                    and source_path.stat().st_size <= 65_536
+                    and hashlib.sha256(source_path.read_bytes()).hexdigest()
+                    == recovery["source_sha256"]
+                )
+            except OSError:
+                source_intact = False
+            if not source_intact:
                 db.rollback()
                 return False
             envelope = {
