@@ -220,7 +220,7 @@ class RunnerStore:
         return cur.rowcount == 1
 
     def enqueue_next_engineering_spec(self) -> tuple[EngineeringSpec | None, str]:
-        """Create the first never-seen fixed task in one transaction."""
+        """Create one fixed task or record the idle decision atomically."""
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             paused = db.execute(
@@ -229,6 +229,7 @@ class RunnerStore:
             if paused is not None and paused["value"] == "1":
                 db.rollback()
                 return None, "paused"
+            idle_reason = "fixed_engineering_backlog_exhausted"
             for spec in AUTOMATIC_ENGINEERING_BACKLOG:
                 existing = db.execute(
                     "SELECT 1 FROM tasks WHERE id=?", (spec.id,)
@@ -240,8 +241,8 @@ class RunnerStore:
                     "AND status IN ('queued','running')"
                 ).fetchone()
                 if int(pending[0]) >= ROADMAP_PENDING_LIMIT:
-                    db.commit()
-                    return None, "engineering_queue_full"
+                    idle_reason = "engineering_queue_full"
+                    break
                 now = utc_now()
                 db.execute(
                     "INSERT INTO tasks "
@@ -252,19 +253,24 @@ class RunnerStore:
                 db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
                 db.commit()
                 return spec, "enqueued"
+            next_check_at = datetime.now(UTC).replace(
+                minute=0, second=0, microsecond=0
+            ) + timedelta(hours=1)
+            db.execute(
+                "INSERT INTO runner_meta(key,value) VALUES('idle_status',?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (
+                    json.dumps(
+                        {
+                            "reason": idle_reason,
+                            "next_check_at": next_check_at.isoformat(),
+                        },
+                        sort_keys=True,
+                    ),
+                ),
+            )
             db.commit()
-        return None, "fixed_engineering_backlog_exhausted"
-
-    def record_idle(self, reason: str, next_check_at: datetime) -> None:
-        if next_check_at.tzinfo is None or next_check_at.utcoffset() != timedelta(0):
-            raise ValueError("next check must be UTC")
-        self.set_meta(
-            "idle_status",
-            json.dumps(
-                {"reason": reason, "next_check_at": next_check_at.isoformat()},
-                sort_keys=True,
-            ),
-        )
+        return None, idle_reason
 
     def task(self, task_id: str) -> RunnerTask | None:
         with self._connect() as db:

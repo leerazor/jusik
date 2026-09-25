@@ -73,8 +73,14 @@ def _git(repo: Path, *args: str) -> str:
 
 
 def _idle(store: RunnerStore) -> None:
-    store.record_idle(
-        "fixed_engineering_backlog_exhausted", datetime.now(UTC) + timedelta(hours=1)
+    store.set_meta(
+        "idle_status",
+        json.dumps(
+            {
+                "reason": "fixed_engineering_backlog_exhausted",
+                "next_check_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+            }
+        ),
     )
 
 
@@ -160,6 +166,45 @@ def test_rebase_clears_stale_idle(tmp_path: Path) -> None:
     assert store.get_meta("idle_status") is None
 
 
+def test_retry_between_backlog_decision_and_return_cannot_restore_idle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = _config(tmp_path, tmp_path / "must-not-run")
+    store = _store(config)
+    for spec in AUTOMATIC_ENGINEERING_BACKLOG:
+        assert store.enqueue(spec.id, spec.area, spec.prompt, task_kind="engineering")
+        assert store.quarantine(
+            spec.id,
+            "blocked",
+            {"blocker_reason": "fixture", "next_eligible_retry": None},
+        )
+    first_id = AUTOMATIC_ENGINEERING_BACKLOG[0].id
+    original = RunnerStore.enqueue_next_engineering_spec
+    interleaved = False
+
+    def retry_after_decision(
+        current: RunnerStore,
+    ) -> tuple[EngineeringSpec | None, str]:
+        nonlocal interleaved
+        result = original(current)
+        assert result == (None, "fixed_engineering_backlog_exhausted")
+        assert current.retry(first_id)
+        interleaved = True
+        return result
+
+    monkeypatch.setattr(
+        RunnerStore, "enqueue_next_engineering_spec", retry_after_decision
+    )
+    result = run_once(config)
+    assert interleaved
+    assert (result.status, result.reason) == (
+        "idle",
+        "fixed_engineering_backlog_exhausted",
+    )
+    assert store.task(first_id).status == "queued"  # type: ignore[union-attr]
+    assert store.get_meta("idle_status") is None
+
+
 def test_blocked_legacy_is_preserved_and_new_specs_dispatch_once(
     tmp_path: Path,
 ) -> None:
@@ -239,6 +284,7 @@ def test_backlog_respects_global_gates(tmp_path: Path, gate: str) -> None:
         }[gate]
     )
     assert all(store.task(spec.id) is None for spec in AUTOMATIC_ENGINEERING_BACKLOG)
+    assert store.get_meta("idle_status") is None
 
 
 def test_full_ready_queue_does_not_create_backlog_task(tmp_path: Path) -> None:
@@ -255,6 +301,9 @@ def test_full_ready_queue_does_not_create_backlog_task(tmp_path: Path) -> None:
         )
     result = run_once(config)
     assert (result.status, result.reason) == ("idle", "engineering_queue_full")
+    idle = json.loads(store.get_meta("idle_status") or "{}")
+    assert idle["reason"] == "engineering_queue_full"
+    assert datetime.fromisoformat(idle["next_check_at"]) > datetime.now(UTC)
     assert all(store.task(spec.id) is None for spec in AUTOMATIC_ENGINEERING_BACKLOG)
 
 

@@ -2019,11 +2019,6 @@ def run_once(
             else:
                 if idle_reason == "paused":
                     return RunResult("paused")
-                store.record_idle(
-                    idle_reason,
-                    datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
-                    + timedelta(hours=1),
-                )
                 return RunResult("idle", reason=idle_reason)
         if task is None:
             if not config.planning_enabled:
