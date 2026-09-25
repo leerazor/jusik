@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## lab-paper-execution-fill-fee-v1
+
+- 상태: 진행 중. 유한 공학 backlog에 오프라인 체결 수수료 보존 spec을 등록하고 자동 제품 구현·독립 검토를 확인한다.
+- 목표: fake-broker `Fill`의 명시적 최종 체결별 수수료 금액·통화를 선택형으로 보존한다. 기존 3필드 journal은 비용 미상으로 계속 읽고, 신규 5필드 기록을 재시작 후 동일하게 복원한다. 같은 execution ID의 수수료 추가·삭제·변경은 거부한다.
+- 범위: spec 등록은 `backend/jusik/development_runner_contract.py`, `backend/tests/test_development_runner_backlog.py`. 후속 단일 제품 소유 범위는 `backend/jusik/paper_execution_contract.py`, `backend/tests/test_paper_execution_contract.py`다. 실제 비용 추정·PnL·주문·PAPER/live 활성화·투자 판정은 제외한다.
+- 완료 조건: 금액·통화 동시 존재, 유한 Decimal·0 허용·음수/무효 통화 거부, 명시적 0과 미상의 구분, legacy/new journal 왕복, 비용 변조 후 journal 불변. focused pytest·Ruff·strict mypy, 독립 Sol 검토, runner `ENGINEERING_COMPLETE/NOT_EVALUATED`.
+- 운영: runner pause·service inactive, timer 유지. 사용자 미추적 `HANDOFF.md`와 기존 worktree·실패 시도는 보존한다. 추가 결제·원격 push·실계좌 주문 금지.
+
 ## lab-failed-output-digest
 
 - 상태: 완료. 새 `completion_invalid` 공학 시도의 실패 순간 출력 SHA-256을 원자적으로 기록한다.
