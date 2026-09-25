@@ -2,12 +2,43 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal, Protocol
 
 Side = Literal["buy", "sell"]
 OrderStatus = Literal["pending", "open", "partial", "filled", "cancelled", "rejected"]
+
+
+def _exact_sum(values: Iterable[Decimal]) -> Decimal:
+    """Sum finite decimals without rounding through the caller's context."""
+    parts: list[tuple[int, int]] = []
+    for value in values:
+        decimal_tuple = value.as_tuple()
+        part_exponent = decimal_tuple.exponent
+        if not isinstance(part_exponent, int):
+            raise ValueError("decimal_nonfinite")
+        coefficient = 0
+        for digit in decimal_tuple.digits:
+            coefficient = coefficient * 10 + digit
+        if decimal_tuple.sign:
+            coefficient = -coefficient
+        parts.append((coefficient, part_exponent))
+    if not parts:
+        return Decimal(0)
+    minimum_exponent = min(part_exponent for _, part_exponent in parts)
+    total = sum(
+        coefficient * 10 ** (part_exponent - minimum_exponent)
+        for coefficient, part_exponent in parts
+    )
+    return Decimal(
+        (
+            int(total < 0),
+            tuple(int(digit) for digit in str(abs(total))),
+            minimum_exponent,
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -51,11 +82,16 @@ class OrderSnapshot:
 
     @property
     def filled_quantity(self) -> Decimal:
-        return sum((fill.quantity for fill in self.fills), Decimal(0))
+        return _exact_sum(fill.quantity for fill in self.fills)
 
     @property
     def remaining_quantity(self) -> Decimal:
-        return self.intent.quantity - self.filled_quantity
+        return _exact_sum(
+            (
+                self.intent.quantity,
+                *(fill.quantity.copy_negate() for fill in self.fills),
+            )
+        )
 
 
 class BrokerPort(Protocol):
@@ -71,7 +107,12 @@ class BrokerPort(Protocol):
 def validate_snapshot(snapshot: OrderSnapshot) -> None:
     """Validate complete broker state before it enters the local ledger."""
     if snapshot.status not in (
-        "pending", "open", "partial", "filled", "cancelled", "rejected"
+        "pending",
+        "open",
+        "partial",
+        "filled",
+        "cancelled",
+        "rejected",
     ):
         raise ValueError("order_status_invalid")
     ids = [fill.execution_id for fill in snapshot.fills]
@@ -94,6 +135,7 @@ class ExecutionLedger:
     def __init__(self, broker: BrokerPort) -> None:
         self._broker = broker
         self._orders: dict[str, OrderSnapshot] = {}
+        self._cancel_attempted: set[str] = set()
 
     def submit(self, intent: OrderIntent) -> OrderSnapshot:
         existing = self._orders.get(intent.key)
@@ -123,6 +165,10 @@ class ExecutionLedger:
             raise ValueError("order_outcome_unknown")
         if current.status in ("filled", "cancelled", "rejected"):
             return current
+        if key in self._cancel_attempted:
+            raise ValueError("cancel_outcome_unknown")
+        # A lost response cannot prove the broker did not receive the request.
+        self._cancel_attempted.add(key)
         result = self._broker.cancel(key)
         return self._accept(key, result)
 
@@ -144,7 +190,9 @@ class ExecutionLedger:
             for execution_id, fill in old_fills.items()
         ):
             raise ValueError("reconciliation_fill_mismatch")
-        if current.status in ("filled", "cancelled", "rejected") and result != current:
+        if current.status in ("filled", "rejected") and result != current:
+            raise ValueError("reconciliation_terminal_mismatch")
+        if current.status == "cancelled" and result.status != "cancelled":
             raise ValueError("reconciliation_terminal_mismatch")
         if result.filled_quantity < current.filled_quantity:
             raise ValueError("reconciliation_quantity_regressed")

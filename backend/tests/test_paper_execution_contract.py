@@ -1,6 +1,6 @@
 """Deterministic fake-broker contract tests; no network or credentials."""
 
-from decimal import Decimal
+from decimal import Decimal, localcontext
 
 import pytest
 
@@ -20,6 +20,7 @@ class FakeBroker:
         self.submit_calls = 0
         self.cancel_calls = 0
         self.fail_after_accept = False
+        self.fail_cancel_after_accept = False
 
     def submit(self, intent: OrderIntent) -> OrderSnapshot:
         self.submit_calls += 1
@@ -41,6 +42,8 @@ class FakeBroker:
             return current
         result = OrderSnapshot(current.intent, "cancelled", current.fills)
         self.orders[key] = result
+        if self.fail_cancel_after_accept:
+            raise TimeoutError("cancel_response_lost")
         return result
 
     def snapshot(self, key: str) -> OrderSnapshot | None:
@@ -86,7 +89,9 @@ def test_partial_fills_reconcile_and_preserve_execution_ids() -> None:
     broker.fill("k1", Fill("f1", Decimal("3"), Decimal("10.25")))
     first = ledger.reconcile("k1")
     assert (first.status, first.filled_quantity, first.remaining_quantity) == (
-        "partial", Decimal("3"), Decimal("7")
+        "partial",
+        Decimal("3"),
+        Decimal("7"),
     )
     broker.fill("k1", Fill("f2", Decimal("7"), Decimal("10.50")))
     assert ledger.reconcile("k1").status == "filled"
@@ -104,6 +109,50 @@ def test_cancel_after_partial_fill_is_idempotent() -> None:
     assert cancelled.status == "cancelled"
     assert cancelled.filled_quantity == Decimal("4")
     assert ledger.cancel("k1") == cancelled
+    assert broker.cancel_calls == 1
+
+
+def test_cancelled_order_accepts_late_fill_without_reopening() -> None:
+    broker = FakeBroker()
+    ledger = ExecutionLedger(broker)
+    ledger.submit(intent())
+    first_fill = Fill("f1", Decimal("3"), Decimal("9"))
+    broker.fill("k1", first_fill)
+    ledger.reconcile("k1")
+    ledger.cancel("k1")
+    late_fill = Fill("f2", Decimal("2"), Decimal("9.25"))
+    broker.orders["k1"] = OrderSnapshot(intent(), "cancelled", (first_fill, late_fill))
+    reconciled = ledger.reconcile("k1")
+    assert reconciled.filled_quantity == Decimal("5")
+    assert reconciled.remaining_quantity == Decimal("5")
+    assert ledger.cancel("k1") == reconciled
+    assert broker.cancel_calls == 1
+    broker.orders["k1"] = OrderSnapshot(intent(), "cancelled", (first_fill,))
+    with pytest.raises(ValueError, match="reconciliation_fill_mismatch"):
+        ledger.reconcile("k1")
+    broker.orders["k1"] = OrderSnapshot(intent(), "partial", (first_fill, late_fill))
+    with pytest.raises(ValueError, match="reconciliation_terminal_mismatch"):
+        ledger.reconcile("k1")
+
+
+def test_lost_cancel_response_does_not_retry_cancel() -> None:
+    broker = FakeBroker()
+    ledger = ExecutionLedger(broker)
+    ledger.submit(intent())
+    broker.fail_cancel_after_accept = True
+    with pytest.raises(TimeoutError, match="cancel_response_lost"):
+        ledger.cancel("k1")
+    with pytest.raises(ValueError, match="cancel_outcome_unknown"):
+        ledger.cancel("k1")
+    assert broker.cancel_calls == 1
+    broker.orders["k1"] = OrderSnapshot(intent(), "open")
+    assert ledger.reconcile("k1").status == "open"
+    with pytest.raises(ValueError, match="cancel_outcome_unknown"):
+        ledger.cancel("k1")
+    assert broker.cancel_calls == 1
+    broker.orders["k1"] = OrderSnapshot(intent(), "cancelled")
+    assert ledger.reconcile("k1").status == "cancelled"
+    assert ledger.cancel("k1").status == "cancelled"
     assert broker.cancel_calls == 1
 
 
@@ -186,6 +235,23 @@ def test_duplicate_overfill_and_regressed_fills_fail_closed() -> None:
     )
     with pytest.raises(ValueError, match="order_fills_invalid"):
         ledger.reconcile("k1")
+
+
+def test_overfill_is_rejected_with_low_decimal_precision() -> None:
+    snapshot = OrderSnapshot(
+        intent(),
+        "filled",
+        (
+            Fill("f1", Decimal("10"), Decimal("1")),
+            Fill("f2", Decimal("0.1"), Decimal("1")),
+        ),
+    )
+    with localcontext() as context:
+        context.prec = 2
+        assert snapshot.filled_quantity == Decimal("10.1")
+        assert snapshot.remaining_quantity == Decimal("-0.1")
+        with pytest.raises(ValueError, match="order_fills_invalid"):
+            validate_snapshot(snapshot)
 
 
 @pytest.mark.parametrize("quantity", ["0", "-1", "NaN", "Infinity"])
