@@ -192,8 +192,13 @@ class ExecutionLedger:
             raise ValueError("reconciliation_fill_mismatch")
         if current.status in ("filled", "rejected") and result != current:
             raise ValueError("reconciliation_terminal_mismatch")
-        if current.status == "cancelled" and result.status != "cancelled":
+        if current.status == "cancelled" and result.status not in (
+            "cancelled",
+            "filled",
+        ):
             raise ValueError("reconciliation_terminal_mismatch")
+        if current.status != "pending" and result.status == "pending":
+            raise ValueError("reconciliation_status_regressed")
         if result.filled_quantity < current.filled_quantity:
             raise ValueError("reconciliation_quantity_regressed")
         self._orders[key] = result

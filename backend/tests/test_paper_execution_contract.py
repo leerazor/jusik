@@ -135,6 +135,29 @@ def test_cancelled_order_accepts_late_fill_without_reopening() -> None:
         ledger.reconcile("k1")
 
 
+def test_cancelled_order_can_reconcile_to_fully_filled() -> None:
+    broker = FakeBroker()
+    ledger = ExecutionLedger(broker)
+    ledger.submit(intent())
+    first_fill = Fill("f1", Decimal("3"), Decimal("9"))
+    broker.fill("k1", first_fill)
+    ledger.reconcile("k1")
+    ledger.cancel("k1")
+    late_fill = Fill("f2", Decimal("2"), Decimal("9.25"))
+    broker.orders["k1"] = OrderSnapshot(intent(), "cancelled", (first_fill, late_fill))
+    ledger.reconcile("k1")
+    final_fill = Fill("f3", Decimal("5"), Decimal("9.50"))
+    broker.orders["k1"] = OrderSnapshot(
+        intent(), "filled", (first_fill, late_fill, final_fill)
+    )
+    reconciled = ledger.reconcile("k1")
+    assert reconciled.status == "filled"
+    assert reconciled.filled_quantity == Decimal("10")
+    assert reconciled.remaining_quantity == Decimal("0")
+    assert ledger.cancel("k1") == reconciled
+    assert broker.cancel_calls == 1
+
+
 def test_lost_cancel_response_does_not_retry_cancel() -> None:
     broker = FakeBroker()
     ledger = ExecutionLedger(broker)
@@ -154,6 +177,16 @@ def test_lost_cancel_response_does_not_retry_cancel() -> None:
     assert ledger.reconcile("k1").status == "cancelled"
     assert ledger.cancel("k1").status == "cancelled"
     assert broker.cancel_calls == 1
+
+
+def test_open_order_rejects_pending_status_regression() -> None:
+    broker = FakeBroker()
+    ledger = ExecutionLedger(broker)
+    opened = ledger.submit(intent())
+    broker.orders["k1"] = OrderSnapshot(intent(), "pending")
+    with pytest.raises(ValueError, match="reconciliation_status_regressed"):
+        ledger.reconcile("k1")
+    assert ledger.submit(intent()) == opened
 
 
 def test_rejected_order_is_terminal_and_cannot_be_resubmitted() -> None:
