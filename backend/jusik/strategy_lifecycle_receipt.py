@@ -28,6 +28,16 @@ CREATE TABLE IF NOT EXISTS lifecycle_evidence_receipts (
     FOREIGN KEY(strategy_id, version)
         REFERENCES lifecycle_strategies(strategy_id, version)
 );
+CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_insert_guard
+BEFORE INSERT ON lifecycle_evidence_receipts BEGIN
+    SELECT RAISE(ABORT, 'receipt must match current strategy revision')
+    WHERE NOT EXISTS (
+        SELECT 1 FROM lifecycle_strategies s
+        WHERE s.strategy_id = NEW.strategy_id
+          AND s.version = NEW.version
+          AND s.revision = NEW.strategy_revision
+    );
+END;
 CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_no_update
 BEFORE UPDATE ON lifecycle_evidence_receipts BEGIN
     SELECT RAISE(ABORT, 'evidence receipt is immutable');

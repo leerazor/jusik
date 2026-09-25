@@ -2,7 +2,10 @@
 
 import hashlib
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -180,3 +183,134 @@ def test_missing_or_blank_receipt_identity_is_rejected(
             evidence=EVIDENCE,
             evidence_digest=DIGEST,
         )
+
+
+@pytest.mark.parametrize("foreign_keys", [False, True])
+@pytest.mark.parametrize(
+    ("strategy_id", "version", "revision"),
+    [
+        ("absent", "v1", 1),
+        ("sample", "v3", 1),
+        ("sample", "V1", 1),
+        ("sample", "v1", 0),
+        ("sample", "v1", 2),
+    ],
+)
+def test_direct_insert_requires_current_strategy_identity_and_revision(
+    stores: tuple[StrategyLifecycleStore, StrategyLifecycleReceiptStore],
+    foreign_keys: bool,
+    strategy_id: str,
+    version: str,
+    revision: int,
+) -> None:
+    lifecycle, _ = stores
+    lifecycle.transition(
+        "sample", "v1", StrategyState.RETIRED,
+        expected_revision=0, reason="discard synthetic idea",
+    )
+    before = lifecycle.get("sample", "v1")
+    events = lifecycle.events("sample", "v1")
+    with sqlite3.connect(lifecycle.path) as db:
+        db.execute(f"PRAGMA foreign_keys={'ON' if foreign_keys else 'OFF'}")
+        with pytest.raises(sqlite3.IntegrityError, match="current strategy revision"):
+            db.execute(
+                "INSERT INTO lifecycle_evidence_receipts "
+                "(receipt_id,strategy_id,version,strategy_revision,evidence_digest) "
+                "VALUES (?,?,?,?,?)",
+                ("direct", strategy_id, version, revision, DIGEST),
+            )
+        assert db.execute(
+            "SELECT COUNT(*) FROM lifecycle_evidence_receipts"
+        ).fetchone() == (0,)
+    assert lifecycle.get("sample", "v1") == before
+    assert lifecycle.events("sample", "v1") == events
+
+
+@pytest.mark.parametrize("foreign_keys", [False, True])
+def test_direct_current_insert_and_legacy_receipt_survive_transition(
+    stores: tuple[StrategyLifecycleStore, StrategyLifecycleReceiptStore],
+    foreign_keys: bool,
+) -> None:
+    lifecycle, receipts = stores
+    _record(receipts)
+    lifecycle.transition(
+        "sample", "v1", StrategyState.RETIRED,
+        expected_revision=0, reason="discard synthetic idea",
+    )
+    before = lifecycle.get("sample", "v1")
+    events = lifecycle.events("sample", "v1")
+    with sqlite3.connect(lifecycle.path) as db:
+        db.execute(f"PRAGMA foreign_keys={'ON' if foreign_keys else 'OFF'}")
+        db.execute(
+            "INSERT INTO lifecycle_evidence_receipts "
+            "(receipt_id,strategy_id,version,strategy_revision,evidence_digest) "
+            "VALUES (?,?,?,?,?)",
+            ("current", "sample", "v1", 1, DIGEST),
+        )
+        assert db.execute(
+            "SELECT receipt_id,strategy_revision FROM lifecycle_evidence_receipts "
+            "ORDER BY receipt_id"
+        ).fetchall() == [("current", 1), ("receipt-1", 0)]
+    assert receipts.verify(
+        "current", "sample", "v1", expected_revision=1,
+        evidence=EVIDENCE, evidence_digest=DIGEST,
+    ).strategy_revision == 1
+    with pytest.raises(RevisionConflict):
+        receipts.verify(
+            "receipt-1", "sample", "v1", expected_revision=0,
+            evidence=EVIDENCE, evidence_digest=DIGEST,
+        )
+    assert lifecycle.get("sample", "v1") == before
+    assert lifecycle.events("sample", "v1") == events
+
+
+def test_record_and_verify_after_revision_change(
+    stores: tuple[StrategyLifecycleStore, StrategyLifecycleReceiptStore],
+) -> None:
+    lifecycle, receipts = stores
+    lifecycle.transition(
+        "sample", "v1", StrategyState.RETIRED,
+        expected_revision=0, reason="discard synthetic idea",
+    )
+    with pytest.raises(RevisionConflict):
+        _record(receipts)
+    _record(receipts, expected_revision=1)
+    assert receipts.verify(
+        "receipt-1", "sample", "v1", expected_revision=1,
+        evidence=EVIDENCE, evidence_digest=DIGEST,
+    ).strategy_revision == 1
+
+
+def test_record_waiting_for_transition_detects_revision_conflict(
+    stores: tuple[StrategyLifecycleStore, StrategyLifecycleReceiptStore],
+) -> None:
+    lifecycle, receipts = stores
+    started = Event()
+
+    def record_after_writer_starts() -> None:
+        started.set()
+        _record(receipts)
+
+    with sqlite3.connect(lifecycle.path, timeout=10) as writer:
+        writer.execute("BEGIN IMMEDIATE")
+        writer.execute(
+            "UPDATE lifecycle_strategies SET state='RETIRED', revision=1, "
+            "reason='discard synthetic idea' "
+            "WHERE strategy_id='sample' AND version='v1'"
+        )
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(record_after_writer_starts)
+            assert started.wait(timeout=5)
+            try:
+                with pytest.raises(FutureTimeoutError):
+                    pending.result(timeout=0.05)
+            finally:
+                writer.commit()
+            with pytest.raises(RevisionConflict):
+                pending.result(timeout=10)
+    assert lifecycle.get("sample", "v1") is not None
+    assert [event.revision for event in lifecycle.events("sample", "v1")] == [0, 1]
+    with sqlite3.connect(lifecycle.path) as db:
+        assert db.execute(
+            "SELECT COUNT(*) FROM lifecycle_evidence_receipts"
+        ).fetchone() == (0,)
