@@ -43,7 +43,7 @@ READY 복귀와 소진 기록은 같은 DB 트랜잭션 경계로 관리합니�
 완료 형식 오류로 `FAILED/completion_invalid`가 된 공학 시도에서 이미 제품 커밋이
 `main`에 들어간 경우, 일반 `retry`는 새 시도 baseline 이후 정확한 소유 파일 diff를
 요구하므로 같은 커밋을 재사용할 수 없습니다. 제한된 운영자 명령
-`recover-failed-candidate TASK_ID ATTEMPT_ID --expected-source-sha256 SHA256`
+`recover-failed-candidate TASK_ID --attempt-id ATTEMPT_ID --expected-source-sha256 SHA256`
 은 runner를 pause한 상태에서만 사용합니다. 운영 DB를 먼저 SQLite online backup으로
 보존하고, 원본 completion JSON의 현재 SHA-256을 읽기 전용으로 확인해야 합니다.
 명령은 원본 실패 행을 수정하지 않고 별도 복구 후보를 만듭니다. 원본 출력의 좁은 형식
