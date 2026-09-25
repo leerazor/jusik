@@ -16,7 +16,8 @@
 ## Engineering 작업과 호환 상태
 
 기존 투자 roadmap 작업은 체크리스트와 phase gate를 유지합니다. engineering 작업은
-고정된 spec으로만 등록하고 같은 runner의 claim·증거·commit 검증을 사용합니다.
+기존 고정 spec 또는 아래 자동 발굴 절차가 독립 검토한 spec으로 등록하고 같은
+runner의 claim·증거·commit 검증을 사용합니다.
 자료 없는 실제 투자 검증을 engineering으로 바꾸어 우회할 수 없습니다. 공학 완료는
 독립 review receipt가 검증된 뒤에만 `ENGINEERING_COMPLETE`, 투자 판정은
 `NOT_EVALUATED`이며 roadmap checkbox를 올리지 않습니다. 새 공학 후보는 우선
@@ -35,12 +36,10 @@ PASS는 신규 고정 오프라인 공학 작업에서 확인했으며 과거 �
 공유 journal 취소 경합 방지, 체결별 명시적 수수료 보존, receipt revision DB guard)를
 각각 한 번만 등록해 같은 주기에 실행합니다. 기존 BLOCKED 작업은 재시도하거나
 소급 완료하지 않습니다. 작업별 소유 파일·hash·독립 review가 일치해야 공학 완료이며
-투자 검증은 계속 `NOT_EVALUATED`입니다. 등록된 작업이 모두 소비되면 새로운 LLM 작업을
-임의 생성하지 않고 SQLite `idle_status`에 사유와 다음 UTC 확인 시각을 남깁니다.
-이때 `planning_enabled=true`여도 해당 주기에는 roadmap planner로 넘어가지 않습니다.
-planner 제안은 추적된 area로 제한되지만 개별 자료 준비와 제안의 사전 독립 검토를
-보장하지 않으므로 이 조기 종료를 단순히 제거하지 않습니다. 안전한 연속 기획에는
-검토된 area와 roadmap·mandate identity에 결속된 승인·재검증 계약이 먼저 필요합니다.
+투자 검증은 계속 `NOT_EVALUATED`입니다. 고정 목록 소진 후에는
+`automatic_engineering_discovery=true`일 때 아래 자동 공학 발굴로 이어집니다.
+비활성이면 기존 `fixed_engineering_backlog_exhausted` 대기를 유지합니다.
+일반 roadmap planner의 `planning_enabled`와는 별개이며 투자 자료·phase 조건은 유지합니다.
 READY 복귀와 소진 기록은 같은 DB 트랜잭션 경계로 관리합니다. 운영 제어는 기존
 `resume`(진행)·`pause`(중지) 명령을 사용합니다. 타이머가 active인 것만으로 개발
 진행이나 투자 검증을 의미하지 않습니다.
@@ -78,8 +77,8 @@ cd backend
 
 이 spec은 오프라인 execution interface와 fake-broker의 중복/부분체결/취소/거절/재시도/대사
 계약만 허용합니다. KIS 호출·계정 변경·PAPER/live activation은 포함하지 않습니다.
-arbitrary spec이나 자유문장 prompt로 범위를 늘릴 수 없습니다. 새 scope의 추가는
-검토된 코드·문서 변경으로 등록해야 합니다.
+이 수동 명령은 계속 고정 spec만 허용합니다. 자동 발굴도 검토된 소스·테스트 쌍 안에서만
+spec을 등록하며, 허용 범위 자체의 확대는 별도 코드·문서 검토가 필요합니다.
 
 canonical task state는 READY/RUNNING/BLOCKED/WAITING_EXTERNAL/WAITING_HUMAN/FAILED/DONE이며
 legacy 소문자 상태와 과거 attempt를 보존합니다. 구조화된 blocker는 사유, 시도한 조치,
@@ -90,6 +89,38 @@ legacy 소문자 상태와 과거 attempt를 보존합니다. 구조화된 block
 외부·사람 대기는 active queue 상한을 점유하지 않습니다. 사람 승인은 자동 retry로
 만들지 않습니다. 자세한 CLI/DB 검사 결과와 이번 구현 범위는
 [개발 기록](development-records/2026-09-25-autonomous-lab.md)을 확인합니다.
+
+## 빈 큐의 자동 공학 과제 발굴
+
+`automatic_engineering_discovery`의 기본값은 `false`입니다. 이 설치에서는 사용자의
+2026-09-26 연속 자동개발 요청에 따라 통합 검증 후 활성화합니다. 기존 READY와 구현
+review가 먼저이며, 고정 backlog 소진 시 읽기 전용 발굴 agent가 실제 코드의 결함이나
+미구현 계약을 근거와 함께 제안합니다. 제안 범위는 별도 읽기 전용 reviewer가 확인합니다.
+검토 PASS와 현재 입력의 일치가 확인된 spec만 SQLite transaction에서 등록·enqueue됩니다.
+사용자가 일반 공학 과제마다 다시 진행을 승인할 필요는 없습니다.
+
+초기 허용 모듈은 `paper_execution_contract`, `strategy_lifecycle_receipt`,
+`research_future_observation_replay`, `research_market_calendar`, `market_performance_metrics`,
+`research_portfolio_performance_metrics`, `market_history_action_accounting`,
+`market_loss_accounting`입니다. 제안 하나는 `backend/jusik/<module>.py`와
+`backend/tests/test_<module>.py` 중 정확히 한 쌍만 소유합니다. 단순 서식·문서·테스트
+개수 늘리기가 아니라 재현 가능한 제품 결함이나 필요한 동작을 다룹니다.
+
+발굴과 범위 검토는 repository 읽기 전용·network disabled로 실행합니다. 실행기·설정·의존성·
+인증정보·투자 검증 기준·실제 주문·PAPER/live 활성화는 제안으로 바꿀 수 없습니다.
+실제 구현은 기존 개발 child의 권한을 재사용합니다. 소유 경로 검증은 완료 검증이며
+OS 수준의 파일 쓰기 격리를 새로 보장한다는 뜻은 아닙니다.
+
+제안은 코드·테스트 tree, mandate, 실제 task 상태에 결속됩니다. 등록 직전에 현재 HEAD와
+근거 hash도 다시 검사하며 spec과 소유 경로는 재시작 뒤에도 보존됩니다. 같은 입력에서
+서로 다른 후보는 최대 3건까지 검토하며 거절 근거를 다음 발굴에 전달합니다.
+실행 가능한 작업이 없다는 결과에는 확인한 영역과 구체적인 재개 조건·대안이 필요합니다.
+단순 시각 경과나 discovery 자체 기록 때문에 같은 LLM 검사를 다시 호출하지 않습니다.
+기존 quota·cooldown·pause·process 정체 검사를 각 호출에 적용합니다.
+
+범위 검토 PASS는 작업 등록만 허용합니다. 구현 뒤에도 정확한 변경 파일·증거·커밋과
+별도 코드 review가 필요하며, 최종 판정은 `ENGINEERING_COMPLETE/NOT_EVALUATED`입니다.
+범위 거절·실패·자료 대기가 독립 READY 작업을 막지 않습니다.
 
 ## 기존 연구 큐 초기화
 

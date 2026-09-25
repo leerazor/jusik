@@ -1,5 +1,10 @@
 # 고정 공학 backlog 소진 후 planner 조기 종료 조사
 
+후속 상태(2026-09-26): 사용자가 밤사이 자동개발 중단을 지적하고 다음 과제 발굴을
+명시적으로 요청했다. 아래 구현 보류는 당시 판단의 기록이며 현재 개발을 막는 지시가
+아니다. `lab-engineering-discovery`가 기존 roadmap 단순 fallthrough와 별도로
+읽기 전용 발굴·독립 범위 검토·공학 spec 등록 경로를 구현한다.
+
 - 상태: 완료(조사·안전 결정); 자동 planner fallthrough 구현 보류
 - 기록 시각: 2026-09-25T12:26:07Z
 - 작업 slug: `lab-runner-backlog-exhaustion-audit`

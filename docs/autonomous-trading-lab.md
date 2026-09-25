@@ -26,6 +26,7 @@
 4. **검토 호출 정체:** 2026-09-24 기록에 빈 receiver wait/spawn 정체가 있다. timeout 보호는 있지만 독립 검토 성공을 대신하지 않는다. host capability가 없으면 그 검토만 유한 상태로 남겨야 한다.
 5. **정책 충돌:** 세션 문서는 외부 근거 부재를 전체 중단 조건으로 적었고 기한이 지난 창을 active로 표시했다. 과거 HANDOFF에는 최신 요청과 다른 shutdown·pause 기록이 남아 있다.
 6. **실제 외부 한계:** 부분 가격 이력, historical observed_at, 배당 권리·완전체결·비용·FX 증거의 부재는 scheduler 수정으로 없어지지 않는다. 해당 투자 검증만 대기시킨다.
+7. **후속 발굴 경로 누락:** 2026-09-26 야간 확인에서 고정 공학 목록 소진 뒤 planner 앞에서 반환해 약 8시간 반 동안 166회의 idle만 기록했다. 고정 목록 추가만으로는 연속 개발을 충족하지 못하므로 검토된 모듈 범위 안에서 별도 발굴·범위 검토·spec 등록 경로를 연결한다.
 
 운영 DB의 분석 시점 snapshot은 투자 작업 blocked 8개, completed 12개, running 0개였다. 선두 정체 결함과 그날의 빈 READY 큐는 별도 관측이다. 현재 운영 정체 전체가 선두 결함 하나에서 발생했다고 주장하지 않는다.
 
@@ -375,12 +376,13 @@ Sol은 planning/cross-module coding/독립 review, Luna는 조사·반복 요약
 
 선택 순서는 전역 safety/ownership/budget 확인, task별 eligibility 검사, 막힌 task 기록, 다음 READY atomic claim이다. blocked/waiting은 active slot·live queue quota를 소모하지 않는다. alternative 목록은 후보일 뿐 dispatch 권한이 아니며 선택 때 의존성을 다시 검사한다. READY가 0이면 대기 사유와 가장 이른 허용 event/time을 남긴다. 새 작업을 무한 생성하거나 검증 기준을 낮춰 activity를 만들지 않는다.
 
-engineering lane은 기존 runner 안에서 명시적으로 등록된 고정 scope만 허용한다. 투자 phase/checklist와 무관하게 fixture·소프트웨어 계약을 검증할 수 있지만 실제 자료 평가나 PAPER/live activation을 넣지 않는다. 이 분리가 기존 투자 roadmap의 coarse gate를 우회하는 수단이 돼서는 안 된다.
+engineering lane은 기존 runner 안에서 고정 spec과 별도 scope review를 통과한 동적 spec을 허용한다. 동적 spec은 검토된 오프라인 소스·테스트 쌍 하나로 제한하고 영속 등록·현재 입력 검증을 거친다. 투자 phase/checklist와 무관하게 fixture·소프트웨어 계약을 검증할 수 있지만 실제 자료 평가나 PAPER/live activation을 넣지 않는다. 이 분리가 기존 투자 roadmap의 coarse gate를 우회하는 수단이 돼서는 안 된다.
 
 2026-09-25 후속 적용: `automatic_engineering_backlog`는 기본 비활성인 유한 allowlist다.
-기존 BLOCKED 작업을 보존하면서 독립 오프라인 spec 두 개를 순서대로 한 번씩
-등록하고, 소진되면 내구성 있는 idle 사유를 남긴다. 투자 후보 승격이나 무제한
-아이디어 생성 기능은 아니다. 운영 설정과 실제 실행 결과는
+기존 BLOCKED 작업을 보존하면서 고정 오프라인 spec을 순서대로 한 번씩
+등록한다. 2026-09-26 후속 `automatic_engineering_discovery`는 소진 뒤 검토된 범위에서
+새 작업 발굴을 맡는다. 후보 수·중복·현재 입력·독립 scope review를 제한하며 투자 후보
+승격 기능은 아니다. 운영 설정과 실제 실행 결과는
 [지속 개발 실행기](development-runner.md)와 작업별 개발 기록을 따른다.
 
 ## 15. 기존 지침·설정과 충돌

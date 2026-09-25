@@ -38,11 +38,16 @@ runner-generated audit record, and enqueue the next bounded attempt. Repair
 owned environments and tooling when the repair is reversible and in scope.
 Do not leave the runner silently idle merely because the previous cycle ended.
 
-If no existing item is actionable, record the exact reservation, missing
-evidence, or safety condition that prevents dispatch, and return that reason to
-the operator. Do not fabricate a new roadmap area, weaken a gate, or claim that
-an active timer alone means development is progressing. The timer may remain
-enabled, but every idle cycle must have a durable reason and a next-check time.
+If no existing item is actionable, use the enabled bounded engineering
+discovery path described in `development-runner.md`. A read-only agent proposes
+a concrete offline code task inside the reviewed module/test allowlist; an
+independent scope reviewer must pass it before deterministic registration.
+The user's 2026-09-26 request authorizes this routine next-task discovery without
+per-task human confirmation. Missing investment data is not a reason to skip
+independent engineering discovery. Do not fabricate a new roadmap area or
+weaken an investment gate. If bounded discovery finds no actionable task,
+record the inspected alternatives and exact resume condition; do not repeat
+unchanged LLM calls or claim that an active timer means development is occurring.
 
 The canonical research sequence is defined by research-mandate.json: bounded
 IS, separate validation hard filter, chronological walk-forward, one untouched
