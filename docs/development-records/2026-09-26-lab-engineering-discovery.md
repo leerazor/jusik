@@ -38,6 +38,12 @@
 
 ## 증거와 복구
 
+첫 실제 발굴 `2a645b9030bc4094b98fa56c83480d34`는 시장 달력의 잘못된 `state` 타입이 계약 오류 대신 `TypeError`를 내는 결함을 제안했다. timer가 별도 범위 검토를 자동 실행했고 PASS 후 `lab-discovery-c478225b8a11df4e9207f443acec017d`를 등록·실행했다. 과제나 spec은 감독자가 수동 작성하지 않았다.
+
+첫 구현 시도 `24fb6de0a54a40b2a12771ad30f07b7e`는 `completion_invalid`로 실패했다. child가 이미 커밋된 `exchange_calendars==4.12`도 비어 있는 오프라인 캐시에서만 설치하려 했고, 반환 blocker에는 hash 규격을 벗어난 `dependency_identity`와 deadline 없는 `bounded` 정책이 있었다. 실패 원본과 작업 브랜치의 두 파일 수정은 보존했다. runner를 다시 pause한 뒤 supervisor가 해당 작업 전용 venv에 `ensurepip`, 기존 `requirements.lock`, 기존 `scripts/market-calendar-requirements.txt`를 설치했다. 의존성 선언·버전 pin이나 네트워크 권한은 변경하지 않았다. 실행 중인 공유 환경을 복사하거나 심볼릭 링크로 연결하지 않았다.
+
+후속 좁은 수정은 기존 허용 권한 안에서의 고정 의존성 설치와 오프라인 제품 검증을 구분하고 blocker schema·안내를 맞춘다. 이미 승인된 동적 spec이나 원본 실패 출력은 다시 쓰지 않는다. 환경과 계약 검증 후 기존 명시적 retry 경로로 같은 과제를 새 attempt에서 실행한다.
+
 - 운영 DB 사전 백업: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-engineering-discovery/runner-before-discovery.db`.
 - 백업 integrity: `ok`; SHA-256: `ec3e16f0d05e34eaae3262e53bf64c14c5454c9c19469cdea9722bfc0d1d6fd1`.
 - 설정 사전 백업: 같은 audit 디렉터리의 `runner-config-before-discovery.json`; SHA-256: `7a8ecd2c24d8b4581db00a1a54012507259717cae3a37ec1fef1bdb76aa4c211`.
