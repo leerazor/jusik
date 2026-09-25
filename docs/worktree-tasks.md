@@ -8,6 +8,9 @@
 - 범위: 기존 runner·store·contract의 재사용 경계와 전용 discovery 계약/회귀 테스트. 명시된 오프라인 소스·테스트 쌍만 제안하고 한 번에 하나씩 실행한다. 실제 주문·추가 결제·권한/credential 정책·투자 검증 기준 변경은 승인하지 않는다.
 - 완료 조건: 소진 상태에서 discovery dispatch RED/GREEN, scope FAIL/무효/오래된 identity 등록 거부, PASS의 단 한 번 등록, restart 소유권 보존, READY 우선순위, 반복 호출 제한, 기존 검증 gate 보존; focused pytest·Ruff·strict mypy·독립 Sol review 및 운영에서 실제 발굴·다음 작업 실행 확인.
 - 운영: roadmap runner pause·service inactive, timer 유지. 사용자 미추적 `HANDOFF.md`, 이전 작업·실패 기록 보존. 단일 Sol 구현 소유자와 별도 Sol reviewer, 동시 active 최대 4명.
+- 구현: `/home/kwl/projects/jusik-lab-engineering-discovery`, `feat/lab-engineering-discovery`, 기준 `491349c`. runner·store와 새 discovery 계약/테스트 네 파일의 단일 Sol 소유자. 고정 backlog 소진 뒤 discovery가 호출되지 않는 RED를 확인했다.
+- 결정: 명시된 여덟 오프라인 소스·대응 테스트 중 정확히 한 쌍만 작업별 소유한다. 읽기 전용 제안·별도 범위 검토를 거친 frozen spec만 저장하며 기존 구현 review를 다시 요구한다. 동일 fingerprint에서 다른 후보 최대 3건, no-work와 입력 변화 없는 반복 LLM 호출은 제한한다.
+- 백업: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-engineering-discovery/runner-before-discovery.db`, integrity `ok`, SHA-256 `ec3e16f0d05e34eaae3262e53bf64c14c5454c9c19469cdea9722bfc0d1d6fd1`.
 
 ## lab-runner-backlog-exhaustion-audit
 
