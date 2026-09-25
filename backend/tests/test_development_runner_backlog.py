@@ -37,7 +37,8 @@ def _config(tmp_path: Path, fake: Path, *, enabled: bool = True) -> RunnerConfig
         cooldown_seconds=0,
         planning_enabled=True,
         automatic_engineering_backlog=enabled,
-        scope=ROADMAP_SCOPE,
+        # RunnerConfig requires a Literal; ROADMAP_SCOPE is inferred as str.
+        scope="investment-roadmap",
     )
 
 
