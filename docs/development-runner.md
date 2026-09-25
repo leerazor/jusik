@@ -30,8 +30,8 @@
 
 `investment-roadmap` 전용 `automatic_engineering_backlog`는 기본 `false`입니다.
 설치 설정에서 명시적으로 켜면 기존 READY·review 후보를 우선 처리하고, 없을 때
-사전 등록된 오프라인 작업 세 개(전략 버전 증거 영수증, paper 계약 재시작 중복 방지,
-공유 journal 취소 경합 방지)를
+사전 등록된 오프라인 작업 네 개(전략 버전 증거 영수증, paper 계약 재시작 중복 방지,
+공유 journal 취소 경합 방지, 체결별 명시적 수수료 보존)를
 각각 한 번만 등록해 같은 주기에 실행합니다. 기존 BLOCKED 작업은 재시도하거나
 소급 완료하지 않습니다. 작업별 소유 파일·hash·독립 review가 일치해야 공학 완료이며
 투자 검증은 계속 `NOT_EVALUATED`입니다. 등록된 작업이 모두 소비되면 새로운 LLM 작업을
