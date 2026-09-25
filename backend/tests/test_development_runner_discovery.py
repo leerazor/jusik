@@ -278,6 +278,16 @@ def test_dynamic_implementation_receives_existing_dependency_permission(
     assert runner.OFFLINE_DEPENDENCY_GUIDANCE in prompt
 
 
+def test_common_guidance_scopes_provider_restriction_to_offline_validation() -> None:
+    guidance = runner.OFFLINE_DEPENDENCY_GUIDANCE
+    assert (
+        "During offline product validation, do not access market-data providers"
+        in guidance
+    )
+    assert "Real brokerage orders remain forbidden for every task." in guidance
+    assert guidance in runner.COMMON_PROMPT
+
+
 def test_no_work_requires_actual_allowlisted_inspection() -> None:
     with pytest.raises(ValueError, match="allowlisted"):
         DiscoveryResult(

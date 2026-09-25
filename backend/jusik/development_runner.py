@@ -124,8 +124,9 @@ OFFLINE_DEPENDENCY_GUIDANCE = (
     "For offline product validation, a task's no-network boundary still permits "
     "installing ALREADY committed pinned requirements in its owned virtual "
     "environment using the runner's existing network permission. Never add or "
-    "change declared dependencies or network permissions. Provider access and "
-    "orders remain forbidden. If setup remains unavailable, "
+    "change declared dependencies or network permissions. During offline product "
+    "validation, do not access market-data providers or order APIs. Real brokerage "
+    "orders remain forbidden for every task. If setup remains unavailable, "
     "use the existing bounded environment recovery contract."
 )
 COMMON_PROMPT = (
