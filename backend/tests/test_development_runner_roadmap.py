@@ -569,15 +569,13 @@ def test_engineering_spec_is_exact_and_keeps_completion_gates(
     }
     with pytest.raises(ValueError, match="engineering completion"):
         validate_completion(payload, task, "attempt", config, baseline_head=head)
-    payload.update(
-        engineering_status="ENGINEERING_COMPLETE", investment_status="NOT_EVALUATED"
-    )
+    payload.update(engineering_status=None, investment_status=None, review_passed=False)
     with pytest.raises(ValueError, match="new descendant"):
         validate_completion(payload, task, "attempt", config, baseline_head=head)
-    payload["review_passed"] = False
-    with pytest.raises(ValueError, match="independent checks"):
-        validate_completion(payload, task, "attempt", config, baseline_head=head)
     payload["review_passed"] = True
+    with pytest.raises(ValueError, match="unreviewed candidate"):
+        validate_completion(payload, task, "attempt", config, baseline_head=head)
+    payload["review_passed"] = False
     fake = tmp_path / "fake-engineering-child.py"
     fake.write_text(
         "#!/usr/bin/env python3\n"
@@ -630,7 +628,7 @@ def test_engineering_spec_is_exact_and_keeps_completion_gates(
         evidence_json = db.execute(
             "SELECT evidence_json FROM attempts WHERE id=?", (result.attempt_id,)
         ).fetchone()[0]
-    assert json.loads(evidence_json)["integrated_commit"] != head
+    assert json.loads(evidence_json)["completion"]["integrated_commit"] != head
     receipt = Path(finished.blocker["dependency"])
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text("unverified review\n", encoding="utf-8")
@@ -650,7 +648,7 @@ def test_engineering_spec_is_exact_and_keeps_completion_gates(
     )
     assert json.loads(capsys.readouterr().out)["retried"] is False
     assert store.task(ENGINEERING_SPEC_ID).status == "waiting_external"  # type: ignore[union-attr]
-    unrelated_evidence = json.loads(evidence_json)
+    unrelated_evidence = json.loads(evidence_json)["completion"]
     unrelated_evidence["evidence"] = payload["evidence"]
     with pytest.raises(ValueError, match="exact owned paths"):
         validate_completion(
@@ -705,12 +703,12 @@ def test_engineering_rejects_unrelated_new_commit(tmp_path: Path) -> None:
             }
         ],
         "tests_passed": True,
-        "review_passed": True,
+        "review_passed": False,
         "handoff_path": str(unrelated),
         "blocked_reason": None,
         "followup": None,
-        "engineering_status": "ENGINEERING_COMPLETE",
-        "investment_status": "NOT_EVALUATED",
+        "engineering_status": None,
+        "investment_status": None,
     }
     with pytest.raises(ValueError, match="owned paths"):
         validate_completion(
@@ -766,12 +764,12 @@ def test_engineering_rejects_reported_commit_behind_main(tmp_path: Path) -> None
             for path in owned
         ],
         "tests_passed": True,
-        "review_passed": True,
+        "review_passed": False,
         "handoff_path": str(owned[0]),
         "blocked_reason": None,
         "followup": None,
-        "engineering_status": "ENGINEERING_COMPLETE",
-        "investment_status": "NOT_EVALUATED",
+        "engineering_status": None,
+        "investment_status": None,
     }
     with pytest.raises(ValueError, match="main HEAD"):
         validate_completion(
@@ -833,12 +831,12 @@ def test_engineering_rename_cannot_hide_old_source_path(tmp_path: Path) -> None:
             for path in (source, tests)
         ],
         "tests_passed": True,
-        "review_passed": True,
+        "review_passed": False,
         "handoff_path": str(source),
         "blocked_reason": None,
         "followup": None,
-        "engineering_status": "ENGINEERING_COMPLETE",
-        "investment_status": "NOT_EVALUATED",
+        "engineering_status": None,
+        "investment_status": None,
     }
     with pytest.raises(ValueError, match="owned paths"):
         validate_completion(

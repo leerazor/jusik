@@ -57,6 +57,21 @@ class RunnerAttempt:
     baseline_head: str | None = None
 
 
+@dataclass(frozen=True)
+class ReviewCandidate:
+    task: RunnerTask
+    implementation_attempt_id: str
+    baseline_head: str
+    completion: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ReviewAttempt:
+    id: str
+    task_id: str
+    process_group_id: int | None
+
+
 class RunnerStore:
     """SQLite state whose schema is private to one runner installation."""
 
@@ -93,6 +108,19 @@ class RunnerStore:
                 );
                 CREATE TABLE IF NOT EXISTS launch_log (
                     launched_at TEXT PRIMARY KEY
+                );
+                CREATE TABLE IF NOT EXISTS review_attempts (
+                    id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL REFERENCES tasks(id),
+                    implementation_attempt_id TEXT NOT NULL REFERENCES attempts(id),
+                    status TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    ended_at TEXT,
+                    process_group_id INTEGER,
+                    output_path TEXT NOT NULL,
+                    failure_code TEXT,
+                    receipt_json TEXT,
+                    context_json TEXT NOT NULL
                 );
                 """
             )
@@ -310,6 +338,292 @@ class RunnerStore:
                 "ORDER BY started_at LIMIT 1"
             ).fetchone()
         return self._attempt(row) if row else None
+
+    def active_review(self) -> ReviewAttempt | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT id,task_id,process_group_id FROM review_attempts "
+                "WHERE status='running' ORDER BY started_at LIMIT 1"
+            ).fetchone()
+        return (
+            ReviewAttempt(str(row["id"]), str(row["task_id"]), row["process_group_id"])
+            if row is not None
+            else None
+        )
+
+    @staticmethod
+    def _matches_candidate(raw: Any, candidate: ReviewCandidate) -> bool:
+        try:
+            envelope = json.loads(str(raw))
+        except (TypeError, ValueError):
+            return False
+        return (
+            isinstance(envelope, dict)
+            and envelope.get("review_candidate_version") == 1
+            and envelope.get("completion") == candidate.completion
+        )
+
+    def recover_running_reviews(self) -> list[str]:
+        """Keep interrupted reviewer history; permit one bounded fresh review."""
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute(
+                "SELECT id FROM review_attempts WHERE status='running'"
+            ).fetchall()
+            db.execute(
+                "UPDATE review_attempts SET status='interrupted',ended_at=?,"
+                "failure_code='runner_restart' WHERE status='running'",
+                (utc_now(),),
+            )
+            db.commit()
+        return [str(row["id"]) for row in rows]
+
+    def review_candidate(self) -> ReviewCandidate | None:
+        """Only new, validated candidate envelopes can enter this path."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT tasks.*,attempts.evidence_json,attempts.baseline_head "
+                "FROM tasks JOIN attempts ON attempts.id=tasks.last_attempt_id "
+                "WHERE tasks.task_kind='engineering' "
+                "AND tasks.status='waiting_external' "
+                "AND attempts.status='waiting_external' "
+                "AND attempts.failure_code='independent_review_pending' "
+                "ORDER BY tasks.created_at,tasks.id"
+            ).fetchall()
+            for row in rows:
+                try:
+                    envelope = json.loads(str(row["evidence_json"]))
+                except (TypeError, ValueError):
+                    continue
+                if (
+                    not isinstance(envelope, dict)
+                    or envelope.get("review_candidate_version") != 1
+                    or not isinstance(envelope.get("completion"), dict)
+                    or not isinstance(row["baseline_head"], str)
+                ):
+                    continue
+                latest = db.execute(
+                    "SELECT status,failure_code FROM review_attempts "
+                    "WHERE implementation_attempt_id=? "
+                    "ORDER BY started_at DESC,id DESC LIMIT 1",
+                    (row["last_attempt_id"],),
+                ).fetchone()
+                count = db.execute(
+                    "SELECT COUNT(*) FROM review_attempts "
+                    "WHERE implementation_attempt_id=?",
+                    (row["last_attempt_id"],),
+                ).fetchone()[0]
+                if count >= 2 or (
+                    latest is not None
+                    and (
+                        latest["status"] not in {"failed", "interrupted"}
+                        or latest["failure_code"]
+                        not in {"timeout", "idle_timeout", "runner_restart"}
+                    )
+                ):
+                    continue
+                return ReviewCandidate(
+                    self._task(row),
+                    str(row["last_attempt_id"]),
+                    str(row["baseline_head"]),
+                    envelope["completion"],
+                )
+        return None
+
+    def claim_review(
+        self,
+        candidate: ReviewCandidate,
+        review_id: str,
+        output_path: Path,
+        context: dict[str, Any],
+        launched_at: str,
+    ) -> bool:
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT tasks.status,tasks.last_attempt_id,attempts.status "
+                "AS attempt_status,attempts.evidence_json FROM tasks "
+                "JOIN attempts ON attempts.id=tasks.last_attempt_id "
+                "WHERE tasks.id=?",
+                (candidate.task.id,),
+            ).fetchone()
+            if (
+                row is None
+                or row["status"] != "waiting_external"
+                or row["last_attempt_id"] != candidate.implementation_attempt_id
+                or row["attempt_status"] != "waiting_external"
+                or not self._matches_candidate(row["evidence_json"], candidate)
+            ):
+                db.rollback()
+                return False
+            previous = db.execute(
+                "SELECT status,failure_code FROM review_attempts "
+                "WHERE implementation_attempt_id=? "
+                "ORDER BY started_at DESC,id DESC LIMIT 1",
+                (candidate.implementation_attempt_id,),
+            ).fetchone()
+            count = db.execute(
+                "SELECT COUNT(*) FROM review_attempts "
+                "WHERE implementation_attempt_id=?",
+                (candidate.implementation_attempt_id,),
+            ).fetchone()[0]
+            if count >= 2 or (
+                previous is not None
+                and (
+                    previous["status"] not in {"failed", "interrupted"}
+                    or previous["failure_code"]
+                    not in {"timeout", "idle_timeout", "runner_restart"}
+                )
+            ):
+                db.rollback()
+                return False
+            db.execute(
+                "INSERT INTO review_attempts "
+                "(id,task_id,implementation_attempt_id,status,started_at,"
+                "output_path,context_json) VALUES(?,?,?,'running',?,?,?)",
+                (
+                    review_id,
+                    candidate.task.id,
+                    candidate.implementation_attempt_id,
+                    utc_now(),
+                    str(output_path),
+                    json.dumps(context, sort_keys=True),
+                ),
+            )
+            db.execute("INSERT INTO launch_log(launched_at) VALUES(?)", (launched_at,))
+            db.execute(
+                "INSERT INTO runner_meta(key,value) VALUES('last_launch_at',?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (launched_at,),
+            )
+            db.commit()
+        return True
+
+    def mark_review_candidate_stale(self, candidate: ReviewCandidate) -> bool:
+        """Quarantine failed preflight without consuming a reviewer launch."""
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT status,last_attempt_id FROM tasks WHERE id=?",
+                (candidate.task.id,),
+            ).fetchone()
+            if (
+                row is None
+                or row["status"] != "waiting_external"
+                or row["last_attempt_id"] != candidate.implementation_attempt_id
+            ):
+                db.rollback()
+                return False
+            blocker = unknown_blocker("review_candidate_stale")
+            db.execute(
+                "UPDATE attempts SET failure_code='review_candidate_stale' "
+                "WHERE id=? AND status='waiting_external'",
+                (candidate.implementation_attempt_id,),
+            )
+            db.execute(
+                "UPDATE tasks SET blocker_json=?,updated_at=? WHERE id=?",
+                (
+                    json.dumps(blocker.model_dump(mode="json"), sort_keys=True),
+                    utc_now(),
+                    candidate.task.id,
+                ),
+            )
+            db.commit()
+        return True
+
+    def set_review_process_group(self, review_id: str, group_id: int) -> None:
+        with self._connect() as db:
+            db.execute(
+                "UPDATE review_attempts SET process_group_id=? "
+                "WHERE id=? AND status='running'",
+                (group_id, review_id),
+            )
+
+    def finish_review(
+        self,
+        candidate: ReviewCandidate,
+        review_id: str,
+        *,
+        status: str,
+        failure_code: str | None = None,
+        receipt: dict[str, Any] | None = None,
+    ) -> bool:
+        if status not in {"completed", "failed", "interrupted"}:
+            raise ValueError("invalid review status")
+        if status == "completed" and receipt is None:
+            raise ValueError("completed review requires receipt")
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT review_attempts.status,review_attempts.context_json,"
+                "tasks.status AS task_status,tasks.last_attempt_id,"
+                "attempts.status AS implementation_status,attempts.evidence_json,"
+                "attempts.baseline_head "
+                "FROM review_attempts JOIN tasks ON tasks.id=review_attempts.task_id "
+                "JOIN attempts ON "
+                "attempts.id=review_attempts.implementation_attempt_id "
+                "WHERE review_attempts.id=? AND review_attempts.task_id=? "
+                "AND review_attempts.implementation_attempt_id=?",
+                (review_id, candidate.task.id, candidate.implementation_attempt_id),
+            ).fetchone()
+            if (
+                row is None
+                or row["status"] != "running"
+                or row["task_status"] != "waiting_external"
+                or row["last_attempt_id"] != candidate.implementation_attempt_id
+                or row["implementation_status"] != "waiting_external"
+                or row["baseline_head"] != candidate.baseline_head
+                or not self._matches_candidate(row["evidence_json"], candidate)
+            ):
+                db.rollback()
+                return False
+            if status == "completed":
+                try:
+                    expected_receipt = json.loads(str(row["context_json"])) | {
+                        "verdict": "PASS"
+                    }
+                except (TypeError, ValueError):
+                    db.rollback()
+                    return False
+                if receipt != expected_receipt:
+                    db.rollback()
+                    return False
+            db.execute(
+                "UPDATE review_attempts SET status=?,ended_at=?,failure_code=?,"
+                "receipt_json=? WHERE id=?",
+                (
+                    status,
+                    utc_now(),
+                    failure_code,
+                    json.dumps(receipt, sort_keys=True) if receipt else None,
+                    review_id,
+                ),
+            )
+            if status == "completed":
+                db.execute(
+                    "UPDATE attempts SET status='completed',failure_code=NULL "
+                    "WHERE id=? AND status='waiting_external'",
+                    (candidate.implementation_attempt_id,),
+                )
+                db.execute(
+                    "UPDATE tasks SET status='completed',blocker_json=NULL,"
+                    "engineering_status='ENGINEERING_COMPLETE',"
+                    "investment_status='NOT_EVALUATED',updated_at=? "
+                    "WHERE id=? AND status='waiting_external'",
+                    (utc_now(), candidate.task.id),
+                )
+                db.execute(
+                    "INSERT OR IGNORE INTO history_outbox "
+                    "(id,task_id,attempt_id,outcome) VALUES(?,?,?,'completed')",
+                    (
+                        f"development-runner:{candidate.task.id}:"
+                        f"{candidate.implementation_attempt_id}:completed",
+                        candidate.task.id,
+                        candidate.implementation_attempt_id,
+                    ),
+                )
+            db.commit()
+        return True
 
     @staticmethod
     def _attempt(row: sqlite3.Row) -> RunnerAttempt:

@@ -25,8 +25,9 @@ ENGINEERING_SPEC_PROMPT = (
     "investment experiment, production wiring, or dependency changes. "
     "Do not call brokerage APIs, load credentials, activate PAPER or live trading, "
     "change research results, or change investment roadmap checkboxes. "
-    "Complete only with verified evidence, an integrated commit, independent "
-    "review, ENGINEERING_COMPLETE, and NOT_EVALUATED."
+    "Return a candidate with verified evidence, an integrated commit, "
+    "tests_passed=true, review_passed=false, and null engineering/investment "
+    "status. A separate reviewer owns the final verdict."
 )
 
 

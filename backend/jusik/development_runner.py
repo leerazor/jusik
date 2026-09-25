@@ -39,6 +39,11 @@ from jusik.development_runner_planning import (
 from jusik.development_runner_planning import (
     fingerprint as planning_fingerprint,
 )
+from jusik.development_runner_review import (
+    review_prompt,
+    review_schema,
+    validate_receipt,
+)
 from jusik.development_runner_roadmap import (
     DEVELOPMENT_DELIVERY_POLICY,
     ROADMAP_SCOPE,
@@ -54,7 +59,7 @@ from jusik.development_runner_roadmap import (
     validate_planner_area,
     validate_roadmap_completion,
 )
-from jusik.development_runner_store import RunnerStore, RunnerTask
+from jusik.development_runner_store import ReviewCandidate, RunnerStore, RunnerTask
 from jusik.research_history import HistoryRepository
 from jusik.research_mandate_governance import (
     MandateGovernanceError,
@@ -596,6 +601,36 @@ def _codex_command(
     ]
 
 
+def _review_command(
+    config: RunnerConfig, schema_path: Path, output_path: Path
+) -> list[str]:
+    """Review child gets an explicit read-only sandbox and no network."""
+    return [
+        config.codex,
+        "-a",
+        "never",
+        "exec",
+        "--ignore-user-config",
+        "--sandbox",
+        "read-only",
+        "-m",
+        "gpt-6-sol",
+        "-c",
+        'model_reasoning_effort="high"',
+        "-c",
+        'permissions.jusik-review={extends=":read-only",network={enabled=false}}',
+        "-c",
+        'default_permissions="jusik-review"',
+        "--json",
+        "--output-schema",
+        str(schema_path),
+        "-o",
+        str(output_path),
+        "-C",
+        str(config.repo),
+    ]
+
+
 def _allowed_path(path: Path, roots: list[Path]) -> bool:
     resolved = path.expanduser().resolve()
     return any(resolved == root or root in resolved.parents for root in roots)
@@ -661,17 +696,20 @@ def validate_completion(
     if completion.recovery_kind is not None:
         raise ValueError("completed result cannot request recovery")
     if task.task_kind == "engineering" and (
-        completion.engineering_status != "ENGINEERING_COMPLETE"
-        or completion.investment_status != "NOT_EVALUATED"
+        completion.engineering_status is not None
+        or completion.investment_status is not None
+        or completion.review_passed
         or completion.followup is not None
     ):
-        raise ValueError("engineering completion has invalid outcome")
+        raise ValueError("engineering completion must be an unreviewed candidate")
     if task.task_kind != "engineering" and (
         completion.engineering_status is not None
         or completion.investment_status is not None
     ):
         raise ValueError("investment completion cannot claim engineering outcome")
-    if not completion.tests_passed or not completion.review_passed:
+    if not completion.tests_passed or (
+        task.task_kind != "engineering" and not completion.review_passed
+    ):
         raise ValueError("independent checks are not reported passed")
     if completion.integrated_commit is None or not completion.evidence:
         raise ValueError("completed result is missing commit or evidence")
@@ -1561,6 +1599,166 @@ def resume_runner(config: RunnerConfig) -> None:
     _record_control_event(store, config, "resumed")
 
 
+def _review_context(
+    candidate: ReviewCandidate, review_id: str, config: RunnerConfig
+) -> dict[str, Any]:
+    validate_completion(
+        candidate.completion,
+        candidate.task,
+        candidate.implementation_attempt_id,
+        config,
+        baseline_head=candidate.baseline_head,
+    )
+    main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
+    return {
+        "task_id": candidate.task.id,
+        "implementation_attempt_id": candidate.implementation_attempt_id,
+        "review_attempt_id": review_id,
+        "baseline_head": candidate.baseline_head,
+        "main_head": main_head,
+        "owned_file_hashes": {
+            name: _hash_file(config.repo / name)
+            for name in sorted(ENGINEERING_OWNED_PATHS)
+        },
+    }
+
+
+def _run_review(
+    config: RunnerConfig,
+    store: RunnerStore,
+    candidate: ReviewCandidate,
+    stop_requested: Callable[[], bool] | None,
+    launched_at: str,
+) -> RunResult | None:
+    """A reviewer failure leaves this task waiting and releases other READY work."""
+    review_id = uuid.uuid4().hex
+    review_dir = config.state_dir / "reviews" / review_id
+    _secure_dir(review_dir)
+    output_path = review_dir / "receipt.json"
+    stdout_path = review_dir / "stdout.jsonl"
+    stderr_path = review_dir / "stderr.log"
+    try:
+        context = _review_context(candidate, review_id, config)
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        # A stale candidate must not be promoted or rerun as implementation.
+        store.mark_review_candidate_stale(candidate)
+        return None
+    prompt = review_prompt(context)
+    _write_private(review_dir / "prompt.txt", prompt.encode())
+    _write_private(stdout_path, b"")
+    schema_path = review_dir / "receipt.schema.json"
+    _write_private(
+        schema_path, (json.dumps(review_schema(), sort_keys=True) + "\n").encode()
+    )
+    if not store.claim_review(candidate, review_id, output_path, context, launched_at):
+        return None
+    _safe_history_flush(store, config)
+    command = _review_command(config, schema_path, output_path)
+    with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=config.repo,
+                stdin=subprocess.PIPE,
+                stdout=stdout,
+                stderr=stderr,
+                start_new_session=True,
+                env=_attempt_environment(review_dir),
+            )
+        except OSError:
+            store.finish_review(
+                candidate, review_id, status="failed", failure_code="dispatch_error"
+            )
+            return None
+        try:
+            group_id = os.getpgid(process.pid)
+        except ProcessLookupError:
+            group_id = None
+        if group_id is not None:
+            store.set_review_process_group(review_id, group_id)
+        deadline = time.monotonic() + config.timeout_seconds
+        started_at = time.time()
+        input_payload: bytes | None = prompt.encode()
+        while True:
+            if store.is_paused() or (stop_requested is not None and stop_requested()):
+                _stop_process(process)
+                store.finish_review(
+                    candidate, review_id, status="interrupted", failure_code="signal"
+                )
+                return RunResult("interrupted", candidate.task.id, review_id)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or _child_idle_expired(
+                stdout_path, stderr_path, started_at, config.idle_timeout_seconds
+            ):
+                _stop_process(process)
+                store.finish_review(
+                    candidate,
+                    review_id,
+                    status="failed",
+                    failure_code="timeout" if remaining <= 0 else "idle_timeout",
+                )
+                return None
+            if _empty_receiver_wait_detected(stdout_path):
+                _stop_process(process)
+                store.finish_review(
+                    candidate,
+                    review_id,
+                    status="failed",
+                    failure_code="empty_review_dispatch",
+                )
+                return None
+            try:
+                process.communicate(input_payload, timeout=min(1, remaining))
+                input_payload = None
+            except subprocess.TimeoutExpired:
+                input_payload = None
+                continue
+            break
+    if store.is_paused() or (stop_requested is not None and stop_requested()):
+        store.finish_review(
+            candidate, review_id, status="interrupted", failure_code="signal"
+        )
+        return RunResult("interrupted", candidate.task.id, review_id)
+    if process.returncode != 0:
+        store.finish_review(
+            candidate, review_id, status="failed", failure_code="codex_exit"
+        )
+        return None
+    try:
+        if output_path.stat().st_size > 16_384:
+            raise ValueError("review receipt too large")
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+        receipt = validate_receipt(payload, context)
+        ready, _ = _git_ready(config.repo)
+        if not ready or _review_context(candidate, review_id, config) != context:
+            raise ValueError("review candidate changed")
+    except (OSError, subprocess.CalledProcessError, json.JSONDecodeError, ValueError):
+        store.finish_review(
+            candidate, review_id, status="failed", failure_code="receipt_invalid"
+        )
+        return None
+    if receipt.verdict != "PASS":
+        store.finish_review(
+            candidate,
+            review_id,
+            status="failed",
+            failure_code="review_rejected",
+            receipt=receipt.model_dump(),
+        )
+        return None
+    if not store.finish_review(
+        candidate,
+        review_id,
+        status="completed",
+        receipt=receipt.model_dump(),
+    ):
+        return None
+    _safe_history_flush(store, config)
+    return RunResult(
+        "completed", candidate.task.id, candidate.implementation_attempt_id
+    )
+
+
 def run_once(
     config: RunnerConfig, stop_requested: Callable[[], bool] | None = None
 ) -> RunResult:
@@ -1613,8 +1811,14 @@ def run_once(
                 active.id,
                 "previous attempt process group is still alive",
             )
+        active_review = store.active_review()
+        if active_review is not None and _process_group_alive(
+            active_review.process_group_id
+        ):
+            _terminate_group(active_review.process_group_id)
         _safe_history_flush(store, config)
         interrupted = store.recover_running()
+        store.recover_running_reviews()
         if interrupted:
             _safe_history_flush(store, config)
         if store.is_paused():
@@ -1635,6 +1839,25 @@ def run_once(
         ):
             return RunResult("cooldown")
         store.release_due_waiting(now)
+        review_candidate = store.review_candidate()
+        if review_candidate is not None:
+            review_result = _run_review(
+                config, store, review_candidate, stop_requested, now.isoformat()
+            )
+            if review_result is not None:
+                return review_result
+            now = datetime.now(UTC)
+            if (
+                config.daily_launches is not None
+                and store.launch_count(now.strftime("%Y-%m-%d"))
+                >= config.daily_launches
+            ):
+                return RunResult("quota")
+            latest = store.get_meta("last_launch_at")
+            if latest and now - datetime.fromisoformat(latest) < timedelta(
+                seconds=config.cooldown_seconds
+            ):
+                return RunResult("cooldown")
         task = _select_task(store, config.scope, roadmap)
         if task is None:
             if not config.planning_enabled:
@@ -2019,7 +2242,10 @@ def run_once(
                 task.id,
                 "waiting_external",
                 failure_code="independent_review_pending",
-                evidence=completion.model_dump(mode="json"),
+                evidence={
+                    "review_candidate_version": 1,
+                    "completion": completion.model_dump(mode="json"),
+                },
                 blocker=blocker.model_dump(mode="json"),
             )
             _safe_history_flush(store, config)
