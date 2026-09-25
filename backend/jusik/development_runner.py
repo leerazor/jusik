@@ -24,10 +24,20 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jusik.development_runner_contract import (
     ENGINEERING_OWNED_PATHS,
-    ENGINEERING_SPEC_BY_ID,
     ENGINEERING_SPEC_ID,
     Blocker,
+    EngineeringSpec,
     unknown_blocker,
+)
+from jusik.development_runner_discovery import (
+    DISCOVERY_MODULES,
+    DiscoveryResult,
+    ScopeReview,
+    proposal_digest,
+    source_fingerprint,
+    strict_output_schema,
+    validate_proposal,
+    validate_scope_review,
 )
 from jusik.development_runner_planning import (
     PLANNING_AREA,
@@ -219,6 +229,7 @@ class RunnerConfig(BaseModel):
     planning_enabled: bool = False
     automatic_recovery: bool = False
     automatic_engineering_backlog: bool = False
+    automatic_engineering_discovery: bool = False
     scope: Literal["research", "investment-roadmap"] = "research"
 
 
@@ -644,6 +655,14 @@ def _allowed_path(path: Path, roots: list[Path]) -> bool:
     return any(resolved == root or root in resolved.parents for root in roots)
 
 
+def _engineering_spec(store: RunnerStore, task_id: str) -> EngineeringSpec | None:
+    spec = store.engineering_spec(task_id)
+    if spec is None and not task_id.startswith("lab-discovery-"):
+        # Historical manually enqueued engineering candidates predate the registry.
+        return EngineeringSpec(task_id, "__engineering__", "", ENGINEERING_OWNED_PATHS)
+    return spec
+
+
 def _hash_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -772,12 +791,12 @@ def validate_completion(
             baseline_head,
             completion.integrated_commit,
         )
-        owned_paths = ENGINEERING_SPEC_BY_ID.get(task.id)
-        expected_paths = (
-            owned_paths.owned_paths
-            if owned_paths is not None
-            else ENGINEERING_OWNED_PATHS
+        spec = _engineering_spec(
+            RunnerStore(config.state_dir / "runner.db", config.history_dir), task.id
         )
+        if spec is None:
+            raise ValueError("engineering spec is not registered")
+        expected_paths = spec.owned_paths
         if set(changed.stdout.splitlines()) != expected_paths:
             raise ValueError("engineering commit must change exact owned paths")
         if historical_engineering:
@@ -1041,6 +1060,20 @@ def _select_task(
     roadmap: Roadmap | None,
 ) -> RunnerTask | None:
     """Quarantine invalid task contracts without stopping independent work."""
+
+    def valid_engineering_alternative(candidate: RunnerTask) -> bool:
+        if candidate.task_kind != "engineering":
+            return False
+        try:
+            registered = store.engineering_spec(candidate.id)
+        except ValueError:
+            return False
+        return (
+            registered is not None
+            and candidate.area == registered.area
+            and candidate.prompt == registered.prompt
+        )
+
     while (task := _next_task(store, scope)) is not None:
         reason: str | None = None
         if task.next_allowed_at:
@@ -1051,7 +1084,10 @@ def _select_task(
             except ValueError:
                 reason = "retry timestamp is invalid"
         if reason is None and task.task_kind == "engineering":
-            spec = ENGINEERING_SPEC_BY_ID.get(task.id)
+            try:
+                spec = store.engineering_spec(task.id)
+            except ValueError:
+                spec = None
             if (
                 scope != ROADMAP_SCOPE
                 or spec is None
@@ -1074,12 +1110,7 @@ def _select_task(
         alternative = _next_task(store, scope, exclude={task.id})
         if alternative is not None and (
             roadmap is None
-            or (
-                alternative.task_kind == "engineering"
-                and alternative.id in ENGINEERING_SPEC_BY_ID
-                and alternative.area == ENGINEERING_SPEC_BY_ID[alternative.id].area
-                and alternative.prompt == ENGINEERING_SPEC_BY_ID[alternative.id].prompt
-            )
+            or valid_engineering_alternative(alternative)
             or (
                 alternative.area.lower() in roadmap.by_id
                 and not roadmap.by_id[alternative.area.lower()].complete
@@ -1932,8 +1963,13 @@ def _review_context(
         historical_engineering=recovery is not None,
     )
     main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
-    spec = ENGINEERING_SPEC_BY_ID.get(candidate.task.id)
-    owned_paths = spec.owned_paths if spec is not None else ENGINEERING_OWNED_PATHS
+    spec = _engineering_spec(
+        RunnerStore(config.state_dir / "runner.db", config.history_dir),
+        candidate.task.id,
+    )
+    if spec is None:
+        raise ValueError("engineering spec is not registered")
+    owned_paths = spec.owned_paths
     context = {
         "task_id": candidate.task.id,
         "implementation_attempt_id": candidate.implementation_attempt_id,
@@ -1969,7 +2005,19 @@ def _run_review(
         # A stale candidate must not be promoted or rerun as implementation.
         store.mark_review_candidate_stale(candidate)
         return None
+    try:
+        spec = _engineering_spec(store, candidate.task.id)
+    except ValueError:
+        store.mark_review_candidate_stale(candidate)
+        return None
+    if spec is None:
+        store.mark_review_candidate_stale(candidate)
+        return None
     prompt = review_prompt(context)
+    if candidate.task.id.startswith("lab-discovery-"):
+        prompt = (
+            "Frozen approved engineering acceptance:\n" + spec.prompt + "\n\n" + prompt
+        )
     _write_private(review_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     schema_path = review_dir / "receipt.schema.json"
@@ -1978,10 +2026,7 @@ def _run_review(
         (
             json.dumps(
                 review_schema(
-                    ENGINEERING_SPEC_BY_ID[candidate.task.id].owned_paths
-                    if candidate.task.id in ENGINEERING_SPEC_BY_ID
-                    else ENGINEERING_OWNED_PATHS,
-                    recovery=candidate.recovery is not None,
+                    spec.owned_paths, recovery=candidate.recovery is not None
                 ),
                 sort_keys=True,
             )
@@ -2070,11 +2115,10 @@ def _run_review(
         if output_path.stat().st_size > 16_384:
             raise ValueError("review receipt too large")
         payload = json.loads(output_path.read_text(encoding="utf-8"))
-        spec = ENGINEERING_SPEC_BY_ID.get(candidate.task.id)
         receipt = validate_receipt(
             payload,
             context,
-            spec.owned_paths if spec is not None else ENGINEERING_OWNED_PATHS,
+            spec.owned_paths,
         )
         ready, _ = _git_ready(config.repo)
         if not ready or _review_context(candidate, review_id, config) != context:
@@ -2104,6 +2148,284 @@ def _run_review(
     return RunResult(
         "completed", candidate.task.id, candidate.implementation_attempt_id
     )
+
+
+def _run_engineering_discovery(
+    config: RunnerConfig,
+    store: RunnerStore,
+    mandate_digest: str,
+    stop_requested: Callable[[], bool] | None,
+) -> RunResult:
+    """Advance one read-only discovery or independent scope review per cycle."""
+    try:
+        _roadmap_dispatch_gate(config.repo, mandate_digest)
+        snapshot = store.discovery_snapshot()
+        fingerprint = source_fingerprint(config.repo, mandate_digest, snapshot)
+        baseline_head = _git(config.repo, "rev-parse", "main").stdout.strip()
+        cycle = store.discovery_cycle(fingerprint)
+        stage = "discover" if cycle is None else str(cycle["stage"])
+        if stage == "terminal" and cycle is not None:
+            return RunResult("idle", reason=f"discovery_{cycle['reason']}")
+        if cycle is not None and cycle["baseline_head"] != baseline_head:
+            store.terminalize_discovery_cycle(fingerprint, "stale_head")
+            return RunResult("idle", reason="discovery_stale_head")
+        active = (
+            store.discovery_active_proposal(fingerprint) if stage == "scope" else None
+        )
+        if stage == "scope" and active is None:
+            return RunResult("blocked", reason="discovery proposal invalid")
+        proposal, planner_attempt_id = active if active is not None else (None, None)
+        if proposal is not None:
+            validate_proposal(config.repo, proposal)
+        feedback = store.discovery_feedback(fingerprint)
+    except (OSError, ValueError, subprocess.CalledProcessError, MandateGovernanceError):
+        return RunResult("blocked", reason="discovery identity invalid")
+    attempt_id = uuid.uuid4().hex
+    attempt_dir = config.state_dir / "discovery" / attempt_id
+    _secure_dir(attempt_dir)
+    output_path = attempt_dir / "result.json"
+    stdout_path = attempt_dir / "stdout.jsonl"
+    stderr_path = attempt_dir / "stderr.log"
+    schema_path = attempt_dir / "schema.json"
+    owned = sorted(proposal.owned_paths) if proposal is not None else []
+    if stage == "scope" and proposal is not None:
+        prompt = (
+            "Read-only independent engineering scope review. Inspect source, tests, "
+            "and completed task history. Review the concrete product defect and "
+            "plausible reproduction. Reject tests-only, style-only, docs-only, "
+            "duplicate completed work, speculative abstractions, and weak evidence. "
+            "Reject investment gate or criteria weakening; strategy, PAPER or LIVE "
+            "activation; credentials, config, dependencies, network, service, order "
+            "or runner/policy changes. Authoritative computations remain Python; "
+            "fixtures never grant investment validation. Do not write or spawn agents. "
+            "Return exactly schema JSON with verdict PASS or REJECT and a concrete "
+            "bounded reason. Copy identity fields exactly.\n"
+            f"Proposal: {proposal.model_dump_json()}\n"
+            f"Proposal digest: {proposal_digest(proposal)}\n"
+            f"Planner attempt id: {planner_attempt_id}\n"
+            f"Baseline HEAD: {baseline_head}\nFingerprint: {fingerprint}\n"
+            f"Owned paths: {json.dumps(owned)}"
+        )
+        schema = strict_output_schema(ScopeReview)
+    else:
+        prompt = (
+            "Read-only offline engineering discovery. Inspect actual source and "
+            "tests, plus completed task history. Rank reproducible product gaps by "
+            "autonomous trading-lab readiness. Propose exactly one source/test pair "
+            "from the allowlist, or no_work after inspecting at least two domains "
+            "with their exact allowlisted module names, concrete resume conditions "
+            "and alternatives. An absent real-data "
+            "source does not prevent all offline work. Require a concrete product "
+            "defect or missing behavior, plausible reproduction, source and test "
+            "SHA-256 evidence from canonical tracked main. No tests-only, style, "
+            "documentation or speculative abstraction. No investment criteria "
+            "weakening, strategy/PAPER/LIVE activation, credentials, config, "
+            "dependencies, network, services, orders, or runner/policy changes. "
+            "Do not write, use network, or spawn agents. Return schema JSON only. "
+            "Copy identity fields exactly.\n"
+            f"Allowed modules: {json.dumps(DISCOVERY_MODULES)}\n"
+            f"Existing task snapshot: {json.dumps(snapshot)}\n"
+            f"Prior scope rejection feedback: {json.dumps(feedback)}\n"
+            f"Planner attempt id: {attempt_id}\nBaseline HEAD: {baseline_head}\n"
+            f"Fingerprint: {fingerprint}"
+        )
+        schema = strict_output_schema(DiscoveryResult)
+    _write_private(attempt_dir / "prompt.txt", prompt.encode())
+    _write_private(stdout_path, b"")
+    _write_private(schema_path, (json.dumps(schema, sort_keys=True) + "\n").encode())
+    launched_at = datetime.now(UTC).isoformat()
+    if not store.start_discovery_attempt(
+        fingerprint,
+        baseline_head,
+        mandate_digest,
+        snapshot,
+        attempt_id,
+        stage,
+        output_path,
+        launched_at,
+    ):
+        return RunResult("idle", reason="discovery_state_changed")
+    command = _review_command(config, schema_path, output_path)
+    failure: str | None = None
+    with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=config.repo,
+                stdin=subprocess.PIPE,
+                stdout=stdout,
+                stderr=stderr,
+                start_new_session=True,
+                env=_review_environment(attempt_dir),
+            )
+        except OSError:
+            failure = "dispatch_error"
+        if failure is None:
+            try:
+                group_id = os.getpgid(process.pid)
+                starttime = _read_process_starttime(process.pid)
+                if group_id == process.pid:
+                    store.set_discovery_process_identity(
+                        attempt_id, group_id, process.pid, starttime
+                    )
+            except (OSError, ValueError):
+                pass
+            deadline = time.monotonic() + min(config.timeout_seconds, 900)
+            started_at = time.time()
+            input_payload: bytes | None = prompt.encode()
+            while True:
+                if store.is_paused() or (
+                    stop_requested is not None and stop_requested()
+                ):
+                    _stop_process(process)
+                    failure = "paused"
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or _child_idle_expired(
+                    stdout_path, stderr_path, started_at, config.idle_timeout_seconds
+                ):
+                    _stop_process(process)
+                    failure = "timeout"
+                    break
+                if (
+                    stdout_path.stat().st_size > 1_048_576
+                    or _empty_receiver_wait_detected(stdout_path)
+                ):
+                    _stop_process(process)
+                    failure = "child_output_invalid"
+                    break
+                try:
+                    process.communicate(input_payload, timeout=min(1, remaining))
+                    input_payload = None
+                except subprocess.TimeoutExpired:
+                    input_payload = None
+                    continue
+                break
+            if failure is None and process.returncode != 0:
+                failure = "codex_exit"
+    if failure is not None:
+        outcome = "interrupted" if failure == "paused" else "failed"
+        store.finish_discovery_attempt(
+            fingerprint, attempt_id, outcome=outcome, reason=failure
+        )
+        return RunResult(
+            "paused" if failure == "paused" else "completed",
+            attempt_id=attempt_id,
+            reason=f"discovery_{failure}",
+        )
+    try:
+        if output_path.stat().st_size > 16_384:
+            raise ValueError("discovery output too large")
+        raw = output_path.read_bytes()
+        payload = json.loads(raw)
+        output_sha256 = hashlib.sha256(raw).hexdigest()
+        if store.is_paused() or (stop_requested is not None and stop_requested()):
+            raise RuntimeError("paused")
+        _roadmap_dispatch_gate(config.repo, mandate_digest)
+        ready, _ = _git_ready(config.repo)
+        if (
+            not ready
+            or _git(config.repo, "rev-parse", "main").stdout.strip() != baseline_head
+            or source_fingerprint(
+                config.repo, mandate_digest, store.discovery_snapshot()
+            )
+            != fingerprint
+        ):
+            raise RuntimeError("stale_identity")
+        if stage == "discover":
+            result = DiscoveryResult.model_validate(payload)
+            if (
+                result.planner_attempt_id != attempt_id
+                or result.baseline_head != baseline_head
+                or result.fingerprint != fingerprint
+            ):
+                raise ValueError("discovery response identity mismatch")
+            if result.status == "proposal" and result.proposal is not None:
+                validate_proposal(config.repo, result.proposal)
+                next_stage = store.finish_discovery_attempt(
+                    fingerprint,
+                    attempt_id,
+                    outcome="proposal",
+                    reason="proposal_pending_scope",
+                    output_sha256=output_sha256,
+                    proposal=result.proposal,
+                )
+            else:
+                next_stage = store.finish_discovery_attempt(
+                    fingerprint,
+                    attempt_id,
+                    outcome="no_work",
+                    reason="no_work",
+                    output_sha256=output_sha256,
+                    no_work_condition=result.resume_condition,
+                )
+            return RunResult(
+                "completed", attempt_id=attempt_id, reason=f"discovery_{next_stage}"
+            )
+        if proposal is None or planner_attempt_id is None:
+            raise ValueError("scope proposal missing")
+        review = ScopeReview.model_validate(payload)
+        validate_scope_review(
+            review, proposal, planner_attempt_id, baseline_head, fingerprint
+        )
+        if review.verdict == "REJECT":
+            next_stage = store.finish_discovery_attempt(
+                fingerprint,
+                attempt_id,
+                outcome="rejected",
+                reason=review.reason,
+                output_sha256=output_sha256,
+            )
+            return RunResult(
+                "completed", attempt_id=attempt_id, reason=f"discovery_{next_stage}"
+            )
+        validate_proposal(config.repo, proposal)
+        spec = store.approve_discovery_spec(
+            fingerprint,
+            attempt_id,
+            planner_attempt_id,
+            proposal,
+            review,
+            baseline_head,
+            mandate_digest,
+            snapshot,
+            output_sha256,
+            config.repo,
+        )
+        if spec is None:
+            raise RuntimeError("stale_identity")
+        return RunResult(
+            "completed",
+            task_id=spec.id,
+            attempt_id=attempt_id,
+            reason="discovery_approved",
+        )
+    except RuntimeError as exc:
+        reason = "paused" if str(exc) == "paused" else "stale_identity"
+        store.finish_discovery_attempt(
+            fingerprint,
+            attempt_id,
+            outcome="interrupted" if reason == "paused" else "stale",
+            reason=reason,
+        )
+        return RunResult(
+            "paused" if reason == "paused" else "completed",
+            attempt_id=attempt_id,
+            reason=f"discovery_{reason}",
+        )
+    except (
+        OSError,
+        ValueError,
+        ValidationError,
+        subprocess.CalledProcessError,
+        MandateGovernanceError,
+    ):
+        store.finish_discovery_attempt(
+            fingerprint, attempt_id, outcome="failed", reason="invalid_result"
+        )
+        return RunResult(
+            "completed", attempt_id=attempt_id, reason="discovery_invalid_result"
+        )
 
 
 def run_once(
@@ -2167,6 +2489,16 @@ def run_once(
                 uncertain_reviews.append(active_review.id)
         store.recover_running_reviews(recoverable_reviews)
         store.quarantine_reviews(uncertain_reviews)
+        uncertain_discovery = False
+        for active_discovery in store.running_discovery_attempts():
+            recovered = _stop_orphaned_review_group(active_discovery)
+            store.quarantine_discovery_attempt(
+                active_discovery.id,
+                "orphan_recovered" if recovered else "orphan_identity_uncertain",
+            )
+            uncertain_discovery = uncertain_discovery or not recovered
+        if uncertain_discovery:
+            return RunResult("blocked", reason="discovery orphan identity uncertain")
         _safe_history_flush(store, config)
         interrupted = store.recover_running()
         if interrupted:
@@ -2230,6 +2562,13 @@ def run_once(
             else:
                 if idle_reason == "paused":
                     return RunResult("paused")
+                if (
+                    idle_reason == "fixed_engineering_backlog_exhausted"
+                    and config.automatic_engineering_discovery
+                ):
+                    return _run_engineering_discovery(
+                        config, store, governance.digest, stop_requested
+                    )
                 return RunResult("idle", reason=idle_reason)
         if task is None:
             if not config.planning_enabled:
@@ -2345,7 +2684,11 @@ def run_once(
         previous = task.last_attempt_id or "none"
         engineering_guidance = ""
         if task.task_kind == "engineering":
-            spec = ENGINEERING_SPEC_BY_ID[task.id]
+            spec = store.engineering_spec(task.id)
+            if spec is None:
+                return RunResult(
+                    "blocked", task.id, reason="engineering spec is not registered"
+                )
             owned_files = ", ".join(
                 str(config.repo.resolve() / name) for name in sorted(spec.owned_paths)
             )
@@ -2885,6 +3228,7 @@ def main(argv: list[str] | None = None) -> int:
                         if (value := store.get_meta("idle_status")) is not None
                         else None
                     ),
+                    "discovery": store.discovery_status(),
                     "tasks": tasks,
                 },
                 ensure_ascii=False,
@@ -2893,7 +3237,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "enqueue":
         if args.kind == "engineering":
-            spec = ENGINEERING_SPEC_BY_ID.get(args.spec)
+            try:
+                spec = (
+                    store.engineering_spec(args.spec) if args.spec is not None else None
+                )
+            except ValueError:
+                spec = None
             if (
                 config.scope != ROADMAP_SCOPE
                 or spec is None

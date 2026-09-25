@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -13,9 +14,23 @@ from typing import Any
 
 from jusik.development_runner_contract import (
     AUTOMATIC_ENGINEERING_BACKLOG,
+    ENGINEERING_SPEC_BY_ID,
     Blocker,
     EngineeringSpec,
     unknown_blocker,
+)
+from jusik.development_runner_discovery import (
+    MAX_INFRA_FAILURES,
+    MAX_PROPOSALS,
+    DiscoveryProposal,
+    ScopeReview,
+    canonical_json,
+    digest,
+    proposal_digest,
+    source_fingerprint,
+    spec_from_proposal,
+    validate_proposal,
+    validate_scope_review,
 )
 from jusik.development_runner_roadmap import ROADMAP_PENDING_LIMIT
 
@@ -200,6 +215,54 @@ class RunnerStore:
                     receipt_json TEXT,
                     context_json TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS discovery_cycles (
+                    fingerprint TEXT PRIMARY KEY,
+                    stage TEXT NOT NULL,
+                    baseline_head TEXT NOT NULL,
+                    mandate_digest TEXT NOT NULL,
+                    task_snapshot_json TEXT NOT NULL,
+                    proposal_count INTEGER NOT NULL DEFAULT 0,
+                    infra_failures INTEGER NOT NULL DEFAULT 0,
+                    active_proposal_digest TEXT,
+                    active_attempt_id TEXT,
+                    reason TEXT NOT NULL,
+                    next_condition TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS discovery_attempts (
+                    id TEXT PRIMARY KEY,
+                    fingerprint TEXT NOT NULL REFERENCES discovery_cycles(fingerprint),
+                    stage TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    ended_at TEXT,
+                    baseline_head TEXT NOT NULL,
+                    process_group_id INTEGER,
+                    process_id INTEGER,
+                    process_starttime INTEGER,
+                    output_path TEXT NOT NULL,
+                    response_sha256 TEXT,
+                    reason TEXT
+                );
+                CREATE TABLE IF NOT EXISTS discovery_proposals (
+                    fingerprint TEXT NOT NULL REFERENCES discovery_cycles(fingerprint),
+                    proposal_digest TEXT NOT NULL,
+                    planner_attempt_id TEXT NOT NULL UNIQUE,
+                    proposal_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    feedback TEXT,
+                    PRIMARY KEY(fingerprint,proposal_digest)
+                );
+                CREATE TABLE IF NOT EXISTS approved_engineering_specs (
+                    task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+                    spec_json TEXT NOT NULL,
+                    spec_sha256 TEXT NOT NULL,
+                    proposal_digest TEXT NOT NULL UNIQUE,
+                    fingerprint TEXT NOT NULL,
+                    scope_attempt_id TEXT NOT NULL UNIQUE,
+                    scope_review_json TEXT NOT NULL,
+                    approved_at TEXT NOT NULL
+                );
                 """
             )
             columns = {
@@ -339,6 +402,576 @@ class RunnerStore:
             )
             db.commit()
         return None, idle_reason
+
+    @staticmethod
+    def _discovery_snapshot(db: sqlite3.Connection) -> list[list[str | None]]:
+        rows = db.execute(
+            "SELECT id,status,last_attempt_id FROM tasks WHERE area!='__planning__' "
+            "ORDER BY id"
+        ).fetchall()
+        return [
+            [str(row["id"]), str(row["status"]), row["last_attempt_id"]] for row in rows
+        ]
+
+    def discovery_snapshot(self) -> list[tuple[str, str, str | None]]:
+        with self._connect() as db:
+            snapshot = self._discovery_snapshot(db)
+        return [(str(row[0]), str(row[1]), row[2]) for row in snapshot]
+
+    def discovery_cycle(self, fingerprint: str) -> dict[str, Any] | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT * FROM discovery_cycles WHERE fingerprint=?", (fingerprint,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def discovery_status(self) -> dict[str, str | int] | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT stage,reason,next_condition,proposal_count,updated_at "
+                "FROM discovery_cycles ORDER BY updated_at DESC LIMIT 1"
+            ).fetchone()
+        if row is None:
+            return None
+        status: dict[str, str | int] = dict(row)
+        if status["stage"] == "terminal":
+            status["next_condition"] = "source, test, mandate, or task state changes"
+        return status
+
+    def terminalize_discovery_cycle(self, fingerprint: str, reason: str) -> bool:
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            changed = db.execute(
+                "UPDATE discovery_cycles SET stage='terminal',reason=?,"
+                "next_condition=?,updated_at=? WHERE fingerprint=? "
+                "AND stage!='terminal' AND active_attempt_id IS NULL",
+                (
+                    reason,
+                    "source, test, mandate, or task state changes",
+                    utc_now(),
+                    fingerprint,
+                ),
+            ).rowcount
+            db.commit()
+        return changed == 1
+
+    def discovery_feedback(self, fingerprint: str) -> list[str]:
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT feedback FROM discovery_proposals WHERE fingerprint=? "
+                "AND status='rejected' ORDER BY rowid",
+                (fingerprint,),
+            ).fetchall()
+        return [str(row["feedback"]) for row in rows if row["feedback"]]
+
+    def discovery_active_proposal(
+        self, fingerprint: str
+    ) -> tuple[DiscoveryProposal, str] | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT p.proposal_json,p.planner_attempt_id,p.proposal_digest "
+                "FROM discovery_cycles c JOIN discovery_proposals p "
+                "ON p.fingerprint=c.fingerprint "
+                "AND p.proposal_digest=c.active_proposal_digest "
+                "WHERE c.fingerprint=? AND c.stage='scope' AND p.status='pending'",
+                (fingerprint,),
+            ).fetchone()
+        if row is None:
+            return None
+        proposal = DiscoveryProposal.model_validate_json(str(row["proposal_json"]))
+        if proposal_digest(proposal) != row["proposal_digest"]:
+            raise ValueError("stored discovery proposal changed")
+        return proposal, str(row["planner_attempt_id"])
+
+    def start_discovery_attempt(
+        self,
+        fingerprint: str,
+        baseline_head: str,
+        mandate_digest: str,
+        snapshot: list[tuple[str, str, str | None]],
+        attempt_id: str,
+        stage: str,
+        output_path: Path,
+        launched_at: str,
+    ) -> bool:
+        if stage not in {"discover", "scope"}:
+            raise ValueError("invalid discovery stage")
+        now = utc_now()
+        expected = canonical_json(snapshot)
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            paused = db.execute(
+                "SELECT value FROM runner_meta WHERE key='paused'"
+            ).fetchone()
+            current = canonical_json(self._discovery_snapshot(db))
+            pending = db.execute(
+                "SELECT COUNT(*) FROM tasks WHERE area!='__planning__' "
+                "AND status IN ('queued','running')"
+            ).fetchone()
+            if (
+                (paused is not None and paused["value"] == "1")
+                or current != expected
+                or int(pending[0]) >= ROADMAP_PENDING_LIMIT
+            ):
+                db.rollback()
+                return False
+            row = db.execute(
+                "SELECT * FROM discovery_cycles WHERE fingerprint=?", (fingerprint,)
+            ).fetchone()
+            if row is None:
+                if stage != "discover":
+                    db.rollback()
+                    return False
+                db.execute(
+                    "INSERT INTO discovery_cycles "
+                    "(fingerprint,stage,baseline_head,mandate_digest,task_snapshot_json,"
+                    "reason,next_condition,updated_at) VALUES(?,?,?,?,?,?,?,?)",
+                    (
+                        fingerprint,
+                        stage,
+                        baseline_head,
+                        mandate_digest,
+                        expected,
+                        "started",
+                        "discovery result",
+                        now,
+                    ),
+                )
+            elif (
+                row["stage"] != stage
+                or row["baseline_head"] != baseline_head
+                or row["mandate_digest"] != mandate_digest
+                or row["task_snapshot_json"] != expected
+                or row["active_attempt_id"] is not None
+                or int(row["infra_failures"]) >= MAX_INFRA_FAILURES
+            ):
+                db.rollback()
+                return False
+            db.execute(
+                "INSERT INTO discovery_attempts "
+                "(id,fingerprint,stage,status,started_at,baseline_head,output_path) "
+                "VALUES(?,?,?,'running',?,?,?)",
+                (attempt_id, fingerprint, stage, now, baseline_head, str(output_path)),
+            )
+            db.execute(
+                "UPDATE discovery_cycles SET active_attempt_id=?,reason=?,"
+                "next_condition=?,updated_at=? WHERE fingerprint=?",
+                (
+                    attempt_id,
+                    stage + "_running",
+                    "current attempt completes",
+                    now,
+                    fingerprint,
+                ),
+            )
+            db.execute("INSERT INTO launch_log(launched_at) VALUES(?)", (launched_at,))
+            db.execute(
+                "INSERT INTO runner_meta(key,value) VALUES('last_launch_at',?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (launched_at,),
+            )
+            db.commit()
+        return True
+
+    def set_discovery_process_identity(
+        self, attempt_id: str, group_id: int, process_id: int, starttime: int
+    ) -> None:
+        with self._connect() as db:
+            db.execute(
+                "UPDATE discovery_attempts SET process_group_id=?,process_id=?,"
+                "process_starttime=? WHERE id=? AND status='running'",
+                (group_id, process_id, starttime, attempt_id),
+            )
+
+    def running_discovery_attempts(self) -> list[ReviewAttempt]:
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT id,process_group_id,process_id,process_starttime "
+                "FROM discovery_attempts WHERE status='running'"
+            ).fetchall()
+        return [
+            ReviewAttempt(
+                str(row["id"]),
+                "__discovery__",
+                row["process_group_id"],
+                row["process_id"],
+                row["process_starttime"],
+            )
+            for row in rows
+        ]
+
+    def finish_discovery_attempt(
+        self,
+        fingerprint: str,
+        attempt_id: str,
+        *,
+        outcome: str,
+        reason: str,
+        output_sha256: str | None = None,
+        proposal: DiscoveryProposal | None = None,
+        no_work_condition: str | None = None,
+    ) -> str:
+        now = utc_now()
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            cycle = db.execute(
+                "SELECT * FROM discovery_cycles WHERE fingerprint=?", (fingerprint,)
+            ).fetchone()
+            attempt = db.execute(
+                "SELECT * FROM discovery_attempts WHERE id=? AND fingerprint=?",
+                (attempt_id, fingerprint),
+            ).fetchone()
+            if (
+                cycle is None
+                or attempt is None
+                or attempt["status"] != "running"
+                or cycle["active_attempt_id"] != attempt_id
+                or cycle["stage"] != attempt["stage"]
+            ):
+                db.rollback()
+                return "stale"
+            stage = str(cycle["stage"])
+            count = int(cycle["proposal_count"])
+            failures = int(cycle["infra_failures"])
+            active_digest = cycle["active_proposal_digest"]
+            if outcome == "proposal":
+                if stage != "discover" or proposal is None or count >= MAX_PROPOSALS:
+                    db.rollback()
+                    return "stale"
+                identity = proposal_digest(proposal)
+                existing = db.execute(
+                    "SELECT 1 FROM discovery_proposals WHERE fingerprint=? "
+                    "AND proposal_digest=?",
+                    (fingerprint, identity),
+                ).fetchone()
+                if existing is not None:
+                    outcome = "failed"
+                    reason = "duplicate_proposal"
+                else:
+                    db.execute(
+                        "INSERT INTO discovery_proposals "
+                        "(fingerprint,proposal_digest,planner_attempt_id,"
+                        "proposal_json,status) "
+                        "VALUES(?,?,?,?,'pending')",
+                        (
+                            fingerprint,
+                            identity,
+                            attempt_id,
+                            canonical_json(proposal.model_dump(mode="json")),
+                        ),
+                    )
+                    count += 1
+                    active_digest = identity
+                    stage = "scope"
+                    reason = "proposal_pending_scope"
+            if outcome == "no_work":
+                stage = "terminal"
+                reason = "no_work"
+            elif outcome == "stale":
+                stage = "terminal"
+            elif outcome == "interrupted":
+                reason = "paused"
+            elif outcome == "rejected":
+                if stage != "scope" or active_digest is None:
+                    db.rollback()
+                    return "stale"
+                db.execute(
+                    "UPDATE discovery_proposals SET status='rejected',feedback=? "
+                    "WHERE fingerprint=? AND proposal_digest=? AND status='pending'",
+                    (reason, fingerprint, active_digest),
+                )
+                active_digest = None
+                stage = "terminal" if count >= MAX_PROPOSALS else "discover"
+                reason = (
+                    "proposal_cap_reached" if stage == "terminal" else "scope_rejected"
+                )
+            elif outcome == "failed":
+                failures += 1
+                if failures >= MAX_INFRA_FAILURES:
+                    stage = "terminal"
+                    reason = "discovery_infrastructure_exhausted"
+            next_condition = (
+                no_work_condition
+                if outcome == "no_work" and no_work_condition
+                else "source, test, mandate, or non-discovery task state changes"
+                if stage == "terminal"
+                else "runner resumed"
+                if outcome == "interrupted"
+                else "next bounded discovery cycle"
+            )
+            db.execute(
+                "UPDATE discovery_attempts SET status=?,ended_at=?,response_sha256=?,"
+                "reason=? WHERE id=?",
+                (outcome, now, output_sha256, reason, attempt_id),
+            )
+            db.execute(
+                "UPDATE discovery_cycles SET stage=?,proposal_count=?,infra_failures=?,"
+                "active_proposal_digest=?,active_attempt_id=NULL,reason=?,"
+                "next_condition=?,updated_at=? WHERE fingerprint=?",
+                (
+                    stage,
+                    count,
+                    failures,
+                    active_digest,
+                    reason,
+                    next_condition,
+                    now,
+                    fingerprint,
+                ),
+            )
+            db.commit()
+        return stage
+
+    def quarantine_discovery_attempt(self, attempt_id: str, reason: str) -> None:
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT fingerprint FROM discovery_attempts WHERE id=? "
+                "AND status='running'",
+                (attempt_id,),
+            ).fetchone()
+            if row is not None:
+                now = utc_now()
+                db.execute(
+                    "UPDATE discovery_attempts SET status='quarantined',ended_at=?,"
+                    "reason=? WHERE id=?",
+                    (now, reason, attempt_id),
+                )
+                if reason == "orphan_recovered":
+                    db.execute(
+                        "UPDATE discovery_cycles SET active_attempt_id=NULL,"
+                        "infra_failures=infra_failures+1,"
+                        "stage=CASE WHEN infra_failures+1>=? THEN 'terminal' "
+                        "ELSE stage END,reason=?,next_condition=?,updated_at=? "
+                        "WHERE fingerprint=? AND active_attempt_id=?",
+                        (
+                            MAX_INFRA_FAILURES,
+                            reason,
+                            "next bounded discovery cycle",
+                            now,
+                            row["fingerprint"],
+                            attempt_id,
+                        ),
+                    )
+                else:
+                    db.execute(
+                        "UPDATE discovery_cycles SET stage='terminal',"
+                        "active_attempt_id=NULL,reason=?,next_condition=?,"
+                        "updated_at=? WHERE fingerprint=? AND active_attempt_id=?",
+                        (
+                            reason,
+                            "operator verifies orphan before changed input "
+                            "resumes discovery",
+                            now,
+                            row["fingerprint"],
+                            attempt_id,
+                        ),
+                    )
+            db.commit()
+
+    def approve_discovery_spec(
+        self,
+        fingerprint: str,
+        attempt_id: str,
+        planner_attempt_id: str,
+        proposal: DiscoveryProposal,
+        review: ScopeReview,
+        baseline_head: str,
+        mandate_digest: str,
+        snapshot: list[tuple[str, str, str | None]],
+        output_sha256: str,
+        repo: Path,
+    ) -> EngineeringSpec | None:
+        if review.verdict != "PASS":
+            raise ValueError("scope PASS required")
+        validate_scope_review(
+            review, proposal, planner_attempt_id, baseline_head, fingerprint
+        )
+        spec = spec_from_proposal(proposal)
+        spec_data = {
+            "id": spec.id,
+            "area": spec.area,
+            "prompt": spec.prompt,
+            "owned_paths": sorted(spec.owned_paths),
+        }
+        spec_json = canonical_json(spec_data)
+        now = utc_now()
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            cycle = db.execute(
+                "SELECT * FROM discovery_cycles WHERE fingerprint=?", (fingerprint,)
+            ).fetchone()
+            attempt = db.execute(
+                "SELECT status,stage FROM discovery_attempts WHERE id=? "
+                "AND fingerprint=?",
+                (attempt_id, fingerprint),
+            ).fetchone()
+            pending = db.execute(
+                "SELECT COUNT(*) FROM tasks WHERE area!='__planning__' "
+                "AND status IN ('queued','running')"
+            ).fetchone()
+            paused = db.execute(
+                "SELECT value FROM runner_meta WHERE key='paused'"
+            ).fetchone()
+            active = db.execute(
+                "SELECT proposal_json,planner_attempt_id,status FROM "
+                "discovery_proposals WHERE fingerprint=? AND proposal_digest=?",
+                (fingerprint, proposal_digest(proposal)),
+            ).fetchone()
+            current_head = subprocess.run(
+                ["git", "rev-parse", "main"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            ).stdout.strip()
+            current_fingerprint = source_fingerprint(repo, mandate_digest, snapshot)
+            validate_proposal(repo, proposal)
+            if (
+                cycle is None
+                or attempt is None
+                or attempt["status"] != "running"
+                or attempt["stage"] != "scope"
+                or cycle["stage"] != "scope"
+                or cycle["active_attempt_id"] != attempt_id
+                or cycle["active_proposal_digest"] != proposal_digest(proposal)
+                or cycle["baseline_head"] != baseline_head
+                or cycle["mandate_digest"] != mandate_digest
+                or current_head != baseline_head
+                or current_fingerprint != fingerprint
+                or cycle["task_snapshot_json"] != canonical_json(snapshot)
+                or canonical_json(self._discovery_snapshot(db))
+                != canonical_json(snapshot)
+                or int(pending[0]) >= ROADMAP_PENDING_LIMIT
+                or (paused is not None and paused["value"] == "1")
+                or active is None
+                or active["status"] != "pending"
+                or active["planner_attempt_id"] != planner_attempt_id
+                or active["proposal_json"]
+                != canonical_json(proposal.model_dump(mode="json"))
+                or db.execute("SELECT 1 FROM tasks WHERE id=?", (spec.id,)).fetchone()
+                is not None
+            ):
+                db.rollback()
+                return None
+            db.execute(
+                "INSERT INTO tasks(id,area,prompt,status,created_at,"
+                "updated_at,task_kind) "
+                "VALUES(?,?,?,'queued',?,?,'engineering')",
+                (spec.id, spec.area, spec.prompt, now, now),
+            )
+            db.execute(
+                "INSERT INTO approved_engineering_specs "
+                "(task_id,spec_json,spec_sha256,proposal_digest,"
+                "fingerprint,scope_attempt_id,scope_review_json,approved_at) "
+                "VALUES(?,?,?,?,?,?,?,?)",
+                (
+                    spec.id,
+                    spec_json,
+                    digest(spec_data),
+                    proposal_digest(proposal),
+                    fingerprint,
+                    attempt_id,
+                    canonical_json(review.model_dump(mode="json")),
+                    now,
+                ),
+            )
+            db.execute(
+                "UPDATE discovery_proposals SET status='approved' WHERE "
+                "fingerprint=? AND proposal_digest=?",
+                (fingerprint, proposal_digest(proposal)),
+            )
+            db.execute(
+                "UPDATE discovery_attempts SET status='approved',ended_at=?,"
+                "response_sha256=?,reason='scope_pass' WHERE id=?",
+                (now, output_sha256, attempt_id),
+            )
+            db.execute(
+                "UPDATE discovery_cycles SET stage='terminal',active_attempt_id=NULL,"
+                "reason='approved',next_condition='new source or task state',"
+                "updated_at=? WHERE fingerprint=?",
+                (now, fingerprint),
+            )
+            db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
+            db.commit()
+        return spec
+
+    def engineering_spec(self, task_id: str) -> EngineeringSpec | None:
+        static = ENGINEERING_SPEC_BY_ID.get(task_id)
+        if static is not None:
+            return static
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT spec_json,spec_sha256,proposal_digest,fingerprint,"
+                "scope_attempt_id,scope_review_json "
+                "FROM approved_engineering_specs WHERE task_id=?",
+                (task_id,),
+            ).fetchone()
+            proposal_row = (
+                db.execute(
+                    "SELECT proposal_json,status,planner_attempt_id "
+                    "FROM discovery_proposals WHERE "
+                    "fingerprint=? AND proposal_digest=?",
+                    (row["fingerprint"], row["proposal_digest"]),
+                ).fetchone()
+                if row is not None
+                else None
+            )
+            cycle_row = (
+                db.execute(
+                    "SELECT baseline_head FROM discovery_cycles WHERE fingerprint=?",
+                    (row["fingerprint"],),
+                ).fetchone()
+                if row is not None
+                else None
+            )
+            attempt_row = (
+                db.execute(
+                    "SELECT status FROM discovery_attempts WHERE id=?",
+                    (row["scope_attempt_id"],),
+                ).fetchone()
+                if row is not None
+                else None
+            )
+        if row is None:
+            return None
+        if (
+            proposal_row is None
+            or proposal_row["status"] != "approved"
+            or cycle_row is None
+            or attempt_row is None
+            or attempt_row["status"] != "approved"
+        ):
+            raise ValueError("approved discovery proposal missing")
+        proposal = DiscoveryProposal.model_validate_json(
+            str(proposal_row["proposal_json"])
+        )
+        review = ScopeReview.model_validate_json(str(row["scope_review_json"]))
+        if review.verdict != "PASS":
+            raise ValueError("approved discovery scope verdict changed")
+        validate_scope_review(
+            review,
+            proposal,
+            str(proposal_row["planner_attempt_id"]),
+            str(cycle_row["baseline_head"]),
+            str(row["fingerprint"]),
+        )
+        expected = spec_from_proposal(proposal)
+        data = {
+            "id": expected.id,
+            "area": expected.area,
+            "prompt": expected.prompt,
+            "owned_paths": sorted(expected.owned_paths),
+        }
+        if (
+            proposal_digest(proposal) != row["proposal_digest"]
+            or row["spec_json"] != canonical_json(data)
+            or row["spec_sha256"] != digest(data)
+            or expected.id != task_id
+        ):
+            raise ValueError("approved discovery spec changed")
+        return expected
 
     def task(self, task_id: str) -> RunnerTask | None:
         with self._connect() as db:
