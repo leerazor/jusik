@@ -1,6 +1,7 @@
 # 빈 큐의 자동 공학 과제 발굴 복구
 
-- 상태: local main 통합·독립 검토·통합 검사 완료. 운영의 실제 후속 작업 검증 진행 중.
+- 상태: 완료. local main 통합·독립 검토·통합 검사와 첫 동적 과제의 실제 운영 완료를 확인했다.
+- 최종 기록 시각: 2026-09-25T22:06:00Z.
 - 작업 slug: `lab-engineering-discovery`
 - 기준: `491349c`; 구현: `050dd0e`; 병합 직전 main: `08428fb`; 통합: `9cb75fc`.
 - 범위: 기존 READY·독립 구현 검토를 우선하는 자동 실행기에 제한된 오프라인 과제 발굴을 연결한다. 실거래·투자 검증·credential·권한 경계는 변경하지 않는다.
@@ -48,9 +49,15 @@
 
 코드 agent의 첫 두 turn과 reviewer 세 turn의 routing helper audit는 PASS였다. 코드 agent의 세 번째 turn은 중간 `thread_settings_applied`가 context 뒤에 기록되어 helper가 unavailable로 보고했다. 해당 child 자체의 동일 turn ID context 두 개와 settings에서 `gpt-6-sol/high`를 직접 대조했다. parent 모델을 child 근거로 쓰지 않았고 helper가 세 번째 turn까지 통과했다고 주장하지 않는다.
 
+재시도 `6aa4afdbd9054eaeada5e8e63971f915`가 기존 작업 폴더와 패치를 재사용해 제품 `ec77cd4`를 main에 통합했다. timer가 별도 reviewer `27490b947c8c48ae8b66e1b9151f1370`를 실행했고 2026-09-25T22:03:04Z PASS로 task를 `ENGINEERING_COMPLETE/NOT_EVALUATED`로 전환했다. 첫 실패 기록은 그대로다. 감독자의 main 제품 검사도 calendar pytest **13 passed**, Ruff check/format와 strict mypy 통과다. 투자 성과 검증이나 실거래 승인을 뜻하지 않는다.
+
+완료된 원래 제품 branch `548cdd5`는 main 제품 내용과 일치함을 확인하고 `136f050`으로 이력을 연결했다. 이 merge 전후 전체 tracked tree도 동일했다. 구현·제품 worktree 두 개를 `git worktree remove`로 정상 제거했으며 branch·commit은 보존했다. 설치 cache는 같은 audit의 `calendar-setup-cache`로 옮겼다. 다른 worktree와 사용자 `HANDOFF.md`는 변경하지 않았다.
+
+운영 후 기존 tasks 140행, attempts 199행, review_attempts 5행이 사전 백업과 동일함을 대조했고 현재 DB integrity도 `ok`다. 새 task 1행·attempt 2행·review 1행이 추가됐다. 현재 발굴 journal은 별도 네 테이블에서 유지한다. 기록 저장 뒤 runner를 재개하며 다음 자동 발굴의 실제 확인은 `/home/kwl/.local/share/jusik/portfolio-audit/20260926-engineering-discovery/RUNTIME.md`에 남긴다. 이 외부 확인 파일을 갱신해 진행 중인 제안의 main HEAD를 문서 commit으로 무효화하지 않는다.
+
 - 운영 DB 사전 백업: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-engineering-discovery/runner-before-discovery.db`.
 - 백업 integrity: `ok`; SHA-256: `ec3e16f0d05e34eaae3262e53bf64c14c5454c9c19469cdea9722bfc0d1d6fd1`.
 - 설정 사전 백업: 같은 audit 디렉터리의 `runner-config-before-discovery.json`; SHA-256: `7a8ecd2c24d8b4581db00a1a54012507259717cae3a37ec1fef1bdb76aa4c211`.
-- 구현 워크트리: `/home/kwl/projects/jusik-lab-engineering-discovery`, 브랜치 `feat/lab-engineering-discovery`.
+- 구현 워크트리: `/home/kwl/projects/jusik-lab-engineering-discovery`, 브랜치 `feat/lab-engineering-discovery`. worktree 제거 완료, branch·commit 보존.
 - 복구: 먼저 pause하고 service를 정지한다. 새 발굴만 막으려면 `automatic_engineering_discovery=false`로 되돌린다. 이미 승인된 동적 작업의 spec은 보존하므로 모든 실행 중단에는 pause가 필요하다. DB 전체를 과거 백업으로 덮어써 새 작업 이력을 지우지 않는다. 이전 코드로 되돌리려면 동적 작업을 실행하지 않는 paused 상태를 유지하고 별도 호환성 판단을 한다.
-- 남은 수용 조건: 독립 검토, local main 통합, 운영 DB 보존 확인, 실제 자동 발굴·범위 검토·개발 및 다음 발굴의 자동 연결.
+- 남은 사용자 결정: 이 복구에는 없음. 다음 운영 점검은 새로운 discovery attempt와 task 상태를 확인하며, 투자 자료 대기·사람 승인·실거래 안전 조건을 별도 유지한다.

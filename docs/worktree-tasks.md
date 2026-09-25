@@ -2,25 +2,25 @@
 
 ## lab-engineering-discovery
 
-- 상태: 운영 검증. 구현 `050dd0e`, local main 통합 `9cb75fc`, 별도 Sol review와 main pytest 164개·Ruff·strict mypy 통과. 2026-09-26 요청에 따라 설치 discovery flag를 활성화하고 실제 자동 후속 작업을 확인한다.
+- 상태: 완료. 자동 발굴·독립 범위 검토·개발·독립 완료 검토를 운영에서 확인했다. 초기 구현 `050dd0e`/통합 `9cb75fc`, 운영 보강 `367ae08`·`fda5aea`/통합 `27d3972`. 최종 관련 main pytest 240개·Ruff·strict mypy와 별도 Sol review PASS.
 - 근거: 2026-09-25 21:25 KST 이후 약 8시간 반 동안 `fixed_engineering_backlog_exhausted` 166회, 새로운 제품 attempt/commit 없음. 고정 spec 소진 뒤 read-only planner보다 먼저 반환하는 구조와 동적 engineering spec 등록 경로 부재가 원인이다.
 - 목표: 기존 READY·implementation review를 먼저 처리하고, 고정 목록 소진 시 read-only 발굴, 별도 scope 검토, 결정적 spec 등록·enqueue, 기존 구현·독립 검토를 연결한다. 사용자는 다음 과제마다 별도 진행 지시를 내릴 필요가 없어야 한다.
 - 범위: 기존 runner·store·contract의 재사용 경계와 전용 discovery 계약/회귀 테스트. 명시된 오프라인 소스·테스트 쌍만 제안하고 한 번에 하나씩 실행한다. 실제 주문·추가 결제·권한/credential 정책·투자 검증 기준 변경은 승인하지 않는다.
 - 완료 조건: 소진 상태에서 discovery dispatch RED/GREEN, scope FAIL/무효/오래된 identity 등록 거부, PASS의 단 한 번 등록, restart 소유권 보존, READY 우선순위, 반복 호출 제한, 기존 검증 gate 보존; focused pytest·Ruff·strict mypy·독립 Sol review 및 운영에서 실제 발굴·다음 작업 실행 확인.
-- 운영: 수동 통합 중 pause·service inactive, timer 유지. tracked-clean main에서 재개한다. 사용자 미추적 `HANDOFF.md`, 이전 작업·실패 기록 보존. 단일 Sol 구현 소유자와 별도 Sol reviewer, 동시 active 최대 4명.
+- 운영: 기록 저장 중 pause, timer 활성 유지. 기록 commit 뒤 tracked-clean main에서 자동실행을 재개한다. 사용자 미추적 `HANDOFF.md`, 이전 작업·실패 기록 보존. 단일 Sol 구현 소유자와 별도 Sol reviewer, 동시 active 최대 4명.
 - 구현: `/home/kwl/projects/jusik-lab-engineering-discovery`, `feat/lab-engineering-discovery`, 기준 `491349c`. runner·store와 새 discovery 계약/테스트 네 파일의 단일 Sol 소유자. 고정 backlog 소진 뒤 discovery가 호출되지 않는 RED를 확인했다.
 - 결정: 명시된 여덟 오프라인 소스·대응 테스트 중 정확히 한 쌍만 작업별 소유한다. 읽기 전용 제안·별도 범위 검토를 거친 frozen spec만 저장하며 기존 구현 review를 다시 요구한다. 동일 fingerprint에서 다른 후보 최대 3건, no-work와 입력 변화 없는 반복 LLM 호출은 제한한다.
 - 백업: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-engineering-discovery/runner-before-discovery.db`, integrity `ok`, SHA-256 `ec3e16f0d05e34eaae3262e53bf64c14c5454c9c19469cdea9722bfc0d1d6fd1`.
-- 기록: `docs/development-records/2026-09-26-lab-engineering-discovery.md`. 실제 DB 복사본에서 기존 6개 테이블·973행 보존과 추가 스키마 무결성을 확인했다. 워크트리는 첫 운영 검증까지 보존한다.
+- 기록: `docs/development-records/2026-09-26-lab-engineering-discovery.md`; handoff: `docs/handoffs/2026-09-26-engineering-discovery.md`. 운영 후에도 기존 task 140개·attempt 199개·review 5개의 행이 사전 백업과 동일하며 integrity `ok`다. 완료 worktree는 정상 제거했고 코드·검증·설치 캐시는 보존했다. 자동 재개 확인은 기록에 연결한 외부 `RUNTIME.md`와 현재 DB를 대조한다.
 
 ## lab-discovery-c478225b8a11df4e9207f443acec017d
 
-- 상태: 환경 복구 후 재시도 준비. 첫 자동 발굴·범위 검토 PASS로 등록한 시장 달력 오류 계약 수정이다.
+- 상태: 완료. 첫 자동 발굴·범위 검토 PASS로 등록했으며 환경 복구 후 새 attempt의 구현·별도 review PASS로 `ENGINEERING_COMPLETE/NOT_EVALUATED`다.
 - 소유 범위: `backend/jusik/research_market_calendar.py`, `backend/tests/test_research_market_calendar.py` 두 파일. 투자 상태·달력 자료·일정 계산 변경은 제외한다.
 - 워크트리·브랜치: `/home/kwl/projects/jusik-lab-discovery-calendar-state-c478225b`, `fix/lab-discovery-calendar-state-c478225b`; 최초 기준 `491986b`.
-- 보존 상태: 두 파일의 미커밋 패치를 보존한다. 첫 attempt `24fb6de0a54a40b2a12771ad30f07b7e`는 환경 실패 보고의 형식 오류로 FAILED다. 실패 출력을 다시 쓰지 않는다.
+- 보존 상태: 제품 commit `548cdd5`를 main `ec77cd4`로 적용했고, 동일 제품 내용 확인 후 `136f050`으로 원래 branch 이력도 연결했다. 첫 attempt `24fb6de0a54a40b2a12771ad30f07b7e`는 FAILED 그대로 보존한다. 실패 출력을 다시 쓰지 않는다.
 - 환경 복구: 해당 backend/.venv에 기존 lock과 market-calendar requirements만 설치했고 `pip check`, `exchange_calendars 4.12`, `pytest 9.1.1` 확인을 통과했다. 이 환경을 재사용하고 새 중복 worktree를 만들지 않는다.
-- 다음 담당: runner의 새 단일 구현 child. 재시도 baseline main 변경을 보존·반영하고 focused 검사·통합 후 기존 별도 구현 review를 받는다. 관련 기록은 `docs/development-records/2026-09-26-lab-engineering-discovery.md`다.
+- 검증: 새 attempt `6aa4afdbd9054eaeada5e8e63971f915`, 별도 review `27490b947c8c48ae8b66e1b9151f1370` PASS. main 제품 pytest 13개, Ruff check/format, strict mypy 통과. 설치 cache를 audit에 옮기고 완료 worktree는 정상 제거했다. 관련 기록은 `docs/development-records/2026-09-26-lab-engineering-discovery.md`다.
 
 ## lab-runner-backlog-exhaustion-audit
 
