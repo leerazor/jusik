@@ -1,6 +1,6 @@
 # 2026-09-25 자율 개발 handoff: paper 취소 경합과 실패 후보 복구
 
-- 갱신: 2026-09-25T09:02:26Z (이후 운영 상태를 아래에 확인)
+- 갱신: 2026-09-25T09:03:47Z (이후 운영 상태를 아래에 확인)
 - 작업 공간: `/home/kwl/projects/jusik`, `main`; 직전 완료 커밋 `c85a1a5`.
 - 목표: 사용자가 `진행/중지`만 지시해도 독립 READY 공학 작업을 이어 가는 자율 trading lab. 실제 주문·PAPER 활성화·투자 검증 승격은 별도 게이트를 유지한다.
 
@@ -16,7 +16,7 @@
 ## 경계와 현재 상태
 
 - 과거 실패 시점의 출력 SHA는 저장되지 않았다. 현재 SHA pin과 당시 실행 transcript 대조는 복구 시점의 일치이지 과거 불변성의 암호학적 증명이 아니다. 자세한 기술 기록은 `docs/development-records/2026-09-25-lab-engineering-failed-candidate-recovery.md`와 `docs/development-records/2026-09-25-lab-paper-execution-cancel-claim-v1.md`.
-- 마지막 운영 확인: 이전 개발 완료 뒤 runner `paused=false`, timer active, service inactive, READY/RUNNING 없음, `idle_status=fixed_engineering_backlog_exhausted`였다. 후속 해시 작업을 위해 일시 pause했으며 tracked main 문서 커밋 후 다시 resume하고 새 idle 시각을 확인해야 한다.
+- 마지막 운영 확인: 후속 해시 작업 통합 뒤 runner `paused=false`, timer active, service inactive, READY/RUNNING 없음. `idle_status=fixed_engineering_backlog_exhausted`, 다음 확인 `2026-09-25T10:00:00+00:00`. 이 기록 교정을 위해 일시 pause했으며 tracked main 커밋 후 다시 resume해야 한다.
 - 사용자 소유 미추적 루트 `HANDOFF.md`와 기존 여러 worktree는 보존했다. 새 복구/spec worktree는 clean 상태로 보존한다. 원격 push·실주문·추가 결제·권한/credential 변경 없음.
 
 ## 다음 시작
