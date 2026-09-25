@@ -36,9 +36,17 @@ def observation(**overrides: object) -> dict[str, object]:
 
 def test_window_boundaries_and_plus_nine() -> None:
     items = [
-        observation(observation_id="start", received_at="2030-01-01T00:00:00Z"),
+        observation(
+            observation_id="start",
+            received_at="2030-01-01T00:00:00Z",
+            read_started_at="2029-12-31T23:59:00Z",
+        ),
         observation(observation_id="end", received_at="2030-01-02T00:00:00Z"),
-        observation(observation_id="korea", received_at="2030-01-01T09:00:00+09:00"),
+        observation(
+            observation_id="korea",
+            received_at="2030-01-01T09:00:00+09:00",
+            read_started_at="2029-12-31T23:59:00Z",
+        ),
     ]
     result = replay({**BASE, "observations": items})
     assert [x.classifications for x in result.observations] == [
@@ -49,7 +57,10 @@ def test_window_boundaries_and_plus_nine() -> None:
 
 
 def test_duplicate_does_not_move_first_receipt_and_keeps_receipts() -> None:
-    first = observation(received_at="2029-12-31T23:00:00Z")
+    first = observation(
+        received_at="2029-12-31T23:00:00Z",
+        read_started_at="2029-12-31T22:59:00Z",
+    )
     second = observation(received_at="2030-01-01T01:00:00Z")
     result = replay({**BASE, "observations": [first, second]})
     item = result.observations[0]
@@ -157,6 +168,33 @@ def test_receipt_metadata_and_backwards_clock_are_preserved() -> None:
         }
     )
     assert "clock_invalid" in reversed_result.observations[0].classifications
+
+
+def test_receipt_before_its_read_starts_is_clock_invalid() -> None:
+    item = observation(
+        received_at="2030-01-01T01:00:00Z",
+        read_started_at="2030-01-01T02:00:00Z",
+        read_finished_at="2030-01-01T02:01:00Z",
+        evidence_flags=["unverified_provenance"],
+    )
+    result = replay(
+        {**BASE, "checked_at": "2030-01-01T12:00:00Z", "observations": [item]}
+    )
+    observation_result = result.observations[0]
+    receipt = observation_result.receipts[0]
+    assert "clock_invalid" in observation_result.classifications
+    assert "in_window" not in observation_result.classifications
+    assert result.counts["in_window"] == 0
+    assert receipt.clock_invalid is True
+    assert receipt.received_at == "2030-01-01T01:00:00+00:00"
+    assert receipt.read_started_at == item["read_started_at"]
+    assert receipt.read_finished_at == item["read_finished_at"]
+    assert receipt.raw == item["raw"]
+    assert receipt.evidence_flags == ["unverified_provenance"]
+    assert result.synthetic is True
+    assert result.registered is False
+    assert result.accepted_nav is False
+    assert result.evaluation_inputs_complete is False
 
 
 def test_conflict_also_keeps_duplicate_fact_and_future_receipt_is_not_due() -> None:
