@@ -2,12 +2,14 @@
 
 ## lab-paper-execution-restart-journal-race
 
-- 상태: 진행 준비. 기존 자동 시도는 제품 코드를 local `main` `315e983`에 병합했지만, worktree 증거 경로로 `completion_invalid`가 되어 독립 검토 없이 FAILED로 남았다. runner는 수동 수정 동안 pause, service inactive이며 timer는 유지한다.
+- 상태: 완료. 초기 자동 시도는 제품 코드를 local `main` `315e983`에 병합했지만 worktree 증거 경로 때문에 `completion_invalid`로 FAILED였다. 원본 시도는 보존했고, 수정 재시도는 독립 reviewer PASS 후 `DONE + ENGINEERING_COMPLETE + NOT_EVALUATED`가 됐다.
 - 목표: 두 `ExecutionLedger`가 같은 SQLite journal을 조정할 때 늦은 갱신이 최신 부분체결 수량을 덮는 P1 경합을 고친다. 이후 기존 task를 정상 retry해 정확한 `main` 소유 파일 증거와 독립 reviewer를 통과시킨다.
 - 담당: supervisor 통합, 제품 두 파일의 단일 Sol 구현 소유자, runner prompt 전용 별도 구현 소유자, 독립 Sol 검토. 동시 active 최대 4개.
 - 제품 워크트리: `/home/kwl/projects/jusik-lab-paper-execution-restart-journal-v1`; 브랜치 `feat/lab-paper-execution-restart-journal-v1`; 기존 HEAD `e8ea9bc`, 수정 허용 `backend/jusik/paper_execution_contract.py`, `backend/tests/test_paper_execution_contract.py`만. 제품 변경은 runner 재시도 전까지 main에 병합하지 않는다.
 - runner prompt 워크트리: `/home/kwl/projects/jusik-lab-continuous-engineering-backlog`; 브랜치 `feat/lab-continuous-engineering-backlog`; 수정 허용 `backend/jusik/development_runner.py`와 관련 runner 테스트만. 기존 미추적 recovery 테스트 초안은 보존한다.
 - 검증: 같은 임시 SQLite를 쓰는 두 ledger의 결정적 RED-GREEN 경합, 제품 pytest/Ruff/strict mypy, runner prompt 회귀, 독립 코드 검토, 재시도 뒤 정확한 두 파일 diff·증거 hash·독립 review receipt. 실제 주문·PAPER/live activation·DB 수동 수정·과거 실패 기록 삭제는 금지한다.
+- 결과: runner 안내 `06a8bdb`·`99de443` local main 통합, 165개 runner pytest·Ruff·strict mypy 통과. 제품 수정 브랜치 `63700c1`, 자동 자식의 local main 통합 `ee93703`; 제품 pytest 23개·Ruff·strict mypy 및 별도 Sol 코드 검토 PASS. 재시도 attempt `67c0ee02d4c5405e928191539814a47b`는 정확한 main 두 파일 증거로 검증돼 `WAITING_EXTERNAL`, review attempt `77eef7c4613548ba9f9cac4d86440f38`가 PASS 후 완료했다.
+- 워크트리 정리: 제품 브랜치 원본 커밋 `63700c1`은 main 통합 커밋과 SHA가 달라 보존한다. runner 워크트리에는 작업 중 생성된 미추적 recovery 테스트 초안이 있어 보존한다. 사용자 `HANDOFF.md`도 건드리지 않는다.
 - 개발 기록: `docs/development-records/2026-09-25-lab-paper-execution-restart-journal-race.md`.
 
 ## lab-continuous-engineering-backlog

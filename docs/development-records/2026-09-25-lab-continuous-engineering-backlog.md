@@ -1,6 +1,6 @@
 # 유한 공학 backlog 자동 진행
 
-- 상태: 코드 통합 완료, 운영 dispatch 확인 중
+- 상태: 코드·운영 검증 완료. 두 신규 고정 spec은 모두 독립 검토 후 공학 완료; 유한 backlog는 소진됨
 - 기록 시각: 2026-09-25T04:32:14Z
 - 작업 slug: `lab-continuous-engineering-backlog`
 - 기준/통합: `626303f` / `c62d512`
@@ -28,11 +28,12 @@
 
 ## 안전·운영 상태
 
-- 기록 시점 roadmap runner는 paused, service inactive, timer active다. 설정만 활성화했으며 실제 dispatch는 tracked `main`을 깨끗하게 만든 뒤 재개·확인한다.
+- 운영에서 첫 신규 spec `lab-strategy-lifecycle-receipt-v1`이 local main `80c046b`와 독립 검토를 거쳐 완료했다. 둘째 `lab-paper-execution-restart-journal-v1`은 처음 두 시도가 환경 PATH 및 worktree 증거 경로 때문에 FAILED였으나 기록을 보존했다. 두 번째 실패 뒤 발견한 제품 경합을 수정하고 정상 재시도·독립 reviewer PASS로 완료했다. 상세 근거는 [경합 수정 기록](2026-09-25-lab-paper-execution-restart-journal-race.md)에 있다.
+- 기록 갱신 중 roadmap runner는 paused, service inactive, timer active다. tracked main을 깨끗하게 만든 뒤 resume한다. READY가 없는 소진 상태에서 timer active는 새 개발이 계속된다는 뜻이 아니다.
 - 실주문, PAPER/live activation, 운영 투자 원장 변경, 원격 push, 추가 결제, credential/권한 변경 없음. 사용자 미추적 `HANDOFF.md`와 다른 worktree는 보존한다.
 
 ## 증거와 재개
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260925-continuous-engineering-backlog/`; 설정 원본은 `roadmap-development-runner.before.json`.
-- 남은 작업: 문서 커밋·tracked clean 확인 후 runner resume와 실제 새 task 등록·실행 여부 확인, handoff 저장, 통합 worktree 정리.
-- 다음 시작: roadmap runner를 재개하기 전 local main 상태와 서비스 inactive를 확인한다.
+- 남은 작업: 현 유한 backlog에 새 자동 작업은 없다. 후속 사전 검토된 spec이 필요하며 투자 자료 부족을 임의로 통과 처리하지 않는다. 미병합·미추적 상태가 있는 위 두 worktree는 보존한다.
+- 다음 시작: runner 상태와 READY 큐를 확인하고, 독립된 다음 공학/연구 spec의 입력·완료 조건을 먼저 확정한다.
