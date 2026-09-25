@@ -44,6 +44,10 @@
 
 후속 좁은 수정은 기존 허용 권한 안에서의 고정 의존성 설치와 오프라인 제품 검증을 구분하고 blocker schema·안내를 맞춘다. 이미 승인된 동적 spec이나 원본 실패 출력은 다시 쓰지 않는다. 환경과 계약 검증 후 기존 명시적 retry 경로로 같은 과제를 새 attempt에서 실행한다.
 
+후속 수정 `367ae08`, provider 제한 문구의 연구 회귀를 바로잡은 `fda5aea`를 `27d3972`에 통합했다. 별도 Sol reviewer의 P2를 수정한 최종 결과는 PASS다. main에서 7개 관련 runner test 파일 **240 passed (61.38s)**, Ruff check/format, strict mypy가 통과했다. 운영 registry의 기존 frozen spec과 task prompt·정확한 두 소유 경로가 그대로 해석됨을 확인했다. 이 수정은 일반 안내뿐 아니라 실제 동적 구현 dispatch에도 전달된다는 회귀를 포함한다.
+
+코드 agent의 첫 두 turn과 reviewer 세 turn의 routing helper audit는 PASS였다. 코드 agent의 세 번째 turn은 중간 `thread_settings_applied`가 context 뒤에 기록되어 helper가 unavailable로 보고했다. 해당 child 자체의 동일 turn ID context 두 개와 settings에서 `gpt-6-sol/high`를 직접 대조했다. parent 모델을 child 근거로 쓰지 않았고 helper가 세 번째 turn까지 통과했다고 주장하지 않는다.
+
 - 운영 DB 사전 백업: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-engineering-discovery/runner-before-discovery.db`.
 - 백업 integrity: `ok`; SHA-256: `ec3e16f0d05e34eaae3262e53bf64c14c5454c9c19469cdea9722bfc0d1d6fd1`.
 - 설정 사전 백업: 같은 audit 디렉터리의 `runner-config-before-discovery.json`; SHA-256: `7a8ecd2c24d8b4581db00a1a54012507259717cae3a37ec1fef1bdb76aa4c211`.
