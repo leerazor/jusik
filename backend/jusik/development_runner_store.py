@@ -10,7 +10,13 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from jusik.development_runner_contract import Blocker, unknown_blocker
+from jusik.development_runner_contract import (
+    AUTOMATIC_ENGINEERING_BACKLOG,
+    Blocker,
+    EngineeringSpec,
+    unknown_blocker,
+)
+from jusik.development_runner_roadmap import ROADMAP_PENDING_LIMIT
 
 
 def utc_now() -> str:
@@ -209,7 +215,56 @@ class RunnerStore:
                 db.execute(
                     "UPDATE tasks SET depends_on=? WHERE id=?", (depends_on, task_id)
                 )
+            if cur.rowcount == 1:
+                db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
         return cur.rowcount == 1
+
+    def enqueue_next_engineering_spec(self) -> tuple[EngineeringSpec | None, str]:
+        """Create the first never-seen fixed task in one transaction."""
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            paused = db.execute(
+                "SELECT value FROM runner_meta WHERE key='paused'"
+            ).fetchone()
+            if paused is not None and paused["value"] == "1":
+                db.rollback()
+                return None, "paused"
+            for spec in AUTOMATIC_ENGINEERING_BACKLOG:
+                existing = db.execute(
+                    "SELECT 1 FROM tasks WHERE id=?", (spec.id,)
+                ).fetchone()
+                if existing is not None:
+                    continue
+                pending = db.execute(
+                    "SELECT COUNT(*) FROM tasks WHERE area != '__planning__' "
+                    "AND status IN ('queued','running')"
+                ).fetchone()
+                if int(pending[0]) >= ROADMAP_PENDING_LIMIT:
+                    db.commit()
+                    return None, "engineering_queue_full"
+                now = utc_now()
+                db.execute(
+                    "INSERT INTO tasks "
+                    "(id,area,prompt,status,created_at,updated_at,task_kind) "
+                    "VALUES(?,?,?,'queued',?,?,'engineering')",
+                    (spec.id, spec.area, spec.prompt, now, now),
+                )
+                db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
+                db.commit()
+                return spec, "enqueued"
+            db.commit()
+        return None, "fixed_engineering_backlog_exhausted"
+
+    def record_idle(self, reason: str, next_check_at: datetime) -> None:
+        if next_check_at.tzinfo is None or next_check_at.utcoffset() != timedelta(0):
+            raise ValueError("next check must be UTC")
+        self.set_meta(
+            "idle_status",
+            json.dumps(
+                {"reason": reason, "next_check_at": next_check_at.isoformat()},
+                sort_keys=True,
+            ),
+        )
 
     def task(self, task_id: str) -> RunnerTask | None:
         with self._connect() as db:
@@ -547,6 +602,7 @@ class RunnerStore:
                 ),
             )
             db.execute("INSERT INTO launch_log(launched_at) VALUES(?)", (launched_at,))
+            db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
             db.execute(
                 "INSERT INTO runner_meta(key,value) VALUES('last_launch_at',?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
@@ -750,6 +806,7 @@ class RunnerStore:
                 "last_attempt_id=?,updated_at=? WHERE id=?",
                 (attempt_id, now, task.id),
             )
+            db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
             db.execute(
                 "INSERT INTO attempts "
                 "(id,task_id,status,started_at,output_path,stderr_path,baseline_head) "

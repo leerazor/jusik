@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -29,6 +30,62 @@ ENGINEERING_SPEC_PROMPT = (
     "tests_passed=true, review_passed=false, and null engineering/investment "
     "status. A separate reviewer owns the final verdict."
 )
+
+
+@dataclass(frozen=True)
+class EngineeringSpec:
+    id: str
+    area: str
+    prompt: str
+    owned_paths: frozenset[str]
+
+
+ENGINEERING_SPECS = (
+    EngineeringSpec(
+        ENGINEERING_SPEC_ID,
+        ENGINEERING_SPEC_AREA,
+        ENGINEERING_SPEC_PROMPT,
+        ENGINEERING_OWNED_PATHS,
+    ),
+    EngineeringSpec(
+        "lab-strategy-lifecycle-receipt-v1",
+        ENGINEERING_SPEC_AREA,
+        "Implement only an offline version-bound strategy lifecycle evidence receipt "
+        "adapter in backend/jusik/strategy_lifecycle_receipt.py and focused tests "
+        "in backend/tests/test_strategy_lifecycle_receipt.py. Bind each receipt "
+        "to an existing strategy id, exact version and evidence digest; reject "
+        "missing, stale or conflicting identity. Do not change lifecycle transitions "
+        "or grant engineering, investment, PAPER or live validation. Use offline "
+        "pytest, Ruff and strict mypy. No network, broker, credentials, production "
+        "wiring or dependency changes. Return a candidate with exact owned-file "
+        "evidence, integrated commit, tests_passed=true, review_passed=false and "
+        "null engineering/investment status. A separate reviewer decides PASS.",
+        frozenset(
+            {
+                "backend/jusik/strategy_lifecycle_receipt.py",
+                "backend/tests/test_strategy_lifecycle_receipt.py",
+            }
+        ),
+    ),
+    EngineeringSpec(
+        "lab-paper-execution-restart-journal-v1",
+        ENGINEERING_SPEC_AREA,
+        "Implement only a durable offline idempotency journal for the existing "
+        "paper execution contract in backend/jusik/paper_execution_contract.py "
+        "and focused tests in backend/tests/test_paper_execution_contract.py. "
+        "Persist intent before any fake-broker submit; on restart never resubmit "
+        "an uncertain key. Reconcile partial fills, cancellation and rejection "
+        "without duplicate calls. No real broker adapter, network, credentials, "
+        "PAPER/live activation, production wiring or dependency changes. Use "
+        "offline pytest, Ruff and strict mypy. Return a candidate with exact "
+        "owned-file evidence, integrated commit, tests_passed=true, "
+        "review_passed=false and null engineering/investment status. A separate "
+        "reviewer decides PASS.",
+        ENGINEERING_OWNED_PATHS,
+    ),
+)
+ENGINEERING_SPEC_BY_ID = {spec.id: spec for spec in ENGINEERING_SPECS}
+AUTOMATIC_ENGINEERING_BACKLOG = ENGINEERING_SPECS[1:]
 
 
 class Blocker(BaseModel):

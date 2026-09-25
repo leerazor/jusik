@@ -21,10 +21,12 @@ class ReviewReceipt(BaseModel):
     verdict: Literal["PASS", "FAIL"]
 
 
-def review_schema() -> dict[str, Any]:
+def review_schema(
+    owned_paths: frozenset[str] = ENGINEERING_OWNED_PATHS,
+) -> dict[str, Any]:
     hashes = {
         path: {"type": "string", "pattern": "^[a-f0-9]{64}$"}
-        for path in sorted(ENGINEERING_OWNED_PATHS)
+        for path in sorted(owned_paths)
     }
     properties: dict[str, Any] = {
         "task_id": {"type": "string"},
@@ -48,12 +50,16 @@ def review_schema() -> dict[str, Any]:
     }
 
 
-def validate_receipt(payload: Any, expected: dict[str, Any]) -> ReviewReceipt:
+def validate_receipt(
+    payload: Any,
+    expected: dict[str, Any],
+    owned_paths: frozenset[str] = ENGINEERING_OWNED_PATHS,
+) -> ReviewReceipt:
     try:
         receipt = ReviewReceipt.model_validate(payload)
     except ValidationError as exc:
         raise ValueError("review receipt schema invalid") from exc
-    if set(receipt.owned_file_hashes) != ENGINEERING_OWNED_PATHS or any(
+    if set(receipt.owned_file_hashes) != owned_paths or any(
         len(value) != 64 or any(char not in "0123456789abcdef" for char in value)
         for value in receipt.owned_file_hashes.values()
     ):

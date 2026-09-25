@@ -24,9 +24,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from jusik.development_runner_contract import (
     ENGINEERING_OWNED_PATHS,
-    ENGINEERING_SPEC_AREA,
+    ENGINEERING_SPEC_BY_ID,
     ENGINEERING_SPEC_ID,
-    ENGINEERING_SPEC_PROMPT,
     Blocker,
     unknown_blocker,
 )
@@ -216,6 +215,7 @@ class RunnerConfig(BaseModel):
     cooldown_seconds: int = Field(default=60, ge=0, le=86400)
     planning_enabled: bool = False
     automatic_recovery: bool = False
+    automatic_engineering_backlog: bool = False
     scope: Literal["research", "investment-roadmap"] = "research"
 
 
@@ -759,7 +759,13 @@ def validate_completion(
             baseline_head,
             completion.integrated_commit,
         )
-        if set(changed.stdout.splitlines()) != ENGINEERING_OWNED_PATHS:
+        owned_paths = ENGINEERING_SPEC_BY_ID.get(task.id)
+        expected_paths = (
+            owned_paths.owned_paths
+            if owned_paths is not None
+            else ENGINEERING_OWNED_PATHS
+        )
+        if set(changed.stdout.splitlines()) != expected_paths:
             raise ValueError("engineering commit must change exact owned paths")
     roots = [
         config.repo,
@@ -777,14 +783,16 @@ def validate_completion(
             or _hash_file(path) != evidence.sha256
         ):
             raise ValueError("evidence path or hash invalid")
-    if task.task_kind == "engineering" and not ENGINEERING_OWNED_PATHS.issubset(
-        {
+    if task.task_kind == "engineering":
+        evidence_paths = {
             str(Path(evidence.path).resolve().relative_to(config.repo.resolve()))
             for evidence in completion.evidence
             if config.repo.resolve() in Path(evidence.path).resolve().parents
         }
-    ):
-        raise ValueError("engineering evidence needs exact owned paths")
+        if not expected_paths.issubset(evidence_paths) or (
+            task.id != ENGINEERING_SPEC_ID and evidence_paths != expected_paths
+        ):
+            raise ValueError("engineering evidence needs exact owned paths")
     if completion.handoff_path is None:
         raise ValueError("completed result is missing handoff")
     handoff = Path(completion.handoff_path)
@@ -870,11 +878,12 @@ def _select_task(
             except ValueError:
                 reason = "retry timestamp is invalid"
         if reason is None and task.task_kind == "engineering":
+            spec = ENGINEERING_SPEC_BY_ID.get(task.id)
             if (
                 scope != ROADMAP_SCOPE
-                or task.id != ENGINEERING_SPEC_ID
-                or task.area != ENGINEERING_SPEC_AREA
-                or task.prompt != ENGINEERING_SPEC_PROMPT
+                or spec is None
+                or task.area != spec.area
+                or task.prompt != spec.prompt
                 or task.depends_on is not None
             ):
                 reason = "engineering task does not match registered spec"
@@ -894,9 +903,9 @@ def _select_task(
             roadmap is None
             or (
                 alternative.task_kind == "engineering"
-                and alternative.id == ENGINEERING_SPEC_ID
-                and alternative.area == ENGINEERING_SPEC_AREA
-                and alternative.prompt == ENGINEERING_SPEC_PROMPT
+                and alternative.id in ENGINEERING_SPEC_BY_ID
+                and alternative.area == ENGINEERING_SPEC_BY_ID[alternative.id].area
+                and alternative.prompt == ENGINEERING_SPEC_BY_ID[alternative.id].prompt
             )
             or (
                 alternative.area.lower() in roadmap.by_id
@@ -1716,6 +1725,8 @@ def _review_context(
         baseline_head=candidate.baseline_head,
     )
     main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
+    spec = ENGINEERING_SPEC_BY_ID.get(candidate.task.id)
+    owned_paths = spec.owned_paths if spec is not None else ENGINEERING_OWNED_PATHS
     return {
         "task_id": candidate.task.id,
         "implementation_attempt_id": candidate.implementation_attempt_id,
@@ -1723,8 +1734,7 @@ def _review_context(
         "baseline_head": candidate.baseline_head,
         "main_head": main_head,
         "owned_file_hashes": {
-            name: _hash_file(config.repo / name)
-            for name in sorted(ENGINEERING_OWNED_PATHS)
+            name: _hash_file(config.repo / name) for name in sorted(owned_paths)
         },
     }
 
@@ -1754,7 +1764,18 @@ def _run_review(
     _write_private(stdout_path, b"")
     schema_path = review_dir / "receipt.schema.json"
     _write_private(
-        schema_path, (json.dumps(review_schema(), sort_keys=True) + "\n").encode()
+        schema_path,
+        (
+            json.dumps(
+                review_schema(
+                    ENGINEERING_SPEC_BY_ID[candidate.task.id].owned_paths
+                    if candidate.task.id in ENGINEERING_SPEC_BY_ID
+                    else ENGINEERING_OWNED_PATHS
+                ),
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode(),
     )
     if not store.claim_review(candidate, review_id, output_path, context, launched_at):
         return None
@@ -1838,7 +1859,12 @@ def _run_review(
         if output_path.stat().st_size > 16_384:
             raise ValueError("review receipt too large")
         payload = json.loads(output_path.read_text(encoding="utf-8"))
-        receipt = validate_receipt(payload, context)
+        spec = ENGINEERING_SPEC_BY_ID.get(candidate.task.id)
+        receipt = validate_receipt(
+            payload,
+            context,
+            spec.owned_paths if spec is not None else ENGINEERING_OWNED_PATHS,
+        )
         ready, _ = _git_ready(config.repo)
         if not ready or _review_context(candidate, review_id, config) != context:
             raise ValueError("review candidate changed")
@@ -1972,6 +1998,33 @@ def run_once(
             ):
                 return RunResult("cooldown")
         task = _select_task(store, config.scope, roadmap)
+        if (
+            task is None
+            and config.automatic_engineering_backlog
+            and config.scope == ROADMAP_SCOPE
+        ):
+            if governance is None:
+                return RunResult("blocked", reason="mandate governance is unavailable")
+            try:
+                _roadmap_dispatch_gate(config.repo, governance.digest)
+            except MandateGovernanceError as exc:
+                return RunResult("blocked", reason=str(exc))
+            created, idle_reason = store.enqueue_next_engineering_spec()
+            if created is not None:
+                task = _select_task(store, config.scope, roadmap)
+                if task is None or task.id != created.id:
+                    return RunResult(
+                        "blocked", reason="engineering backlog claim changed"
+                    )
+            else:
+                if idle_reason == "paused":
+                    return RunResult("paused")
+                store.record_idle(
+                    idle_reason,
+                    datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+                    + timedelta(hours=1),
+                )
+                return RunResult("idle", reason=idle_reason)
         if task is None:
             if not config.planning_enabled:
                 return RunResult("idle")
@@ -2575,6 +2628,11 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(
                 {
                     "paused": store.is_paused(),
+                    "idle_status": (
+                        json.loads(value)
+                        if (value := store.get_meta("idle_status")) is not None
+                        else None
+                    ),
                     "tasks": tasks,
                 },
                 ensure_ascii=False,
@@ -2583,9 +2641,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "enqueue":
         if args.kind == "engineering":
+            spec = ENGINEERING_SPEC_BY_ID.get(args.spec)
             if (
                 config.scope != ROADMAP_SCOPE
-                or args.spec != ENGINEERING_SPEC_ID
+                or spec is None
                 or any(value is not None for value in (args.id, args.area, args.prompt))
             ):
                 print(
@@ -2601,9 +2660,9 @@ def main(argv: list[str] | None = None) -> int:
                 json.dumps(
                     {
                         "enqueued": store.enqueue(
-                            ENGINEERING_SPEC_ID,
-                            ENGINEERING_SPEC_AREA,
-                            ENGINEERING_SPEC_PROMPT,
+                            spec.id,
+                            spec.area,
+                            spec.prompt,
                             task_kind="engineering",
                         )
                     }
