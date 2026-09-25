@@ -343,9 +343,37 @@ def test_engineering_runtime_prompt_binds_owned_evidence_to_main(
     assert "task worktree" in prompt
     assert "audit copies" in prompt
     assert "durable handoff" in prompt
-    assert "registered P1 finding" in prompt
-    assert "existing owned branch" in prompt
+    assert "registered P1 finding" not in prompt
+    assert "only if it exists and ownership matches" not in prompt
+
+
+@pytest.mark.parametrize("spec", AUTOMATIC_ENGINEERING_BACKLOG, ids=lambda s: s.id)
+def test_engineering_retry_guidance_is_conditional(
+    tmp_path: Path,
+    spec: EngineeringSpec,
+) -> None:
+    fake = tmp_path / "fake-child.py"
+    _fake_blocked_child(fake)
+    config = _config(tmp_path, fake)
+    store = _store(config)
+    assert store.enqueue(spec.id, spec.area, spec.prompt, task_kind="engineering")
+    first = run_once(config)
+    assert (first.status, first.task_id) == ("blocked", spec.id)
+    assert store.retry(spec.id)
+
+    second = run_once(config)
+
+    assert (second.status, second.task_id) == ("blocked", spec.id)
+    assert second.attempt_id is not None
+    prompt = (
+        config.state_dir / "attempts" / second.attempt_id / "prompt.txt"
+    ).read_text(encoding="utf-8")
+    assert "prior task registry entry and attempt artifacts" in prompt
+    assert "only if it exists and ownership matches" in prompt
     assert "outside the registered spec" in prompt
+    assert ("registered P1 finding" in prompt) == (
+        spec.id == "lab-paper-execution-restart-journal-v1"
+    )
 
 
 def test_invalid_governance_blocks_backlog_before_enqueue(tmp_path: Path) -> None:

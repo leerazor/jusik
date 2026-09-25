@@ -2143,11 +2143,20 @@ def run_once(
                 f"owned files under the canonical main repository: {owned_files}. "
                 "Use those absolute main paths in completion.evidence, never task "
                 "worktree paths or audit copies. Keep durable handoff and audit "
-                "evidence separately under allowed roots. On retry, inspect the "
-                "registered P1 finding and prior attempt artifacts, reuse the "
-                "existing owned branch, and make no changes outside the registered "
-                "spec.\n\n"
+                "evidence separately under allowed roots. "
             )
+            if task.last_attempt_id is not None:
+                engineering_guidance += (
+                    "On retry, inspect the prior task registry entry and attempt "
+                    "artifacts. Reuse the existing owned branch only if it exists "
+                    "and ownership matches this spec; make no changes outside "
+                    "the registered spec. "
+                )
+                if task.id == "lab-paper-execution-restart-journal-v1":
+                    engineering_guidance += (
+                        "Inspect the registered P1 finding before editing. "
+                    )
+            engineering_guidance += "\n\n"
         prompt = (
             f"Task id: {task.id}\nAttempt id: {attempt_id}\n"
             f"Previous attempt id: {previous}\n\n{task.prompt}\n"
