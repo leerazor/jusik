@@ -10,6 +10,11 @@ from test_development_runner_review import _candidate, _fake_reviewer, _git
 
 from jusik import development_runner as runner
 from jusik.development_runner import RunnerConfig, recover_failed_candidate, run_once
+from jusik.development_runner_contract import (
+    ENGINEERING_SPEC_AREA,
+    ENGINEERING_SPEC_ID,
+    ENGINEERING_SPEC_PROMPT,
+)
 from jusik.development_runner_review import validate_receipt
 from jusik.development_runner_store import RunnerStore
 
@@ -55,6 +60,226 @@ def _failed_candidate(
     _git(config.repo, "commit", "-m", "later runner change")
     store.pause()
     return config, store, original
+
+
+def _record_failed_output(
+    store: RunnerStore, evidence: dict[str, object] | None
+) -> None:
+    with sqlite3.connect(store.db_path) as db:
+        db.execute(
+            "UPDATE attempts SET evidence_json=? WHERE id='implementation'",
+            (json.dumps(evidence) if evidence is not None else None,),
+        )
+
+
+def _output_evidence(source: Path) -> dict[str, object]:
+    return {
+        "failed_output_digest_version": 1,
+        "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+    }
+
+
+def test_failed_output_digest_is_recorded_with_failure(tmp_path: Path) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    source = config.state_dir / "original-completion.json"
+    with sqlite3.connect(store.db_path) as db:
+        db.execute(
+            "UPDATE attempts SET status='running',failure_code=NULL,evidence_json=NULL "
+            "WHERE id='implementation'"
+        )
+        db.execute("UPDATE tasks SET status='running' WHERE id='engineering'")
+    store.finish(
+        "implementation",
+        "engineering",
+        "failed",
+        failure_code="completion_invalid",
+        evidence=runner._failed_output_evidence(source),
+    )
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute(
+            "SELECT status,failure_code,evidence_json FROM attempts "
+            "WHERE id='implementation'"
+        ).fetchone() == (
+            "failed",
+            "completion_invalid",
+            json.dumps(_output_evidence(source), sort_keys=True),
+        )
+
+
+@pytest.mark.parametrize("output", [b'{"invalid": true}', None])
+def test_runner_records_failure_time_output_or_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, output: bytes | None
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-b", "main")
+    _git(repo, "config", "user.email", "test@example.invalid")
+    _git(repo, "config", "user.name", "Runner Test")
+    (repo / "README.md").write_text("baseline\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "baseline")
+    config = RunnerConfig(
+        repo=repo,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+        cooldown_seconds=0,
+        planning_enabled=False,
+    )
+    store = RunnerStore(config.state_dir / "runner.db")
+    assert store.enqueue(
+        ENGINEERING_SPEC_ID,
+        ENGINEERING_SPEC_AREA,
+        ENGINEERING_SPEC_PROMPT,
+        task_kind="engineering",
+    )
+    monkeypatch.setattr(
+        runner,
+        "_select_task",
+        lambda _store, _scope, _roadmap: store.task(ENGINEERING_SPEC_ID),
+    )
+    fake = tmp_path / "fake-child.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "from pathlib import Path\n"
+        "sys.stdin.read()\n"
+        + (
+            f"Path(sys.argv[sys.argv.index('-o') + 1]).write_bytes({output!r})\n"
+            if output is not None
+            else ""
+        ),
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    result = run_once(config.model_copy(update={"codex": str(fake)}))
+    assert (result.status, result.reason) == ("failed", "completion_invalid")
+    assert result.attempt_id is not None
+    with sqlite3.connect(store.db_path) as db:
+        row = db.execute(
+            "SELECT status,failure_code,output_path,evidence_json FROM attempts "
+            "WHERE id=?",
+            (result.attempt_id,),
+        ).fetchone()
+    assert row is not None
+    assert row[:2] == ("failed", "completion_invalid")
+    assert json.loads(row[3]) == {
+        "failed_output_digest_version": 1,
+        "sha256": hashlib.sha256(output).hexdigest() if output is not None else None,
+    }
+    assert Path(row[2]).exists() is (output is not None)
+
+
+def test_recorded_digest_accepts_unchanged_source(tmp_path: Path) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    _record_failed_output(
+        store, _output_evidence(config.state_dir / "original-completion.json")
+    )
+    assert _recover(config, store) is not None
+
+
+def test_recorded_digest_rejects_postfailure_rewrite_with_new_pin(
+    tmp_path: Path,
+) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    source = config.state_dir / "original-completion.json"
+    _record_failed_output(store, _output_evidence(source))
+    source.write_bytes(source.read_bytes() + b" ")
+    _write_transcript(config.state_dir / "stdout.jsonl", source.read_text())
+    assert _recover(config, store) is None
+
+
+@pytest.mark.parametrize(
+    "tampered", [None, {"failed_output_digest_version": 1, "sha256": "0" * 64}]
+)
+def test_recorded_digest_reviewer_rejects_marker_tampering(
+    tmp_path: Path, tampered: dict[str, object] | None
+) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    source = config.state_dir / "original-completion.json"
+    _record_failed_output(store, _output_evidence(source))
+    assert _recover(config, store)
+    _record_failed_output(store, tampered)
+    store.resume()
+    fake = tmp_path / "must-not-run"
+    assert run_once(config.model_copy(update={"codex": str(fake)})).status == "idle"
+    assert store.task("engineering").engineering_status is None  # type: ignore[union-attr]
+    assert not fake.exists()
+
+
+@pytest.mark.parametrize(
+    "tampered", [None, {"failed_output_digest_version": 1, "sha256": "0" * 64}]
+)
+def test_recorded_digest_final_review_cas_rejects_marker_tampering(
+    tmp_path: Path, tampered: dict[str, object] | None
+) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    source = config.state_dir / "original-completion.json"
+    _record_failed_output(store, _output_evidence(source))
+    assert _recover(config, store)
+    candidate = store.review_candidate()
+    assert candidate is not None
+    context = {"review": "fixture"}
+    review_id = "review"
+    assert store.claim_review(
+        candidate, review_id, source, context, "2026-01-01T00:00:00+00:00"
+    )
+    _record_failed_output(store, tampered)
+    assert not store.finish_review(
+        candidate,
+        review_id,
+        status="completed",
+        receipt=context | {"verdict": "PASS"},
+    )
+    assert store.task("engineering").engineering_status is None  # type: ignore[union-attr]
+
+
+def test_recorded_digest_reviewer_rejects_marker_erasure_during_review(
+    tmp_path: Path,
+) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    source = config.state_dir / "original-completion.json"
+    _record_failed_output(store, _output_evidence(source))
+    assert _recover(config, store)
+    store.resume()
+    fake = tmp_path / "fake-reviewer.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sqlite3, sys\n"
+        "from pathlib import Path\n"
+        "context = json.loads(sys.stdin.read().split('fields: ', 1)[1])\n"
+        f"with sqlite3.connect({str(store.db_path)!r}) as db:\n"
+        '    db.execute("UPDATE attempts SET evidence_json=NULL '
+        "WHERE id='implementation'\")\n"
+        "context['verdict'] = 'PASS'\n"
+        "Path(sys.argv[sys.argv.index('-o') + 1]).write_text(json.dumps(context))\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    assert run_once(config.model_copy(update={"codex": str(fake)})).status == "idle"
+    assert store.task("engineering").engineering_status is None  # type: ignore[union-attr]
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute("SELECT failure_code FROM review_attempts").fetchone() == (
+            "receipt_invalid",
+        )
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        {"failed_output_digest_version": 1, "sha256": None},
+        {"failed_output_digest_version": 1},
+        {"failed_output_digest_version": 2, "sha256": "a" * 64},
+        {"failed_output_digest_version": 1, "sha256": "invalid"},
+    ],
+)
+def test_recorded_digest_rejects_unavailable_or_malformed(
+    tmp_path: Path, evidence: dict[str, object]
+) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    _record_failed_output(store, evidence)
+    assert _recover(config, store) is None
 
 
 def test_failed_candidate_recovery_requires_independent_pass(tmp_path: Path) -> None:
@@ -108,6 +333,29 @@ def test_failed_candidate_recovery_requires_independent_pass(tmp_path: Path) -> 
                 },
                 context,
             )
+
+
+def test_existing_legacy_recovery_envelope_remains_reviewable(tmp_path: Path) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    recovery_id = _recover(config, store)
+    assert recovery_id is not None
+    with sqlite3.connect(store.db_path) as db:
+        row = db.execute(
+            "SELECT evidence_json FROM attempts WHERE id=?", (recovery_id,)
+        ).fetchone()
+        assert row is not None
+        envelope = json.loads(row[0])
+        envelope["recovery"].pop("source_evidence_identity")
+        db.execute(
+            "UPDATE attempts SET evidence_json=? WHERE id=?",
+            (json.dumps(envelope), recovery_id),
+        )
+    store.resume()
+    fake = tmp_path / "fake-reviewer.py"
+    _fake_reviewer(fake, verdict="PASS")
+    assert (
+        run_once(config.model_copy(update={"codex": str(fake)})).status == "completed"
+    )
 
 
 @pytest.mark.parametrize(

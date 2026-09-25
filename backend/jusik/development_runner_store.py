@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -21,6 +22,43 @@ from jusik.development_runner_roadmap import ROADMAP_PENDING_LIMIT
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def failed_output_digest_matches(evidence_json: str | None, sha256: str) -> bool:
+    """Legacy SQL NULL has no historical digest; new records must match exactly."""
+    if evidence_json is None:
+        return True
+    try:
+        evidence = json.loads(evidence_json)
+    except (TypeError, ValueError):
+        return False
+    return (
+        isinstance(evidence, dict)
+        and set(evidence) == {"failed_output_digest_version", "sha256"}
+        and type(evidence["failed_output_digest_version"]) is int
+        and evidence["failed_output_digest_version"] == 1
+        and isinstance(evidence["sha256"], str)
+        and re.fullmatch(r"[a-f0-9]{64}", evidence["sha256"]) is not None
+        and evidence["sha256"] == sha256
+    )
+
+
+def failed_output_evidence_identity(evidence_json: str | None) -> str:
+    return (
+        "legacy-null"
+        if evidence_json is None
+        else hashlib.sha256(evidence_json.encode()).hexdigest()
+    )
+
+
+def recovery_evidence_matches(
+    evidence_json: str | None, recovery: dict[str, str]
+) -> bool:
+    identity = recovery.get("source_evidence_identity")
+    if identity is None:
+        # Existing legacy candidates predate identity pins.
+        return evidence_json is None
+    return failed_output_evidence_identity(evidence_json) == identity
 
 
 @dataclass(frozen=True)
@@ -78,6 +116,7 @@ class FailedCandidateSource:
     attempt_id: str
     output_path: str
     baseline_head: str
+    output_evidence: str | None = None
 
 
 @dataclass(frozen=True)
@@ -463,13 +502,13 @@ class RunnerStore:
     ) -> FailedCandidateSource | None:
         with self._connect() as db:
             row = db.execute(
-                "SELECT tasks.*,attempts.output_path,attempts.baseline_head "
+                "SELECT tasks.*,attempts.output_path,attempts.baseline_head,"
+                "attempts.evidence_json "
                 "FROM tasks JOIN attempts ON attempts.id=tasks.last_attempt_id "
                 "WHERE tasks.id=? AND attempts.id=? "
                 "AND tasks.task_kind='engineering' AND tasks.status='failed' "
                 "AND attempts.status='failed' "
-                "AND attempts.failure_code='completion_invalid' "
-                "AND attempts.evidence_json IS NULL",
+                "AND attempts.failure_code='completion_invalid'",
                 (task_id, attempt_id),
             ).fetchone()
         if (
@@ -479,7 +518,11 @@ class RunnerStore:
         ):
             return None
         return FailedCandidateSource(
-            self._task(row), attempt_id, row["output_path"], row["baseline_head"]
+            self._task(row),
+            attempt_id,
+            row["output_path"],
+            row["baseline_head"],
+            row["evidence_json"],
         )
 
     def create_recovery_candidate(
@@ -514,7 +557,11 @@ class RunnerStore:
                 or row["failure_code"] != "completion_invalid"
                 or row["output_path"] != source.output_path
                 or row["baseline_head"] != source.baseline_head
-                or row["evidence_json"] is not None
+                or row["evidence_json"] != source.output_evidence
+                or not failed_output_digest_matches(
+                    row["evidence_json"], recovery["source_sha256"]
+                )
+                or not recovery_evidence_matches(row["evidence_json"], recovery)
             ):
                 db.rollback()
                 return False
@@ -596,7 +643,10 @@ class RunnerStore:
             and row["failure_code"] == "completion_invalid"
             and row["output_path"] == recovery["source_output_path"]
             and row["baseline_head"] == candidate.baseline_head
-            and row["evidence_json"] is None
+            and failed_output_digest_matches(
+                row["evidence_json"], recovery["source_sha256"]
+            )
+            and recovery_evidence_matches(row["evidence_json"], recovery)
         )
 
     def recover_running_reviews(self, attempt_ids: list[str]) -> list[str]:
@@ -679,13 +729,23 @@ class RunnerStore:
                     if (
                         not isinstance(recovery, dict)
                         or set(recovery)
-                        != {
-                            "source_attempt_id",
-                            "source_output_path",
-                            "source_sha256",
-                            "source_transcript_sha256",
-                            "recovery_sha256",
-                        }
+                        not in (
+                            {
+                                "source_attempt_id",
+                                "source_output_path",
+                                "source_sha256",
+                                "source_transcript_sha256",
+                                "recovery_sha256",
+                            },
+                            {
+                                "source_attempt_id",
+                                "source_output_path",
+                                "source_sha256",
+                                "source_transcript_sha256",
+                                "recovery_sha256",
+                                "source_evidence_identity",
+                            },
+                        )
                         or not all(
                             isinstance(value, str) for value in recovery.values()
                         )
@@ -920,7 +980,13 @@ class RunnerStore:
                         or source["failure_code"] != "completion_invalid"
                         or source["output_path"] != str(source_path)
                         or source["baseline_head"] != candidate.baseline_head
-                        or source["evidence_json"] is not None
+                        or not failed_output_digest_matches(
+                            source["evidence_json"],
+                            candidate.recovery["source_sha256"],
+                        )
+                        or not recovery_evidence_matches(
+                            source["evidence_json"], candidate.recovery
+                        )
                         or not intact
                     ):
                         db.rollback()

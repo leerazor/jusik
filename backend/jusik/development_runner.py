@@ -64,6 +64,8 @@ from jusik.development_runner_store import (
     ReviewCandidate,
     RunnerStore,
     RunnerTask,
+    failed_output_digest_matches,
+    failed_output_evidence_identity,
 )
 from jusik.research_history import HistoryRepository
 from jusik.research_mandate_governance import (
@@ -646,6 +648,15 @@ def _hash_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _failed_output_evidence(path: Path) -> dict[str, int | str | None]:
+    """Capture the output digest at failure, including explicit unavailability."""
+    try:
+        sha256 = None if path.is_symlink() else _hash_file(path)
+    except OSError:
+        sha256 = None
+    return {"failed_output_digest_version": 1, "sha256": sha256}
+
+
 def _bind_event_dependency(blocker: Blocker, config: RunnerConfig) -> Blocker:
     if blocker.retry_policy != "event" or blocker.dependency is None:
         return blocker
@@ -912,7 +923,7 @@ def recover_failed_candidate(
     *,
     expected_source_sha256: str,
 ) -> str | None:
-    """Pin current legacy bytes and create one separately reviewed candidate."""
+    """Pin failed output bytes and create one separately reviewed candidate."""
     if re.fullmatch(r"[a-f0-9]{64}", expected_source_sha256) is None:
         return None
     if not store.is_paused():
@@ -927,7 +938,10 @@ def recover_failed_candidate(
         original_path = Path(source.output_path)
         source_bytes = _recovery_output(original_path, config)
         original_sha256 = hashlib.sha256(source_bytes).hexdigest()
-        if original_sha256 != expected_source_sha256:
+        if (
+            original_sha256 != expected_source_sha256
+            or not failed_output_digest_matches(source.output_evidence, original_sha256)
+        ):
             return None
         transcript_sha256 = _recovery_transcript_sha256(
             original_path, source_bytes, config
@@ -949,6 +963,9 @@ def recover_failed_candidate(
             "source_sha256": original_sha256,
             "source_transcript_sha256": transcript_sha256,
             "recovery_sha256": _hash_file(output_path),
+            "source_evidence_identity": failed_output_evidence_identity(
+                source.output_evidence
+            ),
         }
         if (
             _hash_file(original_path) != original_sha256
@@ -2528,7 +2545,15 @@ def run_once(
                 validate_roadmap_completion(load_roadmap(config.repo), task, completion)
         except (OSError, json.JSONDecodeError, RoadmapError, ValueError):
             store.finish(
-                attempt_id, task.id, "failed", failure_code="completion_invalid"
+                attempt_id,
+                task.id,
+                "failed",
+                failure_code="completion_invalid",
+                evidence=(
+                    _failed_output_evidence(output_path)
+                    if task.task_kind == "engineering"
+                    else None
+                ),
             )
             _safe_history_flush(store, config)
             return RunResult("failed", task.id, attempt_id, "completion_invalid")
@@ -2543,7 +2568,15 @@ def run_once(
             )
             if blocker.blocker_reason != completion.blocked_reason:
                 store.finish(
-                    attempt_id, task.id, "failed", failure_code="completion_invalid"
+                    attempt_id,
+                    task.id,
+                    "failed",
+                    failure_code="completion_invalid",
+                    evidence=(
+                        _failed_output_evidence(output_path)
+                        if task.task_kind == "engineering"
+                        else None
+                    ),
                 )
                 _safe_history_flush(store, config)
                 return RunResult("failed", task.id, attempt_id, "completion_invalid")
