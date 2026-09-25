@@ -201,32 +201,35 @@ class ExecutionLedger:
         return self._orders.get(key)
 
     def _accept(self, key: str, result: OrderSnapshot) -> OrderSnapshot:
-        current = self._required(key)
-        if result.intent != current.intent:
-            raise ValueError("reconciliation_identity_mismatch")
-        validate_snapshot(result)
-        old_fills = {fill.execution_id: fill for fill in current.fills}
-        new_fills = {fill.execution_id: fill for fill in result.fills}
-        if any(
-            new_fills.get(execution_id) != fill
-            for execution_id, fill in old_fills.items()
-        ):
-            raise ValueError("reconciliation_fill_mismatch")
-        if current.status in ("filled", "rejected") and result != current:
-            raise ValueError("reconciliation_terminal_mismatch")
-        if current.status == "cancelled" and result.status not in (
-            "cancelled",
-            "filled",
-        ):
-            raise ValueError("reconciliation_terminal_mismatch")
-        if current.status != "pending" and result.status == "pending":
-            raise ValueError("reconciliation_status_regressed")
-        if result.filled_quantity < current.filled_quantity:
-            raise ValueError("reconciliation_quantity_regressed")
         if self._journal is not None:
-            self._journal.update(result)
+            self._journal.accept(key, result)
+        else:
+            _validate_transition(self._required(key), result)
         self._orders[key] = result
         return result
+
+
+def _validate_transition(current: OrderSnapshot, result: OrderSnapshot) -> None:
+    if result.intent != current.intent:
+        raise ValueError("reconciliation_identity_mismatch")
+    validate_snapshot(result)
+    old_fills = {fill.execution_id: fill for fill in current.fills}
+    new_fills = {fill.execution_id: fill for fill in result.fills}
+    if any(
+        new_fills.get(execution_id) != fill for execution_id, fill in old_fills.items()
+    ):
+        raise ValueError("reconciliation_fill_mismatch")
+    if current.status in ("filled", "rejected") and result != current:
+        raise ValueError("reconciliation_terminal_mismatch")
+    if current.status == "cancelled" and result.status not in (
+        "cancelled",
+        "filled",
+    ):
+        raise ValueError("reconciliation_terminal_mismatch")
+    if current.status != "pending" and result.status == "pending":
+        raise ValueError("reconciliation_status_regressed")
+    if result.filled_quantity < current.filled_quantity:
+        raise ValueError("reconciliation_quantity_regressed")
 
 
 class _OrderJournal:
@@ -296,14 +299,22 @@ class _OrderJournal:
             )
         return cursor.rowcount == 1
 
-    def update(self, snapshot: OrderSnapshot) -> None:
+    def accept(self, key: str, snapshot: OrderSnapshot) -> None:
         with self._connect() as connection:
-            cursor = connection.execute(
-                "UPDATE paper_orders SET snapshot=? WHERE key=?",
-                (_encode_snapshot(snapshot), snapshot.intent.key),
-            )
-            if cursor.rowcount != 1:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT snapshot FROM paper_orders WHERE key=?", (key,)
+            ).fetchone()
+            if row is None:
                 raise ValueError("order_unknown")
+            current = _decode_snapshot(row[0])
+            if current.intent.key != key:
+                raise ValueError("journal_identity_mismatch")
+            _validate_transition(current, snapshot)
+            connection.execute(
+                "UPDATE paper_orders SET snapshot=? WHERE key=?",
+                (_encode_snapshot(snapshot), key),
+            )
 
 
 def _encode_snapshot(snapshot: OrderSnapshot) -> str:

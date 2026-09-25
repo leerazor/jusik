@@ -1,10 +1,13 @@
 """Deterministic fake-broker contract tests; no network or credentials."""
 
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, localcontext
 from pathlib import Path
+from threading import Event
 
 import pytest
 
+import jusik.paper_execution_contract as execution_contract
 from jusik.paper_execution_contract import (
     ExecutionLedger,
     Fill,
@@ -262,6 +265,58 @@ def test_restart_reconciles_partial_cancel_and_late_fill(tmp_path: Path) -> None
     assert final.filled_quantity == Decimal("5")
     assert ExecutionLedger(broker, path).cancel("k1") == final
     assert (broker.submit_calls, broker.cancel_calls) == (1, 1)
+
+
+def test_shared_journal_cannot_overwrite_newer_fills(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broker = FakeBroker()
+    path = tmp_path / "orders.sqlite3"
+    first = ExecutionLedger(broker, path)
+    second = ExecutionLedger(broker, path)
+    first.submit(intent())
+    fill3 = Fill("f1", Decimal("3"), Decimal("9"))
+    fill2 = Fill("f2", Decimal("2"), Decimal("9.25"))
+    stale = OrderSnapshot(intent(), "partial", (fill3,))
+    latest = OrderSnapshot(intent(), "partial", (fill3, fill2))
+    broker.orders["k1"] = stale
+    first.reconcile("k1")
+
+    validating_stale = Event()
+    resume_stale = Event()
+    original_validate = execution_contract.validate_snapshot
+
+    def pause_stale_validation(snapshot: OrderSnapshot) -> None:
+        original_validate(snapshot)
+        if snapshot is stale:
+            validating_stale.set()
+            if not resume_stale.wait(timeout=5):
+                raise AssertionError("stale_reconciliation_not_released")
+
+    monkeypatch.setattr(execution_contract, "validate_snapshot", pause_stale_validation)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        stale_future = pool.submit(first.reconcile, "k1")
+        assert validating_stale.wait(timeout=5)
+        broker.orders["k1"] = latest
+        latest_future = pool.submit(second.reconcile, "k1")
+        try:
+            # The old two-transaction path can commit while validation is paused.
+            latest_future.result(timeout=2)
+        except TimeoutError:
+            # The atomic path waits for the first ledger's writer lock.
+            pass
+        finally:
+            resume_stale.set()
+        assert stale_future.result(timeout=5) == stale
+        assert latest_future.result(timeout=5) == latest
+
+    restarted = ExecutionLedger(broker, path)
+    assert restarted.submit(intent()) == latest
+    broker.orders["k1"] = stale
+    with pytest.raises(ValueError, match="reconciliation_fill_mismatch"):
+        restarted.reconcile("k1")
+    assert restarted._orders == {}
+    assert ExecutionLedger(broker, path).submit(intent()) == latest
 
 
 def test_restart_does_not_retry_uncertain_cancel_or_rejection(tmp_path: Path) -> None:
