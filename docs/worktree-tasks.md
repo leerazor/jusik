@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## lab-continuous-engineering-backlog
+
+- 상태: 준비. 운영 roadmap runner는 수동 개발 동안 pause, service inactive; timer는 유지한다.
+- 목표: 투자 자료 대기와 과거 BLOCKED 공학 작업이 있어도 사전 등록된 독립 오프라인 공학 spec을 결정적으로 한 번씩 READY로 만들고 같은 cycle에 실행한다. 사용자는 이후 기존 resume/pause로 진행·중지만 지시한다.
+- 담당: supervisor 통합, Sol 단일 구현 소유자, 별도 Sol 독립 검토. 동시 active 4개 이하.
+- 워크트리: `/home/kwl/projects/jusik-lab-continuous-engineering-backlog`; 브랜치 `feat/lab-continuous-engineering-backlog`; 기준은 등록 커밋.
+- 범위: runner contract/selection/store/review의 spec별 소유 경로 및 opt-in finite backlog, 관련 오프라인 테스트. 다음 두 spec은 strategy-version receipt 결속과 paper-contract 재시작 중복 방지로 제한한다. spec 자체의 제품 구현은 자동 runner가 후속 시도에서 수행한다.
+- 검증: 빈 큐 자동 enqueue·같은 cycle dispatch, 기존 BLOCKED 보존·다음 READY 진행, 정확한 파일/hash/review, pause·쿼터·cooldown·governance, finite backlog 소진 시 내구성 있는 idle 사유를 임시 Git/SQLite·fake child로 검증한다.
+- 비범위: 무한 임의 task 생성, 투자 gate 완화, 실제 주문·PAPER activation, 원격 push·추가 결제·credential/권한 변경. 사용자 미추적 `HANDOFF.md`와 기존 worktree는 보존한다.
+- 개발 기록: `docs/development-records/2026-09-25-lab-continuous-engineering-backlog.md`.
+
 ## lab-independent-review-receipt
 
 - 상태: 로컬 `main` 통합·검증 완료. 운영 roadmap runner는 통합 중 pause, service inactive; timer는 유지했다.
