@@ -2,11 +2,13 @@
 
 ## lab-failed-output-digest
 
-- 상태: 진행 중. 새 `completion_invalid` 공학 시도의 실패 순간 출력 SHA-256을 원자적으로 기록한다.
+- 상태: 완료. 새 `completion_invalid` 공학 시도의 실패 순간 출력 SHA-256을 원자적으로 기록한다.
 - 목표: 이후 복구에서 현재 파일·transcript 일치뿐 아니라 실패 시점 기록 해시를 검증한다. legacy SQL NULL은 소급 증명하지 않고 기존 제한된 복구 규칙을 유지한다.
 - 범위: `backend/jusik/development_runner.py`, `backend/jusik/development_runner_store.py`, `backend/tests/test_development_runner_recovery.py` 및 관련 운영 문서. 제품·주문·투자 게이트 미변경.
 - 검증: 임시 Git/SQLite에서 실패 시점 기록, 출력 사후 변조·현재 SHA 재제출 거부, 누락 기록 거부, legacy 호환, reviewer 직전·최종 전이 확인. focused pytest·Ruff·strict mypy·별도 Sol 검토.
 - 운영: runner pause·service inactive, timer 유지. 원본 운영 FAILED와 복구 완료 기록, 사용자 `HANDOFF.md`를 보존한다.
+- 구현 워크트리: `/home/kwl/projects/jusik-lab-failed-output-digest`; 브랜치 `feat/lab-failed-output-digest`; 기준 `f2cf7be`, 통합 `c85a1a5`. rowid 경계·실패 hash를 같은 transaction에 기록하고 신규 marker를 SQL NULL로 지운 legacy 우회를 거부한다. 이전 legacy 복구는 유지한다. 관련 main pytest 141개·Ruff·strict mypy, 별도 Sol 최종 검토 PASS. 개발 기록: `docs/development-records/2026-09-25-lab-failed-output-digest.md`.
+- handoff: `docs/handoffs/2026-09-25-cancel-claim-recovery.md`.
 
 ## lab-engineering-failed-candidate-recovery
 
