@@ -415,11 +415,16 @@ engineering lane은 기존 runner 안에서 명시적으로 등록된 고정 sco
 브로커 연동이나 투자 검증을 뜻하지 않는다. 근거는
 [추가 개발 기록](development-records/2026-09-25-lab-independent-review-receipt.md)을 따른다.
 
+2026-09-25 운영 확인: 후속 1번의 실제 Codex reviewer는 신규 고정 공학 작업에서
+PASS로 완료됐고, 후속 2번의 strategy version 결속 receipt adapter는 이미 구현됐다.
+이번 오프라인 fill fee 보존은 후속 3번의 일부만 다룬다. 과거 차단 시도는 소급
+승인하지 않았고 실제 브로커 비용이나 투자 성과는 검증하지 않았다.
+
 남은 우선순위는 다음과 같다.
 
-1. 실제 Codex reviewer의 제한된 운영 smoke와 기존 차단 attempt의 별도 수동 대사를 수행한다. 기록 없는 과거 시도를 새 receipt로 소급 승인하지 않는다. 재시작 시 프로세스 정체가 불명확하면 해당 검토만 격리하고 다른 READY를 진행한다.
-2. 검증된 receipt adapter를 lifecycle에 연결하고 기존 strategy version과 명시적으로 결속한다. 기존 결과 자동 이관 금지.
-3. 오프라인 execution contract를 향후 모의 adapter와 연결하기 전 비용·상태·재시작 경계를 추가 검증한다. 현재 코드는 fake-broker 계약만 제공하며 실제 주문을 수행하지 않는다.
+1. 기존 차단 attempt는 별도 근거가 있을 때만 대사한다. 기록 없는 과거 시도를 새 receipt로 소급 승인하지 않는다. 재시작 시 프로세스 정체가 불명확하면 해당 검토만 격리하고 다른 READY를 진행한다.
+2. 결속된 lifecycle receipt가 실제 전략 전이에서 요구되는지 확인한다. 기존 결과 자동 이관 금지.
+3. 오프라인 execution contract를 향후 모의 adapter와 연결하기 전 실제 비용 출처와 사후 정정 의미, 상태·재시작 경계를 추가 검증한다. 현재 수수료 보존은 fake-broker 계약만 제공하며 실제 주문을 수행하지 않는다.
 4. KIS 공식 모의주문 계약·권한·계정 환경을 확인하고 별도 sandbox adapter를 연결한다. 내부 PAPER와 KIS paper를 다른 source로 기록한다.
 5. prospective 실제 관찰 수집과 실시간 비용/PnL 대사를 완성한다.
 6. 검증된 후보 보고, 독립 최종 검토, 인증된 인간 승인·deterministic risk/execution 경계를 연결한다. 실계좌 주문은 별도 승인 전 실행하지 않는다.

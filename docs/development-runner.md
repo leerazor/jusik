@@ -25,8 +25,9 @@
 같은 입력을 재검증한 뒤 원자적으로 완료합니다. 최대 2회 bounded review이며 실패·
 불가용·정체 불명 프로세스는 해당 task만 대기/격리하고 다른 READY를 계속 선택합니다.
 이 대기는 일반 `retry --event-evidence`로 해제할 수 없습니다. 이전 버전의 검토 없는
-대기/차단 기록은 새 경로가 소급 완료하지 않습니다. 실제 Codex reviewer 운영 호출은
-아직 검증되지 않았으며 fake CLI·임시 DB 검증 결과는 개발 기록을 확인합니다.
+대기/차단 기록은 새 경로가 소급 완료하지 않습니다. 실제 Codex reviewer의 운영
+PASS는 신규 고정 오프라인 공학 작업에서 확인했으며 과거 차단 기록이나 투자 검증에
+소급 적용하지 않습니다. fake CLI·임시 DB 검증 결과는 개발 기록을 확인합니다.
 
 `investment-roadmap` 전용 `automatic_engineering_backlog`는 기본 `false`입니다.
 설치 설정에서 명시적으로 켜면 기존 READY·review 후보를 우선 처리하고, 없을 때

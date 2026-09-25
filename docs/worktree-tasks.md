@@ -2,11 +2,11 @@
 
 ## lab-paper-execution-fill-fee-v1
 
-- 상태: 진행 중. 유한 공학 backlog에 오프라인 체결 수수료 보존 spec을 등록하고 자동 제품 구현·독립 검토를 확인한다.
+- 상태: 완료. 유한 공학 backlog에 오프라인 체결 수수료 보존 spec을 등록하고 자동 제품 구현·독립 검토 PASS를 확인했다.
 - 목표: fake-broker `Fill`의 명시적 최종 체결별 수수료 금액·통화를 선택형으로 보존한다. 기존 3필드 journal은 비용 미상으로 계속 읽고, 신규 5필드 기록을 재시작 후 동일하게 복원한다. 같은 execution ID의 수수료 추가·삭제·변경은 거부한다.
 - 범위: spec 등록은 `backend/jusik/development_runner_contract.py`, `backend/tests/test_development_runner_backlog.py`. 후속 단일 제품 소유 범위는 `backend/jusik/paper_execution_contract.py`, `backend/tests/test_paper_execution_contract.py`다. 실제 비용 추정·PnL·주문·PAPER/live 활성화·투자 판정은 제외한다.
 - 완료 조건: 금액·통화 동시 존재, 유한 Decimal·0 허용·음수/무효 통화 거부, 명시적 0과 미상의 구분, legacy/new journal 왕복, 비용 변조 후 journal 불변. focused pytest·Ruff·strict mypy, 독립 Sol 검토, runner `ENGINEERING_COMPLETE/NOT_EVALUATED`.
-- 운영: runner pause·service inactive, timer 유지. 사용자 미추적 `HANDOFF.md`와 기존 worktree·실패 시도는 보존한다. 추가 결제·원격 push·실계좌 주문 금지.
+- 운영 결과: spec `8a06611`, 운영 문서 `b3f2827`, 자동 제품 구현 `311fed3`을 local `main`에 통합했다. 첫 시도 `dd171f540a6f4cee934ed69456855309` 이후 독립 reviewer PASS로 `DONE/ENGINEERING_COMPLETE/NOT_EVALUATED`를 확인했다. 집중 제품 pytest 38개, backlog pytest 29개, Ruff·변경 제품 파일 strict mypy 통과. 기록: `docs/development-records/2026-09-25-lab-paper-execution-fill-fee-v1.md`; handoff: `docs/handoffs/2026-09-25-fill-fee.md`. 사용자 미추적 `HANDOFF.md`와 기존 worktree·실패 시도는 보존했다. 추가 결제·원격 push·실계좌 주문 없음.
 
 ## lab-failed-output-digest
 
