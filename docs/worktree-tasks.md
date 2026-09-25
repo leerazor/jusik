@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## lab-paper-execution-cancel-claim-v1
+
+- 상태: 진행 중. 자동 실행기의 유한 공학 backlog에 새 오프라인 spec을 등록할 예정이며, 제품 구현과 독립 검토는 자동 실행기에 맡긴다.
+- 목표: 공유 SQLite journal에서 한 ledger가 주문을 FILLED로 확정한 뒤 다른 ledger의 오래된 `cancel` 호출이 broker로 전달되는 경합을 막는다.
+- 범위: spec 등록은 `backend/jusik/development_runner_contract.py`와 관련 backlog 테스트에 한정한다. 후속 제품 구현의 단일 소유 범위는 `backend/jusik/paper_execution_contract.py`, `backend/tests/test_paper_execution_contract.py`다.
+- 완료 조건: 결정적 두-ledger 경합과 중복 취소·재시작 테스트, focused pytest·Ruff·strict mypy, 독립 검토, runner의 정확한 소유 파일 증거와 `ENGINEERING_COMPLETE/NOT_EVALUATED` 확인. 실제 주문·PAPER/live 활성화·투자 검증 기준 변경 금지.
+- 운영: main 수정 중 roadmap runner pause·service inactive, timer 유지. 사용자 소유 `HANDOFF.md`와 기존 worktree의 미추적 초안은 보존한다.
+
 ## lab-paper-execution-restart-journal-race
 
 - 상태: 완료. 초기 자동 시도는 제품 코드를 local `main` `315e983`에 병합했지만 worktree 증거 경로 때문에 `completion_invalid`로 FAILED였다. 원본 시도는 보존했고, 수정 재시도는 독립 reviewer PASS 후 `DONE + ENGINEERING_COMPLETE + NOT_EVALUATED`가 됐다.
