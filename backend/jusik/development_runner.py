@@ -840,11 +840,42 @@ def _recovery_output(path: Path, config: RunnerConfig) -> bytes:
     return path.read_bytes()
 
 
+def _recovery_transcript_sha256(
+    source_path: Path, source_bytes: bytes, config: RunnerConfig
+) -> str:
+    transcript_path = source_path.parent / "stdout.jsonl"
+    if (
+        not _allowed_path(transcript_path, [config.state_dir])
+        or transcript_path.is_symlink()
+        or not transcript_path.is_file()
+        or transcript_path.stat().st_size > 8_388_608
+    ):
+        raise ValueError("recovery transcript invalid")
+    raw = transcript_path.read_bytes()
+    last_message: str | None = None
+    try:
+        source_text = source_bytes.decode("utf-8").strip()
+        for line in raw.splitlines():
+            event = json.loads(line)
+            if event.get("type") != "item.completed":
+                continue
+            item = event.get("item")
+            if isinstance(item, dict) and item.get("type") == "agent_message":
+                text_value = item.get("text")
+                if isinstance(text_value, str):
+                    last_message = text_value
+    except (UnicodeDecodeError, json.JSONDecodeError, AttributeError) as exc:
+        raise ValueError("recovery transcript invalid") from exc
+    if last_message is None or last_message.strip() != source_text:
+        raise ValueError("recovery transcript does not match output")
+    return hashlib.sha256(raw).hexdigest()
+
+
 def _recovery_completion(
-    source: FailedCandidateSource, config: RunnerConfig
+    source: FailedCandidateSource, config: RunnerConfig, source_bytes: bytes
 ) -> Completion:
     try:
-        payload = json.loads(_recovery_output(Path(source.output_path), config))
+        payload = json.loads(source_bytes)
         original = Completion.model_validate(payload)
     except (OSError, json.JSONDecodeError, ValidationError) as exc:
         raise ValueError("failed candidate output invalid") from exc
@@ -874,9 +905,16 @@ def _recovery_completion(
 
 
 def recover_failed_candidate(
-    config: RunnerConfig, store: RunnerStore, task_id: str, attempt_id: str
+    config: RunnerConfig,
+    store: RunnerStore,
+    task_id: str,
+    attempt_id: str,
+    *,
+    expected_source_sha256: str,
 ) -> str | None:
-    """Create one reviewed candidate from an unchanged failed output."""
+    """Pin current legacy bytes and create one separately reviewed candidate."""
+    if re.fullmatch(r"[a-f0-9]{64}", expected_source_sha256) is None:
+        return None
     if not store.is_paused():
         return None
     ready, _ = _git_ready(config.repo)
@@ -886,9 +924,15 @@ def recover_failed_candidate(
     if source is None:
         return None
     try:
-        completion = _recovery_completion(source, config)
         original_path = Path(source.output_path)
-        original_sha256 = _hash_file(original_path)
+        source_bytes = _recovery_output(original_path, config)
+        original_sha256 = hashlib.sha256(source_bytes).hexdigest()
+        if original_sha256 != expected_source_sha256:
+            return None
+        transcript_sha256 = _recovery_transcript_sha256(
+            original_path, source_bytes, config
+        )
+        completion = _recovery_completion(source, config, source_bytes)
         recovery_id = uuid.uuid4().hex
         output_dir = config.state_dir / "recoveries" / recovery_id
         _secure_dir(output_dir)
@@ -903,9 +947,13 @@ def recover_failed_candidate(
             "source_attempt_id": source.attempt_id,
             "source_output_path": source.output_path,
             "source_sha256": original_sha256,
+            "source_transcript_sha256": transcript_sha256,
             "recovery_sha256": _hash_file(output_path),
         }
-        if _hash_file(original_path) != original_sha256:
+        if (
+            _hash_file(original_path) != original_sha256
+            or _hash_file(original_path.parent / "stdout.jsonl") != transcript_sha256
+        ):
             return None
         if not store.create_recovery_candidate(
             source,
@@ -1831,13 +1879,25 @@ def _review_context(
             / candidate.implementation_attempt_id
             / "completion.json"
         )
+        source_bytes = _recovery_output(source_path, config)
+        source = FailedCandidateSource(
+            candidate.task,
+            recovery["source_attempt_id"],
+            recovery["source_output_path"],
+            candidate.baseline_head,
+        )
+        corrected_source = _recovery_completion(
+            source, config, source_bytes
+        ).model_dump(mode="json")
         if (
             not store.recovery_source_matches(candidate)
-            or hashlib.sha256(_recovery_output(source_path, config)).hexdigest()
-            != recovery["source_sha256"]
+            or hashlib.sha256(source_bytes).hexdigest() != recovery["source_sha256"]
+            or _recovery_transcript_sha256(source_path, source_bytes, config)
+            != recovery["source_transcript_sha256"]
             or hashlib.sha256(_recovery_output(output_path, config)).hexdigest()
             != recovery["recovery_sha256"]
             or candidate.completion.get("attempt_id") != recovery["source_attempt_id"]
+            or corrected_source != candidate.completion
         ):
             raise ValueError("recovery source changed")
     validate_completion(
@@ -2693,6 +2753,7 @@ def _parser() -> argparse.ArgumentParser:
     recover.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     recover.add_argument("task_id")
     recover.add_argument("--attempt-id", required=True)
+    recover.add_argument("--expected-source-sha256", required=True)
     return parser
 
 
@@ -2895,7 +2956,11 @@ def main(argv: list[str] | None = None) -> int:
             with (common / "development-runner.lock").open("a+") as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 recovery_id = recover_failed_candidate(
-                    config, store, args.task_id, args.attempt_id
+                    config,
+                    store,
+                    args.task_id,
+                    args.attempt_id,
+                    expected_source_sha256=args.expected_source_sha256,
                 )
         except (OSError, BlockingIOError, subprocess.CalledProcessError):
             recovery_id = None

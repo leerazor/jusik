@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from pathlib import Path
@@ -13,6 +14,24 @@ from jusik.development_runner_review import validate_receipt
 from jusik.development_runner_store import RunnerStore
 
 
+def _write_transcript(path: Path, completion_text: str) -> None:
+    event = {
+        "type": "item.completed",
+        "item": {"type": "agent_message", "text": completion_text},
+    }
+    path.write_text(json.dumps(event) + "\n", encoding="utf-8")
+
+
+def _recover(
+    config: RunnerConfig, store: RunnerStore, *, expected_sha256: str | None = None
+) -> str | None:
+    source = config.state_dir / "original-completion.json"
+    pin = expected_sha256 or hashlib.sha256(source.read_bytes()).hexdigest()
+    return recover_failed_candidate(
+        config, store, "engineering", "implementation", expected_source_sha256=pin
+    )
+
+
 def _failed_candidate(
     tmp_path: Path,
 ) -> tuple[RunnerConfig, RunnerStore, dict[str, object]]:
@@ -23,6 +42,7 @@ def _failed_candidate(
     config.state_dir.mkdir(parents=True, exist_ok=True)
     output = config.state_dir / "original-completion.json"
     output.write_text(json.dumps(original), encoding="utf-8")
+    _write_transcript(config.state_dir / "stdout.jsonl", json.dumps(original))
     with sqlite3.connect(store.db_path) as db:
         db.execute(
             "UPDATE attempts SET status='failed',failure_code='completion_invalid',"
@@ -41,13 +61,9 @@ def test_failed_candidate_recovery_requires_independent_pass(tmp_path: Path) -> 
     config, store, original = _failed_candidate(tmp_path)
     source = config.state_dir / "original-completion.json"
     source_hash = source.read_bytes()
-    recovery_id = recover_failed_candidate(
-        config, store, "engineering", "implementation"
-    )
+    recovery_id = _recover(config, store)
     assert recovery_id is not None and recovery_id != "implementation"
-    assert (
-        recover_failed_candidate(config, store, "engineering", "implementation") is None
-    )
+    assert _recover(config, store) is None
     assert source.read_bytes() == source_hash
     assert json.loads(source.read_text(encoding="utf-8")) == original
     task = store.task("engineering")
@@ -132,18 +148,18 @@ def test_failed_candidate_recovery_rejects_invalid_source(
     elif mutation == "original_changed":
         original["status"] = "blocked"
     if mutation != "owned_changed":
+        source_text = json.dumps(original)
         (config.state_dir / "original-completion.json").write_text(
-            json.dumps(original), encoding="utf-8"
+            source_text, encoding="utf-8"
         )
-    assert (
-        recover_failed_candidate(config, store, "engineering", "implementation") is None
-    )
+        _write_transcript(config.state_dir / "stdout.jsonl", source_text)
+    assert _recover(config, store) is None
     assert store.task("engineering").canonical_state == "FAILED"  # type: ignore[union-attr]
 
 
 def test_recovery_reviewer_rejects_stale_original(tmp_path: Path) -> None:
     config, store, _ = _failed_candidate(tmp_path)
-    assert recover_failed_candidate(config, store, "engineering", "implementation")
+    assert _recover(config, store)
     store.resume()
     source = config.state_dir / "original-completion.json"
     source.write_bytes(source.read_bytes() + b" ")
@@ -153,9 +169,74 @@ def test_recovery_reviewer_rejects_stale_original(tmp_path: Path) -> None:
     assert not fake.exists()
 
 
+def test_recovery_rejects_wrong_operator_pin(tmp_path: Path) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    assert _recover(config, store, expected_sha256="0" * 64) is None
+    assert store.task("engineering").canonical_state == "FAILED"  # type: ignore[union-attr]
+
+
+def test_recovery_rejects_transcript_mismatch(tmp_path: Path) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    _write_transcript(config.state_dir / "stdout.jsonl", "other")
+    assert _recover(config, store) is None
+    assert store.task("engineering").canonical_state == "FAILED"  # type: ignore[union-attr]
+
+
+def test_recovery_rejects_substitution_between_parse_and_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    source = config.state_dir / "original-completion.json"
+    original_read = runner._recovery_output
+
+    def substitute(path: Path, current: RunnerConfig) -> bytes:
+        data = original_read(path, current)
+        if path == source:
+            source.write_bytes(data + b" ")
+        return data
+
+    monkeypatch.setattr(runner, "_recovery_output", substitute)
+    assert _recover(config, store) is None
+    assert store.task("engineering").canonical_state == "FAILED"  # type: ignore[union-attr]
+
+
+def test_recovery_reviewer_rejects_stale_transcript(tmp_path: Path) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    assert _recover(config, store)
+    store.resume()
+    transcript = config.state_dir / "stdout.jsonl"
+    transcript.write_bytes(transcript.read_bytes() + b" ")
+    fake = tmp_path / "must-not-run"
+    assert run_once(config.model_copy(update={"codex": str(fake)})).status == "idle"
+    assert store.task("engineering").engineering_status is None  # type: ignore[union-attr]
+    assert not fake.exists()
+
+
+def test_recovery_reviewer_rejects_corrected_payload_mismatch(tmp_path: Path) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    recovery_id = _recover(config, store)
+    assert recovery_id is not None
+    store.resume()
+    with sqlite3.connect(store.db_path) as db:
+        row = db.execute(
+            "SELECT evidence_json FROM attempts WHERE id=?", (recovery_id,)
+        ).fetchone()
+        assert row is not None
+        envelope = json.loads(row[0])
+        envelope["completion"]["blocked_reason"] = "changed"
+        db.execute(
+            "UPDATE attempts SET evidence_json=? WHERE id=?",
+            (json.dumps(envelope), recovery_id),
+        )
+    fake = tmp_path / "must-not-run"
+    assert run_once(config.model_copy(update={"codex": str(fake)})).status == "idle"
+    assert store.task("engineering").engineering_status is None  # type: ignore[union-attr]
+    assert not fake.exists()
+
+
 def test_recovery_reviewer_rejects_stale_source_row(tmp_path: Path) -> None:
     config, store, _ = _failed_candidate(tmp_path)
-    assert recover_failed_candidate(config, store, "engineering", "implementation")
+    assert _recover(config, store)
     store.resume()
     with sqlite3.connect(store.db_path) as db:
         db.execute(
@@ -170,7 +251,7 @@ def test_recovery_reviewer_rejects_stale_source_row(tmp_path: Path) -> None:
 
 def test_recovery_reviewer_rejects_later_owned_commit(tmp_path: Path) -> None:
     config, store, original = _failed_candidate(tmp_path)
-    assert recover_failed_candidate(config, store, "engineering", "implementation")
+    assert _recover(config, store)
     store.resume()
     owned = Path(original["evidence"][0]["path"])  # type: ignore[index]
     owned.write_text("later version\n", encoding="utf-8")
@@ -185,9 +266,7 @@ def test_recovery_reviewer_rejects_later_owned_commit(tmp_path: Path) -> None:
 
 def test_recovery_reviewer_fail_leaves_task_waiting(tmp_path: Path) -> None:
     config, store, _ = _failed_candidate(tmp_path)
-    recovery_id = recover_failed_candidate(
-        config, store, "engineering", "implementation"
-    )
+    recovery_id = _recover(config, store)
     assert recovery_id is not None
     store.resume()
     fake = tmp_path / "fake-reviewer.py"
@@ -206,7 +285,7 @@ def test_recovery_reviewer_fail_leaves_task_waiting(tmp_path: Path) -> None:
 
 def test_recovery_rejects_source_change_during_review(tmp_path: Path) -> None:
     config, store, _ = _failed_candidate(tmp_path)
-    assert recover_failed_candidate(config, store, "engineering", "implementation")
+    assert _recover(config, store)
     store.resume()
     source = config.state_dir / "original-completion.json"
     fake = tmp_path / "fake-reviewer.py"
@@ -244,6 +323,10 @@ def test_recovery_cli_requires_paused_runner(
         "engineering",
         "--attempt-id",
         "implementation",
+        "--expected-source-sha256",
+        hashlib.sha256(
+            (config.state_dir / "original-completion.json").read_bytes()
+        ).hexdigest(),
     ]
     assert runner.main(args) == 2
     assert json.loads(capsys.readouterr().out)["recovery_attempt_id"] is None

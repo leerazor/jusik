@@ -525,6 +525,13 @@ class RunnerStore:
                     and source_path.stat().st_size <= 65_536
                     and hashlib.sha256(source_path.read_bytes()).hexdigest()
                     == recovery["source_sha256"]
+                    and not (source_path.parent / "stdout.jsonl").is_symlink()
+                    and (source_path.parent / "stdout.jsonl").stat().st_size
+                    <= 8_388_608
+                    and hashlib.sha256(
+                        (source_path.parent / "stdout.jsonl").read_bytes()
+                    ).hexdigest()
+                    == recovery["source_transcript_sha256"]
                 )
             except OSError:
                 source_intact = False
@@ -676,6 +683,7 @@ class RunnerStore:
                             "source_attempt_id",
                             "source_output_path",
                             "source_sha256",
+                            "source_transcript_sha256",
                             "recovery_sha256",
                         }
                         or not all(
@@ -894,6 +902,13 @@ class RunnerStore:
                             and candidate_path.stat().st_size <= 65_536
                             and hashlib.sha256(source_path.read_bytes()).hexdigest()
                             == candidate.recovery["source_sha256"]
+                            and not (source_path.parent / "stdout.jsonl").is_symlink()
+                            and (source_path.parent / "stdout.jsonl").stat().st_size
+                            <= 8_388_608
+                            and hashlib.sha256(
+                                (source_path.parent / "stdout.jsonl").read_bytes()
+                            ).hexdigest()
+                            == candidate.recovery["source_transcript_sha256"]
                             and hashlib.sha256(candidate_path.read_bytes()).hexdigest()
                             == candidate.recovery["recovery_sha256"]
                         )
