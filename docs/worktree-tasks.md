@@ -11,6 +11,7 @@
 - 결과: runner 안내 `06a8bdb`·`99de443` local main 통합, 165개 runner pytest·Ruff·strict mypy 통과. 제품 수정 브랜치 `63700c1`, 자동 자식의 local main 통합 `ee93703`; 제품 pytest 23개·Ruff·strict mypy 및 별도 Sol 코드 검토 PASS. 재시도 attempt `67c0ee02d4c5405e928191539814a47b`는 정확한 main 두 파일 증거로 검증돼 `WAITING_EXTERNAL`, review attempt `77eef7c4613548ba9f9cac4d86440f38`가 PASS 후 완료했다.
 - 워크트리 정리: 제품 브랜치 원본 커밋 `63700c1`은 main 통합 커밋과 SHA가 달라 보존한다. runner 워크트리에는 작업 중 생성된 미추적 recovery 테스트 초안이 있어 보존한다. 사용자 `HANDOFF.md`도 건드리지 않는다.
 - 개발 기록: `docs/development-records/2026-09-25-lab-paper-execution-restart-journal-race.md`.
+- handoff: `docs/handoffs/2026-09-25-paper-journal-race-recovery.md`.
 
 ## lab-continuous-engineering-backlog
 
