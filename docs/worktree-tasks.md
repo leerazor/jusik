@@ -2,20 +2,22 @@
 
 ## lab-engineering-failed-candidate-recovery
 
-- 상태: 진행 중. 완료 형식 오류로 실패한 시도의 제품 변경이 이미 `main`에 있는 경우를 위한 제한된 복구 경로를 설계·구현한다.
+- 상태: 복구 코드 local `main` 통합·독립 검토 PASS. 운영 복구와 reviewer 결과 확인 대기.
 - 목표: 원본 실패 시도·산출물은 불변으로 보존하고, 원본 baseline·제품 커밋·정확한 소유 파일 diff/hash·현재 파일 불변성을 검증한 새 복구 후보만 기존 독립 reviewer로 넘긴다. 리뷰 PASS 전에는 공학 완료를 주장하지 않는다.
 - 범위: runner/store/review와 관련 회귀 테스트·운영 문서. 제품·브로커·투자 상태 전이는 변경하지 않는다. 작업별 워크트리·단일 구현 소유자·별도 Sol review를 적용한다.
 - 검증: 임시 Git/SQLite의 실패 원본→별도 복구 후보 RED/GREEN, 불일치·중복·HEAD 변화 거부, focused pytest·Ruff·strict mypy, 운영 DB 백업과 복구 전후 불변성 대조.
 - 운영: roadmap runner pause·service inactive, timer 유지. 원본 시도 `f8ee09cfd79845769ae87f3b840952e7`과 제품 커밋 `fc4ddde`는 보존한다. 원격 push·실주문·PAPER/live 활성화·투자 게이트 변경 금지.
+- 구현 워크트리: `/home/kwl/projects/jusik-lab-engineering-failed-candidate-recovery`; 브랜치 `feat/lab-engineering-failed-candidate-recovery`; 기준 `4c888d9`, 통합 `8aef418`. 별도 Sol 검토에서 원본 parse/hash TOCTOU를 지적해 수정했고 최종 PASS. legacy 실패 출력의 과거 원본성은 증명할 수 없으며 현재 SHA pin·transcript 일치·독립 reviewer만 증명한다.
 
 ## lab-paper-execution-cancel-claim-v1
 
-- 상태: spec을 local `main`에 통합하고 독립 검토 PASS; 자동 실행기의 제품 구현·검토와 운영 결과 확인 대기.
+- 상태: spec과 제품 코드 local `main` 통합; 제품 독립 검토 PASS. 최초 자동 시도는 완료 JSON 형식 오류로 FAILED, 제한된 복구 후보·운영 reviewer 결과 확인 대기.
 - 목표: 공유 SQLite journal에서 한 ledger가 주문을 FILLED로 확정한 뒤 다른 ledger의 오래된 `cancel` 호출이 broker로 전달되는 경합을 막는다.
 - 범위: spec 등록은 `backend/jusik/development_runner_contract.py`와 관련 backlog 테스트에 한정한다. 후속 제품 구현의 단일 소유 범위는 `backend/jusik/paper_execution_contract.py`, `backend/tests/test_paper_execution_contract.py`다.
 - 완료 조건: 결정적 두-ledger 경합과 중복 취소·재시작 테스트, focused pytest·Ruff·strict mypy, 독립 검토, runner의 정확한 소유 파일 증거와 `ENGINEERING_COMPLETE/NOT_EVALUATED` 확인. 실제 주문·PAPER/live 활성화·투자 검증 기준 변경 금지.
 - 운영: main 수정 중 roadmap runner pause·service inactive, timer 유지. 사용자 소유 `HANDOFF.md`와 기존 worktree의 미추적 초안은 보존한다.
-- spec 워크트리: `/home/kwl/projects/jusik-lab-paper-execution-cancel-claim-spec`; 브랜치 `feat/lab-paper-execution-cancel-claim-spec`; 기준 `73b4e47`, 통합 `c72aa78`. 이전 두 spec과 신규 spec의 정확한 순서를 테스트로 고정했다. backlog pytest 24개·Ruff·소유 파일 strict mypy 통과, 별도 Sol review PASS. 제품 구현은 아직 시작하지 않았다.
+- spec 워크트리: `/home/kwl/projects/jusik-lab-paper-execution-cancel-claim-spec`; 브랜치 `feat/lab-paper-execution-cancel-claim-spec`; 기준 `73b4e47`, 통합 `c72aa78`. 이전 두 spec과 신규 spec의 정확한 순서를 테스트로 고정했다. backlog pytest 24개·Ruff·소유 파일 strict mypy 통과, 별도 Sol review PASS.
+- 제품 구현: 자동 자식이 `fc4ddde`에서 정확한 소유 두 파일을 통합했고, 제품 pytest 26개·Ruff·strict mypy·별도 Sol 검토 PASS. 최초 attempt `f8ee09cfd79845769ae87f3b840952e7`는 `status=waiting_external`에 blocker 정보가 없어 `completion_invalid`로 실패했으며 원본은 보존한다. 미래 시도용 완료 상태 안내는 `597ee22`에 보강했다.
 
 ## lab-paper-execution-restart-journal-race
 

@@ -39,6 +39,20 @@
 READY 복귀와 소진 기록은 같은 DB 트랜잭션 경계로 관리합니다. 운영 제어는 기존
 `resume`(진행)·`pause`(중지) 명령을 사용합니다. 타이머가 active인 것만으로 개발
 진행이나 투자 검증을 의미하지 않습니다.
+
+완료 형식 오류로 `FAILED/completion_invalid`가 된 공학 시도에서 이미 제품 커밋이
+`main`에 들어간 경우, 일반 `retry`는 새 시도 baseline 이후 정확한 소유 파일 diff를
+요구하므로 같은 커밋을 재사용할 수 없습니다. 제한된 운영자 명령
+`recover-failed-candidate TASK_ID ATTEMPT_ID --expected-source-sha256 SHA256`
+은 runner를 pause한 상태에서만 사용합니다. 운영 DB를 먼저 SQLite online backup으로
+보존하고, 원본 completion JSON의 현재 SHA-256을 읽기 전용으로 확인해야 합니다.
+명령은 원본 실패 행을 수정하지 않고 별도 복구 후보를 만듭니다. 원본 출력의 좁은 형식
+오류, 실행 transcript의 최종 메시지 일치, 원 시도 baseline→제품 커밋의 정확한 소유
+파일 diff, 이후 파일 불변성·증거 hash를 검사합니다. `resume` 뒤 별도 읽기 전용
+reviewer의 PASS receipt가 있어야만 `ENGINEERING_COMPLETE/NOT_EVALUATED`가 됩니다.
+원본 출력과 transcript에는 과거 실패 시점의 암호학적 해시가 없으므로 이 절차는
+복구 시점의 내용 일치와 독립 검토를 증명할 뿐, 과거 파일이 한 번도 바뀌지 않았음을
+증명하지 않습니다. 일반 완료·투자 검증·주문 게이트는 완화하지 않습니다.
 공학 자식은 통합 후 canonical `main` 저장소의 지정된 소유 파일에서 SHA-256을 계산해
 완료 증거에 그 절대 경로를 넣어야 합니다. 작업용 worktree나 audit 복사본을 소유 파일
 증거로 제출하면 검증에 실패합니다. 재시도는 기존 작업 기록과 시도 산출물을 확인하고,
