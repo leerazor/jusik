@@ -205,8 +205,11 @@ def test_direct_insert_requires_current_strategy_identity_and_revision(
 ) -> None:
     lifecycle, _ = stores
     lifecycle.transition(
-        "sample", "v1", StrategyState.RETIRED,
-        expected_revision=0, reason="discard synthetic idea",
+        "sample",
+        "v1",
+        StrategyState.RETIRED,
+        expected_revision=0,
+        reason="discard synthetic idea",
     )
     before = lifecycle.get("sample", "v1")
     events = lifecycle.events("sample", "v1")
@@ -234,8 +237,11 @@ def test_direct_current_insert_and_legacy_receipt_survive_transition(
     lifecycle, receipts = stores
     _record(receipts)
     lifecycle.transition(
-        "sample", "v1", StrategyState.RETIRED,
-        expected_revision=0, reason="discard synthetic idea",
+        "sample",
+        "v1",
+        StrategyState.RETIRED,
+        expected_revision=0,
+        reason="discard synthetic idea",
     )
     before = lifecycle.get("sample", "v1")
     events = lifecycle.events("sample", "v1")
@@ -251,14 +257,25 @@ def test_direct_current_insert_and_legacy_receipt_survive_transition(
             "SELECT receipt_id,strategy_revision FROM lifecycle_evidence_receipts "
             "ORDER BY receipt_id"
         ).fetchall() == [("current", 1), ("receipt-1", 0)]
-    assert receipts.verify(
-        "current", "sample", "v1", expected_revision=1,
-        evidence=EVIDENCE, evidence_digest=DIGEST,
-    ).strategy_revision == 1
+    assert (
+        receipts.verify(
+            "current",
+            "sample",
+            "v1",
+            expected_revision=1,
+            evidence=EVIDENCE,
+            evidence_digest=DIGEST,
+        ).strategy_revision
+        == 1
+    )
     with pytest.raises(RevisionConflict):
         receipts.verify(
-            "receipt-1", "sample", "v1", expected_revision=0,
-            evidence=EVIDENCE, evidence_digest=DIGEST,
+            "receipt-1",
+            "sample",
+            "v1",
+            expected_revision=0,
+            evidence=EVIDENCE,
+            evidence_digest=DIGEST,
         )
     assert lifecycle.get("sample", "v1") == before
     assert lifecycle.events("sample", "v1") == events
@@ -269,16 +286,26 @@ def test_record_and_verify_after_revision_change(
 ) -> None:
     lifecycle, receipts = stores
     lifecycle.transition(
-        "sample", "v1", StrategyState.RETIRED,
-        expected_revision=0, reason="discard synthetic idea",
+        "sample",
+        "v1",
+        StrategyState.RETIRED,
+        expected_revision=0,
+        reason="discard synthetic idea",
     )
     with pytest.raises(RevisionConflict):
         _record(receipts)
     _record(receipts, expected_revision=1)
-    assert receipts.verify(
-        "receipt-1", "sample", "v1", expected_revision=1,
-        evidence=EVIDENCE, evidence_digest=DIGEST,
-    ).strategy_revision == 1
+    assert (
+        receipts.verify(
+            "receipt-1",
+            "sample",
+            "v1",
+            expected_revision=1,
+            evidence=EVIDENCE,
+            evidence_digest=DIGEST,
+        ).strategy_revision
+        == 1
+    )
 
 
 def test_record_waiting_for_transition_detects_revision_conflict(
