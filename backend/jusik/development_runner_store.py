@@ -69,6 +69,15 @@ class ReviewCandidate:
     implementation_attempt_id: str
     baseline_head: str
     completion: dict[str, Any]
+    recovery: dict[str, str] | None = None
+
+
+@dataclass(frozen=True)
+class FailedCandidateSource:
+    task: RunnerTask
+    attempt_id: str
+    output_path: str
+    baseline_head: str
 
 
 @dataclass(frozen=True)
@@ -443,8 +452,126 @@ class RunnerStore:
             return False
         return (
             isinstance(envelope, dict)
-            and envelope.get("review_candidate_version") == 1
+            and envelope.get("review_candidate_version")
+            == (2 if candidate.recovery is not None else 1)
             and envelope.get("completion") == candidate.completion
+            and envelope.get("recovery") == candidate.recovery
+        )
+
+    def failed_candidate_source(
+        self, task_id: str, attempt_id: str
+    ) -> FailedCandidateSource | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT tasks.*,attempts.output_path,attempts.baseline_head "
+                "FROM tasks JOIN attempts ON attempts.id=tasks.last_attempt_id "
+                "WHERE tasks.id=? AND attempts.id=? "
+                "AND tasks.task_kind='engineering' AND tasks.status='failed' "
+                "AND attempts.status='failed' "
+                "AND attempts.failure_code='completion_invalid' "
+                "AND attempts.evidence_json IS NULL",
+                (task_id, attempt_id),
+            ).fetchone()
+        if (
+            row is None
+            or not isinstance(row["output_path"], str)
+            or not isinstance(row["baseline_head"], str)
+        ):
+            return None
+        return FailedCandidateSource(
+            self._task(row), attempt_id, row["output_path"], row["baseline_head"]
+        )
+
+    def create_recovery_candidate(
+        self,
+        source: FailedCandidateSource,
+        recovery_id: str,
+        output_path: Path,
+        completion: dict[str, Any],
+        recovery: dict[str, str],
+    ) -> bool:
+        now = utc_now()
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT tasks.status,tasks.last_attempt_id,tasks.attempt_count,"
+                "attempts.status AS attempt_status,attempts.failure_code,"
+                "attempts.output_path,attempts.baseline_head,attempts.evidence_json "
+                "FROM tasks JOIN attempts ON attempts.id=tasks.last_attempt_id "
+                "WHERE tasks.id=? AND tasks.task_kind='engineering'",
+                (source.task.id,),
+            ).fetchone()
+            if (
+                row is None
+                or row["status"] != "failed"
+                or row["last_attempt_id"] != source.attempt_id
+                or row["attempt_status"] != "failed"
+                or row["failure_code"] != "completion_invalid"
+                or row["output_path"] != source.output_path
+                or row["baseline_head"] != source.baseline_head
+                or row["evidence_json"] is not None
+            ):
+                db.rollback()
+                return False
+            envelope = {
+                "review_candidate_version": 2,
+                "completion": completion,
+                "recovery": recovery,
+            }
+            db.execute(
+                "INSERT INTO attempts "
+                "(id,task_id,status,started_at,ended_at,output_path,"
+                "evidence_json,failure_code,baseline_head) "
+                "VALUES(?,?,'waiting_external',?,?,?,?,?,?)",
+                (
+                    recovery_id,
+                    source.task.id,
+                    now,
+                    now,
+                    str(output_path),
+                    json.dumps(envelope, sort_keys=True),
+                    "independent_review_pending",
+                    source.baseline_head,
+                ),
+            )
+            blocker = unknown_blocker("independent_review_pending")
+            updated = db.execute(
+                "UPDATE tasks SET status='waiting_external',last_attempt_id=?,"
+                "previous_attempt_id=?,attempt_count=?,blocker_json=?,"
+                "updated_at=? WHERE id=? AND status='failed' AND last_attempt_id=?",
+                (
+                    recovery_id,
+                    source.attempt_id,
+                    int(row["attempt_count"]) + 1,
+                    json.dumps(blocker.model_dump(mode="json"), sort_keys=True),
+                    now,
+                    source.task.id,
+                    source.attempt_id,
+                ),
+            )
+            if updated.rowcount != 1:
+                db.rollback()
+                return False
+            db.commit()
+        return True
+
+    def recovery_source_matches(self, candidate: ReviewCandidate) -> bool:
+        recovery = candidate.recovery
+        if recovery is None:
+            return False
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT status,failure_code,output_path,baseline_head,evidence_json "
+                "FROM attempts WHERE id=? AND task_id=?",
+                (recovery["source_attempt_id"], candidate.task.id),
+            ).fetchone()
+        return bool(
+            row is not None
+            and row["status"] == "failed"
+            and row["failure_code"] == "completion_invalid"
+            and row["output_path"] == recovery["source_output_path"]
+            and row["baseline_head"] == candidate.baseline_head
+            and row["evidence_json"] is None
         )
 
     def recover_running_reviews(self, attempt_ids: list[str]) -> list[str]:
@@ -517,10 +644,28 @@ class RunnerStore:
                     continue
                 if (
                     not isinstance(envelope, dict)
-                    or envelope.get("review_candidate_version") != 1
+                    or envelope.get("review_candidate_version") not in {1, 2}
                     or not isinstance(envelope.get("completion"), dict)
                     or not isinstance(row["baseline_head"], str)
                 ):
+                    continue
+                recovery = envelope.get("recovery")
+                if envelope["review_candidate_version"] == 2:
+                    if (
+                        not isinstance(recovery, dict)
+                        or set(recovery)
+                        != {
+                            "source_attempt_id",
+                            "source_output_path",
+                            "source_sha256",
+                            "recovery_sha256",
+                        }
+                        or not all(
+                            isinstance(value, str) for value in recovery.values()
+                        )
+                    ):
+                        continue
+                elif recovery is not None:
                     continue
                 latest = db.execute(
                     "SELECT status,failure_code FROM review_attempts "
@@ -547,6 +692,7 @@ class RunnerStore:
                     str(row["last_attempt_id"]),
                     str(row["baseline_head"]),
                     envelope["completion"],
+                    recovery,
                 )
         return None
 
@@ -684,7 +830,7 @@ class RunnerStore:
                 "SELECT review_attempts.status,review_attempts.context_json,"
                 "tasks.status AS task_status,tasks.last_attempt_id,"
                 "attempts.status AS implementation_status,attempts.evidence_json,"
-                "attempts.baseline_head "
+                "attempts.baseline_head,attempts.output_path AS implementation_output "
                 "FROM review_attempts JOIN tasks ON tasks.id=review_attempts.task_id "
                 "JOIN attempts ON "
                 "attempts.id=review_attempts.implementation_attempt_id "
@@ -704,6 +850,48 @@ class RunnerStore:
                 db.rollback()
                 return False
             if status == "completed":
+                if candidate.recovery is not None:
+                    source = db.execute(
+                        "SELECT status,failure_code,output_path,baseline_head,"
+                        "evidence_json FROM attempts WHERE id=? AND task_id=?",
+                        (
+                            candidate.recovery["source_attempt_id"],
+                            candidate.task.id,
+                        ),
+                    ).fetchone()
+                    try:
+                        source_path = Path(candidate.recovery["source_output_path"])
+                        candidate_path = Path(str(row["implementation_output"]))
+                        expected_candidate_path = (
+                            self.db_path.parent
+                            / "recoveries"
+                            / candidate.implementation_attempt_id
+                            / "completion.json"
+                        )
+                        intact = (
+                            candidate_path == expected_candidate_path
+                            and not source_path.is_symlink()
+                            and not candidate_path.is_symlink()
+                            and source_path.stat().st_size <= 65_536
+                            and candidate_path.stat().st_size <= 65_536
+                            and hashlib.sha256(source_path.read_bytes()).hexdigest()
+                            == candidate.recovery["source_sha256"]
+                            and hashlib.sha256(candidate_path.read_bytes()).hexdigest()
+                            == candidate.recovery["recovery_sha256"]
+                        )
+                    except OSError:
+                        intact = False
+                    if (
+                        source is None
+                        or source["status"] != "failed"
+                        or source["failure_code"] != "completion_invalid"
+                        or source["output_path"] != str(source_path)
+                        or source["baseline_head"] != candidate.baseline_head
+                        or source["evidence_json"] is not None
+                        or not intact
+                    ):
+                        db.rollback()
+                        return False
                 try:
                     expected_receipt = json.loads(str(row["context_json"])) | {
                         "verdict": "PASS"

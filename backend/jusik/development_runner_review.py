@@ -18,11 +18,14 @@ class ReviewReceipt(BaseModel):
     baseline_head: str = Field(pattern=r"^[a-f0-9]{40,64}$")
     main_head: str = Field(pattern=r"^[a-f0-9]{40,64}$")
     owned_file_hashes: dict[str, str]
+    product_commit: str | None = Field(default=None, pattern=r"^[a-f0-9]{40,64}$")
     verdict: Literal["PASS", "FAIL"]
 
 
 def review_schema(
     owned_paths: frozenset[str] = ENGINEERING_OWNED_PATHS,
+    *,
+    recovery: bool = False,
 ) -> dict[str, Any]:
     hashes = {
         path: {"type": "string", "pattern": "^[a-f0-9]{64}$"}
@@ -42,6 +45,11 @@ def review_schema(
         },
         "verdict": {"type": "string", "enum": ["PASS", "FAIL"]},
     }
+    if recovery:
+        properties["product_commit"] = {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40,64}$",
+        }
     return {
         "type": "object",
         "additionalProperties": False,
@@ -55,6 +63,10 @@ def validate_receipt(
     expected: dict[str, Any],
     owned_paths: frozenset[str] = ENGINEERING_OWNED_PATHS,
 ) -> ReviewReceipt:
+    if not isinstance(payload, dict) or ("product_commit" in payload) != (
+        "product_commit" in expected
+    ):
+        raise ValueError("review receipt identity mismatch")
     try:
         receipt = ReviewReceipt.model_validate(payload)
     except ValidationError as exc:
@@ -65,7 +77,9 @@ def validate_receipt(
     ):
         raise ValueError("review receipt owned hashes invalid")
     if {
-        key: value for key, value in receipt.model_dump().items() if key != "verdict"
+        key: value
+        for key, value in receipt.model_dump(exclude_none=True).items()
+        if key != "verdict"
     } != expected:
         raise ValueError("review receipt identity mismatch")
     return receipt

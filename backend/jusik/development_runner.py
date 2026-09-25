@@ -59,6 +59,7 @@ from jusik.development_runner_roadmap import (
     validate_roadmap_completion,
 )
 from jusik.development_runner_store import (
+    FailedCandidateSource,
     ReviewAttempt,
     ReviewCandidate,
     RunnerStore,
@@ -669,6 +670,7 @@ def validate_completion(
     *,
     allowed_areas: set[str] | None = None,
     baseline_head: str | None = None,
+    historical_engineering: bool = False,
 ) -> Completion:
     try:
         completion = Completion.model_validate(payload)
@@ -737,7 +739,7 @@ def validate_completion(
         raise ValueError("integrated commit is not an ancestor of main")
     if task.task_kind == "engineering":
         current_main = _git(config.repo, "rev-parse", "main").stdout.strip()
-        if completion.integrated_commit != current_main:
+        if not historical_engineering and completion.integrated_commit != current_main:
             raise ValueError("engineering commit must be current main HEAD")
         if baseline_head is None or completion.integrated_commit == baseline_head:
             raise ValueError("engineering commit must be a new descendant")
@@ -767,6 +769,16 @@ def validate_completion(
         )
         if set(changed.stdout.splitlines()) != expected_paths:
             raise ValueError("engineering commit must change exact owned paths")
+        if historical_engineering:
+            for name in expected_paths:
+                committed_blob = _git(
+                    config.repo, "rev-parse", f"{completion.integrated_commit}:{name}"
+                ).stdout.strip()
+                current_blob = _git(
+                    config.repo, "rev-parse", f"main:{name}"
+                ).stdout.strip()
+                if committed_blob != current_blob:
+                    raise ValueError("engineering owned file changed after commit")
     roots = [
         config.repo,
         config.repo.parent,
@@ -814,6 +826,98 @@ def validate_completion(
     ):
         raise ValueError("followup area is not allowed")
     return completion
+
+
+def _recovery_output(path: Path, config: RunnerConfig) -> bytes:
+    if (
+        not path.is_absolute()
+        or not _allowed_path(path, [config.state_dir])
+        or path.is_symlink()
+        or not path.is_file()
+        or path.stat().st_size > 65_536
+    ):
+        raise ValueError("recovery output path invalid")
+    return path.read_bytes()
+
+
+def _recovery_completion(
+    source: FailedCandidateSource, config: RunnerConfig
+) -> Completion:
+    try:
+        payload = json.loads(_recovery_output(Path(source.output_path), config))
+        original = Completion.model_validate(payload)
+    except (OSError, json.JSONDecodeError, ValidationError) as exc:
+        raise ValueError("failed candidate output invalid") from exc
+    if (
+        original.task_id != source.task.id
+        or original.attempt_id != source.attempt_id
+        or original.status != "waiting_external"
+        or original.blocker is not None
+        or original.blocked_reason is not None
+        or not original.tests_passed
+        or original.review_passed
+        or original.engineering_status is not None
+        or original.investment_status is not None
+        or original.recovery_kind is not None
+        or original.followup is not None
+    ):
+        raise ValueError("failed candidate is outside recovery shape")
+    corrected = original.model_copy(update={"status": "completed"})
+    return validate_completion(
+        corrected.model_dump(mode="json"),
+        source.task,
+        source.attempt_id,
+        config,
+        baseline_head=source.baseline_head,
+        historical_engineering=True,
+    )
+
+
+def recover_failed_candidate(
+    config: RunnerConfig, store: RunnerStore, task_id: str, attempt_id: str
+) -> str | None:
+    """Create one reviewed candidate from an unchanged failed output."""
+    if not store.is_paused():
+        return None
+    ready, _ = _git_ready(config.repo)
+    if not ready:
+        return None
+    source = store.failed_candidate_source(task_id, attempt_id)
+    if source is None:
+        return None
+    try:
+        completion = _recovery_completion(source, config)
+        original_path = Path(source.output_path)
+        original_sha256 = _hash_file(original_path)
+        recovery_id = uuid.uuid4().hex
+        output_dir = config.state_dir / "recoveries" / recovery_id
+        _secure_dir(output_dir)
+        output_path = output_dir / "completion.json"
+        _write_private(
+            output_path,
+            (
+                json.dumps(completion.model_dump(mode="json"), sort_keys=True) + "\n"
+            ).encode(),
+        )
+        recovery = {
+            "source_attempt_id": source.attempt_id,
+            "source_output_path": source.output_path,
+            "source_sha256": original_sha256,
+            "recovery_sha256": _hash_file(output_path),
+        }
+        if _hash_file(original_path) != original_sha256:
+            return None
+        if not store.create_recovery_candidate(
+            source,
+            recovery_id,
+            output_path,
+            completion.model_dump(mode="json"),
+            recovery,
+        ):
+            return None
+    except (OSError, subprocess.CalledProcessError, ValueError):
+        return None
+    return recovery_id
 
 
 def _bind_scope(store: RunnerStore, scope: str) -> tuple[bool, str]:
@@ -1717,17 +1821,39 @@ def resume_runner(config: RunnerConfig) -> None:
 def _review_context(
     candidate: ReviewCandidate, review_id: str, config: RunnerConfig
 ) -> dict[str, Any]:
+    recovery = candidate.recovery
+    if recovery is not None:
+        store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+        source_path = Path(recovery["source_output_path"])
+        output_path = (
+            config.state_dir
+            / "recoveries"
+            / candidate.implementation_attempt_id
+            / "completion.json"
+        )
+        if (
+            not store.recovery_source_matches(candidate)
+            or hashlib.sha256(_recovery_output(source_path, config)).hexdigest()
+            != recovery["source_sha256"]
+            or hashlib.sha256(_recovery_output(output_path, config)).hexdigest()
+            != recovery["recovery_sha256"]
+            or candidate.completion.get("attempt_id") != recovery["source_attempt_id"]
+        ):
+            raise ValueError("recovery source changed")
     validate_completion(
         candidate.completion,
         candidate.task,
-        candidate.implementation_attempt_id,
+        recovery["source_attempt_id"]
+        if recovery is not None
+        else candidate.implementation_attempt_id,
         config,
         baseline_head=candidate.baseline_head,
+        historical_engineering=recovery is not None,
     )
     main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
     spec = ENGINEERING_SPEC_BY_ID.get(candidate.task.id)
     owned_paths = spec.owned_paths if spec is not None else ENGINEERING_OWNED_PATHS
-    return {
+    context = {
         "task_id": candidate.task.id,
         "implementation_attempt_id": candidate.implementation_attempt_id,
         "review_attempt_id": review_id,
@@ -1737,6 +1863,9 @@ def _review_context(
             name: _hash_file(config.repo / name) for name in sorted(owned_paths)
         },
     }
+    if recovery is not None:
+        context["product_commit"] = candidate.completion["integrated_commit"]
+    return context
 
 
 def _run_review(
@@ -1770,7 +1899,8 @@ def _run_review(
                 review_schema(
                     ENGINEERING_SPEC_BY_ID[candidate.task.id].owned_paths
                     if candidate.task.id in ENGINEERING_SPEC_BY_ID
-                    else ENGINEERING_OWNED_PATHS
+                    else ENGINEERING_OWNED_PATHS,
+                    recovery=candidate.recovery is not None,
                 ),
                 sort_keys=True,
             )
@@ -1879,14 +2009,14 @@ def _run_review(
             review_id,
             status="failed",
             failure_code="review_rejected",
-            receipt=receipt.model_dump(),
+            receipt=receipt.model_dump(exclude_none=True),
         )
         return None
     if not store.finish_review(
         candidate,
         review_id,
         status="completed",
-        receipt=receipt.model_dump(),
+        receipt=receipt.model_dump(exclude_none=True),
     ):
         return None
     _safe_history_flush(store, config)
@@ -2559,6 +2689,10 @@ def _parser() -> argparse.ArgumentParser:
     rebase.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     rebase.add_argument("task_id")
     rebase.add_argument("--base-commit", required=True)
+    recover = sub.add_parser("recover-failed-candidate")
+    recover.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    recover.add_argument("task_id")
+    recover.add_argument("--attempt-id", required=True)
     return parser
 
 
@@ -2755,6 +2889,18 @@ def main(argv: list[str] | None = None) -> int:
             retried = store.retry(args.task_id)
         print(json.dumps({"retried": retried}, ensure_ascii=False))
         return 0
+    if args.command == "recover-failed-candidate":
+        try:
+            common = _git_common(config.repo)
+            with (common / "development-runner.lock").open("a+") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                recovery_id = recover_failed_candidate(
+                    config, store, args.task_id, args.attempt_id
+                )
+        except (OSError, BlockingIOError, subprocess.CalledProcessError):
+            recovery_id = None
+        print(json.dumps({"recovery_attempt_id": recovery_id}))
+        return 0 if recovery_id is not None else 2
     if args.command == "rebase":
         current = _git(config.repo, "rev-parse", "main").stdout.strip()
         if current != args.base_commit:
