@@ -351,6 +351,8 @@ class RunnerStore:
                     (current.isoformat(), row["id"]),
                 )
                 released.append(str(row["id"]))
+            if released:
+                db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
             db.commit()
         return released
 
@@ -397,6 +399,7 @@ class RunnerStore:
                 "WHERE id=? AND status='waiting_external'",
                 (utc_now(), task_id),
             )
+            db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
             db.commit()
         return True
 
@@ -1172,6 +1175,8 @@ class RunnerStore:
                 "('failed','retryable','interrupted','blocked')",
                 (None if row is None else row["last_attempt_id"], now, task_id),
             )
+            if cur.rowcount == 1:
+                db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
             db.commit()
         return cur.rowcount == 1
 
@@ -1210,6 +1215,7 @@ class RunnerStore:
                 "previous_attempt_id=?,updated_at=? WHERE id=?",
                 (row["last_attempt_id"], now, task_id),
             )
+            db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
             db.commit()
         return True
 
@@ -1244,6 +1250,7 @@ class RunnerStore:
                 "previous_attempt_id=?,updated_at=? WHERE id=?",
                 (prompt, row["last_attempt_id"], now, task_id),
             )
+            db.execute("DELETE FROM runner_meta WHERE key='idle_status'")
             db.commit()
         return True
 

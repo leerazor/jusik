@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 import subprocess
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -18,6 +18,7 @@ from jusik.development_runner_contract import (
     ENGINEERING_SPEC_BY_ID,
     ENGINEERING_SPEC_ID,
     ENGINEERING_SPEC_PROMPT,
+    Blocker,
     EngineeringSpec,
 )
 from jusik.development_runner_review import review_schema, validate_receipt
@@ -69,6 +70,94 @@ def _git(repo: Path, *args: str) -> str:
     return subprocess.run(
         ["git", *args], cwd=repo, check=True, capture_output=True, text=True
     ).stdout.strip()
+
+
+def _idle(store: RunnerStore) -> None:
+    store.record_idle(
+        "fixed_engineering_backlog_exhausted", datetime.now(UTC) + timedelta(hours=1)
+    )
+
+
+def test_retry_clears_stale_idle_only_after_ready_transition(tmp_path: Path) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue("task", "r1-01", "offline fixture")
+    assert store.quarantine(
+        "task", "blocked", {"blocker_reason": "fixture", "next_eligible_retry": None}
+    )
+    _idle(store)
+    assert not store.retry("missing")
+    assert store.get_meta("idle_status") is not None
+    assert store.retry("task")
+    assert store.task("task").status == "queued"  # type: ignore[union-attr]
+    assert store.get_meta("idle_status") is None
+
+
+def test_due_wait_release_clears_stale_idle(tmp_path: Path) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue("task", "r1-01", "offline fixture")
+    due = datetime.now(UTC) - timedelta(seconds=1)
+    blocker = Blocker(
+        blocker_reason="fixture",
+        resume_condition="UTC deadline",
+        retry_policy="bounded",
+        next_eligible_retry=due,
+    )
+    assert store.quarantine("task", "waiting_external", blocker.model_dump(mode="json"))
+    _idle(store)
+    assert store.release_due_waiting(due - timedelta(seconds=1)) == []
+    assert store.get_meta("idle_status") is not None
+    assert store.release_due_waiting(datetime.now(UTC)) == ["task"]
+    assert store.task("task").status == "queued"  # type: ignore[union-attr]
+    assert store.get_meta("idle_status") is None
+
+
+def test_event_release_clears_stale_idle(tmp_path: Path) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue("task", "r1-01", "offline fixture")
+    evidence = tmp_path / "evidence.txt"
+    evidence.write_text("before", encoding="utf-8")
+    blocker = Blocker(
+        blocker_reason="source_wait",
+        dependency=str(evidence.resolve()),
+        dependency_identity=hashlib.sha256(evidence.read_bytes()).hexdigest(),
+        resume_condition="evidence changes",
+        retry_policy="event",
+    )
+    assert store.quarantine("task", "waiting_external", blocker.model_dump(mode="json"))
+    _idle(store)
+    assert not store.release_event("task", evidence)
+    assert store.get_meta("idle_status") is not None
+    evidence.write_text("after", encoding="utf-8")
+    assert store.release_event("task", evidence)
+    assert store.task("task").status == "queued"  # type: ignore[union-attr]
+    assert store.get_meta("idle_status") is None
+
+
+def test_planning_retry_clears_stale_idle(tmp_path: Path) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue("planner", "__planning__", "internal")
+    task = store.task("planner")
+    assert task is not None
+    store.claim(task, "attempt", tmp_path / "output", tmp_path / "stderr")
+    store.finish("attempt", "planner", "completed", failure_code="planning_waiting")
+    _idle(store)
+    assert not store.retry_planning_waiting("planner", [("missing", "queued", None)])
+    assert store.get_meta("idle_status") is not None
+    assert store.retry_planning_waiting("planner", [])
+    assert store.task("planner").status == "queued"  # type: ignore[union-attr]
+    assert store.get_meta("idle_status") is None
+
+
+def test_rebase_clears_stale_idle(tmp_path: Path) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    assert store.enqueue("task", "r1-01", "offline fixture")
+    assert store.quarantine(
+        "task", "blocked", {"blocker_reason": "fixture", "next_eligible_retry": None}
+    )
+    _idle(store)
+    assert store.rebase("task", "a" * 40)
+    assert store.task("task").status == "queued"  # type: ignore[union-attr]
+    assert store.get_meta("idle_status") is None
 
 
 def test_blocked_legacy_is_preserved_and_new_specs_dispatch_once(
