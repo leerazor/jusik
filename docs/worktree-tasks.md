@@ -1,8 +1,17 @@
 # 워크트리 작업 등록부
 
+## lab-engineering-discovery
+
+- 상태: 진행. 2026-09-26 사용자가 밤사이 자동개발 중단의 원인 조사와 후속 과제 자동 발굴을 명시적으로 요청했다.
+- 근거: 2026-09-25 21:25 KST 이후 약 8시간 반 동안 `fixed_engineering_backlog_exhausted` 166회, 새로운 제품 attempt/commit 없음. 고정 spec 소진 뒤 read-only planner보다 먼저 반환하는 구조와 동적 engineering spec 등록 경로 부재가 원인이다.
+- 목표: 기존 READY·implementation review를 먼저 처리하고, 고정 목록 소진 시 read-only 발굴, 별도 scope 검토, 결정적 spec 등록·enqueue, 기존 구현·독립 검토를 연결한다. 사용자는 다음 과제마다 별도 진행 지시를 내릴 필요가 없어야 한다.
+- 범위: 기존 runner·store·contract의 재사용 경계와 전용 discovery 계약/회귀 테스트. 명시된 오프라인 소스·테스트 쌍만 제안하고 한 번에 하나씩 실행한다. 실제 주문·추가 결제·권한/credential 정책·투자 검증 기준 변경은 승인하지 않는다.
+- 완료 조건: 소진 상태에서 discovery dispatch RED/GREEN, scope FAIL/무효/오래된 identity 등록 거부, PASS의 단 한 번 등록, restart 소유권 보존, READY 우선순위, 반복 호출 제한, 기존 검증 gate 보존; focused pytest·Ruff·strict mypy·독립 Sol review 및 운영에서 실제 발굴·다음 작업 실행 확인.
+- 운영: roadmap runner pause·service inactive, timer 유지. 사용자 미추적 `HANDOFF.md`, 이전 작업·실패 기록 보존. 단일 Sol 구현 소유자와 별도 Sol reviewer, 동시 active 최대 4명.
+
 ## lab-runner-backlog-exhaustion-audit
 
-- 상태: 조사 완료, 자동 planner fallthrough 구현 보류. 고정 공학 backlog 소진이 `planning_enabled=true`에도 roadmap planner 앞에서 `idle`을 반환하는 원인을 확인했다.
+- 상태: 조사 완료. 당시 자동 planner fallthrough 구현을 보류했으나, 2026-09-26 명시적 자동 발굴 요청으로 `lab-engineering-discovery`가 후속 구현을 맡는다. 투자 roadmap으로 단순 fallthrough하지 않고 검토된 engineering 제안을 처리한다.
 - 판단: 단순 fallthrough는 area 자료 준비와 제안의 사전 독립 검토 없이 신규 roadmap task를 등록할 수 있어 적용하지 않는다. 기존 pause·governance·quota·fingerprint는 유지하고, 다음 READY 독립 공학 작업이 있으면 계속 진행한다.
 - 재개 조건: 검토된 area와 roadmap·mandate identity에 결속한 승인 기록, enqueue 트랜잭션 안의 재검증, 승인 없음·만료·identity 변화·queue full·pause의 거부 테스트를 설계한다. 투자/PAPER/live·credential 게이트는 변경하지 않는다.
 - 대안: 근거를 확인한 좁은 유한 공학 spec을 등록하거나, 실제 자료 증거가 생긴 기존 roadmap blocker만 제한적으로 재개한다. 기록: `docs/development-records/2026-09-25-lab-runner-backlog-exhaustion-audit.md`.
