@@ -1,8 +1,8 @@
 # 빈 큐의 자동 공학 과제 발굴 복구
 
-- 상태: 구현·검증 진행 중. 운영 활성화와 실제 후속 작업 검증은 아직 완료하지 않았다.
+- 상태: local main 통합·독립 검토·통합 검사 완료. 운영의 실제 후속 작업 검증 진행 중.
 - 작업 slug: `lab-engineering-discovery`
-- 기준: `491349c`; 구현 후보: `050dd0e`. 통합 SHA는 검증 후 기록한다.
+- 기준: `491349c`; 구현: `050dd0e`; 병합 직전 main: `08428fb`; 통합: `9cb75fc`.
 - 범위: 기존 READY·독립 구현 검토를 우선하는 자동 실행기에 제한된 오프라인 과제 발굴을 연결한다. 실거래·투자 검증·credential·권한 경계는 변경하지 않는다.
 
 ## 원인과 근거
@@ -28,9 +28,13 @@
 
 운영 DB 사전 백업의 별도 복사본 `runner-migration-dry-run.db`에 새 `RunnerStore`를 적용했다. 기존 6개 테이블의 973개 행이 값과 순서까지 동일하고, 새 테이블 4개만 추가됐으며 `PRAGMA integrity_check`는 `ok`다. 원본 운영 DB에 대한 테스트 쓰기는 하지 않았다. 구현 agent의 사전·사후 routing audit는 `code/gpt-6-sol/high`의 실제 child 기록으로 통과했다.
 
+별도 `review/gpt-6-sol/high` 검토에서 확인된 P1/P2 지적은 없었다. reviewer의 실제 child routing audit도 통과했다. 통합 `9cb75fc`에서 discovery/backlog/planning/roadmap/review/recovery pytest **164 passed (41.38s)**, 변경 파일 Ruff check/format, 소스 strict mypy와 변경 테스트의 제한된 import strict mypy가 모두 통과했다. 이 작업에는 프런트엔드 변경이 없어 프런트엔드 build는 실행하지 않았다.
+
 ## 안전·운영 상태
 
 수동 수정 전에 roadmap runner를 pause하고 service를 정지했다. timer는 유지한다. tracked main이 깨끗하고 통합 검증이 통과한 뒤 새 설정을 활성화하고 재개한다. 사용자 미추적 `HANDOFF.md`, 기존 실패 시도와 관련 없는 워크트리는 보존한다. 원격 push·실주문·PAPER/live 활성화·추가 결제·Windows 종료는 수행하지 않는다.
+
+2026-09-25T21:30Z 통합 검증 후 설치의 `automatic_engineering_discovery=true`를 적용했다. 기존 `daily_launches=null`, timeout·cooldown·credential·권한 설정은 그대로 유지했다. 이 설정은 사용자 승인된 기존 Codex 개발 호출을 연결하며 추가 유료 서비스를 설치하지 않는다.
 
 ## 증거와 복구
 
