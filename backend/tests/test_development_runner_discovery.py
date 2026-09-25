@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Literal
 
 import pytest
-from test_development_runner_backlog import _config, _store
+from test_development_runner_backlog import _config, _fake_blocked_child, _store
 
 from jusik import development_runner as runner
 from jusik.development_runner_contract import AUTOMATIC_ENGINEERING_BACKLOG
@@ -27,7 +27,7 @@ from jusik.development_runner_discovery import (
     strict_output_schema,
     validate_proposal,
 )
-from jusik.development_runner_store import RunnerStore
+from jusik.development_runner_store import RunnerStore, RunnerTask
 from jusik.research_mandate_governance import validate_dispatch_gate
 
 
@@ -186,6 +186,106 @@ def test_structured_schemas_require_every_nested_property() -> None:
                     inspect(child)
 
         inspect(schema)
+
+
+def test_completion_schema_guides_blocker_identity_and_retry_deadline() -> None:
+    blocker = runner._completion_schema(set(), engineering=True)["properties"][
+        "blocker"
+    ]["properties"]
+    identity = blocker["dependency_identity"]
+    deadline = blocker["next_eligible_retry"]
+    assert identity["pattern"] == "^(missing|[a-f0-9]{64})$"
+    assert all(
+        word in identity["description"] for word in ("null", "missing", "SHA-256")
+    )
+    assert "UTC" in deadline["description"]
+    assert "bounded" in deadline["description"]
+    assert "null" in deadline["description"]
+
+
+@pytest.mark.parametrize(
+    ("dependency_identity", "retry_policy", "next_eligible_retry"),
+    [
+        ("attempt offline cache", "manual", None),
+        (None, "bounded", None),
+        ("0" * 64, "manual", "2026-09-26T00:00:00Z"),
+    ],
+)
+def test_malformed_operational_blocker_remains_fail_closed(
+    tmp_path: Path,
+    dependency_identity: str | None,
+    retry_policy: str,
+    next_eligible_retry: str | None,
+) -> None:
+    config = runner.RunnerConfig(
+        repo=tmp_path,
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifact",
+    )
+    task = RunnerTask(
+        id="offline-task",
+        area="__engineering__",
+        prompt="offline task",
+        status="running",
+        attempt_count=1,
+        next_allowed_at=None,
+        last_attempt_id="attempt",
+        depends_on=None,
+        task_kind="engineering",
+    )
+    payload = {
+        "task_id": task.id,
+        "attempt_id": "attempt",
+        "status": "waiting_external",
+        "tests_passed": False,
+        "review_passed": False,
+        "blocked_reason": "dependency_setup",
+        "blocker": {
+            "blocker_reason": "dependency_setup",
+            "attempted_actions": [],
+            "dependency": None,
+            "dependency_identity": dependency_identity,
+            "resume_condition": "owned environment available",
+            "retry_policy": retry_policy,
+            "next_eligible_retry": next_eligible_retry,
+            "alternative_ready_tasks": [],
+        },
+    }
+    with pytest.raises(ValueError, match="completion schema invalid"):
+        runner.validate_completion(payload, task, "attempt", config)
+
+
+def test_dynamic_implementation_receives_existing_dependency_permission(
+    tmp_path: Path,
+) -> None:
+    discovery_child = tmp_path / "fake-discovery.py"
+    _fake_child(discovery_child)
+    config, _ = _exhausted(tmp_path, discovery_child)
+    assert runner.run_once(config).reason == "discovery_scope"
+    assert runner.run_once(config).reason == "discovery_approved"
+    implementation_child = tmp_path / "fake-implementation.py"
+    _fake_blocked_child(implementation_child)
+    result = runner.run_once(
+        config.model_copy(update={"codex": str(implementation_child)})
+    )
+    assert result.status == "blocked" and result.attempt_id is not None
+    prompt = (
+        config.state_dir / "attempts" / result.attempt_id / "prompt.txt"
+    ).read_text(encoding="utf-8")
+    assert runner.OFFLINE_DEPENDENCY_GUIDANCE in runner.COMMON_PROMPT
+    assert runner.OFFLINE_DEPENDENCY_GUIDANCE in prompt
+
+
+def test_common_guidance_scopes_provider_restriction_to_offline_validation() -> None:
+    guidance = runner.OFFLINE_DEPENDENCY_GUIDANCE
+    assert (
+        "During offline product validation, do not access market-data providers"
+        in guidance
+    )
+    assert "Real brokerage orders remain forbidden for every task." in guidance
+    assert guidance in runner.COMMON_PROMPT
 
 
 def test_no_work_requires_actual_allowlisted_inspection() -> None:

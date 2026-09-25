@@ -120,6 +120,15 @@ RESEARCH_MANDATE_REQUIRED_FIELDS = frozenset(
         "user_answers",
     }
 )
+OFFLINE_DEPENDENCY_GUIDANCE = (
+    "For offline product validation, a task's no-network boundary still permits "
+    "installing ALREADY committed pinned requirements in its owned virtual "
+    "environment using the runner's existing network permission. Never add or "
+    "change declared dependencies or network permissions. During offline product "
+    "validation, do not access market-data providers or order APIs. Real brokerage "
+    "orders remain forbidden for every task. If setup remains unavailable, "
+    "use the existing bounded environment recovery contract."
+)
 COMMON_PROMPT = (
     "Follow the repository workflow: explore relevant code and AGENTS.md, write a "
     "bounded plan, use at most four active agents including the planner and at most "
@@ -138,7 +147,9 @@ COMMON_PROMPT = (
     "instead of repeating escalation. Preserve unrelated work and never use real "
     "orders, remote "
     "push, PAPER engine or PAPER database mutation, arbitrary service changes, "
-    "or unapproved GPU changes. GPU use is opt-in and on-demand only: for portfolio "
+    "or unapproved GPU changes. "
+    f"{OFFLINE_DEPENDENCY_GUIDANCE} GPU use is opt-in and on-demand only: for "
+    "portfolio "
     "stress work use "
     "python -m jusik.research_portfolio_gpu_stress --request PATH --output-dir PATH "
     "--device auto|cpu|cuda with pinned input, seed, bounds, and CPU parity; "
@@ -366,13 +377,35 @@ COMPLETION_SCHEMA: dict[str, Any] = {
                 "blocker_reason": {"type": "string", "minLength": 1, "maxLength": 2000},
                 "attempted_actions": {"type": "array", "items": {"type": "string"}},
                 "dependency": {"type": ["string", "null"]},
-                "dependency_identity": {"type": ["string", "null"]},
+                "dependency_identity": {
+                    "type": ["string", "null"],
+                    "pattern": "^(missing|[a-f0-9]{64})$",
+                    "description": (
+                        "Use null when inapplicable, missing when absent, or the "
+                        "lowercase SHA-256 hash of known dependency evidence. "
+                        "Never use prose or an attempt identifier."
+                    ),
+                },
                 "resume_condition": {"type": "string", "minLength": 1},
                 "retry_policy": {
                     "type": "string",
                     "enum": ["none", "manual", "event", "bounded"],
+                    "description": (
+                        "bounded requires a valid UTC next_eligible_retry; "
+                        "other policies require null."
+                    ),
                 },
-                "next_eligible_retry": {"type": ["string", "null"]},
+                "next_eligible_retry": {
+                    "type": ["string", "null"],
+                    "pattern": (
+                        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
+                        r"(?:\.\d+)?(?:Z|\+00:00)$"
+                    ),
+                    "description": (
+                        "Use a valid UTC ISO 8601 timestamp ending Z or +00:00 "
+                        "when retry_policy is bounded; use null otherwise."
+                    ),
+                },
                 "alternative_ready_tasks": {
                     "type": "array",
                     "items": {"type": "string"},
@@ -2698,6 +2731,7 @@ def run_once(
                 "Use those absolute main paths in completion.evidence, never task "
                 "worktree paths or audit copies. Keep durable handoff and audit "
                 "evidence separately under allowed roots. "
+                f"{OFFLINE_DEPENDENCY_GUIDANCE} "
             )
             if task.last_attempt_id is not None:
                 engineering_guidance += (
