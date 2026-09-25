@@ -339,17 +339,16 @@ class RunnerStore:
             ).fetchone()
         return self._attempt(row) if row else None
 
-    def active_review(self) -> ReviewAttempt | None:
+    def running_reviews(self) -> list[ReviewAttempt]:
         with self._connect() as db:
-            row = db.execute(
+            rows = db.execute(
                 "SELECT id,task_id,process_group_id FROM review_attempts "
-                "WHERE status='running' ORDER BY started_at LIMIT 1"
-            ).fetchone()
-        return (
+                "WHERE status='running' ORDER BY started_at,id"
+            ).fetchall()
+        return [
             ReviewAttempt(str(row["id"]), str(row["task_id"]), row["process_group_id"])
-            if row is not None
-            else None
-        )
+            for row in rows
+        ]
 
     @staticmethod
     def _matches_candidate(raw: Any, candidate: ReviewCandidate) -> bool:
@@ -363,20 +362,21 @@ class RunnerStore:
             and envelope.get("completion") == candidate.completion
         )
 
-    def recover_running_reviews(self) -> list[str]:
-        """Keep interrupted reviewer history; permit one bounded fresh review."""
+    def recover_running_reviews(self, attempt_ids: list[str]) -> list[str]:
+        """Interrupt only reviewers whose process groups have stopped."""
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            rows = db.execute(
-                "SELECT id FROM review_attempts WHERE status='running'"
-            ).fetchall()
-            db.execute(
-                "UPDATE review_attempts SET status='interrupted',ended_at=?,"
-                "failure_code='runner_restart' WHERE status='running'",
-                (utc_now(),),
-            )
+            recovered: list[str] = []
+            for review_id in attempt_ids:
+                changed = db.execute(
+                    "UPDATE review_attempts SET status='interrupted',ended_at=?,"
+                    "failure_code='runner_restart' WHERE id=? AND status='running'",
+                    (utc_now(), review_id),
+                )
+                if changed.rowcount == 1:
+                    recovered.append(review_id)
             db.commit()
-        return [str(row["id"]) for row in rows]
+        return recovered
 
     def review_candidate(self) -> ReviewCandidate | None:
         """Only new, validated candidate envelopes can enter this path."""

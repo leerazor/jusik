@@ -1170,6 +1170,30 @@ def _attempt_environment(attempt_dir: Path) -> dict[str, str]:
     return environment
 
 
+def _review_environment(review_dir: Path) -> dict[str, str]:
+    """Pass only launch and authentication location, never inherited secret values."""
+    allowed = ("PATH", "HOME", "CODEX_HOME", "LANG", "LC_ALL", "LC_CTYPE", "TERM")
+    environment = {
+        name: value for name in allowed if (value := os.environ.get(name)) is not None
+    }
+    cache_root = review_dir / "cache"
+    _secure_dir(cache_root)
+    for name in (
+        "XDG_CACHE_HOME",
+        "UV_CACHE_DIR",
+        "PIP_CACHE_DIR",
+        "RUFF_CACHE_DIR",
+        "MYPY_CACHE_DIR",
+    ):
+        path = cache_root / name.lower()
+        _secure_dir(path)
+        environment[name] = str(path)
+    temporary = review_dir / "tmp"
+    _secure_dir(temporary)
+    environment["TMPDIR"] = str(temporary)
+    return environment
+
+
 def _automatic_retry_requested(
     config: RunnerConfig,
     *,
@@ -1576,6 +1600,26 @@ def _process_group_alive(group_id: int | None) -> bool:
     return True
 
 
+def _wait_for_group_exit(group_id: int | None, timeout_seconds: float) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while _process_group_alive(group_id):
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.05)
+    return True
+
+
+def _stop_orphaned_review_group(group_id: int | None) -> bool:
+    """Escalate within a fixed limit and confirm exit before journal recovery."""
+    if not _process_group_alive(group_id):
+        return True
+    _terminate_group(group_id)
+    if _wait_for_group_exit(group_id, 2.0):
+        return True
+    _terminate_group(group_id, force=True)
+    return _wait_for_group_exit(group_id, 1.0)
+
+
 def pause_runner(config: RunnerConfig) -> None:
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
     store.pause()
@@ -1663,7 +1707,7 @@ def _run_review(
                 stdout=stdout,
                 stderr=stderr,
                 start_new_session=True,
-                env=_attempt_environment(review_dir),
+                env=_review_environment(review_dir),
             )
         except OSError:
             store.finish_review(
@@ -1811,14 +1855,24 @@ def run_once(
                 active.id,
                 "previous attempt process group is still alive",
             )
-        active_review = store.active_review()
-        if active_review is not None and _process_group_alive(
-            active_review.process_group_id
-        ):
-            _terminate_group(active_review.process_group_id)
+        recoverable_reviews: list[str] = []
+        surviving_reviews = []
+        for active_review in store.running_reviews():
+            if _stop_orphaned_review_group(active_review.process_group_id):
+                recoverable_reviews.append(active_review.id)
+            else:
+                surviving_reviews.append(active_review)
+        store.recover_running_reviews(recoverable_reviews)
+        if surviving_reviews:
+            survivor = surviving_reviews[0]
+            return RunResult(
+                "blocked",
+                survivor.task_id,
+                survivor.id,
+                "previous review process group is still alive",
+            )
         _safe_history_flush(store, config)
         interrupted = store.recover_running()
-        store.recover_running_reviews()
         if interrupted:
             _safe_history_flush(store, config)
         if store.is_paused():
