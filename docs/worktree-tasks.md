@@ -2,11 +2,11 @@
 
 ## lab-lifecycle-receipt-revision-guard-v1
 
-- 상태: 진행 중. 오프라인 receipt DB의 직접 SQL 삽입이 현재 전략 revision을 우회하는 문제를 고정 공학 backlog에 등록한다.
+- 상태: 완료. 오프라인 receipt DB의 직접 SQL 삽입이 현재 전략 revision을 우회하는 문제를 고정 공학 backlog에서 검증했다.
 - 목표: `lifecycle_evidence_receipts`의 신규 INSERT가 존재하는 전략 ID·버전의 현재 revision과 정확히 일치하도록 DB `BEFORE INSERT` trigger로 강제한다. `PRAGMA foreign_keys=OFF` 연결도 우회할 수 없어야 한다.
 - 범위: spec은 `backend/jusik/development_runner_contract.py`와 `backend/tests/test_development_runner_backlog.py`; 제품은 `backend/jusik/strategy_lifecycle_receipt.py`와 `backend/tests/test_strategy_lifecycle_receipt.py` 두 파일만 소유한다. 기존 legacy receipt·허용 전이·strategy state·투자 판정·PAPER/live·주문은 바꾸지 않는다.
 - 완료 조건: 과거·미래 revision, 없는 전략·잘못된 버전의 직접 INSERT 거부; 현재 revision은 허용; 거부 뒤 receipt/event/state 불변; 기존 API `record/verify`와 revision 충돌·동시성 회귀 통과. focused pytest·Ruff·strict mypy, 별도 Sol 검토, runner `ENGINEERING_COMPLETE/NOT_EVALUATED`.
-- 운영: runner pause·service inactive, timer 유지. 사용자 미추적 `HANDOFF.md`와 기존 작업물 보존; 원격 push·실주문·권한/credential 변경 금지.
+- 운영 결과: spec `c6d848c`, 자동 제품 구현 `c8ef92c`, 형식만 정리한 `9926ebb`를 local `main`에 통합했다. 운영 독립 reviewer PASS 후 `DONE/ENGINEERING_COMPLETE/NOT_EVALUATED`다. 최종 파일은 별도 Sol 검토 PASS, 제품·lifecycle pytest 35개, backlog pytest 33개, Ruff check/format, strict mypy 통과. 최종 형식 변경은 AST 동일을 확인했다. 개발 기록: `docs/development-records/2026-09-25-lab-lifecycle-receipt-revision-guard-v1.md`; handoff: `docs/handoffs/2026-09-25-receipt-guard.md`. 사용자 미추적 `HANDOFF.md`와 기존 작업물 보존; 원격 push·실주문·권한/credential 변경 없음.
 
 ## lab-paper-execution-fill-fee-v1
 

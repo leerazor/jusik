@@ -423,7 +423,7 @@ PASS로 완료됐고, 후속 2번의 strategy version 결속 receipt adapter는 
 남은 우선순위는 다음과 같다.
 
 1. 기존 차단 attempt는 별도 근거가 있을 때만 대사한다. 기록 없는 과거 시도를 새 receipt로 소급 승인하지 않는다. 재시작 시 프로세스 정체가 불명확하면 해당 검토만 격리하고 다른 READY를 진행한다.
-2. 결속된 lifecycle receipt가 실제 전략 전이에서 요구되는지 확인한다. 기존 결과 자동 이관 금지.
+2. 결속된 lifecycle receipt가 실제 전략 전이에서 요구될 증거 종류·출처·검증 결과를 정의한다. 현재 receipt는 identity만 증명하므로 단독으로 전이를 승인하지 않는다. 기존 결과 자동 이관 금지.
 3. 오프라인 execution contract를 향후 모의 adapter와 연결하기 전 실제 비용 출처와 사후 정정 의미, 상태·재시작 경계를 추가 검증한다. 현재 수수료 보존은 fake-broker 계약만 제공하며 실제 주문을 수행하지 않는다.
 4. KIS 공식 모의주문 계약·권한·계정 환경을 확인하고 별도 sandbox adapter를 연결한다. 내부 PAPER와 KIS paper를 다른 source로 기록한다.
 5. prospective 실제 관찰 수집과 실시간 비용/PnL 대사를 완성한다.
