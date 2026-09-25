@@ -104,6 +104,15 @@ def test_failed_output_digest_is_recorded_with_failure(tmp_path: Path) -> None:
             "completion_invalid",
             json.dumps(_output_evidence(source), sort_keys=True),
         )
+        assert (
+            db.execute(
+                "SELECT value FROM runner_meta "
+                "WHERE key='failed_output_digest_min_rowid'"
+            ).fetchone()
+            == db.execute(
+                "SELECT CAST(rowid AS TEXT) FROM attempts WHERE id='implementation'"
+            ).fetchone()
+        )
 
 
 @pytest.mark.parametrize("output", [b'{"invalid": true}', None])
@@ -188,6 +197,56 @@ def test_recorded_digest_rejects_postfailure_rewrite_with_new_pin(
     source.write_bytes(source.read_bytes() + b" ")
     _write_transcript(config.state_dir / "stdout.jsonl", source.read_text())
     assert _recover(config, store) is None
+
+
+def test_recorded_digest_erased_before_candidate_still_rejects_new_pin(
+    tmp_path: Path,
+) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    source = config.state_dir / "original-completion.json"
+    with sqlite3.connect(store.db_path) as db:
+        db.execute(
+            "UPDATE attempts SET status='running',failure_code=NULL,evidence_json=NULL "
+            "WHERE id='implementation'"
+        )
+        db.execute("UPDATE tasks SET status='running' WHERE id='engineering'")
+    store.finish(
+        "implementation",
+        "engineering",
+        "failed",
+        failure_code="completion_invalid",
+        evidence=runner._failed_output_evidence(source),
+    )
+    _record_failed_output(store, None)
+    source.write_bytes(source.read_bytes() + b" ")
+    _write_transcript(config.state_dir / "stdout.jsonl", source.read_text())
+    assert _recover(config, store) is None
+
+
+@pytest.mark.parametrize("delete_cutoff", [False, True])
+def test_older_legacy_failure_respects_activation_provenance(
+    tmp_path: Path, delete_cutoff: bool
+) -> None:
+    config, store, _ = _failed_candidate(tmp_path)
+    assert store.enqueue(
+        "new-engineering", "__engineering__", "fixture", task_kind="engineering"
+    )
+    task = store.task("new-engineering")
+    assert task is not None
+    store.claim(task, "new-attempt", tmp_path / "new-output", tmp_path / "new-error")
+    store.finish(
+        "new-attempt",
+        task.id,
+        "failed",
+        failure_code="completion_invalid",
+        evidence={"failed_output_digest_version": 1, "sha256": None},
+    )
+    if delete_cutoff:
+        with sqlite3.connect(store.db_path) as db:
+            db.execute(
+                "DELETE FROM runner_meta WHERE key='failed_output_digest_min_rowid'"
+            )
+    assert (_recover(config, store) is None) is delete_cutoff
 
 
 @pytest.mark.parametrize(

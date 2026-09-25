@@ -24,10 +24,12 @@ def utc_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def failed_output_digest_matches(evidence_json: str | None, sha256: str) -> bool:
+def failed_output_digest_matches(
+    evidence_json: str | None, sha256: str, *, allow_legacy: bool = False
+) -> bool:
     """Legacy SQL NULL has no historical digest; new records must match exactly."""
     if evidence_json is None:
-        return True
+        return allow_legacy
     try:
         evidence = json.loads(evidence_json)
     except (TypeError, ValueError):
@@ -41,6 +43,23 @@ def failed_output_digest_matches(evidence_json: str | None, sha256: str) -> bool
         and re.fullmatch(r"[a-f0-9]{64}", evidence["sha256"]) is not None
         and evidence["sha256"] == sha256
     )
+
+
+def _legacy_failed_output_allowed(db: sqlite3.Connection, attempt_rowid: int) -> bool:
+    cutoff = db.execute(
+        "SELECT value FROM runner_meta WHERE key='failed_output_digest_min_rowid'"
+    ).fetchone()
+    if cutoff is None:
+        marker = db.execute(
+            "SELECT 1 FROM attempts WHERE failure_code='completion_invalid' "
+            "AND evidence_json IS NOT NULL LIMIT 1"
+        ).fetchone()
+        return marker is None
+    try:
+        first_new_rowid = int(cutoff["value"])
+    except (TypeError, ValueError):
+        return False
+    return first_new_rowid > 0 and attempt_rowid < first_new_rowid
 
 
 def failed_output_evidence_identity(evidence_json: str | None) -> str:
@@ -117,6 +136,7 @@ class FailedCandidateSource:
     output_path: str
     baseline_head: str
     output_evidence: str | None = None
+    legacy_output_allowed: bool = False
 
 
 @dataclass(frozen=True)
@@ -503,7 +523,7 @@ class RunnerStore:
         with self._connect() as db:
             row = db.execute(
                 "SELECT tasks.*,attempts.output_path,attempts.baseline_head,"
-                "attempts.evidence_json "
+                "attempts.evidence_json,attempts.rowid AS attempt_rowid "
                 "FROM tasks JOIN attempts ON attempts.id=tasks.last_attempt_id "
                 "WHERE tasks.id=? AND attempts.id=? "
                 "AND tasks.task_kind='engineering' AND tasks.status='failed' "
@@ -511,6 +531,9 @@ class RunnerStore:
                 "AND attempts.failure_code='completion_invalid'",
                 (task_id, attempt_id),
             ).fetchone()
+            legacy_allowed = row is not None and _legacy_failed_output_allowed(
+                db, int(row["attempt_rowid"])
+            )
         if (
             row is None
             or not isinstance(row["output_path"], str)
@@ -523,6 +546,7 @@ class RunnerStore:
             row["output_path"],
             row["baseline_head"],
             row["evidence_json"],
+            legacy_allowed,
         )
 
     def create_recovery_candidate(
@@ -542,7 +566,8 @@ class RunnerStore:
             row = db.execute(
                 "SELECT tasks.status,tasks.last_attempt_id,tasks.attempt_count,"
                 "attempts.status AS attempt_status,attempts.failure_code,"
-                "attempts.output_path,attempts.baseline_head,attempts.evidence_json "
+                "attempts.output_path,attempts.baseline_head,attempts.evidence_json,"
+                "attempts.rowid AS attempt_rowid "
                 "FROM tasks JOIN attempts ON attempts.id=tasks.last_attempt_id "
                 "WHERE tasks.id=? AND tasks.task_kind='engineering'",
                 (source.task.id,),
@@ -558,8 +583,14 @@ class RunnerStore:
                 or row["output_path"] != source.output_path
                 or row["baseline_head"] != source.baseline_head
                 or row["evidence_json"] != source.output_evidence
+                or _legacy_failed_output_allowed(db, int(row["attempt_rowid"]))
+                != source.legacy_output_allowed
                 or not failed_output_digest_matches(
-                    row["evidence_json"], recovery["source_sha256"]
+                    row["evidence_json"],
+                    recovery["source_sha256"],
+                    allow_legacy=_legacy_failed_output_allowed(
+                        db, int(row["attempt_rowid"])
+                    ),
                 )
                 or not recovery_evidence_matches(row["evidence_json"], recovery)
             ):
@@ -633,10 +664,14 @@ class RunnerStore:
             return False
         with self._connect() as db:
             row = db.execute(
-                "SELECT status,failure_code,output_path,baseline_head,evidence_json "
+                "SELECT status,failure_code,output_path,baseline_head,evidence_json,"
+                "rowid AS attempt_rowid "
                 "FROM attempts WHERE id=? AND task_id=?",
                 (recovery["source_attempt_id"], candidate.task.id),
             ).fetchone()
+            legacy_allowed = row is not None and _legacy_failed_output_allowed(
+                db, int(row["attempt_rowid"])
+            )
         return bool(
             row is not None
             and row["status"] == "failed"
@@ -644,7 +679,9 @@ class RunnerStore:
             and row["output_path"] == recovery["source_output_path"]
             and row["baseline_head"] == candidate.baseline_head
             and failed_output_digest_matches(
-                row["evidence_json"], recovery["source_sha256"]
+                row["evidence_json"],
+                recovery["source_sha256"],
+                allow_legacy=legacy_allowed,
             )
             and recovery_evidence_matches(row["evidence_json"], recovery)
         )
@@ -939,7 +976,8 @@ class RunnerStore:
                 if candidate.recovery is not None:
                     source = db.execute(
                         "SELECT status,failure_code,output_path,baseline_head,"
-                        "evidence_json FROM attempts WHERE id=? AND task_id=?",
+                        "evidence_json,rowid AS attempt_rowid FROM attempts "
+                        "WHERE id=? AND task_id=?",
                         (
                             candidate.recovery["source_attempt_id"],
                             candidate.task.id,
@@ -983,6 +1021,9 @@ class RunnerStore:
                         or not failed_output_digest_matches(
                             source["evidence_json"],
                             candidate.recovery["source_sha256"],
+                            allow_legacy=_legacy_failed_output_allowed(
+                                db, int(source["attempt_rowid"])
+                            ),
                         )
                         or not recovery_evidence_matches(
                             source["evidence_json"], candidate.recovery
@@ -1159,13 +1200,14 @@ class RunnerStore:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             task = db.execute(
-                "SELECT status,attempt_count,last_attempt_id,"
+                "SELECT status,attempt_count,last_attempt_id,task_kind,"
                 "previous_attempt_id,depends_on "
                 "FROM tasks WHERE id=?",
                 (task_id,),
             ).fetchone()
             attempt = db.execute(
-                "SELECT status FROM attempts WHERE id=? AND task_id=?",
+                "SELECT status,rowid AS attempt_rowid FROM attempts "
+                "WHERE id=? AND task_id=?",
                 (attempt_id, task_id),
             ).fetchone()
             if (
@@ -1188,6 +1230,18 @@ class RunnerStore:
                     attempt_id,
                 ),
             )
+            if (
+                task["task_kind"] == "engineering"
+                and status == "failed"
+                and failure_code == "completion_invalid"
+                and isinstance(evidence, dict)
+                and evidence.get("failed_output_digest_version") == 1
+            ):
+                db.execute(
+                    "INSERT OR IGNORE INTO runner_meta(key,value) "
+                    "VALUES('failed_output_digest_min_rowid',?)",
+                    (str(attempt["attempt_rowid"]),),
+                )
             task_status = "completed" if status == "completed" else status
             if blocker is None and status in {
                 "blocked",

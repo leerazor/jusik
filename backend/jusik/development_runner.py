@@ -940,7 +940,11 @@ def recover_failed_candidate(
         original_sha256 = hashlib.sha256(source_bytes).hexdigest()
         if (
             original_sha256 != expected_source_sha256
-            or not failed_output_digest_matches(source.output_evidence, original_sha256)
+            or not failed_output_digest_matches(
+                source.output_evidence,
+                original_sha256,
+                allow_legacy=source.legacy_output_allowed,
+            )
         ):
             return None
         transcript_sha256 = _recovery_transcript_sha256(
