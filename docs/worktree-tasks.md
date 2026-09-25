@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## lab-independent-review-receipt
+
+- 상태: 준비. 운영 roadmap runner는 수동 개발 동안 pause, service inactive; timer는 유지한다.
+- 목표: 공학 구현 후보와 분리된 읽기 전용 review attempt를 기록하고, 정확한 구현 attempt·HEAD·소유 파일 hash에 결속한 PASS만 원자적 기술 완료로 확정한다. 실패·대기 중 다른 READY는 계속 선택한다.
+- 담당: supervisor 통합, 단일 Sol 구현 소유자, 별도 Sol 독립 검토. 동시 active 4개 이하.
+- 워크트리: `/home/kwl/projects/jusik-lab-independent-review-receipt`; 브랜치 `feat/lab-independent-review-receipt`; 기준은 등록 커밋.
+- 범위: `backend/jusik/development_runner_contract.py`, `development_runner.py`, `development_runner_store.py`, 필요 시 전용 review 모듈과 관련 테스트. 문서·등록부·통합은 supervisor 소유.
+- 검증: 후보/검토 attempt 분리, PASS identity/hash/current HEAD 재검증, timeout·중단 복구, 원자 완료, BLOCKED/WAITING 뒤 독립 READY, 기존 연구 호환을 임시 저장소·SQLite로 검증하고 pytest/Ruff/mypy·독립 review를 수행한다.
+- 비범위: 기존 `f585f13` 운영 attempt의 소급 승인, 실제 주문·PAPER 승격, 권한 확대·credential 변경. 기존 사용자 `HANDOFF.md`와 다른 worktree를 보존한다.
+- 개발 기록: `docs/development-records/2026-09-25-lab-independent-review-receipt.md`.
+
 ## autonomous-lab
 
 - 상태: 설계와 최소 구현을 local `main`에 통합·검증. 독립 reviewer dispatch/receipt 확정은 후속 작업.
