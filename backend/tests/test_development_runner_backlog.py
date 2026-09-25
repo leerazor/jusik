@@ -37,7 +37,7 @@ def _config(tmp_path: Path, fake: Path, *, enabled: bool = True) -> RunnerConfig
         cooldown_seconds=0,
         planning_enabled=True,
         automatic_engineering_backlog=enabled,
-        scope=ROADMAP_SCOPE,
+        scope="investment-roadmap",
     )
 
 
@@ -227,24 +227,18 @@ def test_blocked_legacy_is_preserved_and_new_specs_dispatch_once(
         },
     )
     original = store.task(ENGINEERING_SPEC_ID)
-
-    first = run_once(config)
-    assert (first.status, first.task_id) == (
-        "blocked",
-        AUTOMATIC_ENGINEERING_BACKLOG[0].id,
-    )
-    assert store.task(ENGINEERING_SPEC_ID) == original
-    assert store.task(AUTOMATIC_ENGINEERING_BACKLOG[0].id).attempt_count == 1  # type: ignore[union-attr]
-    assert store.task(AUTOMATIC_ENGINEERING_BACKLOG[1].id) is None
-
-    second = run_once(config)
-    assert (second.status, second.task_id) == (
-        "blocked",
-        AUTOMATIC_ENGINEERING_BACKLOG[1].id,
-    )
-    assert store.task(AUTOMATIC_ENGINEERING_BACKLOG[0].id).status == "blocked"  # type: ignore[union-attr]
-    assert store.task(ENGINEERING_SPEC_ID) == original
-    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 2
+    for index, spec in enumerate(AUTOMATIC_ENGINEERING_BACKLOG):
+        result = run_once(config)
+        assert (result.status, result.task_id) == ("blocked", spec.id)
+        task = store.task(spec.id)
+        assert task is not None
+        assert (task.status, task.attempt_count) == ("blocked", 1)
+        assert store.task(ENGINEERING_SPEC_ID) == original
+        assert all(
+            store.task(remaining.id) is None
+            for remaining in AUTOMATIC_ENGINEERING_BACKLOG[index + 1 :]
+        )
+        assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == index + 1
 
     exhausted = run_once(config)
     assert (exhausted.status, exhausted.reason) == (
@@ -255,7 +249,43 @@ def test_blocked_legacy_is_preserved_and_new_specs_dispatch_once(
     assert idle["reason"] == exhausted.reason
     assert datetime.fromisoformat(idle["next_check_at"]) > datetime.now(UTC)
     assert run_once(config).status == "idle"
-    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == 2
+    assert store.launch_count(datetime.now(UTC).strftime("%Y-%m-%d")) == len(
+        AUTOMATIC_ENGINEERING_BACKLOG
+    )
+
+
+def test_cancel_claim_spec_releases_exhausted_idle(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-child.py"
+    _fake_blocked_child(fake)
+    config = _config(tmp_path, fake)
+    store = _store(config)
+    spec = ENGINEERING_SPEC_BY_ID["lab-paper-execution-cancel-claim-v1"]
+    assert AUTOMATIC_ENGINEERING_BACKLOG[-1] == spec
+    assert spec.owned_paths == frozenset(
+        {
+            "backend/jusik/paper_execution_contract.py",
+            "backend/tests/test_paper_execution_contract.py",
+        }
+    )
+    for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-1]:
+        assert store.enqueue(
+            previous.id, previous.area, previous.prompt, task_kind="engineering"
+        )
+        assert store.quarantine(
+            previous.id,
+            "blocked",
+            {"blocker_reason": "fixture", "next_eligible_retry": None},
+        )
+    _idle(store)
+
+    result = run_once(config)
+
+    assert (result.status, result.task_id) == ("blocked", spec.id)
+    assert store.get_meta("idle_status") is None
+    assert all(
+        store.task(previous.id).status == "blocked"  # type: ignore[union-attr]
+        for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-1]
+    )
 
 
 @pytest.mark.parametrize("gate", ["disabled", "paused", "quota", "cooldown"])

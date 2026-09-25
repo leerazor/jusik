@@ -83,6 +83,24 @@ ENGINEERING_SPECS = (
         "reviewer decides PASS.",
         ENGINEERING_OWNED_PATHS,
     ),
+    EngineeringSpec(
+        "lab-paper-execution-cancel-claim-v1",
+        ENGINEERING_SPEC_AREA,
+        "Fix only the offline shared-SQLite ExecutionLedger.cancel race in "
+        "backend/jusik/paper_execution_contract.py and focused tests in "
+        "backend/tests/test_paper_execution_contract.py. Atomically read the "
+        "current journal snapshot and claim cancellation before calling the "
+        "fake broker; if another ledger already persisted FILLED, do not call "
+        "broker.cancel. Add deterministic two-ledger stale-cancel, duplicate "
+        "cancel and restart tests. Preserve existing order and reconciliation "
+        "safety. No real broker adapter, network, credentials, PAPER/live "
+        "activation, investment gate, production wiring or dependency changes. "
+        "Use offline pytest, Ruff and strict mypy. Return a candidate with exact "
+        "owned-file evidence, integrated commit, tests_passed=true, "
+        "review_passed=false and null engineering/investment status. A separate "
+        "reviewer decides PASS.",
+        ENGINEERING_OWNED_PATHS,
+    ),
 )
 ENGINEERING_SPEC_BY_ID = {spec.id: spec for spec in ENGINEERING_SPECS}
 AUTOMATIC_ENGINEERING_BACKLOG = ENGINEERING_SPECS[1:]
