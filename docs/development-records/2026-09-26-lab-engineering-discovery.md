@@ -2,7 +2,7 @@
 
 - 상태: 구현·검증 진행 중. 운영 활성화와 실제 후속 작업 검증은 아직 완료하지 않았다.
 - 작업 slug: `lab-engineering-discovery`
-- 기준: `491349c`; 통합 SHA는 검증 후 기록한다.
+- 기준: `491349c`; 구현 후보: `050dd0e`. 통합 SHA는 검증 후 기록한다.
 - 범위: 기존 READY·독립 구현 검토를 우선하는 자동 실행기에 제한된 오프라인 과제 발굴을 연결한다. 실거래·투자 검증·credential·권한 경계는 변경하지 않는다.
 
 ## 원인과 근거
@@ -24,7 +24,9 @@
 
 ## 검증
 
-고정 backlog 소진 상태에서 발굴 dispatch가 누락되는 RED를 먼저 확인했다. 구현 담당자의 focused 검사는 진행 중이며, 최종 통합 검사와 별도 Sol review 결과를 이 절에 추가한다. fake CLI 검증과 실제 설치의 Codex 실행 검증은 분리한다.
+고정 backlog 소진 상태에서 발굴 dispatch가 누락되는 RED를 먼저 확인했다. 구현 담당자의 관련 runner pytest 164개와 최종 커밋의 발굴 pytest 17개가 통과했다. 변경 파일 Ruff check/format, 소스 3개 strict mypy, `git diff --check`가 통과했다. 변경 테스트의 strict mypy는 기존 imported test의 타입 오류를 분리하기 위해 `--follow-imports=silent`를 사용했다. 최종 통합 검사와 별도 Sol review 결과는 별도로 추가한다. fake CLI 검증과 실제 설치의 Codex 실행 검증은 분리한다.
+
+운영 DB 사전 백업의 별도 복사본 `runner-migration-dry-run.db`에 새 `RunnerStore`를 적용했다. 기존 6개 테이블의 973개 행이 값과 순서까지 동일하고, 새 테이블 4개만 추가됐으며 `PRAGMA integrity_check`는 `ok`다. 원본 운영 DB에 대한 테스트 쓰기는 하지 않았다. 구현 agent의 사전·사후 routing audit는 `code/gpt-6-sol/high`의 실제 child 기록으로 통과했다.
 
 ## 안전·운영 상태
 
@@ -34,6 +36,7 @@
 
 - 운영 DB 사전 백업: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-engineering-discovery/runner-before-discovery.db`.
 - 백업 integrity: `ok`; SHA-256: `ec3e16f0d05e34eaae3262e53bf64c14c5454c9c19469cdea9722bfc0d1d6fd1`.
+- 설정 사전 백업: 같은 audit 디렉터리의 `runner-config-before-discovery.json`; SHA-256: `7a8ecd2c24d8b4581db00a1a54012507259717cae3a37ec1fef1bdb76aa4c211`.
 - 구현 워크트리: `/home/kwl/projects/jusik-lab-engineering-discovery`, 브랜치 `feat/lab-engineering-discovery`.
 - 복구: 먼저 pause하고 service를 정지한다. 새 발굴만 막으려면 `automatic_engineering_discovery=false`로 되돌린다. 이미 승인된 동적 작업의 spec은 보존하므로 모든 실행 중단에는 pause가 필요하다. DB 전체를 과거 백업으로 덮어써 새 작업 이력을 지우지 않는다. 이전 코드로 되돌리려면 동적 작업을 실행하지 않는 paused 상태를 유지하고 별도 호환성 판단을 한다.
 - 남은 수용 조건: 독립 검토, local main 통합, 운영 DB 보존 확인, 실제 자동 발굴·범위 검토·개발 및 다음 발굴의 자동 연결.
