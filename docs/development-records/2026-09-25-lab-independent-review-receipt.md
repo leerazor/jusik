@@ -23,6 +23,7 @@
 - reviewer 작업 브랜치: 신규 RED 5건 확인 후 관련 pytest 145 passed, Ruff check/format, strict mypy, diff check 통과. 별도 Sol 검토는 초기 P1/P2를 재현·수정시킨 뒤 최신 `f954568`에 PASS.
 - 오프라인 계약 브랜치: 최종 pytest 18 passed, Ruff check/format, strict mypy, diff check 통과. 별도 Sol 검토 PASS.
 - local main 통합: 관련 runner·paper·lifecycle pytest 179 passed; 변경 Python Ruff check/format, strict mypy 5개 source, diff check 통과.
+- 운영 DB 추가형 적용 전 private SQLite backup을 만들고 적용 후 기존 `tasks` 134행·`attempts` 190행의 ID/상태/시도 횟수·최근 시도 및 실패 코드가 동일함을 확인했다. `review_attempts` 테이블 존재를 확인했다. 백업은 `/home/kwl/.local/share/jusik/portfolio-audit/20260925-review-migration-dZEK3P/runner-before.db`이며 mode 0600이다. 롤백이 필요하면 runner를 pause·service inactive로 만든 뒤 이 백업을 기준으로 검토한다. 자동 복원이나 데이터 삭제는 하지 않았다.
 - 실제 Codex reviewer 호출, 장시간 살아 있는 프로세스/PGID 재사용 운영 실험, 전체 backend suite, 실측 자료 투자 검증은 수행하지 않았다. 기존 전체 suite의 frozen replay 실패 2건이 해결됐다고 주장하지 않는다.
 
 ## 안전·운영 상태
