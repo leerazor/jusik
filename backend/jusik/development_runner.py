@@ -2132,10 +2132,26 @@ def run_once(
             )
         attempt_id = uuid.uuid4().hex
         previous = task.last_attempt_id or "none"
+        engineering_guidance = ""
+        if task.task_kind == "engineering":
+            spec = ENGINEERING_SPEC_BY_ID[task.id]
+            owned_files = ", ".join(
+                str(config.repo.resolve() / name) for name in sorted(spec.owned_paths)
+            )
+            engineering_guidance = (
+                "After integration, compute SHA-256 evidence from exactly these "
+                f"owned files under the canonical main repository: {owned_files}. "
+                "Use those absolute main paths in completion.evidence, never task "
+                "worktree paths or audit copies. Keep durable handoff and audit "
+                "evidence separately under allowed roots. On retry, inspect the "
+                "registered P1 finding and prior attempt artifacts, reuse the "
+                "existing owned branch, and make no changes outside the registered "
+                "spec.\n\n"
+            )
         prompt = (
             f"Task id: {task.id}\nAttempt id: {attempt_id}\n"
             f"Previous attempt id: {previous}\n\n{task.prompt}\n"
-            f"{roadmap_prompt_text}\n\n"
+            f"{roadmap_prompt_text}\n\n{engineering_guidance}"
             "Return the required completion JSON to the output path supplied by "
             "the CLI. Use the exact task and attempt ids, include SHA-256 evidence "
             "paths under the allowed roots, "

@@ -318,6 +318,36 @@ def test_existing_ready_runs_before_fixed_backlog(tmp_path: Path) -> None:
     assert all(store.task(spec.id) is None for spec in AUTOMATIC_ENGINEERING_BACKLOG)
 
 
+@pytest.mark.parametrize("spec", AUTOMATIC_ENGINEERING_BACKLOG, ids=lambda s: s.id)
+def test_engineering_runtime_prompt_binds_owned_evidence_to_main(
+    tmp_path: Path,
+    spec: EngineeringSpec,
+) -> None:
+    fake = tmp_path / "fake-child.py"
+    _fake_blocked_child(fake)
+    config = _config(tmp_path, fake)
+    store = _store(config)
+    assert store.enqueue(spec.id, spec.area, spec.prompt, task_kind="engineering")
+
+    result = run_once(config)
+
+    assert (result.status, result.task_id) == ("blocked", spec.id)
+    assert result.attempt_id is not None
+    prompt = (
+        config.state_dir / "attempts" / result.attempt_id / "prompt.txt"
+    ).read_text(encoding="utf-8")
+    for owned_path in spec.owned_paths:
+        assert str(config.repo.resolve() / owned_path) in prompt
+    assert "canonical main" in prompt
+    assert "SHA-256" in prompt
+    assert "task worktree" in prompt
+    assert "audit copies" in prompt
+    assert "durable handoff" in prompt
+    assert "registered P1 finding" in prompt
+    assert "existing owned branch" in prompt
+    assert "outside the registered spec" in prompt
+
+
 def test_invalid_governance_blocks_backlog_before_enqueue(tmp_path: Path) -> None:
     fake = tmp_path / "must-not-run"
     config = _config(tmp_path, fake)
