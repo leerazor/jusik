@@ -127,6 +127,32 @@ ENGINEERING_SPECS = (
         "status. A separate reviewer decides PASS.",
         ENGINEERING_OWNED_PATHS,
     ),
+    EngineeringSpec(
+        "lab-lifecycle-receipt-revision-guard-v1",
+        ENGINEERING_SPEC_AREA,
+        "Implement only an offline SQLite BEFORE INSERT trigger for lifecycle "
+        "receipts in backend/jusik/strategy_lifecycle_receipt.py and focused "
+        "tests in backend/tests/test_strategy_lifecycle_receipt.py. Reject a "
+        "direct SQL receipt insert when its strategy is missing, its version "
+        "does not exactly match the strategy, or its revision is past or future, "
+        "including when SQLite foreign_keys is OFF; allow the current revision. "
+        "Failed inserts must leave the receipt, strategy state and lifecycle "
+        "event unchanged. Preserve existing API record/verify behavior and add "
+        "API record/verify and concurrency regression tests. Preserve legacy "
+        "rows, transitions, investment/PAPER/live/order gates and existing "
+        "behavior. No network, credentials, broker access or dependency changes. "
+        "Use focused offline pytest, Ruff and strict mypy. Return a candidate "
+        "completion JSON with status=completed, integrated_commit set to the "
+        "current canonical main HEAD, exact owned-file evidence from canonical "
+        "main, tests_passed=true, review_passed=false and null "
+        "engineering/investment status. A separate reviewer decides PASS.",
+        frozenset(
+            {
+                "backend/jusik/strategy_lifecycle_receipt.py",
+                "backend/tests/test_strategy_lifecycle_receipt.py",
+            }
+        ),
+    ),
 )
 ENGINEERING_SPEC_BY_ID = {spec.id: spec for spec in ENGINEERING_SPECS}
 AUTOMATIC_ENGINEERING_BACKLOG = ENGINEERING_SPECS[1:]

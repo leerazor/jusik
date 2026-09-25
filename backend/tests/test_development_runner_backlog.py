@@ -261,20 +261,21 @@ def test_cancel_claim_spec_releases_exhausted_idle(tmp_path: Path) -> None:
         "lab-paper-execution-restart-journal-v1",
         "lab-paper-execution-cancel-claim-v1",
         "lab-paper-execution-fill-fee-v1",
+        "lab-lifecycle-receipt-revision-guard-v1",
     )
     fake = tmp_path / "fake-child.py"
     _fake_blocked_child(fake)
     config = _config(tmp_path, fake)
     store = _store(config)
     spec = ENGINEERING_SPEC_BY_ID["lab-paper-execution-cancel-claim-v1"]
-    assert AUTOMATIC_ENGINEERING_BACKLOG[-2] == spec
+    assert AUTOMATIC_ENGINEERING_BACKLOG[-3] == spec
     assert spec.owned_paths == frozenset(
         {
             "backend/jusik/paper_execution_contract.py",
             "backend/tests/test_paper_execution_contract.py",
         }
     )
-    for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-2]:
+    for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-3]:
         assert store.enqueue(
             previous.id, previous.area, previous.prompt, task_kind="engineering"
         )
@@ -291,7 +292,7 @@ def test_cancel_claim_spec_releases_exhausted_idle(tmp_path: Path) -> None:
     assert store.get_meta("idle_status") is None
     assert all(
         store.task(previous.id).status == "blocked"  # type: ignore[union-attr]
-        for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-2]
+        for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-3]
     )
 
 
@@ -311,7 +312,7 @@ def test_fill_fee_spec_is_eligible_and_releases_exhausted_idle(
     tmp_path: Path,
 ) -> None:
     spec = ENGINEERING_SPEC_BY_ID["lab-paper-execution-fill-fee-v1"]
-    assert AUTOMATIC_ENGINEERING_BACKLOG[-1] == spec
+    assert AUTOMATIC_ENGINEERING_BACKLOG[-2] == spec
     assert spec.owned_paths == frozenset(
         {
             "backend/jusik/paper_execution_contract.py",
@@ -337,6 +338,75 @@ def test_fill_fee_spec_is_eligible_and_releases_exhausted_idle(
         "activate PAPER/live trading",
         "change investment gates",
         "status=completed",
+        "exact owned-file evidence from canonical main",
+        "tests_passed=true",
+        "review_passed=false",
+        "null engineering/investment status",
+    ):
+        assert required in spec.prompt
+
+    fake = tmp_path / "fake-child.py"
+    _fake_blocked_child(fake)
+    config = _config(tmp_path, fake)
+    store = _store(config)
+    for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-2]:
+        assert store.enqueue(
+            previous.id, previous.area, previous.prompt, task_kind="engineering"
+        )
+        assert store.quarantine(
+            previous.id,
+            "blocked",
+            {"blocker_reason": "fixture", "next_eligible_retry": None},
+        )
+    _idle(store)
+
+    result = run_once(config)
+
+    assert (result.status, result.task_id) == ("blocked", spec.id)
+    assert store.get_meta("idle_status") is None
+    assert store.task(spec.id).attempt_count == 1  # type: ignore[union-attr]
+    assert all(
+        store.task(previous.id).status == "blocked"  # type: ignore[union-attr]
+        for previous in AUTOMATIC_ENGINEERING_BACKLOG[:-2]
+    )
+
+
+def test_receipt_revision_guard_spec_is_eligible_and_releases_exhausted_idle(
+    tmp_path: Path,
+) -> None:
+    spec = ENGINEERING_SPEC_BY_ID["lab-lifecycle-receipt-revision-guard-v1"]
+    assert tuple(item.id for item in AUTOMATIC_ENGINEERING_BACKLOG) == (
+        "lab-strategy-lifecycle-receipt-v1",
+        "lab-paper-execution-restart-journal-v1",
+        "lab-paper-execution-cancel-claim-v1",
+        "lab-paper-execution-fill-fee-v1",
+        "lab-lifecycle-receipt-revision-guard-v1",
+    )
+    assert AUTOMATIC_ENGINEERING_BACKLOG[-1] == spec
+    assert spec.owned_paths == frozenset(
+        {
+            "backend/jusik/strategy_lifecycle_receipt.py",
+            "backend/tests/test_strategy_lifecycle_receipt.py",
+        }
+    )
+    for required in (
+        "SQLite BEFORE INSERT trigger",
+        "direct SQL receipt insert",
+        "strategy is missing",
+        "version does not exactly match",
+        "revision is past or future",
+        "foreign_keys is OFF",
+        "allow the current revision",
+        "receipt, strategy state and lifecycle event unchanged",
+        "API record/verify behavior",
+        "API record/verify and concurrency regression tests",
+        "legacy rows",
+        "transitions",
+        "investment/PAPER/live/order gates",
+        "No network, credentials, broker access or dependency changes",
+        "strict mypy",
+        "status=completed",
+        "current canonical main HEAD",
         "exact owned-file evidence from canonical main",
         "tests_passed=true",
         "review_passed=false",
