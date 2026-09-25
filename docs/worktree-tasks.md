@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## lab-engineering-failed-candidate-recovery
+
+- 상태: 진행 중. 완료 형식 오류로 실패한 시도의 제품 변경이 이미 `main`에 있는 경우를 위한 제한된 복구 경로를 설계·구현한다.
+- 목표: 원본 실패 시도·산출물은 불변으로 보존하고, 원본 baseline·제품 커밋·정확한 소유 파일 diff/hash·현재 파일 불변성을 검증한 새 복구 후보만 기존 독립 reviewer로 넘긴다. 리뷰 PASS 전에는 공학 완료를 주장하지 않는다.
+- 범위: runner/store/review와 관련 회귀 테스트·운영 문서. 제품·브로커·투자 상태 전이는 변경하지 않는다. 작업별 워크트리·단일 구현 소유자·별도 Sol review를 적용한다.
+- 검증: 임시 Git/SQLite의 실패 원본→별도 복구 후보 RED/GREEN, 불일치·중복·HEAD 변화 거부, focused pytest·Ruff·strict mypy, 운영 DB 백업과 복구 전후 불변성 대조.
+- 운영: roadmap runner pause·service inactive, timer 유지. 원본 시도 `f8ee09cfd79845769ae87f3b840952e7`과 제품 커밋 `fc4ddde`는 보존한다. 원격 push·실주문·PAPER/live 활성화·투자 게이트 변경 금지.
+
 ## lab-paper-execution-cancel-claim-v1
 
 - 상태: spec을 local `main`에 통합하고 독립 검토 PASS; 자동 실행기의 제품 구현·검토와 운영 결과 확인 대기.
