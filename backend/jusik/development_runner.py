@@ -57,6 +57,7 @@ from jusik.development_runner_planning_scope import (
     RoadmapScopeReview,
     code_spec,
     freeze_code_scope,
+    frozen_evidence_path,
 )
 from jusik.development_runner_planning_scope import (
     digest as planning_scope_digest,
@@ -2378,8 +2379,17 @@ def _run_roadmap_scope_review(
             != pending.fingerprint
         )
         if not stale:
+            validation_payload = pending.result.model_dump(mode="json")
+            if isinstance(pending, PendingRoadmapCodeScope):
+                validation_payload["proposal"]["evidence"] = [
+                    {
+                        "path": str(frozen_evidence_path(pending, item.path)),
+                        "sha256": item.sha256,
+                    }
+                    for item in proposal.evidence
+                ]
             validate_planning_result(
-                pending.result.model_dump(mode="json"),
+                validation_payload,
                 pending.planner_task_id,
                 pending.planner_attempt_id,
                 pending.fingerprint,
@@ -2448,6 +2458,8 @@ def _run_roadmap_scope_review(
             f"Code contract digest: {pending.code_contract_digest}\n"
             "Owned file hashes: "
             f"{json.dumps(pending.owned_file_hashes, sort_keys=True)}\n"
+            "Canonical evidence paths: "
+            f"{json.dumps(pending.canonical_evidence_paths, sort_keys=True)}\n"
         )
     scope_schema = strict_output_schema(review_model)
     if isinstance(pending, PendingRoadmapCodeScope):

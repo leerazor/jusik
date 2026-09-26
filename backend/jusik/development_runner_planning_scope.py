@@ -141,6 +141,7 @@ class PendingRoadmapCodeScope(PendingRoadmapScope):
     schema_version: Literal[2]
     execution_kind: Literal["engineering_code"]
     owned_file_hashes: dict[str, str]
+    canonical_evidence_paths: dict[str, str]
     code_contract_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
@@ -186,10 +187,34 @@ def safe_file_hash(repo: Path, name: str) -> str:
 def validate_code_contract(pending: PendingRoadmapCodeScope) -> None:
     if set(pending.owned_file_hashes) != code_paths(pending.proposal.area):
         raise ValueError("roadmap code pair changed")
+    if set(pending.canonical_evidence_paths) != {
+        item.path for item in pending.proposal.evidence
+    } or any(
+        not Path(path).is_absolute()
+        for path in pending.canonical_evidence_paths.values()
+    ):
+        raise ValueError("roadmap evidence mapping changed")
     value = pending.model_dump(mode="json")
     value.pop("code_contract_digest")
     if digest(value) != pending.code_contract_digest:
         raise ValueError("roadmap code contract changed")
+
+
+def canonical_input_path(raw: Path) -> Path:
+    expanded = raw.expanduser()
+    if any(part.is_symlink() for part in (expanded, *expanded.parents)):
+        raise ValueError("roadmap evidence symlink invalid")
+    path = expanded.resolve()
+    if any(part.is_symlink() for part in (path, *path.parents)) or not path.is_file():
+        raise ValueError("roadmap evidence path invalid")
+    return path
+
+
+def frozen_evidence_path(pending: PendingRoadmapCodeScope, raw: str) -> Path:
+    path = Path(pending.canonical_evidence_paths[raw])
+    if not path.is_absolute() or canonical_input_path(path) != path:
+        raise ValueError("roadmap canonical evidence changed")
+    return path
 
 
 def freeze_code_scope(pending: PendingRoadmapScope, repo: Path) -> PendingRoadmapScope:
@@ -212,6 +237,10 @@ def freeze_code_scope(pending: PendingRoadmapScope, repo: Path) -> PendingRoadma
         "schema_version": 2,
         "execution_kind": "engineering_code",
         "owned_file_hashes": hashes,
+        "canonical_evidence_paths": {
+            item.path: str(canonical_input_path(Path(item.path)))
+            for item in pending.proposal.evidence
+        },
     }
     return PendingRoadmapCodeScope.model_validate(
         value | {"code_contract_digest": digest(value)}

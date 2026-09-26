@@ -1,6 +1,7 @@
 """Fresh roadmap code scopes use the host's independent completion reviewer."""
 
 import json
+import os
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,6 +21,7 @@ from jusik.development_runner_contract import ENGINEERING_SPEC_BY_ID
 from jusik.development_runner_planning_scope import (
     PendingRoadmapCodeScope,
     RoadmapCodeScopeReview,
+    canonical_input_path,
     code_spec,
     validate_code_contract,
 )
@@ -37,14 +39,27 @@ def _pending(
     *,
     nested_request: bool = False,
     external_input: bool = False,
+    evidence_style: str | None = None,
 ) -> tuple[runner.RunnerConfig, RunnerStore, Path]:
     fake = tmp_path / "fake-planner.py"
     evidence_path = None
-    if external_input:
+    if external_input or evidence_style == "tilde":
         evidence_path = tmp_path / "artifacts/input.txt"
         evidence_path.parent.mkdir()
         evidence_path.write_text("fixed offline input\n")
+    if evidence_style in {"relative", "dotdot"}:
+        evidence_path = Path("backend/jusik/broker_cost_profiles.py")
     _fake_planner(fake, evidence_path)
+    if evidence_style is not None:
+        assert evidence_path is not None
+        reference = (
+            "~/" + os.path.relpath(evidence_path, Path.home())
+            if evidence_style == "tilde"
+            else "backend/jusik/../jusik/broker_cost_profiles.py"
+            if evidence_style == "dotdot"
+            else str(evidence_path)
+        )
+        fake.write_text(fake.read_text().replace("str(evidence)", repr(reference)))
     fake.write_text(
         fake.read_text().replace(
             "area = sorted(ast.literal_eval(fields['Allowed areas']))[0]",
@@ -70,7 +85,10 @@ def _pending(
     _git(config.repo, "add", "backend")
     _git(config.repo, "commit", "-m", "code pair fixture")
     config = config.model_copy(update={"planning_enabled": True})
-    assert runner.run_once(config).reason == "planning_scope_pending"
+    with pytest.MonkeyPatch.context() as patch:
+        if evidence_style in {"relative", "dotdot"}:
+            patch.chdir(config.repo)
+        assert runner.run_once(config).reason == "planning_scope_pending"
     return config, store, fake
 
 
@@ -99,6 +117,10 @@ def _approve(config: runner.RunnerConfig, store: RunnerStore, fake: Path) -> Non
     hashes = schema["properties"]["owned_file_hashes"]
     assert hashes["additionalProperties"] is False
     assert len(hashes["required"]) == 2
+    review_prompt = (
+        config.state_dir / "roadmap-scope" / str(result.attempt_id) / "prompt.txt"
+    ).read_text()
+    assert "Canonical evidence paths: " in review_prompt
 
 
 def _implementation(fake: Path, *, self_review: bool = False) -> None:
@@ -480,6 +502,70 @@ def test_deleted_code_registry_never_falls_back_to_legacy_paper_spec(
         db.execute("DELETE FROM approved_roadmap_code_specs")
     assert runner._engineering_spec(store, "roadmap-audit-v1") is None
     with pytest.raises(ValueError, match="provenance missing"):
+        store.validate_roadmap_code_task(
+            "roadmap-audit-v1", config.repo, before_dispatch=True
+        )
+
+
+@pytest.mark.parametrize("style", ["tilde", "relative", "dotdot"])
+def test_approved_evidence_paths_survive_restart_and_cwd_change(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, style: str
+) -> None:
+    config, store, fake = _pending(tmp_path, evidence_style=style)
+    original = store.pending_roadmap_scope()
+    assert isinstance(original, PendingRoadmapCodeScope)
+    other_cwd = tmp_path / "other-cwd"
+    other_cwd.mkdir()
+    monkeypatch.chdir(other_cwd)
+    decoy = other_cwd / "backend/jusik/broker_cost_profiles.py"
+    decoy.parent.mkdir(parents=True)
+    decoy.write_text("unapproved same relative path\n")
+    _approve(config, store, fake)
+    restarted = RunnerStore(store.db_path)
+    frozen = restarted.roadmap_code_scope("roadmap-audit-v1")
+    assert frozen is not None
+    assert frozen.result == original.result
+    assert frozen.proposal_digest == original.proposal_digest
+    assert frozen.evidence_digest == original.evidence_digest
+    _implementation(fake)
+    assert runner.run_once(config).reason == "independent_review_pending"
+    _fake_reviewer(fake, verdict="PASS")
+    assert runner.run_once(config).status == "completed"
+    task = restarted.task("roadmap-audit-v1")
+    assert task is not None and task.engineering_status == "ENGINEERING_COMPLETE"
+
+
+def test_evidence_freeze_rejects_symlink_ancestor_before_resolution(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "actual"
+    target.mkdir()
+    (target / "input.txt").write_text("fixed input\n")
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+    for raw in (alias / "input.txt", alias / ".." / "actual/input.txt"):
+        with pytest.raises(ValueError, match="symlink"):
+            canonical_input_path(raw)
+
+
+def test_frozen_nonowned_evidence_rejects_symlink_and_mapping_tamper(
+    tmp_path: Path,
+) -> None:
+    config, store, fake = _pending(tmp_path, evidence_style="tilde")
+    _approve(config, store, fake)
+    pending = store.roadmap_code_scope("roadmap-audit-v1")
+    assert pending is not None
+    original = Path(next(iter(pending.canonical_evidence_paths.values())))
+    replacement = tmp_path / "replacement.txt"
+    replacement.write_bytes(original.read_bytes())
+    mapping = {key: str(replacement) for key in pending.canonical_evidence_paths}
+    with pytest.raises(ValueError, match="contract changed"):
+        validate_code_contract(
+            pending.model_copy(update={"canonical_evidence_paths": mapping})
+        )
+    original.unlink()
+    original.symlink_to(replacement)
+    with pytest.raises(ValueError, match="symlink"):
         store.validate_roadmap_code_task(
             "roadmap-audit-v1", config.repo, before_dispatch=True
         )

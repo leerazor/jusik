@@ -39,6 +39,7 @@ from jusik.development_runner_planning_scope import (
     RoadmapCodeScopeReview,
     RoadmapScopeReview,
     code_spec,
+    frozen_evidence_path,
     parse_pending_scope,
     safe_file_hash,
     validate_code_contract,
@@ -1223,11 +1224,11 @@ class RunnerStore:
         elif implementation_baseline != pending.baseline_head:
             raise ValueError("roadmap code implementation baseline changed")
         for item in pending.proposal.evidence:
-            path = Path(item.path)
+            path = frozen_evidence_path(pending, item.path)
             if (
                 not before_dispatch
-                and path.is_relative_to(repo)
-                and str(path.relative_to(repo)) in pending.owned_file_hashes
+                and path.is_relative_to(repo.resolve())
+                and str(path.relative_to(repo.resolve())) in pending.owned_file_hashes
             ):
                 continue
             if (
@@ -2725,11 +2726,14 @@ class RunnerStore:
                 db.rollback()
                 return False
             for item in proposal.evidence:
-                raw = Path(item.path).expanduser()
-                path = raw.resolve()
-                if raw.is_symlink() or path.is_symlink() or not path.is_file():
-                    db.rollback()
-                    return False
+                if isinstance(pending, PendingRoadmapCodeScope):
+                    path = frozen_evidence_path(pending, item.path)
+                else:
+                    raw = Path(item.path).expanduser()
+                    path = raw.resolve()
+                    if raw.is_symlink() or path.is_symlink() or not path.is_file():
+                        db.rollback()
+                        return False
                 if hashlib.sha256(path.read_bytes()).hexdigest() != item.sha256:
                     db.rollback()
                     return False
