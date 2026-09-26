@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## research-visual-reading
+
+- 상태: 평가·계획 중. 화면 전용 검수에서 설명은 이해되지만 결과까지 글이 길고 설정·득실의 나란한 비교가 어렵다는 지적을 확인했습니다.
+- 목표·완료 조건: 목적과 결론을 앞에 두고, 조건은 표·결과는 실제 값의 비교 막대·행동은 짧은 순서 그림으로 읽습니다. PC/모바일 읽기 부담 감소, 숫자·한계·보고서 보존, 독립 코드와 화면 재검수 PASS가 완료 기준입니다.
+- 소유: root는 현재 소스 조사와 격리 worktree의 단일 구현, 기록·통합을 맡습니다. 기존 Sol plan·code review와 구현 문맥 없는 screen reviewer를 재사용합니다. 직전 native code dispatch의 thread 제한을 유지하여 반복 호출·우회 위임하지 않습니다.
+- 경로·브랜치: `/home/kwl/projects/jusik-research-visual-reading`, `feat/research-visual-reading`; 조사 main `99b0545`, 통합 대상 local main.
+- 범위: 연구 홈·성과의 공통 설정/결과 UI와 좁은 표시 helper·집중 검사·설계 문서. 보고서 원문·API·금융 계산·전략·인증·주문·운영 데이터는 보존합니다.
+- 격리: frontend 의존성·빌드·preview 3340, fixture 8340, audit `/home/kwl/.local/share/jusik/ui-visual-reading-20260926/`. 사용자 루트 `HANDOFF.md`는 보존합니다.
+- 운영: 시작 runner paused=0·running attempt=0, manual UI 수정 동안 pause·service inactive 확인. 완료 후 충돌 작업이 없으면 이전 승인된 자동 실행 상태로 복원합니다. 기존 웹 적용·재시작 승인 범위를 유지합니다.
+- 기록: `docs/development-records/2026-09-26-research-visual-reading.md`; task handoff는 전용 audit에 저장합니다.
+
 ## research-novice-comprehension
 
 - 상태: 완료. 목적·실제 행동·가상 예시·관측 결과와 한계·다음 읽기 순서로 화면을 재구성하고, 구현 문맥 없는 독립 화면 검수의 지적을 수정·재검수했습니다.
