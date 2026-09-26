@@ -185,6 +185,89 @@ def test_missing_or_blank_receipt_identity_is_rejected(
         )
 
 
+@pytest.mark.parametrize("receipt_id", [None, " ", "\t", "\n", " \t\r\n "])
+def test_direct_insert_rejects_blank_receipt_id(
+    stores: tuple[StrategyLifecycleStore, StrategyLifecycleReceiptStore],
+    receipt_id: str | None,
+) -> None:
+    lifecycle, receipts = stores
+    before = lifecycle.get("sample", "v1")
+    events = lifecycle.events("sample", "v1")
+    with sqlite3.connect(lifecycle.path) as db:
+        with pytest.raises(sqlite3.IntegrityError):
+            db.execute(
+                "INSERT INTO lifecycle_evidence_receipts "
+                "(receipt_id,strategy_id,version,strategy_revision,evidence_digest) "
+                "VALUES (?,?,?,?,?)",
+                (receipt_id, "sample", "v1", 0, DIGEST),
+            )
+        assert db.execute(
+            "SELECT COUNT(*) FROM lifecycle_evidence_receipts"
+        ).fetchone() == (0,)
+    _record(receipts, receipt_id="valid-id")
+    assert (
+        receipts.verify(
+            "valid-id",
+            "sample",
+            "v1",
+            expected_revision=0,
+            evidence=EVIDENCE,
+            evidence_digest=DIGEST,
+        ).receipt_id
+        == "valid-id"
+    )
+    assert lifecycle.get("sample", "v1") == before
+    assert lifecycle.events("sample", "v1") == events
+
+
+def test_reopen_existing_receipt_table_installs_id_guard(tmp_path: Path) -> None:
+    lifecycle = StrategyLifecycleStore(tmp_path / "existing.sqlite3")
+    lifecycle.register("sample", "v1", "synthetic definition", reason="idea")
+    before = lifecycle.get("sample", "v1")
+    events = lifecycle.events("sample", "v1")
+    with sqlite3.connect(lifecycle.path) as db:
+        db.executescript(
+            "CREATE TABLE lifecycle_evidence_receipts ("
+            "receipt_id TEXT PRIMARY KEY CHECK(length(trim(receipt_id)) > 0), "
+            "strategy_id TEXT NOT NULL, version TEXT NOT NULL, "
+            "strategy_revision INTEGER NOT NULL, evidence_digest TEXT NOT NULL);"
+        )
+        db.execute(
+            "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
+            ("existing", "sample", "v1", 0, DIGEST),
+        )
+    StrategyLifecycleReceiptStore(lifecycle)
+    reopened = StrategyLifecycleReceiptStore(lifecycle)
+    with sqlite3.connect(lifecycle.path) as db:
+        for receipt_id in (None, "\t", "\n"):
+            with pytest.raises(sqlite3.IntegrityError, match="receipt id is required"):
+                db.execute(
+                    "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
+                    (receipt_id, "sample", "v1", 0, DIGEST),
+                )
+        db.execute(
+            "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
+            ("current", "sample", "v1", 0, DIGEST),
+        )
+        assert db.execute(
+            "SELECT receipt_id FROM lifecycle_evidence_receipts ORDER BY receipt_id"
+        ).fetchall() == [("current",), ("existing",)]
+    for receipt_id in ("existing", "current"):
+        assert (
+            reopened.verify(
+                receipt_id,
+                "sample",
+                "v1",
+                expected_revision=0,
+                evidence=EVIDENCE,
+                evidence_digest=DIGEST,
+            ).receipt_id
+            == receipt_id
+        )
+    assert lifecycle.get("sample", "v1") == before
+    assert lifecycle.events("sample", "v1") == events
+
+
 @pytest.mark.parametrize("foreign_keys", [False, True])
 @pytest.mark.parametrize(
     ("strategy_id", "version", "revision"),

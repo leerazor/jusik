@@ -18,7 +18,10 @@ _DIGEST = re.compile(r"[a-f0-9]{64}\Z")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS lifecycle_evidence_receipts (
-    receipt_id TEXT PRIMARY KEY CHECK(length(trim(receipt_id)) > 0),
+    receipt_id TEXT PRIMARY KEY CHECK(
+        receipt_id IS NOT NULL AND
+        length(trim(receipt_id, char(9, 10, 11, 12, 13, 32))) > 0
+    ),
     strategy_id TEXT NOT NULL,
     version TEXT NOT NULL,
     strategy_revision INTEGER NOT NULL CHECK(strategy_revision >= 0),
@@ -37,6 +40,12 @@ BEFORE INSERT ON lifecycle_evidence_receipts BEGIN
           AND s.version = NEW.version
           AND s.revision = NEW.strategy_revision
     );
+END;
+CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_id_insert_guard
+BEFORE INSERT ON lifecycle_evidence_receipts BEGIN
+    SELECT RAISE(ABORT, 'receipt id is required')
+    WHERE NEW.receipt_id IS NULL OR
+          length(trim(NEW.receipt_id, char(9, 10, 11, 12, 13, 32))) = 0;
 END;
 CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_no_update
 BEFORE UPDATE ON lifecycle_evidence_receipts BEGIN
