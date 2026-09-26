@@ -47,6 +47,7 @@ ENGINE_SPECIFICATION = EngineSpecification()
 SignalFunction = Callable[[str, tuple[DailyBar, ...]], bool]
 SignalRequest = ResearchRunRequest | OfflineResearchRequest
 SignalSnapshot = ResearchInputSnapshot | OfflineResearchSnapshot
+type _SignalCache = dict[tuple[str, str, int], bool]
 
 
 def canonical_hash(value: object) -> str:
@@ -313,6 +314,23 @@ def _metrics(state: _PortfolioState, initial_cash: Decimal) -> StrategyMetrics:
     )
 
 
+def _default_target(
+    version: str,
+    symbol: str,
+    bars: list[DailyBar],
+    index: int,
+    cache: _SignalCache | None,
+) -> bool:
+    if cache is None:
+        return target_invested(version, bars, index)
+    key = (version, symbol, index)
+    desired = cache.get(key)
+    if desired is None:
+        desired = target_invested(version, bars, index)
+        cache[key] = desired
+    return desired
+
+
 def _run_strategy(
     request: SignalRequest,
     snapshot: SignalSnapshot,
@@ -323,6 +341,8 @@ def _run_strategy(
     defer_events: bool | None = None,
     risk_policy: ResearchRiskPolicy | None = None,
     risk_report: ResearchRiskReport | None = None,
+    *,
+    signal_cache: _SignalCache | None = None,
 ) -> StrategyResult:
     if risk_report is not None and risk_policy is None:
         raise ValueError("risk_report requires risk_policy.")
@@ -368,7 +388,7 @@ def _run_strategy(
             if signal is not None
             else target_for_definition(strategy_definition, bars, prior[-1])
             if strategy_definition is not None
-            else target_invested(version, bars, prior[-1])
+            else _default_target(version, symbol, bars, prior[-1], signal_cache)
         )
         if desired:
             state.pending[symbol] = True
@@ -578,7 +598,13 @@ def _run_strategy(
                     indexes[symbol][bar.date],
                 )
                 if strategy_definition is not None
-                else target_invested(version, series[symbol], indexes[symbol][bar.date])
+                else _default_target(
+                    version,
+                    symbol,
+                    series[symbol],
+                    indexes[symbol][bar.date],
+                    signal_cache,
+                )
             )
             held = symbol in state.positions
             if desired != held:
@@ -657,9 +683,22 @@ def _run_backtest(
             )
         )
     input_digest = snapshot_hash(snapshot)
-    baseline = _run_strategy(request, snapshot, BASELINE_VERSION, BASELINE_DEFINITION)
+    # These six default paths share immutable signal inputs, but no portfolio state.
+    # Keep the cache local: the next invocation may reuse symbols with revised bars.
+    signal_cache: _SignalCache = {}
+    baseline = _run_strategy(
+        request,
+        snapshot,
+        BASELINE_VERSION,
+        BASELINE_DEFINITION,
+        signal_cache=signal_cache,
+    )
     candidate = _run_strategy(
-        request, snapshot, CANDIDATE_VERSION, CANDIDATE_DEFINITION
+        request,
+        snapshot,
+        CANDIDATE_VERSION,
+        CANDIDATE_DEFINITION,
+        signal_cache=signal_cache,
     )
     validation: ValidationComparison | None = None
     sorted_dates = sorted(all_dates)
@@ -673,16 +712,32 @@ def _run_backtest(
             # Both slices start with the same configured capital. Bars before each
             # slice are warm-up input only and never carry positions or equity.
             baseline_train = _run_strategy(
-                train_request, snapshot, BASELINE_VERSION, BASELINE_DEFINITION
+                train_request,
+                snapshot,
+                BASELINE_VERSION,
+                BASELINE_DEFINITION,
+                signal_cache=signal_cache,
             )
             candidate_train = _run_strategy(
-                train_request, snapshot, CANDIDATE_VERSION, CANDIDATE_DEFINITION
+                train_request,
+                snapshot,
+                CANDIDATE_VERSION,
+                CANDIDATE_DEFINITION,
+                signal_cache=signal_cache,
             )
             baseline_test = _run_strategy(
-                test_request, snapshot, BASELINE_VERSION, BASELINE_DEFINITION
+                test_request,
+                snapshot,
+                BASELINE_VERSION,
+                BASELINE_DEFINITION,
+                signal_cache=signal_cache,
             )
             candidate_test = _run_strategy(
-                test_request, snapshot, CANDIDATE_VERSION, CANDIDATE_DEFINITION
+                test_request,
+                snapshot,
+                CANDIDATE_VERSION,
+                CANDIDATE_DEFINITION,
+                signal_cache=signal_cache,
             )
             passed = (
                 candidate_test.metrics.total_return_pct
