@@ -1,5 +1,15 @@
 # 워크트리 작업 등록부
 
+## quality-first-model-routing
+
+- 상태: 준비. 첫 시도 해결 품질을 우선하고, 입증된 동등 품질 후보 사이에서만 비용 낭비를 줄이는 모델 선택을 구현합니다. 저가 모델 선행 시도·자동 승격 재시도는 도입하지 않습니다.
+- 담당: root 감독·통합, explore/plan 읽기 전용 조사, Sol 단일 구현 소유자, 별도 Sol review.
+- 워크트리: `/home/kwl/projects/jusik-quality-first-model-routing`; 브랜치: `feat/quality-first-model-routing`; 시작 main `6cb2931f8f789613933eb8c79edf0b1a3dd69bb2`; 통합 대상 local `main`.
+- 범위: 모델 정책·선택·감사, runner 명령 생성, AA skill의 Git 관리 원본과 설치본, 관련 focused 테스트·agent 운영 문서·개발 기록. 금융 계산·거래·연구 mandate·운영 데이터·사용자 HANDOFF는 제외합니다.
+- 완료 기준: AA 구간/점수당 비용을 실행 품질로 오인하지 않는 결정적 선택; 근거 누락 시 기존 배정; 실행 전 선택 기록과 실제 모델 감사; skill JSON과 runner/adapter 연결; focused pytest·Ruff·configured mypy·독립 review·main 통합 검증.
+- 격리·운영: 작업별 venv와 임시 테스트 데이터. 시작 runner paused=false/service inactive/timer active·enabled/running tasks=0 확인 후 pause 및 service stop. 완료 후 원래 상태 복원.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-quality-first-routing-0yutqlne`; 개발 기록 예정 `docs/development-records/2026-09-26-quality-first-model-routing.md`; handoff는 audit에 별도 저장합니다.
+
 ## git-ship-cleanup-20260926
 
 - 상태: 완료 worktree 7개 정리 완료. 기존 제품 `main`과 원격은 fetch 후 모두 `f5b05433e09a85df88fcfccd16af66b015b6a3b9`였고, 이번 기록을 별도 커밋해 main에 반영합니다. 이전 169개 ahead 표시는 갱신 전 remote-tracking 정보였으며 이번에 169개를 전송한 것은 아닙니다.
