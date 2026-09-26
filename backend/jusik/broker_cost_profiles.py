@@ -137,6 +137,10 @@ def build_bankis_paper_cost_contract(
     markets: tuple[BrokerMarket, ...] = ("KRX", "NXT", "US"),
 ) -> PaperCostContract:
     """Build a deterministic BanKIS contract without changing historical runs."""
+    if not markets:
+        raise ValueError("paper_cost_contract_markets_missing")
+    if len(set(markets)) != len(markets):
+        raise ValueError("paper_cost_contract_markets_duplicate")
     profiles = tuple(kis_bankis_online_profile(market) for market in markets)
     payload = [
         {
@@ -189,14 +193,15 @@ def validate_paper_cost_contract_manifest(
             parsed.append(profile)
         except (KeyError, TypeError, ValueError, ArithmeticError) as exc:
             raise ValueError("paper_cost_contract_profile_invalid") from exc
+    markets = tuple(profile.market for profile in parsed)
+    if len(set(markets)) != len(markets):
+        raise ValueError("paper_cost_contract_market_duplicate")
     contract = PaperCostContract(
         contract_id=str(manifest.get("contract_id", "")),
         profile_hash=str(manifest.get("profile_hash", "")),
         profiles=tuple(parsed),
     )
-    expected = build_bankis_paper_cost_contract(
-        tuple(profile.market for profile in contract.profiles)
-    )
+    expected = build_bankis_paper_cost_contract(markets)
     if contract.profile_hash != expected.profile_hash:
         raise ValueError("paper_cost_contract_hash_mismatch")
     if contract.contract_id != expected.contract_id:
