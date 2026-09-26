@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## research-novice-comprehension
+
+- 상태: 조사·화면 이해도 검수와 계획 중. 단위 치환이나 설명 추가에 그치지 않고 목적·행동·예시·해석·다음 행동 순서로 연구 화면을 재구성합니다.
+- 목표·완료 조건: 투자 경험이 없는 사람이 화면만으로 연구 목적, 비교 대상의 출처, 실제 행동과 주기의 의미, 결과의 한계, 다음 행동을 설명할 수 있어야 합니다. 구현 문맥 없는 별도 agent가 렌더링된 화면만 검수하고 중요한 추측 지점을 수정·재검수합니다.
+- 담당·소유: explore·plan 뒤 단일 Sol code가 frontend 연구 홈·결과·관찰·보고서 소개·공유 설명과 CSS 및 필요한 집중 검사를 소유합니다. `frontend/AGENTS.md`와 `docs/investor-web-design.md`에 반복 가능한 검수 기준을 남깁니다. root는 등록부·개발 기록·audit·통합을 담당하며 별도 코드 review와 화면 이해도 review를 구분합니다.
+- 경로·브랜치: `/home/kwl/projects/jusik-research-novice-comprehension`, `feat/research-novice-comprehension`; 조사 시작 main `af4e355`. 통합 대상 local `main`.
+- 범위 경계: 금융 수치·계산·전략·catalog·원문 보고서·자료 식별 guard·API·인증·주문·운영 데이터는 보존합니다. 보고서는 웹에서 전체 본문을 읽으며 Markdown 다운로드로 안내하지 않습니다.
+- 격리·검증: 전용 frontend 의존성·Next 출력·프런트 3339·읽기 전용 fixture 8339, audit `/home/kwl/.local/share/jusik/ui-comprehension-20260926/`. lint·typecheck·build·기존 보고서 검사, 정상/누락/불일치 화면, PC/모바일 읽기·탐색·독립 이해도 검수를 수행합니다.
+- 운영: 시작 시 runner paused=1·running attempt=0. 수동 작업 동안 pause를 유지합니다. 병행 `performance-sprint-20260926-1656` 및 `lab-review-transport-retry`의 파일·기록·운영 경계를 보존하며 이 UI 작업만으로 runner를 재개하지 않습니다. 사용자 미추적 `HANDOFF.md`는 수정하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-26-research-novice-comprehension.md`. handoff는 전용 audit에 저장합니다. 기존 적용·재시작 승인을 이어 받아 검증 후 현재 웹 서비스에 적용합니다.
+
 ## performance-sprint-20260926-1656
 
 - 상태: 첫 속도 개선 구현 `7fbbace`·독립 Sol review·main `a4fd555` 통합과 집중 검증 완료. 합성 입력 실행 시간 약 24% 감소, 금융 결과 동일, pytest 91개·Ruff·strict mypy PASS. 3시간 집중 창은 2026-09-26 16:56~19:56 KST이며 후속 검토 호출 복구를 진행합니다. 17:14 KST 읽기 전용 계정 조회는 37% 사용·20:11 리셋을 반환했지만 정확한 토큰 잔량은 노출하지 않았고 작업 마감도 연장하지 않습니다.
