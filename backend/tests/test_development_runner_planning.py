@@ -447,7 +447,7 @@ def test_cli_planning_wait_retry_is_disabled_for_research_scope(
     assert store.task(task.id).status == "completed"  # type: ignore[union-attr]
 
 
-def test_roadmap_finish_planning_cap_ignores_legacy_blocked_tasks(
+def test_roadmap_finish_planning_requires_scope_even_with_legacy_blocked_tasks(
     tmp_path: Path,
 ) -> None:
     store = RunnerStore(tmp_path / "state" / "runner.db")
@@ -476,17 +476,18 @@ def test_roadmap_finish_planning_cap_ignores_legacy_blocked_tasks(
         (f"blocked-{index}", "blocked", f"attempt-{index}") for index in range(8)
     ]
 
-    assert store.finish_planning(
-        "planner-attempt",
-        "planner-task",
-        "proposed",
-        {"status": "proposed"},
-        hashlib.sha256(json.dumps(sorted(snapshot)).encode()).hexdigest(),
-        snapshot,
-        proposal=("roadmap-next-v1", "r1-02", "prompt"),
-        scope=ROADMAP_SCOPE,
-    )
-    assert store.task("roadmap-next-v1") is not None
+    with pytest.raises(ValueError, match="independent scope review"):
+        store.finish_planning(
+            "planner-attempt",
+            "planner-task",
+            "proposed",
+            {"status": "proposed"},
+            hashlib.sha256(json.dumps(sorted(snapshot)).encode()).hexdigest(),
+            snapshot,
+            proposal=("roadmap-next-v1", "r1-02", "prompt"),
+            scope=ROADMAP_SCOPE,
+        )
+    assert store.task("roadmap-next-v1") is None
 
 
 def test_stale_planner_callback_cannot_overwrite_newer_attempt(

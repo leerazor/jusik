@@ -40,7 +40,7 @@ def _git(repo: Path, *args: str) -> str:
 
 def _exhausted(tmp_path: Path, fake: Path) -> tuple[runner.RunnerConfig, RunnerStore]:
     config = _config(tmp_path, fake).model_copy(
-        update={"automatic_engineering_discovery": True}
+        update={"automatic_engineering_discovery": True, "planning_enabled": False}
     )
     for module in (
         "paper_execution_contract",
@@ -351,7 +351,7 @@ def test_exhausted_backlog_dispatches_discovery(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     config = _config(tmp_path, tmp_path / "unused").model_copy(
-        update={"automatic_engineering_discovery": True}
+        update={"automatic_engineering_discovery": True, "planning_enabled": False}
     )
     store = _store(config)
     for spec in AUTOMATIC_ENGINEERING_BACKLOG:
@@ -954,6 +954,9 @@ def test_legacy_rows_survive_additive_discovery_schema(tmp_path: Path) -> None:
         ).fetchone() == ("legacy", "completed")
         assert db.execute(
             "SELECT COUNT(*) FROM approved_engineering_specs"
+        ).fetchone() == (0,)
+        assert db.execute(
+            "SELECT COUNT(*) FROM roadmap_planning_scopes"
         ).fetchone() == (0,)
 
 

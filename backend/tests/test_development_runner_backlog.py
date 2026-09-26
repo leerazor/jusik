@@ -35,7 +35,7 @@ def _config(tmp_path: Path, fake: Path, *, enabled: bool = True) -> RunnerConfig
         history_db=tmp_path / "history.db",
         artifact_dir=tmp_path / "artifacts",
         cooldown_seconds=0,
-        planning_enabled=True,
+        planning_enabled=False,
         automatic_engineering_backlog=enabled,
         # RunnerConfig requires a Literal; ROADMAP_SCOPE is inferred as str.
         scope="investment-roadmap",
