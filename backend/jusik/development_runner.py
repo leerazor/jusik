@@ -2404,16 +2404,16 @@ def _run_engineering_discovery(
                 break
             if failure is None and process.returncode != 0:
                 failure = "codex_exit"
+    if failure != "dispatch_error" and (
+        process.poll() is None or _process_group_alive(process.pid)
+    ):
+        store.quarantine_discovery_attempt(attempt_id, "orphan_identity_uncertain")
+        return RunResult(
+            "paused" if failure == "paused" else "blocked",
+            attempt_id=attempt_id,
+            reason="discovery orphan identity uncertain",
+        )
     if failure is not None:
-        if failure in {"timeout", "codex_exit"} and (
-            process.poll() is None or _process_group_alive(process.pid)
-        ):
-            store.quarantine_discovery_attempt(attempt_id, "orphan_identity_uncertain")
-            return RunResult(
-                "blocked",
-                attempt_id=attempt_id,
-                reason="discovery orphan identity uncertain",
-            )
         transient_kind = None
         if failure == "timeout":
             transient_kind = "timeout"

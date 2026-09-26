@@ -783,6 +783,44 @@ def test_uncertain_orphan_is_quarantined_without_relaunch(tmp_path: Path) -> Non
     assert store.launch_count(day) == 1
 
 
+@pytest.mark.parametrize("failure", ["paused", "child_output_invalid"])
+def test_discovery_stopped_child_with_live_group_never_relaunches(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    fake = tmp_path / "fake-stopped.py"
+    config, store = _exhausted(tmp_path, fake)
+    setup = (
+        "import sqlite3\n"
+        f"with sqlite3.connect({str(store.db_path)!r}) as db:\n"
+        "    db.execute(\"INSERT INTO runner_meta(key,value) VALUES('paused','1') "
+        "ON CONFLICT(key) DO UPDATE SET value='1'\")\n"
+        if failure == "paused"
+        else 'print(\'{"tool":"wait","receiver_thread_ids":[]}\', flush=True)\n'
+    )
+    fake.write_text(
+        "#!/usr/bin/env python3\nimport time\n" + setup + "time.sleep(30)\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    monkeypatch.setattr(runner, "_process_group_alive", lambda _group_id: True)
+    result = runner.run_once(config)
+    assert result.reason == "discovery orphan identity uncertain"
+    assert result.status == ("paused" if failure == "paused" else "blocked")
+    status = store.discovery_status()
+    assert status is not None and status["stage"] == "terminal"
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute("SELECT status FROM discovery_attempts").fetchone() == (
+            "quarantined",
+        )
+    store.resume()
+    monkeypatch.setattr(runner, "_process_group_alive", lambda _group_id: False)
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    assert runner.run_once(config).reason == "discovery_orphan_identity_uncertain"
+    assert store.launch_count(day) == 1
+
+
 def test_scope_pass_registration_rolls_back_when_queue_fills(tmp_path: Path) -> None:
     fake = tmp_path / "fake-discovery.py"
     _fake_child(fake)
