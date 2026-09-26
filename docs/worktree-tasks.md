@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## git-ship-cleanup-20260926
+
+- 상태: 완료 worktree 7개 정리 완료. 기존 제품 `main`과 원격은 fetch 후 모두 `f5b05433e09a85df88fcfccd16af66b015b6a3b9`였고, 이번 기록을 별도 커밋해 main에 반영합니다. 이전 169개 ahead 표시는 갱신 전 remote-tracking 정보였으며 이번에 169개를 전송한 것은 아닙니다.
+- 소유·범위: root가 등록부·개발 기록·handoff, 단일 Luna Git executor가 fetch·명시적 파일 commit·main fast-forward·push·정리를 담당합니다. `docs/git-ship-cleanup-20260926`은 supervisor 기록용 브랜치이며 별도 제품 worktree를 만들지 않았습니다. 제품 코드·투자 검증·주문 계약 변경은 없습니다.
+- 정리: main ancestry·tracked/untracked clean·무시된 파일·프로세스 사용 여부를 확인한 7개 폴더만 `git worktree remove`로 제거했습니다. 브랜치는 모두 보존합니다. 기존 항목의 worktree 경로는 작업 당시 위치이며, 현재 정리·보존 상태는 [이번 기록](development-records/2026-09-26-git-ship-cleanup.md)의 목록을 기준으로 합니다.
+- 보존: 미병합 이력 6개, 미커밋 초안 2개, 차단·재사용 기록 3개로 총 11개 보조 worktree를 유지했습니다. 사용자 소유 미추적 루트 `HANDOFF.md`와 credentials는 커밋하지 않습니다.
+- 검증: 기존 backend tree `9d9efedea9ee58189fb2f35c66cb2b5bbe832289`의 전체 검사 2,208 통과·기존 historical hash 실패 2개와 개별 제품 검토를 재사용합니다. UI lint·typecheck·build·독립 검토 근거도 유지합니다. 제품 재병합이나 실패 기준 완화는 하지 않습니다. 이번 문서의 diff·경로·비밀값 검사와 최종 원격 SHA 대사는 별도 수행합니다.
+- 운영·인계: 수동 Git 작업 동안만 roadmap runner pause·service inactive, timer active를 유지하고 마친 뒤 시작 당시 paused=false로 복원합니다. audit `/home/kwl/.local/share/jusik/git-ship-20260926-Xh7VOg/`의 `phase1-before-cleanup.md`, 최종 `delivery-final.md`와 `HANDOFF.md`에 실제 commit·push·복원 결과를 저장합니다. Windows 종료·배포·실주문은 범위 밖입니다.
+
 ## research-visual-reading
 
 - 상태: 완료. 목적·짧은 결론을 앞에 두고, 설정은 표·성과는 수익/하락/비용/현금 짝 막대·점검 행동은 3단계 도식으로 바꿨습니다. 기본 모바일 텍스트 약 28% 감소, 결론 첫 화면·첫 그래프 1,168px 확인.
