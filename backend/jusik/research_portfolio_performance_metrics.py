@@ -443,7 +443,7 @@ def _iso_duration(seconds: int) -> str:
 def maximum_mdd_recovery_duration(
     points: Sequence[NAVPoint], *, initial: Decimal, anchor: datetime
 ) -> dict[str, object]:
-    """Return the longest completed peak-to-recovery duration in UTC seconds."""
+    """Return the longest completed recovery only when the final drawdown recovers."""
     if not points:
         return {
             "availability": "unavailable",
@@ -474,7 +474,7 @@ def maximum_mdd_recovery_duration(
         if point.nav >= peak:
             peak = point.nav
             peak_at = at
-    if maximum == 0 and underwater:
+    if underwater:
         return {
             "availability": "unavailable",
             "utc_seconds": None,

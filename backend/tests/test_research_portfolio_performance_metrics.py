@@ -145,6 +145,35 @@ def test_synthetic_recovery_duration_uses_utc_peak_to_recovery_seconds() -> None
     }
 
 
+@pytest.mark.parametrize(
+    "points",
+    [
+        (
+            NAVPoint(datetime(2024, 1, 2, tzinfo=UTC), Decimal("90")),
+            NAVPoint(datetime(2024, 1, 3, tzinfo=UTC), Decimal("100")),
+            NAVPoint(datetime(2024, 1, 4, tzinfo=UTC), Decimal("80")),
+            NAVPoint(datetime(2024, 1, 11, tzinfo=UTC), Decimal("80")),
+        ),
+        (
+            NAVPoint(datetime(2024, 1, 2, tzinfo=UTC), Decimal("90")),
+            NAVPoint(datetime(2024, 1, 11, tzinfo=UTC), Decimal("80")),
+        ),
+    ],
+)
+def test_synthetic_recovery_duration_requires_terminal_recovery(
+    points: tuple[NAVPoint, ...],
+) -> None:
+    result = adapter.maximum_mdd_recovery_duration(
+        points, initial=Decimal("100"), anchor=datetime(2024, 1, 1, tzinfo=UTC)
+    )
+    assert result == {
+        "availability": "unavailable",
+        "utc_seconds": None,
+        "iso_duration": None,
+        "reason": "mdd_not_recovered",
+    }
+
+
 def _require_bundle() -> None:
     if not BUNDLE.is_dir() or not ACCOUNTING_REPORT.is_file():
         pytest.skip("corrected audit bundle is not available")
@@ -171,8 +200,12 @@ def test_registered_corrected_bundle_has_deterministic_envelope() -> None:
     assert isinstance(secondary, dict)
     assert secondary["trade_count"] == 171
     recovery = secondary["maximum_mdd_recovery_duration"]
-    assert isinstance(recovery, dict)
-    assert recovery["availability"] == "available"
+    assert recovery == {
+        "availability": "unavailable",
+        "utc_seconds": None,
+        "iso_duration": None,
+        "reason": "mdd_not_recovered",
+    }
     for name, reason in (
         ("profit_factor", "missing_realized_trade_pnl"),
         ("max_consecutive_loss", "missing_realized_trade_pnl"),
