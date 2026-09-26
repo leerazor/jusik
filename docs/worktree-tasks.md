@@ -2,14 +2,13 @@
 
 ## research-visual-reading
 
-- 상태: 평가·계획 중. 화면 전용 검수에서 설명은 이해되지만 결과까지 글이 길고 설정·득실의 나란한 비교가 어렵다는 지적을 확인했습니다.
-- 목표·완료 조건: 목적과 결론을 앞에 두고, 조건은 표·결과는 실제 값의 비교 막대·행동은 짧은 순서 그림으로 읽습니다. PC/모바일 읽기 부담 감소, 숫자·한계·보고서 보존, 독립 코드와 화면 재검수 PASS가 완료 기준입니다.
-- 소유: root는 현재 소스 조사와 격리 worktree의 단일 구현, 기록·통합을 맡습니다. 기존 Sol plan·code review와 구현 문맥 없는 screen reviewer를 재사용합니다. 직전 native code dispatch의 thread 제한을 유지하여 반복 호출·우회 위임하지 않습니다.
-- 경로·브랜치: `/home/kwl/projects/jusik-research-visual-reading`, `feat/research-visual-reading`; 조사 main `99b0545`, 통합 대상 local main.
-- 범위: 연구 홈·성과의 공통 설정/결과 UI와 좁은 표시 helper·집중 검사·설계 문서. 보고서 원문·API·금융 계산·전략·인증·주문·운영 데이터는 보존합니다.
-- 격리: frontend 의존성·빌드·preview 3340, fixture 8340, audit `/home/kwl/.local/share/jusik/ui-visual-reading-20260926/`. 사용자 루트 `HANDOFF.md`는 보존합니다.
-- 운영: 시작 runner paused=0·running attempt=0, manual UI 수정 동안 pause·service inactive 확인. 완료 후 충돌 작업이 없으면 이전 승인된 자동 실행 상태로 복원합니다. 기존 웹 적용·재시작 승인 범위를 유지합니다.
-- 기록: `docs/development-records/2026-09-26-research-visual-reading.md`; task handoff는 전용 audit에 저장합니다.
+- 상태: 완료. 목적·짧은 결론을 앞에 두고, 설정은 표·성과는 수익/하락/비용/현금 짝 막대·점검 행동은 3단계 도식으로 바꿨습니다. 기본 모바일 텍스트 약 28% 감소, 결론 첫 화면·첫 그래프 1,168px 확인.
+- 검수: 별도 Sol 코드 review와 구현 문맥 없는 PC/모바일 화면 review 수정 후 PASS. c2를 다른 후보로 오인하던 기존 UI 매핑도 실제 catalog·보고서에 맞게 바로잡았습니다. 실제 초보 참여자 시험은 아닙니다.
+- 소유·통합: native code thread 제한으로 root 단일 구현, 기존 Sol plan·독립 reviewer 유지. 기준 `d89ac20`, 제품 `84a361f`, local main 통합 `758dd81`. 통합 직전 main `d89ac20`. 통합 검증 실패 없음.
+- 검증: lint·typecheck·build·차트 경계값·원문 보고서 12개·오류/누락 14상태·키보드/자동갱신·실제 배포 4화면·외부 미인증 401 PASS. 원문·금융 값·API·전략·인증·운영 데이터 보존.
+- 정리: 전용 worktree `/home/kwl/projects/jusik-research-visual-reading`와 branch `feat/research-visual-reading` 정상 제거. preview 3340·fixture 8340·검수 browser 종료. 현재 웹 서비스는 승인된 재시작으로 적용됐습니다.
+- 운영: 시작 paused=0·running attempt=0, 수동 변경 중만 pause. 통합·기록·정리 후 원래 자동 실행 상태로 복원하며 실제 결과는 audit `runner-restored.json` 참조. 사용자 루트 `HANDOFF.md`, 다른 worktree와 원격은 보존했습니다.
+- 기록: `docs/development-records/2026-09-26-research-visual-reading.md`; audit `/home/kwl/.local/share/jusik/ui-visual-reading-20260926/`의 `HANDOFF.md`·`manifest.json`. 남은 UI 필수 작업 없음.
 
 ## research-novice-comprehension
 
