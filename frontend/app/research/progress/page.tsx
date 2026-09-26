@@ -1,8 +1,8 @@
 import { researchReportHref } from "@/lib/research-reports";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ComparisonSettings } from "../comparison-settings";
-import { ComparisonResults } from "../comparison-results";
+import { ComparisonReviewSteps, ComparisonSettings } from "../comparison-settings";
+import { ComparisonResults, ComparisonTakeaway } from "../comparison-results";
 import { OperationsRefresh } from "@/app/research/lab/operations-refresh";
 import {
   getResearchProgress,
@@ -121,8 +121,10 @@ function ComparisonPanel({ study, comparison }: { study: Study; comparison: Comp
   return <section className={styles.featuredPanel} aria-labelledby="featured-title">
     <p className={styles.kicker}>먼저 읽을 비교 하나</p>
     <h2 id="featured-title">{narrative?.reading.question ?? study.title}</h2>
+    <ComparisonTakeaway study={study} comparison={comparison} />
     <ComparisonSettings study={study} comparisonId={comparison.id} />
     <ComparisonResults study={study} comparison={comparison} />
+      <ComparisonReviewSteps study={study} comparisonId={comparison.id} />
     <p className={styles.readingGuide}>{narrative?.reading.nextCheck ?? "이 자료에 맞는 설명을 확인할 수 없습니다. 원문을 먼저 확인하세요."}</p>
     <Link className={styles.reportLink} href={researchReportHref({ kind: "history", id: study.report_artifact_sha256 })}>이 시험의 보고서 읽기 ↗</Link>
   </section>;
@@ -229,7 +231,7 @@ function FeaturedSection({ progress }: { progress: ResearchProgress }) {
 }
 
 function ProgressPurpose() {
-  return <p className={styles.readingGuide}><strong>읽는 방법</strong> 연구용 비교 설정과 변경해서 시험한 설정을 나란히 보세요. 연구자가 만든 가상의 두 시험입니다. 수익이 늘어난 시험에서 중간 하락·비용도 커졌는지 확인하세요. 어느 쪽에 실제로 투자할지 고르는 화면은 아닙니다.</p>;
+  return <p className={styles.readingGuide}>연구자가 같은 과거 주가에 두 규칙을 적용한 가상 시험입니다. 수익·하락·비용을 함께 비교하세요.</p>;
 }
 
 export default async function ResearchProgressPage() {
@@ -244,7 +246,7 @@ export default async function ResearchProgressPage() {
     <main className={styles.progressMain}>
       <OperationsRefresh />
       <section className={styles.hero}>
-        <div><p className={styles.kicker}>과거 자료에서 확인한 것</p><h1>연구 결과</h1><p className={styles.heroCopy}>무엇을 바꿨고, 어떤 차이가 있었을까요?<br />좋아진 점과 아직 믿기 어려운 점을 함께 읽습니다.</p></div>
+        <div><p className={styles.kicker}>과거 자료에서 확인한 것</p><h1>연구 결과</h1></div>
         <div className={styles.refreshState}><span className={styles.autoDot} aria-hidden="true" />자동 새로고침 · 10초{progress && <small>마지막 확인 {formatDateTime(progress.observed_at)}</small>}</div>
       </section>
       {!progress ? <section className={styles.unavailableBox} role="alert"><h2>진행 현황을 불러올 수 없습니다</h2><p>자료에 연결하지 못했거나 내용을 확인하지 못했습니다. 연구가 없거나 멈췄다는 뜻은 아닙니다. 잠시 후 이 화면을 다시 열어 주세요.</p></section> : <><ProgressPurpose /><FeaturedSection progress={progress} /><StudiesSection progress={progress} /><details className={styles.operationsDetails}><summary>운영 상세 · 자동 실행기와 작업 대기열</summary><RunnerOverview progress={progress} /><QueueSection progress={progress} /></details><footer className={styles.footer}>공개된 비교는 과거 가격으로 계산했으며 배당과 세금이 빠져 있습니다. 그때 알 수 없던 정보를 쓰지 않았는지도 검증 전이므로, 앞으로도 같은 결과를 낼지는 알 수 없습니다. · <Link href="/research/history">연구 이력과 보고서</Link></footer></>}

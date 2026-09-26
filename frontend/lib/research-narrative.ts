@@ -196,7 +196,12 @@ export function describeComparisonOutcome(comparison: Comparison): string {
 
 export function candidateRuleForComparison(study: Study, comparisonId: string): CandidateRule | null {
   if (study.id !== "core10-low-cash" || !getStudyNarrative(study)) return null;
-  const id = comparisonId.endsWith("-c2") ? "B" : comparisonId.endsWith("-c1") ? "A" : null;
+  // The c1/c2 suffix identifies a cost multiplier, not candidate A/B.
+  const registeredCandidates: Record<string, CandidateRule["id"]> = {
+    "core10-continuous-c1": "A", "core10-continuous-c2": "A",
+    "core10-final-c1": "A", "core10-final-c2": "A",
+  };
+  const id = study.comparisons.some((comparison) => comparison.id === comparisonId) ? registeredCandidates[comparisonId] : null;
   if (!id) return null;
   return { id, label: `후보 ${id} · ${id === "A" ? "밴드 2%p" : "밴드 4%p"}`, mapping: "후보 A = 밴드 2%p · 후보 B = 밴드 4%p" };
 }
@@ -209,6 +214,7 @@ export const researchSettingLabels = {
 export const researchCadenceExplanation = "4주·8주는 각각 28일·56일(달력 기준)마다 종목별로 돈을 나눠 넣는 비중을 다시 검토하는 간격입니다. 투자기간이나 반드시 사고파는 주기가 아닙니다. 비중 차이가 작은 경우 등에는 거래를 건너뛰고, 위험 방어를 위한 매도는 그 사이에도 발생할 수 있습니다.";
 
 export type ComparisonSettings = {
+  rows: Array<{ label: string; baseline: string; candidate: string }>;
   baselineRules: string[];
   candidateRules: string[];
   cadenceChanged: boolean;
@@ -221,7 +227,23 @@ export function getComparisonSettings(study: Study, comparisonId: string): Compa
   const rule = candidateRuleForComparison(study, comparisonId);
   if (study.id === "core10-low-cash" && !rule) return null;
   const explainRule = (value: string): string => value.replace("투자 상한 ", "전체 돈 중 투자할 수 있는 한도 ").replace("4주마다 재조정", "4주(28일)마다 종목별 투자 비중 점검").replace("8주마다 재조정", "8주(56일)마다 종목별 투자 비중 점검");
+  const rowsByStudy: Record<string, ComparisonSettings["rows"]> = {
+    "core10-low-cash": [
+      { label: "주식에 넣을 수 있는 한도", baseline: "전체의 60%", candidate: "전체의 95%" },
+      { label: "종목·금액 다시 계산", baseline: "4주마다", candidate: "8주마다" },
+      { label: "흔들릴 때 투자금", baseline: "더 줄이는 규칙", candidate: "덜 줄이는 규칙" },
+      { label: "거래 생략에 쓰는 차이 기준", baseline: "2%p", candidate: `${rule?.id === "B" ? "4" : "2"}%p` },
+    ],
+    "gross-cap": [{ label: "주식에 넣을 수 있는 한도", baseline: "전체의 60%", candidate: "전체의 80%" }],
+    "volatility-target": [
+      { label: "흔들릴 때 투자금", baseline: "더 줄이는 규칙", candidate: "덜 줄이는 규칙" },
+      { label: "주식에 넣을 수 있는 한도", baseline: "전체의 60%", candidate: "전체의 60%" },
+    ],
+    "volatility15-cadence-5270": [{ label: "종목·금액 다시 계산", baseline: "4주마다", candidate: "8주마다" }],
+    "cadence-decision-20260913": [{ label: "종목·금액 다시 계산", baseline: "4주마다", candidate: "8주마다" }],
+  };
   return {
+    rows: rowsByStudy[study.id] ?? [],
     baselineRules: narrative.baselineRules.map(explainRule),
     candidateRules: narrative.candidateRules.map((value) => explainRule(value.startsWith("후보 A/B") && rule ? `보유 비중 밴드 ${rule.id === "A" ? "2" : "4"}%p · 후보 ${rule.id}` : value)),
     cadenceChanged: ["core10-low-cash", "volatility15-cadence-5270", "cadence-decision-20260913"].includes(study.id),
