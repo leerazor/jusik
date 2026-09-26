@@ -44,10 +44,13 @@ scope receipt 및 실패 근거는 불변으로 보존한다. 실제 구현·외
 재시도 child의 작업은 위 commit의 main ancestry, 두 파일 hash, 실제 독립 review와
 이 개발 기록을 확인하여 이미 끝난 구현을 보고하는 것이다. 또 다른 구현자·reviewer를
 중첩 호출하거나 같은 변경을 다시 만들지 않는다. 과거 승인·출력은 수정하지 않는다.
+검증 후 작업 worktree는 정상 정리했으며 source branch·commit은 main에 보존된다.
+재시도에서 새 worktree를 만들 필요는 없다. 실제 retry/완료 결과는 audit의 `RUNTIME.md`에
+기록한다. 기술 복구가 R2-02 전체 완료나 투자 검증을 뜻하지 않는다.
 
 ## 안전·기록
 
 자동 runner는 별도 runner 수리 동안 pause 상태다. 데이터·금융 실험·실주문·PAPER/LIVE·
 권한·credential·비용 정책·원격 push·Windows 종료는 변경하지 않는다.
-사용자 `HANDOFF.md`는 보존하고 결과는 완료 시 date-specific handoff에 연결한다.
+사용자 `HANDOFF.md`는 보존하고 결과는 `docs/handoffs/2026-09-26-roadmap-completion-review.md`에 연결한다.
 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-roadmap-completion-review/`.

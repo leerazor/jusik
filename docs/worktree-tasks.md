@@ -14,16 +14,17 @@
 
 ## lab-roadmap-completion-review
 
-- 상태: 원인·계획 확인 후 전용 worktree에서 Sol 구현 진행. 자동 runner는 실행 중 child가 없는 구간에서 pause했고 service inactive, timer는 유지한다.
+- 상태: 구현 `0a2376e`·독립 검토 P2 보완 `79eab2f`·main `6739c63` 통합 검증 완료. 최종 main pytest 338개·Ruff·strict mypy와 별도 Sol review PASS. 최종 기록 commit 뒤 기존 설정으로 재개하며 실제 운영 증거는 외부 RUNTIME에 기록한다.
 - 목표: scope-approved 오프라인 연구 코드 작업이 사용할 수 없는 중첩 구현자·reviewer를 요구하다 멈추는 모순을 제거한다. 기존 단일 구현·host 독립 검토 경로를 재사용하고, BLOCKED/검토 대기가 독립 READY 실행을 막지 않음을 재현한다.
 - 근거: `roadmap-r2-02-cost-market-uniqueness-v1`은 `worker_execution_unavailable`로 BLOCKED다. generic prompt는 별도 worker/reviewer를 요구하지만 runtime은 중첩 spawn을 금지하고 research 완료는 자체 제출 `review_passed`를 요구한다. 공학 작업은 별도 host reviewer 경로가 있어 계속 진행됐다.
 - 담당: Sol 단일 구현 소유자, 별도 Sol 검토, root 문서·운영·main 통합. 구현 전 read-only 조사→계획을 거치고 active 최대 4명을 유지한다.
 - worktree: `/home/kwl/projects/jusik-lab-roadmap-completion-review`; branch `fix/lab-roadmap-completion-review`; 조사 기준 `eb9e54f`, 구현 기준 `734d296`. 통합 대상 local `main`.
+- 정리: main 통합 검증 후 cache/evidence를 audit에 옮기고 위 worktree·전용 venv/cache 정상 제거. source branch·commit 보존.
 - 범위: `development_runner.py`, `development_runner_store.py`, `development_runner_planning_scope.py`와 전용 roadmap-code-review/planning-scope 테스트. 새 v2 code-only scope의 정확한 파일 소유·hash를 동결해 기존 engineering candidate/host review에 연결한다. roadmap phase·mandate·입력 gate는 dispatch와 완료에서도 유지한다. 과거 scope 승인·실패·산출물을 다시 쓰거나 투자/PAPER/LIVE·권한·credential·과금 정책을 완화하지 않는다.
-- 검증 목표: 역할 모순 RED, immutable 소유 범위·attempt·HEAD·hash 검증, 독립 PASS 전 미완료, 무효/대기 뒤 READY 계속, legacy 보존, focused pytest·Ruff·strict mypy·독립 검토.
+- 검증: 역할 모순 RED, fake CLI end-to-end, immutable 소유·attempt·HEAD·hash, 독립 PASS 전 미완료, BLOCKED/WAITING 뒤 READY 계속, legacy·cap·area 예약·rollback·provenance 삭제 보호를 확인했다. 상대/tilde/정규화 경로의 재시작 오인을 재현·보완하고 독립 재검토 PASS. backup 복사본의 12개 테이블·1,214개 행 보존·반복 초기화·integrity PASS.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-roadmap-completion-review/`; online backup `runner-before-review-bridge.db`, integrity `ok`, SHA-256 `3a376c2e92e05f97b6ae845615846024f376212c6a10b4bd2790f069a692eb6b`.
 - 보존: 사용자 미추적 `HANDOFF.md`, 기존 연구 worktree, 운영 task/attempt/scope 기록. 기존 데이터 수집·연구·monitor는 변경하지 않는다. 원격 push·Windows 종료 없음.
-- 개발 기록: `docs/development-records/2026-09-26-lab-roadmap-completion-review.md`; 완료 후 date-specific handoff와 운영 재개 근거를 연결한다.
+- 개발 기록: `docs/development-records/2026-09-26-lab-roadmap-completion-review.md`; handoff: `docs/handoffs/2026-09-26-roadmap-completion-review.md`. 실제 v2 운영, 기존 다른 legacy 실패, reviewer transient retry/no_work 강화는 별도 확인 영역이다.
 
 ## r2-02-cost-market-uniqueness
 
@@ -35,7 +36,7 @@
 - 검증: 신규 RED 4건·기존 PASS 8건 이후 pytest 12개·Ruff·두 파일 strict mypy 통과. 별도 Sol은 유효한 순서 포함 부분집합 15개 모두의 비용·hash·ID와 legacy roundtrip 보존을 확인했다. main에서도 pytest 12개·Ruff·strict mypy 통과. fresh Luna/high routing pre/post PASS.
 - 재개: 실제 독립 PASS의 task/baseline/commit/파일 hash 증거를 보존한 다음 기존 명시적 retry만 사용한다. 재시도 child는 새 구현·자체 승인 없이 이미 검토한 결과를 확인한다. 새 변경이 필요하면 다시 review하며, fake event나 area 예약 우회는 사용하지 않는다.
 - 기록: `docs/development-records/2026-09-26-r2-02-cost-market-uniqueness.md`; audit은 위 `20260926-roadmap-completion-review` 아래 별도 산출물로 보존한다.
-- 실제 독립 review: audit의 `cost-market-independent-review.json`, SHA-256 `a389ead9501d9f7ffca72e373c4bba177dffc9a23e4ca5e689b6d7b8d7a48a63`. 해당 기록과 두 파일 hash, main ancestry를 검증하고 새 수정·중첩 agent 없이 완료 결과를 보고한다. worktree는 기존 task의 재개 지점으로 아직 보존한다.
+- 실제 독립 review: audit의 `cost-market-independent-review.json`, SHA-256 `a389ead9501d9f7ffca72e373c4bba177dffc9a23e4ca5e689b6d7b8d7a48a63`. 해당 기록과 두 파일 hash, main ancestry를 검증하고 새 수정·중첩 agent 없이 완료 결과를 보고한다. main 검증 후 cache를 보존하고 worktree는 정상 제거했다. branch/commit·실패 이력은 보존되며 새 worktree 생성은 불필요하다. handoff는 위 runner 작업과 공유한다.
 
 ## lab-continuous-research-dispatch
 
