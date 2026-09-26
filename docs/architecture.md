@@ -9,7 +9,7 @@
 | 포트폴리오 백엔드 | KIS·키움의 읽기 전용 계좌 조회와 투자자 후보·논거 API | `backend/jusik/main.py`, `backend/jusik/investor_api.py` | `README.md`, `docs/investor-workflow.md` |
 | 연구 백엔드 | 모의 연구, 시장 자료 준비 상태, PAPER 관찰과 연구 이력 API | `backend/jusik/research_app.py`, `backend/jusik/market_research_api.py` | `docs/research.md`, `docs/market-research.md`, `docs/research-mandate.md` |
 | 프런트엔드 | Next.js 화면과 두 백엔드의 서버 측 호출 | `frontend/app/`, `frontend/lib/investor.ts`, `frontend/lib/research.ts` | `frontend/AGENTS.md`, 관련 기능 문서 |
-| 개발 실행기 | 제한된 연구·공학 작업의 큐·증거·상태 관리, 빈 큐에서 독립 검토를 거친 공학 과제 발굴 | `backend/jusik/development_runner.py`, `backend/jusik/development_runner_discovery.py`, `deploy/systemd/` | `docs/development-runner.md`, `docs/worktree-workflow.md` |
+| 개발 실행기 | 제한된 연구·공학 작업의 큐·증거·상태 관리, 빈 큐에서 연구 준비 제안의 독립 scope 검토와 공학 과제 발굴 | `backend/jusik/development_runner.py`, `backend/jusik/development_runner_planning_scope.py`, `backend/jusik/development_runner_discovery.py`, `deploy/systemd/` | `docs/development-runner.md`, `docs/autonomous-trading-lab.md`, `docs/worktree-workflow.md` |
 | 자율 연구소 제어 계층 | 작업 대기 분리·공학 작업 분류·offline 전략 전이 보호 | `backend/jusik/development_runner.py`, `backend/jusik/strategy_lifecycle.py` | `docs/autonomous-trading-lab.md`의 현재 구현/후속 구현 구분 |
 
 `start.sh`는 포트폴리오 백엔드, 연구 백엔드, 프런트엔드를 함께 준비합니다. 프런트엔드는 투자자 요청에 `backendUrl()`을, 연구 요청에 `researchBackendUrl()`을 사용합니다. 두 API 경계를 임의로 합치거나 한쪽 URL을 다른 기능에 재사용하지 않습니다.

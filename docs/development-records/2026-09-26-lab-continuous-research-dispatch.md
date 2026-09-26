@@ -80,7 +80,13 @@ mandate `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`.
 
 - 첫 RED: `test_eligible_roadmap_planning_precedes_fresh_engineering_discovery`가
   실제 run_once의 `discovery_selected` 조기 반환으로 실패했다.
-- 구현/독립 검토/main 검사: 진행 중. 아직 완료로 표시하지 않는다.
+- 구현 소유자의 focused 회귀 70개·Ruff·소스 strict mypy·수정 fixture 3개 focused
+  strict mypy 통과. 독립 검토와 main 통합 검사는 아직 진행 전이며 완료로 표시하지 않는다.
+- 운영 backup의 전용 복사본 `runner-migration-check.db`에서 기존 10개 테이블의 모든
+  기존 열·행 동일성을 확인했다. `roadmap_planning_scopes`, `roadmap_scope_attempts`
+  두 테이블만 추가되었고 `PRAGMA integrity_check=ok`다. 실제 운영 DB는 덮어쓰지 않았다.
+- 감독 검토에서 legacy `finish_planning` 직접 등록 우회와 불확실 orphan의 다음 cycle
+  소유권 상실 가능성을 찾아 구현자가 fail-closed/영속 hold 및 회귀 테스트로 보강했다.
 - 계획만 한 후속: 구현 review의 일시 오류 재시도 일반화, no_work 경로/hash 증명,
   외부 readiness 변경에 따른 재평가. 이번 slice에 있다고 주장하지 않는다.
 - 추가 확인: generic research completion은 `review_passed`를 요구하지만 자동 child는
