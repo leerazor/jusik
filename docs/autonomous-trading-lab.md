@@ -512,9 +512,9 @@ READY 수, 대기 사유와 다음 허용 재시각을 구분한다. stage가 �
 
 | 순서 | 작업 | 현재 범위 |
 | --- | --- | --- |
-| 1 | 연구 planner starvation 제거·독립 scope 등록·정직한 상태 | `lab-continuous-research-dispatch`의 구현·검증 범위 |
+| 1 | 연구 planner starvation 제거·독립 scope 등록·정직한 CLI 상태 | `lab-continuous-research-dispatch`: main 통합·292개 검사·독립 review 완료. 실제 실행 상태는 작업 기록의 외부 RUNTIME 참조 |
 | 1b | 새 roadmap 산출물의 별도 완료 reviewer 연결 | 후속 과제. scope PASS는 구현 후 review가 아니며 기존 완료 계약을 완화하지 않음 |
-| 2 | 구현 reviewer의 알려진 호출 장애도 영속 기한 재시도 | 후속 과제. 기존 discovery 재시도와 혼동하지 않음 |
+| 2 | 구현·연구 scope reviewer의 알려진 호출 장애도 영속 기한 재시도 | 후속 과제. 기존 discovery 재시도와 혼동하지 않음 |
 | 3 | no_work의 검사 파일/hash와 검증된 외부 readiness 변경 결속 | 후속 과제. 같은 자료 무한 재분석 금지 |
 | 4 | 현재 prospective 사전등록의 새 mandate 호환성 audit | 연구 준비 우선 과제. 평가 창 종료 전 OOS 실행 금지 |
 | 5 | 자료·회계 gate가 충족된 bounded 후보 비교·반증 | 조건부 연구. 지금 수익성 검증 완료로 표시하지 않음 |
