@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## lab-roadmap-completion-review
+
+- 상태: 원인 확인·제한된 설계 진행. 자동 runner는 실행 중 child가 없는 구간에서 pause했고 service inactive, timer는 유지한다.
+- 목표: scope-approved 오프라인 연구 코드 작업이 사용할 수 없는 중첩 구현자·reviewer를 요구하다 멈추는 모순을 제거한다. 기존 단일 구현·host 독립 검토 경로를 재사용하고, BLOCKED/검토 대기가 독립 READY 실행을 막지 않음을 재현한다.
+- 근거: `roadmap-r2-02-cost-market-uniqueness-v1`은 `worker_execution_unavailable`로 BLOCKED다. generic prompt는 별도 worker/reviewer를 요구하지만 runtime은 중첩 spawn을 금지하고 research 완료는 자체 제출 `review_passed`를 요구한다. 공학 작업은 별도 host reviewer 경로가 있어 계속 진행됐다.
+- 담당: Sol 단일 구현 소유자, 별도 Sol 검토, root 문서·운영·main 통합. 구현 전 read-only 조사→계획을 거치고 active 최대 4명을 유지한다.
+- 예정 worktree: `/home/kwl/projects/jusik-lab-roadmap-completion-review`; branch `fix/lab-roadmap-completion-review`; 조사 기준 `eb9e54f`, 구현 기준은 등록 commit 이후 기록한다. 통합 대상 local `main`.
+- 범위: 기존 runner의 scope·소유 파일·완료 review 계약과 회귀 테스트. 정확한 수정 파일은 계획 확정 후 기록한다. 과거 scope 승인·실패·산출물을 다시 쓰거나 투자/PAPER/LIVE·권한·credential·과금 정책을 완화하지 않는다.
+- 검증 목표: 역할 모순 RED, immutable 소유 범위·attempt·HEAD·hash 검증, 독립 PASS 전 미완료, 무효/대기 뒤 READY 계속, legacy 보존, focused pytest·Ruff·strict mypy·독립 검토.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-roadmap-completion-review/`; online backup `runner-before-review-bridge.db`, integrity `ok`, SHA-256 `3a376c2e92e05f97b6ae845615846024f376212c6a10b4bd2790f069a692eb6b`.
+- 보존: 사용자 미추적 `HANDOFF.md`, 기존 연구 worktree, 운영 task/attempt/scope 기록. 기존 데이터 수집·연구·monitor는 변경하지 않는다. 원격 push·Windows 종료 없음.
+- 개발 기록: `docs/development-records/2026-09-26-lab-roadmap-completion-review.md`; 완료 후 date-specific handoff와 운영 재개 근거를 연결한다.
+
 ## lab-continuous-research-dispatch
 
 - 상태: 첫 구현·독립 검토·local main 통합 검증 완료. 구현 `299e274`, 독립 검토 P1 보완 `be8e8b6`, 타입 전용 보완 `7878667`; main `9fae842`·최종 `5b86cb0`. 최종 main pytest 292개·Ruff·변경 소스/테스트 strict mypy 통과. 최종 문서 commit 뒤 기존 설정으로 재개하며 실제 운영 증거는 외부 RUNTIME에 기록한다.
