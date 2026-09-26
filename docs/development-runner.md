@@ -180,6 +180,12 @@ systemctl --user enable --now jusik-development-runner.timer
 
 실행기는 기본 supervisor(Sol) 사이클을 한 번에 하나만 실행합니다. 대화형 supervisor의 전체 한도는 planner 포함 4명(하위 3명)이며 모델은 [agent tooling](agent-tooling.md)을 따릅니다. 현재 자동 runner child는 host의 검토 호출 정체를 막기 위해 중첩 spawn을 금지합니다. 독립 검토가 확보되지 않으면 스스로 독립 검토를 통과했다고 표시하지 않고 해당 작업만 대기시킵니다. 선행 결과가 필요한 작업과 `main` 병합은 순차 처리합니다. Astra는 선택적인 읽기 전용 진단이며 자동 model-switch가 아닙니다. 병합한 워크트리는 [워크트리 운영 절차](worktree-workflow.md#정리)에 따라 정리합니다.
 
+자동 코드 delivery의 child는 그 작업의 단일 구현자이지 하위 구현자·reviewer를 다시
+모으는 supervisor가 아닙니다. 동결된 spec의 소유 파일만 구현·검사하고 미검토 후보를
+제출합니다. host가 별도 읽기 전용 완료 reviewer를 호출합니다. 이 역할 분리는
+대화형 supervisor의 조사→계획→구현→독립 검토 원칙을 없애는 것이 아니라,
+자동 실행에서 각 단계를 실제 제공되는 host 경로에 배치하는 규칙입니다.
+
 ## 상태와 수동 제어
 
 ```bash
@@ -192,7 +198,7 @@ cd /home/kwl/projects/jusik/backend
 
 수동으로 저장소를 수정해야 할 때는 반드시 먼저 `pause`를 실행하고, `systemctl --user stop jusik-development-runner.service`를 실행한 다음 `systemctl --user is-active jusik-development-runner.service`가 `inactive`인지 확인합니다. 수동 통합과 검사를 끝내고 tracked worktree를 깨끗하게 만든 뒤 `resume`하고 timer를 다시 확인합니다. 실행기는 스스로 unit을 중지하거나 pause하지 않습니다.
 
-`running` 시도는 재시작 때 `interrupted`로 보존되며 자동으로 다시 실행하지 않습니다. `retry TASK_ID`가 이전 시도 ID를 기록한 뒤 명시적으로 큐에 넣습니다. Codex가 종료 코드 0을 반환해도 commit이 local `main`의 조상인지, evidence 파일의 SHA-256과 허용 경로를 검증하지 못하면 완료로 기록하지 않습니다. `tests_passed`와 `review_passed`는 agent가 보고하는 값이며 runner가 대신 실행하거나 독립 review를 주장하지 않습니다. 미래 데이터가 없으면 `status=blocked`와 사유를 제출할 수 있고, 이 결과는 commit·evidence를 요구하지 않습니다. 실패·중단·blocked 시도는 명시적 retry 전까지 격리합니다.
+`running` 시도는 재시작 때 `interrupted`로 보존되며 자동으로 다시 실행하지 않습니다. `retry TASK_ID`가 이전 시도 ID를 기록한 뒤 명시적으로 큐에 넣습니다. Codex가 종료 코드 0을 반환해도 commit이 local `main`의 조상인지, evidence 파일의 SHA-256과 허용 경로를 검증하지 못하면 완료로 기록하지 않습니다. 기존 generic/legacy research의 `tests_passed`와 `review_passed`는 agent가 보고하는 값이며 runner가 대신 검사하거나 독립 review를 주장하지 않습니다. 동결된 code delivery는 아래 별도 host review 계약을 사용합니다. 미래 데이터가 없으면 `status=blocked`와 사유를 제출할 수 있고, 이 결과는 commit·evidence를 요구하지 않습니다. 실패·중단·blocked 시도는 명시적 retry 전까지 격리합니다.
 
 `automatic_recovery=true`인 설치에서는 completion의 명시적 `recovery_kind=environment`와 고정 label(`dependency_setup`, `cache_permission`, `tool_unavailable`), 또는 고정 label(`code_defect`, `test_defect`, `lint_defect`, `type_defect`, `actionable_review`)인 `implementation`일 때만 blocked attempt를 다시 예약합니다. 이전 attempt는 terminal history로 남고 같은 transaction 안에서 다음 시도의 `next_allowed_at`과 `previous_attempt_id`를 기록합니다. 자동 재시도는 task당 최대 2회이며 backoff는 60초와 120초입니다. marker가 없거나 label이 허용 목록 밖이면 blocked 상태를 유지하고, completion이 `completed`인데 recovery marker를 포함하면 검증에 실패합니다. 새 시도도 매번 tests와 독립 review를 통과해 completion 계약을 충족해야 합니다.
 
@@ -239,6 +245,31 @@ OOS 재사용·winner 선정·PAPER/live·실주문 권한을 일반 planner에 
 `completion.followup`은 `null`이어야 합니다. 후속 아이디어는 다음 planner와 독립
 scope 검토를 거쳐야 하며, 완료 출력으로 검토 없는 task를 직접 증식시키지 않습니다.
 기존 generic 연구·legacy roadmap task의 후속 계약은 변경하지 않습니다.
+
+### 범위가 승인된 roadmap 코드 산출물
+
+새 scope 검토에서 명시적으로 code-only 실행 계약을 승인한 작업만 기존 engineering
+구현·독립 완료 review 경로를 재사용합니다. v2 계약은 정확한 source/test 한 쌍과
+host가 확인한 baseline 파일 hash를 proposal/evidence·planner attempt·HEAD·mandate·
+roadmap identity에 결속합니다. 초기 허용 범위는 R2-01의 `market_loss_accounting.py`
+쌍과 R2-02의 `broker_cost_profiles.py` 쌍입니다. 임의 파일, 실행기·권한·의존성 변경,
+새 금융 실험 또는 데이터 부족의 투자 검증 대체를 허용하지 않습니다.
+
+scope receipt와 동결 spec, task 등록은 함께 원자적으로 저장합니다. 별도 roadmap
+provenance를 보존하며 engineering discovery의 승인 기록으로 위장하지 않습니다.
+원래 roadmap area는 유지하고 dispatch와 완료 시 phase·mandate·필수 입력을 다시
+검증합니다. delivery가 engineering이라는 이유로 투자 roadmap gate를 우회하지 않습니다.
+
+구현 child는 `review_passed=false`인 후보만 제출하고, 별도 host reviewer의 정확한
+task/attempt/baseline/commit/파일 hash PASS 뒤에만 `ENGINEERING_COMPLETE`가 됩니다.
+투자 상태는 `NOT_EVALUATED`이며 roadmap 단계 완료·PAPER/LIVE 승격은 별도입니다.
+scope PASS는 등록 승인이고, 독립 완료 review를 대신하지 않습니다.
+
+기존 v1 승인에는 파일 소유 계약을 소급 부여하지 않습니다. 과거 BLOCKED/FAILED의
+prompt·attempt·receipt는 유지하며 새로운 실행 권한이나 retry로 자동 전환하지 않습니다.
+기존 작업의 실제 수동 구현·외부 독립 검토를 마쳤다면 그 task에 한정된 증거를 보존하고
+기존 명시적 retry로 확인·보고할 수 있지만, 검토 문서를 만들어 자체 승인하는 일반 복구
+방식으로 확대하지 않습니다. reservation·queue cap·투자 검증 기준은 그대로입니다.
 
 `planning_enabled=true`이고 실행 가능한 연구 작업이 없으며 queued/running 연구 작업도 없을 때, 실행기는 내부 예약 영역 `__planning__`에서 planner를 한 번 dispatch합니다. research scope는 기존 task snapshot, 검증된 `main` HEAD, UTC 날짜를 fingerprint로 묶고 cost-adjusted portfolio return/risk/turnover 실험을 우선 검토합니다. investment-roadmap scope는 task snapshot, roadmap SHA-256, mandate governance digest, `main:backend/jusik` tree SHA-256으로 fingerprint를 묶습니다. 이 scope에서는 날짜와 unrelated commit이 planner identity를 바꾸지 않으며, roadmap·mandate·task·backend code 변경은 새 계획 검토를 만듭니다. `--planning-wait`를 붙인 `retry`는 completed 상태의 roadmap planner 중 마지막 결과가 `planning_waiting`인 task만 다시 큐에 넣고 이전 attempt ID를 연결합니다. 제안을 저장할 때는 fingerprint와 별도로 시작 시점의 `main` HEAD가 유지됐는지 확인합니다. planner state/history는 연구 pending 상한 8개에 포함하지 않습니다. 투자 로드맵 scope의 원자적 enqueue cap은 `queued`와 `running`만 계산하므로 과거 `blocked` 8개가 새 roadmap 작업을 막지 않습니다. research scope의 기존 pending 의미는 유지합니다.
 

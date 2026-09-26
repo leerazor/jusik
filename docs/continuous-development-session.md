@@ -48,6 +48,14 @@ a new financial experiment, holdout reuse, investment validation, or promotion.
 The decision contract and staged implementation are in
 [goal-directed continuous operation](autonomous-trading-lab.md#17-목표-기반-지속-운영).
 
+For a newly scope-approved code-only roadmap delivery, the isolated child is
+the single implementation owner. It must not recruit nested implementers or
+reviewers. Submit an unreviewed candidate; the existing host-side independent
+review lane performs completion review against the frozen ownership contract.
+Scope approval alone is not completion review. Preserve roadmap prerequisites
+and investment status even when the delivery uses the engineering lane.
+Legacy approvals without this contract gain no new execution authority.
+
 When no reviewed research opportunity is actionable, use the enabled bounded
 engineering discovery path described in `development-runner.md`. A read-only agent proposes
 a concrete offline code task inside the reviewed module/test allowlist; an
