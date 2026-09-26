@@ -494,6 +494,10 @@ def apply_split(
     try:
         _validate_state(state)
         normalized = normalize_action(action)
+        boundary = _aware_utc(at, "split boundary")
+        effective = _aware_utc(action.effective_at, "effective_at")
+        if boundary < effective:
+            raise AccountingError("split boundary precedes effective boundary")
         replay = _existing_record(state, normalized, "split")
         if replay is not None:
             return replay
@@ -507,10 +511,6 @@ def apply_split(
         )
         if holding_index is None:
             raise InsufficientActionError("split holding is unavailable")
-        boundary = _aware_utc(at, "split boundary")
-        effective = _aware_utc(action.effective_at, "effective_at")
-        if boundary < effective:
-            raise AccountingError("split boundary precedes effective boundary")
         if action.before_price is None or action.after_price is None:
             raise InsufficientActionError("raw split marks are required")
         holding = state.holdings[holding_index]
@@ -587,13 +587,13 @@ def accrue_dividend(
     try:
         _validate_state(state)
         normalized = normalize_action(action)
-        replay = _existing_record(state, normalized, "accrual")
-        if replay is not None:
-            return replay
         boundary = _aware_utc(at, "accrual boundary")
         effective = _aware_utc(action.effective_at, "effective_at")
         if boundary < effective:
             raise AccountingError("accrual boundary precedes effective boundary")
+        replay = _existing_record(state, normalized, "accrual")
+        if replay is not None:
+            return replay
         if not action.entitlement_confirmed or action.entitled_quantity is None:
             raise InsufficientActionError(
                 "dividend entitlement is unconfirmed or missing"
@@ -672,10 +672,13 @@ def pay_dividend(
     try:
         _validate_state(state)
         normalized = normalize_action(action)
+        boundary = _aware_utc(at, "payment boundary")
+        payment_at = _aware_utc(action.payment_at, "payment_at")
+        if boundary < payment_at:
+            raise AccountingError("payment boundary precedes payment date")
         replay = _existing_record(state, normalized, "payment")
         if replay is not None:
             return replay
-        boundary = _aware_utc(at, "payment boundary")
         payment_index = next(
             (
                 index

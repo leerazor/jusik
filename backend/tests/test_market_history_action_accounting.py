@@ -384,6 +384,52 @@ def test_identical_action_replay_does_not_change_state() -> None:
     assert payment_replay.state == paid.state
 
 
+def test_split_replay_rejects_invalid_supplied_boundaries() -> None:
+    action = _split()
+    applied = apply_split(_state(), action, at=action.effective_at)
+    assert applied.status == "applied"
+    valid_replay = apply_split(applied.state, action, at=action.effective_at)
+    assert valid_replay.status == "replayed"
+    assert valid_replay.state == applied.state
+
+    for at in (
+        action.effective_at - timedelta(seconds=1),
+        action.effective_at.replace(tzinfo=None),
+    ):
+        replay = apply_split(applied.state, action, at=at)
+        assert replay.status == "rejected"
+        assert replay.state is applied.state
+
+
+def test_accrual_replay_rejects_invalid_supplied_boundaries() -> None:
+    action = _dividend()
+    accrued = accrue_dividend(_state(), action, at=action.effective_at)
+    assert accrued.status == "applied"
+
+    for at in (
+        action.effective_at - timedelta(seconds=1),
+        action.effective_at.replace(tzinfo=None),
+    ):
+        replay = accrue_dividend(accrued.state, action, at=at)
+        assert replay.status == "rejected"
+        assert replay.state is accrued.state
+
+
+def test_payment_replay_rejects_invalid_supplied_boundaries() -> None:
+    action = _dividend()
+    accrued = accrue_dividend(_state(), action, at=action.effective_at)
+    paid = pay_dividend(accrued.state, action, at=action.payment_at)
+    assert paid.status == "applied"
+
+    for at in (
+        action.payment_at - timedelta(seconds=1),
+        action.payment_at.replace(tzinfo=None),
+    ):
+        replay = pay_dividend(paid.state, action, at=at)
+        assert replay.status == "rejected"
+        assert replay.state is paid.state
+
+
 def test_action_id_conflict_includes_price_and_currency_semantics() -> None:
     state = _fixture_state("conflicting_action_id")
     original = _fixture_split("conflicting_action_id")
