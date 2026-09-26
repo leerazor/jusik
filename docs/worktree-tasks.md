@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## beginner-research-ui-20260926
+
+- 상태: 조사 완료, 설계 중. runner는 paused이고 service inactive이며 기존 중지 상태를 유지합니다.
+- 목표: 초보자가 연구의 현재 결론, 해석과 한계, 다음 확인 사항을 먼저 이해하도록 연구 홈·결과 화면·탐색 구조를 재설계합니다. `/investor`의 별도 종목 분석 역할을 설명하고 기존 URL·폼·액션·금융 수치와 데이터 검증을 보존합니다.
+- 담당: read-only explore와 plan, 단일 Sol code 구현, 별도 Sol review, root 검증·통합. 중첩 위임 없음.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-beginner-research-ui` / `feat/beginner-research-ui`. 기준 준비 `b12538981f9cc7edbf75becd6ebae4773123c866`; 통합 대상 local `main`.
+- 수정 범위: frontend 연구 홈·결과·관찰의 설명 및 정보 계층, 공유 탐색·관련 CSS·투자자 진입 설명·오타 경로, 필요한 표시 도우미와 검사, 관련 사용자 문서와 개발 기록. 전략·연구 실행·금융 계산·API·인증·거래 정책 변경은 제외합니다.
+- 격리: 전용 node_modules와 Next 출력, 프런트 포트 3337·fixture 8337, 임시 자료는 작업별 경로. 운영 DB·증권사 API 변경 없음.
+- 검증: lint·typecheck·build, 자료 정상/없음/실패/설명 식별 불일치, 데스크톱·모바일·키보드·펼침·앵커·링크·기존 폼 보존, 별도 review와 main 통합 검사.
+- audit: `/home/kwl/.local/share/jusik/ui-redesign-20260926/`; 기존 실제 화면 캡처와 사전 조사 보존. 개발 기록 `docs/development-records/2026-09-26-beginner-research-ui.md`, 완료 handoff는 같은 audit에 저장합니다.
+- 보존: 기존 사용자 `HANDOFF.md`, 다른 작업의 변경·worktree·서비스. 원격 push와 새 성과 실험 없음.
+
 ## lab-roadmap-completion-review
 
 - 상태: 원인·계획 확인 후 전용 worktree에서 Sol 구현 진행. 자동 runner는 실행 중 child가 없는 구간에서 pause했고 service inactive, timer는 유지한다.
