@@ -7,9 +7,9 @@ import sqlite3
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
-from threading import Barrier
+from threading import Barrier, Event
 from types import ModuleType
 from typing import Any, cast
 
@@ -23,6 +23,7 @@ from test_development_runner_review_transport import Clock, _transport_child
 from jusik import development_runner as runner
 from jusik import development_runner_store as journal
 from jusik.development_runner_planning_scope import PendingRoadmapScope
+from jusik.research_mandate_governance import ValidatedMandate, validate_dispatch_gate
 
 
 def _pending(
@@ -363,6 +364,76 @@ def test_transport_finish_is_atomic_and_active_scope_cannot_be_terminalized(
         pending, "retry", "failed", retry_kind="server"
     )
     assert _rows(store, "roadmap_planning_scopes")[0]["transient_failures"] == 1
+
+
+@pytest.mark.parametrize("boundary", ["expiry", "quota_day"])
+def test_claim_samples_time_after_sqlite_lock_wait(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, boundary: str
+) -> None:
+    clock = Clock(monkeypatch)
+    if boundary == "quota_day":
+        clock.advance(3600)
+    config, store, pending, fake = _pending(tmp_path)
+    clock.advance(1)
+    _transport_child(fake)
+    runner.run_once(config)
+    boundary_time = datetime.fromisoformat(pending.expires_at)
+    if boundary == "quota_day":
+        boundary_time -= timedelta(hours=1)
+        config = config.model_copy(update={"daily_launches": 1})
+    clock.advance(int((boundary_time - clock.now).total_seconds()) - 1)
+    starting_claim = Event()
+    original_connect = store._connect
+
+    def connect() -> sqlite3.Connection:
+        connection = original_connect()
+        connection.set_trace_callback(
+            lambda sql: starting_claim.set() if sql == "BEGIN IMMEDIATE" else None
+        )
+        return connection
+
+    monkeypatch.setattr(store, "_connect", connect)
+    with sqlite3.connect(store.db_path) as lock:
+        lock.execute("BEGIN IMMEDIATE")
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_claim, store, config, pending, "after-lock")
+            assert starting_claim.wait(1)
+            clock.advance(2)
+            lock.commit()
+            assert future.result() == (boundary == "quota_day")
+    if boundary == "expiry":
+        assert not store.running_roadmap_scope_reviews()
+        assert _rows(store, "roadmap_planning_scopes")[0]["status"] == "transport_wait"
+    else:
+        assert store.launch_count(clock.now.strftime("%Y-%m-%d")) == 1
+        assert store.get_meta("last_launch_at") == clock.now.isoformat()
+        assert _rows(store, "roadmap_scope_attempts")[-1]["started_at"] == (
+            clock.now.isoformat()
+        )
+
+
+def test_claim_rechecks_expiry_after_identity_validation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clock = Clock(monkeypatch)
+    config, store, pending, fake = _pending(tmp_path)
+    clock.advance(1)
+    _transport_child(fake)
+    runner.run_once(config)
+    expiry = datetime.fromisoformat(pending.expires_at)
+    clock.advance(int((expiry - clock.now).total_seconds()) - 1)
+    original_gate = validate_dispatch_gate
+
+    def gate(repo: Path) -> ValidatedMandate:
+        result = original_gate(repo)
+        clock.advance(2)
+        return result
+
+    monkeypatch.setattr(journal, "validate_dispatch_gate", gate)
+    before = _rows(store, "roadmap_planning_scopes")
+    assert not _claim(store, config, pending)
+    assert _rows(store, "roadmap_planning_scopes") == before
+    assert not store.running_roadmap_scope_reviews()
 
 
 @pytest.mark.parametrize(

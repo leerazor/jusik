@@ -2739,9 +2739,9 @@ class RunnerStore:
         cooldown_seconds: int | None = None,
         repo: Path | None = None,
     ) -> bool:
-        now = utc_now()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            now = utc_now()
             row = db.execute(
                 "SELECT * FROM roadmap_planning_scopes WHERE planner_task_id=?",
                 (pending.planner_task_id,),
@@ -2841,6 +2841,27 @@ class RunnerStore:
                 if not inputs_match:
                     db.rollback()
                     return False
+            # Lock waits and filesystem validation must not spend a stale TTL or day.
+            now = utc_now()
+            current = datetime.fromisoformat(now)
+            launches = db.execute(
+                "SELECT COUNT(*) FROM launch_log WHERE launched_at LIKE ?",
+                (now[:10] + "%",),
+            ).fetchone()[0]
+            if (
+                datetime.fromisoformat(pending.expires_at) <= current
+                or deadline is not None
+                and deadline > current
+                or daily_launches is not None
+                and launches >= daily_launches
+                or latest is not None
+                and current - datetime.fromisoformat(latest["value"])
+                < timedelta(seconds=cooldown_seconds or 0)
+            ):
+                db.rollback()
+                return False
+            # Keep the caller argument compatible, but account at actual claim time.
+            launched_at = now
             db.execute(
                 "INSERT INTO roadmap_scope_attempts "
                 "(id,planner_task_id,status,started_at,output_path) "
