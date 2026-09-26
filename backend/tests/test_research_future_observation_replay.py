@@ -320,11 +320,46 @@ def test_cli_rejects_non_literal_synthetic(tmp_path: Path, value: object) -> Non
     assert proc.returncode != 0
 
 
+@pytest.mark.parametrize("duplicate_location", ["top_level", "observation"])
+def test_cli_rejects_duplicate_json_keys_before_output(
+    tmp_path: Path, duplicate_location: str
+) -> None:
+    fixture = tmp_path / "fixture.json"
+    valid = json.dumps({**BASE, "observations": [observation()]})
+    if duplicate_location == "top_level":
+        contents = valid[:-1] + ', "observations": []}'
+    else:
+        contents = valid.replace(
+            '"source_id": "s1"', '"source_id": "s1", "source_id": "s2"'
+        )
+    fixture.write_text(contents, encoding="utf-8")
+    output = tmp_path / "out.json"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "jusik.research_future_observation_replay",
+            "--fixture",
+            str(fixture),
+            "--output",
+            str(output),
+        ],
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])},
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "duplicate JSON key" in proc.stderr
+    assert not output.exists()
+
+
 def test_cli_is_deterministic_and_refuses_malformed_oversize_and_alias(
     tmp_path: Path,
 ) -> None:
     fixture = tmp_path / "fixture.json"
-    fixture.write_text(json.dumps(BASE), encoding="utf-8")
+    fixture.write_text(
+        json.dumps({**BASE, "observations": [observation()]}), encoding="utf-8"
+    )
     output = tmp_path / "out.json"
     command = [
         sys.executable,
@@ -339,6 +374,10 @@ def test_cli_is_deterministic_and_refuses_malformed_oversize_and_alias(
     first = subprocess.run(command, env=env, capture_output=True)
     assert first.returncode == 0
     payload = output.read_bytes()
+    result = json.loads(payload)
+    assert result["counts"]["receipts"] == 1
+    assert result["counts"]["logical_observations"] == 1
+    assert result["observations"][0]["classifications"] == ["in_window"]
     distinct = tmp_path / "distinct.json"
     assert subprocess.run([*command[:-1], str(distinct)], env=env).returncode == 0
     assert distinct.read_bytes() == payload

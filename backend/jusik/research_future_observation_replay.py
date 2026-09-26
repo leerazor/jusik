@@ -15,6 +15,15 @@ from typing import Literal, cast
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def _utc(value: str | datetime, field: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value) if isinstance(value, str) else value
@@ -395,7 +404,9 @@ def main() -> None:
             data = handle.read(4 * 1024 * 1024 + 1)
         if len(data) > 4 * 1024 * 1024:
             raise ValueError("fixture exceeds 4 MiB limit")
-        result = replay(json.loads(data.decode("utf-8")))
+        result = replay(
+            json.loads(data.decode("utf-8"), object_pairs_hook=_unique_object)
+        )
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise SystemExit(f"invalid fixture: {exc}") from exc
     payload = (
