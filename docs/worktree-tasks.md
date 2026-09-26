@@ -2,14 +2,19 @@
 
 ## portfolio-held-band-preregistration-draft-v2
 
-- 상태: 진행. 현재 mandate에 맞춘 held-band 후속 사전등록의 실행 불가 초안을 준비합니다. v1 결과와 archive는 재생성·수정하지 않습니다.
-- 목표·완료 조건: 기존 2%p 대조군/4%p 후보를 후속 가설로만 기록하고, 신규 자료·자료 등급·정확한 평가 기간·요구수익률·실행 예산이 미확정인 점을 JSON과 한국어 문서에 명시합니다. 현재 정책, `MDD <= 20%` hard filter, 별도 validation·walk-forward·단회 untouched OOS, 후보 최대 3개·자동 승자/승격 금지를 반영합니다. `execution_allowed=false`를 고정하며 missing 값을 추정하지 않습니다.
-- 담당·소유: 단일 Luna `code_small`은 신규 draft JSON과 Markdown만 수정합니다. supervisor는 이 등록부·개발 기록·handoff·main 통합을 담당하고 별도 Sol review를 수행합니다.
-- 워크트리: `/home/kwl/projects/jusik-portfolio-held-band-preregistration-draft-v2`; 브랜치 `docs/portfolio-held-band-preregistration-draft-v2`; 기준 `2ea4dd8b4c8f4d50b5c2231eda603be49369be54`; 통합 대상 local `main`.
-- 입력: 현재 mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`, v1 문서와 사전등록·hash manifest 및 이전 독립 검토 기록. 신규 held-band 호환 관측이 2026-09-08 뒤에 없다는 read-only 조사 결과를 반영합니다.
-- 수정 허용 범위: 신규 `docs/research/portfolio-held-band-preregistration-draft-v2.md`와 `.json`만. 기존 v1 문서·archive, 제품 코드·테스트·runner·mandate·PAPER/DB·서비스 설정은 변경하지 않습니다.
-- 검증: JSON parser, `git diff --check`, 허용 파일·기존 archive hash 보존 대조, 별도 문서 review. pytest·실험·benchmark·data collection·network 호출은 하지 않습니다.
-- 종료 조건: 두 초안이 같은 값·미결정 항목·실행 차단 상태를 표시하고 독립 review 및 main 통합 검증을 통과하면 준비 작업만 완료합니다. required return·평가 기간·새 자료가 확정되기 전 등록 확정·실행은 계속 차단합니다.
+- 상태: 완료 (준비 단계만). 후속 사전등록 Markdown/JSON을 작성하고 local `main`에 통합했습니다. 실행 가능한 사전등록·실험·투자 성과 검증은 완료하지 않았으며 계속 차단 상태입니다.
+- 목표·완료 조건: 기존 2%p 대조군/4%p 후보를 후속 가설로만 기록하고, 신규 자료·자료 등급·정확한 평가 기간·요구수익률·실행 예산의 미결정을 두 문서에 명시했습니다. mandate의 `MDD <= 20%` hard filter, 별도 validation·walk-forward·단회 untouched OOS, 후보 최대 3개·자동 승자/승격·holdout 재튜닝 금지를 반영하고 `execution_allowed=false`를 고정했습니다.
+- 담당·소유: `code_small` 단일 구현 담당자가 draft 두 파일을 수정했습니다. supervisor는 등록부·개발 기록·handoff·main 통합을 담당했고 별도 Sol 문서 검토를 완료했습니다.
+- 워크트리: `/home/kwl/projects/jusik-portfolio-held-band-preregistration-draft-v2` (통합 후 제거); 브랜치 `docs/portfolio-held-band-preregistration-draft-v2` (보존); 실제 기준 `10e092a55ab50d96b09fe8c15b2a535530a9f8ad`; 결과 `3ca5a8dc661e3ef588e01a200a962bbff2905ad4`, 검토 수정 `f375f822b53ae591a23d8631c991629189ca73a7`; 통합 대상 local `main`.
+- 입력: 현재 mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`, v1 문서·사전등록·hash manifest·결과 archive, 독립 데이터 준비 조사. 새 held-band 호환 관측이 2026-09-08 이후 없다는 조사 근거를 그대로 반영했습니다.
+- 수정 범위: `docs/research/portfolio-held-band-preregistration-draft-v2.md`와 대응 `.json`, 이 등록부, 개발 기록 및 handoff. v1 문서·archive, 제품 코드·테스트·runner·mandate·PAPER/DB·서비스 설정은 변경하지 않았습니다.
+- 포트·테스트 DB·출력 경로: 해당 없음 (문서 전용 작업).
+- 검증: `python -m json.tool` 및 `git diff --check` 통과. 기준 대비 초안 브랜치 변경은 지정된 두 파일뿐입니다. 독립 review에서 발견한 v1 preregistration SHA 오기를 두 문서에서 수정한 뒤 최종 PASS. v1 preregistration/hash manifest/results 해시가 각각 `fa5065df…49277e`, `bba3822f…d366a2`, `6c20c795…7479b`로 보존됨을 확인했습니다. 테스트·실험·benchmark·수집·network 호출은 하지 않았습니다.
+- 결과 커밋: `3ca5a8dc661e3ef588e01a200a962bbff2905ad4`, `f375f822b53ae591a23d8631c991629189ca73a7`.
+- 검토 결과와 남은 문제: 최종 독립 review PASS, 미해결 코드·문서 결함 없음. 경제성 검증이나 새 자료의 PIT 적격성을 확인한 것은 아닙니다. 실행 재개에는 자료 출처·universe·PIT 등급·기간, 정확한 IS/validation/walk-forward/OOS 경계와 최소 표본, 후보별 비용 기준 요구수익률·지표·기간, 실행/계산 예산 및 자료 도착 후 identity/hash 고정이 필요합니다.
+- 병합 직전 main SHA `10e092a55ab50d96b09fe8c15b2a535530a9f8ad`; fast-forward 통합 SHA `f375f822b53ae591a23d8631c991629189ca73a7`. 통합 검증 실패와 복구는 없습니다.
+- 개발 기록: `docs/development-records/2026-09-27-held-band-preregistration-preparation.md` 갱신. Handoff: `docs/handoffs/2026-09-27-held-band-preregistration-preparation.md` 저장.
+- 정리·운영: 소유 worktree는 clean 상태 확인 후 정상 제거했고 브랜치·커밋은 보존했습니다. 사용자 소유 루트 `HANDOFF.md`는 수정하지 않았습니다. runner queue는 `paused=true`, 실행 중 task 0개, timer active입니다. 복원 목적으로 실행한 one-shot service는 exit status 0으로 종료되어 현재 inactive/dead입니다. 원격 push·실주문·서비스 설정 변경은 없습니다.
 
 ## quality-first-model-routing
 
