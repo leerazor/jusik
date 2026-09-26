@@ -3,14 +3,21 @@
 ## 범위와 운영
 
 사용자는 토큰 리셋 전 3시간 동안 유용한 성능 개선에 집중하도록 요청했다. 시작은
-2026-09-26T07:56:14Z, 종료 목표는 10:56:14Z(19:56 KST)다. 계정의 실제 잔여량·리셋
-시각을 조회한 것으로 해석하지 않는다. 추가 결제·권한·credential 변경·투자 기준
+2026-09-26T07:56:14Z, 종료 목표는 10:56:14Z(19:56 KST)다. 시작 당시 실제 계정
+잔여량·리셋 시각은 미확인이었다. 08:14:28Z의 읽기 전용 `account/rateLimits/read`는
+37% 사용·63% 잔여와 11:11:11Z(20:11:11 KST) 리셋을 반환했다. 정확한 잔여 토큰 수는
+제공하지 않았으며 요청한 작업 종료 목표는 연장하지 않는다. 추가 결제·권한·credential 변경·투자 기준
 완화·실주문·원격 push·Windows 종료는 하지 않는다.
 
 시작 당시 runner는 별도 `research-web-reports` UI 작업으로 pause였고 실행 중인
 runner child는 없었다. 그 pause 소유권과 frontend·운영 데이터는 보존한다. 본 작업은
 별도 backend worktree와 전용 환경에서 수행하며 main 통합은 활동·HEAD를 다시
 확인한 경계에서 직렬로 한다. 다른 사용자의 미추적 `HANDOFF.md`와 UI 기록은 보존한다.
+
+UI 감독자는 `9357d63`에서 배포·정리를 완료하고 본 수동 작업이 끝날 때까지 runner
+pause를 유지하도록 명시적으로 인계했다. 이후 본 감독자가 pause를 확인했다. 실제
+`jusik-development-runner.service`는 inactive, timer는 active이며 네 종류의 실행
+attempt는 모두 0이었다. 수동 작업을 마친 후 기존 설정으로 복원할 책임은 본 작업에 있다.
 
 전용 audit:
 `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/`.
@@ -54,7 +61,47 @@ CAGR/MDD/Sharpe/Calmar·고정 required return·분리 validation/WF/단회 OOS 
 열지 않았다. 상세는 audit의 `PROSPECTIVE_CONTRACT_AUDIT.md`에 있다. 새 계약의
 실제 구현·등록·투자 검증을 이 점검만으로 승인하지 않는다.
 
-## 현재 판정
+## 첫 개선의 구현·검증 결과
 
-구현·검증 진행 전 기록이다. 새 speedup 수치, 수익률 개선, 투자 검증 통과를 주장하지
-않는다. 후속 결과·커밋·검토·인계는 완료 시 갱신한다.
+구현 `7fbbace431514bd35c61eeaddaba0bd2eb550e89`를 별도 Sol이 검토하고
+`a4fd555c43fbeecc506b7c33498602ac56fae0f6`로 local `main`에 통합했다. 병합 직전
+main은 `9357d6346c742e82bafec6d24dc75f09e541b0a0`이며 UI 변경과 사용자 파일을
+보존했다. 최초 통합 시도는 예상 HEAD와 실제 HEAD의 차이를 감지해 변경 없이 중단했고,
+UI 문서 완료 commit만 추가됐음을 확인한 다음 저장소 runner lock 안에서 통합했다.
+
+| 합성 입력 | 기준 median | 개선 median | 실행 시간 감소 |
+| --- | ---: | ---: | ---: |
+| 10종목 × 550봉 | 134.094 ms | 101.284 ms | 24.47% |
+| 10종목 × 1,100봉 | 284.967 ms | 216.673 ms | 23.97% |
+
+기준·후보는 별도 프로세스에서 각 warmup 3회·측정 11회를 교대로 실행했다. 신호/SMA
+호출은 550봉에서 19,460/29,190 → 9,720/14,580, 1,100봉에서 41,460/62,190 →
+20,720/31,080이었다. 공유 WSL 환경의 합성 입력 측정이며 실시장 처리량·수익률 개선이 아니다.
+
+전체 공개 결과는 실제로 변경된 `implementation_hash`와 `parameters_hash`만 제외하여
+같았다. 내부 전체·학습·검증 결과, 종료 상태의 pending·현금·보유·비용·이벤트도 같았다.
+중복·누락·역순, 40자리 초과 Decimal, 비용·0거래량·미체결, 분할 없는 짧은 입력,
+연속 호출의 가변 입력 등 9개 경계 사례를 고정 기준 소스와 비교했다. 별도 reviewer가
+원시 JSON·Git 소스 hash·median을 대조하고 경계 비교를 독립 재현하여 PASS했다.
+
+- 구현 및 main: engine/optimizer/risk/universe pytest 91개 PASS.
+- main: 변경 두 파일 Ruff check·format, strict mypy, `git diff --check` PASS.
+- 독립 검토: engine pytest 25개와 기준/후보 9개 경계 재현 PASS; 조치할 결함 없음.
+- 최초 작업 환경의 PyTorch 미설치 실패는 기존 optimizer lock을 전용 venv에 설치해
+  해결했다. 의존성 선언·버전·운영 환경은 변경하지 않았다.
+- 추가 전체 suite는 main에서 별도 실행 중이며 집중 검증의 결과와 구분한다. 기존 두
+  역사 hash pin 불일치를 임의로 수정하지 않는다.
+
+재현 자료는 audit의 `signal-cache-benchmark/RESULTS.md`, `timing.json`, `parity.json`,
+`edge-parity-final.json`, 동결된 기준 소스에 있다. 기준 엔진 SHA-256은
+`14606b7069e91b427d15629b3963f764aa05bb31a1baaf38a37ed8821c553a37`, 후보는
+`76917cc42bd2ea9aeafaa6d39cd1ed63ebc9133d18e3e1c69ceddc522b473d32`, 재현 script는
+`cb04a67412a2d574d5765c03eaea794430345cfd1dec482e524be5b52aa7995d`다.
+
+## 후속 작업과 현재 판정
+
+첫 속도 개선은 `ENGINEERING_COMPLETE/NOT_EVALUATED`다. 3시간 창은 계속 진행 중이다.
+다음 과제는 구현 완료 reviewer의 구조화된 일시 호출 장애를 영속 기한 재시도로
+분리하는 것이다. 범위 reviewer의 별도 상태 전환은 독립 후속으로 두고, 먼저 한 경로를
+완결한다. 자료·투자 검증·주문 기준은 변경하지 않는다. 정적 prospective 계약 점검만으로
+새로운 OOS 실험이나 투자 후보 승격을 승인하지 않는다.

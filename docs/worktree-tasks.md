@@ -2,14 +2,25 @@
 
 ## performance-sprint-20260926-1656
 
-- 상태: 첫 병목 조사·Sol 계획 완료, 단일 Sol 구현 준비. 사용자 요청의 3시간 집중 창은 2026-09-26 16:56~19:56 KST이며, 정확한 구독 잔여량이나 리셋 시각을 확인한 것으로 해석하지 않습니다.
+- 상태: 첫 속도 개선 구현 `7fbbace`·독립 Sol review·main `a4fd555` 통합과 집중 검증 완료. 합성 입력 실행 시간 약 24% 감소, 금융 결과 동일, pytest 91개·Ruff·strict mypy PASS. 3시간 집중 창은 2026-09-26 16:56~19:56 KST이며 후속 검토 호출 복구를 진행합니다. 17:14 KST 읽기 전용 계정 조회는 37% 사용·20:11 리셋을 반환했지만 정확한 토큰 잔량은 노출하지 않았고 작업 마감도 연장하지 않습니다.
 - 목표·완료 조건: 측정으로 확인한 연구·백테스트 처리 병목을 개선하고, 동일 입력의 계산·거래·위험 판정 보존을 독립 검증합니다. 수익성 실험은 기존 mandate와 자료·사전등록 gate를 충족하는 경우만 별도로 고려합니다.
 - 소유: root는 이 항목과 전용 개발 기록·audit를 관리합니다. 단일 Sol code는 `backend/jusik/research_engine.py`, `backend/tests/test_research_engine.py`와 전용 audit의 benchmark·결과만 소유합니다. 기본 두 전략의 순수 신호만 실행별 lazy cache로 공유하며 사용자 정의 전략·포트폴리오 상태·정확한 Decimal 합산은 바꾸지 않습니다.
 - 작업 경로·브랜치: `/home/kwl/projects/jusik-research-signal-cache`, `perf/research-signal-cache`. 구현 기준은 이 범위 기록 commit이며 통합 대상은 local `main`입니다. 별도 Sol reviewer의 PASS 전 완료·통합으로 표시하지 않습니다.
-- 병행 작업: `research-web-reports`의 frontend·사용자 문서·배포 소유권과 현재 runner pause를 보존합니다. 다른 세션의 pause를 임의로 해제하거나 UI 작업·운영 DB·공유 원천 자료를 수정하지 않습니다. main 통합은 활동·HEAD를 다시 확인한 안전한 경계에서만 합니다.
+- 병행 작업: `research-web-reports`는 main `9357d63`에 완료·배포를 기록하고 본 수동 작업이 끝날 때까지 runner pause 유지·이후 재개 책임을 인계했습니다. 해당 UI와 사용자 미추적 `HANDOFF.md`는 보존합니다. 수동 집중 개발 중 서비스 inactive·timer active·실행 attempt 0을 확인했으며 main 통합은 runner lock과 HEAD 확인 뒤 직렬로 합니다.
 - 기준: 조사 시작 main `8d62114c4351ab0368423bceb8379727b54348df`; 전용 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/`.
 - 검증·예산: synthetic 고정 입력의 profiler·결과 동일성·집중 pytest/Ruff/strict mypy·독립 review를 사용합니다. 토큰 자체를 목표로 반복 호출하지 않으며, 추가 결제·유료 API·권한 확대·투자 기준 완화·실주문·원격 push·Windows 종료는 하지 않습니다.
 - 첫 작업 기준: 10종목×550/1,100봉, warmup 3회와 반복 11회의 median을 대조합니다. 1,100봉 10% 이상 개선 목표·550봉 회귀 없음·전체 금융 결과 동일성을 확인합니다. CI는 벽시계 대신 순수 함수 호출 감소와 캐시 격리를 검사합니다. 기록: `docs/development-records/2026-09-26-performance-sprint.md`.
+
+## lab-review-transport-retry
+
+- 상태: Luna 조사·Sol 계획과 cross-attempt identity 보완 완료, 단일 구현 준비. `performance-sprint-20260926-1656`의 후속 과제입니다.
+- 목표: 구현 완료 reviewer의 확인된 일시 호출 장애가 후보를 영구 대기시키지 않도록 하고, 기한 전에는 독립 READY·공학 fallback을 진행합니다. 일반 engineering과 같은 경로의 roadmap code completion만 포함하며 연구 scope reviewer는 별도 후속입니다.
+- 담당·소유: 단일 Sol code는 `backend/jusik/development_runner.py`, `backend/jusik/development_runner_store.py`, `backend/tests/test_development_runner_review.py`, 새 `backend/tests/test_development_runner_review_transport.py`만 수정합니다. root는 운영 문서·등록부·개발 기록·audit·main 통합을 맡고 별도 Sol이 검토합니다. 중첩 위임은 하지 않습니다.
+- 경로·브랜치: `/home/kwl/projects/jusik-lab-review-transport-retry`, `fix/lab-review-transport-retry`. 기준은 이 범위 기록 commit으로 고정하고 통합 대상은 local `main`입니다.
+- 계약: 종료가 확인된 child의 제한된 구조화 오류만 capacity/rate_limit/network/server/auth로 분류합니다. 새 opt-in metadata와 `review_transport_<kind>` 실패 코드를 원자 저장하고 5/15/60분·auth 6시간 뒤에만 재시도합니다. 기존 비전송 시도 2회 상한·quota·cooldown·pause·독립 PASS는 유지합니다.
+- identity: 새 transport anchor가 있는 재시도에만 기존 historical 검증을 제한적으로 재사용합니다. 제품·이전 검토 commit의 main ancestry, 원 completion·구현 attempt·baseline·소유 hash는 고정하고 해당 시도의 fresh HEAD로 검토합니다. 검토 도중 HEAD 변경은 거부하며, 일반 최초 검토와 legacy stale 규칙은 유지합니다.
+- 완료 기준: fake CLI/clock의 실패→영속 기한→다른 READY 진행→restart→같은 제품의 별도 PASS, 중복 claim·오염·legacy 보존·실제 이전 store rollback 검증, 집중 pytest/Ruff/strict mypy·독립 review·main 검증입니다. 운영 DB와 실제 API는 구현자가 접근하지 않습니다.
+- 운영·증거: root가 UI 완료 인계 뒤 runner pause를 소유합니다. 현재 정책·credentials·실주문·투자 기준은 변경하지 않습니다. audit은 `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/review-transport/`, 기록은 `docs/development-records/2026-09-26-review-transport-recovery.md`입니다.
 
 ## research-web-reports
 
