@@ -89,14 +89,21 @@ UI 문서 완료 commit만 추가됐음을 확인한 다음 저장소 runner loc
 - 독립 검토: engine pytest 25개와 기준/후보 9개 경계 재현 PASS; 조치할 결함 없음.
 - 최초 작업 환경의 PyTorch 미설치 실패는 기존 optimizer lock을 전용 venv에 설치해
   해결했다. 의존성 선언·버전·운영 환경은 변경하지 않았다.
-- 추가 전체 suite는 main에서 별도 실행 중이며 집중 검증의 결과와 구분한다. 기존 두
-  역사 hash pin 불일치를 임의로 수정하지 않는다.
+- 추가 전체 suite: `python -m pytest -q` 2,106개 PASS·2개 FAIL·경고 2개, 257.59초.
+  실패는 기존 `test_copy_is_exactly_the_guarded_variant`의 고정 variant SHA 불일치와
+  `test_frozen_archive_replay`의 과거 calendar source hash 불일치로 같다. 새 실패는
+  없었고 역사 pin을 수정하지 않았다. 전체 suite green으로 표시하지 않는다.
 
 재현 자료는 audit의 `signal-cache-benchmark/RESULTS.md`, `timing.json`, `parity.json`,
 `edge-parity-final.json`, 동결된 기준 소스에 있다. 기준 엔진 SHA-256은
 `14606b7069e91b427d15629b3963f764aa05bb31a1baaf38a37ed8821c553a37`, 후보는
 `76917cc42bd2ea9aeafaa6d39cd1ed63ebc9133d18e3e1c69ceddc522b473d32`, 재현 script는
 `cb04a67412a2d574d5765c03eaea794430345cfd1dec482e524be5b52aa7995d`다.
+전체 검사 JUnit XML은 audit의 `main-full-suite.xml`이다. reviewer의 독립 재현 JSON은
+`signal-cache-benchmark/independent-review-reproduction/`으로 보존했고, 전용 환경의
+59개 package 버전·Python·lock hash는 같은 폴더의 `environment.json`에 기록했다.
+코드·증거와 main 소유 파일 동일성을 확인한 후 첫 전용 worktree·venv·cache를 정상
+`git worktree remove`로 정리했다. `perf/research-signal-cache` branch와 commit은 보존한다.
 
 ## 후속 작업과 현재 판정
 

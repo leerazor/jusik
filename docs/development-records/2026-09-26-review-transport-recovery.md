@@ -51,7 +51,11 @@
 
 ## 완료 기준과 현재 상태
 
-현재는 구현 전 계획이다. fake CLI·clock으로 RED/GREEN을 확인하고, 반복 장애
+구현 기준은 `d30c809`이며 전용 worktree에서 구현 중이다. root가 보존한 운영 DB의
+online backup은 audit `review-transport/runner-before-review-transport.db`,
+SHA-256 `f9416377bb8e0b568ed656c651f71694ab0d52b3095441e09e0fc909036204a4`,
+13개 table·integrity `ok`다. 구현자는 이 운영 backup을 사용하지 않고 합성 fixture로
+검사한다. fake CLI·clock으로 RED/GREEN을 확인하고, 반복 장애
 5/15/60/60분·auth 6시간, restart, 정확한 due 경계, 다른 READY/fallback, 원자 중복 claim,
 pause/quota/cooldown, 위조 text·oversize·REJECT·무효 receipt·불확실 orphan,
 소유 hash/HEAD 변경과 별도 PASS 전 미완료를 확인한다. legacy 행 보존·반복 초기화·
