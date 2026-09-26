@@ -2,13 +2,15 @@
 
 ## lab-discovery-transport-recovery
 
-- 상태: 조사·계획. 2026-09-26 사용자가 호출 실패 후 자동개발이 대기하는 원인을 고치고 agent 지침까지 검증하도록 요청했다.
+- 상태: 구현. 2026-09-26 사용자가 호출 실패 후 자동개발이 대기하는 원인을 고치고 agent 지침까지 검증하도록 요청했다. 독립 조사·계획 완료, 단일 Sol 구현 담당자에게 배정했다.
 - 확인된 원인: 두 번째 자동 제품 `7a65b6f`와 독립 review는 완료됐다. 이후 discovery의 모델 capacity 오류와 scope review의 401을 같은 infra 실패로 누적해 terminal 처리했고, 외부 호출이 복구돼도 같은 source fingerprint에서는 재개하지 않았다.
 - 안전한 진단: 저장된 ChatGPT 로그인 확인과 동일 read-only Codex 설정의 실제 JSON probe가 성공했다. 인증정보·API 키·billing·모델·권한은 바꾸지 않았다. timer 활성과 실제 개발을 구분한다.
 - 목표·완료 조건: 알려진 일시적 호출 장애를 지속 가능한 예약 재시도로 분리하고, deadline 전 dispatch 금지·재시작 복원·READY 우선·재시도 후 성공을 fake CLI/시계로 재현한다. no_work·scope 거절 소진·무결성 오류를 무작정 재시도하지 않는다. 실제 자동 발굴 재개까지 확인한다.
 - 범위: 기존 discovery runner·store·계약과 관련 pytest, root 감독자가 관리하는 AGENTS/운영 문서/개발 기록. 새 framework·상주 agent·credential fallback·과금 전환·실주문·투자 기준 변경은 제외한다.
 - 운영: runner pause·service inactive, timer 유지. 사용자 `HANDOFF.md`와 기존 실패 행·승인 spec·완료 제품을 보존한다. 단일 code 소유자와 별도 review, planner 포함 active 최대 4명.
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-lab-discovery-recovery/`; 구현 worktree와 최종 계획은 조사 뒤 기록한다.
+- 구현: `/home/kwl/projects/jusik-lab-discovery-transport-recovery`, `fix/lab-discovery-transport-recovery`, 기준 `9562a63`, 통합 대상 local `main`. 소유는 runner·store·discovery 계약·discovery 테스트 네 파일이며 root는 운영 문서만 수정한다. venv·cache·테스트 DB는 작업별 격리한다.
+- 결정: 알려진 일시 장애 5분→15분→60분, 인증 오류 6시간 예약 재시도. 무효 출력·미분류·no_work의 기존 유한 종료는 유지한다. 기존 terminal은 보존하고 새 코드 fingerprint로 재개한다. frozen spec 생성 규칙은 변경하지 않는다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-lab-discovery-recovery/`; SQLite online backup `runner-before-recovery.db`, integrity `ok`, SHA-256 `f408dd8c299bd273761694fec589a62f264f43fa0f4842ed62494ecb1cad48a9`. 개발 기록: `docs/development-records/2026-09-26-lab-discovery-transport-recovery.md`.
 
 ## lab-engineering-discovery
 

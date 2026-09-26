@@ -49,6 +49,17 @@ weaken an investment gate. If bounded discovery finds no actionable task,
 record the inspected alternatives and exact resume condition; do not repeat
 unchanged LLM calls or claim that an active timer means development is occurring.
 
+A failed invocation is not a completed search and does not establish `no_work`.
+Known temporary discovery/scope transport failures must retain their input
+identity and a durable retry deadline under the runner's documented policy.
+Before that deadline, select independent READY work instead of polling the
+same dependency. After it, retry only through the normal pause, budget,
+identity and process-ownership gates. Never change credentials, billing,
+models or permissions to bypass a failure. Unknown failures and integrity
+violations remain fail-closed and require diagnosis, not blind replay.
+Verify these instructions with failure-injection and restart tests; report
+the actual child activity or scheduled retry, not merely timer availability.
+
 The canonical research sequence is defined by research-mandate.json: bounded
 IS, separate validation hard filter, chronological walk-forward, one untouched
 OOS go/no-go, stress, isolated simulation and separate PAPER review.
