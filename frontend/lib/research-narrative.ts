@@ -1,5 +1,5 @@
 import mandate from "../../docs/research-mandate.json";
-import type { ResearchProgress, Study } from "./research-progress";
+import { compareDecimal, type Comparison, type ResearchProgress, type Study } from "./research-progress";
 
 export type StudyNarrative = {
   reading: {
@@ -179,6 +179,19 @@ export function compareNarrativeIdentity(study: Study): boolean {
 export function findReportStudy(progress: ResearchProgress | null, artifactId: string): Study | null {
   if (progress?.research.availability !== "available") return null;
   return progress.research.studies.find((study) => study.report_artifact_sha256 === artifactId && getStudyNarrative(study) !== null) ?? null;
+}
+
+export function describeComparisonOutcome(comparison: Comparison): string {
+  const clauses = [
+    { key: "net_return_pct", label: "수익률", higher: "높았습니다", lower: "낮았습니다" },
+    { key: "max_drawdown_pct", label: "최대 하락 폭", higher: "컸습니다", lower: "작았습니다" },
+    { key: "cash_pct", label: "현금으로 남은 비율", higher: "높았습니다", lower: "낮았습니다" },
+    { key: "total_cost_krw", label: "거래 비용", higher: "많았습니다", lower: "적었습니다" },
+  ] as const;
+  return clauses.map(({ key, label, higher, lower }) => {
+    const direction = compareDecimal(comparison.candidate[key], comparison.baseline[key]);
+    return `${label}은 ${direction === 1 ? higher : direction === -1 ? lower : direction === 0 ? "같았습니다" : "비교를 확인할 수 없습니다"}.`;
+  }).join(" ");
 }
 
 export function candidateRuleForComparison(study: Study, comparisonId: string): CandidateRule | null {
