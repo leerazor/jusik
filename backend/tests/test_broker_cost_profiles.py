@@ -1,6 +1,7 @@
 import hashlib
 import json
 from decimal import Decimal
+from itertools import permutations
 
 import pytest
 
@@ -60,6 +61,37 @@ def test_paper_contract_manifest_round_trips_and_rejects_tampering() -> None:
     tampered_id["contract_id"] = "kis-bankis-online-paper-v1:wrong"
     with pytest.raises(ValueError, match="id_mismatch"):
         validate_paper_cost_contract_manifest(tampered_id)
+
+
+@pytest.mark.parametrize(
+    "markets",
+    [
+        markets
+        for length in (1, 2, 3)
+        for markets in permutations(("KRX", "NXT", "US"), length)
+    ],
+)
+def test_valid_market_subsets_preserve_manifest_identity(
+    markets: tuple[BrokerMarket, ...],
+) -> None:
+    contract = build_bankis_paper_cost_contract(markets)
+    assert validate_paper_cost_contract_manifest(contract.manifest()) == contract
+
+
+@pytest.mark.parametrize("field", ["minimum_fee", "sell_tax_rate"])
+def test_manifest_rejects_unbound_top_level_cost_field(field: str) -> None:
+    manifest = build_bankis_paper_cost_contract(("KRX",)).manifest()
+    manifest[field] = "0.01"
+    with pytest.raises(ValueError, match="paper_cost_contract_fields_invalid"):
+        validate_paper_cost_contract_manifest(manifest)
+
+
+@pytest.mark.parametrize("field", ["minimum_fee", "sec_fee_rate"])
+def test_manifest_rejects_unbound_profile_cost_field(field: str) -> None:
+    manifest = build_bankis_paper_cost_contract(("US",)).manifest()
+    manifest["profiles"][0][field] = "0.01"  # type: ignore[index]
+    with pytest.raises(ValueError, match="paper_cost_contract_profile_invalid"):
+        validate_paper_cost_contract_manifest(manifest)
 
 
 @pytest.mark.parametrize("field", ["broker", "account_scope"])

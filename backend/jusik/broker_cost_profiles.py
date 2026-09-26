@@ -167,6 +167,15 @@ def validate_paper_cost_contract_manifest(
     manifest: Mapping[str, object],
 ) -> PaperCostContract:
     """Validate a saved manifest and reject frozen-history application."""
+    allowed_fields = {
+        "schema_version",
+        "contract_id",
+        "profile_hash",
+        "applies_to_frozen_history",
+        "profiles",
+    }
+    if manifest.keys() - allowed_fields:
+        raise ValueError("paper_cost_contract_fields_invalid")
     if manifest.get("schema_version") != "paper-cost-contract-v1":
         raise ValueError("paper_cost_contract_schema_invalid")
     if manifest.get("applies_to_frozen_history") is not False:
@@ -175,8 +184,20 @@ def validate_paper_cost_contract_manifest(
     if not isinstance(profiles, list) or not profiles:
         raise ValueError("paper_cost_contract_profiles_missing")
     parsed: list[BrokerCostProfile] = []
+    allowed_profile_fields = {
+        "broker",
+        "account_scope",
+        "market",
+        "currency",
+        "online_fee_rate",
+        "sell_tax_rate",
+        "source_urls",
+        "source_as_of",
+    }
     for raw in profiles:
         if not isinstance(raw, Mapping):
+            raise ValueError("paper_cost_contract_profile_invalid")
+        if raw.keys() - allowed_profile_fields:
             raise ValueError("paper_cost_contract_profile_invalid")
         try:
             profile = BrokerCostProfile(
