@@ -1,0 +1,33 @@
+.main { max-width: 1040px; }
+.hero { padding: 48px 0 26px; }
+.kicker { margin: 0 0 12px; color: var(--green); font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+.hero h1 { margin: 0 0 16px; font-size: clamp(34px, 5vw, 48px); letter-spacing: -1.8px; }
+.hero > p:last-child { color: var(--muted); font-size: 17px; line-height: 1.8; margin: 0; }
+.scope { border-left: 3px solid var(--green); padding: 4px 0 4px 20px; margin-bottom: 28px; line-height: 1.8; }
+.scope p { margin: 6px 0 0; color: var(--muted); }
+.current { margin-top: 24px; padding: 28px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.current h2 { margin: 0; font-size: 27px; }
+.current > p:not(.kicker) { color: var(--muted); line-height: 1.8; }
+.current dl { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+.current dt { color: var(--muted); font-size: 12px; margin-bottom: 7px; }
+.current dd { margin: 0; font-weight: 700; line-height: 1.6; }
+.sourceLinks { display: flex; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
+.sourceLinks a { color: var(--green); font-weight: 700; font-size: 13px; text-underline-offset: 4px; }
+.details { border-top: 1px solid var(--line); }
+.details > summary { padding: 19px 4px; color: var(--ink); cursor: pointer; font-weight: 700; }
+.details > summary:focus-visible { outline: 3px solid #b0782e; outline-offset: 3px; }
+.details > section { margin-top: 0; }
+.limits { margin-top: 26px; padding: 24px; border-radius: 14px; background: #f5f1e9; color: #68573b; line-height: 1.8; }
+.limits h2 { margin: 0; color: var(--ink); font-size: 20px; }
+.limits > p { margin: 10px 0 16px; }
+.main :global(.notice) { margin-block: 20px; }
+.main :global(.metric-card) { background: #f8f9f6; }
+.main :global(.metric-card strong) { font-size: 24px; }
+.main :global(.portfolio-metrics) { margin-top: 18px; }
+@media (max-width: 650px) {
+  .hero { padding-top: 32px; }
+  .hero > p:last-child { font-size: 15px; }
+  .current { padding: 22px 18px; }
+  .current dl { grid-template-columns: 1fr; }
+  .limits { padding: 21px 18px; }
+}
