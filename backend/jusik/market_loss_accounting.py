@@ -478,7 +478,10 @@ def account_trades(
         initial_cash_value = (
             None if initial_cash is None else _decimal(initial_cash, "initial cash")
         )
-        if initial_cash_value is not None and initial_cash_value <= 0:
+        if initial_cash_value is not None and (
+            initial_cash_value < 0
+            or (initial_cash_value == 0 and not normalised_positions)
+        ):
             raise ValueError("initial cash must be positive")
         if normalised_dividends is not None and any(
             value < 0 for value in normalised_dividends.values()

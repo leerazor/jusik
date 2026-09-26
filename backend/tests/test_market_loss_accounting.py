@@ -226,8 +226,6 @@ def test_zero_negative_missing_duplicate_and_rounding_boundaries() -> None:
             [_trade("buy", "1", "100", "100", fee="-1")],
             final_marks={},
         )
-    with pytest.raises(ValueError, match="initial cash"):
-        account_trades([], final_marks={}, initial_cash=Decimal("0"))
     with pytest.raises(ValueError, match="chronological"):
         account_trades(
             [
@@ -443,6 +441,35 @@ def test_initial_position_with_iso_session_is_supported() -> None:
     )
     assert report.raw_realized_pnl.value == Decimal("10")
     assert report.raw_unrealized_pnl.value == Decimal("0")
+
+
+def test_zero_opening_cash_with_position_completes_report() -> None:
+    report = account_trades(
+        [],
+        final_marks={"AAA": Decimal("100")},
+        initial_positions=[PositionLot("AAA", Decimal("1"), Decimal("100"))],
+        complete_history=True,
+        dividends={"AAA": Decimal("0")},
+        dividend_evidence_complete=True,
+        initial_cash=Decimal("0"),
+    )
+    assert report.status == "complete"
+    assert report.cash_balance.value == Decimal("0")
+
+
+def test_negative_opening_cash_with_position_is_rejected() -> None:
+    with pytest.raises(ValueError, match="initial cash"):
+        account_trades(
+            [],
+            final_marks={"AAA": Decimal("100")},
+            initial_positions=[PositionLot("AAA", Decimal("1"), Decimal("100"))],
+            initial_cash=Decimal("-1"),
+        )
+
+
+def test_zero_opening_cash_without_position_is_rejected() -> None:
+    with pytest.raises(ValueError, match="initial cash"):
+        account_trades([], final_marks={}, initial_cash=Decimal("0"))
 
 
 def test_duplicate_key_includes_costs_and_currency() -> None:
