@@ -224,6 +224,7 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
         classes: list[Classification] = []
         invalid = False
         future_receipt = False
+        first_available: Observation | None = None
         previous_received: datetime | None = None
         for index, item, digest in entries:
             available: bool | None = None
@@ -238,6 +239,8 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                 if available:
                     available_hashes.add(digest)
                     available_receipts += 1
+                    if first_available is None:
+                        first_available = item
                 else:
                     deferred_receipts += 1
                 if (
@@ -291,7 +294,6 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
         if future_receipt:
             classes.append("not_due")
             reasons.append("receipt_is_after_checked_at")
-        first = entries[0][1]
         flags = frozenset(
             flag
             for receipt, (_, item, _) in zip(receipts, entries)
@@ -302,25 +304,22 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
             if flag in flags:
                 classes.append(flag)
                 reasons.append(flag)
-        try:
-            first_received = _utc(first.received_at, "received_at")
-            if not invalid:
-                if first_received > checked:
-                    pass
-                elif start <= first_received < end:
+        if first_available is not None and not invalid:
+            try:
+                first_received = _utc(first_available.received_at, "received_at")
+                if start <= first_received < end:
                     classes.append("in_window")
                 else:
                     classes.append("out_of_window")
                     reasons.append("receipt_outside_window")
                 if (
                     start <= first_received < end
-                    and first_received <= checked
-                    and _utc(first.event_at, "event_at") < start
+                    and _utc(first_available.event_at, "event_at") < start
                 ):
                     classes.append("late_arrival")
                     reasons.append("event_precedes_window_and_receipt_is_in_window")
-        except (TypeError, ValueError, OverflowError):
-            pass
+            except (TypeError, ValueError, OverflowError):
+                pass
         if len(classes) > 1 and (
             invalid
             or len(available_hashes) > 1

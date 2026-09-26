@@ -68,6 +68,58 @@ def test_duplicate_does_not_move_first_receipt_and_keeps_receipts() -> None:
     assert [receipt.receipt_index for receipt in item.receipts] == [0, 1]
 
 
+@pytest.mark.parametrize("future_first", [True, False])
+def test_first_available_receipt_sets_window_without_reordering(
+    future_first: bool,
+) -> None:
+    future = observation(
+        received_at="2030-01-03T00:00:00Z",
+        read_started_at="2030-01-03T00:00:00Z",
+        read_finished_at="2030-01-03T00:00:00Z",
+    )
+    current = observation(
+        received_at="2030-01-01T01:00:00Z",
+        read_started_at="2030-01-01T01:00:00Z",
+        read_finished_at="2030-01-01T01:00:00Z",
+    )
+    items = [future, current] if future_first else [current, future]
+    result = replay(
+        {**BASE, "checked_at": "2030-01-01T12:00:00Z", "observations": items}
+    )
+    item = result.observations[0]
+    assert item.classifications == ["not_due", "in_window"]
+    assert item.evidence_counts["available_receipts"] == 1
+    assert item.evidence_counts["deferred_receipts"] == 1
+    assert result.counts["in_window"] == 1
+    assert result.counts["not_due"] == 1
+    assert [receipt.receipt_index for receipt in item.receipts] == [0, 1]
+    assert [receipt.received_at for receipt in item.receipts] == [
+        datetime.fromisoformat(str(entry["received_at"])).isoformat() for entry in items
+    ]
+    assert [receipt.raw for receipt in item.receipts] == [
+        entry["raw"] for entry in items
+    ]
+    assert [receipt.available_at_check for receipt in item.receipts] == (
+        [False, True] if future_first else [True, False]
+    )
+
+
+def test_only_future_receipt_remains_not_due() -> None:
+    future = observation(
+        received_at="2030-01-03T00:00:00Z",
+        read_started_at="2030-01-03T00:00:00Z",
+        read_finished_at="2030-01-03T00:00:00Z",
+    )
+    result = replay(
+        {**BASE, "checked_at": "2030-01-01T12:00:00Z", "observations": [future]}
+    )
+    item = result.observations[0]
+    assert item.classifications == ["not_due"]
+    assert item.evidence_counts["available_receipts"] == 0
+    assert item.receipts[0].available_at_check is False
+    assert result.counts["in_window"] == 0
+
+
 def test_conflict_preserves_all_versions_and_is_unresolved_with_invalid_clock() -> None:
     result = replay(
         {
