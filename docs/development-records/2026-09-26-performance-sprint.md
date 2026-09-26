@@ -131,3 +131,46 @@ KOFR 적용 근거의 별도 bounded 공개자료 점검도 완료했다. FSC의
 09:05Z에 별도 UI 세션의 `research-novice-comprehension` 등록을 확인했다. 해당 작업도
 수동 pause를 공유하므로 본 코드 완료만으로 runner를 재개하지 않는다. 재개 전 두
 수동 작업의 완료·운영 인계와 실제 실행 상태를 다시 확인하며 UI 파일·기록은 보존한다.
+
+## 추가 구현과 검증 경계
+
+구현 완료 review 복구는 [별도 기록](2026-09-26-review-transport-recovery.md)의
+`010e274`·main `3814b6f`, 독립 재검토 및 main 242개 검사로 완료했다. 연구 scope
+복구도 [후속 기록](2026-09-26-lab-scope-review-transport-retry.md)의 `7ab122d`를
+main `ee99764`에 통합해 집중 282개·Ruff·strict mypy 검사를 통과했다. 두 작업의 schema는 각각 가산 열 3개이며,
+root의 실제 backup 복사본에서 모든 13개 table·1,322개 기존 행 보존을 검증했다.
+모든 이전 review HEAD와 잠금 후 TTL/자정 quota 경계의 독립 지적을 각각 수정했다.
+종료 확인·quota·별도 PASS·투자 gate는 유지하며 실제 provider 장애 복구 성공과는
+구분한다.
+
+추가 시장 membership lookup은 합성 전체 실행 9쌍에서 0.2576→0.2636초로 약 2.3%
+느렸고 안정적인 이득을 보이지 않아 제품에 반영하지 않았다. 전체 결과는 같았다.
+840은 trace 이벤트이지 실제 호출 수가 아니며 후보 wrapper가 센 lookup은 420회다.
+상세는 audit `MARKET_LOOKUP_NO_GO.md`다. 해시 캐시나 역사 pin 변경도 하지 않았다.
+
+두 번째 넓은 회귀 실행은 API TestClient 테스트에서 1,392개 통과 뒤 오래 대기하여
+소유 pytest만 SIGINT로 종료했다. 시작/요청/종료 중 정확한 위치는 입증하지 못했다.
+단독 1회·별도 10회는 모두 통과했고 나머지 구간은 794개 PASS·기존 역사 pin 2개 FAIL다.
+두 JUnit의 중복을 제거한 2,170개 중 2,168개 PASS·2개 FAIL지만, 완료된 단일 전체 실행은
+아니다. `API_WAIT_DIAGNOSTIC.md`에 증거·미확정 원인을 남겼고 임의 수정·검사 생략은
+하지 않았다. 최종 코드에서는 시작부터 stack dump와 10분 제한을 둔 전체 검사를 수행한다.
+이 검사 대기 중에도 독립 scope 구현·검토·DB 보존 검증은 계속했다.
+
+별도 UI 작업은 배포·검수·정리를 완료했고 최종 기록에서 본 성능 작업에 runner 재개
+판단을 인계했다. 수동 검증·기록을 마친 뒤 현재 상태를 확인하여 기존 설정으로 재개하며,
+새 실주문·추가 결제·권한 변경은 하지 않는다.
+
+## 최종 수동 검증과 자동 실행 인계
+
+최종 코드 `ee99764`의 전체 backend 검사는 400.72초 안에 정상 종료했다. pytest
+2,208개 PASS·위와 같은 역사 pin 2개 FAIL·경고 2개다. 600초 제한에 걸리지 않았고
+TestClient 대기도 재현되지 않았다. 단, 이전 대기의 원인을 해결했다는 증거는 아니다.
+증거는 audit 루트 `final-main-full.log` 및 `final-main-full.xml`이다. 세 제품 변경은
+각각 독립 검토와 main 집중 검사를 마쳤고, 전용 worktree/venv/cache만 정상 제거했으며
+branch·commit·외부 검증 자료는 보존했다.
+
+이 기록 commit 뒤 tracked-clean main·pause·실행 상태를 확인해 기존 runner 설정으로
+재개한다. 남은 3시간 창 동안 실제 planner/발굴/구현/검토 상태를 관찰하며 결과는
+audit `RUNTIME.md`에 기록한다. 자동 child가 저장소를 소유하는 동안에는 root가 main을
+동시에 수정하지 않는다. 채팅 이후의 지속 실행은 systemd runner의 책임이지 채팅
+agent의 영구 감시가 아니다. 현재 투자 검증 상태와 외부 근거 요구는 그대로다.

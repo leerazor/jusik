@@ -13,7 +13,7 @@
 
 ## performance-sprint-20260926-1656
 
-- 상태: 첫 속도 개선 구현 `7fbbace`·독립 Sol review·main `a4fd555` 통합과 집중 검증 완료. 합성 입력 실행 시간 약 24% 감소, 금융 결과 동일, pytest 91개·Ruff·strict mypy PASS. 3시간 집중 창은 2026-09-26 16:56~19:56 KST이며 후속 검토 호출 복구를 진행합니다. 17:14 KST 읽기 전용 계정 조회는 37% 사용·20:11 리셋을 반환했지만 정확한 토큰 잔량은 노출하지 않았고 작업 마감도 연장하지 않습니다.
+- 상태: 세 제품 변경의 수동 구현·독립 검토·main 검증 완료, 기존 runner 재개·실제 진행 관찰로 전환합니다. 신호 cache `a4fd555`는 합성 실행 시간 약 24% 감소·금융 결과 동일, 완료 review 복구 `3814b6f`와 scope 복구 `ee99764`는 대기 중 독립 작업·승인 기준 보존을 검증했습니다. 3시간 창은 16:56~19:56 KST이며 실제 운영 결과는 audit `RUNTIME.md`를 확인합니다. 계정 조회의 리셋 20:11은 작업 마감을 연장하지 않습니다.
 - 목표·완료 조건: 측정으로 확인한 연구·백테스트 처리 병목을 개선하고, 동일 입력의 계산·거래·위험 판정 보존을 독립 검증합니다. 수익성 실험은 기존 mandate와 자료·사전등록 gate를 충족하는 경우만 별도로 고려합니다.
 - 소유: root는 이 항목과 전용 개발 기록·audit를 관리합니다. 단일 Sol code는 `backend/jusik/research_engine.py`, `backend/tests/test_research_engine.py`와 전용 audit의 benchmark·결과만 소유합니다. 기본 두 전략의 순수 신호만 실행별 lazy cache로 공유하며 사용자 정의 전략·포트폴리오 상태·정확한 Decimal 합산은 바꾸지 않습니다.
 - 작업 경로·브랜치: `/home/kwl/projects/jusik-research-signal-cache`, `perf/research-signal-cache`. 기준 `02f6c4c`, 제품 `7fbbace`, main 통합 `a4fd555`. 독립 검토와 통합 검증·증거 보존 뒤 전용 worktree/venv/cache는 정상 제거했고 branch·commit은 보존합니다.
@@ -21,7 +21,7 @@
 - 기준: 조사 시작 main `8d62114c4351ab0368423bceb8379727b54348df`; 전용 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/`.
 - 검증·예산: synthetic 고정 입력의 profiler·결과 동일성·집중 pytest/Ruff/strict mypy·독립 review를 사용합니다. 토큰 자체를 목표로 반복 호출하지 않으며, 추가 결제·유료 API·권한 확대·투자 기준 완화·실주문·원격 push·Windows 종료는 하지 않습니다.
 - 첫 작업 기준: 10종목×550/1,100봉, warmup 3회와 반복 11회의 median을 대조합니다. 1,100봉 10% 이상 개선 목표·550봉 회귀 없음·전체 금융 결과 동일성을 확인합니다. CI는 벽시계 대신 순수 함수 호출 감소와 캐시 격리를 검사합니다. 기록: `docs/development-records/2026-09-26-performance-sprint.md`.
-- 추가 전체 검증: 2,106개 PASS·기존 역사 hash pin 2개 FAIL·경고 2개. 신규 실패와 투자 성과 증거는 없습니다. 인계: `docs/handoffs/2026-09-26-performance-sprint.md`.
+- 최종 전체 검증: 2,208개 PASS·기존 역사 hash pin 2개 FAIL·경고 2개, 400.72초. 앞선 한 번의 TestClient 대기는 단독 및 최종 전체에서 재현되지 않아 원인 미확정으로 보존합니다. 새 투자 성과 증거는 없습니다. 인계: `docs/handoffs/2026-09-26-performance-sprint.md`.
 
 ## lab-review-transport-retry
 
@@ -36,12 +36,13 @@
 
 ## lab-scope-review-transport-retry
 
-- 상태: Luna 조사·Sol 계획 완료, 선행 구현 완료 review의 main 검사 242개 PASS 뒤 단일 Sol 구현 중. scope의 24시간 TTL·정확한 HEAD·승인 근거는 보존합니다.
+- 상태: 완료. 제품 `a58fb6f`·시각 경계 보완 `7ab122d`, 독립 Sol 재검토 PASS, main `ee99764` 통합 후 pytest 282개·Ruff·strict mypy PASS. 원 TTL·정확한 HEAD·승인 근거·구버전 격리를 보존한 `ENGINEERING_COMPLETE/NOT_EVALUATED`입니다.
 - 목표·완료 조건: 확인된 일시 호출 실패를 영속 `transport_wait`로 격리하고 due에만 같은 pending 제안을 별도 검토합니다. 미래 기한은 독립 READY·공학 fallback을 막지 않으며, 실제 PASS 전에 새 제품 task를 등록하지 않습니다.
 - 담당·소유: 단일 Sol code는 `development_runner.py`, `development_runner_store.py`, 새 `tests/test_development_runner_scope_transport.py` 세 파일을 소유합니다. root가 운영 문서·DB backup 복사본 검증·통합·기록을 맡고 별도 Sol review를 수행합니다. 중첩 위임·운영 DB·실제 연구 자료·API 접근 없음.
-- 경로·브랜치: `/home/kwl/projects/jusik-lab-scope-review-transport-retry`, `fix/lab-scope-review-transport-retry`. 기준 `3130718`, 선행 코드 소유권과 겹치지 않으며 이전 완료 worktree는 정상 제거했습니다.
+- 경로·브랜치: `/home/kwl/projects/jusik-lab-scope-review-transport-retry`, `fix/lab-scope-review-transport-retry`. 기준 `3130718`, 제품 `7ab122d`, main `ee99764`. 증거 보존 후 소유 전용 worktree를 정상 정리했고 branch·commit은 유지합니다.
 - 계약: 가산 retry 열 3개와 구 reader가 선택하지 않는 `transport_wait`, 원자 due claim·실패 기록·별도 PASS·5/15/60분 및 auth 6시간. 과거 terminal 기록·미확인 오류·timeout·REJECT·WAIT·orphan은 자동 재해석하지 않습니다. 만료·HEAD/snapshot 변경 시 원 제안은 stale이며 ancestry 예외·TTL 연장·투자 기준 완화는 없습니다.
 - 예산·검증: 구현 45분, 별도 검토·main 검증 시간을 남깁니다. fake CLI/clock의 실패→기한→READY/fallback→재시작→PASS, cap·race·tamper·구버전 rollback·DB 보존을 증명합니다. audit의 `SCOPE_REVIEW_RECOVERY_PLAN.md`, 기록 `docs/development-records/2026-09-26-lab-scope-review-transport-retry.md`를 따릅니다.
+- 결과·한계: 실제 backup 복사본의 13개 table·1,322개 기존 행·schema 객체와 반복 초기화·integrity를 보존했습니다. 실제 provider 오류 유발·과거 실패 재분류는 없습니다. 전체 suite의 별도 TestClient 대기는 이 scope의 완료로 해결을 주장하지 않으며, 성능 sprint의 진단 기록과 최종 전체 검사를 확인합니다.
 
 ## kofr-public-contract-audit-20260926
 

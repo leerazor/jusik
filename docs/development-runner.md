@@ -265,6 +265,25 @@ OOS 재사용·winner 선정·PAPER/live·실주문 권한을 일반 planner에 
 scope 검토를 거쳐야 하며, 완료 출력으로 검토 없는 task를 직접 증식시키지 않습니다.
 기존 generic 연구·legacy roadmap task의 후속 계약은 변경하지 않습니다.
 
+scope reviewer의 새로운 확인된 전송 장애는 부모 scope의 `transport_wait`로 기록합니다.
+종료가 확인된 child의 bounded 구조화 오류 중 capacity/rate_limit/network/server/auth만
+허용하며, 기존 planner task/attempt는 `scope_pending`과 원 제안 JSON/SHA를 유지합니다.
+가산 `retry_kind`, `retry_after`, `transient_failures`는 5/15/60분 이후 60분·auth 6시간의
+기한을 저장합니다. 미래 기한은 선택에서 건너뛰므로 독립 READY와 공학 fallback을
+막지 않습니다. 공개 상태에는 검증된 종류·횟수·기한만 표시하고 무효 값은 고정 오류로
+대체합니다. timeout·거절·WAIT·무효 결과·불명 오류·orphan·과거 실패는 이 정책으로
+자동 복구하지 않습니다.
+
+due claim은 쓰기 잠금 획득 뒤와 입력 검사 뒤 시각을 다시 읽어 기한·TTL·quota·cooldown을
+검증하고, 실제 claim 시각으로 launch 기록을 결속합니다. pending·active reviewer·running
+attempt·launch를 한 transaction에서 기록하며 별도 PASS 전 등록하지 않습니다. 원
+24시간 TTL은 연장하지 않고 TTL이 기한보다 먼저 오면 stale로 정리합니다. HEAD·snapshot·
+governance·source evidence가 달라지면 원 제안은 stale이며, 구현 완료 검토의 ancestry
+예외는 사용하지 않습니다. 구버전은 `transport_wait`를 선택하지 않고, 이미 claim된
+running을 되돌리는 경우 기존 orphan 격리를 사용합니다. DB 삭제·복원이나 일괄 pending
+변환은 하지 않습니다. [scope 복구 기록](development-records/2026-09-26-lab-scope-review-transport-retry.md)을
+따르며 scope 검토 완료와 투자 검증을 구분합니다.
+
 ### 범위가 승인된 roadmap 코드 산출물
 
 새 scope 검토에서 명시적으로 code-only 실행 계약을 승인한 작업만 기존 engineering
