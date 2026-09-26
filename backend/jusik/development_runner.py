@@ -2115,9 +2115,10 @@ def resume_runner(config: RunnerConfig) -> None:
 def _review_context(
     candidate: ReviewCandidate, review_id: str, config: RunnerConfig
 ) -> dict[str, Any]:
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    transport_anchor = store.review_transport_anchor(candidate, review_id)
     recovery = candidate.recovery
     if recovery is not None:
-        store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
         source_path = Path(recovery["source_output_path"])
         output_path = (
             config.state_dir
@@ -2154,9 +2155,23 @@ def _review_context(
         else candidate.implementation_attempt_id,
         config,
         baseline_head=candidate.baseline_head,
-        historical_engineering=recovery is not None,
+        historical_engineering=recovery is not None or transport_anchor is not None,
     )
     main_head = _git(config.repo, "rev-parse", "main").stdout.strip()
+    if transport_anchor is not None:
+        for previous_head in dict.fromkeys(transport_anchor["review_heads"]):
+            if (
+                _git(
+                    config.repo,
+                    "merge-base",
+                    "--is-ancestor",
+                    previous_head,
+                    main_head,
+                    check=False,
+                ).returncode
+                != 0
+            ):
+                raise ValueError("previous review HEAD is not an ancestor of main")
     spec = _engineering_spec(
         RunnerStore(config.state_dir / "runner.db", config.history_dir),
         candidate.task.id,
@@ -2174,8 +2189,12 @@ def _review_context(
             name: _hash_file(config.repo / name) for name in sorted(owned_paths)
         },
     }
-    if recovery is not None:
+    if recovery is not None or transport_anchor is not None:
         context["product_commit"] = candidate.completion["integrated_commit"]
+    if transport_anchor is not None and (
+        store._normalized_review_context(context) != transport_anchor["identity"]
+    ):
+        raise ValueError("review transport identity changed")
     return context
 
 
@@ -2208,6 +2227,14 @@ def _run_review(
         store.mark_review_candidate_stale(candidate)
         return None
     prompt = review_prompt(context)
+    if "product_commit" in context:
+        prompt = (
+            "Review the frozen product_commit against baseline_head at the current "
+            "main_head. Intervening commits have identical owned files. Prior "
+            "implementation tests describe product_commit, not validation of every "
+            "change at current main_head. Independently assess the owned product "
+            "in this current repository context.\n\n" + prompt
+        )
     if (
         candidate.task.id.startswith("lab-discovery-")
         or store.roadmap_code_scope(candidate.task.id) is not None
@@ -2222,9 +2249,7 @@ def _run_review(
         schema_path,
         (
             json.dumps(
-                review_schema(
-                    spec.owned_paths, recovery=candidate.recovery is not None
-                ),
+                review_schema(spec.owned_paths, recovery="product_commit" in context),
                 sort_keys=True,
             )
             + "\n"
@@ -2298,6 +2323,9 @@ def _run_review(
                 input_payload = None
                 continue
             break
+    if process.poll() is None or _process_group_alive(process.pid):
+        store.quarantine_reviews([review_id])
+        return None
     if store.is_paused() or (stop_requested is not None and stop_requested()):
         store.finish_review(
             candidate, review_id, status="interrupted", failure_code="signal"
@@ -2305,7 +2333,11 @@ def _run_review(
         return RunResult("interrupted", candidate.task.id, review_id)
     if process.returncode != 0:
         store.finish_review(
-            candidate, review_id, status="failed", failure_code="codex_exit"
+            candidate,
+            review_id,
+            status="failed",
+            failure_code="codex_exit",
+            retry_kind=_discovery_transport_kind(stdout_path),
         )
         return None
     try:

@@ -53,6 +53,7 @@ from jusik.development_runner_planning_scope import (
 from jusik.development_runner_planning_scope import (
     validate_scope_review as validate_roadmap_scope_review,
 )
+from jusik.development_runner_review import validate_receipt
 from jusik.development_runner_roadmap import (
     ROADMAP_PENDING_LIMIT,
     eligible_areas,
@@ -171,6 +172,7 @@ class ReviewCandidate:
     baseline_head: str
     completion: dict[str, Any]
     recovery: dict[str, str] | None = None
+    transport_anchor: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -364,6 +366,14 @@ class RunnerStore:
             if "process_starttime" not in review_columns:
                 db.execute(
                     "ALTER TABLE review_attempts ADD COLUMN process_starttime INTEGER"
+                )
+            for name in ("retry_kind", "retry_after"):
+                if name not in review_columns:
+                    db.execute(f"ALTER TABLE review_attempts ADD COLUMN {name} TEXT")
+            if "transient_failures" not in review_columns:
+                db.execute(
+                    "ALTER TABLE review_attempts ADD COLUMN transient_failures "
+                    "INTEGER NOT NULL DEFAULT 0"
                 )
             cycle_columns = {
                 str(row["name"])
@@ -1635,6 +1645,182 @@ class RunnerStore:
             db.commit()
         return quarantined
 
+    @staticmethod
+    def _review_candidate_snapshot(candidate: ReviewCandidate) -> dict[str, Any]:
+        return {
+            "completion": candidate.completion,
+            "recovery": candidate.recovery,
+            "baseline_head": candidate.baseline_head,
+            "task_id": candidate.task.id,
+            "implementation_attempt_id": candidate.implementation_attempt_id,
+        }
+
+    @staticmethod
+    def _review_transport_deadline(row: sqlite3.Row) -> datetime | None:
+        """Only new, internally consistent transport records opt into retries."""
+        kind = row["retry_kind"]
+        count = row["transient_failures"]
+        if (
+            kind not in {"capacity", "rate_limit", "network", "server", "auth"}
+            or row["status"] != "failed"
+            or row["failure_code"] != f"review_transport_{kind}"
+            or type(count) is not int
+            or count < 1
+        ):
+            return None
+        try:
+            ended = datetime.fromisoformat(row["ended_at"])
+            deadline = datetime.fromisoformat(row["retry_after"])
+        except (TypeError, ValueError):
+            return None
+        delay = 21_600 if kind == "auth" else (300, 900, 3_600)[min(count - 1, 2)]
+        if (
+            ended.utcoffset() != timedelta(0)
+            or deadline.utcoffset() != timedelta(0)
+            or deadline - ended != timedelta(seconds=delay)
+        ):
+            return None
+        return deadline
+
+    @staticmethod
+    def _normalized_review_context(context: dict[str, Any]) -> dict[str, Any]:
+        result = dict(context)
+        result["product_commit"] = result.get("product_commit", result.get("main_head"))
+        result.pop("review_attempt_id", None)
+        result.pop("main_head", None)
+        return result
+
+    def _review_history(
+        self,
+        db: sqlite3.Connection,
+        candidate: ReviewCandidate,
+        *,
+        exclude_running_id: str | None = None,
+    ) -> tuple[list[sqlite3.Row], dict[str, Any] | None, int]:
+        # rowid is insertion order, including when a frozen clock yields equal times.
+        rows = db.execute(
+            "SELECT * FROM review_attempts WHERE implementation_attempt_id=? "
+            "ORDER BY rowid",
+            (candidate.implementation_attempt_id,),
+        ).fetchall()
+        rows = [
+            row
+            for row in rows
+            if not (row["id"] == exclude_running_id and row["status"] == "running")
+        ]
+        anchor: dict[str, Any] | None = None
+        transport_count = 0
+        for row in rows:
+            marked = (
+                row["retry_kind"] is not None
+                or row["retry_after"] is not None
+                or row["transient_failures"] != 0
+                or str(row["failure_code"]).startswith("review_transport_")
+            )
+            if marked:
+                if self._review_transport_deadline(row) is None:
+                    raise ValueError("invalid review transport metadata")
+                transport_count += 1
+                if row["transient_failures"] != transport_count:
+                    raise ValueError("invalid review transport sequence")
+            if not marked and anchor is None:
+                continue
+            try:
+                context = json.loads(row["context_json"])
+                if not isinstance(context, dict):
+                    raise ValueError("invalid review transport context")
+                snapshot = context.pop("_transport_candidate", None)
+                if marked and snapshot != self._review_candidate_snapshot(candidate):
+                    raise ValueError("review transport candidate changed")
+                hashes = context.get("owned_file_hashes")
+                if not isinstance(hashes, dict):
+                    raise ValueError("invalid review transport owned hashes")
+                # Reuse the public identity schema without accepting any verdict.
+                validate_receipt(
+                    context | {"verdict": "FAIL"}, context, frozenset(hashes)
+                )
+                if (
+                    context.get("task_id") != candidate.task.id
+                    or row["task_id"] != candidate.task.id
+                    or context.get("implementation_attempt_id")
+                    != candidate.implementation_attempt_id
+                    or context.get("baseline_head") != candidate.baseline_head
+                    or context.get("review_attempt_id") != row["id"]
+                    or context.get("product_commit", context.get("main_head"))
+                    != candidate.completion.get("integrated_commit")
+                ):
+                    raise ValueError("review transport identity changed")
+                normalized = self._normalized_review_context(context)
+                if anchor is not None and normalized != anchor["identity"]:
+                    raise ValueError("review transport context changed")
+                anchor = {
+                    "first_review_id": row["id"]
+                    if anchor is None
+                    else anchor["first_review_id"],
+                    "previous_review_id": row["id"],
+                    "identity": normalized,
+                    "main_head": context["main_head"],
+                    "review_heads": ([] if anchor is None else anchor["review_heads"])
+                    + [context["main_head"]],
+                }
+            except (TypeError, KeyError, json.JSONDecodeError) as exc:
+                raise ValueError("invalid review transport anchor") from exc
+        return rows, anchor, transport_count
+
+    def _review_eligible(
+        self, db: sqlite3.Connection, candidate: ReviewCandidate, now: str
+    ) -> tuple[bool, dict[str, Any] | None]:
+        paused = db.execute(
+            "SELECT value FROM runner_meta WHERE key='paused'"
+        ).fetchone()
+        if paused is not None and paused["value"] == "1":
+            return False, None
+        try:
+            rows, anchor, transport_count = self._review_history(db, candidate)
+            instant = datetime.fromisoformat(now)
+            if instant.utcoffset() != timedelta(0):
+                return False, None
+        except (TypeError, ValueError):
+            return False, None
+        if len(rows) - transport_count >= 2 or any(
+            row["status"] == "running" for row in rows
+        ):
+            return False, None
+        if rows:
+            latest = rows[-1]
+            deadline = self._review_transport_deadline(latest)
+            if deadline is not None:
+                if instant < deadline:
+                    return False, None
+            elif latest["status"] not in {"failed", "interrupted"} or latest[
+                "failure_code"
+            ] not in {"timeout", "idle_timeout", "runner_restart"}:
+                return False, None
+        return True, anchor
+
+    def review_transport_anchor(
+        self, candidate: ReviewCandidate, review_id: str
+    ) -> dict[str, Any] | None:
+        """Re-read original and most recent anchors; caller state cannot opt in."""
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT evidence_json,baseline_head FROM attempts "
+                "WHERE id=? AND task_id=?",
+                (candidate.implementation_attempt_id, candidate.task.id),
+            ).fetchone()
+            if (
+                row is None
+                or row["baseline_head"] != candidate.baseline_head
+                or not self._matches_candidate(row["evidence_json"], candidate)
+            ):
+                raise ValueError("review candidate changed")
+            _, anchor, _ = self._review_history(
+                db, candidate, exclude_running_id=review_id
+            )
+            if anchor != candidate.transport_anchor:
+                raise ValueError("review transport anchor changed")
+            return anchor
+
     def review_candidate(self) -> ReviewCandidate | None:
         """Only new, validated candidate envelopes can enter this path."""
         with self._connect() as db:
@@ -1688,33 +1874,23 @@ class RunnerStore:
                         continue
                 elif recovery is not None:
                     continue
-                latest = db.execute(
-                    "SELECT status,failure_code FROM review_attempts "
-                    "WHERE implementation_attempt_id=? "
-                    "ORDER BY started_at DESC,id DESC LIMIT 1",
-                    (row["last_attempt_id"],),
-                ).fetchone()
-                count = db.execute(
-                    "SELECT COUNT(*) FROM review_attempts "
-                    "WHERE implementation_attempt_id=?",
-                    (row["last_attempt_id"],),
-                ).fetchone()[0]
-                if count >= 2 or (
-                    latest is not None
-                    and (
-                        latest["status"] not in {"failed", "interrupted"}
-                        or latest["failure_code"]
-                        not in {"timeout", "idle_timeout", "runner_restart"}
-                    )
-                ):
-                    continue
-                return ReviewCandidate(
+                candidate = ReviewCandidate(
                     self._task(row),
                     str(row["last_attempt_id"]),
                     str(row["baseline_head"]),
                     envelope["completion"],
                     recovery,
                 )
+                eligible, anchor = self._review_eligible(db, candidate, utc_now())
+                if eligible:
+                    return ReviewCandidate(
+                        candidate.task,
+                        candidate.implementation_attempt_id,
+                        candidate.baseline_head,
+                        candidate.completion,
+                        recovery,
+                        anchor,
+                    )
         return None
 
     def claim_review(
@@ -1729,7 +1905,8 @@ class RunnerStore:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
                 "SELECT tasks.status,tasks.last_attempt_id,attempts.status "
-                "AS attempt_status,attempts.evidence_json FROM tasks "
+                "AS attempt_status,attempts.evidence_json,attempts.baseline_head,"
+                "attempts.failure_code,tasks.task_kind FROM tasks "
                 "JOIN attempts ON attempts.id=tasks.last_attempt_id "
                 "WHERE tasks.id=?",
                 (candidate.task.id,),
@@ -1739,27 +1916,23 @@ class RunnerStore:
                 or row["status"] != "waiting_external"
                 or row["last_attempt_id"] != candidate.implementation_attempt_id
                 or row["attempt_status"] != "waiting_external"
+                or row["task_kind"] != "engineering"
+                or row["baseline_head"] != candidate.baseline_head
+                or row["failure_code"] != "independent_review_pending"
                 or not self._matches_candidate(row["evidence_json"], candidate)
             ):
                 db.rollback()
                 return False
-            previous = db.execute(
-                "SELECT status,failure_code FROM review_attempts "
-                "WHERE implementation_attempt_id=? "
-                "ORDER BY started_at DESC,id DESC LIMIT 1",
-                (candidate.implementation_attempt_id,),
-            ).fetchone()
-            count = db.execute(
-                "SELECT COUNT(*) FROM review_attempts "
-                "WHERE implementation_attempt_id=?",
-                (candidate.implementation_attempt_id,),
-            ).fetchone()[0]
-            if count >= 2 or (
-                previous is not None
-                and (
-                    previous["status"] not in {"failed", "interrupted"}
-                    or previous["failure_code"]
-                    not in {"timeout", "idle_timeout", "runner_restart"}
+            eligible, anchor = self._review_eligible(db, candidate, utc_now())
+            if (
+                not eligible
+                or anchor != candidate.transport_anchor
+                or (
+                    anchor is not None
+                    and (
+                        self._normalized_review_context(context) != anchor["identity"]
+                        or context.get("review_attempt_id") != review_id
+                    )
                 )
             ):
                 db.rollback()
@@ -1841,11 +2014,19 @@ class RunnerStore:
         failure_code: str | None = None,
         receipt: dict[str, Any] | None = None,
         repo: Path | None = None,
+        retry_kind: str | None = None,
     ) -> bool:
         if status not in {"completed", "failed", "interrupted"}:
             raise ValueError("invalid review status")
         if status == "completed" and receipt is None:
             raise ValueError("completed review requires receipt")
+        if retry_kind is not None and (
+            retry_kind not in {"capacity", "rate_limit", "network", "server", "auth"}
+            or status != "failed"
+        ):
+            raise ValueError("invalid review transport failure")
+        if retry_kind is None and str(failure_code).startswith("review_transport_"):
+            raise ValueError("review transport failure requires metadata")
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
@@ -1871,6 +2052,46 @@ class RunnerStore:
             ):
                 db.rollback()
                 return False
+            ended_at = utc_now()
+            retry_after: str | None = None
+            transient_failures = 0
+            stored_context = str(row["context_json"])
+            try:
+                _, anchor, count = self._review_history(
+                    db, candidate, exclude_running_id=review_id
+                )
+                if anchor != candidate.transport_anchor:
+                    raise ValueError("review transport anchor changed")
+            except (TypeError, ValueError):
+                db.rollback()
+                return False
+            if retry_kind is not None or anchor is not None:
+                try:
+                    context = json.loads(stored_context)
+                    if not isinstance(context, dict):
+                        raise ValueError("invalid review transport context")
+                    if anchor is not None and (
+                        self._normalized_review_context(context) != anchor["identity"]
+                    ):
+                        raise ValueError("review transport context changed")
+                except (TypeError, ValueError):
+                    db.rollback()
+                    return False
+                if retry_kind is not None:
+                    transient_failures = count + 1
+                    delay = (
+                        21_600
+                        if retry_kind == "auth"
+                        else (300, 900, 3_600)[min(transient_failures - 1, 2)]
+                    )
+                    retry_after = (
+                        datetime.fromisoformat(ended_at) + timedelta(seconds=delay)
+                    ).isoformat()
+                    failure_code = "review_transport_" + retry_kind
+                    context["_transport_candidate"] = self._review_candidate_snapshot(
+                        candidate
+                    )
+                    stored_context = json.dumps(context, sort_keys=True)
             if status == "completed":
                 if candidate.task.area != "__engineering__":
                     if self.roadmap_code_scope(candidate.task.id) is None:
@@ -1883,8 +2104,16 @@ class RunnerStore:
                         before_dispatch=False,
                         implementation_baseline=candidate.baseline_head,
                     )
+                if (
+                    candidate.task.area != "__engineering__"
+                    or candidate.transport_anchor is not None
+                ):
+                    if repo is None:
+                        raise ValueError(
+                            "anchored review finalization needs repository"
+                        )
                     if receipt is None:
-                        raise ValueError("roadmap code receipt missing")
+                        raise ValueError("anchored review receipt missing")
                     head = subprocess.run(
                         ["git", "rev-parse", "main"],
                         cwd=repo,
@@ -1894,10 +2123,20 @@ class RunnerStore:
                         timeout=30,
                     ).stdout.strip()
                     if head != receipt["main_head"]:
-                        raise ValueError("roadmap code reviewed HEAD changed")
+                        raise ValueError("reviewed HEAD changed")
                     for name, expected in receipt["owned_file_hashes"].items():
                         if safe_file_hash(repo, name) != expected:
-                            raise ValueError("roadmap code reviewed file changed")
+                            raise ValueError("reviewed file changed")
+                if candidate.transport_anchor is not None:
+                    for evidence in candidate.completion["evidence"]:
+                        path = Path(evidence["path"])
+                        if (
+                            path.is_symlink()
+                            or not path.is_file()
+                            or hashlib.sha256(path.read_bytes()).hexdigest()
+                            != evidence["sha256"]
+                        ):
+                            raise ValueError("reviewed evidence changed")
                 if candidate.recovery is not None:
                     source = db.execute(
                         "SELECT status,failure_code,output_path,baseline_head,"
@@ -1969,12 +2208,17 @@ class RunnerStore:
                     return False
             db.execute(
                 "UPDATE review_attempts SET status=?,ended_at=?,failure_code=?,"
-                "receipt_json=? WHERE id=?",
+                "receipt_json=?,context_json=?,retry_kind=?,retry_after=?,"
+                "transient_failures=? WHERE id=?",
                 (
                     status,
-                    utc_now(),
+                    ended_at,
                     failure_code,
                     json.dumps(receipt, sort_keys=True) if receipt else None,
+                    stored_context,
+                    retry_kind,
+                    retry_after,
+                    transient_failures,
                     review_id,
                 ),
             )

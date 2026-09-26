@@ -463,7 +463,7 @@ def test_reused_reviewer_process_identity_never_signals(
     signals: list[tuple[int | None, bool]] = []
     monkeypatch.setattr(runner, "_process_group_alive", lambda _group: True)
     monkeypatch.setattr(runner, "_read_process_starttime", lambda _pid: 78)
-    monkeypatch.setattr(runner.os, "getpgid", lambda _pid: 12345)
+    monkeypatch.setattr(os, "getpgid", lambda _pid: 12345)
     monkeypatch.setattr(
         runner,
         "_terminate_group",
@@ -488,7 +488,7 @@ def test_reused_group_is_quarantined_without_signalling_or_stopping_ready(
     signals: list[tuple[int | None, bool]] = []
     monkeypatch.setattr(runner, "_process_group_alive", lambda _group: True)
     monkeypatch.setattr(runner, "_read_process_starttime", lambda _pid: 78)
-    monkeypatch.setattr(runner.os, "getpgid", lambda _pid: 12345)
+    monkeypatch.setattr(os, "getpgid", lambda _pid: 12345)
     monkeypatch.setattr(
         runner,
         "_terminate_group",
