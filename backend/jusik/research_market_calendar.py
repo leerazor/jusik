@@ -209,6 +209,8 @@ class MarketCalendar:
                     raise MarketCalendarError("calendar_dates_unordered_or_duplicate")
                 parsed_days[parsed_day] = day
             parsed[name] = parsed_days
+        for override in payload["verified_overrides"]:
+            _validate_override(override, parsed, start, end)
         return cls(
             provider=cast(str, payload["provider"]),
             provider_version=cast(str, payload["provider_version"]),
@@ -378,6 +380,45 @@ def _parse_day(calendar: CalendarCode, row: object) -> tuple[date, _Day]:
     return local_date, _Day(
         "session", MarketSession(calendar, local_date, opening, closing)
     )
+
+
+def _validate_override(
+    override: object,
+    days: dict[CalendarCode, dict[date, _Day]],
+    start: date,
+    end: date,
+) -> None:
+    if not isinstance(override, dict):
+        raise MarketCalendarError("calendar_override_invalid")
+    calendar = override.get("calendar")
+    raw_date = override.get("date")
+    if (
+        not isinstance(calendar, str)
+        or calendar not in CALENDAR_TIMEZONE
+        or not isinstance(raw_date, str)
+    ):
+        raise MarketCalendarError("calendar_override_invalid")
+    try:
+        local_date = date.fromisoformat(raw_date)
+    except ValueError as exc:
+        raise MarketCalendarError("calendar_override_invalid") from exc
+    if not start <= local_date <= end:
+        return
+    day = days[calendar][local_date]
+    if "state" in override and override["state"] != day.state:
+        raise MarketCalendarError("calendar_override_mismatch")
+    if "open_at_local" in override or "close_at_local" in override:
+        session = day.session
+        if session is None:
+            raise MarketCalendarError("calendar_override_mismatch")
+        zone = CALENDAR_TIMEZONE[calendar]
+        opening = session.open_at.astimezone(zone).strftime("%H:%M:%S")
+        closing = session.close_at.astimezone(zone).strftime("%H:%M:%S")
+        if (
+            override.get("open_at_local") != f"{opening} {zone.key}"
+            or override.get("close_at_local") != f"{closing} {zone.key}"
+        ):
+            raise MarketCalendarError("calendar_override_mismatch")
 
 
 def load_market_calendar(path: Path = DEFAULT_CALENDAR_PATH) -> MarketCalendar:

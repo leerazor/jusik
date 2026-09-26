@@ -59,6 +59,7 @@ def test_committed_calendar_has_holidays_early_closes_dst_and_krx_offsets() -> N
 
 def test_generated_calendar_overrides_2026_krx_holidays_without_changing_xnys() -> None:
     payload = build_payload(datetime(2026, 6, 1).date(), datetime(2026, 7, 20).date())
+    assert MarketCalendar.from_bytes(_encoded(payload)).available
     xkrx = {row["date"]: row for row in payload["calendars"]["XKRX"]}
     assert xkrx["2026-06-03"] == {"date": "2026-06-03", "state": "closed"}
     assert xkrx["2026-07-17"] == {"date": "2026-07-17", "state": "closed"}
@@ -75,6 +76,35 @@ def test_generated_calendar_overrides_2026_krx_holidays_without_changing_xnys() 
     xnys = {row["date"]: row for row in payload["calendars"]["XNYS"]}
     assert xnys["2026-06-03"]["state"] == "session"
     assert xnys["2026-07-17"]["state"] == "session"
+
+
+@pytest.mark.parametrize("contradiction", ["state", "session_time"])
+def test_verified_override_contradiction_fails_closed(
+    contradiction: str, tmp_path: Path
+) -> None:
+    payload = _payload()
+    if contradiction == "state":
+        row = next(
+            row for row in payload["calendars"]["XKRX"] if row["date"] == "2026-11-19"
+        )
+        row["state"] = "closed"
+    else:
+        override = next(
+            row for row in payload["verified_overrides"] if row["date"] == "2025-11-13"
+        )
+        override["open_at_local"] = "09:00:00 Asia/Seoul"
+    raw = _encoded(payload)
+
+    with pytest.raises(MarketCalendarError, match="^calendar_override_mismatch$"):
+        MarketCalendar.from_bytes(raw)
+
+    path = tmp_path / "contradictory-calendar.json"
+    path.write_bytes(raw)
+    calendar = load_market_calendar(path)
+    assert not calendar.available
+    assert calendar.error == "calendar_override_mismatch"
+    assert calendar.lookup("KRX", datetime(2026, 11, 19).date()).state == "unavailable"
+    assert calendar.next_session("KRX", datetime(2026, 11, 18, 9, tzinfo=UTC)) is None
 
 
 def test_session_boundaries_are_inclusive_and_next_session_stops_at_unknown() -> None:
