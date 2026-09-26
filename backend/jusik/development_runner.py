@@ -10,6 +10,7 @@ import json
 import os
 import re
 import signal
+import sqlite3
 import subprocess
 import threading
 import time
@@ -47,6 +48,17 @@ from jusik.development_runner_planning import (
 )
 from jusik.development_runner_planning import (
     fingerprint as planning_fingerprint,
+)
+from jusik.development_runner_planning_scope import (
+    ROADMAP_TASK_SCOPE_GUARD,
+    PendingRoadmapScope,
+    RoadmapScopeReview,
+)
+from jusik.development_runner_planning_scope import (
+    digest as planning_scope_digest,
+)
+from jusik.development_runner_planning_scope import (
+    validate_scope_review as validate_roadmap_scope_review,
 )
 from jusik.development_runner_review import (
     review_prompt,
@@ -1565,6 +1577,16 @@ def _run_planning(
     )
     planning_areas = ALLOWED_AREAS if allowed_areas is None else allowed_areas
     scope_context = "" if context is None else f"{context}\n"
+    if config.scope == ROADMAP_SCOPE:
+        scope_context += (
+            "Propose only a bounded readiness, data, accounting, or offline contract "
+            "diagnosis linked to risk-adjusted net profit. Do not propose new "
+            "strategy experiments, financial backtests without actual inputs, "
+            "holdout retuning, synthetic investment claims, actual orders, "
+            "provider billing, or PAPER/LIVE activation. Preserve phase gates, "
+            "MDD 20%, PAPER 10%, and maximum three candidates. A separate "
+            "read-only scope reviewer must pass before a product task exists.\n"
+        )
     feedback = _planner_feedback(store, task.id)
     feedback_context = (
         f"Previous planner failure label: {feedback}. Correct that bounded output "
@@ -1709,7 +1731,9 @@ def _run_planning(
             task.id,
             "failed",
             failure_code=failure_code,
-            automatic_retry=_automatic_retry_requested(config, eligible=True),
+            automatic_retry=_automatic_retry_requested(
+                config, eligible=config.scope != ROADMAP_SCOPE
+            ),
         )
         return RunResult("failed", task.id, attempt_id, failure_code)
     try:
@@ -1765,7 +1789,11 @@ def _run_planning(
             "failed",
             failure_code=failure_code,
             automatic_retry=_automatic_retry_requested(
-                config, eligible=failure_code in AUTO_RETRYABLE_PLANNING_FAILURES
+                config,
+                eligible=(
+                    config.scope != ROADMAP_SCOPE
+                    and failure_code in AUTO_RETRYABLE_PLANNING_FAILURES
+                ),
             ),
         )
         return RunResult("failed", task.id, attempt_id, failure_code)
@@ -1795,6 +1823,40 @@ def _run_planning(
         return RunResult(
             "paused" if store.is_paused() else "interrupted", task.id, attempt_id
         )
+    if config.scope == ROADMAP_SCOPE and result.status == "proposed":
+        try:
+            current_mandate = validate_dispatch_gate(config.repo)
+            current_roadmap = load_roadmap(config.repo)
+            if (
+                current_head != main_head
+                or current_digest != digest
+                or mandate_digest != current_mandate.digest
+            ):
+                raise ValueError("planning identity changed")
+            proposed = result.proposal
+            if proposed is None:
+                raise ValueError("planning proposal missing")
+            pending = PendingRoadmapScope(
+                planner_task_id=task.id,
+                planner_attempt_id=attempt_id,
+                fingerprint=digest,
+                baseline_head=main_head,
+                mandate_digest=current_mandate.digest,
+                roadmap_digest=current_roadmap.digest,
+                expires_at=(datetime.now(UTC) + timedelta(hours=24)).isoformat(),
+                snapshot=snapshot,
+                result=result,
+                proposal_digest=planning_scope_digest(proposed.model_dump(mode="json")),
+                evidence_digest=planning_scope_digest(
+                    [item.model_dump(mode="json") for item in proposed.evidence]
+                ),
+            )
+            if not store.stage_roadmap_planning(pending):
+                raise ValueError("planning scope claim changed")
+        except (ValueError, RoadmapError, MandateGovernanceError):
+            store.finish(attempt_id, task.id, "failed", failure_code="planning_stale")
+            return RunResult("failed", task.id, attempt_id, "planning_stale")
+        return RunResult("completed", task.id, attempt_id, "planning_scope_pending")
     try:
         if config.scope == ROADMAP_SCOPE:
             current_mandate = validate_dispatch_gate(config.repo)
@@ -2249,6 +2311,236 @@ def _run_review(
     )
 
 
+def _run_roadmap_scope_review(
+    config: RunnerConfig,
+    store: RunnerStore,
+    pending: PendingRoadmapScope,
+    mandate_digest: str,
+    stop_requested: Callable[[], bool] | None,
+) -> RunResult:
+    """Review one frozen roadmap proposal without granting investment acceptance."""
+    try:
+        proposal = pending.proposal
+        roadmap = load_roadmap(config.repo)
+        snapshot = store.discovery_snapshot()
+        current_mandate = _roadmap_dispatch_gate(config.repo, mandate_digest)
+        head = _git(config.repo, "rev-parse", "main").stdout.strip()
+        code_tree = _git(config.repo, "rev-parse", "main:backend/jusik").stdout.strip()
+        stale = (
+            datetime.now(UTC) >= datetime.fromisoformat(pending.expires_at)
+            or head != pending.baseline_head
+            or current_mandate.digest != pending.mandate_digest
+            or roadmap.digest != pending.roadmap_digest
+            or snapshot != pending.snapshot
+            or roadmap_fingerprint(snapshot, roadmap, mandate_digest, code_tree)
+            != pending.fingerprint
+        )
+        if not stale:
+            validate_planning_result(
+                pending.result.model_dump(mode="json"),
+                pending.planner_task_id,
+                pending.planner_attempt_id,
+                pending.fingerprint,
+                config,
+                config.state_dir / "attempts" / pending.planner_attempt_id,
+                eligible_areas(roadmap)
+                - reserved_areas(
+                    task for task in store.tasks() if task.area != PLANNING_AREA
+                ),
+                {task.id for task in store.tasks()},
+            )
+            validate_planner_area(roadmap, proposal.area, store.tasks())
+    except (
+        OSError,
+        ValueError,
+        RoadmapError,
+        MandateGovernanceError,
+        subprocess.CalledProcessError,
+    ):
+        stale = True
+    if stale:
+        store.terminalize_roadmap_scope(pending, "stale_input")
+        return RunResult("completed", reason="roadmap_scope_stale")
+
+    review_id = uuid.uuid4().hex
+    review_dir = config.state_dir / "roadmap-scope" / review_id
+    _secure_dir(review_dir)
+    output_path = review_dir / "result.json"
+    stdout_path = review_dir / "stdout.jsonl"
+    stderr_path = review_dir / "stderr.log"
+    schema_path = review_dir / "schema.json"
+    prompt = (
+        "Independent read-only roadmap task scope review. Inspect current tracked "
+        "roadmap, mandate, source and cited evidence. PASS only a bounded readiness, "
+        "data, accounting, or offline contract diagnosis that advances risk-adjusted "
+        "net-profit research without claiming investment validation. Missing live "
+        "data may permit offline contract audit, but not actual performance "
+        "computation. "
+        "REJECT unauthorized strategy or financial experiments, holdout retuning, "
+        "synthetic investment claims, actual orders, new provider billing, criteria "
+        "weakening, or PAPER/LIVE activation. Preserve phase gates, MDD 20%, PAPER "
+        "10%, and maximum three candidates. WAIT if the proposed computation lacks "
+        "required actual inputs. Do not write, use network, or spawn agents. "
+        "Return only schema JSON with exact identity fields and a concrete reason. "
+        "Scope PASS only permits enqueue; it is not implementation review or "
+        "investment acceptance.\n"
+        f"Proposal: {proposal.model_dump_json()}\n"
+        f"Review attempt id: {review_id}\n"
+        f"Planner task id: {pending.planner_task_id}\n"
+        f"Planner attempt id: {pending.planner_attempt_id}\n"
+        f"Fingerprint: {pending.fingerprint}\n"
+        f"Baseline HEAD: {pending.baseline_head}\n"
+        f"Mandate digest: {pending.mandate_digest}\n"
+        f"Roadmap digest: {pending.roadmap_digest}\n"
+        f"Area: {proposal.area}\n"
+        f"Proposal digest: {pending.proposal_digest}\n"
+        f"Evidence digest: {pending.evidence_digest}"
+    )
+    _write_private(review_dir / "prompt.txt", prompt.encode())
+    _write_private(stdout_path, b"")
+    _write_private(
+        schema_path,
+        (
+            json.dumps(strict_output_schema(RoadmapScopeReview), sort_keys=True) + "\n"
+        ).encode(),
+    )
+    if not store.start_roadmap_scope_review(
+        pending, review_id, output_path, datetime.now(UTC).isoformat()
+    ):
+        return RunResult("idle", reason="roadmap_scope_state_changed")
+    command = _review_command(config, schema_path, output_path)
+    failure: str | None = None
+    with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=config.repo,
+                stdin=subprocess.PIPE,
+                stdout=stdout,
+                stderr=stderr,
+                start_new_session=True,
+                env=_review_environment(review_dir),
+            )
+        except OSError:
+            failure = "dispatch_error"
+        if failure is None:
+            try:
+                group_id = os.getpgid(process.pid)
+                starttime = _read_process_starttime(process.pid)
+                if group_id == process.pid:
+                    store.set_roadmap_scope_process_identity(
+                        review_id, group_id, process.pid, starttime
+                    )
+            except (OSError, ValueError):
+                pass
+            deadline = time.monotonic() + min(config.timeout_seconds, 900)
+            started_at = time.time()
+            data: bytes | None = prompt.encode()
+            while True:
+                if store.is_paused() or (
+                    stop_requested is not None and stop_requested()
+                ):
+                    _stop_process(process)
+                    failure = "paused"
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0 or _child_idle_expired(
+                    stdout_path, stderr_path, started_at, config.idle_timeout_seconds
+                ):
+                    _stop_process(process)
+                    failure = "timeout"
+                    break
+                if (
+                    stdout_path.stat().st_size > 1_048_576
+                    or _empty_receiver_wait_detected(stdout_path)
+                ):
+                    _stop_process(process)
+                    failure = "child_output_invalid"
+                    break
+                try:
+                    process.communicate(data, timeout=min(1, remaining))
+                    data = None
+                except subprocess.TimeoutExpired:
+                    data = None
+                    continue
+                break
+            if failure is None and process.returncode != 0:
+                failure = "codex_exit"
+    if failure != "dispatch_error" and (
+        process.poll() is None or _process_group_alive(process.pid)
+    ):
+        store.quarantine_roadmap_scope_review(review_id)
+        return RunResult(
+            "paused" if failure == "paused" else "blocked",
+            attempt_id=review_id,
+            reason="roadmap scope orphan uncertain",
+        )
+    if failure is not None:
+        store.finish_roadmap_scope_review(
+            pending, review_id, "interrupted" if failure == "paused" else "failed"
+        )
+        return RunResult(
+            "paused" if failure == "paused" else "completed",
+            attempt_id=review_id,
+            reason="roadmap_scope_" + failure,
+        )
+    try:
+        if output_path.stat().st_size > 16_384:
+            raise ValueError("roadmap scope output too large")
+        raw = output_path.read_bytes()
+        review = RoadmapScopeReview.model_validate_json(raw)
+        validate_roadmap_scope_review(review, pending, review_id)
+        response_sha256 = hashlib.sha256(raw).hexdigest()
+        if store.is_paused() or (stop_requested is not None and stop_requested()):
+            store.finish_roadmap_scope_review(pending, review_id, "interrupted")
+            return RunResult("paused", attempt_id=review_id)
+        if review.verdict != "PASS":
+            store.finish_roadmap_scope_review(
+                pending,
+                review_id,
+                "rejected" if review.verdict == "REJECT" else "waiting",
+                response_sha256,
+            )
+            return RunResult(
+                "completed",
+                attempt_id=review_id,
+                reason="roadmap_scope_" + review.verdict.lower(),
+            )
+        approved = store.approve_roadmap_scope(
+            pending,
+            review_id,
+            review,
+            config.repo,
+            ROADMAP_TASK_SCOPE_GUARD.format(work_class=review.work_class)
+            + f"\n\n{COMMON_PROMPT}\n\n{proposal.prompt}",
+            response_sha256,
+        )
+        if not approved:
+            store.finish_roadmap_scope_review(pending, review_id, "stale")
+            return RunResult(
+                "completed", attempt_id=review_id, reason="roadmap_scope_stale"
+            )
+        return RunResult(
+            "completed",
+            task_id=proposal.id,
+            attempt_id=review_id,
+            reason="roadmap_scope_approved",
+        )
+    except (
+        OSError,
+        ValueError,
+        ValidationError,
+        RoadmapError,
+        MandateGovernanceError,
+        subprocess.CalledProcessError,
+        sqlite3.IntegrityError,
+    ):
+        store.finish_roadmap_scope_review(pending, review_id, "failed")
+        return RunResult(
+            "completed", attempt_id=review_id, reason="roadmap_scope_invalid"
+        )
+
+
 def _run_engineering_discovery(
     config: RunnerConfig,
     store: RunnerStore,
@@ -2580,6 +2872,8 @@ def run_once(
                 "blocked",
                 reason="operator hold triggers remain: " + ", ".join(hold_triggers),
             )
+        if store.roadmap_scope_orphan_hold():
+            return RunResult("blocked", reason="roadmap scope orphan uncertain")
         roadmap = None
         session_policy = None
         if config.scope == ROADMAP_SCOPE:
@@ -2618,6 +2912,15 @@ def run_once(
             uncertain_discovery = uncertain_discovery or not recovered
         if uncertain_discovery:
             return RunResult("blocked", reason="discovery orphan identity uncertain")
+        uncertain_scope = False
+        for active_scope in store.running_roadmap_scope_reviews():
+            recovered = _stop_orphaned_review_group(active_scope)
+            store.quarantine_roadmap_scope_review(
+                active_scope.id, uncertain=not recovered
+            )
+            uncertain_scope = uncertain_scope or not recovered
+        if uncertain_scope:
+            return RunResult("blocked", reason="roadmap scope orphan uncertain")
         _safe_history_flush(store, config)
         interrupted = store.recover_running()
         if interrupted:
@@ -2660,6 +2963,60 @@ def run_once(
             ):
                 return RunResult("cooldown")
         task = _select_task(store, config.scope, roadmap)
+        if task is None and config.scope == ROADMAP_SCOPE and config.planning_enabled:
+            if governance is None or roadmap is None:
+                return RunResult("blocked", reason="roadmap governance unavailable")
+            try:
+                pending_scope = store.pending_roadmap_scope()
+            except ValueError:
+                return RunResult("blocked", reason="roadmap scope identity invalid")
+            if pending_scope is not None:
+                return _run_roadmap_scope_review(
+                    config, store, pending_scope, governance.digest, stop_requested
+                )
+            try:
+                candidate = _planning_task(
+                    store, config.repo, config.scope, governance.digest
+                )
+            except MandateGovernanceError as exc:
+                return RunResult("blocked", reason=str(exc))
+            if candidate is not None:
+                try:
+                    _prepare_artifact_dir(config.artifact_dir)
+                except OSError:
+                    return RunResult(
+                        "blocked",
+                        candidate[0].id,
+                        reason="artifact directory unavailable",
+                    )
+                eligible = eligible_areas(roadmap) - reserved_areas(
+                    item for item in store.tasks() if item.area != PLANNING_AREA
+                )
+                result = _run_planning(
+                    config,
+                    common,
+                    store,
+                    candidate,
+                    stop_requested,
+                    now,
+                    allowed_areas=eligible,
+                    context=(
+                        roadmap_planner_context(roadmap, candidate[2], eligible)
+                        + "\n\nOperator session policy:\n"
+                        + (session_policy or "")
+                    ),
+                    fingerprint_factory=lambda tasks, _head, _day: roadmap_fingerprint(
+                        tasks,
+                        load_roadmap(config.repo),
+                        governance.digest,
+                        _git(
+                            config.repo, "rev-parse", "main:backend/jusik"
+                        ).stdout.strip(),
+                    ),
+                    mandate_digest=governance.digest,
+                )
+                _safe_history_flush(store, config)
+                return result
         if (
             task is None
             and config.automatic_engineering_backlog
@@ -2690,27 +3047,11 @@ def run_once(
                     )
                 return RunResult("idle", reason=idle_reason)
         if task is None:
+            if config.scope == ROADMAP_SCOPE:
+                return RunResult("idle")
             if not config.planning_enabled:
                 return RunResult("idle")
-            if config.scope == ROADMAP_SCOPE:
-                if governance is None:
-                    return RunResult(
-                        "blocked", reason="mandate governance is unavailable"
-                    )
-                try:
-                    current_governance = validate_dispatch_gate(config.repo)
-                except MandateGovernanceError as exc:
-                    return RunResult("blocked", reason=str(exc))
-                if current_governance.digest != governance.digest:
-                    return RunResult("blocked", reason="mandate governance changed")
-                try:
-                    candidate = _planning_task(
-                        store, config.repo, config.scope, governance.digest
-                    )
-                except MandateGovernanceError as exc:
-                    return RunResult("blocked", reason=str(exc))
-            else:
-                candidate = _planning_task(store, config.repo, config.scope)
+            candidate = _planning_task(store, config.repo, config.scope)
             if candidate is None:
                 return RunResult("idle")
             try:
@@ -2719,29 +3060,6 @@ def run_once(
                 return RunResult(
                     "blocked", candidate[0].id, reason="artifact directory unavailable"
                 )
-            planning_kwargs: dict[str, Any] = {}
-            if config.scope == ROADMAP_SCOPE and roadmap is not None:
-                eligible = eligible_areas(roadmap) - reserved_areas(
-                    item for item in store.tasks() if item.area != PLANNING_AREA
-                )
-                planning_kwargs = {
-                    "allowed_areas": eligible,
-                    "context": (
-                        roadmap_planner_context(roadmap, candidate[2], eligible)
-                        + "\n\nOperator session policy:\n"
-                        + (session_policy or "")
-                    ),
-                    "fingerprint_factory": lambda tasks, _head, _day: (
-                        roadmap_fingerprint(
-                            tasks,
-                            load_roadmap(config.repo),
-                            governance.digest if governance is not None else "",
-                            _git(
-                                config.repo, "rev-parse", "main:backend/jusik"
-                            ).stdout.strip(),
-                        )
-                    ),
-                }
             result = _run_planning(
                 config,
                 common,
@@ -2749,8 +3067,6 @@ def run_once(
                 candidate,
                 stop_requested,
                 now,
-                mandate_digest=(governance.digest if governance is not None else None),
-                **planning_kwargs,
             )
             _safe_history_flush(store, config)
             return result
@@ -3339,16 +3655,27 @@ def main(argv: list[str] | None = None) -> int:
                             alternative_ready_tasks=[],
                         ).model_dump(mode="json")
             tasks.append(view)
+        planning_scope_status = store.roadmap_scope_status()
+        discovery_status = store.discovery_status()
+        active_planning = any(
+            task.area == PLANNING_AREA and task.status in {"running", "scope_pending"}
+            for task in snapshot
+        )
+        active_discovery = discovery_status is not None and discovery_status[
+            "stage"
+        ] in {"discover", "scope"}
+        idle_value = store.get_meta("idle_status")
         print(
             json.dumps(
                 {
                     "paused": store.is_paused(),
                     "idle_status": (
-                        json.loads(value)
-                        if (value := store.get_meta("idle_status")) is not None
-                        else None
+                        None
+                        if active_planning or active_discovery or idle_value is None
+                        else json.loads(idle_value)
                     ),
-                    "discovery": store.discovery_status(),
+                    "planning_scope": planning_scope_status,
+                    "discovery": discovery_status,
                     "tasks": tasks,
                 },
                 ensure_ascii=False,
