@@ -50,6 +50,30 @@ AGENTS와 연속 실행/runbook 문서는 이 계약을 참조한다. OpenAI Doc
 일반 문구만으로 실험 사전등록, 수익성 평가, 기존 holdout 재사용, 전략 승격을 허용하지 않는다.
 prospective 등록의 현재 mandate 호환성은 먼저 확인할 연구 준비 과제이며 OOS 실행이 아니다.
 
+## 별도 읽기 전용 연구 준비 감사
+
+이 세션에서는 scheduling 코드와 독립적으로 prospective 계약도 정적으로 확인했다.
+기존 등록은 2026-09-14~2026-11-09의 56일 창과 선택 후보/입력/code identity를 고정한다.
+현재 시점에 관측 창이 끝나지 않았으며 이번 감사에서는 OOS·체결·runtime DB를 읽거나
+계산하지 않았다. 후보 수 정책·candidate-specific required return·현재 primary metrics
+계약은 이 등록 코드에 완전히 표현돼 있지 않다. 기존 등록을 새 mandate에 맞는 것으로
+소급 수정하지 않는다.
+
+- `research_prospective_registration.py`: 선택 후보 identity·자동 승격 금지는 있으나
+  현재 objective 전체·자료 등급·PIT eligibility를 증명하지 못한다.
+- `research_prospective_readiness.py`: boundary 후보는 unverified이며
+  `collector_implemented=false`, `evaluation_inputs_complete=false`다.
+- `docs/research-future-observation-protocol.md`: 명시적으로 미등록 초안이다.
+  원문/읽기 시작·종료·수신 시각 계약을 모든 시장 관측에 충족했다고 볼 수 없다.
+- 판정: 현재 mandate의 `INVESTMENT_VALIDATED` 근거로 사용 불가. 코드 계약의 부족한
+  항목은 offline 준비 과제로 개선할 수 있지만 기존 관찰 창·입력·평가 결과를 덮어쓰지 않는다.
+
+정적 입력 pin: registration `a1159962bed624ea6ae1b0a0af75070a99066a225e43587a4f591a84b93a8121`,
+readiness `94f16f6d682534042ddd5db9aad837201192b7d7c035bf8e53bd27c32824f4d0`,
+protocol `72a34a0586232a33c5eb68f828d4284666f751e15ac4f3a3edd20ac7c0c40a35`,
+mandate `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`.
+이 사실만으로 R7 phase를 열거나 새 실제 금융 실험을 enqueue하지 않는다.
+
 ## 검증
 
 - 첫 RED: `test_eligible_roadmap_planning_precedes_fresh_engineering_discovery`가
@@ -57,6 +81,13 @@ prospective 등록의 현재 mandate 호환성은 먼저 확인할 연구 준비
 - 구현/독립 검토/main 검사: 진행 중. 아직 완료로 표시하지 않는다.
 - 계획만 한 후속: 구현 review의 일시 오류 재시도 일반화, no_work 경로/hash 증명,
   외부 readiness 변경에 따른 재평가. 이번 slice에 있다고 주장하지 않는다.
+- 추가 확인: generic research completion은 `review_passed`를 요구하지만 자동 child는
+  중첩 spawn을 할 수 없다. 이번 scope 검토를 구현 후 독립 review로 재사용하지 않는다.
+  새 roadmap 산출물의 별도 완료 reviewer 연결은 후속 우선 과제다. 그 전에는 독립 검토를
+  확보하지 못한 해당 task만 WAIT하며 공학 fallback을 계속한다. 전체 연구 lifecycle이
+  이미 무인 완성됐다고 주장하지 않는다.
+- 지침 독립 검토 P2: 기존 연구 제안 직접 enqueue 설명이 새 roadmap pending/scope 계약과
+  충돌해 `60c3696`에서 generic research와 roadmap 설명을 분리했다.
 
 ## 소유·안전·재개
 
