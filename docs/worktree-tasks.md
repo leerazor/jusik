@@ -16,7 +16,7 @@
 
 - 상태: Luna 조사·Sol 계획과 cross-attempt identity 보완 완료, 단일 구현 준비. `performance-sprint-20260926-1656`의 후속 과제입니다.
 - 목표: 구현 완료 reviewer의 확인된 일시 호출 장애가 후보를 영구 대기시키지 않도록 하고, 기한 전에는 독립 READY·공학 fallback을 진행합니다. 일반 engineering과 같은 경로의 roadmap code completion만 포함하며 연구 scope reviewer는 별도 후속입니다.
-- 담당·소유: 단일 Sol code는 `backend/jusik/development_runner.py`, `backend/jusik/development_runner_store.py`, `backend/tests/test_development_runner_review.py`, 새 `backend/tests/test_development_runner_review_transport.py`만 수정합니다. root는 운영 문서·등록부·개발 기록·audit·main 통합을 맡고 별도 Sol이 검토합니다. 중첩 위임은 하지 않습니다.
+- 담당·소유: 단일 Sol code는 `backend/jusik/development_runner.py`, `backend/jusik/development_runner_store.py`, `backend/tests/test_development_runner_review.py`, 새 `backend/tests/test_development_runner_review_transport.py`를 수정합니다. 기존 recovery 테스트가 pause 상태에서 직접 claim을 전제한 사실을 확인하고, `test_development_runner_recovery.py`의 marker-tamper CAS 검사 setup에 `store.resume()` 한 줄만 추가하도록 범위를 확장했습니다. root는 운영 문서·등록부·개발 기록·audit·main 통합을 맡고 별도 Sol이 검토합니다. 중첩 위임은 하지 않습니다.
 - 경로·브랜치: `/home/kwl/projects/jusik-lab-review-transport-retry`, `fix/lab-review-transport-retry`. 기준 `d30c809`, 단일 구현 시작. 통합 대상은 local `main`입니다.
 - 계약: 종료가 확인된 child의 제한된 구조화 오류만 capacity/rate_limit/network/server/auth로 분류합니다. 새 opt-in metadata와 `review_transport_<kind>` 실패 코드를 원자 저장하고 5/15/60분·auth 6시간 뒤에만 재시도합니다. 기존 비전송 시도 2회 상한·quota·cooldown·pause·독립 PASS는 유지합니다.
 - identity: 새 transport anchor가 있는 재시도에만 기존 historical 검증을 제한적으로 재사용합니다. 제품·이전 검토 commit의 main ancestry, 원 completion·구현 attempt·baseline·소유 hash는 고정하고 해당 시도의 fresh HEAD로 검토합니다. 검토 도중 HEAD 변경은 거부하며, 일반 최초 검토와 legacy stale 규칙은 유지합니다.

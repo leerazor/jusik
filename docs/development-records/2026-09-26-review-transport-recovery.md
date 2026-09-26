@@ -12,6 +12,12 @@
 포함한다. 연구 scope reviewer는 TTL·snapshot·별도 상태 및 구버전 reader 문제가
 있으므로 이번 변경에서 제외한다. 자동개발 전체가 복구됐다고 해석하지 않는다.
 
+구현 중 범위를 한 줄 확장했다. 기존 `test_development_runner_recovery.py`의
+`test_recorded_digest_final_review_cas_rejects_marker_tampering`은 paused 복구 fixture에서
+직접 review claim을 전제했다. root가 이 사실을 확인하고 `_recover` 성공 후
+`store.resume()` 한 줄만 추가하도록 승인했다. 이 테스트의 목적은 marker 변조 CAS
+검사이며 pause 우회가 아니다. 새 원자 pause 검사는 유지하고 보호 assert는 바꾸지 않는다.
+
 ## 승인한 구현 계약
 
 - 실제 child와 process group의 종료가 확인된 비정상 종료만 기존 제한된 구조화
@@ -63,6 +69,6 @@ SQLite integrity·구버전 rollback 및 집중 검사·독립 Sol review·main 
 `ENGINEERING_COMPLETE/NOT_EVALUATED`로 기록한다.
 
 실제 provider 장애를 유발하지 않고, credentials·권한·과금·실주문·투자 기준·자동
-scope 승인·과거 산출물은 변경하지 않는다. 소유 네 파일을 넘는 구조 변경이 필요하면
+scope 승인·과거 산출물은 변경하지 않는다. 위 소유 범위를 넘는 구조 변경이 필요하면
 구현자가 임의 확장하지 않고 감독자에게 근거를 반환한다. 전체 sprint 종료는
 2026-09-26T10:56:14Z이며 본 구현은 검토 시간을 남기도록 60분 이내 반환을 목표로 한다.

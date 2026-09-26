@@ -112,3 +112,10 @@ UI 문서 완료 commit만 추가됐음을 확인한 다음 저장소 runner loc
 분리하는 것이다. 범위 reviewer의 별도 상태 전환은 독립 후속으로 두고, 먼저 한 경로를
 완결한다. 자료·투자 검증·주문 기준은 변경하지 않는다. 정적 prospective 계약 점검만으로
 새로운 OOS 실험이나 투자 후보 승격을 승인하지 않는다.
+
+별도 지표 경계 검토는 합성/정책 검사 41개 PASS(역사 bundle 6개 제외)였고, 매우 큰
+유한 Decimal의 MDD 차액에서 Overflow가 보고서 없이 전파되는 사례 하나를 재현했다.
+현실적 금액·현재 성과 영향은 확인하지 않았다. evaluator/availability가 forward v1
+정책 artifact와 source SHA로 고정되어 있어 임의 pin 갱신을 하지 않았으며, 후속
+정책 identity 계획의 입력으로 보존한다. 상세는 audit `METRICS_BOUNDARY_AUDIT.md`다.
+이 독립 점검의 보류 항목과 관계없이 reviewer 호출 복구 구현을 계속한다.
