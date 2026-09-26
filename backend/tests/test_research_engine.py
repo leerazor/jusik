@@ -1,9 +1,13 @@
+from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_EVEN, Decimal, getcontext, localcontext
 
 import pytest
 from pydantic import ValidationError
 
+from jusik import research_engine, research_strategy
+from jusik.operations_models import StrategyDefinition
 from jusik.research_data import DataInsufficientError
 from jusik.research_engine import run_backtest
 from jusik.research_models import (
@@ -12,6 +16,7 @@ from jusik.research_models import (
     MarketEvent,
     ResearchInputSnapshot,
     ResearchRunRequest,
+    StrategyResult,
     SymbolSnapshot,
 )
 
@@ -375,3 +380,280 @@ def test_market_event_only_applies_to_the_matching_listing_board() -> None:
 
     assert result.candidate.metrics.trade_count == 2
     assert result.event_coverage == "provided_partial"
+
+
+def split_fixture() -> tuple[ResearchRunRequest, ResearchInputSnapshot]:
+    request, snapshot = fixture()
+    first = snapshot.symbols[0].bars[0].date
+    request.end_date = first + timedelta(days=129)
+    snapshot = snapshot.model_copy(update={"requested_end": request.end_date})
+    for item in snapshot.symbols:
+        item.bars[:] = bars(first, 130)
+    return request, snapshot
+
+
+@pytest.mark.parametrize("flat", [False, True])
+def test_default_signals_are_evaluated_once_across_all_six_runs(
+    monkeypatch: pytest.MonkeyPatch, flat: bool
+) -> None:
+    request, snapshot = split_fixture()
+    for item in snapshot.symbols:
+        if flat:
+            item.bars[:] = [
+                bar.model_copy(update={"adjusted_close": Decimal(100)})
+                for bar in item.bars
+            ]
+    calls: Counter[tuple[str, int, int]] = Counter()
+    sma_calls = 0
+    original_target = research_strategy.target_invested
+    original_sma = research_strategy.simple_moving_average
+
+    def counted_target(version: str, values: list[DailyBar], index: int) -> bool:
+        # Each path sorts into a fresh list, so identify the unchanged source bar.
+        calls[version, id(values[index]), index] += 1
+        return original_target(version, values, index)
+
+    def counted_sma(values: list[DailyBar], index: int, length: int) -> Decimal | None:
+        nonlocal sma_calls
+        sma_calls += 1
+        return original_sma(values, index, length)
+
+    monkeypatch.setattr(research_engine, "target_invested", counted_target)
+    monkeypatch.setattr(research_strategy, "simple_moving_average", counted_sma)
+
+    result = run_backtest(request, snapshot)
+
+    assert result.validation is not None
+    assert len(calls) == 2 * len(snapshot.symbols) * 66
+    assert set(calls.values()) == {1}
+    assert sma_calls == 3 * len(snapshot.symbols) * 66
+    if flat:
+        assert result.baseline.trades == result.candidate.trades == []
+
+
+def record_results[**P](
+    function: Callable[P, StrategyResult], results: list[StrategyResult]
+) -> Callable[P, StrategyResult]:
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> StrategyResult:
+        result = function(*args, **kwargs)
+        results.append(result)
+        return result
+
+    return wrapped
+
+
+def uncached_target(
+    version: str,
+    symbol: str,
+    values: list[DailyBar],
+    index: int,
+    cache: dict[tuple[str, str, int], bool] | None,
+) -> bool:
+    assert getcontext().prec == 40
+    assert getcontext().rounding == ROUND_HALF_EVEN
+    return research_strategy.target_invested(version, values, index)
+
+
+def parity_fixture(case: str) -> tuple[ResearchRunRequest, ResearchInputSnapshot]:
+    request, snapshot = fixture() if case == "short" else split_fixture()
+    if case == "irregular":
+        for item in snapshot.symbols:
+            duplicate = item.bars[80].model_copy(
+                update={"adjusted_close": Decimal("100.00000000000000000001")}
+            )
+            # Stable sorting must retain the existing last-duplicate-date semantics.
+            item.bars[:] = list(
+                reversed(
+                    [
+                        bar
+                        for index, bar in enumerate(item.bars)
+                        if index not in (70, 90)
+                    ]
+                    + [duplicate]
+                )
+            )
+        snapshot.symbols[0].bars[:] = [
+            bar for bar in snapshot.symbols[0].bars if bar.date != request.end_date
+        ]
+    elif case == "pending":
+        for item in snapshot.symbols:
+            item.bars[-1] = item.bars[-1].model_copy(
+                update={"adjusted_close": Decimal(1)}
+            )
+    elif case == "precision":
+        prices = (
+            Decimal("100.00000000000000000000000000000000000000009"),
+            Decimal("100.00000000000000000000000000000000000000001"),
+            Decimal("0.00000000000000000000000000000000000000001"),
+            Decimal("10000000000000000000000000000000000000001.1"),
+        )
+        for item in snapshot.symbols:
+            item.bars[:] = [
+                bar.model_copy(update={"adjusted_close": prices[index % len(prices)]})
+                for index, bar in enumerate(item.bars)
+            ]
+    elif case == "events":
+        request.fee_rate = Decimal("0.001")
+        request.slippage_rate = Decimal("0.01")
+        request.sell_tax_rate = Decimal("0.0018")
+        occurred = datetime.combine(request.start_date, datetime.min.time(), tzinfo=UTC)
+        event = MarketEvent(
+            kind="sidecar",
+            market="KOSPI",
+            direction="down",
+            occurred_at=occurred - timedelta(minutes=1),
+            known_at=occurred - timedelta(minutes=1),
+            resumed_at=occurred + timedelta(minutes=4),
+            source_url="https://example.invalid/synthetic-event",
+        )
+        request.events = [event]
+        snapshot = snapshot.model_copy(update={"events": [event]})
+        for item in snapshot.symbols:
+            item.bars[:] = [
+                bar.model_copy(
+                    update={
+                        "adjusted_close": Decimal(100 + index + (index % 17) * 2),
+                        "volume": 0 if index in (65, 72, 73, 80) else 1000,
+                    }
+                )
+                for index, bar in enumerate(item.bars)
+            ]
+    return request, snapshot
+
+
+@pytest.mark.parametrize(
+    "case", ["regular", "irregular", "precision", "events", "pending", "short"]
+)
+def test_cached_results_match_uncached_full_and_internal_paths(
+    monkeypatch: pytest.MonkeyPatch, case: str
+) -> None:
+    request, snapshot = parity_fixture(case)
+    cached_internal: list[StrategyResult] = []
+    uncached_internal: list[StrategyResult] = []
+    original_run = research_engine._run_strategy
+    monkeypatch.setattr(
+        research_engine, "_run_strategy", record_results(original_run, cached_internal)
+    )
+    with localcontext() as context:
+        context.prec = 7
+        context.rounding = ROUND_DOWN
+        cached = run_backtest(request, snapshot)
+        assert context.prec == 7 and context.rounding == ROUND_DOWN
+    monkeypatch.setattr(research_engine, "_default_target", uncached_target)
+    monkeypatch.setattr(
+        research_engine,
+        "_run_strategy",
+        record_results(original_run, uncached_internal),
+    )
+    uncached = run_backtest(request, snapshot)
+
+    assert cached == uncached
+    assert cached_internal == uncached_internal
+    assert len(cached_internal) == (2 if case == "short" else 6)
+    with localcontext() as context:
+        context.prec = 40
+        context.rounding = ROUND_HALF_EVEN
+        for strategy in (cached.baseline, cached.candidate):
+            assert (
+                original_run(
+                    request, snapshot, strategy.strategy_version, strategy.definition
+                )
+                == strategy
+            )
+    if case == "events":
+        assert cached.candidate.affected_decisions
+        assert cached.candidate.unfilled_decisions
+        assert cached.candidate.metrics.total_fees > 0
+        assert cached.candidate.metrics.total_tax > 0
+        assert cached.candidate.metrics.total_slippage_cost > 0
+
+
+def test_cache_does_not_survive_revised_inputs_or_mutated_source_lists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, snapshot = split_fixture()
+    original = run_backtest(request, snapshot)
+    assert original.candidate.trades
+    for item in snapshot.symbols:
+        item.bars[:] = [
+            bar.model_copy(update={"adjusted_close": Decimal(100)}) for bar in item.bars
+        ]
+    revised = run_backtest(request, snapshot)
+    assert revised.baseline.trades == revised.candidate.trades == []
+    assert revised.input_hash != original.input_hash
+    assert revised.parameters_hash == original.parameters_hash
+    # The frozen snapshot still contains mutable lists; identity is insufficient.
+    snapshot.symbols.reverse()
+    for item in snapshot.symbols:
+        item.bars[:] = list(reversed(bars(item.bars[0].date, 130)))
+    restored = run_backtest(request, snapshot)
+    monkeypatch.setattr(research_engine, "_default_target", uncached_target)
+    assert restored == run_backtest(request, snapshot)
+    assert restored.candidate.trades == original.candidate.trades
+
+
+def test_custom_definition_and_stateful_callback_bypass_default_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, snapshot = split_fixture()
+    definition = StrategyDefinition(
+        version="custom_sma",
+        name="Custom SMA",
+        definition="Five-bar SMA and volume filter",
+        fast_window=5,
+        min_volume_ratio=Decimal("1.1"),
+    )
+    expected = research_engine.run_definition_backtest(request, snapshot, definition)
+
+    def reject_default(version: str, values: list[DailyBar], index: int) -> bool:
+        pytest.fail("Custom paths must not calculate default strategy signals")
+
+    monkeypatch.setattr(research_engine, "target_invested", reject_default)
+    assert (
+        research_engine.run_definition_backtest(request, snapshot, definition)
+        == expected
+    )
+    observations: list[tuple[str, tuple[DailyBar, ...]]] = []
+
+    def callback(symbol: str, history: tuple[DailyBar, ...]) -> bool:
+        observations.append((symbol, history))
+        return len(observations) % 3 == 0
+
+    first = research_engine.run_signal_backtest(
+        request,
+        snapshot,
+        strategy_version="callback",
+        definition="Stateful test",
+        signal=callback,
+    )
+    first_observations = observations.copy()
+    observations.clear()
+    second = research_engine.run_signal_backtest(
+        request,
+        snapshot,
+        strategy_version="callback",
+        definition="Stateful test",
+        signal=callback,
+    )
+    assert first == second
+    assert observations == first_observations
+    assert len(observations) == len(snapshot.symbols) * 66
+    assert len(observations[0][1]) == 65
+    assert len(observations[-1][1]) == 130
+
+
+def test_result_identity_tracks_implementation_without_changing_financial_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, snapshot = fixture()
+    original = run_backtest(request, snapshot)
+    assert original.implementation_hash == research_engine.implementation_hash()
+    changed_hash = research_engine.canonical_hash("synthetic implementation revision")
+    monkeypatch.setattr(research_engine, "IMPLEMENTATION_HASH", changed_hash)
+    changed = run_backtest(request, snapshot)
+    assert changed.implementation_hash == changed_hash
+    assert changed.implementation_hash != original.implementation_hash
+    assert changed.parameters_hash != original.parameters_hash
+    assert changed.parameters_hash == research_engine.parameters_hash(request)
+    excluded = {"implementation_hash", "parameters_hash"}
+    assert changed.model_dump(exclude=excluded) == original.model_dump(exclude=excluded)
