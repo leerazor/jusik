@@ -23,6 +23,14 @@
 - 완료 기준: fake CLI/clock의 실패→영속 기한→다른 READY 진행→restart→같은 제품의 별도 PASS, 중복 claim·오염·legacy 보존·실제 이전 store rollback 검증, 집중 pytest/Ruff/strict mypy·독립 review·main 검증입니다. 운영 DB와 실제 API는 구현자가 접근하지 않습니다.
 - 운영·증거: root가 UI 완료 인계 뒤 runner pause를 소유합니다. 현재 정책·credentials·실주문·투자 기준은 변경하지 않습니다. audit은 `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/review-transport/`, 기록은 `docs/development-records/2026-09-26-review-transport-recovery.md`입니다.
 
+## kofr-public-contract-audit-20260926
+
+- 상태: RUNNING, 읽기 전용 연구 준비 점검. 성능 sprint와 독립 진행하며 구현 담당자의 파일·운영 DB는 수정하지 않습니다.
+- 목표·완료 조건: 기존 KOFR 적용 preflight의 `PUBN_DTTM` timezone/instant와 provider 영업일 완전성을 뒷받침하는 공식 공개문서를 bounded 탐색합니다. 확인된 사실·직접 지지하지 않는 추론·남은 적용 결정을 구분한 audit를 남기면 완료입니다. Sharpe 계산 또는 승인 완료를 목표로 삼지 않습니다.
+- 범위·예산: root 단일 소유. KSD/KOFR 등 공식 공개문서 검색·열람만 수행하고 최대 8개 원문을 확인합니다. collector/API 재수집, credentials 조회, 실제 NAV/PnL·holdout·DB 조회, 기간 축소·0 대체·carry-forward·기존 정책/자료 승격은 제외합니다. 별도 제품 worktree는 필요하지 않습니다.
+- 입력·출력: 기존 preflight/정책 제안/수집 코드의 field 이름과 공식 문서. 출력은 성능 sprint audit의 `KOFR_PUBLIC_CONTRACT_AUDIT.md`, 확정 사실과 미확정 조건을 개발 기록에 연결합니다.
+- 중단·전환: 문서로 시간 의미나 완전성을 입증할 수 없으면 그 사실을 보존하고 자동 요청을 반복하지 않습니다. 독립 `lab-review-transport-retry` 구현·검토는 그대로 계속합니다. 새 출처·적용 정책을 임의 승인하지 않습니다.
+
 ## research-web-reports
 
 - 상태: 완료. 구현 `539a496`·각주 보완 `f465e11`, 별도 Sol review PASS, local main `422452ead8d55c62c75f655919c9eea0c601b613` 통합·검증·3000 배포 완료. 보고서는 웹 읽기로 전환했고 연구용 가상 설정과 28일·56일 점검을 설명합니다.
