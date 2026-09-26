@@ -2201,6 +2201,29 @@ class RunnerStore:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def is_approved_roadmap_scope_task(self, task_id: str) -> bool:
+        """Identify a scoped child from its durable approved proposal and receipt."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT pending_json,pending_sha256,receipt_json "
+                "FROM roadmap_planning_scopes WHERE status='approved'"
+            ).fetchall()
+        for row in rows:
+            raw = str(row["pending_json"])
+            if hashlib.sha256(raw.encode()).hexdigest() != row["pending_sha256"]:
+                raise ValueError("approved roadmap scope proposal changed")
+            pending = PendingRoadmapScope.model_validate_json(raw)
+            if pending.proposal.id != task_id:
+                continue
+            if row["receipt_json"] is None:
+                raise ValueError("approved roadmap scope receipt missing")
+            review = RoadmapScopeReview.model_validate_json(row["receipt_json"])
+            validate_roadmap_scope_review(review, pending, review.review_attempt_id)
+            if review.verdict != "PASS":
+                raise ValueError("approved roadmap scope receipt is not PASS")
+            return True
+        return False
+
     def terminalize_roadmap_scope(
         self, pending: PendingRoadmapScope, reason: str
     ) -> bool:
@@ -2585,11 +2608,19 @@ class RunnerStore:
         proposal_head_matches: bool = True,
     ) -> bool:
         """Finish generic planning; roadmap proposals require independent scope PASS."""
-        if scope == "investment-roadmap" and proposal is not None:
-            raise ValueError("roadmap proposal requires independent scope review")
         now = utc_now()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            bound_scope = db.execute(
+                "SELECT value FROM runner_meta WHERE key='scope'"
+            ).fetchone()
+            if proposal is not None and (
+                scope == "investment-roadmap"
+                or bound_scope is not None
+                and bound_scope["value"] == "investment-roadmap"
+            ):
+                db.rollback()
+                raise ValueError("roadmap proposal requires independent scope review")
             prior = db.execute(
                 "SELECT status FROM attempts WHERE id=? AND task_id=?",
                 (attempt_id, task_id),

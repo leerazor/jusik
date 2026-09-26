@@ -3324,6 +3324,12 @@ def run_once(
                 allowed_areas=set(roadmap.by_id) if roadmap is not None else None,
                 baseline_head=baseline_head,
             )
+            if (
+                completion.followup is not None
+                and roadmap is not None
+                and store.is_approved_roadmap_scope_task(task.id)
+            ):
+                raise ValueError("scoped roadmap task cannot enqueue a followup")
             if roadmap is not None and task.task_kind != "engineering":
                 validate_roadmap_completion(load_roadmap(config.repo), task, completion)
         except (OSError, json.JSONDecodeError, RoadmapError, ValueError):

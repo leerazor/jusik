@@ -48,6 +48,37 @@ def test_legacy_finish_planning_cannot_enqueue_roadmap_proposal(
     assert store.task("roadmap-planner").status == "running"  # type: ignore[union-attr]
 
 
+@pytest.mark.parametrize("explicit_research_scope", [False, True])
+def test_bound_roadmap_scope_cannot_be_bypassed_by_caller_scope(
+    tmp_path: Path, explicit_research_scope: bool
+) -> None:
+    store = RunnerStore(tmp_path / "state" / "runner.db")
+    store.set_meta("scope", "investment-roadmap")
+    assert store.enqueue("roadmap-planner", "__planning__", "internal")
+    task = store.task("roadmap-planner")
+    assert task is not None
+    store.claim(task, "attempt", tmp_path / "out", tmp_path / "err")
+    args: tuple[
+        str, str, str, dict[str, str], str, list[tuple[str, str, str | None]]
+    ] = (
+        "attempt",
+        task.id,
+        "proposed",
+        {"status": "proposed"},
+        hashlib.sha256(b"[]").hexdigest(),
+        [],
+    )
+    with pytest.raises(ValueError, match="independent scope review"):
+        if explicit_research_scope:
+            store.finish_planning(
+                *args, proposal=("audit-v1", "r1-05", "prompt"), scope="research"
+            )
+        else:
+            store.finish_planning(*args, proposal=("audit-v1", "r1-05", "prompt"))
+    assert store.task("audit-v1") is None
+    assert store.task("roadmap-planner").status == "running"  # type: ignore[union-attr]
+
+
 def _scope_receipt(pending: PendingRoadmapScope, review_id: str) -> RoadmapScopeReview:
     return RoadmapScopeReview(
         verdict="PASS",
@@ -201,6 +232,46 @@ def test_roadmap_proposal_needs_independent_scope_pass(
         task.prompt,
         "a" * 64,
     )
+
+
+def test_approved_roadmap_task_cannot_enqueue_completion_followup(
+    tmp_path: Path,
+) -> None:
+    fake = tmp_path / "fake-child.py"
+    _fake_planner(fake)
+    base_config, store = _exhausted(tmp_path, fake)
+    config = base_config.model_copy(update={"planning_enabled": True})
+    assert runner.run_once(config).reason == "planning_scope_pending"
+    _fake_scope(fake)
+    assert runner.run_once(config).reason == "roadmap_scope_approved"
+    assert store.is_approved_roadmap_scope_task("roadmap-audit-v1")
+    evidence = config.repo / "docs" / "research-mandate.json"
+    digest = hashlib.sha256(evidence.read_bytes()).hexdigest()
+    head = _git(config.repo, "rev-parse", "main")
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "fields = dict(line.split(': ', 1) for line in sys.stdin.read().splitlines() "
+        "if line.startswith(('Task id: ', 'Attempt id: ')))\n"
+        "payload = {'task_id': fields['Task id'], 'attempt_id': fields['Attempt id'], "
+        "'status': 'completed', 'tests_passed': True, 'review_passed': True, "
+        f"'integrated_commit': {head!r}, "
+        f"'evidence': [{{'path': {str(evidence)!r}, 'sha256': {digest!r}}}], "
+        f"'handoff_path': {str(evidence)!r}, "
+        "'followup': {'id': 'audit-followup-v1', 'area': 'r1-02', "
+        "'prompt': 'Bounded offline data readiness followup.'}}\n"
+        "Path(sys.argv[sys.argv.index('-o')+1]).write_text(json.dumps(payload))\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    result = runner.run_once(config)
+    assert result.reason == "completion_invalid"
+    assert store.task("audit-followup-v1") is None
+    assert store.enqueue("legacy-roadmap-v1", "r1-01", "legacy offline task")
+    assert not store.is_approved_roadmap_scope_task("legacy-roadmap-v1")
+    assert runner.run_once(config).status == "completed"
+    assert store.task("audit-followup-v1") is not None
 
 
 @pytest.mark.parametrize("change", ["head", "evidence"])

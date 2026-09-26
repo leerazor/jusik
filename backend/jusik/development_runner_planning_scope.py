@@ -17,8 +17,10 @@ ROADMAP_TASK_SCOPE_GUARD = (
     "new financial or strategy experiment, reuse an untouched holdout for tuning, "
     "claim synthetic data as investment evidence, place actual orders, or activate "
     "PAPER/LIVE. Scope PASS permits this task to be queued only; it is not an "
-    "implementation review or investment validation. If actual inputs for a "
-    "computation are absent, report a bounded blocker and stop."
+    "implementation review or investment validation. Set completion.followup "
+    "to null; a later proposal requires a new planner and independent scope "
+    "review. If actual inputs for a computation are absent, report a bounded "
+    "blocker and stop."
 )
 
 
