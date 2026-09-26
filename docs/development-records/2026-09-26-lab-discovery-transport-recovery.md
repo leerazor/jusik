@@ -46,7 +46,14 @@ terminal로 처리했다. 이 상태에서는 같은 source fingerprint로 재�
 ## 검증
 
 - 같은 설정의 실제 읽기 전용 Codex probe: exit 0, 유효한 `{"ok":true}` 응답.
-- 수정 코드의 RED/GREEN·독립 review·main 통합 검증: 진행 중. 아직 통과를 주장하지 않는다.
+- 수정 커밋 `2befc7a`에서 discovery pytest 37개, runner 관련 7개 파일 pytest 254개,
+  Ruff check·format, 소스 3개와 테스트 1개의 strict mypy, diff check를 통과했다.
+  독립 review와 main 통합·운영 재개는 아직 진행 중이다.
+- 새 회귀는 기존 cycle에 `transient_failures`가 없어 실패했다(RED). 문서 독립 검토에서
+  일반 idle timeout과 discovery 예외의 모호함을 지적하여 `9e20f05`에서 적용 범위를 명확히 했다.
+- 구현 agent의 현재 turn metadata는 `gpt-6-sol/high`다. 전체 이력용 routing helper는
+  과거 turn의 context 위치 문제로 FAIL을 반환했다. 원본 metadata에는 해당 과거 turn과
+  현재 turn의 Sol/high가 모두 존재함을 별도로 확인했으며 helper PASS로 보고하지 않는다.
 - 프런트엔드·금융 수익률 검증: 이번 범위 밖이다. 공학 복구가 투자 검증을 의미하지 않는다.
 
 ## 안전·운영 상태
@@ -60,5 +67,7 @@ terminal로 처리했다. 이 상태에서는 같은 source fingerprint로 재�
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-lab-discovery-recovery/`.
 - SQLite online backup: `runner-before-recovery.db`, integrity `ok`, SHA-256
   `f408dd8c299bd273761694fec589a62f264f43fa0f4842ed62494ecb1cad48a9`.
+- 구현 중 read-only 비교: tasks 142개, attempts 202개, discovery cycles 3개,
+  discovery attempts 7개, proposals 3개는 백업과 동일했고 DB integrity는 `ok`다.
 - 다음: 코드 회귀·독립 검토·통합을 마친 뒤 tracked-clean main에서 resume하고 실제 시도와
   운영 DB의 기존 행 보존을 확인한다. timer active만으로 재개 성공을 기록하지 않는다.
