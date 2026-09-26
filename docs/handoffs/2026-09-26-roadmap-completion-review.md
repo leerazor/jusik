@@ -34,6 +34,12 @@ main `b125389`, 별도 Sol PASS이며 정상 순서 포함 입력 15개의 비�
 사용한다. **재개 이후의 실제 상태는 audit `RUNTIME.md`와 운영 DB를 먼저 확인한다.**
 이 handoff의 pause 설명만 보고 실행 중 작업을 중지하거나 재시도하지 않는다.
 
+첫 운영 재시도는 구현 문제가 아니라 legacy JSON 필드 형식 때문에 거절됐다.
+`bd2554f446d244c2aed8f281be6c8104`의 실패·출력은 보존한다. 새 attempt에서는
+`engineering_status=null`, `investment_status=null`을 명시하고 실제 외부 검토의
+`review_passed=true`를 보고한다. 두 필드만 null로 둔 메모리 진단은 검증기를 통과했다.
+상세 제출 규칙은 비용 계약 개발 기록에 있으며 실제 후속 결과는 RUNTIME을 확인한다.
+
 두 완료 worktree는 정상 제거했고 source branch·commit과 필요한 task cache는 보존했다.
 재시도 child는 새 worktree·수정·중첩 agent 없이 canonical main과 실제 독립 review를
 확인한다. 사용자 미추적 `HANDOFF.md`, 다른 worktree·데이터·기존 서비스는 건드리지 않았다.

@@ -37,6 +37,7 @@
 - 재개: 실제 독립 PASS의 task/baseline/commit/파일 hash 증거를 보존한 다음 기존 명시적 retry만 사용한다. 재시도 child는 새 구현·자체 승인 없이 이미 검토한 결과를 확인한다. 새 변경이 필요하면 다시 review하며, fake event나 area 예약 우회는 사용하지 않는다.
 - 기록: `docs/development-records/2026-09-26-r2-02-cost-market-uniqueness.md`; audit은 위 `20260926-roadmap-completion-review` 아래 별도 산출물로 보존한다.
 - 실제 독립 review: audit의 `cost-market-independent-review.json`, SHA-256 `a389ead9501d9f7ffca72e373c4bba177dffc9a23e4ca5e689b6d7b8d7a48a63`. 해당 기록과 두 파일 hash, main ancestry를 검증하고 새 수정·중첩 agent 없이 완료 결과를 보고한다. main 검증 후 cache를 보존하고 worktree는 정상 제거했다. branch/commit·실패 이력은 보존되며 새 worktree 생성은 불필요하다. handoff는 위 runner 작업과 공유한다.
+- 운영 보완: 첫 재시도 `bd2554f446d244c2aed8f281be6c8104`는 legacy research 출력에 공학 상태 enum을 넣어 `completion_invalid`였다. 해당 실패·출력을 보존한다. 다음 새 attempt의 `engineering_status`와 `investment_status`는 반드시 `null`이며 실제 외부 review 근거로 `review_passed=true`를 보고한다. 자세한 제출 형식은 위 개발 기록을 따른다. 검증기·task kind는 변경하지 않는다.
 
 ## lab-continuous-research-dispatch
 

@@ -48,6 +48,23 @@ scope receipt 및 실패 근거는 불변으로 보존한다. 실제 구현·외
 재시도에서 새 worktree를 만들 필요는 없다. 실제 retry/완료 결과는 audit의 `RUNTIME.md`에
 기록한다. 기술 복구가 R2-02 전체 완료나 투자 검증을 뜻하지 않는다.
 
+### 기존 research completion 제출 형식
+
+운영 재시도 `bd2554f446d244c2aed8f281be6c8104`는 실제 구현·검토·증거 hash를 확인했지만,
+기존 `task_kind=research` 출력에 공학 전용 상태값을 넣어 `completion_invalid`로 거절됐다.
+검증기는 `investment completion cannot claim engineering outcome`을 반환했다.
+원본은 고치지 않았다. 메모리 안에서 아래 두 필드만 null로 바꾼 진단은 동일한 검증기를
+통과했으며, DB를 완료 처리하거나 실패 출력 파일을 다시 쓰지 않았다.
+
+**이 legacy task의 다음 새 attempt는 `engineering_status: null`,
+`investment_status: null`을 제출해야 한다.** 실제 외부 독립 검토가 있으므로
+`tests_passed: true`, `review_passed: true`, `status: completed`, `followup: null`은
+그 근거와 함께 보고한다. task/attempt ID는 새 실행의 ID를 사용하고 evidence hash는
+현재 파일에서 다시 계산한다. 기술 완료·투자 미평가 설명은 보고서의 의미이며 이 두
+legacy JSON 필드에 engineering 전용 enum을 복사하는 근거가 아니다. 원 task를
+engineering으로 재분류하거나 검증기를 완화하지 않는다. 새 코드 수정·추가 agent는
+필요하지 않으며 source/검토 증거는 이미 위 고정 commit과 hash로 검증됐다.
+
 ## 안전·기록
 
 자동 runner는 별도 runner 수리 동안 pause 상태다. 데이터·금융 실험·실주문·PAPER/LIVE·
