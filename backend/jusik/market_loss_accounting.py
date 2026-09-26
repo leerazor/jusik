@@ -244,6 +244,10 @@ class _FIFOResult:
     missing_marks: tuple[str, ...]
 
 
+class _UnprovenOpeningPositionError(ValueError):
+    """A sell cannot be matched to the supplied opening and bought lots."""
+
+
 def slippage_amount(trade: LossTrade) -> Decimal:
     """Return positive execution cost; the sign is side-aware."""
 
@@ -340,7 +344,9 @@ def _fifo(
         else:
             while quantity:
                 if not bucket:
-                    raise ValueError(f"sell exceeds FIFO position: {trade.symbol}")
+                    raise _UnprovenOpeningPositionError(
+                        f"sell exceeds FIFO position: {trade.symbol}"
+                    )
                 lot = bucket[0]
                 consumed = min(quantity, lot.quantity)
                 raw_realized += consumed * (trade.market_open - lot.unit_cost)
@@ -783,9 +789,14 @@ def account_result(
             raise ValueError("trade fill session is absent from equity observations")
         expected_currency: Currency = "KRW" if result.market == "KR" else "USD"
         trades = tuple(LossTrade.from_research_trade(item) for item in result.trades)
-        report = account_trades(
-            trades, final_marks={}, expected_currency=expected_currency
-        )
+        try:
+            report = account_trades(
+                trades, final_marks={}, expected_currency=expected_currency
+            )
+        except _UnprovenOpeningPositionError:
+            # Saved results do not establish opening lots. A missing lot cannot
+            # support even a diagnostic FIFO basis or net PnL estimate.
+            report = None
         fees = sum((item.fee for item in result.trades), Decimal(0))
         taxes = sum((item.tax for item in result.trades), Decimal(0))
         slippage = sum((slippage_amount(item) for item in trades), Decimal(0))
@@ -799,7 +810,6 @@ def account_result(
             last.fx_krw_per_usd,
             native_currency=expected_currency,
         )
-        raw_diag = report.raw_realized_pnl.diagnostic_value or Decimal(0)
         limitations = tuple(result.limitations) + (
             "FIFO is diagnostic only: opening positions, corporate actions, and "
             "complete fills are not proven.",
@@ -811,16 +821,28 @@ def account_result(
         return LossAccountingReport(
             status="blocked",
             raw_realized_pnl=_unavailable(
-                diagnostic=report.raw_realized_pnl.diagnostic_value,
+                diagnostic=(
+                    report.raw_realized_pnl.diagnostic_value if report else None
+                ),
                 reason=(
                     "saved result has no proof of complete fills and opening positions"
                 ),
                 resume="store a complete ordered fill ledger and opening positions",
                 currency=expected_currency,
             ),
-            fill_realized_pnl=report.fill_realized_pnl,
+            fill_realized_pnl=(
+                report.fill_realized_pnl
+                if report
+                else _unavailable(
+                    reason="saved result has no proof of opening positions",
+                    resume="store a complete ordered fill ledger and opening positions",
+                    currency=expected_currency,
+                )
+            ),
             raw_unrealized_pnl=_unavailable(
-                diagnostic=report.raw_unrealized_pnl.diagnostic_value,
+                diagnostic=(
+                    report.raw_unrealized_pnl.diagnostic_value if report else None
+                ),
                 reason=(
                     "saved result has no symbol-level final marks and corporate-action "
                     "ledger"
@@ -830,7 +852,17 @@ def account_result(
                 ),
                 currency=expected_currency,
             ),
-            fill_unrealized_pnl=report.fill_unrealized_pnl,
+            fill_unrealized_pnl=(
+                report.fill_unrealized_pnl
+                if report
+                else _unavailable(
+                    reason=(
+                        "saved result has no proof of opening positions or final lots"
+                    ),
+                    resume="provide opening positions and symbol-level final marks",
+                    currency=expected_currency,
+                )
+            ),
             dividends=_unavailable(
                 reason=(
                     "dividend evidence is absent or incomplete; zero is not inferred"
@@ -865,7 +897,11 @@ def account_result(
                 currency="KRW",
             ),
             raw_net_pnl=_unavailable(
-                diagnostic=raw_diag - slippage - fees - taxes,
+                diagnostic=(
+                    report.raw_realized_pnl.diagnostic_value - slippage - fees - taxes
+                    if report and report.raw_realized_pnl.diagnostic_value is not None
+                    else None
+                ),
                 reason=(
                     "net PnL depends on unavailable realized/unrealized/dividend "
                     "components"
@@ -876,9 +912,11 @@ def account_result(
                 currency=expected_currency,
             ),
             fill_net_pnl=_unavailable(
-                diagnostic=(report.fill_realized_pnl.diagnostic_value or Decimal(0))
-                - fees
-                - taxes,
+                diagnostic=(
+                    report.fill_realized_pnl.diagnostic_value - fees - taxes
+                    if report and report.fill_realized_pnl.diagnostic_value is not None
+                    else None
+                ),
                 reason=(
                     "net PnL depends on unavailable realized/unrealized/dividend "
                     "components"

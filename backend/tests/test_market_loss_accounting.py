@@ -4,7 +4,7 @@ from dataclasses import replace
 from datetime import date
 from decimal import ROUND_DOWN, Context, Decimal, getcontext, localcontext
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 import pytest
 
@@ -631,3 +631,59 @@ def test_holiday_date_gap_is_not_inferred_as_missing() -> None:
     )
     assert report.status == "blocked"
     assert report.session_count == 2
+
+
+@pytest.mark.parametrize(
+    "fills",
+    (
+        (("sell", 1, date(2026, 1, 1)),),
+        (("buy", 1, date(2026, 1, 1)), ("sell", 2, date(2026, 1, 2))),
+    ),
+)
+def test_saved_sell_without_proven_opening_lots_preserves_observations(
+    fills: tuple[tuple[str, int, date], ...],
+) -> None:
+    trades = tuple(
+        ResearchTrade(
+            session=session,
+            signal_session=session,
+            fill_session=session,
+            symbol="AAA",
+            side=cast(Literal["buy", "sell"], side),
+            quantity=quantity,
+            currency="USD",
+            market_open=Decimal("100"),
+            fill_price=Decimal("99") if side == "sell" else Decimal("101"),
+            notional=(Decimal("99") if side == "sell" else Decimal("101")) * quantity,
+            fee=Decimal("2"),
+            tax=Decimal("3"),
+            rationale="fixture",
+        )
+        for side, quantity, session in fills
+    )
+    result = _saved_result(tuple(_equity(session) for _, _, session in fills), trades)
+
+    report = account_result(result)
+
+    assert report.status == "blocked"
+    assert report.trade_count == len(fills)
+    for component in (
+        report.raw_realized_pnl,
+        report.fill_realized_pnl,
+        report.raw_unrealized_pnl,
+        report.fill_unrealized_pnl,
+        report.raw_net_pnl,
+        report.fill_net_pnl,
+    ):
+        assert not component.available
+        assert component.value is None
+        assert component.diagnostic_value is None
+        assert component.resume_inputs
+    assert report.fees.value == Decimal("2") * len(fills)
+    assert report.taxes.value == Decimal("3") * len(fills)
+    assert report.slippage.value == sum(
+        (Decimal(quantity) for _, quantity, _ in fills), Decimal(0)
+    )
+    assert report.cash_balance.value == Decimal("1000")
+    assert report.fx.value == Decimal("0")
+    assert not report.dividends.available
