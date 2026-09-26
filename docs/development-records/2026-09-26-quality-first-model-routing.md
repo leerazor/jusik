@@ -1,9 +1,9 @@
 # 품질 우선 중앙 모델 선택
 
-- 상태: 구현 완료, supervisor 통합 대기
+- 상태: 구현·독립 검토·local main 통합·스킬 설치 완료
 - 기록 시각: 2026-09-26T13:37:16+00:00
 - 작업 slug: `quality-first-model-routing`
-- 기준/통합: `b4c1a00` / supervisor 통합 예정
+- 기준/통합: `b4c1a00` / `18976ff` fast-forward
 - 범위: 모델·effort 명시 선택을 한 정책으로 모으고 native, roleless, runner 호출에 연결합니다. 사용자의 단순화 지시에 따라 자동 품질 평가·비용 최적화·decision receipt 플랫폼은 구현하지 않습니다.
 
 ## 변경과 결정
@@ -36,5 +36,8 @@
 ## 증거와 재개
 
 - supervisor audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-quality-first-routing-0yutqlne/`.
-- 남은 작업: supervisor의 독립 검토·main 통합 검증·canonical skill 설치·운영 상태 복구·handoff.
-- 다음 시작: 현재 diff와 집중 검증 결과를 검토한 뒤 supervisor가 로컬 main에 통합합니다.
+- 최종 검증: 독립 Sol 검토에서 중대한 지적 없음, reviewer 집중 검사 45개 통과. main 통합 후 routing·adapter·runner 검사 107개 통과(24.47초). 두 스킬 구조 검증 및 설치본 hash 일치 확인.
+- 실제 AA API smoke: OpenAI 모델 103개를 수집했고 JSON export를 확인했습니다. 공개 모델 자료만 audit의 `aa-catalog.json`, `aa-report.md`에 저장했습니다.
+- 개인 AA skill을 canonical 원본으로 설치하고 supervisor skill의 중복 모델표를 중앙 resolve/check 절차로 바꿨습니다. 변경 전 백업과 설치 hash는 audit에 있습니다.
+- 전용 worktree·브랜치를 정상 정리했고 사용자 루트 `HANDOFF.md`는 보존했습니다. 인계는 audit의 `HANDOFF.md`에 저장합니다. runner 복원 결과는 `operating-after.json`을 확인합니다.
+- 다음 시작: 필수 구현 작업은 없습니다. 향후 모델 변경 때 AA 비교를 참고하고 과제에 적합한 model+effort를 중앙 설정에서 명시적으로 선택합니다.
