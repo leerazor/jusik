@@ -1,9 +1,9 @@
 # R2-02 비용 계약 market 유일성 검증
 
-- 상태: 진행 — 기존 BLOCKED 작업의 감독하 복구.
+- 상태: 코드·독립 검토·local main 통합 검증 완료. 운영 DB의 기존 task는 별도 명시적 retry 전까지 BLOCKED를 보존한다.
 - 작업 slug: `r2-02-cost-market-uniqueness`
 - 원 task: `roadmap-r2-02-cost-market-uniqueness-v1`
-- 기존 worktree 기준: `e61df2fc8c2b2d56f09a6c6ee627900dc2524625`; 통합은 아직 없음.
+- 기존 worktree 기준: `e61df2fc8c2b2d56f09a6c6ee627900dc2524625`; 구현 `196f8e3`, 통합 `b125389`.
 
 ## 범위와 근거
 
@@ -18,16 +18,32 @@ builder는 빈 market tuple 및 중복 market을 받아 계약을 만들고, man
 
 ## 검증과 복구 조건
 
-먼저 빈·중복 입력 및 hash를 다시 계산한 중복 manifest의 실패를 재현한다. 수정 뒤
-focused pytest·Ruff·strict mypy와 독립 Sol review를 실행하고 local main 통합 후
-다시 검사한다. 실제 PASS 증거에는 원 task ID, 구현 기준, 최종 commit, 두 파일 hash,
-검사와 reviewer 식별을 기록한다. 현재는 검사를 통과했다고 주장하지 않는다.
+빈·중복 입력 및 hash를 다시 계산한 중복 manifest의 RED 4건, 기존 PASS 8건을
+확인했다. `196f8e3`은 두 파일에만 검사와 회귀를 추가하며 pytest 12개·Ruff check/format·
+두 파일 strict mypy를 통과했다. 별도 Sol/high reviewer가 고정된 diff를 검토했고,
+유효한 순서 포함 부분집합 15개를 기준 코드와 독립 비교하여 모든 비용·manifest·hash·ID
+보존과 기존 manifest roundtrip을 확인했다. 최종 판정은 PASS, 발견한 문제는 없다.
 
-기존 원 task의 상태는 `blocked`다. 과거 attempt `1934a7bed2034f0fb815052823c2091f`,
+main `b125389`에서 같은 pytest 12개(0.03초), Ruff check/format, 두 파일 strict mypy를
+다시 통과했다. 구현자 Luna/high의 fresh pre/post routing helper도 PASS다.
+reviewer 최신 child-owned turn은 `gpt-6-sol/high`로 확인했다. 프런트엔드 변경이나 금융
+실험이 없어 해당 build/경제 평가는 실행하지 않았다.
+
+실제 독립 review 기록은 audit의 `cost-market-independent-review.json`에 있다. 원 task,
+기준·검토·통합 commit, reviewer/turn 식별, 검사와 다음 파일 hash에 결속한다.
+
+- source: `a5ec09c100409a477fcba9ec9b8879ff75150da3d0e976c3cb9cad3fa16fbba4`
+- test: `8df3aa3538babb2c1629a949bf475f84534eb8396bf6937e4844fa645a888948`
+
+마지막으로 관측한 기존 원 task의 상태는 `blocked`다. 과거 attempt `1934a7bed2034f0fb815052823c2091f`,
 scope receipt 및 실패 근거는 불변으로 보존한다. 실제 구현·외부 독립 review 완료 후
 기존 명시적 retry를 사용하며, 새 attempt는 새 변경이나 하위 agent 없이 실제 완료
 증거를 검증·보고한다. 증거가 불충분하거나 수정이 추가되면 자체 승인하지 않는다.
 원 `r2-01` FAILED는 이 작업에서 변경하지 않는다.
+
+재시도 child의 작업은 위 commit의 main ancestry, 두 파일 hash, 실제 독립 review와
+이 개발 기록을 확인하여 이미 끝난 구현을 보고하는 것이다. 또 다른 구현자·reviewer를
+중첩 호출하거나 같은 변경을 다시 만들지 않는다. 과거 승인·출력은 수정하지 않는다.
 
 ## 안전·기록
 

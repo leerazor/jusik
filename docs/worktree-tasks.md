@@ -27,14 +27,15 @@
 
 ## r2-02-cost-market-uniqueness
 
-- 상태: 과거 BLOCKED 보존, 감독하의 일회성 복구 준비. 원 task는 `roadmap-r2-02-cost-market-uniqueness-v1`이며 과거 attempt/receipt를 수정하지 않는다.
+- 상태: 구현 `196f8e3`·별도 Sol 검토 PASS·main `b125389` 통합 검증 완료. 운영 task는 명시적 retry 전까지 과거 BLOCKED를 보존한다. 원 task는 `roadmap-r2-02-cost-market-uniqueness-v1`이며 과거 attempt/receipt를 수정하지 않는다.
 - 목표: 승인된 비용 계약 builder의 빈·중복 markets, manifest의 중복 market을 거부하고 정상 subset/왕복을 보존한다. 실제 요율·수익 계산·R2-02 단계 완료·투자 검증은 범위 밖이다.
 - 담당: `code_small` Luna 단일 구현, 독립 Sol 검토, root 통합·운영. 위 runner 작업과 파일·venv·출력 경로가 겹치지 않으며 active 최대 4명이다.
 - 재사용 worktree: `/home/kwl/projects/jusik-r2-02-cost-market-uniqueness`; branch `fix/r2-02-cost-market-uniqueness`; clean 기준 `e61df2fc8c2b2d56f09a6c6ee627900dc2524625`. 승인 source SHA와 현재 main/source 모두 `42bc99abab5ae585b5753b5f20fd565267d2aca95127c719096910c2aa4f8f2f`다.
 - 수정 소유: `backend/jusik/broker_cost_profiles.py`, `backend/tests/test_broker_cost_profiles.py` 두 파일만. 새 환경·캐시는 해당 worktree 안에 격리하며 `.env`를 복사하지 않는다.
-- 검증: 빈 입력·중복 입력·hash를 재계산한 중복 manifest RED/GREEN, 정상 기존 입력 보존, focused pytest·Ruff·strict mypy·별도 diff review, main 통합 후 재검증.
+- 검증: 신규 RED 4건·기존 PASS 8건 이후 pytest 12개·Ruff·두 파일 strict mypy 통과. 별도 Sol은 유효한 순서 포함 부분집합 15개 모두의 비용·hash·ID와 legacy roundtrip 보존을 확인했다. main에서도 pytest 12개·Ruff·strict mypy 통과. fresh Luna/high routing pre/post PASS.
 - 재개: 실제 독립 PASS의 task/baseline/commit/파일 hash 증거를 보존한 다음 기존 명시적 retry만 사용한다. 재시도 child는 새 구현·자체 승인 없이 이미 검토한 결과를 확인한다. 새 변경이 필요하면 다시 review하며, fake event나 area 예약 우회는 사용하지 않는다.
 - 기록: `docs/development-records/2026-09-26-r2-02-cost-market-uniqueness.md`; audit은 위 `20260926-roadmap-completion-review` 아래 별도 산출물로 보존한다.
+- 실제 독립 review: audit의 `cost-market-independent-review.json`, SHA-256 `a389ead9501d9f7ffca72e373c4bba177dffc9a23e4ca5e689b6d7b8d7a48a63`. 해당 기록과 두 파일 hash, main ancestry를 검증하고 새 수정·중첩 agent 없이 완료 결과를 보고한다. worktree는 기존 task의 재개 지점으로 아직 보존한다.
 
 ## lab-continuous-research-dispatch
 
