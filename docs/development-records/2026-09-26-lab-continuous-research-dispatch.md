@@ -13,7 +13,9 @@
 - 자동 제품 `1fcf1f9`가 00:32Z에 완료됐고 독립 review `5035b709b81a42e4b250f880f65c92ad`는
   00:35Z 완료다. 다음 discovery는 제안을 생성했으나 scope review가 거절했다.
 - task 집계는 engineering completed 8/blocked 1, research completed 113/blocked 8/
-  failed 13이다. failed 13건은 planner 이력이며 완료 집계도 투자 검증을 뜻하지 않는다.
+  failed 13이다. completed research 분류 113건 중 101건은 `__planning__`, 실제 research
+  task는 12건이었다. failed 13건도 planner 이력이다. planner 완료 attempt의
+  `planning_waiting`은 88건이다. 이 집계를 완료된 실험·투자 검증으로 표현하지 않는다.
 - paused=0, timer active였으며 실제 child·대기 cycle을 구분했다. timer는 cycle 이후
   120초에 실행하므로 cycle 사이의 inactive service만으로 장애라고 판단하지 않는다.
 - `idle_status`의 오래된 `fixed_engineering_backlog_exhausted`와 실제 scope 진행이 달랐다.
