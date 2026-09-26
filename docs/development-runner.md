@@ -23,12 +23,31 @@ runner의 claim·증거·commit 검증을 사용합니다.
 `NOT_EVALUATED`이며 roadmap checkbox를 올리지 않습니다. 새 공학 후보는 우선
 `WAITING_EXTERNAL`로 기록합니다. 별도 읽기 전용 reviewer attempt가 고정된 구현 시도,
 시작·현재 main HEAD와 두 소유 파일 hash를 검토하고 PASS receipt를 제출하면 runner가
-같은 입력을 재검증한 뒤 원자적으로 완료합니다. 최대 2회 bounded review이며 실패·
+같은 입력을 재검증한 뒤 원자적으로 완료합니다. 비전송 검토는 기존 최대 2회이며 실패·
 불가용·정체 불명 프로세스는 해당 task만 대기/격리하고 다른 READY를 계속 선택합니다.
 이 대기는 일반 `retry --event-evidence`로 해제할 수 없습니다. 이전 버전의 검토 없는
 대기/차단 기록은 새 경로가 소급 완료하지 않습니다. 실제 Codex reviewer의 운영
 PASS는 신규 고정 오프라인 공학 작업에서 확인했으며 과거 차단 기록이나 투자 검증에
 소급 적용하지 않습니다. fake CLI·임시 DB 검증 결과는 개발 기록을 확인합니다.
+
+구현 완료 reviewer의 새 시도에는 확인된 일시 호출 장애를 별도로 처리합니다. 비정상
+종료한 child와 process group이 확실히 종료됐고 제한된 구조화 `turn.failed`가
+capacity/rate_limit/network/server/auth 중 하나로 검증된 경우만
+`review_transport_<kind>`와 `retry_kind`, `retry_after`, `transient_failures`를 원자
+저장합니다. 5/15/60분 이후에는 60분, auth는 6시간 뒤 재시도하며 매 호출은 기존
+quota·cooldown을 소비합니다. 유효한 이 새 기록만 비전송 2회 상한에서 제외합니다.
+잘못된 metadata·일반 오류·거절·무효 receipt·불확실 orphan·과거 실패는 이 예외로
+되살리지 않습니다. 미래 기한의 검토를 건너뛰고 독립 READY와 공학 fallback을 선택합니다.
+
+새 DB-bound transport anchor가 있는 경우에만 제품과 모든 이전 검토 HEAD의 ancestry,
+원 completion·구현 attempt·baseline·recovery 증거·소유 hash 보존을 검사하여 별도 작업의
+정상적인 main 전진 뒤에도 같은 제품을 검토할 수 있습니다. 일반 최초 검토의 stale
+규칙은 그대로입니다. 각 시도의 fresh HEAD와 정확한 receipt 결속, 최종 transaction의
+현재 HEAD·파일·증거 검사는 생략하지 않습니다. 전송 오류 전에 있었던 timeout 검토도
+anchor의 이력 검사에서 제외하지 않습니다. 구버전은 새 실패 코드를 선택하지 않으므로
+rollback 때 열·행 삭제나 timeout 위장 없이 보류됩니다. 이 변경은 일반 engineering 및
+같은 구현 완료 경로의 roadmap code에만 적용하며 연구 scope 검토와는 별개입니다.
+근거: [검토 호출 복구 기록](development-records/2026-09-26-review-transport-recovery.md).
 
 `investment-roadmap` 전용 `automatic_engineering_backlog`는 기본 `false`입니다.
 설치 설정에서 명시적으로 켜면 기존 READY·review 후보를 우선 처리하고, 없을 때

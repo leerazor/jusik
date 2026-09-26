@@ -514,9 +514,10 @@ READY 수, 대기 사유와 다음 허용 재시각을 구분한다. stage가 �
 | --- | --- | --- |
 | 1 | 연구 planner starvation 제거·독립 scope 등록·정직한 CLI 상태 | `lab-continuous-research-dispatch`: main 통합·292개 검사·독립 review 완료. 실제 실행 상태는 작업 기록의 외부 RUNTIME 참조 |
 | 1b | 새 roadmap 코드 산출물의 별도 완료 reviewer 연결 | `lab-roadmap-completion-review`: main `6739c63`·통합 338개 검사·독립 review PASS. 명시적인 v2 소유 계약만 host review 재사용; legacy 승인·보고 전용/금융 연구의 완료 계약은 자동 변경하지 않음. 실제 운영은 연결된 RUNTIME에서 별도 확인 |
-| 2 | 구현·연구 scope reviewer의 알려진 호출 장애도 영속 기한 재시도 | 후속 과제. 기존 discovery 재시도와 혼동하지 않음 |
+| 2a | 구현 완료 reviewer의 알려진 호출 장애를 영속 기한 재시도 | `lab-review-transport-retry`: 제품 `010e274` 독립 review PASS, main `3814b6f`·집중 242개 검사·Ruff·strict mypy PASS. 새로운 opt-in 이력만 적용하며 과거 실패를 재분류하지 않음. [기록](development-records/2026-09-26-review-transport-recovery.md) |
+| 2b | 연구 scope reviewer의 알려진 호출 장애 복구 | 제한된 후속 계획 완료. 기존 24시간 TTL·정확한 HEAD·승인 근거와 구버전 격리를 보존해야 하며 2a의 ancestry 예외를 가져오지 않음 |
 | 3 | no_work의 검사 파일/hash와 검증된 외부 readiness 변경 결속 | 후속 과제. 같은 자료 무한 재분석 금지 |
-| 4 | 현재 prospective 사전등록의 새 mandate 호환성 audit | 연구 준비 우선 과제. 평가 창 종료 전 OOS 실행 금지 |
+| 4 | 현재 prospective 사전등록의 새 mandate 호환성 audit | 정적 차이 점검 완료. legacy 계약을 새 mandate 승인으로 해석하지 않으며 실제 재등록·수집·검증은 남음. [성능 sprint 기록](development-records/2026-09-26-performance-sprint.md), 평가 창 종료 전 OOS 실행 금지 |
 | 5 | 자료·회계 gate가 충족된 bounded 후보 비교·반증 | 조건부 연구. 지금 수익성 검증 완료로 표시하지 않음 |
 
 첫 slice의 독립 검토와 main 검사를 통과하면 runner를 기존 설정으로 재개한다.

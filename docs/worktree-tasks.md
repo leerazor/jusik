@@ -25,21 +25,23 @@
 
 ## lab-review-transport-retry
 
-- 상태: 구현 `ff93958`·집중 239개 pytest/Ruff/strict mypy 완료, 별도 Sol review 중. root의 실제 DB backup 복사본 13개 table·1,322개 기존 행 보존과 반복 초기화·integrity 검증도 통과했습니다. `performance-sprint-20260926-1656`의 후속 과제입니다.
+- 상태: 완료. 구현 `ff93958`·검토 보완 `010e274`·별도 Sol 재검토 PASS, main `3814b6f` 통합 후 pytest 242개·Ruff·strict mypy PASS. root의 실제 DB backup 복사본 13개 table·1,322개 기존 행 보존과 반복 초기화·integrity 검증도 통과했습니다. `ENGINEERING_COMPLETE/NOT_EVALUATED`이며 실제 provider 장애 복구를 유발한 것은 아닙니다.
 - 목표: 구현 완료 reviewer의 확인된 일시 호출 장애가 후보를 영구 대기시키지 않도록 하고, 기한 전에는 독립 READY·공학 fallback을 진행합니다. 일반 engineering과 같은 경로의 roadmap code completion만 포함하며 연구 scope reviewer는 별도 후속입니다.
 - 담당·소유: 단일 Sol code는 `backend/jusik/development_runner.py`, `backend/jusik/development_runner_store.py`, `backend/tests/test_development_runner_review.py`, 새 `backend/tests/test_development_runner_review_transport.py`를 수정합니다. 기존 recovery 테스트가 pause 상태에서 직접 claim을 전제한 사실을 확인하고, `test_development_runner_recovery.py`의 marker-tamper CAS 검사 setup에 `store.resume()` 한 줄만 추가하도록 범위를 확장했습니다. root는 운영 문서·등록부·개발 기록·audit·main 통합을 맡고 별도 Sol이 검토합니다. 중첩 위임은 하지 않습니다.
-- 경로·브랜치: `/home/kwl/projects/jusik-lab-review-transport-retry`, `fix/lab-review-transport-retry`. 기준 `d30c809`, 구현 `ff93958`. 독립 검토와 현재 main 검증을 통과한 뒤 local `main`에 통합합니다.
+- 경로·브랜치: `/home/kwl/projects/jusik-lab-review-transport-retry`, `fix/lab-review-transport-retry`. 기준 `d30c809`, 제품 `010e274`, main `3814b6f`. 검증 증거를 외부 audit에 보존했고 전용 worktree만 정상 정리합니다. branch·commit은 유지합니다.
 - 계약: 종료가 확인된 child의 제한된 구조화 오류만 capacity/rate_limit/network/server/auth로 분류합니다. 새 opt-in metadata와 `review_transport_<kind>` 실패 코드를 원자 저장하고 5/15/60분·auth 6시간 뒤에만 재시도합니다. 기존 비전송 시도 2회 상한·quota·cooldown·pause·독립 PASS는 유지합니다.
 - identity: 새 transport anchor가 있는 재시도에만 기존 historical 검증을 제한적으로 재사용합니다. 제품·이전 검토 commit의 main ancestry, 원 completion·구현 attempt·baseline·소유 hash는 고정하고 해당 시도의 fresh HEAD로 검토합니다. 검토 도중 HEAD 변경은 거부하며, 일반 최초 검토와 legacy stale 규칙은 유지합니다.
 - 완료 기준: fake CLI/clock의 실패→영속 기한→다른 READY 진행→restart→같은 제품의 별도 PASS, 중복 claim·오염·legacy 보존·실제 이전 store rollback 검증, 집중 pytest/Ruff/strict mypy·독립 review·main 검증입니다. 운영 DB와 실제 API는 구현자가 접근하지 않습니다.
 - 운영·증거: root가 UI 완료 인계 뒤 runner pause를 소유합니다. 현재 정책·credentials·실주문·투자 기준은 변경하지 않습니다. audit은 `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/review-transport/`, 기록은 `docs/development-records/2026-09-26-review-transport-recovery.md`입니다.
 
-## lab-scope-review-recovery-design
+## lab-scope-review-transport-retry
 
-- 상태: 읽기 전용 조사 완료, Sol의 제한된 계획 중. 구현 완료 review의 `lab-review-transport-retry`와 다른 연구 scope 검토 경로만 확인합니다. 기존 24시간 TTL·정확한 HEAD와 승인 근거·구버전 reader 격리를 유지해야 합니다.
-- 목표·완료 조건: 일시 호출 실패 뒤 pending 제안 선택·TTL·snapshot·governance·구버전 reader 경계를 조사하고 최소 후속 slice와 재현 조건을 제시합니다. 구현·자동 승인·운영 재시도는 이 항목의 범위가 아닙니다.
-- 담당·소유: Luna explore 읽기 전용, root는 성능 sprint audit의 조사 결과만 보존합니다. 기존 runner/store 구현자와 파일 소유권이 겹치지 않으며 운영 DB·실제 연구 자료·API를 조회하지 않습니다.
-- 예산·전환: 10분 조사 뒤 계획 또는 정확한 미확정 조건을 반환합니다. 현재 제품의 독립 검토·수정·통합을 막지 않으며 별도 scope 승인이나 투자 기준을 완화하지 않습니다.
+- 상태: Luna 조사·Sol 계획 완료, 선행 구현 완료 review의 main 검사 242개 PASS 뒤 순차 구현 준비. scope의 24시간 TTL·정확한 HEAD·승인 근거는 보존합니다.
+- 목표·완료 조건: 확인된 일시 호출 실패를 영속 `transport_wait`로 격리하고 due에만 같은 pending 제안을 별도 검토합니다. 미래 기한은 독립 READY·공학 fallback을 막지 않으며, 실제 PASS 전에 새 제품 task를 등록하지 않습니다.
+- 담당·소유: 단일 Sol code는 `development_runner.py`, `development_runner_store.py`, 새 `tests/test_development_runner_scope_transport.py` 세 파일을 소유합니다. root가 운영 문서·DB backup 복사본 검증·통합·기록을 맡고 별도 Sol review를 수행합니다. 중첩 위임·운영 DB·실제 연구 자료·API 접근 없음.
+- 경로·브랜치: `/home/kwl/projects/jusik-lab-scope-review-transport-retry`, `fix/lab-scope-review-transport-retry`. 기록 commit 뒤 main에서 시작하며 선행 코드 소유권과 겹치지 않습니다.
+- 계약: 가산 retry 열 3개와 구 reader가 선택하지 않는 `transport_wait`, 원자 due claim·실패 기록·별도 PASS·5/15/60분 및 auth 6시간. 과거 terminal 기록·미확인 오류·timeout·REJECT·WAIT·orphan은 자동 재해석하지 않습니다. 만료·HEAD/snapshot 변경 시 원 제안은 stale이며 ancestry 예외·TTL 연장·투자 기준 완화는 없습니다.
+- 예산·검증: 구현 45분, 별도 검토·main 검증 시간을 남깁니다. fake CLI/clock의 실패→기한→READY/fallback→재시작→PASS, cap·race·tamper·구버전 rollback·DB 보존을 증명합니다. audit의 `SCOPE_REVIEW_RECOVERY_PLAN.md`, 기록 `docs/development-records/2026-09-26-lab-scope-review-transport-retry.md`를 따릅니다.
 
 ## kofr-public-contract-audit-20260926
 

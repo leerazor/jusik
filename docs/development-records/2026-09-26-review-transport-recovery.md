@@ -78,6 +78,22 @@ NULL/NULL/0이며 재분류되지 않았다. 원 backup SHA와 SQLite integrity 
 재현 script·증거는 audit `review-transport/verify_db_preservation.py`,
 `DB_PRESERVATION.md`에 있다. 운영 적용 또는 실제 공급자 장애 복구를 증명한 것은 아니다.
 
+독립 Sol 검토는 첫 transport 이전의 timeout 검토 HEAD가 anchor에서 빠지는 P2를
+재현했다. 제품 A의 서로 다른 후손 B/C 중 B에서 먼저 검토한 뒤 C에서 transport를
+겪으면 이전 B의 ancestry 없이 완료될 수 있었다. 후속
+`010e274ace06c042d5b6ce281b87acdc9702fd8b`에서 opt-in transport가 있을 때 모든 과거
+검토의 identity·HEAD를 포함하도록 수정했다. 정상 선형 이력, sibling 분기 거부,
+이전 context 변조 거부 회귀를 추가하고 pure legacy 선택은 유지했다. 구현자 affected
+pytest 154개와 Ruff·strict mypy PASS, 독립 검토자의 최초 transport 59개 및 후속
+선별 16개 PASS 후 조치할 결함 없음으로 재검토됐다.
+
+local main은 runner lock·pause·실행 attempt 0·소유 경로 무변경 확인 뒤
+`3814b6f1912250c88b90f61251589a3a74331858`로 통합했다. 병합 직전 main은
+`53d94762c9f4c9276c211eff9d60305cdbdd6d20`이다. main 집중 pytest 242개(139.95초),
+소유 5파일 Ruff check/format·strict mypy PASS로 `ENGINEERING_COMPLETE/NOT_EVALUATED`다.
+JUnit은 audit `review-transport/main-focused.xml`이다. 별도
+`research-novice-comprehension` UI 수동 작업과 pause를 공유하므로 아직 재개하지 않는다.
+
 실제 provider 장애를 유발하지 않고, credentials·권한·과금·실주문·투자 기준·자동
 scope 승인·과거 산출물은 변경하지 않는다. 위 소유 범위를 넘는 구조 변경이 필요하면
 구현자가 임의 확장하지 않고 감독자에게 근거를 반환한다. 전체 sprint 종료는
