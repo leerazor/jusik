@@ -1,3 +1,4 @@
+import { researchReportHref } from "@/lib/research-reports";
 import { getLatestDividendOverlay, researchAmount, type DividendOverlay } from "@/lib/research";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,7 @@ const scenarioLabels = {
 } as const;
 
 function resultContent(result: DividendOverlay) {
-  const download = (name: string) =>
+  const download = (name: string) => name === "report.md" ? researchReportHref({ kind: "dividends", id: result.run_id }) :
     `/research/portfolio/dividends/download/${result.run_id}/${name}`;
   return (
     <>
@@ -48,8 +49,8 @@ function resultContent(result: DividendOverlay) {
         <p className="basis">세금, 재투자, 환전, 이자와 환전 비용을 계산하지 않습니다. 지급 경계는 실제 입금 시각이 아니라 지급일 다음 현지 자정이라는 표시 관례입니다. 자동 원장 반영과 주문은 하지 않습니다.</p>
       </section>
       <section className="panel research-section">
-        <div className="section-title simple"><h2>산출물 내려받기</h2><span className="muted">실행 {result.run_id.slice(0, 10)}</span></div>
-        <div className="artifact-links">{[...result.artifacts, "manifest.json"].map((name) => <a className="secondary-button" href={download(name)} key={name}>{name}</a>)}</div>
+        <div className="section-title simple"><h2>보고서와 데이터</h2><span className="muted">실행 {result.run_id.slice(0, 10)}</span></div>
+        <div className="artifact-links">{[...result.artifacts, "manifest.json"].map((name) => <a className="secondary-button" href={download(name)} key={name}>{name === "report.md" ? "보고서 읽기" : name}</a>)}</div>
       </section>
     </>
   );

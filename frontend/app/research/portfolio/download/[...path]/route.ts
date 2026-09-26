@@ -1,3 +1,4 @@
+import { legacyResearchReportTarget, researchReportHref } from "@/lib/research-reports";
 import { researchBackendUrl } from "@/lib/research";
 
 const runArtifacts = new Set([
@@ -37,6 +38,8 @@ export async function GET(
   context: { params: Promise<{ path: string[] }> },
 ): Promise<Response> {
   const { path } = await context.params;
+  const report = path.length === 2 ? legacyResearchReportTarget(`/research/portfolio/download/${path.join("/")}`) : null;
+  if (report) return new Response(null, { status: 307, headers: { location: researchReportHref(report), "cache-control": "no-store" } });
   const target = backendPath(path);
   if (!target) return new Response("Not found", { status: 404 });
   try {

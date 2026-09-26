@@ -1,3 +1,4 @@
+import { researchReportHref } from "@/lib/research-reports";
 import {
   getLatestPortfolioRun,
   getPortfolioStatus,
@@ -107,7 +108,7 @@ function PortfolioContent({ run, status }: { run: PortfolioRun; status: Portfoli
   const actualPositions = new Map(run.heldout.positions.map((position) => [position.symbol, position]));
   const actualWeights = new Map(run.heldout.positions.map((position) => [position.symbol, position.weight]));
   const symbols = [...new Set([...latestTargets.keys(), ...actualWeights.keys()])].sort();
-  const download = (name: string) => `/research/portfolio/download/${run.run_id}/${name}`;
+  const download = (name: string) => name === "report.md" ? researchReportHref({ kind: "portfolio", id: run.run_id }) : `/research/portfolio/download/${run.run_id}/${name}`;
   const latchAt = run.heldout.drawdown_latched_at;
   const currentSources = status?.external_status ?? run.external_status;
   const staleSources = currentSources.filter((source) => source.status !== "success");
@@ -215,16 +216,16 @@ function PortfolioContent({ run, status }: { run: PortfolioRun; status: Portfoli
       </section>
 
       <section className="panel research-section">
-        <div className="section-title simple"><h2>산출물 내려받기</h2><span className="muted">실행 {run.run_id.slice(0, 10)}</span></div>
-        <div className="artifact-links">{run.artifacts.map((name) => <a className="secondary-button" href={download(name)} key={name}>{name}</a>)}</div>
+        <div className="section-title simple"><h2>보고서와 데이터</h2><span className="muted">실행 {run.run_id.slice(0, 10)}</span></div>
+        <div className="artifact-links">{run.artifacts.map((name) => <a className="secondary-button" href={download(name)} key={name}>{name === "report.md" ? "보고서 읽기" : name}</a>)}</div>
       </section>
 
       <section className="panel research-section limitations"><div className="section-title simple"><h2>추가 연구와 해석 한계</h2></div>
         <div className="artifact-links">
-          <a href="/research/portfolio/download/reports/portfolio-next-research.md">다음 연구 과제</a>
-          <a href="/research/portfolio/download/reports/external-research.md">외부 변수 조사</a>
-          <a href="/research/portfolio/download/reports/external-comparison.md">외부 변수 비교</a>
-          <a href="/research/portfolio/download/reports/model-improvement.md">모델 개선 기록</a>
+          <a href={researchReportHref({ kind: "reference", name: "portfolio-next-research.md" })}>다음 연구 과제 보고서 읽기</a>
+          <a href={researchReportHref({ kind: "reference", name: "external-research.md" })}>외부 변수 조사 보고서 읽기</a>
+          <a href={researchReportHref({ kind: "reference", name: "external-comparison.md" })}>외부 변수 비교 보고서 읽기</a>
+          <a href={researchReportHref({ kind: "reference", name: "model-improvement.md" })}>모델 개선 기록 보고서 읽기</a>
         </div>
         <ul>{run.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
       </section>

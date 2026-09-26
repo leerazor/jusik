@@ -1,3 +1,4 @@
+import { researchReportHref } from "@/lib/research-reports";
 import Link from "next/link";
 import styles from "./forward.module.css";
 import { getForwardLedger, getForwardStatus, getProspectiveRegistrationStatus, researchAmount, type ProspectiveRegistrationStatus } from "@/lib/research";
@@ -76,7 +77,7 @@ export default async function ForwardResearchPage() {
           {status.preview.blocked_reason && status.preview.blocked_reason !== status.blocked_reason && <section className="notice" role="status"><h2>현재 계산 입력을 사용할 수 없습니다</h2><p>{status.preview.blocked_reason}</p></section>}
           {!status.calendar.available && <section className="notice" role="alert"><h2>거래일 달력을 확인할 수 없습니다</h2><p>관련 가상 체결과 계좌 평가는 중단됩니다. 상세 오류는 달력 자료에서 확인하세요.</p></section>}
           {status.corporate_actions.some((action) => action.state === "blocked") && <section className="notice" role="alert"><h2>종목 분할 처리에 차단된 항목이 있습니다</h2><p>기업행동 상세에서 해당 종목과 차단 사유를 확인하세요.</p></section>}
-          <div className={styles.sourceLinks}><Link href="/research/progress">과거 연구 결과와 비교하기 ↗</Link><a href={`/research/portfolio/download/${status.session.source_run_id}/report.md`}>이 모의 정책의 기준 보고서 ↗</a></div>
+          <div className={styles.sourceLinks}><Link href="/research/progress">과거 연구 결과와 비교하기 ↗</Link><a href={researchReportHref({ kind: "portfolio", id: status.session.source_run_id })}>이 모의 정책의 기준 보고서 읽기 ↗</a></div>
           <details className={styles.details}><summary>관찰 정책과 검증 기간 보기</summary><dl className="metric-list"><div><dt>정책 hash</dt><dd title={status.session.policy_hash}>{status.session.policy_hash.slice(0, 16)}…</dd></div><div><dt>활성화 시각</dt><dd>{kst(status.session.activated_at)}</dd></div><div><dt>검증 기간</dt><dd>{identityMatches && registered ? `${kst(registered.evaluation_start_at)} ~ ${kst(registered.evaluation_end_at)}` : "확인할 수 없음 · 미등록, 식별 불일치 또는 API 오류"}</dd></div></dl></details>
           <details className={styles.details}><summary>컴퓨터 시계 진단 보기</summary><section className="panel research-step">
             <div className="section-title simple"><h2>호스트 시계 진단</h2><span className="status">{status.latest_clock_health?.state === "available" ? "측정값 확인" : "확인 불가"}</span></div>
@@ -115,7 +116,7 @@ export default async function ForwardResearchPage() {
           </section></details>
           <details className={styles.details}><summary>가상 보유·체결 기록과 파일 내려받기</summary><section className="panel research-step">
             <h2>가상 원장</h2>
-            <p className="basis">고정 정책 출처 <a href={`/research/portfolio/download/${status.session.source_run_id}/report.md`}>기준 연구 보고서</a></p>
+            <p className="basis">고정 정책 출처 <a href={researchReportHref({ kind: "portfolio", id: status.session.source_run_id })}>기준 연구 보고서 읽기</a></p>
             {ledger.positions.filter((item) => item.quantity > 0).length === 0 ? <p className="empty-inline">현재 보유한 종목이 없습니다. 다음 행동은 위 운용 상태와 판단 기록에서 확인하세요.</p> : <div className="table-wrap"><table><thead><tr><th>종목</th><th>수량</th><th>평균 원가</th></tr></thead><tbody>{ledger.positions.filter((item) => item.quantity > 0).map((item) => <tr key={item.symbol}><td>{item.symbol}</td><td>{item.quantity}</td><td>{researchAmount(item.average_cost_krw, 0)}원</td></tr>)}</tbody></table></div>}
             <h3>현재 preview (결정 아님)</h3><p>{Object.entries(status.preview.target_weights).map(([symbol, weight]) => `${symbol} ${researchAmount(String(Number(weight) * 100), 2)}%`).join(" · ") || "양의 목표 없음"}</p>
             <div className="artifact-links">{["observations.csv", "decisions.csv", "fills.csv", "events.csv", "equity.csv"].map((name) => <a key={name} href={`/research/forward/download/${name}`}>{name}</a>)}</div>
