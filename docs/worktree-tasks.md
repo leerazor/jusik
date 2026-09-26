@@ -2,12 +2,14 @@
 
 ## performance-sprint-20260926-1656
 
-- 상태: 읽기 전용 조사. 사용자 요청의 3시간 집중 창은 2026-09-26 16:56~19:56 KST이며, 정확한 구독 잔여량이나 리셋 시각을 확인한 것으로 해석하지 않습니다.
+- 상태: 첫 병목 조사·Sol 계획 완료, 단일 Sol 구현 준비. 사용자 요청의 3시간 집중 창은 2026-09-26 16:56~19:56 KST이며, 정확한 구독 잔여량이나 리셋 시각을 확인한 것으로 해석하지 않습니다.
 - 목표·완료 조건: 측정으로 확인한 연구·백테스트 처리 병목을 개선하고, 동일 입력의 계산·거래·위험 판정 보존을 독립 검증합니다. 수익성 실험은 기존 mandate와 자료·사전등록 gate를 충족하는 경우만 별도로 고려합니다.
-- 소유: root는 이 항목과 전용 개발 기록·audit만 관리합니다. 첫 read-only explore는 `market_research_engine.py`, `research_engine.py` 및 해당 fixture·호출 경로에서 병목과 검증 방법을 조사합니다. 구현 파일·워크트리·단일 소유자는 조사·계획 뒤 별도로 확정합니다.
+- 소유: root는 이 항목과 전용 개발 기록·audit를 관리합니다. 단일 Sol code는 `backend/jusik/research_engine.py`, `backend/tests/test_research_engine.py`와 전용 audit의 benchmark·결과만 소유합니다. 기본 두 전략의 순수 신호만 실행별 lazy cache로 공유하며 사용자 정의 전략·포트폴리오 상태·정확한 Decimal 합산은 바꾸지 않습니다.
+- 작업 경로·브랜치: `/home/kwl/projects/jusik-research-signal-cache`, `perf/research-signal-cache`. 구현 기준은 이 범위 기록 commit이며 통합 대상은 local `main`입니다. 별도 Sol reviewer의 PASS 전 완료·통합으로 표시하지 않습니다.
 - 병행 작업: `research-web-reports`의 frontend·사용자 문서·배포 소유권과 현재 runner pause를 보존합니다. 다른 세션의 pause를 임의로 해제하거나 UI 작업·운영 DB·공유 원천 자료를 수정하지 않습니다. main 통합은 활동·HEAD를 다시 확인한 안전한 경계에서만 합니다.
 - 기준: 조사 시작 main `8d62114c4351ab0368423bceb8379727b54348df`; 전용 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/`.
 - 검증·예산: synthetic 고정 입력의 profiler·결과 동일성·집중 pytest/Ruff/strict mypy·독립 review를 사용합니다. 토큰 자체를 목표로 반복 호출하지 않으며, 추가 결제·유료 API·권한 확대·투자 기준 완화·실주문·원격 push·Windows 종료는 하지 않습니다.
+- 첫 작업 기준: 10종목×550/1,100봉, warmup 3회와 반복 11회의 median을 대조합니다. 1,100봉 10% 이상 개선 목표·550봉 회귀 없음·전체 금융 결과 동일성을 확인합니다. CI는 벽시계 대신 순수 함수 호출 감소와 캐시 격리를 검사합니다. 기록: `docs/development-records/2026-09-26-performance-sprint.md`.
 
 ## research-web-reports
 
