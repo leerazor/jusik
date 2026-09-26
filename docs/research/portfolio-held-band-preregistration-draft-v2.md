@@ -12,7 +12,7 @@
 - 준비 워크트리 기준 SHA: `10e092a55ab50d96b09fe8c15b2a535530a9f8ad`
 - v1 원 실행 ID/SHA: `c94690f0ee13f01b1810ac0368e84fdcaeb1c1bbe7f396985d04dd3634b5ead0`
 - v1 원자료와 결과의 마지막 날짜: `2026-09-08`
-- 이전 v1 사전등록 SHA-256: `fa5065df2ae70d024656209b0a33b755071c1441ecfa3406db99973fda49277e7`
+- 이전 v1 사전등록 SHA-256: `fa5065df2ae70d024656209b0a33b755071c1441ecfa3406db99973fda49277e`
 - 이전 v1 manifest SHA-256: `bba3822f08a648462c8a2634c9402b545c833ad854bcb924fac96adb75d366a2`
 
 2026-09-08 이후의 held-band 호환 신규 관측은 확인되지 않았다. v1 원본, archive, 결과, manifest와 과거 SHA 확인은 그대로 보존한다. v1 자료를 다시 만들거나 수정하지 않으며, 아래 제안의 승인 근거로 취급하지 않는다.
