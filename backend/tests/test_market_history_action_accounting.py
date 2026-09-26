@@ -12,6 +12,7 @@ import pytest
 from jusik.market_history_action_accounting import (
     AccountingError,
     AccountingState,
+    ActionRecord,
     DividendAction,
     Holding,
     SplitAction,
@@ -378,10 +379,73 @@ def test_identical_action_replay_does_not_change_state() -> None:
     first = accrue_dividend(state, action, at=action.effective_at)
     accrual_replay = accrue_dividend(first.state, action, at=action.effective_at)
     assert accrual_replay.status == "replayed"
+    assert accrual_replay.state == first.state
     paid = pay_dividend(first.state, action, at=action.payment_at)
+    assert paid.status == "applied"
+    assert paid.state.nav == first.state.nav
+    accrual_after_payment = accrue_dividend(paid.state, action, at=action.payment_at)
+    assert accrual_after_payment.status == "replayed"
+    assert accrual_after_payment.state == paid.state
     payment_replay = pay_dividend(paid.state, action, at=action.payment_at)
     assert payment_replay.status == "replayed"
     assert payment_replay.state == paid.state
+
+
+def test_orphan_accrual_record_rejects_replay_atomically() -> None:
+    action = _dividend(action_id="orphan-accrual")
+    state = replace(
+        _state(),
+        action_records=(
+            ActionRecord(
+                action.action_id, "dividend", "accrual", action_identity(action)
+            ),
+        ),
+    )
+    nav_before = state.nav
+
+    result = accrue_dividend(state, action, at=action.effective_at)
+
+    assert result.status == "rejected"
+    assert result.reason == "accrual has no receivable or payment record"
+    assert result.state is state
+    assert result.state.nav == nav_before
+    assert result.state.receivables == ()
+
+
+def test_orphan_payment_record_rejects_replay_atomically() -> None:
+    action = _dividend(action_id="orphan-payment")
+    state = replace(
+        _state(),
+        action_records=(
+            ActionRecord(
+                action.action_id, "dividend", "payment", action_identity(action)
+            ),
+        ),
+    )
+    nav_before = state.nav
+
+    result = pay_dividend(state, action, at=action.payment_at)
+
+    assert result.status == "rejected"
+    assert result.reason == "payment has no accrual record"
+    assert result.state is state
+    assert result.state.nav == nav_before
+    assert result.state.cash == Decimal(0)
+
+
+def test_paid_dividend_cannot_retain_receivable() -> None:
+    action = _dividend(action_id="paid-with-receivable")
+    accrued = accrue_dividend(_state(), action, at=action.effective_at)
+    assert accrued.status == "applied"
+    paid = pay_dividend(accrued.state, action, at=action.payment_at)
+    assert paid.status == "applied"
+    invalid = replace(paid.state, receivables=accrued.state.receivables)
+
+    result = pay_dividend(invalid, action, at=action.payment_at)
+
+    assert result.status == "rejected"
+    assert result.reason == "paid dividend still has a receivable"
+    assert result.state is invalid
 
 
 def test_split_replay_rejects_invalid_supplied_boundaries() -> None:

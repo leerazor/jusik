@@ -471,6 +471,14 @@ def _validate_state(state: AccountingState) -> None:
     for action_id in receivable_ids:
         if (action_id, "accrual") not in record_keys:
             raise AccountingError("receivable has no accrual record")
+        if (action_id, "payment") in record_keys:
+            raise AccountingError("paid dividend still has a receivable")
+    for action_id, phase in record_keys:
+        if phase == "payment" and (action_id, "accrual") not in record_keys:
+            raise AccountingError("payment has no accrual record")
+        has_payment = (action_id, "payment") in record_keys
+        if phase == "accrual" and action_id not in receivable_ids and not has_payment:
+            raise AccountingError("accrual has no receivable or payment record")
 
 
 def _reject(
