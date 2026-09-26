@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## lab-continuous-research-dispatch
+
+- 상태: 설계·구현 준비. 2026-09-26 사용자가 전체 agent 활동을 감사하고 수익성 목표에 맞는 지속 개발로 재설계하도록 요청했다.
+- 관측: 자동 Sortino 수정 `1fcf1f9`와 별도 review는 완료됐고 후속 제안은 scope에서 거절됐다. 연구 planner는 공학 backlog/discovery의 조기 반환 때문에 호출되지 않았다. 당시 미예약 eligible area는 `r1-05`, `r2-01`, `r2-02`다. 오래된 `idle_status`와 실제 discovery 상태도 달랐다.
+- 목표: 기존 READY·구현 review 다음에 bounded 연구 기회를 평가하고, 독립 scope PASS 뒤에만 새 roadmap task를 원자 등록한다. 자료 부족·거절·무효 계획은 공학 발굴을 막지 않는다. 단계·현재 mandate·identity·hash·quota·pause 검증을 유지한다.
+- 범위: runner·store·planning 계약과 관련 planning/backlog/roadmap 테스트. 단일 Sol 구현 소유자, 별도 Sol reviewer; root는 설계·운영 문서·작업 등록부·main 통합을 소유한다. 새 framework·상주 agent·금융 기준 변경·LIVE/PAPER 활성화·credential/모델/과금 변경 제외.
+- 우선 연구 작업: 현재 입력과 사전등록의 호환성·회계·자료 준비를 진단하는 제한된 작업. generic planner 문구나 과거 optimizer 점수는 신규 전략 사전등록·투자 검증·holdout 재사용 허가가 아니다.
+- 운영: 새 수동 변경 전 실행 중 child가 없음을 확인해 runner pause·service inactive, timer 유지. 데이터 수집/기존 연구/prospective monitor는 변경하지 않는다. 사용자 `HANDOFF.md`와 모든 과거 시도 보존.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260926-continuous-research-dispatch/`; backup `runner-before-redesign.db`, integrity `ok`, SHA-256 `544d06364846febbced17ef41810f6738d5b8b4d8d2987baa22adc3ba86868c4`.
+- 예정 worktree: `/home/kwl/projects/jusik-lab-continuous-research-dispatch`; branch `feat/lab-continuous-research-dispatch`. 기준 commit은 이 등록 기록 commit이며 local main에 통합한다. venv/cache/테스트 DB는 전용 경로를 사용한다.
+- 검증: 연구 선순위·PASS 전 enqueue 0·독립 PASS 후 1건·대기/REJECT 후 공학 계속·동일 identity 중복 금지·재시작/기한/dirty/pause/queue cap·기존 행 보존·소유 파일 검사와 독립 검토. 개발 기록은 `docs/development-records/2026-09-26-lab-continuous-research-dispatch.md`에 남긴다.
+
 ## lab-discovery-transport-recovery
 
 - 상태: 코드·통합 검증 완료. 구현 `2befc7a`와 독립 검토 P2 보완 `6a4cca2`를 local main `0578faf`에 병합했다. 별도 Sol 최종 review PASS, main pytest 256개·Ruff·소스 strict mypy·수정 테스트 focused strict mypy 통과. 기존 imported roadmap 테스트 타입 오류 8개는 별도 기록했다.
