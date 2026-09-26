@@ -49,6 +49,11 @@ terminal로 처리했다. 이 상태에서는 같은 source fingerprint로 재�
 - 수정 커밋 `2befc7a`에서 discovery pytest 37개, runner 관련 7개 파일 pytest 254개,
   Ruff check·format, 소스 3개와 테스트 1개의 strict mypy, diff check를 통과했다.
   독립 review와 main 통합·운영 재개는 아직 진행 중이다.
+- 독립 code review는 pause·invalid-output 경로에서도 잔존 process group을 확인하도록
+  P2를 제기했다. 동일 구현 담당자가 수정하며 미확인 프로세스를 둔 자동 재시작은 허용하지 않는다.
+- 실제 운영 백업의 전용 복사본 `migration-validation.db`에 새 RunnerStore migration을
+  적용했다. 기존 10개 테이블의 모든 기존 열·행이 동일하고 새 retry 필드 3개가 생성됐으며
+  integrity `ok`다. 운영 원본 DB에는 이 검증을 수행하지 않았다.
 - 새 회귀는 기존 cycle에 `transient_failures`가 없어 실패했다(RED). 문서 독립 검토에서
   일반 idle timeout과 discovery 예외의 모호함을 지적하여 `9e20f05`에서 적용 범위를 명확히 했다.
 - 구현 agent의 현재 turn metadata는 `gpt-6-sol/high`다. 전체 이력용 routing helper는
