@@ -277,6 +277,7 @@ def test_recorded_digest_final_review_cas_rejects_marker_tampering(
     source = config.state_dir / "original-completion.json"
     _record_failed_output(store, _output_evidence(source))
     assert _recover(config, store)
+    store.resume()
     candidate = store.review_candidate()
     assert candidate is not None
     context = {"review": "fixture"}
