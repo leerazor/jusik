@@ -233,6 +233,13 @@ PASS receipt가 원 proposal/evidence·planner attempt·fingerprint·HEAD·manda
 OOS 재사용·winner 선정·PAPER/live·실주문 권한을 일반 planner에 주지 않습니다.
 기존 generic `research` scope의 계약과 과거 planner 결과는 소급 변경하지 않습니다.
 
+새 roadmap pending 제안은 24시간 뒤 만료하며, 독립 scope 등록 직전에도 현재 입력과
+증거를 재검증합니다. DB에 결속된 roadmap scope는 호출 인자를 생략하더라도 기존
+`finish_planning`의 직접 등록 경로를 사용할 수 없습니다. 새 scope 승인 task의
+`completion.followup`은 `null`이어야 합니다. 후속 아이디어는 다음 planner와 독립
+scope 검토를 거쳐야 하며, 완료 출력으로 검토 없는 task를 직접 증식시키지 않습니다.
+기존 generic 연구·legacy roadmap task의 후속 계약은 변경하지 않습니다.
+
 `planning_enabled=true`이고 실행 가능한 연구 작업이 없으며 queued/running 연구 작업도 없을 때, 실행기는 내부 예약 영역 `__planning__`에서 planner를 한 번 dispatch합니다. research scope는 기존 task snapshot, 검증된 `main` HEAD, UTC 날짜를 fingerprint로 묶고 cost-adjusted portfolio return/risk/turnover 실험을 우선 검토합니다. investment-roadmap scope는 task snapshot, roadmap SHA-256, mandate governance digest, `main:backend/jusik` tree SHA-256으로 fingerprint를 묶습니다. 이 scope에서는 날짜와 unrelated commit이 planner identity를 바꾸지 않으며, roadmap·mandate·task·backend code 변경은 새 계획 검토를 만듭니다. `--planning-wait`를 붙인 `retry`는 completed 상태의 roadmap planner 중 마지막 결과가 `planning_waiting`인 task만 다시 큐에 넣고 이전 attempt ID를 연결합니다. 제안을 저장할 때는 fingerprint와 별도로 시작 시점의 `main` HEAD가 유지됐는지 확인합니다. planner state/history는 연구 pending 상한 8개에 포함하지 않습니다. 투자 로드맵 scope의 원자적 enqueue cap은 `queued`와 `running`만 계산하므로 과거 `blocked` 8개가 새 roadmap 작업을 막지 않습니다. research scope의 기존 pending 의미는 유지합니다.
 
 로드맵 waiting 계획을 명시적으로 다시 판단하려면 `status`에서 내부 `__planning__` task ID를 확인한 뒤 다음처럼 요청합니다. 보통의 `retry TASK_ID`는 기존 실패·차단·중단 재시도 규칙만 적용합니다.

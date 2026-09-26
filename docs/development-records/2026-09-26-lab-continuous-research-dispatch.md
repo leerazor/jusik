@@ -1,6 +1,6 @@
 # 연구 목적에 맞춘 지속 agent 운영 재설계
 
-- 상태: 설계 완료·구현 중
+- 상태: 구현·독립 검토 완료, main 통합 검증 대기
 - 작업 slug: `lab-continuous-research-dispatch`
 - 조사 기준: `1fcf1f9`; 작업 기준 `aee6516`, 통합은 검증 후 기록한다.
 - 범위: agent 활동 감사, 기존 지침의 목표/작업 선택 계약, 연구 준비 planner의 재진입과
@@ -87,6 +87,11 @@ mandate `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`.
   두 테이블만 추가되었고 `PRAGMA integrity_check=ok`다. 실제 운영 DB는 덮어쓰지 않았다.
 - 감독 검토에서 legacy `finish_planning` 직접 등록 우회와 불확실 orphan의 다음 cycle
   소유권 상실 가능성을 찾아 구현자가 fail-closed/영속 hold 및 회귀 테스트로 보강했다.
+- 첫 구현 고정 SHA `299e274`에서 전체 runner pytest 269개 통과. 별도 Sol 검토는
+  DB-bound scope 대신 호출 인자를 신뢰하는 직접 등록 우회와, 승인 task의 완료 followup이
+  독립 scope 없이 새 task를 등록하는 P1 두 건을 지적했다. `be8e8b6`에서 3개 RED 재현을
+  보완하고 별도 Sol 재검토 PASS를 받았다. 관련 pytest 202개·Ruff·source/focused test
+  strict mypy 통과. main 통합 검증은 별도로 수행한다.
 - 계획만 한 후속: 구현 review의 일시 오류 재시도 일반화, no_work 경로/hash 증명,
   외부 readiness 변경에 따른 재평가. 이번 slice에 있다고 주장하지 않는다.
 - 추가 확인: generic research completion은 `review_passed`를 요구하지만 자동 child는
