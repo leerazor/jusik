@@ -13,14 +13,14 @@
 
 ## research-web-reports
 
-- 상태: 구현. 읽기 전용 조사·계획 완료. 이전 초보자 UI에 대한 사용자 피드백을 반영합니다. runner는 시작 당시 unpaused·service inactive·timer active·running attempt 0이었으며 수동 수정 중에만 pause·service 중지했습니다.
+- 상태: 완료. 구현 `539a496`·각주 보완 `f465e11`, 별도 Sol review PASS, local main `422452ead8d55c62c75f655919c9eea0c601b613` 통합·검증·3000 배포 완료. 보고서는 웹 읽기로 전환했고 연구용 가상 설정과 28일·56일 점검을 설명합니다.
 - 목표·완료 조건: 모든 연구 보고서를 다운로드 없이 웹에서 읽고 이동할 수 있게 합니다. 사용자의 과거 투자를 암시하는 ‘기존 방식’을 연구자가 정한 비교 대상의 이름과 설명으로 바꾸고, 4주·8주가 무엇을 점검·조정하는 간격인지 수치 앞에서 설명합니다. 보고서 원문·검증된 성과·안전 경계는 보존합니다.
 - 담당: root 감독·기록·통합, read-only explore→plan, 단일 Sol code 구현, 별도 Sol review. 중첩 위임 없음.
-- 작업 경로·브랜치: `/home/kwl/projects/jusik-research-web-reports`, `feat/research-web-reports`. 조사 기준 `a4194781be2655c398d85e493622626781bfc269`, 구현 기준 `c299dbb`; 통합 대상 local `main`.
+- 작업 경로·브랜치: `/home/kwl/projects/jusik-research-web-reports`, `feat/research-web-reports`. 조사 기준 `a4194781be2655c398d85e493622626781bfc269`, 구현 기준 `c299dbb`, 병합 직전 main `02f6c4c`. 증거 보존 뒤 전용 worktree·브랜치 정상 제거.
 - 허용 범위: 단일 code는 frontend 연구·보고서 읽기와 표현·기존 Markdown URL 호환·집중 검사 및 `frontend/AGENTS.md`·`docs/investor-web-design.md`를 소유합니다. root는 작업 등록부·개발 기록·인계를 소유합니다. 백엔드·전략·금융 계산·catalog 결과·인증·주문·운영 데이터 변경 제외.
-- 격리·검증: 전용 의존성·Next 출력·3338 포트·복제 응답 fixture; 필요 시 별도 임시 API 포트. lint·typecheck·build, 보고서 표시/실패/안전한 링크 검사, 1440px·390px 브라우저 확인과 독립 review.
+- 격리·검증: 전용 의존성·Next 출력·3338/8338 fixture 사용 후 종료. worker/main의 집중 검사·lint·typecheck·build PASS. 원문 12개·PC/모바일·이전 주소·오류/변조·안전한 링크·각주/목차·CSV/JSON 보존 PASS. 운영 보고서 주소 24개·브라우저 8개 화면·두 API health·외부 인증 PASS.
 - audit: `/home/kwl/.local/share/jusik/ui-web-reports-20260926/`. 개발 기록은 `docs/development-records/2026-09-26-research-web-reports.md`, handoff는 audit의 `HANDOFF.md`에 저장합니다.
-- 보존·배포: 사용자 미추적 `HANDOFF.md`와 다른 작업 보존. 이전 적용·재시작 승인을 이어 받아 검증 후 기존 3000 화면에 적용하고 자동 개발은 초기 상태로 복원합니다. 원격 push·실거래 없음.
+- 보존·배포: 사용자 미추적 `HANDOFF.md`와 병행 성능 개선 작업 보존. 승인된 `start.sh` 재시작 완료; 첫 빌드 worker SIGSEGV는 기존 서비스를 유지한 채 동일 설정 재시도로 복구. 병행 수동 작업 `performance-sprint-20260926-1656`가 진행 중이므로 runner pause를 유지하고 해당 감독자가 수동 작업 종료 후 재개합니다. 원격 push·실거래 없음.
 
 ## beginner-research-ui
 
