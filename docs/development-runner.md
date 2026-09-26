@@ -255,6 +255,11 @@ roadmap identity에 결속합니다. 초기 허용 범위는 R2-01의 `market_lo
 쌍과 R2-02의 `broker_cost_profiles.py` 쌍입니다. 임의 파일, 실행기·권한·의존성 변경,
 새 금융 실험 또는 데이터 부족의 투자 검증 대체를 허용하지 않습니다.
 
+v2의 입력 evidence는 승인 준비 시 원문 경로와 실제 canonical 경로의 대응도 동결합니다.
+원래 proposal/evidence digest는 바꾸지 않고, scope 검토·등록·dispatch·완료가 같은
+동결 경로를 검사합니다. 재시작이나 CWD 변경으로 상대경로를 다른 파일에 연결하지
+않으며 tilde·정규화 경로도 같은 의미를 유지합니다. symlink와 입력 hash 변조는 거부합니다.
+
 scope receipt와 동결 spec, task 등록은 함께 원자적으로 저장합니다. 별도 roadmap
 provenance를 보존하며 engineering discovery의 승인 기록으로 위장하지 않습니다.
 원래 roadmap area는 유지하고 dispatch와 완료 시 phase·mandate·필수 입력을 다시
