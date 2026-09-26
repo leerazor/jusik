@@ -2514,7 +2514,13 @@ def _run_roadmap_scope_review(
         (json.dumps(scope_schema, sort_keys=True) + "\n").encode(),
     )
     if not store.start_roadmap_scope_review(
-        pending, review_id, output_path, datetime.now(UTC).isoformat()
+        pending,
+        review_id,
+        output_path,
+        datetime.now(UTC).isoformat(),
+        daily_launches=config.daily_launches,
+        cooldown_seconds=config.cooldown_seconds,
+        repo=config.repo,
     ):
         return RunResult("idle", reason="roadmap_scope_state_changed")
     command = _review_command(config, schema_path, output_path)
@@ -2585,8 +2591,14 @@ def _run_roadmap_scope_review(
             reason="roadmap scope orphan uncertain",
         )
     if failure is not None:
+        retry_kind = (
+            _discovery_transport_kind(stdout_path) if failure == "codex_exit" else None
+        )
         store.finish_roadmap_scope_review(
-            pending, review_id, "interrupted" if failure == "paused" else "failed"
+            pending,
+            review_id,
+            "interrupted" if failure == "paused" else "failed",
+            retry_kind=retry_kind,
         )
         return RunResult(
             "paused" if failure == "paused" else "completed",
