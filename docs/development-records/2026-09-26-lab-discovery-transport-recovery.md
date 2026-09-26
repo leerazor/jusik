@@ -1,8 +1,8 @@
 # 자동 발굴 호출 장애 복구와 지침 검증
 
-- 상태: 구현 중
+- 상태: 구현·독립 검토·local main 통합 검증 완료. 운영 재개 결과는 아래 외부 RUNTIME에 기록한다.
 - 작업 slug: `lab-discovery-transport-recovery`
-- 기준: `9562a63`; local `main` 통합·운영 재개는 아직 검증 전이다.
+- 기준/통합: `9562a63` / `0578faf`.
 - 범위: discovery/scope 호출 실패의 분류와 지속 가능한 예약 재시도, 관련 지침과 회귀 테스트. 제품 전략·투자 검증·주문은 바꾸지 않는다.
 
 ## 원인과 확인한 사실
@@ -48,9 +48,17 @@ terminal로 처리했다. 이 상태에서는 같은 source fingerprint로 재�
 - 같은 설정의 실제 읽기 전용 Codex probe: exit 0, 유효한 `{"ok":true}` 응답.
 - 수정 커밋 `2befc7a`에서 discovery pytest 37개, runner 관련 7개 파일 pytest 254개,
   Ruff check·format, 소스 3개와 테스트 1개의 strict mypy, diff check를 통과했다.
-  독립 review와 main 통합·운영 재개는 아직 진행 중이다.
+  후속 `6a4cca2`의 독립 review PASS와 main 통합 검증을 완료했다.
 - 독립 code review는 pause·invalid-output 경로에서도 잔존 process group을 확인하도록
-  P2를 제기했다. 동일 구현 담당자가 수정하며 미확인 프로세스를 둔 자동 재시작은 허용하지 않는다.
+  P2를 제기했다. 동일 구현 담당자가 `6a4cca2`에서 수정하고 두 RED/GREEN 회귀를 추가했다.
+  별도 reviewer의 최종 discovery 39개·Ruff 검사와 P2 closure는 PASS다.
+- main `0578faf`에서 `python -m pytest tests/test_development_runner*.py -q`에 해당하는
+  7개 명시 파일 검사: **256 passed (64.99s)**. 수정 세 파일 Ruff check·format, 소스
+  runner/store/discovery의 `mypy --strict`, 수정 테스트의
+  `mypy --strict --follow-imports=silent`가 통과했다.
+- 제한: 테스트 import까지 포함한 일반 strict mypy는 변경하지 않은
+  `test_development_runner_roadmap.py`의 기존 오류 8개로 실패했다. 이전 개발 기록과 같은
+  focused import 정책을 적용했으며 전체 타입 검사 통과로 주장하지 않는다.
 - 실제 운영 백업의 전용 복사본 `migration-validation.db`에 새 RunnerStore migration을
   적용했다. 기존 10개 테이블의 모든 기존 열·행이 동일하고 새 retry 필드 3개가 생성됐으며
   integrity `ok`다. 운영 원본 DB에는 이 검증을 수행하지 않았다.
@@ -63,9 +71,12 @@ terminal로 처리했다. 이 상태에서는 같은 source fingerprint로 재�
 
 ## 안전·운영 상태
 
-수동 수정 동안 runner pause·service inactive, timer active다. 실주문·PAPER/live 활성화,
+수동 수정 동안 runner pause·service inactive, timer active를 유지했다. 최종 기록 commit 뒤
+기존 설치 설정 그대로 resume하며 실제 시도 증거는 외부 `RUNTIME.md`에서 확인한다. 실주문·PAPER/live 활성화,
 원격 push·결제·credential·모델·권한·Windows 종료는 수행하지 않았다. 사용자 미추적
 `HANDOFF.md`, 다른 worktree, 과거 실패와 완료 제품은 보존한다.
+작업 worktree는 미병합·미커밋·사용자 산출물 부재를 확인한 뒤 정상 제거했다. 소스·테스트는
+Git에 보존됐으며 재생성 가능한 전용 venv와 검사 캐시만 함께 제거됐다.
 
 ## 증거와 다음 단계
 
@@ -74,5 +85,7 @@ terminal로 처리했다. 이 상태에서는 같은 source fingerprint로 재�
   `f408dd8c299bd273761694fec589a62f264f43fa0f4842ed62494ecb1cad48a9`.
 - 구현 중 read-only 비교: tasks 142개, attempts 202개, discovery cycles 3개,
   discovery attempts 7개, proposals 3개는 백업과 동일했고 DB integrity는 `ok`다.
-- 다음: 코드 회귀·독립 검토·통합을 마친 뒤 tracked-clean main에서 resume하고 실제 시도와
-  운영 DB의 기존 행 보존을 확인한다. timer active만으로 재개 성공을 기록하지 않는다.
+- 운영 결과·확인 시각: 위 audit의 `RUNTIME.md`. live discovery는 HEAD에 결속되므로
+  재개 뒤 기록만을 위해 root 문서를 다시 commit해 진행 중 identity를 바꾸지 않는다.
+- 다음: 현재 DB와 RUNTIME의 최신 attempt·retry_after를 대조한다. timer active만으로
+  개발 중이라고 판단하지 않는다. 원격 push·투자 검증 완료는 별도 범위다.
