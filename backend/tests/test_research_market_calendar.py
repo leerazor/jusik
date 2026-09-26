@@ -157,6 +157,36 @@ def test_invalid_day_state_fails_closed(state: object, tmp_path: Path) -> None:
     assert calendar.lookup("NYS", datetime(2023, 1, 2).date()).state == "unavailable"
 
 
+@pytest.mark.parametrize("location", ["calendars", "day_state"])
+def test_duplicate_json_keys_fail_closed(location: str, tmp_path: Path) -> None:
+    payload = _payload()
+    raw = _encoded(payload)
+    if location == "calendars":
+        alternate = json.loads(json.dumps(payload["calendars"]))
+        alternate["XNYS"][2] = {"date": "2023-01-03", "state": "closed"}
+        raw = raw.replace(
+            b'"calendars": ',
+            b'"calendars": ' + json.dumps(alternate).encode() + b', "calendars": ',
+            1,
+        )
+    else:
+        row = json.dumps(payload["calendars"]["XNYS"][2]).encode()
+        duplicate = row.replace(
+            b'"state": "session"', b'"state": "closed", "state": "session"'
+        )
+        raw = raw.replace(row, duplicate, 1)
+
+    with pytest.raises(MarketCalendarError, match="^calendar_json_duplicate_key$"):
+        MarketCalendar.from_bytes(raw)
+
+    path = tmp_path / "duplicate-calendar.json"
+    path.write_bytes(raw)
+    calendar = load_market_calendar(path)
+    assert not calendar.available
+    assert calendar.error == "calendar_json_duplicate_key"
+    assert calendar.lookup("NYS", datetime(2023, 1, 3).date()).state == "unavailable"
+
+
 def test_missing_or_out_of_range_calendar_is_unavailable(tmp_path: Path) -> None:
     calendar = load_market_calendar(tmp_path / "missing.json")
     assert not calendar.available

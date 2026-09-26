@@ -42,6 +42,15 @@ class MarketCalendarError(ValueError):
     pass
 
 
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise MarketCalendarError("calendar_json_duplicate_key")
+        result[key] = value
+    return result
+
+
 @dataclass(frozen=True)
 class MarketSession:
     calendar: CalendarCode
@@ -122,7 +131,7 @@ class MarketCalendar:
     def from_bytes(cls, raw: bytes) -> MarketCalendar:
         artifact_sha = hashlib.sha256(raw).hexdigest()
         try:
-            payload = json.loads(raw)
+            payload = json.loads(raw, object_pairs_hook=_unique_json_object)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise MarketCalendarError("calendar_json_invalid") from exc
         return cls._from_payload(payload, artifact_sha)
