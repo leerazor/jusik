@@ -34,6 +34,13 @@
 - 완료 기준: fake CLI/clock의 실패→영속 기한→다른 READY 진행→restart→같은 제품의 별도 PASS, 중복 claim·오염·legacy 보존·실제 이전 store rollback 검증, 집중 pytest/Ruff/strict mypy·독립 review·main 검증입니다. 운영 DB와 실제 API는 구현자가 접근하지 않습니다.
 - 운영·증거: root가 UI 완료 인계 뒤 runner pause를 소유합니다. 현재 정책·credentials·실주문·투자 기준은 변경하지 않습니다. audit은 `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/review-transport/`, 기록은 `docs/development-records/2026-09-26-review-transport-recovery.md`입니다.
 
+## lab-scope-review-recovery-design
+
+- 상태: 읽기 전용 조사 완료, Sol의 제한된 계획 중. 구현 완료 review의 `lab-review-transport-retry`와 다른 연구 scope 검토 경로만 확인합니다. 기존 24시간 TTL·정확한 HEAD와 승인 근거·구버전 reader 격리를 유지해야 합니다.
+- 목표·완료 조건: 일시 호출 실패 뒤 pending 제안 선택·TTL·snapshot·governance·구버전 reader 경계를 조사하고 최소 후속 slice와 재현 조건을 제시합니다. 구현·자동 승인·운영 재시도는 이 항목의 범위가 아닙니다.
+- 담당·소유: Luna explore 읽기 전용, root는 성능 sprint audit의 조사 결과만 보존합니다. 기존 runner/store 구현자와 파일 소유권이 겹치지 않으며 운영 DB·실제 연구 자료·API를 조회하지 않습니다.
+- 예산·전환: 10분 조사 뒤 계획 또는 정확한 미확정 조건을 반환합니다. 현재 제품의 독립 검토·수정·통합을 막지 않으며 별도 scope 승인이나 투자 기준을 완화하지 않습니다.
+
 ## kofr-public-contract-audit-20260926
 
 - 상태: DONE, bounded 읽기 전용 점검 완료. 공식 FSC의 과거 일반 공시 일정은 확인했지만 `PUBN_DTTM`의 정확한 시간 의미·전체 영업일·미국-only 적용 근거는 해결하지 못했습니다. 이 audit의 완료와 KOFR 적용/Sharpe 검증은 구분합니다.
