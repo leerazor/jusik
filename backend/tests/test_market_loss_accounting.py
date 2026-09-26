@@ -457,6 +457,46 @@ def test_zero_opening_cash_with_position_completes_report() -> None:
     assert report.cash_balance.value == Decimal("0")
 
 
+def test_interim_cash_deficit_cannot_be_hidden_by_later_sale() -> None:
+    with pytest.raises(ValueError, match="trade 0 drives cash below zero"):
+        account_trades(
+            [
+                _trade("buy", "2", "100", "100"),
+                _trade("sell", "2", "100", "100", session="2026-01-02"),
+            ],
+            final_marks={},
+            complete_history=True,
+            dividends={"AAA": Decimal("0")},
+            dividend_evidence_complete=True,
+            initial_cash=Decimal("100"),
+        )
+
+
+def test_negative_final_cash_is_rejected() -> None:
+    with pytest.raises(ValueError, match="trade 0 drives cash below zero"):
+        account_trades(
+            [_trade("buy", "2", "100", "100")],
+            final_marks={"AAA": Decimal("100")},
+            complete_history=True,
+            dividends={"AAA": Decimal("0")},
+            dividend_evidence_complete=True,
+            initial_cash=Decimal("100"),
+        )
+
+
+def test_exactly_funded_buy_can_reach_zero_cash() -> None:
+    report = account_trades(
+        [_trade("buy", "1", "100", "100")],
+        final_marks={"AAA": Decimal("100")},
+        complete_history=True,
+        dividends={"AAA": Decimal("0")},
+        dividend_evidence_complete=True,
+        initial_cash=Decimal("100"),
+    )
+    assert report.status == "complete"
+    assert report.cash_balance.value == Decimal("0")
+
+
 def test_negative_opening_cash_with_position_is_rejected() -> None:
     with pytest.raises(ValueError, match="initial cash"):
         account_trades(

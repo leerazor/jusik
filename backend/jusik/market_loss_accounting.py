@@ -289,6 +289,7 @@ def _fifo(
     trades: Sequence[LossTrade],
     final_marks: Mapping[str, Decimal],
     initial_positions: Sequence[PositionLot],
+    initial_cash: Decimal | None,
 ) -> _FIFOResult:
     lots: dict[tuple[str, str], deque[PositionLot]] = defaultdict(deque)
     for lot in initial_positions:
@@ -358,6 +359,8 @@ def _fifo(
                     )
                 quantity -= consumed
             cash_delta += trade.quantity * trade.fill_price - trade.fee - trade.tax
+        if initial_cash is not None and initial_cash + cash_delta < 0:
+            raise ValueError(f"trade {index} drives cash below zero")
         slippage += slippage_amount(trade)
         fees += trade.fee
         taxes += trade.tax
@@ -506,7 +509,7 @@ def account_trades(
             if normalised_dividends is not None
             else set()
         )
-        fifo = _fifo(normalised_trades, marks, normalised_positions)
+        fifo = _fifo(normalised_trades, marks, normalised_positions, initial_cash_value)
         dividends_value = (
             sum(normalised_dividends.values(), Decimal(0))
             if normalised_dividends
