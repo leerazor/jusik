@@ -125,6 +125,41 @@ def test_sortino_rejects_nonfinite_annual_target(annual_target_rate: str) -> Non
     }
 
 
+@pytest.mark.parametrize("initial", ["NaN", "Infinity", "-Infinity", "0", "-100"])
+def test_sortino_rejects_invalid_initial_capital(initial: str) -> None:
+    points = (
+        NAVPoint(datetime(2024, 1, 1, tzinfo=UTC), Decimal("100")),
+        NAVPoint(datetime(2024, 1, 2, tzinfo=UTC), Decimal("90")),
+    )
+    assert adapter.sortino_from_nav(
+        points, initial=Decimal(initial), annual_target_rate=Decimal("0")
+    ) == {
+        "availability": "unavailable",
+        "value": None,
+        "reason": "invalid_downside_target",
+    }
+
+
+@pytest.mark.parametrize("invalid_nav", ["0", "-90", "NaN", "Infinity", "-Infinity"])
+@pytest.mark.parametrize("position", [0, 1, 2])
+def test_sortino_rejects_invalid_nav_at_any_position(
+    invalid_nav: str, position: int
+) -> None:
+    nav = [Decimal("100"), Decimal("90"), Decimal("95")]
+    nav[position] = Decimal(invalid_nav)
+    points = tuple(
+        NAVPoint(datetime(2024, 1, index + 1, tzinfo=UTC), value)
+        for index, value in enumerate(nav)
+    )
+    assert adapter.sortino_from_nav(
+        points, initial=Decimal("100"), annual_target_rate=Decimal("0")
+    ) == {
+        "availability": "unavailable",
+        "value": None,
+        "reason": "invalid_nav",
+    }
+
+
 def test_synthetic_recovery_duration_uses_utc_peak_to_recovery_seconds() -> None:
     anchor = datetime(2024, 1, 1, tzinfo=UTC)
     points = (

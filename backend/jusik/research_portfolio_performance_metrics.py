@@ -504,7 +504,8 @@ def sortino_from_nav(
             "reason": "insufficient_returns",
         }
     if (
-        initial <= 0
+        not initial.is_finite()
+        or initial <= 0
         or not annual_target_rate.is_finite()
         or annual_target_rate <= Decimal("-1")
         or sessions_per_year <= 0
@@ -513,6 +514,12 @@ def sortino_from_nav(
             "availability": "unavailable",
             "value": None,
             "reason": "invalid_downside_target",
+        }
+    if any(not point.nav.is_finite() or point.nav <= 0 for point in points):
+        return {
+            "availability": "unavailable",
+            "value": None,
+            "reason": "invalid_nav",
         }
     with localcontext() as context:
         context.prec = 50
