@@ -34,8 +34,15 @@ from jusik.development_runner_discovery import (
 )
 from jusik.development_runner_planning_scope import (
     ROADMAP_TASK_SCOPE_GUARD,
+    PendingRoadmapCodeScope,
     PendingRoadmapScope,
+    RoadmapCodeScopeReview,
     RoadmapScopeReview,
+    code_spec,
+    frozen_evidence_path,
+    parse_pending_scope,
+    safe_file_hash,
+    validate_code_contract,
 )
 from jusik.development_runner_planning_scope import (
     canonical_json as scope_json,
@@ -48,6 +55,7 @@ from jusik.development_runner_planning_scope import (
 )
 from jusik.development_runner_roadmap import (
     ROADMAP_PENDING_LIMIT,
+    eligible_areas,
     load_roadmap,
     roadmap_fingerprint,
     validate_enqueue,
@@ -313,6 +321,14 @@ class RunnerStore:
                     output_path TEXT NOT NULL,
                     response_sha256 TEXT,
                     reason TEXT
+                );
+                CREATE TABLE IF NOT EXISTS approved_roadmap_code_specs (
+                    task_id TEXT PRIMARY KEY REFERENCES tasks(id),
+                    planner_task_id TEXT NOT NULL UNIQUE
+                        REFERENCES roadmap_planning_scopes(planner_task_id),
+                    spec_json TEXT NOT NULL,
+                    spec_sha256 TEXT NOT NULL,
+                    scope_receipt_sha256 TEXT NOT NULL
                 );
                 """
             )
@@ -1030,6 +1046,9 @@ class RunnerStore:
         static = ENGINEERING_SPEC_BY_ID.get(task_id)
         if static is not None:
             return static
+        roadmap_code = self.roadmap_code_scope(task_id)
+        if roadmap_code is not None:
+            return code_spec(roadmap_code)
         with self._connect() as db:
             row = db.execute(
                 "SELECT spec_json,spec_sha256,proposal_digest,fingerprint,"
@@ -1101,6 +1120,123 @@ class RunnerStore:
         ):
             raise ValueError("approved discovery spec changed")
         return expected
+
+    def roadmap_code_scope(self, task_id: str) -> PendingRoadmapCodeScope | None:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT s.*,p.pending_json,p.pending_sha256,p.receipt_json,p.status "
+                "FROM approved_roadmap_code_specs s JOIN roadmap_planning_scopes p "
+                "ON p.planner_task_id=s.planner_task_id WHERE s.task_id=?",
+                (task_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        raw = str(row["pending_json"])
+        if (
+            row["status"] != "approved"
+            or hashlib.sha256(raw.encode()).hexdigest() != row["pending_sha256"]
+        ):
+            raise ValueError("roadmap code provenance changed")
+        pending = parse_pending_scope(raw)
+        if not isinstance(pending, PendingRoadmapCodeScope):
+            raise ValueError("legacy scope has no engineering authority")
+        review = RoadmapCodeScopeReview.model_validate_json(row["receipt_json"])
+        validate_roadmap_scope_review(review, pending, review.review_attempt_id)
+        with self._connect() as db:
+            attempt = db.execute(
+                "SELECT status FROM roadmap_scope_attempts WHERE id=? "
+                "AND planner_task_id=?",
+                (review.review_attempt_id, pending.planner_task_id),
+            ).fetchone()
+        if (
+            review.verdict != "PASS"
+            or review.work_class is None
+            or scope_digest(review.model_dump(mode="json"))
+            != row["scope_receipt_sha256"]
+            or attempt is None
+            or attempt["status"] != "approved"
+        ):
+            raise ValueError("roadmap code scope not approved")
+        spec = code_spec(pending)
+        value = {
+            "id": spec.id,
+            "area": spec.area,
+            "prompt": spec.prompt,
+            "owned_paths": sorted(spec.owned_paths),
+        }
+        if (
+            spec.id != task_id
+            or row["spec_json"] != scope_json(value)
+            or row["spec_sha256"] != scope_digest(value)
+        ):
+            raise ValueError("roadmap code spec changed")
+        return pending
+
+    def validate_roadmap_code_task(
+        self,
+        task_id: str,
+        repo: Path,
+        *,
+        before_dispatch: bool,
+        implementation_baseline: str | None = None,
+    ) -> None:
+        pending = self.roadmap_code_scope(task_id)
+        task = self.task(task_id)
+        if pending is None:
+            if (
+                task is not None
+                and task.task_kind == "engineering"
+                and task.area != "__engineering__"
+            ):
+                raise ValueError("roadmap code provenance missing")
+            return
+        spec = code_spec(pending)
+        if task is None or (task.area, task.prompt, task.task_kind) != (
+            spec.area,
+            spec.prompt,
+            "engineering",
+        ):
+            raise ValueError("roadmap code task changed")
+        roadmap = load_roadmap(repo)
+        if (
+            validate_dispatch_gate(repo).digest != pending.mandate_digest
+            or roadmap.digest != pending.roadmap_digest
+            or pending.proposal.area not in eligible_areas(roadmap)
+            or datetime.now(UTC) >= datetime.fromisoformat(pending.expires_at)
+        ):
+            raise ValueError("roadmap code governance changed")
+        if before_dispatch:
+            head = subprocess.run(
+                ["git", "rev-parse", "main"],
+                cwd=repo,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            ).stdout.strip()
+            if head != pending.baseline_head or datetime.now(
+                UTC
+            ) >= datetime.fromisoformat(pending.expires_at):
+                raise ValueError("roadmap code dispatch baseline expired or changed")
+            for name, expected in pending.owned_file_hashes.items():
+                if safe_file_hash(repo, name) != expected:
+                    raise ValueError("roadmap code source baseline changed")
+        elif implementation_baseline != pending.baseline_head:
+            raise ValueError("roadmap code implementation baseline changed")
+        for item in pending.proposal.evidence:
+            path = frozen_evidence_path(pending, item.path)
+            if (
+                not before_dispatch
+                and path.is_relative_to(repo.resolve())
+                and str(path.relative_to(repo.resolve())) in pending.owned_file_hashes
+            ):
+                continue
+            if (
+                any(part.is_symlink() for part in (path, *path.parents))
+                or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != item.sha256
+            ):
+                raise ValueError("roadmap code input changed")
 
     def task(self, task_id: str) -> RunnerTask | None:
         with self._connect() as db:
@@ -1704,6 +1840,7 @@ class RunnerStore:
         status: str,
         failure_code: str | None = None,
         receipt: dict[str, Any] | None = None,
+        repo: Path | None = None,
     ) -> bool:
         if status not in {"completed", "failed", "interrupted"}:
             raise ValueError("invalid review status")
@@ -1735,6 +1872,32 @@ class RunnerStore:
                 db.rollback()
                 return False
             if status == "completed":
+                if candidate.task.area != "__engineering__":
+                    if self.roadmap_code_scope(candidate.task.id) is None:
+                        raise ValueError("roadmap code provenance missing")
+                    if repo is None:
+                        raise ValueError("roadmap code finalization needs governance")
+                    self.validate_roadmap_code_task(
+                        candidate.task.id,
+                        repo,
+                        before_dispatch=False,
+                        implementation_baseline=candidate.baseline_head,
+                    )
+                    if receipt is None:
+                        raise ValueError("roadmap code receipt missing")
+                    head = subprocess.run(
+                        ["git", "rev-parse", "main"],
+                        cwd=repo,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    ).stdout.strip()
+                    if head != receipt["main_head"]:
+                        raise ValueError("roadmap code reviewed HEAD changed")
+                    for name, expected in receipt["owned_file_hashes"].items():
+                        if safe_file_hash(repo, name) != expected:
+                            raise ValueError("roadmap code reviewed file changed")
                 if candidate.recovery is not None:
                     source = db.execute(
                         "SELECT status,failure_code,output_path,baseline_head,"
@@ -2189,7 +2352,7 @@ class RunnerStore:
         raw = str(row["pending_json"])
         if hashlib.sha256(raw.encode()).hexdigest() != row["pending_sha256"]:
             raise ValueError("stored roadmap scope changed")
-        pending = PendingRoadmapScope.model_validate_json(raw)
+        pending = parse_pending_scope(raw)
         pending.proposal
         return pending
 
@@ -2212,12 +2375,17 @@ class RunnerStore:
             raw = str(row["pending_json"])
             if hashlib.sha256(raw.encode()).hexdigest() != row["pending_sha256"]:
                 raise ValueError("approved roadmap scope proposal changed")
-            pending = PendingRoadmapScope.model_validate_json(raw)
+            pending = parse_pending_scope(raw)
             if pending.proposal.id != task_id:
                 continue
             if row["receipt_json"] is None:
                 raise ValueError("approved roadmap scope receipt missing")
-            review = RoadmapScopeReview.model_validate_json(row["receipt_json"])
+            review_model = (
+                RoadmapCodeScopeReview
+                if isinstance(pending, PendingRoadmapCodeScope)
+                else RoadmapScopeReview
+            )
+            review = review_model.model_validate_json(row["receipt_json"])
             validate_roadmap_scope_review(review, pending, review.review_attempt_id)
             if review.verdict != "PASS":
                 raise ValueError("approved roadmap scope receipt is not PASS")
@@ -2470,7 +2638,13 @@ class RunnerStore:
         if review.verdict != "PASS" or review.work_class is None:
             raise ValueError("scope PASS with bounded work class required")
         proposal = pending.proposal
-        if not prompt.startswith(
+        code = (
+            code_spec(pending) if isinstance(pending, PendingRoadmapCodeScope) else None
+        )
+        if code is not None:
+            if prompt != code.prompt:
+                raise ValueError("roadmap code prompt changed")
+        elif not prompt.startswith(
             ROADMAP_TASK_SCOPE_GUARD.format(work_class=review.work_class)
         ) or not prompt.endswith(proposal.prompt):
             raise ValueError("roadmap prompt changed")
@@ -2552,11 +2726,14 @@ class RunnerStore:
                 db.rollback()
                 return False
             for item in proposal.evidence:
-                raw = Path(item.path).expanduser()
-                path = raw.resolve()
-                if raw.is_symlink() or path.is_symlink() or not path.is_file():
-                    db.rollback()
-                    return False
+                if isinstance(pending, PendingRoadmapCodeScope):
+                    path = frozen_evidence_path(pending, item.path)
+                else:
+                    raw = Path(item.path).expanduser()
+                    path = raw.resolve()
+                    if raw.is_symlink() or path.is_symlink() or not path.is_file():
+                        db.rollback()
+                        return False
                 if hashlib.sha256(path.read_bytes()).hexdigest() != item.sha256:
                     db.rollback()
                     return False
@@ -2565,11 +2742,43 @@ class RunnerStore:
                 for item in db.execute("SELECT * FROM tasks ORDER BY created_at,id")
             ]
             validate_enqueue(roadmap, tasks, proposal.id, proposal.area)
+            if isinstance(pending, PendingRoadmapCodeScope):
+                validate_code_contract(pending)
+                if proposal.id in ENGINEERING_SPEC_BY_ID:
+                    raise ValueError("roadmap code id collides with static spec")
+                for name, expected in pending.owned_file_hashes.items():
+                    if safe_file_hash(repo, name) != expected:
+                        raise ValueError("roadmap code baseline changed")
             db.execute(
-                "INSERT INTO tasks(id,area,prompt,status,created_at,updated_at) "
-                "VALUES(?,?,?,'queued',?,?)",
-                (proposal.id, proposal.area, prompt, now, now),
+                "INSERT INTO tasks(id,area,prompt,status,created_at,updated_at,"
+                "task_kind) "
+                "VALUES(?,?,?,'queued',?,?,?)",
+                (
+                    proposal.id,
+                    proposal.area,
+                    prompt,
+                    now,
+                    now,
+                    "engineering" if code is not None else "research",
+                ),
             )
+            if code is not None:
+                value = {
+                    "id": code.id,
+                    "area": code.area,
+                    "prompt": code.prompt,
+                    "owned_paths": sorted(code.owned_paths),
+                }
+                db.execute(
+                    "INSERT INTO approved_roadmap_code_specs VALUES(?,?,?,?,?)",
+                    (
+                        code.id,
+                        pending.planner_task_id,
+                        scope_json(value),
+                        scope_digest(value),
+                        scope_digest(review.model_dump(mode="json")),
+                    ),
+                )
             db.execute(
                 "UPDATE roadmap_scope_attempts SET status='approved',ended_at=?,"
                 "response_sha256=?,reason='scope_pass' WHERE id=?",
