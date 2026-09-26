@@ -268,6 +268,72 @@ def _empty_receiver_wait_detected(stdout_path: Path) -> bool:
     return '"tool":"wait"' in tail and '"receiver_thread_ids":[]' in tail
 
 
+def _discovery_transport_kind(stdout_path: Path) -> str | None:
+    """Classify only bounded structured Codex turn failures, never child text."""
+    try:
+        if stdout_path.stat().st_size > 1_048_576:
+            return None
+        lines = stdout_path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return None
+    for line in reversed(lines):
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict) or event.get("type") != "turn.failed":
+            continue
+        error = event.get("error")
+        if not isinstance(error, dict):
+            return None
+        status = error.get("status_code", error.get("status"))
+        code = error.get("code")
+        message = error.get("message")
+        if not isinstance(code, str):
+            code = ""
+        if not isinstance(message, str):
+            message = ""
+        code = code.lower()[:128]
+        message = message.lower()[:512]
+        status_code = status if type(status) is int else None
+        if (
+            status_code == 401
+            or code in {"401", "unauthorized", "authentication_error"}
+            or re.search(r"\b(?:http|status)\s*:?(?:\s+code)?\s*401\b", message)
+        ):
+            return "auth"
+        if (
+            status_code == 429
+            or code in {"429", "rate_limit", "rate_limit_exceeded"}
+            or re.search(r"\b(?:http|status)\s*:?(?:\s+code)?\s*429\b", message)
+        ):
+            return "rate_limit"
+        if (
+            status_code is not None
+            and 500 <= status_code <= 599
+            or (code.isdigit() and 500 <= int(code) <= 599)
+            or re.search(r"\b(?:http|status)\s*:?(?:\s+code)?\s*5\d\d\b", message)
+        ):
+            return "server"
+        if code in {"model_capacity", "capacity", "overloaded"} or re.search(
+            r"\b(?:model|provider|server) (?:at |is at |has reached )?capacity\b|"
+            r"\b(?:model|provider|server) (?:is )?overloaded\b",
+            message,
+        ):
+            return "capacity"
+        if code in {
+            "network_error",
+            "connection_error",
+            "transport_error",
+        } or re.search(
+            r"\b(?:network|connection) error\b|\bfailed to connect\b",
+            message,
+        ):
+            return "network"
+        return None
+    return None
+
+
 class Evidence(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     path: str = Field(min_length=1)
@@ -2202,6 +2268,8 @@ def _run_engineering_discovery(
         if cycle is not None and cycle["baseline_head"] != baseline_head:
             store.terminalize_discovery_cycle(fingerprint, "stale_head")
             return RunResult("idle", reason="discovery_stale_head")
+        if store.discovery_retry_pending(fingerprint):
+            return RunResult("idle", reason="discovery_retry_scheduled")
         active = (
             store.discovery_active_proposal(fingerprint) if stage == "scope" else None
         )
@@ -2336,10 +2404,28 @@ def _run_engineering_discovery(
                 break
             if failure is None and process.returncode != 0:
                 failure = "codex_exit"
+    if failure != "dispatch_error" and (
+        process.poll() is None or _process_group_alive(process.pid)
+    ):
+        store.quarantine_discovery_attempt(attempt_id, "orphan_identity_uncertain")
+        return RunResult(
+            "paused" if failure == "paused" else "blocked",
+            attempt_id=attempt_id,
+            reason="discovery orphan identity uncertain",
+        )
     if failure is not None:
+        transient_kind = None
+        if failure == "timeout":
+            transient_kind = "timeout"
+        elif failure == "codex_exit":
+            transient_kind = _discovery_transport_kind(stdout_path)
         outcome = "interrupted" if failure == "paused" else "failed"
         store.finish_discovery_attempt(
-            fingerprint, attempt_id, outcome=outcome, reason=failure
+            fingerprint,
+            attempt_id,
+            outcome="transient" if transient_kind is not None else outcome,
+            reason=failure,
+            transient_kind=transient_kind,
         )
         return RunResult(
             "paused" if failure == "paused" else "completed",

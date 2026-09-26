@@ -223,6 +223,10 @@ class RunnerStore:
                     task_snapshot_json TEXT NOT NULL,
                     proposal_count INTEGER NOT NULL DEFAULT 0,
                     infra_failures INTEGER NOT NULL DEFAULT 0,
+                    transient_failures INTEGER NOT NULL DEFAULT 0,
+                    retry_after TEXT,
+                    retry_kind TEXT CHECK(retry_kind IN
+                        ('capacity','rate_limit','network','server','auth','timeout')),
                     active_proposal_digest TEXT,
                     active_attempt_id TEXT,
                     reason TEXT NOT NULL,
@@ -297,6 +301,23 @@ class RunnerStore:
             if "process_starttime" not in review_columns:
                 db.execute(
                     "ALTER TABLE review_attempts ADD COLUMN process_starttime INTEGER"
+                )
+            cycle_columns = {
+                str(row["name"])
+                for row in db.execute("PRAGMA table_info(discovery_cycles)").fetchall()
+            }
+            if "transient_failures" not in cycle_columns:
+                db.execute(
+                    "ALTER TABLE discovery_cycles ADD COLUMN transient_failures "
+                    "INTEGER NOT NULL DEFAULT 0"
+                )
+            if "retry_after" not in cycle_columns:
+                db.execute("ALTER TABLE discovery_cycles ADD COLUMN retry_after TEXT")
+            if "retry_kind" not in cycle_columns:
+                db.execute(
+                    "ALTER TABLE discovery_cycles ADD COLUMN retry_kind TEXT "
+                    "CHECK(retry_kind IN ('capacity','rate_limit','network',"
+                    "'server','auth','timeout'))"
                 )
             legacy_blocker = unknown_blocker("legacy_unknown").model_dump(mode="json")
             db.execute(
@@ -425,25 +446,37 @@ class RunnerStore:
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def discovery_status(self) -> dict[str, str | int] | None:
+    def discovery_status(self) -> dict[str, str | int | None] | None:
         with self._connect() as db:
             row = db.execute(
-                "SELECT stage,reason,next_condition,proposal_count,updated_at "
+                "SELECT stage,reason,next_condition,proposal_count,updated_at,"
+                "transient_failures,retry_after,retry_kind "
                 "FROM discovery_cycles ORDER BY updated_at DESC LIMIT 1"
             ).fetchone()
         if row is None:
             return None
-        status: dict[str, str | int] = dict(row)
+        status: dict[str, str | int | None] = dict(row)
         if status["stage"] == "terminal":
             status["next_condition"] = "source, test, mandate, or task state changes"
         return status
+
+    def discovery_retry_pending(self, fingerprint: str) -> bool:
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT retry_after FROM discovery_cycles WHERE fingerprint=?",
+                (fingerprint,),
+            ).fetchone()
+        if row is None or row["retry_after"] is None:
+            return False
+        return self._retry_not_due(row["retry_after"], utc_now())
 
     def terminalize_discovery_cycle(self, fingerprint: str, reason: str) -> bool:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             changed = db.execute(
                 "UPDATE discovery_cycles SET stage='terminal',reason=?,"
-                "next_condition=?,updated_at=? WHERE fingerprint=? "
+                "retry_after=NULL,retry_kind=NULL,next_condition=?,updated_at=? "
+                "WHERE fingerprint=? "
                 "AND stage!='terminal' AND active_attempt_id IS NULL",
                 (
                     reason,
@@ -544,6 +577,7 @@ class RunnerStore:
                 or row["task_snapshot_json"] != expected
                 or row["active_attempt_id"] is not None
                 or int(row["infra_failures"]) >= MAX_INFRA_FAILURES
+                or self._retry_not_due(row["retry_after"], now)
             ):
                 db.rollback()
                 return False
@@ -555,7 +589,8 @@ class RunnerStore:
             )
             db.execute(
                 "UPDATE discovery_cycles SET active_attempt_id=?,reason=?,"
-                "next_condition=?,updated_at=? WHERE fingerprint=?",
+                "retry_after=NULL,retry_kind=NULL,next_condition=?,updated_at=? "
+                "WHERE fingerprint=?",
                 (
                     attempt_id,
                     stage + "_running",
@@ -572,6 +607,17 @@ class RunnerStore:
             )
             db.commit()
         return True
+
+    @staticmethod
+    def _retry_not_due(deadline_value: object, now_value: str) -> bool:
+        if deadline_value is None:
+            return False
+        try:
+            deadline = datetime.fromisoformat(str(deadline_value))
+            now = datetime.fromisoformat(now_value)
+            return deadline.utcoffset() != timedelta(0) or now < deadline
+        except ValueError:
+            return True
 
     def set_discovery_process_identity(
         self, attempt_id: str, group_id: int, process_id: int, starttime: int
@@ -610,7 +656,19 @@ class RunnerStore:
         output_sha256: str | None = None,
         proposal: DiscoveryProposal | None = None,
         no_work_condition: str | None = None,
+        transient_kind: str | None = None,
     ) -> str:
+        if transient_kind is not None and transient_kind not in {
+            "capacity",
+            "rate_limit",
+            "network",
+            "server",
+            "auth",
+            "timeout",
+        }:
+            raise ValueError("invalid discovery retry kind")
+        if (outcome == "transient") != (transient_kind is not None):
+            raise ValueError("transient outcome needs retry kind")
         now = utc_now()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -633,6 +691,9 @@ class RunnerStore:
             stage = str(cycle["stage"])
             count = int(cycle["proposal_count"])
             failures = int(cycle["infra_failures"])
+            transient_failures = int(cycle["transient_failures"])
+            retry_after: str | None = None
+            retry_kind: str | None = None
             active_digest = cycle["active_proposal_digest"]
             if outcome == "proposal":
                 if stage != "discover" or proposal is None or count >= MAX_PROPOSALS:
@@ -690,6 +751,20 @@ class RunnerStore:
                 if failures >= MAX_INFRA_FAILURES:
                     stage = "terminal"
                     reason = "discovery_infrastructure_exhausted"
+            elif outcome == "transient" and transient_kind is not None:
+                transient_failures += 1
+                seconds = (
+                    21_600
+                    if transient_kind == "auth"
+                    else (300, 900, 3_600)[min(transient_failures - 1, 2)]
+                )
+                retry_after = (
+                    datetime.fromisoformat(now) + timedelta(seconds=seconds)
+                ).isoformat()
+                retry_kind = transient_kind
+                reason = "discovery_transient_" + transient_kind
+            if outcome in {"proposal", "no_work", "rejected"}:
+                transient_failures = 0
             next_condition = (
                 no_work_condition
                 if outcome == "no_work" and no_work_condition
@@ -697,6 +772,8 @@ class RunnerStore:
                 if stage == "terminal"
                 else "runner resumed"
                 if outcome == "interrupted"
+                else f"retry after {retry_after}"
+                if outcome == "transient"
                 else "next bounded discovery cycle"
             )
             db.execute(
@@ -706,12 +783,16 @@ class RunnerStore:
             )
             db.execute(
                 "UPDATE discovery_cycles SET stage=?,proposal_count=?,infra_failures=?,"
+                "transient_failures=?,retry_after=?,retry_kind=?,"
                 "active_proposal_digest=?,active_attempt_id=NULL,reason=?,"
                 "next_condition=?,updated_at=? WHERE fingerprint=?",
                 (
                     stage,
                     count,
                     failures,
+                    transient_failures,
+                    retry_after,
+                    retry_kind,
                     active_digest,
                     reason,
                     next_condition,
@@ -889,6 +970,7 @@ class RunnerStore:
             )
             db.execute(
                 "UPDATE discovery_cycles SET stage='terminal',active_attempt_id=NULL,"
+                "transient_failures=0,retry_after=NULL,retry_kind=NULL,"
                 "reason='approved',next_condition='new source or task state',"
                 "updated_at=? WHERE fingerprint=?",
                 (now, fingerprint),

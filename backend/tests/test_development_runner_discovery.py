@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 import subprocess
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -14,6 +14,7 @@ import pytest
 from test_development_runner_backlog import _config, _fake_blocked_child, _store
 
 from jusik import development_runner as runner
+from jusik import development_runner_store as runner_store
 from jusik.development_runner_contract import AUTOMATIC_ENGINEERING_BACKLOG
 from jusik.development_runner_discovery import (
     DiscoveryProposal,
@@ -139,6 +140,211 @@ def _fake_pausing_child(path: Path, db_path: Path) -> None:
         encoding="utf-8",
     )
     path.chmod(0o700)
+
+
+def _fake_transport_failure(path: Path, error: dict[str, object] | None) -> None:
+    event = {"type": "turn.failed", "error": error} if error is not None else None
+    path.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        f"event = {event!r}\n"
+        "if event is not None:\n"
+        "    print(json.dumps(event), flush=True)\n"
+        "sys.exit(1)\n",
+        encoding="utf-8",
+    )
+    path.chmod(0o700)
+
+
+@pytest.mark.parametrize(
+    ("error", "kind"),
+    [
+        ({"message": "model is at capacity"}, "capacity"),
+        ({"status_code": 429}, "rate_limit"),
+        ({"status": 503}, "server"),
+        ({"code": "connection_error"}, "network"),
+        ({"message": "unexpected status 401 Unauthorized"}, "auth"),
+        ({"message": "unexpected failure"}, None),
+    ],
+)
+def test_only_structured_turn_error_classifies_transport(
+    tmp_path: Path,
+    error: dict[str, object],
+    kind: str | None,
+) -> None:
+    transcript = tmp_path / "stdout.jsonl"
+    transcript.write_text(
+        json.dumps({"type": "item.completed", "item": {"text": "status 401"}})
+        + "\n"
+        + json.dumps({"type": "turn.failed", "error": error})
+        + "\n",
+        encoding="utf-8",
+    )
+    assert runner._discovery_transport_kind(transcript) == kind
+
+
+def test_discovery_transport_retry_survives_restart_without_early_launch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = [datetime.now(UTC)]
+    monkeypatch.setattr(runner_store, "utc_now", lambda: clock[0].isoformat())
+    fake = tmp_path / "fake-transport.py"
+    _fake_transport_failure(fake, {"code": "model_capacity", "message": "busy"})
+    config, store = _exhausted(tmp_path, fake)
+    first = runner.run_once(config)
+    assert first.reason == "discovery_codex_exit"
+    mandate = validate_dispatch_gate(config.repo).digest
+    fingerprint = source_fingerprint(config.repo, mandate, store.discovery_snapshot())
+    cycle = store.discovery_cycle(fingerprint)
+    assert cycle is not None and cycle["stage"] == "discover"
+    assert cycle["transient_failures"] == 1
+    assert cycle["retry_kind"] == "capacity"
+    assert datetime.fromisoformat(cycle["retry_after"]) == clock[0] + timedelta(
+        minutes=5
+    )
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    assert runner.run_once(config).reason == "discovery_retry_scheduled"
+    assert RunnerStore(store.db_path).launch_count(day) == 1
+    assert not store.start_discovery_attempt(
+        fingerprint,
+        cycle["baseline_head"],
+        mandate,
+        store.discovery_snapshot(),
+        "early-attempt",
+        "discover",
+        tmp_path / "early.json",
+        datetime.now(UTC).isoformat(),
+    )
+    clock[0] += timedelta(minutes=5, seconds=1)
+    second = runner.run_once(config)
+    assert second.reason == "discovery_codex_exit"
+    cycle = RunnerStore(store.db_path).discovery_cycle(fingerprint)
+    assert cycle is not None and cycle["transient_failures"] == 2
+    assert datetime.fromisoformat(cycle["retry_after"]) == clock[0] + timedelta(
+        minutes=15
+    )
+    assert runner.run_once(config).reason == "discovery_retry_scheduled"
+    assert store.launch_count(day) == 2
+    clock[0] += timedelta(minutes=15, seconds=1)
+    _fake_child(fake)
+    assert runner.run_once(config).reason == "discovery_scope"
+    cycle = store.discovery_cycle(fingerprint)
+    assert cycle is not None and cycle["transient_failures"] == 0
+    assert cycle["retry_after"] is None and cycle["retry_kind"] is None
+    _fake_transport_failure(fake, {"code": "network_error", "message": "disconnected"})
+    assert runner.run_once(config).reason == "discovery_codex_exit"
+    cycle = store.discovery_cycle(fingerprint)
+    assert cycle is not None and cycle["stage"] == "scope"
+    assert cycle["proposal_count"] == 1 and cycle["retry_kind"] == "network"
+    assert store.discovery_active_proposal(fingerprint) is not None
+    assert runner.run_once(config).reason == "discovery_retry_scheduled"
+    clock[0] += timedelta(minutes=5, seconds=1)
+    _fake_child(fake)
+    assert runner.run_once(config).reason == "discovery_approved"
+    cycle = store.discovery_cycle(fingerprint)
+    assert cycle is not None and cycle["stage"] == "terminal"
+    assert cycle["transient_failures"] == 0
+    assert cycle["retry_after"] is None and cycle["retry_kind"] is None
+
+
+def test_discovery_transport_backoff_caps_at_one_hour(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = [datetime.now(UTC)]
+    monkeypatch.setattr(runner_store, "utc_now", lambda: clock[0].isoformat())
+    fake = tmp_path / "fake-rate-limit.py"
+    _fake_transport_failure(fake, {"status_code": 429})
+    config, store = _exhausted(tmp_path, fake)
+    for count, minutes in enumerate((5, 15, 60, 60), 1):
+        assert runner.run_once(config).reason == "discovery_codex_exit"
+        status = store.discovery_status()
+        assert status is not None and status["transient_failures"] == count
+        assert status["retry_kind"] == "rate_limit"
+        assert isinstance(status["retry_after"], str)
+        assert datetime.fromisoformat(status["retry_after"]) == clock[0] + timedelta(
+            minutes=minutes
+        )
+        clock[0] += timedelta(minutes=minutes, seconds=1)
+    assert store.discovery_status()["stage"] == "discover"  # type: ignore[index]
+
+
+def test_ready_engineering_task_preempts_scheduled_discovery(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-capacity.py"
+    _fake_transport_failure(fake, {"code": "model_capacity"})
+    config, store = _exhausted(tmp_path, fake)
+    assert runner.run_once(config).reason == "discovery_codex_exit"
+    ready_spec = AUTOMATIC_ENGINEERING_BACKLOG[0]
+    with sqlite3.connect(store.db_path) as db:
+        db.execute("UPDATE tasks SET status='queued' WHERE id=?", (ready_spec.id,))
+    _fake_blocked_child(fake)
+    result = runner.run_once(config)
+    assert result.task_id == ready_spec.id
+
+
+def test_terminated_discovery_timeout_schedules_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = tmp_path / "fake-slow.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\nimport time\ntime.sleep(30)\n", encoding="utf-8"
+    )
+    fake.chmod(0o700)
+    config, store = _exhausted(tmp_path, fake)
+    monkeypatch.setattr(runner, "_child_idle_expired", lambda *args: True)
+    assert runner.run_once(config).reason == "discovery_timeout"
+    status = store.discovery_status()
+    assert status is not None and status["retry_kind"] == "timeout"
+    assert status["stage"] == "discover"
+
+
+def test_discovery_401_waits_six_hours_without_reconfiguration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = [datetime.now(UTC)]
+    monkeypatch.setattr(runner_store, "utc_now", lambda: clock[0].isoformat())
+    fake = tmp_path / "fake-auth.py"
+    _fake_transport_failure(fake, {"message": "unexpected status 401 Unauthorized"})
+    config, store = _exhausted(tmp_path, fake)
+    assert runner.run_once(config).reason == "discovery_codex_exit"
+    status = store.discovery_status()
+    assert status is not None and status["retry_kind"] == "auth"
+    assert status["transient_failures"] == 1
+    assert isinstance(status["retry_after"], str)
+    assert datetime.fromisoformat(status["retry_after"]) == clock[0] + timedelta(
+        hours=6
+    )
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    assert runner.run_once(config).reason == "discovery_retry_scheduled"
+    assert store.launch_count(day) == 1
+    clock[0] += timedelta(hours=6, seconds=1)
+    _fake_child(fake)
+    assert runner.run_once(config).reason == "discovery_scope"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [None, {"message": "401 in command output"}, {"message": "unexpected failure"}],
+)
+def test_unstructured_or_unknown_failure_keeps_finite_terminal_limit(
+    tmp_path: Path,
+    error: dict[str, object] | None,
+) -> None:
+    fake = tmp_path / "fake-unknown.py"
+    _fake_transport_failure(fake, error)
+    config, store = _exhausted(tmp_path, fake)
+    assert runner.run_once(config).reason == "discovery_codex_exit"
+    assert runner.run_once(config).reason == "discovery_codex_exit"
+    status = store.discovery_status()
+    assert status is not None and status["stage"] == "terminal"
+    assert status["transient_failures"] == 0
+    assert status["retry_after"] is None
+    assert (
+        runner.run_once(config).reason == "discovery_discovery_infrastructure_exhausted"
+    )
 
 
 def test_exhausted_backlog_dispatches_discovery(
@@ -577,6 +783,44 @@ def test_uncertain_orphan_is_quarantined_without_relaunch(tmp_path: Path) -> Non
     assert store.launch_count(day) == 1
 
 
+@pytest.mark.parametrize("failure", ["paused", "child_output_invalid"])
+def test_discovery_stopped_child_with_live_group_never_relaunches(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    fake = tmp_path / "fake-stopped.py"
+    config, store = _exhausted(tmp_path, fake)
+    setup = (
+        "import sqlite3\n"
+        f"with sqlite3.connect({str(store.db_path)!r}) as db:\n"
+        "    db.execute(\"INSERT INTO runner_meta(key,value) VALUES('paused','1') "
+        "ON CONFLICT(key) DO UPDATE SET value='1'\")\n"
+        if failure == "paused"
+        else 'print(\'{"tool":"wait","receiver_thread_ids":[]}\', flush=True)\n'
+    )
+    fake.write_text(
+        "#!/usr/bin/env python3\nimport time\n" + setup + "time.sleep(30)\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    monkeypatch.setattr(runner, "_process_group_alive", lambda _group_id: True)
+    result = runner.run_once(config)
+    assert result.reason == "discovery orphan identity uncertain"
+    assert result.status == ("paused" if failure == "paused" else "blocked")
+    status = store.discovery_status()
+    assert status is not None and status["stage"] == "terminal"
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute("SELECT status FROM discovery_attempts").fetchone() == (
+            "quarantined",
+        )
+    store.resume()
+    monkeypatch.setattr(runner, "_process_group_alive", lambda _group_id: False)
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    assert runner.run_once(config).reason == "discovery_orphan_identity_uncertain"
+    assert store.launch_count(day) == 1
+
+
 def test_scope_pass_registration_rolls_back_when_queue_fills(tmp_path: Path) -> None:
     fake = tmp_path / "fake-discovery.py"
     _fake_child(fake)
@@ -673,6 +917,19 @@ def test_legacy_rows_survive_additive_discovery_schema(tmp_path: Path) -> None:
             "status TEXT NOT NULL,started_at TEXT NOT NULL,ended_at TEXT,"
             "process_group_id INTEGER,output_path TEXT NOT NULL,"
             "failure_code TEXT,receipt_json TEXT,context_json TEXT NOT NULL);"
+            "CREATE TABLE discovery_cycles (fingerprint TEXT PRIMARY KEY,"
+            "stage TEXT NOT NULL,baseline_head TEXT NOT NULL,"
+            "mandate_digest TEXT NOT NULL,task_snapshot_json TEXT NOT NULL,"
+            "proposal_count INTEGER NOT NULL DEFAULT 0,"
+            "infra_failures INTEGER NOT NULL DEFAULT 0,"
+            "active_proposal_digest TEXT,active_attempt_id TEXT,"
+            "reason TEXT NOT NULL,next_condition TEXT NOT NULL,"
+            "updated_at TEXT NOT NULL);"
+            "INSERT INTO discovery_cycles "
+            "(fingerprint,stage,baseline_head,mandate_digest,"
+            "task_snapshot_json,reason,next_condition,updated_at) VALUES "
+            "('legacy-cycle','terminal','head','mandate','[]',"
+            "'no_work','source changed','before');"
             "INSERT INTO tasks (id,area,prompt,status,created_at,updated_at) "
             "VALUES ('legacy','offline','existing','completed','before','before');"
             "INSERT INTO attempts (id,task_id,status,started_at) "
@@ -684,6 +941,10 @@ def test_legacy_rows_survive_additive_discovery_schema(tmp_path: Path) -> None:
         )
     store = RunnerStore(path)
     assert store.task("legacy") is not None
+    legacy_cycle = store.discovery_cycle("legacy-cycle")
+    assert legacy_cycle is not None and legacy_cycle["reason"] == "no_work"
+    assert legacy_cycle["transient_failures"] == 0
+    assert legacy_cycle["retry_after"] is None
     with sqlite3.connect(path) as db:
         assert db.execute(
             "SELECT task_id,status FROM attempts WHERE id='legacy-attempt'"
