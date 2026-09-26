@@ -94,6 +94,12 @@ local main은 runner lock·pause·실행 attempt 0·소유 경로 무변경 확�
 JUnit은 audit `review-transport/main-focused.xml`이다. 별도
 `research-novice-comprehension` UI 수동 작업과 pause를 공유하므로 아직 재개하지 않는다.
 
+다음 slice용 09:23Z 무렵의 운영 online backup에는 이미 review의 가산 열 3개가
+존재했다. 최초 backup과 모든 기존 열을 다시 대조하여 13개 table·1,322행이 그대로임을
+확인했다. 기존 20개 review의 retry metadata는 모두 NULL/NULL/0, integrity `ok`다.
+어떤 paused 진입의 초기화였는지는 단정하지 않으며 실제 provider 재시도 성공을
+의미하지 않는다. schema 적용 확인과 실제 호출 복구 검증을 구분한다.
+
 실제 provider 장애를 유발하지 않고, credentials·권한·과금·실주문·투자 기준·자동
 scope 승인·과거 산출물은 변경하지 않는다. 위 소유 범위를 넘는 구조 변경이 필요하면
 구현자가 임의 확장하지 않고 감독자에게 근거를 반환한다. 전체 sprint 종료는

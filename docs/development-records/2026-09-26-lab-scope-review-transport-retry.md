@@ -3,6 +3,8 @@
 - 상태: 조사·계획 완료, 순차 구현 준비. 선행 구현 완료 review `3814b6f`와 main 242개
   검사 PASS 뒤 시작한다. 같은 runner/store를 동시에 수정하지 않는다.
 - 작업: `lab-scope-review-transport-retry`; 3시간 sprint 종료는 2026-09-26T10:56:14Z다.
+- 구현 시작: 전용 worktree 기준 `3130718812e75402e4ed8bc5eee1470a18351ccb`,
+  09:23Z 무렵. 선행 제품 worktree는 정상 제거했고 branch·증거는 보존했다.
 - 범위: runner/store와 새 전용 scope transport 테스트를 단일 Sol이 소유하고 별도 Sol이
   검토한다. root는 문서·등록부·실제 backup 복사본 보존 검사·main 통합·handoff를 맡는다.
 
@@ -42,3 +44,8 @@ wait의 일괄 pending 변경·legacy 실패 자동 복구는 하지 않는다.
 audit은 성능 sprint의 `SCOPE_REVIEW_RECOVERY_PLAN.md` 및 새 `scope-transport/`다.
 실주문·provider·credentials·유료 호출·권한·투자 기준·frontend·원격 push·Windows
 종료는 범위 밖이며 UI 수동 작업과 공유한 runner pause를 유지한다.
+
+root가 보존한 새 운영 online backup은 `scope-transport/runner-before-scope-transport.db`,
+SHA-256 `b9ddb708c0595a53676da9319eecc76917746990d0afe2f8782b1154c37670c4`다.
+선행 review retry 열만 있고 scope retry 열은 아직 없다. 13개 table·1,322행·integrity
+`ok`이며 구현자는 이 backup을 열지 않고 합성 fixture만 사용한다.

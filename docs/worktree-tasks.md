@@ -36,10 +36,10 @@
 
 ## lab-scope-review-transport-retry
 
-- 상태: Luna 조사·Sol 계획 완료, 선행 구현 완료 review의 main 검사 242개 PASS 뒤 순차 구현 준비. scope의 24시간 TTL·정확한 HEAD·승인 근거는 보존합니다.
+- 상태: Luna 조사·Sol 계획 완료, 선행 구현 완료 review의 main 검사 242개 PASS 뒤 단일 Sol 구현 중. scope의 24시간 TTL·정확한 HEAD·승인 근거는 보존합니다.
 - 목표·완료 조건: 확인된 일시 호출 실패를 영속 `transport_wait`로 격리하고 due에만 같은 pending 제안을 별도 검토합니다. 미래 기한은 독립 READY·공학 fallback을 막지 않으며, 실제 PASS 전에 새 제품 task를 등록하지 않습니다.
 - 담당·소유: 단일 Sol code는 `development_runner.py`, `development_runner_store.py`, 새 `tests/test_development_runner_scope_transport.py` 세 파일을 소유합니다. root가 운영 문서·DB backup 복사본 검증·통합·기록을 맡고 별도 Sol review를 수행합니다. 중첩 위임·운영 DB·실제 연구 자료·API 접근 없음.
-- 경로·브랜치: `/home/kwl/projects/jusik-lab-scope-review-transport-retry`, `fix/lab-scope-review-transport-retry`. 기록 commit 뒤 main에서 시작하며 선행 코드 소유권과 겹치지 않습니다.
+- 경로·브랜치: `/home/kwl/projects/jusik-lab-scope-review-transport-retry`, `fix/lab-scope-review-transport-retry`. 기준 `3130718`, 선행 코드 소유권과 겹치지 않으며 이전 완료 worktree는 정상 제거했습니다.
 - 계약: 가산 retry 열 3개와 구 reader가 선택하지 않는 `transport_wait`, 원자 due claim·실패 기록·별도 PASS·5/15/60분 및 auth 6시간. 과거 terminal 기록·미확인 오류·timeout·REJECT·WAIT·orphan은 자동 재해석하지 않습니다. 만료·HEAD/snapshot 변경 시 원 제안은 stale이며 ancestry 예외·TTL 연장·투자 기준 완화는 없습니다.
 - 예산·검증: 구현 45분, 별도 검토·main 검증 시간을 남깁니다. fake CLI/clock의 실패→기한→READY/fallback→재시작→PASS, cap·race·tamper·구버전 rollback·DB 보존을 증명합니다. audit의 `SCOPE_REVIEW_RECOVERY_PLAN.md`, 기록 `docs/development-records/2026-09-26-lab-scope-review-transport-retry.md`를 따릅니다.
 
