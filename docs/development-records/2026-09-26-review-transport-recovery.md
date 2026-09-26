@@ -57,7 +57,10 @@
 
 ## 완료 기준과 현재 상태
 
-구현 기준은 `d30c809`이며 전용 worktree에서 구현 중이다. root가 보존한 운영 DB의
+구현 기준은 `d30c809`이며 전용 worktree의 제품 commit은
+`ff9395890c1889fac652e349213e955920f607c7`이다. 239개 집중 pytest, 소유 5파일의
+Ruff check/format·strict mypy·diff 검사를 통과했고 별도 Sol review 중이다.
+root가 보존한 운영 DB의
 online backup은 audit `review-transport/runner-before-review-transport.db`,
 SHA-256 `f9416377bb8e0b568ed656c651f71694ab0d52b3095441e09e0fc909036204a4`,
 13개 table·integrity `ok`다. 구현자는 이 운영 backup을 사용하지 않고 합성 fixture로
@@ -67,6 +70,13 @@ pause/quota/cooldown, 위조 text·oversize·REJECT·무효 receipt·불확실 o
 소유 hash/HEAD 변경과 별도 PASS 전 미완료를 확인한다. legacy 행 보존·반복 초기화·
 SQLite integrity·구버전 rollback 및 집중 검사·독립 Sol review·main 검증까지 완료해야
 `ENGINEERING_COMPLETE/NOT_EVALUATED`로 기록한다.
+
+root의 별도 migration 검사도 운영 DB가 아니라 보존 backup의 새 복사본에서 수행했다.
+13개 table·1,322개 기존 행의 모든 기존 열 값을 첫·반복 초기화 뒤 대조하여 보존을
+확인했다. review의 세 가산 열 외 schema 변경은 없고 20개 과거 review의 metadata는
+NULL/NULL/0이며 재분류되지 않았다. 원 backup SHA와 SQLite integrity `ok`도 유지됐다.
+재현 script·증거는 audit `review-transport/verify_db_preservation.py`,
+`DB_PRESERVATION.md`에 있다. 운영 적용 또는 실제 공급자 장애 복구를 증명한 것은 아니다.
 
 실제 provider 장애를 유발하지 않고, credentials·권한·과금·실주문·투자 기준·자동
 scope 승인·과거 산출물은 변경하지 않는다. 위 소유 범위를 넘는 구조 변경이 필요하면

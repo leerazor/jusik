@@ -25,10 +25,10 @@
 
 ## lab-review-transport-retry
 
-- 상태: Luna 조사·Sol 계획과 cross-attempt identity 보완 완료, 단일 구현 준비. `performance-sprint-20260926-1656`의 후속 과제입니다.
+- 상태: 구현 `ff93958`·집중 239개 pytest/Ruff/strict mypy 완료, 별도 Sol review 중. root의 실제 DB backup 복사본 13개 table·1,322개 기존 행 보존과 반복 초기화·integrity 검증도 통과했습니다. `performance-sprint-20260926-1656`의 후속 과제입니다.
 - 목표: 구현 완료 reviewer의 확인된 일시 호출 장애가 후보를 영구 대기시키지 않도록 하고, 기한 전에는 독립 READY·공학 fallback을 진행합니다. 일반 engineering과 같은 경로의 roadmap code completion만 포함하며 연구 scope reviewer는 별도 후속입니다.
 - 담당·소유: 단일 Sol code는 `backend/jusik/development_runner.py`, `backend/jusik/development_runner_store.py`, `backend/tests/test_development_runner_review.py`, 새 `backend/tests/test_development_runner_review_transport.py`를 수정합니다. 기존 recovery 테스트가 pause 상태에서 직접 claim을 전제한 사실을 확인하고, `test_development_runner_recovery.py`의 marker-tamper CAS 검사 setup에 `store.resume()` 한 줄만 추가하도록 범위를 확장했습니다. root는 운영 문서·등록부·개발 기록·audit·main 통합을 맡고 별도 Sol이 검토합니다. 중첩 위임은 하지 않습니다.
-- 경로·브랜치: `/home/kwl/projects/jusik-lab-review-transport-retry`, `fix/lab-review-transport-retry`. 기준 `d30c809`, 단일 구현 시작. 통합 대상은 local `main`입니다.
+- 경로·브랜치: `/home/kwl/projects/jusik-lab-review-transport-retry`, `fix/lab-review-transport-retry`. 기준 `d30c809`, 구현 `ff93958`. 독립 검토와 현재 main 검증을 통과한 뒤 local `main`에 통합합니다.
 - 계약: 종료가 확인된 child의 제한된 구조화 오류만 capacity/rate_limit/network/server/auth로 분류합니다. 새 opt-in metadata와 `review_transport_<kind>` 실패 코드를 원자 저장하고 5/15/60분·auth 6시간 뒤에만 재시도합니다. 기존 비전송 시도 2회 상한·quota·cooldown·pause·독립 PASS는 유지합니다.
 - identity: 새 transport anchor가 있는 재시도에만 기존 historical 검증을 제한적으로 재사용합니다. 제품·이전 검토 commit의 main ancestry, 원 completion·구현 attempt·baseline·소유 hash는 고정하고 해당 시도의 fresh HEAD로 검토합니다. 검토 도중 HEAD 변경은 거부하며, 일반 최초 검토와 legacy stale 규칙은 유지합니다.
 - 완료 기준: fake CLI/clock의 실패→영속 기한→다른 READY 진행→restart→같은 제품의 별도 PASS, 중복 claim·오염·legacy 보존·실제 이전 store rollback 검증, 집중 pytest/Ruff/strict mypy·독립 review·main 검증입니다. 운영 DB와 실제 API는 구현자가 접근하지 않습니다.
@@ -36,10 +36,11 @@
 
 ## kofr-public-contract-audit-20260926
 
-- 상태: RUNNING, 읽기 전용 연구 준비 점검. 성능 sprint와 독립 진행하며 구현 담당자의 파일·운영 DB는 수정하지 않습니다.
+- 상태: DONE, bounded 읽기 전용 점검 완료. 공식 FSC의 과거 일반 공시 일정은 확인했지만 `PUBN_DTTM`의 정확한 시간 의미·전체 영업일·미국-only 적용 근거는 해결하지 못했습니다. 이 audit의 완료와 KOFR 적용/Sharpe 검증은 구분합니다.
 - 목표·완료 조건: 기존 KOFR 적용 preflight의 `PUBN_DTTM` timezone/instant와 provider 영업일 완전성을 뒷받침하는 공식 공개문서를 bounded 탐색합니다. 확인된 사실·직접 지지하지 않는 추론·남은 적용 결정을 구분한 audit를 남기면 완료입니다. Sharpe 계산 또는 승인 완료를 목표로 삼지 않습니다.
 - 범위·예산: root 단일 소유. KSD/KOFR 등 공식 공개문서 검색·열람만 수행하고 최대 8개 원문을 확인합니다. collector/API 재수집, credentials 조회, 실제 NAV/PnL·holdout·DB 조회, 기간 축소·0 대체·carry-forward·기존 정책/자료 승격은 제외합니다. 별도 제품 worktree는 필요하지 않습니다.
 - 입력·출력: 기존 preflight/정책 제안/수집 코드의 field 이름과 공식 문서. 출력은 성능 sprint audit의 `KOFR_PUBLIC_CONTRACT_AUDIT.md`, 확정 사실과 미확정 조건을 개발 기록에 연결합니다.
+- 결과: 공식 원문 3개를 확인했고 collector/API는 호출하지 않았습니다. 새 직접 근거가 생길 때만 적용 검토를 재개하며 동일 검색을 반복하지 않습니다. 독립 reviewer 복구·DB 보존 검증·통합은 계속합니다.
 - 중단·전환: 문서로 시간 의미나 완전성을 입증할 수 없으면 그 사실을 보존하고 자동 요청을 반복하지 않습니다. 독립 `lab-review-transport-retry` 구현·검토는 그대로 계속합니다. 새 출처·적용 정책을 임의 승인하지 않습니다.
 
 ## research-web-reports

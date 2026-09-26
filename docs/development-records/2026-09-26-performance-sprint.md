@@ -119,3 +119,15 @@ UI 문서 완료 commit만 추가됐음을 확인한 다음 저장소 runner loc
 정책 artifact와 source SHA로 고정되어 있어 임의 pin 갱신을 하지 않았으며, 후속
 정책 identity 계획의 입력으로 보존한다. 상세는 audit `METRICS_BOUNDARY_AUDIT.md`다.
 이 독립 점검의 보류 항목과 관계없이 reviewer 호출 복구 구현을 계속한다.
+
+KOFR 적용 근거의 별도 bounded 공개자료 점검도 완료했다. FSC의 2021-12-27
+[공식 보도자료](https://www.fsc.go.kr/no010101/77138)는 일반적인 일일 11시 공시를
+설명하지만 `PUBN_DTTM`의 timezone/최초·정정 instant, 전체 영업일과 미국-only NAV
+날짜의 적용 규칙을 입증하지 않는다. 세 공식 페이지와 제한된 검색에서 이 직접
+근거를 확보하지 못했으며 collector/API·실제 NAV/PnL은 열지 않았다. 상세는 audit의
+`KOFR_PUBLIC_CONTRACT_AUDIT.md`다. 검색을 무의미하게 반복하거나 0/이월값으로 채우지
+않고, 새 외부 근거가 생길 때 적용 검토를 재개한다. 독립 공학 작업은 계속한다.
+
+09:05Z에 별도 UI 세션의 `research-novice-comprehension` 등록을 확인했다. 해당 작업도
+수동 pause를 공유하므로 본 코드 완료만으로 runner를 재개하지 않는다. 재개 전 두
+수동 작업의 완료·운영 인계와 실제 실행 상태를 다시 확인하며 UI 파일·기록은 보존한다.
