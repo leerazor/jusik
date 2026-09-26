@@ -1,15 +1,15 @@
 # 워크트리 작업 등록부
 
-## beginner-research-ui-20260926
+## beginner-research-ui
 
-- 상태: 조사 완료, 설계 중. runner는 paused이고 service inactive이며 기존 중지 상태를 유지합니다.
+- 상태: 구현·독립 검토·로컬 main 통합·검증 완료. 기존 3000 포트의 서비스 교체는 사용자 확인 대기이며 새 UI는 3337에서 실제 연구 자료로 확인할 수 있습니다. runner paused·service inactive·timer active 유지.
 - 목표: 초보자가 연구의 현재 결론, 해석과 한계, 다음 확인 사항을 먼저 이해하도록 연구 홈·결과 화면·탐색 구조를 재설계합니다. `/investor`의 별도 종목 분석 역할을 설명하고 기존 URL·폼·액션·금융 수치와 데이터 검증을 보존합니다.
 - 담당: read-only explore와 plan, 단일 Sol code 구현, 별도 Sol review, root 검증·통합. 중첩 위임 없음.
-- 워크트리·브랜치: `/home/kwl/projects/jusik-beginner-research-ui` / `feat/beginner-research-ui`. 기준 준비 `b12538981f9cc7edbf75becd6ebae4773123c866`; 통합 대상 local `main`.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-beginner-research-ui` / `feat/beginner-research-ui`. 기준 `da4bf02`; 구현 `a854af0`·검토 보완 `6657454`. 병합 직전 main `96b2018`, 통합 `a1da784979228e23648faebd7a0c1377a07098f2`. 검증·산출물 보존 뒤 전용 worktree와 브랜치 정상 제거.
 - 수정 범위: frontend 연구 홈·결과·관찰의 설명 및 정보 계층, 공유 탐색·관련 CSS·투자자 진입 설명·오타 경로, 필요한 표시 도우미와 검사, 관련 사용자 문서와 개발 기록. 전략·연구 실행·금융 계산·API·인증·거래 정책 변경은 제외합니다.
 - 격리: 전용 node_modules와 Next 출력, 프런트 포트 3337·fixture 8337, 임시 자료는 작업별 경로. 운영 DB·증권사 API 변경 없음.
-- 검증: lint·typecheck·build, 자료 정상/없음/실패/설명 식별 불일치, 데스크톱·모바일·키보드·펼침·앵커·링크·기존 폼 보존, 별도 review와 main 통합 검사.
-- audit: `/home/kwl/.local/share/jusik/ui-redesign-20260926/`; 기존 실제 화면 캡처와 사전 조사 보존. 개발 기록 `docs/development-records/2026-09-26-beginner-research-ui.md`, 완료 handoff는 같은 audit에 저장합니다.
+- 검증: worker와 main의 lint·typecheck·build PASS. 15개 자료 상태, 1440px·390px 주요 5개 경로, 상세 6개 경로의 현재 메뉴, 키보드·펼침/초점 유지·실제 카드 링크·폼 보존 PASS. 별도 Sol review의 읽기 순서 P2 수정 후 필수 지적 없음. 직접 URL hash 초기 스크롤은 구·신 화면에서 동일한 기존 제한으로 기록.
+- audit: `/home/kwl/.local/share/jusik/ui-redesign-20260926/`; `manifest.json`·`verification.json`·캡처·diff 보존. 개발 기록 `docs/development-records/2026-09-26-beginner-research-ui.md`, handoff는 같은 audit의 `HANDOFF.md`입니다.
 - 보존: 기존 사용자 `HANDOFF.md`, 다른 작업의 변경·worktree·서비스. 원격 push와 새 성과 실험 없음.
 
 ## lab-roadmap-completion-review
