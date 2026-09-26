@@ -51,8 +51,12 @@ from jusik.development_runner_planning import (
 )
 from jusik.development_runner_planning_scope import (
     ROADMAP_TASK_SCOPE_GUARD,
+    PendingRoadmapCodeScope,
     PendingRoadmapScope,
+    RoadmapCodeScopeReview,
     RoadmapScopeReview,
+    code_spec,
+    freeze_code_scope,
 )
 from jusik.development_runner_planning_scope import (
     digest as planning_scope_digest,
@@ -768,7 +772,12 @@ def _allowed_path(path: Path, roots: list[Path]) -> bool:
 
 def _engineering_spec(store: RunnerStore, task_id: str) -> EngineeringSpec | None:
     spec = store.engineering_spec(task_id)
-    if spec is None and not task_id.startswith("lab-discovery-"):
+    task = store.task(task_id)
+    if (
+        spec is None
+        and not task_id.startswith("lab-discovery-")
+        and (task is None or task.area == "__engineering__")
+    ):
         # Historical manually enqueued engineering candidates predate the registry.
         return EngineeringSpec(task_id, "__engineering__", "", ENGINEERING_OWNED_PATHS)
     return spec
@@ -879,6 +888,14 @@ def validate_completion(
     if ancestor.returncode != 0:
         raise ValueError("integrated commit is not an ancestor of main")
     if task.task_kind == "engineering":
+        RunnerStore(
+            config.state_dir / "runner.db", config.history_dir
+        ).validate_roadmap_code_task(
+            task.id,
+            config.repo,
+            before_dispatch=False,
+            implementation_baseline=baseline_head,
+        )
         current_main = _git(config.repo, "rev-parse", "main").stdout.strip()
         if not historical_engineering and completion.integrated_commit != current_main:
             raise ValueError("engineering commit must be current main HEAD")
@@ -1171,6 +1188,7 @@ def _select_task(
     roadmap: Roadmap | None,
 ) -> RunnerTask | None:
     """Quarantine invalid task contracts without stopping independent work."""
+    repo = roadmap.path.parent.parent if roadmap is not None else None
 
     def valid_engineering_alternative(candidate: RunnerTask) -> bool:
         if candidate.task_kind != "engineering":
@@ -1207,6 +1225,13 @@ def _select_task(
                 or task.depends_on is not None
             ):
                 reason = "engineering task does not match registered spec"
+            elif repo is not None:
+                try:
+                    store.validate_roadmap_code_task(
+                        task.id, repo, before_dispatch=True
+                    )
+                except (OSError, ValueError, subprocess.CalledProcessError):
+                    reason = "roadmap code dispatch gate changed"
         elif reason is None and task.task_kind not in {"research", "investment"}:
             reason = "task kind is not registered"
         elif reason is None and roadmap is not None and task.task_kind != "engineering":
@@ -1851,9 +1876,16 @@ def _run_planning(
                     [item.model_dump(mode="json") for item in proposed.evidence]
                 ),
             )
+            pending = freeze_code_scope(pending, config.repo)
             if not store.stage_roadmap_planning(pending):
                 raise ValueError("planning scope claim changed")
-        except (ValueError, RoadmapError, MandateGovernanceError):
+        except (
+            OSError,
+            ValueError,
+            RoadmapError,
+            MandateGovernanceError,
+            subprocess.CalledProcessError,
+        ):
             store.finish(attempt_id, task.id, "failed", failure_code="planning_stale")
             return RunResult("failed", task.id, attempt_id, "planning_stale")
         return RunResult("completed", task.id, attempt_id, "planning_scope_pending")
@@ -2175,7 +2207,10 @@ def _run_review(
         store.mark_review_candidate_stale(candidate)
         return None
     prompt = review_prompt(context)
-    if candidate.task.id.startswith("lab-discovery-"):
+    if (
+        candidate.task.id.startswith("lab-discovery-")
+        or store.roadmap_code_scope(candidate.task.id) is not None
+    ):
         prompt = (
             "Frozen approved engineering acceptance:\n" + spec.prompt + "\n\n" + prompt
         )
@@ -2298,12 +2333,19 @@ def _run_review(
             receipt=receipt.model_dump(exclude_none=True),
         )
         return None
-    if not store.finish_review(
-        candidate,
-        review_id,
-        status="completed",
-        receipt=receipt.model_dump(exclude_none=True),
-    ):
+    try:
+        if not store.finish_review(
+            candidate,
+            review_id,
+            status="completed",
+            receipt=receipt.model_dump(exclude_none=True),
+            repo=config.repo,
+        ):
+            return None
+    except (OSError, ValueError, subprocess.CalledProcessError):
+        store.finish_review(
+            candidate, review_id, status="failed", failure_code="receipt_invalid"
+        )
         return None
     _safe_history_flush(store, config)
     return RunResult(
@@ -2396,13 +2438,36 @@ def _run_roadmap_scope_review(
         f"Proposal digest: {pending.proposal_digest}\n"
         f"Evidence digest: {pending.evidence_digest}"
     )
+    review_model: type[RoadmapScopeReview] = RoadmapScopeReview
+    if isinstance(pending, PendingRoadmapCodeScope):
+        review_model = RoadmapCodeScopeReview
+        prompt += (
+            "\nApprove only direct offline code implementation in this exact pair, "
+            "not financial research/OOS/holdout execution. Return schema_version=2, "
+            "execution_kind=engineering_code and these exact host-computed fields.\n"
+            f"Code contract digest: {pending.code_contract_digest}\n"
+            "Owned file hashes: "
+            f"{json.dumps(pending.owned_file_hashes, sort_keys=True)}\n"
+        )
+    scope_schema = strict_output_schema(review_model)
+    if isinstance(pending, PendingRoadmapCodeScope):
+        properties = scope_schema["properties"]
+        if not isinstance(properties, dict):
+            raise ValueError("scope schema properties missing")
+        properties["owned_file_hashes"] = {
+            "type": "object",
+            "additionalProperties": False,
+            "required": sorted(pending.owned_file_hashes),
+            "properties": {
+                name: {"type": "string", "const": value}
+                for name, value in pending.owned_file_hashes.items()
+            },
+        }
     _write_private(review_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     _write_private(
         schema_path,
-        (
-            json.dumps(strict_output_schema(RoadmapScopeReview), sort_keys=True) + "\n"
-        ).encode(),
+        (json.dumps(scope_schema, sort_keys=True) + "\n").encode(),
     )
     if not store.start_roadmap_scope_review(
         pending, review_id, output_path, datetime.now(UTC).isoformat()
@@ -2488,7 +2553,7 @@ def _run_roadmap_scope_review(
         if output_path.stat().st_size > 16_384:
             raise ValueError("roadmap scope output too large")
         raw = output_path.read_bytes()
-        review = RoadmapScopeReview.model_validate_json(raw)
+        review = review_model.model_validate_json(raw)
         validate_roadmap_scope_review(review, pending, review_id)
         response_sha256 = hashlib.sha256(raw).hexdigest()
         if store.is_paused() or (stop_requested is not None and stop_requested()):
@@ -2511,7 +2576,9 @@ def _run_roadmap_scope_review(
             review_id,
             review,
             config.repo,
-            ROADMAP_TASK_SCOPE_GUARD.format(work_class=review.work_class)
+            code_spec(pending).prompt
+            if isinstance(pending, PendingRoadmapCodeScope)
+            else ROADMAP_TASK_SCOPE_GUARD.format(work_class=review.work_class)
             + f"\n\n{COMMON_PROMPT}\n\n{proposal.prompt}",
             response_sha256,
         )
@@ -3181,6 +3248,10 @@ def run_once(
                 _roadmap_dispatch_gate(
                     config.repo, governance.digest if governance else None
                 )
+                if task.task_kind == "engineering":
+                    store.validate_roadmap_code_task(
+                        task.id, config.repo, before_dispatch=True
+                    )
             store.claim(
                 task,
                 attempt_id,
@@ -3189,7 +3260,7 @@ def run_once(
                 now.isoformat(),
                 baseline_head=baseline_head,
             )
-        except MandateGovernanceError as exc:
+        except (ValueError, OSError, subprocess.CalledProcessError) as exc:
             for path in attempt_dir.iterdir():
                 path.unlink()
             attempt_dir.rmdir()
