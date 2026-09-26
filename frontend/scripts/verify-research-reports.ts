@@ -8,8 +8,8 @@ import {
   legacyResearchReportTarget, parseResearchReportTarget, readResearchReport, referenceReportNames,
   researchReportApiPath, researchReportHref, safeResearchReportLink, type ResearchReportTarget,
 } from "../lib/research-reports";
-import { getComparisonSettings, getStudyNarrative, researchCadenceExplanation, researchSettingLabels, researchSettingName } from "../lib/research-narrative";
-import type { Comparison, Study } from "../lib/research-progress";
+import { findReportStudy, getComparisonSettings, getStudyNarrative, researchCadenceExplanation, researchSettingLabels, researchSettingName } from "../lib/research-narrative";
+import { researchProgressSchema, type Comparison, type Study } from "../lib/research-progress";
 import { renderResearchReport } from "../app/research/reports/report-markdown";
 import { GET as historyDownload } from "../app/research/history/download/[artifactId]/route";
 import { GET as portfolioDownload } from "../app/research/portfolio/download/[...path]/route";
@@ -147,6 +147,20 @@ async function main(): Promise<void> {
   const fixtureDirectory = process.argv[2];
   let originalCount = 0;
   if (fixtureDirectory) {
+    const progress = researchProgressSchema.parse(JSON.parse(await readFile(path.join(fixtureDirectory, "progress.json"), "utf8")));
+    const described = progress.research.studies.find((study) => getStudyNarrative(study));
+    assert.ok(described);
+    const artifact = described.report_artifact_sha256;
+    assert.equal(findReportStudy(progress, artifact)?.id, described.id);
+    assert.equal(findReportStudy(null, artifact), null);
+    assert.equal(findReportStudy(progress, "0".repeat(64)), null);
+    for (const availability of ["invalid", "unavailable"] as const) {
+      assert.equal(findReportStudy({ ...progress, research: { ...progress.research, availability } }, artifact), null);
+    }
+    for (const field of ["id", "source_sha256", "result_sha256", "report_artifact_sha256"] as const) {
+      const altered: Study = { ...described, [field]: field === "id" ? "unknown" : "f".repeat(64) };
+      assert.equal(findReportStudy({ ...progress, research: { ...progress.research, studies: [altered] } }, artifact), null);
+    }
     const schema = z.array(z.object({ path: z.string(), fixture: z.string().regex(/^original-report-\d+\.txt$/), sha256: z.string(), status: z.number(), api_path: z.string() }));
     const records = schema.parse(JSON.parse(await readFile(path.join(fixtureDirectory, "report-fixtures.json"), "utf8")));
     for (const fixture of records.filter((item) => item.status === 200)) {

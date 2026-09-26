@@ -1,7 +1,15 @@
 import mandate from "../../docs/research-mandate.json";
-import type { Study } from "./research-progress";
+import type { ResearchProgress, Study } from "./research-progress";
 
 export type StudyNarrative = {
+  reading: {
+    question: string;
+    baseline: string;
+    candidate: string;
+    example: string;
+    result: string;
+    nextCheck: string;
+  };
   question: string;
   relatedGoals: string[];
   baselineRules: string[];
@@ -28,6 +36,14 @@ type KnownStudy = StudyNarrative & {
 const knownStudies: readonly KnownStudy[] = [
   {
     id: "core10-low-cash",
+    reading: {
+      question: "주식에 더 많은 돈을 넣고, 사고팔지 다시 판단하는 간격을 늘리면 어떨까요?",
+      baseline: "전체 돈의 최대 60%까지 투자할 수 있게 하고, 4주마다 보유할 종목과 금액을 다시 계산합니다.",
+      candidate: "최대 95%까지 투자할 수 있게 하고, 다시 계산하는 간격을 8주로 늘렸습니다. 가격 변동에 따라 투자금을 줄이는 기준도 완화했습니다.",
+      example: "설명용으로 100만원이 있다면, 첫 시험은 최대 60만원, 바꾼 시험은 최대 95만원까지 투자할 수 있습니다. 한도이므로 실제로 넣는 돈은 이보다 적을 수 있습니다.",
+      result: "이 과거 자료에서는 수익이 늘었지만, 중간에 떨어진 폭과 거래 비용도 커졌습니다. 실제 투자에 쓸 방식으로 선택하지는 않았습니다.",
+      nextCheck: "다른 기간에도 수익 증가와 하락·비용 증가가 함께 나타나는지 확인하세요. 수익이 더 높다는 이유만으로 더 좋은 방법이라고 정할 수 없습니다.",
+    },
     sourceSha256: "090944bb3f224e5dd1ff857a9376707fc8049ff24df945a3428208969ac81342",
     resultSha256: "71c1e5efac632d6f934d5b411d5f217131d0eb635aae121e90aee0373963e445",
     reportArtifactSha256: "aceef65a6cf64ac8afddfcc0226827ce3146100651706f2e3cab010008dc70fd",
@@ -42,6 +58,14 @@ const knownStudies: readonly KnownStudy[] = [
   },
   {
     id: "gross-cap",
+    reading: {
+      question: "주식에 넣을 수 있는 돈의 한도를 늘리면 결과가 좋아질까요?",
+      baseline: "전체 돈의 최대 60%까지 투자할 수 있게 했습니다.",
+      candidate: "다른 규칙은 유지하고, 투자할 수 있는 한도만 80%로 높였습니다.",
+      example: "설명용 100만원이라면 최대 60만원 대신 최대 80만원까지 투자할 수 있게 한 시험입니다. 반드시 그 금액을 전부 투자한다는 뜻은 아닙니다.",
+      result: "한도만 높여서는 남는 현금을 줄이면서 수익·하락 위험·비용을 함께 개선하지 못했습니다.",
+      nextCheck: "한도와 실제 투자액은 다릅니다. 현금이 정말 줄었는지와 하락·비용까지 함께 확인하세요.",
+    },
     sourceSha256: "1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825",
     resultSha256: "8e204f3798db53eeb01859e1644bea7ba0f1cf294c22f6942ecced2b8263813d",
     reportArtifactSha256: "00329866f0dbabdd25f717ae6f8a1b3d77eabd2c4159bc8a59b6ad76b459f5aa",
@@ -56,6 +80,14 @@ const knownStudies: readonly KnownStudy[] = [
   },
   {
     id: "volatility-target",
+    reading: {
+      question: "가격이 흔들릴 때 투자금을 덜 줄이면 수익과 위험은 어떻게 달라질까요?",
+      baseline: "최근 가격의 흔들림을 계산해 투자금을 줄입니다. 이 조절에 쓰는 목표값은 10%입니다.",
+      candidate: "목표값을 15%로 높여, 같은 가격 흔들림에서도 투자금을 덜 줄일 수 있게 했습니다. 전체 투자 한도는 60%로 같습니다.",
+      example: "설명용으로, 가격이 크게 오르내려 프로그램이 투자금을 줄이려는 상황을 생각해 보세요. 목표값을 높이면 줄이는 정도가 작아질 수 있습니다. 15% 수익을 얻거나 손실을 15%로 막는다는 뜻은 아닙니다.",
+      result: "남는 현금은 줄고 수익은 늘었지만, 중간 하락과 사고파는 규모·비용도 커졌습니다.",
+      nextCheck: "더 번 돈만 보지 말고, 그 과정에서 더 큰 하락과 비용을 겪었는지 함께 읽으세요.",
+    },
     sourceSha256: "1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825",
     resultSha256: "1487e612d747cb960d20065ac3a6ce780d07136f40d80af67600c14682d1ff91",
     reportArtifactSha256: "400bfe573024b6c81fe9893a94954ee79fb8eb6e8541973b115d797c32839099",
@@ -70,6 +102,14 @@ const knownStudies: readonly KnownStudy[] = [
   },
   {
     id: "volatility15-cadence-5270",
+    reading: {
+      question: "사고팔지 다시 판단하는 간격을 늘리면 거래 부담을 줄일 수 있을까요?",
+      baseline: "4주마다 프로그램이 보유할 종목과 금액을 다시 계산합니다.",
+      candidate: "다른 규칙은 유지하고, 다시 계산하는 간격만 8주로 늘렸습니다.",
+      example: "첫 점검을 마친 뒤, 첫 시험은 4주 후에 다시 계산하고 바꾼 시험은 8주 후에 다시 계산합니다. 그날 꼭 거래하는 것은 아니며, 위험에 대응하는 매도는 그 사이에도 가능합니다.",
+      result: "8주 간격에서는 거래와 비용이 줄었지만, 현금으로 남는 비율은 늘고 수익과 중간 하락은 나빠졌습니다. 채택할 근거는 얻지 못했습니다.",
+      nextCheck: "거래를 줄인 이점이 수익 감소와 더 큰 하락을 감수할 만큼인지가 남은 질문입니다. 이 화면에서 투자 방식을 선택할 필요는 없습니다.",
+    },
     sourceSha256: "1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825",
     resultSha256: "cada27b0e5518b8384e521235bc6fc1e4c5a029b9c4f8ff3db173cde41f2670d",
     reportArtifactSha256: "663ea3345b609d76f08676c56783512c943e37437a92cf06e9ac3a390d8253b8",
@@ -84,6 +124,14 @@ const knownStudies: readonly KnownStudy[] = [
   },
   {
     id: "cadence-decision-20260913",
+    reading: {
+      question: "4주와 8주 중 어느 점검 간격이 나은지, 이전 결과를 다시 읽어 판단할 수 있을까요?",
+      baseline: "4주마다 보유할 종목과 금액을 다시 계산했던 시험 결과를 읽습니다.",
+      candidate: "8주마다 다시 계산했던 결과를 같은 기간·비용 조건끼리 비교합니다. 새로 실행한 시험은 아닙니다.",
+      example: "같은 시험 성적표를 다른 관점으로 다시 읽는 일입니다. 이전 32개 결과를 재분석했으므로 독립된 새 증거가 추가된 것은 아닙니다.",
+      result: "수익·중간 하락·거래 부담에서 유불리가 엇갈렸습니다. 어느 간격을 먼저 쓰거나 채택할지 결정하지 않았습니다.",
+      nextCheck: "기간과 비용 조건이 같은 행끼리 읽으세요. 한 가지 수치만으로 4주나 8주를 선택할 수 있는 결과는 아닙니다.",
+    },
     sourceSha256: "1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825",
     resultSha256: "019a2dc72dc720db5b0bbd818569e737569779abfe6db824229dc12757f805a7",
     reportArtifactSha256: "a2cbd8ad38472f3f5e32c2a300bd4a3c7edd9d7d45d9db050d3aff9bd548a535",
@@ -126,6 +174,11 @@ export function getStudyNarrative(study: Study): StudyNarrative | null {
 
 export function compareNarrativeIdentity(study: Study): boolean {
   return getStudyNarrative(study) !== null;
+}
+
+export function findReportStudy(progress: ResearchProgress | null, artifactId: string): Study | null {
+  if (progress?.research.availability !== "available") return null;
+  return progress.research.studies.find((study) => study.report_artifact_sha256 === artifactId && getStudyNarrative(study) !== null) ?? null;
 }
 
 export function candidateRuleForComparison(study: Study, comparisonId: string): CandidateRule | null {

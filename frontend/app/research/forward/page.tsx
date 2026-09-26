@@ -17,6 +17,20 @@ const stateLabel: Record<string, string> = {
   stale: "시세 지연", error: "오류", pending: "첫 시세 대기", rejected: "구독 거부",
   unsupported: "미지원",
 };
+const stateMeaning: Record<string, string> = {
+  observing: "들어오는 가격을 보며 판단에 필요한 기록을 쌓고 있습니다.",
+  waiting_cadence: "보유할 종목과 금액을 다시 계산할 예정 시각을 기다리는 상태입니다. 반드시 그때 매매한다는 뜻은 아닙니다.",
+  decision_recorded: "프로그램이 무엇을 보유할지 판단을 기록했습니다. 판단을 기록한 것과 가상 매매가 끝난 것은 다릅니다.",
+  awaiting_quotes: "가상으로 사고판 가격을 계산하는 데 필요한 시세를 기다립니다.",
+  completed: "한 번의 판단에 따른 가상 매매 처리가 끝났다는 기록입니다. 투자 방법의 검증이 끝났다는 뜻은 아닙니다.",
+  partially_completed: "가상 매매의 일부만 기록됐습니다. 전체 처리가 완료됐다고 볼 수 없습니다.",
+  expired: "이번 판단에 사용할 수 있는 시간이 지났습니다. 다음 판단 기록을 확인해야 합니다.",
+  inputs_blocked: "필요한 자료를 사용할 수 없어 판단이나 가상 거래가 제한된 상태입니다. 아래 자료 문제를 확인하세요.",
+  risk_liquidation: "손실 대응 규칙에 따라 보유분을 파는 가상 절차를 진행하는 상태입니다.",
+  cooldown: "보유분을 정리한 뒤, 바로 다시 사지 않고 기다리는 상태입니다.",
+  recovery_wait: "다시 투자할 조건이 회복됐는지 확인하는 상태입니다.",
+  reentry_ready: "다시 투자할 준비 조건이 기록됐으며, 다음 정기 판단을 기다립니다.",
+};
 const phaseLabel: Record<string, string> = {
   queued: "전송 대기", awaiting_ack: "승인 대기", approved: "승인됨", rejected: "구독 거부",
 };
@@ -55,30 +69,31 @@ export default async function ForwardResearchPage() {
   }
   const registered = registration?.registration;
   const identityMatches = Boolean(status && registered && registered.session_id === status.session.id && registered.policy_hash === status.session.policy_hash && registered.source_run_id === status.session.source_run_id && registration?.status !== "identity_mismatch" && registration?.status !== "invalid_contract");
-  const registrationLabel = registrationError || !registration || !status ? "확인할 수 없음" : registration.status === "not_registered" ? "미등록" : !identityMatches ? "식별 정보 불일치 또는 계약 검증 실패" : registrationStateLabel[registration.status];
+  const registrationLabel = registrationError || !registration || !status ? "자료를 확인하지 못함" : registration.status === "not_registered" ? "검증 계획 미등록" : registration.status === "invalid_contract" ? "검증 계획의 형식을 확인하지 못함" : !identityMatches ? "현재 계좌와 검증 계획의 대상이 다름" : registrationStateLabel[registration.status];
+  const registrationProblem = registrationError || !registration || !status ? "검증 계획과 현재 계좌를 함께 확인할 수 없습니다" : registration.status === "invalid_contract" ? "등록된 검증 계획을 읽을 수 없습니다" : "현재 가상 계좌가 등록된 검증 대상과 맞지 않습니다";
   return (
     <main className={styles.main}>
-      <section className={styles.hero}><p className={styles.kicker}>실제 돈을 쓰지 않는 별도 기록</p><h1>모의 관찰</h1><p>새로 들어오는 시세로 가상 계좌를 관찰합니다.<br />연구에서 시험한 방식이 이 계좌에 자동으로 적용되지는 않습니다.</p></section>
-      <div className={styles.scope}><strong>모의 관찰과 연구의 기준은 달라요.</strong><p>이 가상 계좌는 기존 PAPER 10% 종가 방어 기준을 유지합니다. 현재 연구의 하락 목표 20%와 다르며, 어느 수치도 손실 보장은 아닙니다. 실제 증권사 주문은 꺼져 있습니다.</p></div>
-      {(registrationError || !registration || !status || (registration.status !== "not_registered" && !identityMatches)) && <section className="notice" role="alert"><h2>{registrationError || !registration || !status ? "관찰 검증 상태를 확인할 수 없습니다" : "검증 대상의 식별 정보가 맞지 않습니다"}</h2><p>{registrationError || !registration || !status ? "현재 운용 상태 또는 검증 등록 자료의 응답을 확인할 수 없습니다." : "등록된 검증 대상과 현재 가상 계좌가 일치하지 않거나 계약 검증에 실패했습니다."} 아래 운용 기록만으로 검증 완료나 투자 준비 상태를 판단할 수 없습니다.</p></section>}
+      <section className={styles.hero}><p className={styles.kicker}>실제 돈 없이, 새로 들어오는 가격으로</p><h1>프로그램은 지금<br />어떤 판단을 하고 있나요?</h1><p>프로그램이 새 시세를 받아 보유할 종목과 금액을 계산하고, 가상으로 사고판 기록을 남기는 곳입니다. 실제 증권사 주문은 꺼져 있습니다.</p></section>
+      <div className={styles.scope}><strong>앞에서 읽은 과거 시험과는 별도의 가상 계좌입니다.</strong><p>연구에서 수익이 높았던 설정이 이 계좌에 자동 적용되지 않습니다. 따라서 이곳의 기록을 앞선 연구 방식의 실제 성적으로 읽으면 안 됩니다.</p><details><summary>이 가상 계좌가 따르는 손실 대응 기준</summary><p>이 계좌는 장이 끝난 가격으로 계산한 금액이 기준 최고점에서 10% 떨어졌을 때 방어하도록 정한 모의 거래 규칙(PAPER)을 유지합니다. 현재 연구가 지향하는 20% 하락 목표와는 다릅니다. 실제 거래 가격은 달라질 수 있어 어느 수치도 손실을 보장해 막아 주지는 않습니다.</p></details></div>
+      {(registrationError || !registration || !status || (registration.status !== "not_registered" && !identityMatches)) && <section className="notice" role="alert"><h2>{registrationProblem}</h2><p>{registrationError || !registration || !status ? "현재 계좌 상태 또는 사전에 등록한 검증 계획을 불러오지 못했습니다." : registration.status === "invalid_contract" ? "사전에 정한 검증 계획의 형식이 맞는지 확인하지 못했습니다." : "사전에 검증하기로 한 계좌·규칙과 현재 기록의 연결을 확인하지 못했습니다."} 아래 기록만으로 투자 방법이 검증됐다고 판단할 수 없습니다.</p><p><strong>지금 할 일:</strong> 이 기록으로 투자 여부를 결정하지 말고, <Link href="/research/progress">과거 연구 결과를 읽어 보세요</Link>. 운영자가 계좌와 검증 계획의 연결을 확인해야 합니다. 독자가 투자 설정을 바꿀 필요는 없으며, 이 안내가 해소된 뒤 검증 상태를 다시 확인하세요. 해결 예정 시각은 제공되지 않았습니다.</p></section>}
       {statusError || ledgerError ? (
-        <section className="notice" role="alert"><h2>{statusError && ledgerError ? "모의 관찰 API에 연결할 수 없습니다" : "모의 관찰 자료 일부를 읽을 수 없습니다"}</h2><p>{statusError ? "정책 상태 응답을 확인할 수 없습니다." : "정책 상태는 확인되었습니다."} {ledgerError ? "원장 응답을 확인할 수 없습니다." : "원장 기록은 확인되었습니다."}</p></section>
+        <section className="notice" role="alert"><h2>{statusError && ledgerError ? "모의 관찰 자료에 연결할 수 없습니다" : "모의 관찰 자료 일부를 읽을 수 없습니다"}</h2><p>{statusError ? "프로그램의 현재 상태를 확인할 수 없습니다." : "프로그램의 현재 상태는 확인되었습니다."} {ledgerError ? "현금·보유 종목·가상 거래 기록을 확인할 수 없습니다." : "가상 계좌의 기록은 확인되었습니다."}</p></section>
       ) : !status || !ledger ? (
         <section className="notice" role="status"><h2>모의 관찰 상태를 확인할 수 없습니다</h2><p>상태나 거래 기록이 제공되지 않았습니다. 정상 대기나 성과 없음으로 해석하지 않습니다.</p></section>
       ) : (
         <>
-          <section className={styles.current} aria-labelledby="current-title"><p className={styles.kicker}>현재 자료에서 확인한 상태</p><h2 id="current-title">{stateLabel[status.session.state]}</h2><p>가상 계좌의 운용 기록이며 연구 평가가 끝났다는 뜻은 아닙니다.</p><dl><div><dt>최근 판단 기록</dt><dd>{status.latest_decision ? kst(status.latest_decision.recorded_at) : "기록 없음"}</dd></div><div><dt>계좌 평가 시각</dt><dd>{ledger.valuation_at ? kst(ledger.valuation_at) : "평가 시각 없음"}</dd></div><div><dt>다음 정기 판단 예정</dt><dd>{kst(status.session.next_due_at)}</dd></div><div><dt>별도 검증 등록 상태</dt><dd>{registrationLabel}</dd></div></dl></section>
+          <section className={styles.current} aria-labelledby="current-title"><p className={styles.kicker}>현재 자료에서 확인한 상태</p><h2 id="current-title">{stateLabel[status.session.state]}</h2><p>{stateMeaning[status.session.state] ?? "현재 상태의 쉬운 설명을 제공할 수 없습니다. 아래 기록에서 확인 가능한 내용만 읽어 주세요."}</p><p>먼저 최근 판단 시각을 확인하세요. 아래 예정 시각은 프로그램의 다음 계산 예정일이며, 독자가 주식을 사거나 팔아야 하는 날이 아닙니다.</p><dl><div><dt>최근 판단 기록</dt><dd>{status.latest_decision ? kst(status.latest_decision.recorded_at) : "기록 없음"}</dd></div><div><dt>계좌 평가 시각</dt><dd>{ledger.valuation_at ? kst(ledger.valuation_at) : "평가 시각 없음"}</dd></div><div><dt>다음 정기 판단 예정</dt><dd>{kst(status.session.next_due_at)}</dd></div><div><dt>별도 검증 등록 상태</dt><dd>{registrationLabel}</dd></div></dl></section>
           <section className="portfolio-metrics">
-            <article className="metric-card"><span>가상 계좌에 남은 현금</span><strong>{researchAmount(ledger.cash_krw, 0)}원</strong><small>초기 100,000,000원 · 과거 성과 이식 없음</small></article>
+            <article className="metric-card"><span>가상 계좌에 남은 현금</span><strong>{researchAmount(ledger.cash_krw, 0)}원</strong><small>가상으로 시작한 돈 100,000,000원 · 실제 계좌 잔액 아님</small></article>
             <article className="metric-card"><span>시세 연결 상태</span><strong>{stateLabel[status.feed.state]}</strong><small>연결 상태만으로 검증 성공을 뜻하지 않습니다.</small></article>
-            <article className="metric-card"><span>가상 체결</span><strong>{ledger.fills.length}건</strong><small>정수 수량 전량 체결 가정</small></article>
+            <article className="metric-card"><span>가상으로 사고판 기록</span><strong>{ledger.fills.length}건</strong><small>주식을 온전한 개수로, 주문 수량 전체가 거래됐다고 가정</small></article>
           </section>
-          {status.blocked_reason && <section className="notice" role="status"><h2>현재 입력 차단</h2><p>{status.blocked_reason}</p>{status.worker_failures.map((failure) => <p className="basis" key={failure.channel}>{failure.channel === "tick" ? "정기 워커" : "시세 워커"} · {failure.code} · {kst(failure.occurred_at)}</p>)}</section>}
-          {status.preview.blocked_reason && status.preview.blocked_reason !== status.blocked_reason && <section className="notice" role="status"><h2>현재 계산 입력을 사용할 수 없습니다</h2><p>{status.preview.blocked_reason}</p></section>}
+          {status.blocked_reason && <section className="notice" role="status"><h2>판단에 필요한 자료에 문제가 있습니다</h2><p>이 상태에서는 정상적으로 관찰 중이라고 판단할 수 없습니다. 운영자가 아래 원인을 확인해야 하며, 독자가 거래 설정을 바꿀 필요는 없습니다.</p><details><summary>자료 문제의 상세 원인</summary><p>{status.blocked_reason}</p></details>{status.worker_failures.map((failure) => <p className="basis" key={failure.channel}>{failure.channel === "tick" ? "정기 워커" : "시세 워커"} · {failure.code} · {kst(failure.occurred_at)}</p>)}</section>}
+          {status.preview.blocked_reason && status.preview.blocked_reason !== status.blocked_reason && <section className="notice" role="status"><h2>다음 판단을 계산할 자료를 사용할 수 없습니다</h2><p>다음 가상 거래가 가능하다는 뜻으로 읽지 마세요. 원인 확인은 운영자가 해야 합니다.</p><details><summary>자료 문제의 상세 원인</summary><p>{status.preview.blocked_reason}</p></details></section>}
           {!status.calendar.available && <section className="notice" role="alert"><h2>거래일 달력을 확인할 수 없습니다</h2><p>관련 가상 체결과 계좌 평가는 중단됩니다. 상세 오류는 달력 자료에서 확인하세요.</p></section>}
           {status.corporate_actions.some((action) => action.state === "blocked") && <section className="notice" role="alert"><h2>종목 분할 처리에 차단된 항목이 있습니다</h2><p>기업행동 상세에서 해당 종목과 차단 사유를 확인하세요.</p></section>}
           <div className={styles.sourceLinks}><Link href="/research/progress">과거 연구 결과와 비교하기 ↗</Link><a href={researchReportHref({ kind: "portfolio", id: status.session.source_run_id })}>이 모의 정책의 기준 보고서 읽기 ↗</a></div>
-          <details className={styles.details}><summary>관찰 정책과 검증 기간 보기</summary><dl className="metric-list"><div><dt>정책 hash</dt><dd title={status.session.policy_hash}>{status.session.policy_hash.slice(0, 16)}…</dd></div><div><dt>활성화 시각</dt><dd>{kst(status.session.activated_at)}</dd></div><div><dt>검증 기간</dt><dd>{identityMatches && registered ? `${kst(registered.evaluation_start_at)} ~ ${kst(registered.evaluation_end_at)}` : "확인할 수 없음 · 미등록, 식별 불일치 또는 API 오류"}</dd></div></dl></details>
+          <details className={styles.details}><summary>관찰 정책과 검증 기간 보기</summary><dl className="metric-list"><div><dt>정책 hash</dt><dd title={status.session.policy_hash}>{status.session.policy_hash.slice(0, 16)}…</dd></div><div><dt>활성화 시각</dt><dd>{kst(status.session.activated_at)}</dd></div><div><dt>검증 기간</dt><dd>{identityMatches && registered ? `${kst(registered.evaluation_start_at)} ~ ${kst(registered.evaluation_end_at)}` : "확인할 수 없음 · 위의 검증 계획 상태를 보세요"}</dd></div></dl></details>
           <details className={styles.details}><summary>컴퓨터 시계 진단 보기</summary><section className="panel research-step">
             <div className="section-title simple"><h2>호스트 시계 진단</h2><span className="status">{status.latest_clock_health?.state === "available" ? "측정값 확인" : "확인 불가"}</span></div>
             {!status.latest_clock_health ? <p className="empty-inline">앱 시작 직후 첫 진단을 기다리고 있습니다.</p> : <>
