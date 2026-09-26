@@ -677,6 +677,85 @@ def test_recovery_product_remains_bound_across_transport_and_later_commit(
     assert runner.run_once(config).status == "completed"
 
 
+@pytest.mark.parametrize("history", ["linear", "sibling_rewind", "changed_identity"])
+def test_transport_anchor_retains_prior_nontransport_review_ancestry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, history: str
+) -> None:
+    clock = Clock(monkeypatch)
+    config, store, _ = _failed_candidate(tmp_path)
+    assert _recover(config, store) is not None
+    store.resume()
+    candidate = store.review_candidate()
+    assert candidate is not None
+    prior_head = _git(config.repo, "rev-parse", "main")
+    context = runner._review_context(candidate, "prior-timeout", config)
+    assert store.claim_review(
+        candidate,
+        "prior-timeout",
+        tmp_path / "prior-receipt",
+        context,
+        clock.now.isoformat(),
+    )
+    assert store.finish_review(
+        candidate,
+        "prior-timeout",
+        status="failed",
+        failure_code="timeout",
+    )
+    # Legacy-only selection still permits a bounded recovery review.
+    legacy_candidate = store.review_candidate()
+    assert legacy_candidate is not None and legacy_candidate.transport_anchor is None
+    clock.advance(1)
+    tree = _git(config.repo, "rev-parse", "main^{tree}")
+    current_head = _git(
+        config.repo,
+        "commit-tree",
+        tree,
+        "-p",
+        candidate.completion["integrated_commit"]
+        if history == "sibling_rewind"
+        else prior_head,
+        "-m",
+        "next review context",
+    )
+    _git(config.repo, "update-ref", "refs/heads/main", current_head, prior_head)
+    fake = tmp_path / "reviewer"
+    _transport_child(fake)
+    config = config.model_copy(update={"codex": str(fake)})
+    assert runner.run_once(config).status == "idle"
+    assert _reviews(store)[-1]["failure_code"] == "review_transport_capacity"
+    clock.advance(300)
+    if history == "changed_identity":
+        context["owned_file_hashes"] = {
+            name: "0" * 64 for name in context["owned_file_hashes"]
+        }
+        with sqlite3.connect(store.db_path) as db:
+            db.execute(
+                "UPDATE review_attempts SET context_json=? WHERE id='prior-timeout'",
+                (json.dumps(context),),
+            )
+    anchored = store.review_candidate()
+    if history == "changed_identity":
+        assert anchored is None
+    else:
+        assert anchored is not None and anchored.transport_anchor is not None
+        assert anchored.transport_anchor["review_heads"] == [prior_head, current_head]
+        assert anchored.transport_anchor["first_review_id"] == "prior-timeout"
+    _fake_reviewer(fake, verdict="PASS")
+    result = runner.run_once(config)
+    assert result.status == ("completed" if history == "linear" else "idle")
+    task = store.task("engineering")
+    assert task is not None
+    if history != "linear":
+        assert len(_reviews(store)) == 2 and task.engineering_status is None
+        if history == "sibling_rewind":
+            assert task.blocker is not None
+            assert task.blocker["blocker_reason"] == "review_candidate_stale"
+    else:
+        assert len(_reviews(store)) == 3
+        assert task.engineering_status == "ENGINEERING_COMPLETE"
+
+
 @pytest.mark.parametrize("failure_code", ["timeout", "codex_exit"])
 def test_legacy_failure_cannot_enable_historical_product_review(
     tmp_path: Path, failure_code: str

@@ -1710,20 +1710,27 @@ class RunnerStore:
         ]
         anchor: dict[str, Any] | None = None
         transport_count = 0
-        for row in rows:
-            marked = (
+        marked_reviews = {
+            row["id"]
+            for row in rows
+            if (
                 row["retry_kind"] is not None
                 or row["retry_after"] is not None
                 or row["transient_failures"] != 0
                 or str(row["failure_code"]).startswith("review_transport_")
             )
+        }
+        for row in rows:
+            marked = row["id"] in marked_reviews
             if marked:
                 if self._review_transport_deadline(row) is None:
                     raise ValueError("invalid review transport metadata")
                 transport_count += 1
                 if row["transient_failures"] != transport_count:
                     raise ValueError("invalid review transport sequence")
-            if not marked and anchor is None:
+            # Opt-in binds every previous review, including pre-transport timeouts.
+            # Pure legacy histories retain their existing selection semantics.
+            if not marked_reviews:
                 continue
             try:
                 context = json.loads(row["context_json"])
