@@ -4,6 +4,8 @@
 
 ## 역할과 모델
 
+모델·추론 수준의 실행 기준은 `.codex/model-routing.json`입니다. 아래 표는 초기 선택이며 역할 자체에 모델을 고정하지 않습니다. 각 역할 TOML은 책임·권한·지침만 담고, 매 호출 전에 중앙 profile의 명시 선택을 읽습니다. 가격이나 AA 점수에 따른 자동 하향 선택·모델 재시도는 없습니다.
+
 저장소의 역할 이름과 실제 모델 이름을 한 쌍으로 관리합니다. `task_name`은 `spawn_agent`에 전달하는 작업 이름이고 모델 선택과 무관하며, `model`은 agent 설정의 모델 식별자입니다. 두 값을 서로 대체하거나 보고서에 혼동해서 쓰지 않습니다.
 
 | 역할 | 모델 | 추론 수준 | 권한 | 책임 |
@@ -65,7 +67,7 @@ Linear는 여러 worktree 작업의 사용자 가시성, 우선순위, 의존성
 
 설치된 generic skill이 `agent_type`을 요구하더라도 실제 `collaboration.spawn_agent` capability probe가 `role_parameter="NONE"`이고 `model`, `reasoning_effort`, `fork_turns`를 지원하면 이 절차를 적용합니다. native interactive 경로에는 적용하지 않습니다. capability evidence는 실제 도구 probe JSON이어야 하며 추정하거나 role TOML만으로 대체하지 않습니다.
 
-`backend/jusik/agent_routing.py`가 role TOML을 읽어 `model`, `model_reasoning_effort`, `developer_instructions`와 bounded task input(Goal, Ownership, Validation, Stop condition)을 하나의 private message로 묶습니다. `prepare`는 정확히 `task_name`, `message`, `model`, `reasoning_effort`, `fork_turns` 다섯 인자만 생성하고 `model`과 `reasoning_effort`를 명시하며 `fork_turns=none`을 고정합니다. message에는 nonce·role/task 입력 digest 기반 receipt를 포함하고 child가 도구 호출 전에 첫 public assistant response로 receipt를 출력하도록 요구합니다. TOML의 `sandbox_mode`를 child가 적용했다고 주장하지 않습니다. parent 권한은 상속되며 role instructions는 task message로 전달됩니다.
+`backend/jusik/agent_routing.py`는 중앙 정책의 명시 모델·effort와 role TOML의 `developer_instructions`, bounded task input(Goal, Ownership, Validation, Stop condition)을 사용합니다. 기존 fixed-model 외부 role도 지원합니다. 지침과 task는 하나의 private message로 묶습니다. `prepare`는 정확히 `task_name`, `message`, `model`, `reasoning_effort`, `fork_turns` 다섯 인자만 생성하고 `model`과 `reasoning_effort`를 명시하며 `fork_turns=none`을 고정합니다. message에는 nonce·role/task 입력 digest 기반 receipt를 포함하고 child가 도구 호출 전에 첫 public assistant response로 receipt를 출력하도록 요구합니다. TOML의 `sandbox_mode`를 child가 적용했다고 주장하지 않습니다. parent 권한은 상속되며 role instructions는 task message로 전달됩니다.
 
 plaintext message를 기록하는 host에서는 두 명령에서 `--message-mode`를 생략합니다. opaque envelope를 기록하는 host에서만 아래처럼 prepare와 post에 같은 `--message-mode model-only-encrypted-message-v1`를 지정합니다.
 
@@ -109,3 +111,20 @@ helper는 prompt와 secret을 출력하지 않고, 호출 전 verifier 결과와
 4. 종료 후 child audit에서 model 불일치, role·작업 이름 불일치, 증거 누락 또는 검증 실패가 발견되면 완료 처리를 보류하고 재검토·재실행 조건을 남깁니다.
 
 작업 경계에서 기존 [verify-and-stop skill](/home/kwl/.agents/skills/verify-and-stop/SKILL.md)을 사용해 요구된 검사를 통과한 뒤 종료합니다. 이 종료는 기본 supervisor(Sol)의 local `main` 통합 검사와 handoff를 생략하는 뜻이 아닙니다. 통합이 필요한 개발 작업은 워크트리 절차의 순차 통합 검증을 보존합니다. 세션이 작업 경계에서 끝나거나 재개될 때는 [handoff skill](/home/kwl/.agents/skills/handoff/SKILL.md)의 저장 규칙에 따라 목표·결정·검사·남은 문제·다음 시작점을 기록합니다.
+
+## 중앙 명시 선택
+
+AA 스킬의 JSON·Pareto 보고서는 검토 자료입니다. 실제 과제의 첫 시도 해결 품질이 우선이며, 동등 품질 근거가 있을 때 비용을 고려해 중앙 `profiles.<profile>.selected`를 명시 갱신합니다. runtime은 저장된 선택만 읽으며 가격 최적화나 모델 retry ladder를 구현하지 않습니다. 현재 선택은 기존 baseline 그대로이고 실제 품질·비용 개선을 측정했다고 주장하지 않습니다. `escalate` 전용 variant는 다른 역할이 선택할 수 없습니다.
+
+native spawn 전 저장소 루트에서 실행합니다.
+
+```bash
+PYTHONPATH=backend .venv/bin/python -m jusik.model_routing resolve \
+  --policy .codex/model-routing.json --profile role.code
+PYTHONPATH=backend .venv/bin/python -m jusik.model_routing check \
+  --policy .codex/model-routing.json --profile role.code --spawn-args /path/to/private/spawn.json
+```
+
+`resolve`의 `model`, `reasoning_effort`, `role`을 실제 spawn 인자로 사용합니다. 예를 들어 `agent_type="code"`, 반환된 `model`·`reasoning_effort`, `fork_turns="none"`과 bounded task를 전달합니다. `check`는 준비한 JSON의 모델·effort·역할·fork를 확인합니다. 기존 supervisor helper pre/post와 실제 child model 감사도 유지합니다. role 파일을 새로 읽은 세션에서는 named role을 사용합니다. 이미 모델을 고정해 로드한 role은 hot reload하지 않으므로 `agent_type="default"` explicit override와 해당 role 지침 전달을 사용하고, 기존 helper의 fallback 절차로 검증합니다. 권한의 실제 적용과 cwd는 별도로 확인합니다.
+
+roleless adapter는 model-free role의 `.codex/model-routing.json`을 자동 발견하며 `--policy PATH --profile role.code`로 명시할 수도 있습니다. v1 manifest에 policy 경로·hash·profile을 추가해 pre/post에서 변경을 거부합니다. 감사 완료까지 같은 정책 파일을 유지하고 필요하면 실행별 사본을 `--policy`로 지정합니다. 다섯 spawn 인자와 기존 instruction hash·capability·child receipt 검사는 그대로입니다.

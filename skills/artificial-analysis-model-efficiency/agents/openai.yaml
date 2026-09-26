@@ -1,0 +1,4 @@
+interface:
+  display_name: "Artificial Analysis Model Efficiency"
+  short_description: "Compare OpenAI model quality and token cost"
+  default_prompt: "Use $artificial-analysis-model-efficiency to compare OpenAI models by Intelligence Index and cost."

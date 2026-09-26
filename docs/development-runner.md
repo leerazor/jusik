@@ -345,3 +345,9 @@ cd /home/kwl/projects/jusik/backend
 ```
 
 초기화는 빈 큐만 만들며 첫 `r1-01` slice는 별도로 검토한 뒤 `enqueue --id roadmap-r1-01-v1 --area r1-01`로 준비합니다. 한 slice의 기술 완료와 전체 checklist 완료는 다르므로, 전체 조건을 충족하기 전에는 Markdown checkbox를 억지로 갱신하지 않습니다. 실행기는 tracked 로드맵과 mandate가 없거나 malformed이면 자식 dispatch를 하지 않습니다. 자동 child는 runner를 pause하거나 service를 중지하지 않습니다. 수동 변경 전에는 새 config로 `pause`한 다음 동일한 단일 service를 중지하고 `systemctl --user is-active jusik-development-runner.service`가 `inactive`인지 확인합니다. 검사가 끝나고 tracked worktree가 깨끗해진 뒤 같은 config로 `resume`합니다. 실제 주문·PAPER/live activation·운영 원장 변경은 이 scope에서도 금지합니다.
+
+## 중앙 모델 선택
+
+runner는 `.codex/model-routing.json`의 명시 model+effort 선택을 사용합니다. `RunnerConfig.model_routing_policy`로 정책 경로를 지정할 수 있고, 생략하면 실행 저장소의 정책을 우선 사용한 뒤 설치 코드의 기본 정책을 사용합니다. `runner-general`, `runner-planning`, `runner-completion-review`, `runner-planning-scope`, `runner-code-scope`, `runner-discovery`가 실제 dispatch 경로에 연결됩니다. command builder는 파일을 쓰지 않습니다.
+
+잘못된 명시 정책이나 지원되지 않는 선택은 dispatch 오류로 처리하며 이미 claim한 attempt를 실패 종료합니다. 가격·AA 점수로 자동 선택하거나 모델을 바꿔 재시도하지 않습니다. 기존 permissions·독립 검토·재시도·실주문 금지 계약은 유지합니다. 초기 명시 선택은 기존 일반/계획 Sol medium, 검토 Sol high입니다. AA 자료의 검토·갱신과 native/roleless 사용법은 [agent 도구 운영](agent-tooling.md#중앙-명시-선택)을 따릅니다.

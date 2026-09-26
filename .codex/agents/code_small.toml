@@ -1,7 +1,5 @@
 name = "code_small"
-description = "Luna implementation agent for bounded, repetitive changes with an agreed contract."
-model = "gpt-6-luna"
-model_reasoning_effort = "high"
+description = "implementation agent for bounded, repetitive changes with an agreed contract."
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Implement only the assigned bounded task in its owned worktree and files.

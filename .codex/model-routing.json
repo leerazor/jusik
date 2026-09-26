@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "variants": {
+    "gpt-6-sol-medium": {
+      "model": "gpt-6-sol",
+      "effort": "medium",
+      "aa_slug": "gpt-6-sol-medium",
+      "host_supported": true,
+      "diagnostic_only": false
+    },
+    "gpt-6-sol-high": {
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "aa_slug": "gpt-6-sol-high",
+      "host_supported": true,
+      "diagnostic_only": false
+    },
+    "gpt-6-luna-medium": {
+      "model": "gpt-6-luna",
+      "effort": "medium",
+      "aa_slug": "gpt-6-luna-medium",
+      "host_supported": true,
+      "diagnostic_only": false
+    },
+    "gpt-6-luna-high": {
+      "model": "gpt-6-luna",
+      "effort": "high",
+      "aa_slug": "gpt-6-luna-high",
+      "host_supported": true,
+      "diagnostic_only": false
+    },
+    "gpt-6-astra-xhigh": {
+      "model": "gpt-6-astra",
+      "effort": "xhigh",
+      "aa_slug": "gpt-6-astra-xhigh",
+      "host_supported": true,
+      "diagnostic_only": true
+    }
+  },
+  "profiles": {
+    "role.explore": {
+      "role": "explore",
+      "selected": "gpt-6-luna-medium"
+    },
+    "role.plan": {
+      "role": "plan",
+      "selected": "gpt-6-sol-high"
+    },
+    "role.code": {
+      "role": "code",
+      "selected": "gpt-6-sol-high"
+    },
+    "role.code_small": {
+      "role": "code_small",
+      "selected": "gpt-6-luna-high"
+    },
+    "role.review": {
+      "role": "review",
+      "selected": "gpt-6-sol-high"
+    },
+    "role.supervisor": {
+      "role": "supervisor",
+      "selected": "gpt-6-sol-medium"
+    },
+    "role.escalate": {
+      "role": "escalate",
+      "selected": "gpt-6-astra-xhigh"
+    },
+    "runner-general": {
+      "role": "supervisor",
+      "selected": "gpt-6-sol-medium"
+    },
+    "runner-planning": {
+      "role": "plan",
+      "selected": "gpt-6-sol-medium"
+    },
+    "runner-completion-review": {
+      "role": "review",
+      "selected": "gpt-6-sol-high"
+    },
+    "runner-planning-scope": {
+      "role": "review",
+      "selected": "gpt-6-sol-high"
+    },
+    "runner-code-scope": {
+      "role": "review",
+      "selected": "gpt-6-sol-high"
+    },
+    "runner-discovery": {
+      "role": "plan",
+      "selected": "gpt-6-sol-high"
+    }
+  }
+}

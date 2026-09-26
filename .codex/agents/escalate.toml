@@ -1,7 +1,5 @@
 name = "escalate"
 description = "Read-only Astra diagnostic escalation for one bounded unresolved critical issue."
-model = "gpt-6-astra"
-model_reasoning_effort = "xhigh"
 sandbox_mode = "read-only"
 developer_instructions = """
 Diagnose one unresolved critical issue only, including an explicitly complex financial

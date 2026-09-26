@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from jusik.model_routing import ModelRoutingError, resolve
+
 TRANSPORT = "model-only"
 OPAQUE_TRANSPORT = "model-only-encrypted-message-v1"
 SUPPORTED_ARGS = frozenset(
@@ -219,6 +221,8 @@ def prepare_routing(
     spawn_args_path: Path,
     *,
     message_mode: str = "model-only",
+    policy_path: Path | None = None,
+    profile: str | None = None,
 ) -> Prepared:
     role, role_hash = _read_role(role_file)
     capability = _read_json(capability_file)
@@ -227,8 +231,31 @@ def prepare_routing(
     if message_mode not in {"model-only", OPAQUE_TRANSPORT}:
         raise RoutingError("unsupported message mode")
     logical_role = _required_string(role.get("name"), "role name")
-    model = _required_string(role.get("model"), "role model")
-    effort = _required_string(role.get("model_reasoning_effort"), "reasoning effort")
+    routing: dict[str, str] | None = None
+    effort: str
+    if policy_path is None and role.get("model") is None:
+        policy_path = role_file.resolve().parent.parent / "model-routing.json"
+    if profile is not None and policy_path is None:
+        raise RoutingError("routing profile requires policy")
+    if policy_path is not None:
+        profile = profile or "role." + logical_role
+        try:
+            variant, decision_role, digest = resolve(profile, policy_path)
+        except ModelRoutingError as exc:
+            raise RoutingError("model policy unavailable") from exc
+        if decision_role != logical_role:
+            raise RoutingError("routing profile role mismatch")
+        model, effort = variant.model, variant.effort
+        routing = {
+            "policy_file": str(policy_path.resolve()),
+            "policy_sha256": digest,
+            "profile": profile,
+        }
+    else:
+        model = _required_string(role.get("model"), "role model")
+        effort = _required_string(
+            role.get("model_reasoning_effort"), "reasoning effort"
+        )
     instructions = _required_string(
         role.get("developer_instructions"), "developer instructions"
     )
@@ -274,6 +301,8 @@ def prepare_routing(
         "task_name": name,
         "args": args,
     }
+    if routing is not None:
+        manifest["routing"] = routing
     _private_write(manifest_path, (_canonical(manifest)))
     return Prepared(
         manifest_path,
@@ -298,10 +327,27 @@ def _validate_manifest_sources(
         raise RoutingError("role TOML changed")
     if role.get("name") != manifest.get("logical_role"):
         raise RoutingError("logical role changed")
-    role_model = _required_string(role.get("model"), "role model")
-    role_effort = _required_string(
-        role.get("model_reasoning_effort"), "reasoning effort"
-    )
+    role_effort: str
+    routing = manifest.get("routing")
+    if routing is not None:
+        if not isinstance(routing, dict):
+            raise RoutingError("routing policy metadata missing")
+        policy_path = Path(_required_string(routing.get("policy_file"), "policy file"))
+        profile = _required_string(routing.get("profile"), "profile")
+        try:
+            variant, decision_role, digest = resolve(profile, policy_path)
+        except ModelRoutingError as exc:
+            raise RoutingError("routing policy verification failed") from exc
+        if digest != routing.get("policy_sha256") or decision_role != manifest.get(
+            "logical_role"
+        ):
+            raise RoutingError("routing policy changed")
+        role_model, role_effort = variant.model, variant.effort
+    else:
+        role_model = _required_string(role.get("model"), "role model")
+        role_effort = _required_string(
+            role.get("model_reasoning_effort"), "reasoning effort"
+        )
     if (
         role_model != manifest.get("model")
         or role_model != expected["model"]
@@ -670,6 +716,8 @@ def _parser() -> argparse.ArgumentParser:
         "--capability-file", "--capability-evidence", type=Path, required=True
     )
     prepare.add_argument("--task-file", "--task-input", type=Path, required=True)
+    prepare.add_argument("--policy", type=Path)
+    prepare.add_argument("--profile")
     prepare.add_argument("--base-commit", required=True)
     prepare.add_argument("--task-name", required=True)
     prepare.add_argument(
@@ -704,6 +752,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.manifest,
                 args.spawn_args,
                 message_mode=args.message_mode,
+                policy_path=args.policy,
+                profile=args.profile,
             )
             result: Mapping[str, object] = {
                 "status": "PASS",

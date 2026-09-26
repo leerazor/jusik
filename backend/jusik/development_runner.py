@@ -94,6 +94,7 @@ from jusik.development_runner_store import (
     failed_output_digest_matches,
     failed_output_evidence_identity,
 )
+from jusik.model_routing import ModelRoutingError, resolve
 from jusik.research_history import HistoryRepository
 from jusik.research_mandate_governance import (
     MandateGovernanceError,
@@ -149,9 +150,9 @@ OFFLINE_DEPENDENCY_GUIDANCE = (
 COMMON_PROMPT = (
     "Follow the repository workflow: explore relevant code and AGENTS.md, write a "
     "bounded plan, use at most four active agents including the planner and at most "
-    "three workers, assign one Sol or Luna owner per worktree, and have an "
-    "independent Sol-based "
-    "reviewer inspect the implementation, then have the Sol-based supervisor "
+    "three workers, resolve explicit model/effort from .codex/model-routing.json, "
+    "assign one owner per worktree, and have an independent reviewer inspect "
+    "the implementation, then have the supervisor "
     "integrate it to local main and run checks and "
     "handoff/web publication when applicable. Astra is read-only escalation for one "
     "unresolved critical diagnosis only; it is not an automatic model switch. For an "
@@ -246,6 +247,7 @@ class RunnerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     repo: Path
     codex: str = "codex"
+    model_routing_policy: Path | None = None
     state_dir: Path = DEFAULT_STATE
     history_dir: Path = DEFAULT_HISTORY
     history_db: Path = DEFAULT_HISTORY_DB
@@ -683,6 +685,16 @@ def _codex_workspace_roots(config: RunnerConfig) -> list[Path]:
     return roots
 
 
+def _dispatch_routing(config: RunnerConfig, profile: str) -> tuple[str, str]:
+    policy_path = config.model_routing_policy
+    if policy_path is None:
+        repository_policy = config.repo / ".codex/model-routing.json"
+        if repository_policy.exists():
+            policy_path = repository_policy
+    variant, _, _ = resolve(profile, policy_path)
+    return variant.model, variant.effort
+
+
 def _codex_command(
     config: RunnerConfig,
     common: Path,
@@ -691,6 +703,9 @@ def _codex_command(
     *,
     planning: bool = False,
 ) -> list[str]:
+    model, effort = _dispatch_routing(
+        config, "runner-planning" if planning else "runner-general"
+    )
     if planning:
         profile = (
             'permissions.jusik-planning={extends=":read-only",'
@@ -719,13 +734,13 @@ def _codex_command(
         "exec",
         "--ignore-user-config",
         "-m",
-        "gpt-6-sol",
+        model,
         "-c",
         f'default_permissions="{permission}"',
         "-c",
         profile,
         "-c",
-        'model_reasoning_effort="medium"',
+        f'model_reasoning_effort="{effort}"',
         "--json",
         "--output-schema",
         str(schema_path),
@@ -737,9 +752,14 @@ def _codex_command(
 
 
 def _review_command(
-    config: RunnerConfig, schema_path: Path, output_path: Path
+    config: RunnerConfig,
+    schema_path: Path,
+    output_path: Path,
+    *,
+    routing_profile: str = "runner-completion-review",
 ) -> list[str]:
     """Review child gets an explicit read-only sandbox and no network."""
+    model, effort = _dispatch_routing(config, routing_profile)
     return [
         config.codex,
         "-a",
@@ -749,9 +769,9 @@ def _review_command(
         "--sandbox",
         "read-only",
         "-m",
-        "gpt-6-sol",
+        model,
         "-c",
-        'model_reasoning_effort="high"',
+        f'model_reasoning_effort="{effort}"',
         "-c",
         'permissions.jusik-review={extends=":read-only",network={enabled=false}}',
         "-c",
@@ -1676,9 +1696,11 @@ def _run_planning(
         schema_path,
         (json.dumps(_planning_schema(planning_areas), sort_keys=True) + "\n").encode(),
     )
-    command = _codex_command(config, common, schema_path, output_path, planning=True)
     with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
         try:
+            command = _codex_command(
+                config, common, schema_path, output_path, planning=True
+            )
             process = subprocess.Popen(
                 command,
                 cwd=config.repo,
@@ -1688,7 +1710,7 @@ def _run_planning(
                 start_new_session=True,
                 env=_attempt_environment(attempt_dir),
             )
-        except OSError:
+        except (OSError, ModelRoutingError):
             store.finish(attempt_id, task.id, "failed", failure_code="dispatch_error")
             return RunResult("failed", task.id, attempt_id, "dispatch_error")
         try:
@@ -2258,9 +2280,9 @@ def _run_review(
     if not store.claim_review(candidate, review_id, output_path, context, launched_at):
         return None
     _safe_history_flush(store, config)
-    command = _review_command(config, schema_path, output_path)
     with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
         try:
+            command = _review_command(config, schema_path, output_path)
             process = subprocess.Popen(
                 command,
                 cwd=config.repo,
@@ -2270,7 +2292,7 @@ def _run_review(
                 start_new_session=True,
                 env=_review_environment(review_dir),
             )
-        except OSError:
+        except (OSError, ModelRoutingError):
             store.finish_review(
                 candidate, review_id, status="failed", failure_code="dispatch_error"
             )
@@ -2523,10 +2545,17 @@ def _run_roadmap_scope_review(
         repo=config.repo,
     ):
         return RunResult("idle", reason="roadmap_scope_state_changed")
-    command = _review_command(config, schema_path, output_path)
     failure: str | None = None
     with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
         try:
+            command = _review_command(
+                config,
+                schema_path,
+                output_path,
+                routing_profile="runner-code-scope"
+                if isinstance(pending, PendingRoadmapCodeScope)
+                else "runner-planning-scope",
+            )
             process = subprocess.Popen(
                 command,
                 cwd=config.repo,
@@ -2536,7 +2565,7 @@ def _run_roadmap_scope_review(
                 start_new_session=True,
                 env=_review_environment(review_dir),
             )
-        except OSError:
+        except (OSError, ModelRoutingError):
             failure = "dispatch_error"
         if failure is None:
             try:
@@ -2761,10 +2790,17 @@ def _run_engineering_discovery(
         launched_at,
     ):
         return RunResult("idle", reason="discovery_state_changed")
-    command = _review_command(config, schema_path, output_path)
     failure: str | None = None
     with stderr_path.open("wb") as stderr, stdout_path.open("ab") as stdout:
         try:
+            command = _review_command(
+                config,
+                schema_path,
+                output_path,
+                routing_profile="runner-planning-scope"
+                if stage == "scope"
+                else "runner-discovery",
+            )
             process = subprocess.Popen(
                 command,
                 cwd=config.repo,
@@ -2774,7 +2810,7 @@ def _run_engineering_discovery(
                 start_new_session=True,
                 env=_review_environment(attempt_dir),
             )
-        except OSError:
+        except (OSError, ModelRoutingError):
             failure = "dispatch_error"
         if failure is None:
             try:
@@ -3336,12 +3372,12 @@ def run_once(
                 + "\n"
             ).encode(),
         )
-        command = _codex_command(config, common, schema_path, output_path)
         with (
             stderr_path.open("wb") as stderr,
             stdout_path.open("ab") as stdout,
         ):
             try:
+                command = _codex_command(config, common, schema_path, output_path)
                 process = subprocess.Popen(
                     command,
                     cwd=config.repo,
@@ -3351,7 +3387,7 @@ def run_once(
                     start_new_session=True,
                     env=_attempt_environment(attempt_dir),
                 )
-            except OSError:
+            except (OSError, ModelRoutingError):
                 store.finish(
                     attempt_id, task.id, "failed", failure_code="dispatch_error"
                 )

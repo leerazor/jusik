@@ -1,7 +1,5 @@
 name = "code"
-description = "Sol implementation agent for cross-module changes, state machines, persistence, and complex correctness."
-model = "gpt-6-sol"
-model_reasoning_effort = "high"
+description = "implementation agent for cross-module changes, state machines, persistence, and complex correctness."
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Implement the agreed plan.

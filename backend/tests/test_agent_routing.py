@@ -378,3 +378,35 @@ def test_post_rejects_malformed_last_line_without_echoing_sentinel(
     with pytest.raises(RoutingError):
         post_audit(manifest_path, parent_path, child_path)
     assert "SECRET_SENTINEL" not in capsys.readouterr().out
+
+
+def test_model_free_role_uses_policy_and_detects_policy_tamper(tmp_path: Path) -> None:
+    from jusik.model_routing import DEFAULT_POLICY
+
+    role = tmp_path / ".codex/agents/code.toml"
+    role.parent.mkdir(parents=True)
+    role.write_text(
+        'name = "code"\ndeveloper_instructions = "Follow the bounded plan."\n'
+    )
+    policy = role.parent.parent / "model-routing.json"
+    policy.write_bytes(DEFAULT_POLICY.read_bytes())
+    capability = tmp_path / "capability.json"
+    capability.write_text(json.dumps(CAPABILITY))
+    task = tmp_path / "task.json"
+    task.write_text(json.dumps(TASK))
+    manifest, args = tmp_path / "manifest.json", tmp_path / "args.json"
+    prepare_routing(role, capability, task, "d90373b", "routing-test", manifest, args)
+    prepared = json.loads(manifest.read_text())
+    assert prepared["version"] == 1
+    assert prepared["model"] == "gpt-6-sol"
+    assert preflight(manifest, args)["status"] == "PASS"
+    parent_records, child_records = _logs(prepared, json.loads(args.read_text()))
+    parent, child = tmp_path / "parent.jsonl", tmp_path / "child.jsonl"
+    _jsonl(parent, parent_records)
+    _jsonl(child, child_records)
+    assert post_audit(manifest, parent, child, capability)["status"] == "PASS"
+    policy.write_text(policy.read_text() + "\n")
+    with pytest.raises(RoutingError, match="policy changed"):
+        preflight(manifest, args)
+    with pytest.raises(RoutingError, match="policy changed"):
+        post_audit(manifest, parent, child, capability)
