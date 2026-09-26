@@ -1,9 +1,9 @@
 import { researchReportHref } from "@/lib/research-reports";
 import Link from "next/link";
-import { ComparisonSettings } from "./comparison-settings";
+import { ComparisonReviewSteps, ComparisonSettings } from "./comparison-settings";
 import { OperationsRefresh } from "./lab/operations-refresh";
 import { getResearchProgress, type Comparison, type ResearchProgress, type Study } from "@/lib/research-progress";
-import { ComparisonResults } from "./comparison-results";
+import { ComparisonResults, ComparisonTakeaway } from "./comparison-results";
 import { getStudyNarrative, mandateSummary } from "@/lib/research-narrative";
 import { fractionToPercent } from "@/lib/research-decimal";
 import styles from "./research.module.css";
@@ -40,16 +40,18 @@ function RepresentativeResult({ study, comparison }: { study: Study; comparison:
     <section className={styles.comparison} id="trial" aria-labelledby="comparison-title">
       <p className={styles.kicker}>01 · 무엇을 바꿔서 시험했나요?</p>
       <h2 id="comparison-title">{narrative?.reading.question ?? "이 자료의 두 연구 설정을 비교합니다"}</h2>
+      <ComparisonTakeaway study={study} comparison={comparison} />
       <ComparisonSettings study={study} comparisonId={comparison.id} />
       <ComparisonResults study={study} comparison={comparison} />
+      <ComparisonReviewSteps study={study} comparisonId={comparison.id} />
       <Link className={styles.source} href={researchReportHref({ kind: "history", id: study.report_artifact_sha256 })}>이 시험의 근거를 보고서에서 읽기 ↗</Link>
     </section>
     <section className={styles.nextQuestion} aria-labelledby="next-title">
       <p className={styles.kicker}>02 · 여기서 무엇을 판단하면 되나요?</p>
-      <h2 id="next-title">더 번 만큼, 더 큰 하락과 비용도 겪었는지 보세요.</h2>
+      <h2 id="next-title">다른 기간에도 같은 결과일까요?</h2>
       <p>{narrative?.reading.nextCheck ?? "이 자료에 맞는 설명이 아직 확인되지 않았습니다. 원문과 자료 연결을 확인하기 전에는 투자 판단에 사용하지 마세요."}</p>
       <div className={styles.limit}><strong>아직 알 수 없는 것</strong><span>{narrative ? "앞으로도 같은 결과일지는 모릅니다. 배당·세금이 빠져 있고, 과거의 판단에 그때 알 수 없던 정보가 섞이지 않았는지도 검증 전입니다. 이 결과만으로 실투자 방식을 선택할 단계는 아닙니다." : "설명에 필요한 자료가 일치하지 않아 연구별 결론과 한계를 확정하지 않습니다."}</span></div>
-      <p>지금 할 일은 계좌를 연결하거나 주식을 고르는 것이 아닙니다. <strong>좋아진 점과 함께 감수한 점을 하나씩 말할 수 있다면 이 요약은 읽은 것입니다.</strong> 더 확인하고 싶으면 다른 기간의 비교를 읽으세요.</p>
+      <p>좋아진 점과 감수한 점을 하나씩 확인했다면, 다른 기간의 결과도 비교해 보세요.</p>
       <Link className={styles.primaryLink} href={`/research/progress#study-${study.id}`}>다른 기간에도 같은 차이인지 확인하기 ↗</Link>
       {narrative && <details className={styles.rulesDetails}><summary>이 연구의 나머지 한계 읽기</summary><ul>{narrative.limitations.map((limit) => <li key={limit}>{limit}</li>)}</ul></details>}
     </section>
@@ -80,10 +82,8 @@ export default async function ResearchHubPage({ searchParams }: PageProps) {
     <OperationsRefresh />
     <section className={styles.hero}>
       <p className={styles.kicker}>처음 읽는 투자 연구</p>
-      <h1>투자 방법을 바꾸면,<br />결과는 어떻게 달라질까요?</h1>
-      <p>연구자가 과거 주가에 서로 다른 규칙을 적용해 <strong>가상의 돈으로 사고팔았다고 계산</strong>했습니다. 더 벌었는지뿐 아니라, 도중에 얼마나 떨어졌고 거래에 얼마가 들었는지 확인하는 곳입니다.</p>
-      <div className={styles.readingPath}><span>두 시험의 차이</span><span>얻은 것과 감수한 것</span><span>아직 확인할 것</span></div>
-      <p className={styles.readerRole}>아래 시험 하나부터 읽어 보세요. 설정을 입력하거나 투자 경험이 있어야 하는 화면이 아닙니다.</p>
+      <h1>더 벌었을까요?<br />위험도 함께 봅니다.</h1>
+      <p>연구자가 같은 과거 주가에 두 규칙을 적용한 <strong>가상 시험</strong>입니다. 수익뿐 아니라 하락과 비용을 함께 비교합니다.</p>
     </section>
     {query.error && <div className={styles.alert} role="alert"><h2>연구 도구 요청 결과</h2><p>{query.error === "event-json" ? "시장 이벤트 JSON 배열 형식을 확인하세요." : "연구 도구 요청을 처리하지 못했습니다."} <Link href="/research/lab">연구 도구로 이동</Link></p></div>}
     {availabilityNotice(progress)}

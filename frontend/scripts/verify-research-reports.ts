@@ -126,8 +126,8 @@ async function main(): Promise<void> {
   assert.ok(!footnotes.includes(" node="), "AST objects are not forwarded to DOM elements");
 
   const metrics = { label: "fixture", net_return_pct: "0", cash_pct: "0", max_drawdown_pct: "0", max_leverage_pct: "0", annual_turnover_pct: "0", total_cost_krw: "0", trade_days: 0 };
-  const comparison: Comparison = { id: "fixture-c1", period_start: "2023-01-01", period_end: "2024-01-01", cost_multiplier: 1, drawdown_basis: "all_observer_nav", cash_basis: "utc_day_last_nav", cash_statistic: "mean", baseline: metrics, candidate: metrics };
-  const known: Study = { id: "core10-low-cash", title: "Fixture", published_at: "2026-09-13T00:00:00Z", cohort_id: "fixture", universe_symbols: [], source_sha256: "090944bb3f224e5dd1ff857a9376707fc8049ff24df945a3428208969ac81342", result_sha256: "71c1e5efac632d6f934d5b411d5f217131d0eb635aae121e90aee0373963e445", report_artifact_sha256: "aceef65a6cf64ac8afddfcc0226827ce3146100651706f2e3cab010008dc70fd", price_only: true, dividends_included: false, taxes_included: false, retrospective_reused_data: true, point_in_time_verified: false, comparisons: [comparison, { ...comparison, id: "fixture-c2" }] };
+  const comparison: Comparison = { id: "core10-continuous-c1", period_start: "2023-01-01", period_end: "2024-01-01", cost_multiplier: 1, drawdown_basis: "all_observer_nav", cash_basis: "utc_day_last_nav", cash_statistic: "mean", baseline: metrics, candidate: metrics };
+  const known: Study = { id: "core10-low-cash", title: "Fixture", published_at: "2026-09-13T00:00:00Z", cohort_id: "fixture", universe_symbols: [], source_sha256: "090944bb3f224e5dd1ff857a9376707fc8049ff24df945a3428208969ac81342", result_sha256: "71c1e5efac632d6f934d5b411d5f217131d0eb635aae121e90aee0373963e445", report_artifact_sha256: "aceef65a6cf64ac8afddfcc0226827ce3146100651706f2e3cab010008dc70fd", price_only: true, dividends_included: false, taxes_included: false, retrospective_reused_data: true, point_in_time_verified: false, comparisons: [comparison, { ...comparison, id: "core10-continuous-c2" }] };
   const equalOutcome = describeComparisonOutcome(comparison);
   assert.equal((equalOutcome.match(/같았습니다/g) ?? []).length, 4, "zero and equal inputs remain ties");
   const oppositeOutcome = describeComparisonOutcome({ ...comparison, baseline: { ...metrics, net_return_pct: "-2", max_drawdown_pct: "10", total_cost_krw: "1" }, candidate: { ...metrics, net_return_pct: "-1", max_drawdown_pct: "5", total_cost_krw: "2" } });
@@ -136,7 +136,9 @@ async function main(): Promise<void> {
   assert.ok(settings);
   assert.deepEqual(settings.baselineRules.slice(0, 3), ["전체 돈 중 투자할 수 있는 한도 60%", "연 변동성 목표 10%", "4주(28일)마다 종목별 투자 비중 점검"]);
   assert.deepEqual(settings.candidateRules.slice(0, 4), ["전체 돈 중 투자할 수 있는 한도 95%", "연 변동성 목표 30%", "8주(56일)마다 종목별 투자 비중 점검", "보유 비중 밴드 2%p · 후보 A"]);
-  assert.ok(getComparisonSettings(known, "fixture-c2")?.candidateRules.includes("보유 비중 밴드 4%p · 후보 B"));
+  assert.ok(getComparisonSettings(known, "core10-continuous-c2")?.candidateRules.includes("보유 비중 밴드 2%p · 후보 A"));
+  assert.equal(settings.rows.find((row) => row.label === "거래 생략에 쓰는 차이 기준")?.candidate, "2%p");
+  assert.equal(getComparisonSettings(known, "core10-continuous-c2")?.rows.find((row) => row.label === "거래 생략에 쓰는 차이 기준")?.candidate, "2%p");
   assert.equal(getComparisonSettings(known, "unknown-c1"), null);
   for (const key of ["id", "source_sha256", "result_sha256", "report_artifact_sha256"] as const) {
     const mismatch = { ...known, [key]: key === "id" ? "unknown" : "f".repeat(64) };
@@ -152,6 +154,15 @@ async function main(): Promise<void> {
   let originalCount = 0;
   if (fixtureDirectory) {
     const progress = researchProgressSchema.parse(JSON.parse(await readFile(path.join(fixtureDirectory, "progress.json"), "utf8")));
+    const coreStudy = progress.research.studies.find((study) => study.id === "core10-low-cash");
+    assert.ok(coreStudy);
+    for (const item of coreStudy.comparisons.filter((item) => item.cost_multiplier === 2)) {
+      assert.ok(item.candidate.label.includes("후보 A"));
+      const actualSettings = getComparisonSettings(coreStudy, item.id);
+      assert.ok(actualSettings);
+      assert.ok(actualSettings.candidateRules.includes("보유 비중 밴드 2%p · 후보 A"));
+      assert.equal(actualSettings.rows.find((row) => row.label === "거래 생략에 쓰는 차이 기준")?.candidate, "2%p");
+    }
     const cadenceStudy = progress.research.studies.find((study) => study.id === "volatility15-cadence-5270");
     const improvingFold = cadenceStudy?.comparisons.find((item) => item.id.endsWith("fold_5-c1"));
     assert.ok(improvingFold, "preserve the real fold that contradicts the aggregate study conclusion");

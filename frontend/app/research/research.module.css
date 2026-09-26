@@ -93,3 +93,16 @@
 .primaryLink { display: inline-block; margin-top: 12px; background: var(--green); color: #fff; border-radius: 8px; padding: 13px 20px; font-weight: 700; font-size: 14px; text-decoration: none; line-height: 1.6; }
 .primaryLink:focus-visible { outline: 3px solid #b0782e; outline-offset: 3px; }
 @media (max-width: 650px) { .readingPath { gap: 8px; flex-direction: column; } .nextQuestion { padding-top: 30px; } }
+
+/* Keep the purpose and conclusion together before the comparison details. */
+.hero { padding: 28px 0 6px; }
+.hero h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.25; }
+.hero > p:last-child { max-width: 720px; font-size: 15px; line-height: 1.7; }
+.comparison { margin-top: 18px; padding: 24px 28px; }
+.comparison > h2 { margin: 0 0 12px; font-size: 23px; line-height: 1.45; letter-spacing: -.7px; }
+@media (max-width: 650px) {
+  .hero { padding-top: 20px; }
+  .hero > p:last-child { font-size: 14px; }
+  .comparison { padding: 18px 14px; }
+  .comparison > h2 { font-size: 20px; }
+}
