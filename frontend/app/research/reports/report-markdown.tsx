@@ -36,7 +36,15 @@ export function renderResearchReport(markdown: string, target: ResearchReportTar
     };
   }
   const components: Components = {
-    a: ({ children, href }) => href ? <a href={href} rel={/^https?:/.test(href) ? "noreferrer noopener" : undefined}>{children}</a> : <span title="지원하지 않는 주소입니다">{children}</span>,
+    a: ({ children, href, id, "aria-describedby": describedBy, "aria-label": label, node }) => href ? <a
+      href={href}
+      id={id}
+      aria-describedby={describedBy}
+      aria-label={label}
+      data-footnote-ref={node?.properties.dataFootnoteRef === true ? "" : undefined}
+      data-footnote-backref={node?.properties.dataFootnoteBackref === "" ? "" : undefined}
+      rel={/^https?:/.test(href) ? "noreferrer noopener" : undefined}
+    >{children}</a> : <span title="지원하지 않는 주소입니다">{children}</span>,
     img: ({ alt, src }) => <span className="report-image-reference">이미지: {alt || "설명 없음"}{typeof src === "string" && src && <> · <a href={src} rel="noreferrer noopener">이미지 주소 열기</a></>}</span>,
     table: ({ children }) => <div className="report-table-scroll" role="region" aria-label="보고서 표 · 가로로 이동 가능" tabIndex={0}><table>{children}</table></div>,
   };
