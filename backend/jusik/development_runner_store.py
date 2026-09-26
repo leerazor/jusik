@@ -379,6 +379,20 @@ class RunnerStore:
                 str(row["name"])
                 for row in db.execute("PRAGMA table_info(discovery_cycles)").fetchall()
             }
+            scope_columns = {
+                str(row["name"])
+                for row in db.execute("PRAGMA table_info(roadmap_planning_scopes)")
+            }
+            for name in ("retry_kind", "retry_after"):
+                if name not in scope_columns:
+                    db.execute(
+                        f"ALTER TABLE roadmap_planning_scopes ADD COLUMN {name} TEXT"
+                    )
+            if "transient_failures" not in scope_columns:
+                db.execute(
+                    "ALTER TABLE roadmap_planning_scopes "
+                    "ADD COLUMN transient_failures INTEGER NOT NULL DEFAULT 0"
+                )
             if "transient_failures" not in cycle_columns:
                 db.execute(
                     "ALTER TABLE discovery_cycles ADD COLUMN transient_failures "
@@ -2592,28 +2606,72 @@ class RunnerStore:
             db.commit()
         return True
 
+    @staticmethod
+    def _scope_transport_deadline(row: sqlite3.Row) -> datetime | None:
+        kind, count = row["retry_kind"], row["transient_failures"]
+        if (
+            kind not in {"capacity", "rate_limit", "network", "server", "auth"}
+            or type(count) is not int
+            or count < 1
+            or row["reason"] != f"transport_{kind}"
+        ):
+            return None
+        try:
+            deadline = datetime.fromisoformat(row["retry_after"])
+            ended = datetime.fromisoformat(row["updated_at"])
+        except (TypeError, ValueError):
+            return None
+        delay = 21_600 if kind == "auth" else (300, 900, 3_600)[min(count - 1, 2)]
+        if (
+            deadline.utcoffset() != timedelta(0)
+            or ended.utcoffset() != timedelta(0)
+            or deadline - ended != timedelta(seconds=delay)
+        ):
+            return None
+        return deadline
+
     def pending_roadmap_scope(self) -> PendingRoadmapScope | None:
+        now = datetime.fromisoformat(utc_now())
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT * FROM roadmap_planning_scopes "
+                "WHERE status IN ('pending','transport_wait') "
+                "ORDER BY updated_at"
+            ).fetchall()
+        for row in rows:
+            deadline = None
+            if row["status"] == "transport_wait":
+                deadline = self._scope_transport_deadline(row)
+                if deadline is None or row["active_review_id"] is not None:
+                    continue
+            raw = str(row["pending_json"])
+            if hashlib.sha256(raw.encode()).hexdigest() != row["pending_sha256"]:
+                raise ValueError("stored roadmap scope changed")
+            pending = parse_pending_scope(raw)
+            pending.proposal
+            if (
+                deadline is None
+                or deadline <= now
+                or datetime.fromisoformat(pending.expires_at) <= now
+            ):
+                return pending
+        return None
+
+    def roadmap_scope_status(self) -> dict[str, str | int | None] | None:
         with self._connect() as db:
             row = db.execute(
-                "SELECT pending_json,pending_sha256 FROM roadmap_planning_scopes "
-                "WHERE status='pending' ORDER BY updated_at LIMIT 1"
+                "SELECT status,reason,updated_at,retry_kind,retry_after,"
+                "transient_failures FROM roadmap_planning_scopes "
+                "ORDER BY updated_at DESC LIMIT 1"
             ).fetchone()
         if row is None:
             return None
-        raw = str(row["pending_json"])
-        if hashlib.sha256(raw.encode()).hexdigest() != row["pending_sha256"]:
-            raise ValueError("stored roadmap scope changed")
-        pending = parse_pending_scope(raw)
-        pending.proposal
-        return pending
-
-    def roadmap_scope_status(self) -> dict[str, str] | None:
-        with self._connect() as db:
-            row = db.execute(
-                "SELECT status,reason,updated_at FROM roadmap_planning_scopes "
-                "ORDER BY updated_at DESC LIMIT 1"
-            ).fetchone()
-        return dict(row) if row is not None else None
+        result = dict(row)
+        if self._scope_transport_deadline(row) is None:
+            result.update(retry_kind=None, retry_after=None, transient_failures=0)
+            if row["status"] == "transport_wait":
+                result["reason"] = "transport_metadata_invalid"
+        return result
 
     def is_approved_roadmap_scope_task(self, task_id: str) -> bool:
         """Identify a scoped child from its durable approved proposal and receipt."""
@@ -2651,7 +2709,8 @@ class RunnerStore:
             db.execute("BEGIN IMMEDIATE")
             changed = db.execute(
                 "UPDATE roadmap_planning_scopes SET status='stale',reason=?,"
-                "updated_at=? WHERE planner_task_id=? AND status='pending' "
+                "updated_at=? WHERE planner_task_id=? "
+                "AND status IN ('pending','transport_wait') "
                 "AND active_review_id IS NULL",
                 (reason, now, pending.planner_task_id),
             ).rowcount
@@ -2675,14 +2734,16 @@ class RunnerStore:
         review_id: str,
         output_path: Path,
         launched_at: str,
+        *,
+        daily_launches: int | None = None,
+        cooldown_seconds: int | None = None,
+        repo: Path | None = None,
     ) -> bool:
         now = utc_now()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
-                "SELECT status,active_review_id,pending_json "
-                "FROM roadmap_planning_scopes "
-                "WHERE planner_task_id=?",
+                "SELECT * FROM roadmap_planning_scopes WHERE planner_task_id=?",
                 (pending.planner_task_id,),
             ).fetchone()
             paused = db.execute(
@@ -2692,20 +2753,94 @@ class RunnerStore:
                 "SELECT COUNT(*) FROM tasks WHERE area!='__planning__' "
                 "AND status IN ('queued','running')"
             ).fetchone()
+            planner = db.execute(
+                "SELECT status,last_attempt_id FROM tasks WHERE id=?",
+                (pending.planner_task_id,),
+            ).fetchone()
+            planner_attempt = db.execute(
+                "SELECT status FROM attempts WHERE id=? AND task_id=?",
+                (pending.planner_attempt_id, pending.planner_task_id),
+            ).fetchone()
+            latest = db.execute(
+                "SELECT value FROM runner_meta WHERE key='last_launch_at'"
+            ).fetchone()
+            launches = db.execute(
+                "SELECT COUNT(*) FROM launch_log WHERE launched_at LIKE ?",
+                (now[:10] + "%",),
+            ).fetchone()[0]
+            current = datetime.fromisoformat(now)
+            deadline = (
+                self._scope_transport_deadline(row)
+                if row is not None and row["status"] == "transport_wait"
+                else None
+            )
             if (
                 row is None
-                or row["status"] != "pending"
+                or row["status"] not in {"pending", "transport_wait"}
+                or row["status"] == "transport_wait"
+                and (
+                    deadline is None
+                    or deadline > current
+                    or repo is None
+                    or cooldown_seconds is None
+                )
                 or row["active_review_id"] is not None
                 or row["pending_json"] != scope_json(pending.model_dump(mode="json"))
+                or row["pending_sha256"]
+                != scope_digest(pending.model_dump(mode="json"))
+                or row["planner_attempt_id"] != pending.planner_attempt_id
+                or row["fingerprint"] != pending.fingerprint
+                or planner is None
+                or planner["status"] != "scope_pending"
+                or planner["last_attempt_id"] != pending.planner_attempt_id
+                or planner_attempt is None
+                or planner_attempt["status"] != "scope_pending"
                 or paused is not None
                 and paused["value"] == "1"
+                or daily_launches is not None
+                and launches >= daily_launches
+                or latest is not None
+                and current - datetime.fromisoformat(latest["value"])
+                < timedelta(seconds=cooldown_seconds or 0)
                 or scope_json(self._discovery_snapshot(db))
                 != scope_json(pending.snapshot)
                 or int(count[0]) >= ROADMAP_PENDING_LIMIT
-                or datetime.fromisoformat(pending.expires_at) <= datetime.now(UTC)
+                or datetime.fromisoformat(pending.expires_at) <= current
             ):
                 db.rollback()
                 return False
+            if repo is not None:
+                try:
+                    head = subprocess.run(
+                        ["git", "rev-parse", "main"],
+                        cwd=repo,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    ).stdout.strip()
+                    inputs_match = (
+                        head == pending.baseline_head
+                        and validate_dispatch_gate(repo).digest
+                        == pending.mandate_digest
+                        and load_roadmap(repo).digest == pending.roadmap_digest
+                        and all(
+                            hashlib.sha256(
+                                (
+                                    frozen_evidence_path(pending, item.path)
+                                    if isinstance(pending, PendingRoadmapCodeScope)
+                                    else Path(item.path)
+                                ).read_bytes()
+                            ).hexdigest()
+                            == item.sha256
+                            for item in pending.proposal.evidence
+                        )
+                    )
+                except (OSError, ValueError, subprocess.SubprocessError):
+                    inputs_match = False
+                if not inputs_match:
+                    db.rollback()
+                    return False
             db.execute(
                 "INSERT INTO roadmap_scope_attempts "
                 "(id,planner_task_id,status,started_at,output_path) "
@@ -2713,7 +2848,8 @@ class RunnerStore:
                 (review_id, pending.planner_task_id, now, str(output_path)),
             )
             db.execute(
-                "UPDATE roadmap_planning_scopes SET active_review_id=?,"
+                "UPDATE roadmap_planning_scopes SET status='pending',"
+                "active_review_id=?,"
                 "reason='scope_running',updated_at=? WHERE planner_task_id=?",
                 (review_id, now, pending.planner_task_id),
             )
@@ -2814,6 +2950,8 @@ class RunnerStore:
         review_id: str,
         outcome: str,
         response_sha256: str | None = None,
+        *,
+        retry_kind: str | None = None,
     ) -> bool:
         if outcome not in {
             "rejected",
@@ -2824,11 +2962,17 @@ class RunnerStore:
             "quarantined",
         }:
             raise ValueError("invalid roadmap scope outcome")
+        if retry_kind is not None and (
+            outcome != "failed"
+            or retry_kind not in {"capacity", "rate_limit", "network", "server", "auth"}
+        ):
+            raise ValueError("invalid roadmap scope transport outcome")
         now = utc_now()
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute(
-                "SELECT status,active_review_id FROM roadmap_planning_scopes "
+                "SELECT status,active_review_id,transient_failures "
+                "FROM roadmap_planning_scopes "
                 "WHERE planner_task_id=?",
                 (pending.planner_task_id,),
             ).fetchone()
@@ -2849,9 +2993,38 @@ class RunnerStore:
             db.execute(
                 "UPDATE roadmap_scope_attempts SET status=?,ended_at=?,"
                 "response_sha256=?,reason=? WHERE id=?",
-                (outcome, now, response_sha256, outcome, review_id),
+                (
+                    outcome,
+                    now,
+                    response_sha256,
+                    "transport_" + retry_kind if retry_kind else outcome,
+                    review_id,
+                ),
             )
-            if outcome == "interrupted":
+            if retry_kind is not None:
+                failures = int(row["transient_failures"]) + 1
+                delay = (
+                    21_600
+                    if retry_kind == "auth"
+                    else (300, 900, 3_600)[min(failures - 1, 2)]
+                )
+                retry_after = (
+                    datetime.fromisoformat(now) + timedelta(seconds=delay)
+                ).isoformat()
+                db.execute(
+                    "UPDATE roadmap_planning_scopes SET status='transport_wait',"
+                    "active_review_id=NULL,reason=?,retry_kind=?,retry_after=?,"
+                    "transient_failures=?,updated_at=? WHERE planner_task_id=?",
+                    (
+                        "transport_" + retry_kind,
+                        retry_kind,
+                        retry_after,
+                        failures,
+                        now,
+                        pending.planner_task_id,
+                    ),
+                )
+            elif outcome == "interrupted":
                 db.execute(
                     "UPDATE roadmap_planning_scopes SET active_review_id=NULL,"
                     "reason='paused',updated_at=? WHERE planner_task_id=?",
