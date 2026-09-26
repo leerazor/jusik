@@ -1,5 +1,14 @@
 # 워크트리 작업 등록부
 
+## performance-sprint-20260926-1656
+
+- 상태: 읽기 전용 조사. 사용자 요청의 3시간 집중 창은 2026-09-26 16:56~19:56 KST이며, 정확한 구독 잔여량이나 리셋 시각을 확인한 것으로 해석하지 않습니다.
+- 목표·완료 조건: 측정으로 확인한 연구·백테스트 처리 병목을 개선하고, 동일 입력의 계산·거래·위험 판정 보존을 독립 검증합니다. 수익성 실험은 기존 mandate와 자료·사전등록 gate를 충족하는 경우만 별도로 고려합니다.
+- 소유: root는 이 항목과 전용 개발 기록·audit만 관리합니다. 첫 read-only explore는 `market_research_engine.py`, `research_engine.py` 및 해당 fixture·호출 경로에서 병목과 검증 방법을 조사합니다. 구현 파일·워크트리·단일 소유자는 조사·계획 뒤 별도로 확정합니다.
+- 병행 작업: `research-web-reports`의 frontend·사용자 문서·배포 소유권과 현재 runner pause를 보존합니다. 다른 세션의 pause를 임의로 해제하거나 UI 작업·운영 DB·공유 원천 자료를 수정하지 않습니다. main 통합은 활동·HEAD를 다시 확인한 안전한 경계에서만 합니다.
+- 기준: 조사 시작 main `8d62114c4351ab0368423bceb8379727b54348df`; 전용 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260926-performance-sprint-XzoOxB/`.
+- 검증·예산: synthetic 고정 입력의 profiler·결과 동일성·집중 pytest/Ruff/strict mypy·독립 review를 사용합니다. 토큰 자체를 목표로 반복 호출하지 않으며, 추가 결제·유료 API·권한 확대·투자 기준 완화·실주문·원격 push·Windows 종료는 하지 않습니다.
+
 ## research-web-reports
 
 - 상태: 구현. 읽기 전용 조사·계획 완료. 이전 초보자 UI에 대한 사용자 피드백을 반영합니다. runner는 시작 당시 unpaused·service inactive·timer active·running attempt 0이었으며 수동 수정 중에만 pause·service 중지했습니다.
