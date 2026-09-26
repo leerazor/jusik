@@ -993,3 +993,7 @@
   .changeWarning, .changeNote { flex-direction: column; }
   .refreshState small { width: auto; margin-left: 0; }
 }
+
+.featuredPanel > h2 { font-size: clamp(23px, 3vw, 30px); line-height: 1.55; letter-spacing: -.8px; margin: 0; }
+.studyCard h3 { line-height: 1.65; }
+.studyCard .keyLimit { line-height: 1.85; }

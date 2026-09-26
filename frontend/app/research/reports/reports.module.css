@@ -52,3 +52,7 @@
   .body h2 { font-size: 20px; }
   .context { padding: 18px; }
 }
+
+.context h2 { margin: 0 0 14px; font-size: 22px; line-height: 1.6; letter-spacing: -.5px; }
+.body :global(.report-table-hint) { color: var(--muted); font-size: 12px; margin: 20px 0 8px; }
+.body :global(.report-table-scroll) { margin-top: 8px; }

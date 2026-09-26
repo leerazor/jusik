@@ -2,16 +2,16 @@ import { researchReportHref } from "@/lib/research-reports";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ComparisonSettings } from "../comparison-settings";
+import { ComparisonResults } from "../comparison-results";
 import { OperationsRefresh } from "@/app/research/lab/operations-refresh";
 import {
-  compareDecimal,
   getResearchProgress,
   type Comparison,
   type ResearchProgress,
   type RunnerTask,
   type Study,
 } from "@/lib/research-progress";
-import { candidateRuleForComparison, getStudyNarrative, researchSettingLabels, researchStudyTitle, researchSettingName } from "@/lib/research-narrative";
+import { candidateRuleForComparison, getStudyNarrative, researchStudyTitle, researchSettingName } from "@/lib/research-narrative";
 import styles from "./progress.module.css";
 
 export const dynamic = "force-dynamic";
@@ -116,49 +116,16 @@ function stateClass(value: string): string {
   return styles.stateUnknown;
 }
 
-function MetricValue({ label, value, kind }: { label: string; value: string; kind: "percent" | "currency" | "count" }) {
-  const display = kind === "percent" ? formatPercent(value) : kind === "currency" ? formatKrw(value) : formatDecimal(value, 0);
-  return <div><dt>{label}</dt><dd>{display}</dd></div>;
-}
-
 function ComparisonPanel({ study, comparison }: { study: Study; comparison: Comparison }) {
   const narrative = getStudyNarrative(study);
-  const adverse: string[] = [];
-  if (compareDecimal(comparison.candidate.net_return_pct, comparison.baseline.net_return_pct) === -1) adverse.push("수익률 하락");
-  if (compareDecimal(comparison.candidate.max_drawdown_pct, comparison.baseline.max_drawdown_pct) === 1) adverse.push("낙폭 확대");
-  if (compareDecimal(comparison.candidate.total_cost_krw, comparison.baseline.total_cost_krw) === 1) adverse.push("비용 증가");
-  if (compareDecimal(comparison.candidate.annual_turnover_pct, comparison.baseline.annual_turnover_pct) === 1) adverse.push("회전율 증가");
-  const cashLabel = comparison.cash_statistic === "mean" ? "평균 현금 비중" : "중앙값 현금 비중";
-  return (
-    <section className={styles.featuredPanel} aria-labelledby="featured-title">
-      <div className={styles.sectionHeading}>
-        <div><p className={styles.kicker}>대표 비교 · {researchStudyTitle(study)}</p><h2 id="featured-title">같은 조건에서 두 방식을 비교했어요</h2><p className={styles.muted}>{comparison.period_start}–{comparison.period_end} · 비용 {comparison.cost_multiplier}배 · {cashLabel} · 낙폭 기준 {comparison.drawdown_basis === "close_nav" ? "종가 평가액" : "전체 관측 평가액"}</p></div>
-        <Link className={styles.reportLink} href={researchReportHref({ kind: "history", id: study.report_artifact_sha256 })}>검증 보고서 읽기<span aria-hidden="true"> ↗</span></Link>
-      </div>
-      <p className={styles.featuredConclusion}>{narrative?.conclusion ?? "연구 설명의 식별 정보가 맞지 않아 결론을 표시하지 않습니다. 검증된 수치와 보고서는 확인할 수 있습니다."}</p>
-      <ComparisonSettings study={study} comparisonId={comparison.id} />
-      <div className={styles.strategyCards}>
-        {[{ label: researchSettingLabels.baseline, metrics: comparison.baseline }, { label: researchSettingLabels.candidate, metrics: comparison.candidate }].map((item) => (
-          <article className={styles.strategyCard} key={item.label}>
-            <span className={styles.cardEyebrow}>{item.label}</span><h3>{researchSettingName(study, item.metrics.label)}</h3>
-            <dl className={styles.metricGrid}>
-              <MetricValue label="기간 누적 수익률" value={item.metrics.net_return_pct} kind="percent" />
-              <MetricValue label={cashLabel} value={item.metrics.cash_pct} kind="percent" />
-              <MetricValue label="가장 크게 하락한 폭" value={item.metrics.max_drawdown_pct} kind="percent" />
-              <MetricValue label="거래한 날" value={String(item.metrics.trade_days)} kind="count" />
-              <MetricValue label="총 비용" value={item.metrics.total_cost_krw} kind="currency" />
-              <MetricValue label="연환산 회전율" value={item.metrics.annual_turnover_pct} kind="percent" />
-            </dl>
-          </article>
-        ))}
-      </div>
-      <p className={styles.metricExplainer}>수익률은 이 비교 기간 전체의 누적 변화이며 연환산이 아닙니다. 최대 낙폭은 평가액 고점 뒤 가장 크게 줄어든 폭입니다. 현금 비중은 기간 중 현금의 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"}이고, 거래일은 실제 주문 횟수가 아니라 거래가 발생한 날짜 수입니다. 비용과 회전율이 함께 늘면 수익률만으로 개선이라 할 수 없습니다. {comparison.drawdown_basis === "close_nav" ? "종가 평가액만으로 계산한 낙폭은 모든 관측 시점의 목표 충족을 증명하지 않습니다." : "모든 관측 평가액 기준이라도 이 과거 비교의 범위 안에서만 읽습니다."}</p>
-      <div className={adverse.length > 0 ? styles.changeWarning : styles.changeNote} role={adverse.length > 0 ? "status" : undefined}>
-        <strong>{adverse.length > 0 ? "주의할 변화" : "해석할 때 함께 볼 점"}</strong>
-        <span>{adverse.length > 0 ? `${adverse.join(" · ")} — 모든 지표가 개선된 것은 아닙니다.` : "수익률·현금·낙폭뿐 아니라 비용과 회전율도 함께 봐야 합니다."}</span>
-      </div>
-    </section>
-  );
+  return <section className={styles.featuredPanel} aria-labelledby="featured-title">
+    <p className={styles.kicker}>먼저 읽을 비교 하나</p>
+    <h2 id="featured-title">{narrative?.reading.question ?? study.title}</h2>
+    <ComparisonSettings study={study} comparisonId={comparison.id} />
+    <ComparisonResults study={study} comparison={comparison} />
+    <p className={styles.readingGuide}>{narrative?.reading.nextCheck ?? "이 자료에 맞는 설명을 확인할 수 없습니다. 원문을 먼저 확인하세요."}</p>
+    <Link className={styles.reportLink} href={researchReportHref({ kind: "history", id: study.report_artifact_sha256 })}>이 시험의 보고서 읽기 ↗</Link>
+  </section>;
 }
 
 function StatusCard({ title, availability, children }: { title: string; availability: "available" | "unavailable" | "invalid"; children: ReactNode }) {
@@ -250,7 +217,7 @@ function QueueSection({ progress }: { progress: ResearchProgress }) {
 function StudiesSection({ progress }: { progress: ResearchProgress }) {
   const studies = [...progress.research.studies].sort((left, right) => right.published_at.localeCompare(left.published_at));
   const comparisonTotal = studies.reduce((total, study) => total + study.comparisons.length, 0);
-  return <section className={styles.studiesSection} aria-labelledby="studies-title"><div className={styles.sectionHeading}><div><p className={styles.kicker}>{progress.research.availability === "available" ? `공개 연구 ${studies.length}개 · 비교 ${comparisonTotal}개` : "연구 자료 확인 필요"}</p><h2 id="studies-title">연구 질문과 결과</h2><p className={styles.muted}>질문과 결론부터 읽으세요. 원본 보고서는 바로 열 수 있고, 계산 조건과 모든 수치는 펼쳐 볼 수 있습니다.</p></div><Link className={styles.textLink} href="/research/history">전체 연구 이력 보기</Link></div>{progress.research.availability !== "available" ? <div className={styles.unavailableBox}>검증된 연구 카탈로그를 표시할 수 없습니다.</div> : studies.length === 0 ? <div className={styles.emptyPanel}>공개된 연구가 아직 없습니다.</div> : <div className={styles.studyGrid}>{studies.map((study) => { const narrative = getStudyNarrative(study); return <article className={styles.studyCard} id={`study-${study.id}`} key={study.id}><div className={styles.studyCardHeading}><div><span className={styles.cardEyebrow}>연구 질문</span><h3>{narrative?.question ?? study.title}</h3></div><Link className={styles.reportLink} aria-label={`${researchStudyTitle(study)} 원본 보고서`} href={researchReportHref({ kind: "history", id: study.report_artifact_sha256 })}>보고서 읽기 ↗</Link></div>{narrative ? <><p className={styles.studyQuestion}>{researchStudyTitle(study)}</p><p className={styles.decisionNote}><strong>확인한 결론</strong> {narrative.conclusion}</p><p className={styles.keyLimit}><strong>꼭 알아둘 한계</strong> {narrative.limitations[0]}</p><details className={styles.studyDisclosure}><summary>바꾼 규칙과 나머지 한계 보기</summary><div className={styles.narrativeGrid}><div><strong>관련 목표</strong><p>{narrative.relatedGoals.join(" · ")}</p></div><div><strong>연구용 비교 설정</strong><p>{narrative.baselineRules.join(" · ")}</p></div><div><strong>변경해서 시험한 설정</strong><p>{narrative.candidateRules.join(" · ")}</p></div><div><strong>고정 조건</strong><p>{narrative.fixedConditions.join(" · ")}</p></div></div><p className={styles.decisionNote}>재조정은 보유 종목에 넣는 돈의 비중을 다시 맞추는 일입니다. 연 변동성 목표는 연간 수익률의 흔들림을 조절하는 목표이며, 약속된 수익률이나 손실 한도가 아닙니다.</p><p className={styles.decisionNote}>{narrative.limitations.slice(1).join(" ")}</p></details></> : <div className={styles.unavailableBox}>연구 설명을 확인할 수 없습니다. API가 제공한 제목·수치·보고서 링크는 유지합니다.</div>}<p className={styles.studyMetaLine}>공개 {formatDateTime(study.published_at)} · {study.universe_symbols.length}종목 · 과거 가격만 · 배당·세금 제외</p><details className={styles.studyDisclosure}><summary>모든 비교 표 보기 · {study.comparisons.length}개</summary><div className={styles.comparisonDetails}>{study.comparisons.length === 0 ? <p className={styles.emptyInline}>비교 조건 없음</p> : study.comparisons.map((comparison) => { const candidateRule = candidateRuleForComparison(study, comparison.id); return <details key={comparison.id}><summary><span>{comparison.period_start}–{comparison.period_end} · 비용 {comparison.cost_multiplier}배 · 현금 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"}</span><strong>{researchSettingName(study, comparison.baseline.label)} ↔ {researchSettingName(study, comparison.candidate.label)}</strong></summary>{candidateRule && <p className={styles.comparisonRule}><strong>후보 규칙:</strong> {candidateRule.label} · {candidateRule.mapping}</p>}<ComparisonSettings study={study} comparisonId={comparison.id} /><div className={styles.tableWrap}><table><caption>{comparison.id} 비교</caption><thead><tr><th scope="col">지표</th><th scope="col">기준선 · {researchSettingName(study, comparison.baseline.label)}</th><th scope="col">후보 · {researchSettingName(study, comparison.candidate.label)}</th></tr></thead><tbody><tr><th scope="row">기간 누적 수익률</th><td>{formatPercent(comparison.baseline.net_return_pct)}</td><td>{formatPercent(comparison.candidate.net_return_pct)}</td></tr><tr><th scope="row">현금 비중 ({comparison.cash_statistic === "mean" ? "평균" : "중앙값"})</th><td>{formatPercent(comparison.baseline.cash_pct)}</td><td>{formatPercent(comparison.candidate.cash_pct)}</td></tr><tr><th scope="row">최대 낙폭 ({comparison.drawdown_basis === "close_nav" ? "종가 평가액" : "전체 관측 평가액"})</th><td>{formatPercent(comparison.baseline.max_drawdown_pct)}</td><td>{formatPercent(comparison.candidate.max_drawdown_pct)}</td></tr><tr><th scope="row">최대 레버리지</th><td>{formatPercent(comparison.baseline.max_leverage_pct)}</td><td>{formatPercent(comparison.candidate.max_leverage_pct)}</td></tr><tr><th scope="row">연환산 회전율</th><td>{formatPercent(comparison.baseline.annual_turnover_pct)}</td><td>{formatPercent(comparison.candidate.annual_turnover_pct)}</td></tr><tr><th scope="row">총 비용</th><td>{formatKrw(comparison.baseline.total_cost_krw)}</td><td>{formatKrw(comparison.candidate.total_cost_krw)}</td></tr><tr><th scope="row">거래일</th><td>{formatCount(comparison.baseline.trade_days)}일</td><td>{formatCount(comparison.candidate.trade_days)}일</td></tr></tbody></table></div><p className={styles.comparisonBasis}>기간 {comparison.period_start}–{comparison.period_end} · 비용 {comparison.cost_multiplier}배 · 현금은 UTC 하루 마지막 평가액의 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"} · 낙폭은 {comparison.drawdown_basis === "close_nav" ? "종가 평가액" : "모든 관측 평가액"}</p></details>; })}</div></details></article>; })}</div>}</section>;
+  return <section className={styles.studiesSection} aria-labelledby="studies-title"><div className={styles.sectionHeading}><div><p className={styles.kicker}>{progress.research.availability === "available" ? `공개 연구 ${studies.length}개 · 비교 ${comparisonTotal}개` : "연구 자료 확인 필요"}</p><h2 id="studies-title">연구 질문과 결과</h2><p className={styles.muted}>같은 결과가 모든 조건에서 나오는지 확인하는 곳입니다. 관심 있는 질문 하나를 고르고, 좋아진 점과 감수한 점을 함께 읽으세요. 표에서는 같은 기간·비용 조건의 두 시험을 비교하세요.</p></div><Link className={styles.textLink} href="/research/history">전체 연구 이력 보기</Link></div>{progress.research.availability !== "available" ? <div className={styles.unavailableBox}>검증된 연구 카탈로그를 표시할 수 없습니다.</div> : studies.length === 0 ? <div className={styles.emptyPanel}>공개된 연구가 아직 없습니다.</div> : <div className={styles.studyGrid}>{studies.map((study) => { const narrative = getStudyNarrative(study); return <article className={styles.studyCard} id={`study-${study.id}`} key={study.id}><div className={styles.studyCardHeading}><div><span className={styles.cardEyebrow}>연구 질문</span><h3>{narrative?.reading.question ?? study.title}</h3></div><Link className={styles.reportLink} aria-label={`${researchStudyTitle(study)} 원본 보고서`} href={researchReportHref({ kind: "history", id: study.report_artifact_sha256 })}>보고서 읽기 ↗</Link></div>{narrative ? <><p className={styles.decisionNote}><strong>확인한 결론</strong> {narrative.reading.result}</p><p className={styles.keyLimit}><strong>이 결과를 읽을 때 볼 점</strong> {narrative.reading.nextCheck}</p><details className={styles.studyDisclosure}><summary>바꾼 규칙과 나머지 한계 보기</summary><div className={styles.narrativeGrid}><div><strong>관련 목표</strong><p>{narrative.relatedGoals.join(" · ")}</p></div><div><strong>연구용 비교 설정</strong><p>{narrative.baselineRules.join(" · ")}</p></div><div><strong>변경해서 시험한 설정</strong><p>{narrative.candidateRules.join(" · ")}</p></div><div><strong>고정 조건</strong><p>{narrative.fixedConditions.join(" · ")}</p></div></div><p className={styles.decisionNote}>재조정은 보유 종목에 넣는 돈의 비중을 다시 맞추는 일입니다. 연 변동성 목표는 연간 수익률의 흔들림을 조절하는 목표이며, 약속된 수익률이나 손실 한도가 아닙니다.</p><p className={styles.decisionNote}>{narrative.limitations.slice(1).join(" ")}</p></details></> : <div className={styles.unavailableBox}>연구 설명을 확인할 수 없습니다. API가 제공한 제목·수치·보고서 링크는 유지합니다.</div>}<p className={styles.studyMetaLine}>공개 {formatDateTime(study.published_at)} · {study.universe_symbols.length}종목 · 과거 가격만 · 배당·세금 제외</p><details className={styles.studyDisclosure}><summary>모든 비교 표 보기 · {study.comparisons.length}개</summary><div className={styles.comparisonDetails}>{study.comparisons.length === 0 ? <p className={styles.emptyInline}>비교 조건 없음</p> : study.comparisons.map((comparison) => { const candidateRule = candidateRuleForComparison(study, comparison.id); return <details key={comparison.id}><summary><span>{comparison.period_start}–{comparison.period_end} · 비용 {comparison.cost_multiplier}배 · 현금 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"}</span><strong>{researchSettingName(study, comparison.baseline.label)} ↔ {researchSettingName(study, comparison.candidate.label)}</strong></summary>{candidateRule && <p className={styles.comparisonRule}><strong>후보 규칙:</strong> {candidateRule.label} · {candidateRule.mapping}</p>}<ComparisonSettings study={study} comparisonId={comparison.id} /><div className={styles.tableWrap}><table><caption>{comparison.id} 비교</caption><thead><tr><th scope="col">지표</th><th scope="col">기준선 · {researchSettingName(study, comparison.baseline.label)}</th><th scope="col">후보 · {researchSettingName(study, comparison.candidate.label)}</th></tr></thead><tbody><tr><th scope="row">기간 누적 수익률</th><td>{formatPercent(comparison.baseline.net_return_pct)}</td><td>{formatPercent(comparison.candidate.net_return_pct)}</td></tr><tr><th scope="row">현금 비중 ({comparison.cash_statistic === "mean" ? "평균" : "중앙값"})</th><td>{formatPercent(comparison.baseline.cash_pct)}</td><td>{formatPercent(comparison.candidate.cash_pct)}</td></tr><tr><th scope="row">최대 낙폭 ({comparison.drawdown_basis === "close_nav" ? "종가 평가액" : "전체 관측 평가액"})</th><td>{formatPercent(comparison.baseline.max_drawdown_pct)}</td><td>{formatPercent(comparison.candidate.max_drawdown_pct)}</td></tr><tr><th scope="row">최대 레버리지</th><td>{formatPercent(comparison.baseline.max_leverage_pct)}</td><td>{formatPercent(comparison.candidate.max_leverage_pct)}</td></tr><tr><th scope="row">연환산 회전율</th><td>{formatPercent(comparison.baseline.annual_turnover_pct)}</td><td>{formatPercent(comparison.candidate.annual_turnover_pct)}</td></tr><tr><th scope="row">총 비용</th><td>{formatKrw(comparison.baseline.total_cost_krw)}</td><td>{formatKrw(comparison.candidate.total_cost_krw)}</td></tr><tr><th scope="row">거래일</th><td>{formatCount(comparison.baseline.trade_days)}일</td><td>{formatCount(comparison.candidate.trade_days)}일</td></tr></tbody></table></div><p className={styles.comparisonBasis}>기간 {comparison.period_start}–{comparison.period_end} · 비용 {comparison.cost_multiplier}배 · 현금은 UTC 하루 마지막 평가액의 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"} · 낙폭은 {comparison.drawdown_basis === "close_nav" ? "종가 평가액" : "모든 관측 평가액"}</p></details>; })}</div></details></article>; })}</div>}</section>;
 }
 
 function FeaturedSection({ progress }: { progress: ResearchProgress }) {
@@ -262,7 +229,7 @@ function FeaturedSection({ progress }: { progress: ResearchProgress }) {
 }
 
 function ProgressPurpose() {
-  return <p className={styles.readingGuide}><strong>읽는 방법</strong> 연구용 비교 설정과 변경해서 시험한 설정을 나란히 보세요. 두 설정은 사용자의 실제 투자 이력이 아닙니다. 수익이 늘어도 손실 위험이나 비용이 커질 수 있습니다. 모두 과거 자료를 이용한 비교이며 투자 추천은 아닙니다.</p>;
+  return <p className={styles.readingGuide}><strong>읽는 방법</strong> 연구용 비교 설정과 변경해서 시험한 설정을 나란히 보세요. 연구자가 만든 가상의 두 시험입니다. 수익이 늘어난 시험에서 중간 하락·비용도 커졌는지 확인하세요. 어느 쪽에 실제로 투자할지 고르는 화면은 아닙니다.</p>;
 }
 
 export default async function ResearchProgressPage() {
@@ -280,7 +247,7 @@ export default async function ResearchProgressPage() {
         <div><p className={styles.kicker}>과거 자료에서 확인한 것</p><h1>연구 결과</h1><p className={styles.heroCopy}>무엇을 바꿨고, 어떤 차이가 있었을까요?<br />좋아진 점과 아직 믿기 어려운 점을 함께 읽습니다.</p></div>
         <div className={styles.refreshState}><span className={styles.autoDot} aria-hidden="true" />자동 새로고침 · 10초{progress && <small>마지막 확인 {formatDateTime(progress.observed_at)}</small>}</div>
       </section>
-      {!progress ? <section className={styles.unavailableBox} role="alert"><h2>진행 현황을 불러올 수 없습니다</h2><p>연구 진행 API가 아직 연결되지 않았거나 응답을 검증하지 못했습니다. 자동 실행 중이나 정상 대기로 해석하지 않습니다.</p></section> : <><ProgressPurpose /><FeaturedSection progress={progress} /><StudiesSection progress={progress} /><details className={styles.operationsDetails}><summary>운영 상세 · 자동 실행기와 작업 대기열</summary><RunnerOverview progress={progress} /><QueueSection progress={progress} /></details><footer className={styles.footer}>모든 연구는 과거 가격 데이터만 사용하며 배당과 세금을 포함하지 않습니다. 회고용으로 재사용된 자료이고 시점 검증 전이므로 미래 성과를 입증하지 않습니다. · <Link href="/research/history">연구 이력과 보고서</Link></footer></>}
+      {!progress ? <section className={styles.unavailableBox} role="alert"><h2>진행 현황을 불러올 수 없습니다</h2><p>자료에 연결하지 못했거나 내용을 확인하지 못했습니다. 연구가 없거나 멈췄다는 뜻은 아닙니다. 잠시 후 이 화면을 다시 열어 주세요.</p></section> : <><ProgressPurpose /><FeaturedSection progress={progress} /><StudiesSection progress={progress} /><details className={styles.operationsDetails}><summary>운영 상세 · 자동 실행기와 작업 대기열</summary><RunnerOverview progress={progress} /><QueueSection progress={progress} /></details><footer className={styles.footer}>공개된 비교는 과거 가격으로 계산했으며 배당과 세금이 빠져 있습니다. 그때 알 수 없던 정보를 쓰지 않았는지도 검증 전이므로, 앞으로도 같은 결과를 낼지는 알 수 없습니다. · <Link href="/research/history">연구 이력과 보고서</Link></footer></>}
     </main>
   );
 }

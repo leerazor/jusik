@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getResearchProgress } from "@/lib/research-progress";
+import { findReportStudy, getStudyNarrative } from "@/lib/research-narrative";
 import { parseResearchReportTarget, readResearchReport, researchReportHref, type ResearchReportResult } from "@/lib/research-reports";
 import { renderResearchReport } from "../report-markdown";
 import styles from "../reports.module.css";
@@ -19,10 +21,19 @@ export default async function ResearchReportPage({ params }: { params: Promise<{
   const result = target ? await readResearchReport(target) : { status: "missing" as const };
   if (!target || result.status !== "available") return <main className={styles.main}><section className={styles.error} role="alert"><p className={styles.kicker}>연구 보고서</p><h1>보고서를 읽을 수 없습니다</h1><p>{errors[result.status === "available" ? "missing" : result.status]}</p><div className={styles.links}>{target && <a href={researchReportHref(target)}>웹에서 다시 읽기</a>}<Link href="/research/progress">연구 결과로 돌아가기</Link><Link href="/research/history">연구 기록 보기</Link></div></section></main>;
   const { body, headings } = renderResearchReport(result.markdown, target);
+  const progress = target.kind === "history" ? await getResearchProgress().catch(() => null) : null;
+  const study = target.kind === "history" ? findReportStudy(progress, target.id) : null;
+  const narrative = study ? getStudyNarrative(study) : null;
   const origin = { history: "공개 연구 이력", portfolio: "포트폴리오 모의 연구", dividends: "배당 포함 모의 연구", reference: "연구 참고 자료" }[target.kind];
   return <main className={styles.main}>
     <header className={styles.header}><div><p className={styles.kicker}>{origin}</p><h1>연구 보고서 읽기</h1><p>원문 전체를 이 페이지에서 읽습니다. 아래 본문의 수치와 표현은 원문을 유지했습니다.</p></div><Link href="/research/progress">연구 결과로 돌아가기 ↗</Link></header>
-    <section className={styles.context} aria-label="보고서 읽기 안내"><p><strong>연구 설정에 대한 보고서입니다.</strong> 본문의 기준·후보는 시뮬레이션에서 비교한 설정이며, 사용자가 과거에 투자한 방식이나 현재 보유 내역을 뜻하지 않습니다.</p><p>4주·8주는 각각 28일·56일(달력 기준)마다 종목별 투자 비중을 다시 검토하는 간격입니다. 투자기간이나 반드시 사고파는 주기가 아닙니다. 목표 비중과 실제 비중의 차이 등 거래 조건에 따라 매매를 건너뛰며, 위험 방어를 위한 매도는 그 사이에도 발생할 수 있습니다.</p><details><summary>변동성 목표와 계산 기준 더 보기</summary><p>연 변동성 목표는 연간 수익률의 흔들림을 조절하는 설정입니다. 약속된 수익률이나 최대 손실 한도가 아닙니다. 보고서마다 다른 설정을 사용하므로 개별 보고서의 조건을 함께 읽으세요.</p><p>과거 연구 엔진의 정기 검토는 연구 시작일 당일 또는 그 이후 첫 월요일 UTC를 기준으로 계산합니다. 여러 설정을 함께 바꾼 비교는 주기 하나만의 효과로 해석할 수 없습니다.</p></details></section>
+    <section className={styles.context} aria-label="보고서 읽기 안내">
+      <h2>{narrative ? narrative.reading.question : "이 보고서는 어떤 근거를 담고 있나요?"}</h2>
+      {narrative ? <><p><strong>먼저 읽을 결론</strong> {narrative.reading.result}</p><p><strong>읽으며 확인할 것</strong> {narrative.reading.nextCheck}</p><p>아래 원문에는 이 결론을 계산한 조건과 표가 있습니다. 배당·세금이 빠져 있고, 그때 알 수 없던 정보를 쓰지 않았는지도 검증 전입니다. 미래에도 같은 결과가 나온다는 증거로 읽지 마세요.</p></> : <p>{target.kind === "reference" ? "연구에서 참고한 자료입니다. 아래 목차에서 관심 있는 주제를 고르고, 본문이 어떤 자료를 근거로 설명하는지 확인하세요." : "가상의 돈으로 계산한 연구 기록입니다. 이 보고서에 연결된 쉬운 요약은 확인하지 못했습니다. 아래 원문의 목적·계산 조건·결론 순서로 읽고, 다른 연구의 설명을 이 결과에 적용하지 마세요."}</p>}
+      <p>본문의 ‘기준’과 ‘후보’는 연구자가 비교한 시험을 뜻합니다. 사용자의 과거 투자나 실제 계좌 기록을 뜻하지 않습니다.</p>
+      <details><summary>본문의 숫자와 용어를 읽는 방법</summary><p>‘수익률’은 시작한 돈이 얼마나 늘거나 줄었는지, ‘낙폭’은 도중에 가장 높았던 금액에서 얼마나 떨어졌는지입니다. 예를 들어 120만원에서 108만원으로 줄면 낙폭은 10%입니다. 예시는 실제 성과와 구분해 읽으세요.</p><p>‘NAV’는 현금과 보유 주식의 가치를 합한 금액입니다. ‘비중’은 그 돈 중 특정 종목이나 현금이 차지하는 몫입니다. ‘시점 검증(PIT)’은 과거 판단에 당시에는 몰랐을 정보를 쓰지 않았는지 확인하는 일입니다.</p><p>화면 요약은 소수점 셋째 자리 이하를 버리고, 원문은 작성 당시 표기를 유지합니다. 예를 들어 요약 43.17%와 원문 43.18%처럼 표시 자릿수 처리 때문에 차이가 날 수 있습니다.</p></details>
+      {study && <Link href={`/research/progress#study-${study.id}`}>이 연구의 쉬운 설명과 비교 표로 돌아가기 ↗</Link>}
+    </section>
     <div className={styles.layout}>
       {headings.length > 0 && <nav className={styles.contents} aria-label="보고서 목차"><strong>목차</strong><ol>{headings.map((heading) => <li key={heading.id} data-depth={heading.depth}><a href={`#${heading.id}`}>{heading.text || "제목 없는 절"}</a></li>)}</ol></nav>}
       <article className={styles.body} aria-label="보고서 원문">{body}</article>

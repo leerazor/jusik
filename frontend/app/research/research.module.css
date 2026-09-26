@@ -77,3 +77,19 @@
   .destinations, .conditions dl { grid-template-columns: 1fr; }
   .nextQuestion h2 { font-size: 22px; }
 }
+
+.hero { max-width: 860px; padding-bottom: 10px; }
+.hero h1 { font-size: clamp(30px, 4.2vw, 45px); line-height: 1.35; letter-spacing: -1.6px; }
+.hero > p { line-height: 1.9; color: var(--muted); }
+.hero > p strong { color: var(--ink); }
+.hero .kicker { color: var(--green); }
+.readingPath { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: 26px 0 18px; counter-reset: reading; font-size: 13px; color: var(--ink); }
+.readingPath span { counter-increment: reading; }
+.readingPath span::before { content: counter(reading) ". "; color: var(--green); font-weight: 800; }
+.hero .readerRole { font-size: 13px; margin: 0; }
+.comparison > h2 { margin: 0; font-size: clamp(23px, 3vw, 30px); line-height: 1.55; letter-spacing: -.9px; }
+.source { margin-top: 24px; }
+.nextQuestion { padding: 42px 4px 24px; }
+.primaryLink { display: inline-block; margin-top: 12px; background: var(--green); color: #fff; border-radius: 8px; padding: 13px 20px; font-weight: 700; font-size: 14px; text-decoration: none; line-height: 1.6; }
+.primaryLink:focus-visible { outline: 3px solid #b0782e; outline-offset: 3px; }
+@media (max-width: 650px) { .readingPath { gap: 8px; flex-direction: column; } .nextQuestion { padding-top: 30px; } }

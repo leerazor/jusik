@@ -8,8 +8,8 @@ import {
   legacyResearchReportTarget, parseResearchReportTarget, readResearchReport, referenceReportNames,
   researchReportApiPath, researchReportHref, safeResearchReportLink, type ResearchReportTarget,
 } from "../lib/research-reports";
-import { getComparisonSettings, getStudyNarrative, researchCadenceExplanation, researchSettingLabels, researchSettingName } from "../lib/research-narrative";
-import type { Comparison, Study } from "../lib/research-progress";
+import { describeComparisonOutcome, findReportStudy, getComparisonSettings, getStudyNarrative, researchCadenceExplanation, researchSettingLabels, researchSettingName } from "../lib/research-narrative";
+import { researchProgressSchema, type Comparison, type Study } from "../lib/research-progress";
 import { renderResearchReport } from "../app/research/reports/report-markdown";
 import { GET as historyDownload } from "../app/research/history/download/[artifactId]/route";
 import { GET as portfolioDownload } from "../app/research/portfolio/download/[...path]/route";
@@ -128,6 +128,10 @@ async function main(): Promise<void> {
   const metrics = { label: "fixture", net_return_pct: "0", cash_pct: "0", max_drawdown_pct: "0", max_leverage_pct: "0", annual_turnover_pct: "0", total_cost_krw: "0", trade_days: 0 };
   const comparison: Comparison = { id: "fixture-c1", period_start: "2023-01-01", period_end: "2024-01-01", cost_multiplier: 1, drawdown_basis: "all_observer_nav", cash_basis: "utc_day_last_nav", cash_statistic: "mean", baseline: metrics, candidate: metrics };
   const known: Study = { id: "core10-low-cash", title: "Fixture", published_at: "2026-09-13T00:00:00Z", cohort_id: "fixture", universe_symbols: [], source_sha256: "090944bb3f224e5dd1ff857a9376707fc8049ff24df945a3428208969ac81342", result_sha256: "71c1e5efac632d6f934d5b411d5f217131d0eb635aae121e90aee0373963e445", report_artifact_sha256: "aceef65a6cf64ac8afddfcc0226827ce3146100651706f2e3cab010008dc70fd", price_only: true, dividends_included: false, taxes_included: false, retrospective_reused_data: true, point_in_time_verified: false, comparisons: [comparison, { ...comparison, id: "fixture-c2" }] };
+  const equalOutcome = describeComparisonOutcome(comparison);
+  assert.equal((equalOutcome.match(/같았습니다/g) ?? []).length, 4, "zero and equal inputs remain ties");
+  const oppositeOutcome = describeComparisonOutcome({ ...comparison, baseline: { ...metrics, net_return_pct: "-2", max_drawdown_pct: "10", total_cost_krw: "1" }, candidate: { ...metrics, net_return_pct: "-1", max_drawdown_pct: "5", total_cost_krw: "2" } });
+  assert.ok(oppositeOutcome.includes("수익률은 높았습니다") && oppositeOutcome.includes("최대 하락 폭은 작았습니다") && oppositeOutcome.includes("거래 비용은 많았습니다"));
   const settings = getComparisonSettings(known, comparison.id);
   assert.ok(settings);
   assert.deepEqual(settings.baselineRules.slice(0, 3), ["전체 돈 중 투자할 수 있는 한도 60%", "연 변동성 목표 10%", "4주(28일)마다 종목별 투자 비중 점검"]);
@@ -147,6 +151,25 @@ async function main(): Promise<void> {
   const fixtureDirectory = process.argv[2];
   let originalCount = 0;
   if (fixtureDirectory) {
+    const progress = researchProgressSchema.parse(JSON.parse(await readFile(path.join(fixtureDirectory, "progress.json"), "utf8")));
+    const cadenceStudy = progress.research.studies.find((study) => study.id === "volatility15-cadence-5270");
+    const improvingFold = cadenceStudy?.comparisons.find((item) => item.id.endsWith("fold_5-c1"));
+    assert.ok(improvingFold, "preserve the real fold that contradicts the aggregate study conclusion");
+    const improvingOutcome = describeComparisonOutcome(improvingFold);
+    assert.ok(improvingOutcome.includes("수익률은 높았습니다") && improvingOutcome.includes("최대 하락 폭은 작았습니다"));
+    const described = progress.research.studies.find((study) => getStudyNarrative(study));
+    assert.ok(described);
+    const artifact = described.report_artifact_sha256;
+    assert.equal(findReportStudy(progress, artifact)?.id, described.id);
+    assert.equal(findReportStudy(null, artifact), null);
+    assert.equal(findReportStudy(progress, "0".repeat(64)), null);
+    for (const availability of ["invalid", "unavailable"] as const) {
+      assert.equal(findReportStudy({ ...progress, research: { ...progress.research, availability } }, artifact), null);
+    }
+    for (const field of ["id", "source_sha256", "result_sha256", "report_artifact_sha256"] as const) {
+      const altered: Study = { ...described, [field]: field === "id" ? "unknown" : "f".repeat(64) };
+      assert.equal(findReportStudy({ ...progress, research: { ...progress.research, studies: [altered] } }, artifact), null);
+    }
     const schema = z.array(z.object({ path: z.string(), fixture: z.string().regex(/^original-report-\d+\.txt$/), sha256: z.string(), status: z.number(), api_path: z.string() }));
     const records = schema.parse(JSON.parse(await readFile(path.join(fixtureDirectory, "report-fixtures.json"), "utf8")));
     for (const fixture of records.filter((item) => item.status === 200)) {

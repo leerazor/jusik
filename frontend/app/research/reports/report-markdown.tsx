@@ -46,7 +46,7 @@ export function renderResearchReport(markdown: string, target: ResearchReportTar
       rel={/^https?:/.test(href) ? "noreferrer noopener" : undefined}
     >{children}</a> : <span title="지원하지 않는 주소입니다">{children}</span>,
     img: ({ alt, src }) => <span className="report-image-reference">이미지: {alt || "설명 없음"}{typeof src === "string" && src && <> · <a href={src} rel="noreferrer noopener">이미지 주소 열기</a></>}</span>,
-    table: ({ children }) => <div className="report-table-scroll" role="region" aria-label="보고서 표 · 가로로 이동 가능" tabIndex={0}><table>{children}</table></div>,
+    table: ({ children }) => <div className="report-table"><p className="report-table-hint">표가 잘리면 좌우로 밀어 나머지 열도 읽으세요. 키보드에서는 표에 초점을 두고 좌우 방향키를 사용하세요.</p><div className="report-table-scroll" role="region" aria-label="보고서 표 · 가로로 이동 가능" tabIndex={0}><table>{children}</table></div></div>,
   };
   const body = Markdown({
     children: markdown,
