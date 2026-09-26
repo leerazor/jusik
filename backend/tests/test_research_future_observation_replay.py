@@ -222,6 +222,26 @@ def test_receipt_metadata_and_backwards_clock_are_preserved() -> None:
     assert "clock_invalid" in reversed_result.observations[0].classifications
 
 
+@pytest.mark.parametrize("flags", [{"unavailable": False}, [{}]])
+def test_invalid_evidence_flag_structure_is_rejected(flags: object) -> None:
+    with pytest.raises(
+        ValidationError, match="evidence_flags must be a list of strings"
+    ):
+        replay({**BASE, "observations": [observation(evidence_flags=flags)]})
+
+
+def test_valid_evidence_flag_list_preserves_classification() -> None:
+    result = replay(
+        {
+            **BASE,
+            "observations": [observation(evidence_flags=["unavailable"])],
+        }
+    )
+    item = result.observations[0]
+    assert item.classifications == ["unresolved", "unavailable", "in_window"]
+    assert item.receipts[0].evidence_flags == ["unavailable"]
+
+
 def test_receipt_before_its_read_starts_is_clock_invalid() -> None:
     item = observation(
         received_at="2030-01-01T01:00:00Z",

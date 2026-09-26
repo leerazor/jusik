@@ -10,7 +10,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -52,7 +52,11 @@ class Observation(BaseModel):
     @field_validator("evidence_flags", mode="before")
     @classmethod
     def known_flags(cls, value: object) -> object:
-        values = set(cast(list[str], value or []))
+        if not isinstance(value, list) or any(
+            not isinstance(flag, str) for flag in value
+        ):
+            raise ValueError("evidence_flags must be a list of strings")
+        values = set(value)
         unknown = values - {"unavailable", "unverified_provenance"}
         if unknown:
             raise ValueError(f"unknown evidence flags: {sorted(unknown)}")
