@@ -63,6 +63,7 @@ function RepresentativeResult({ study, comparison }: { study: Study; comparison:
       <p>{narrative ? "아래 대표 비교에서 확인한 차이입니다. 실제 투자에 쓸 방식으로 채택됐다는 뜻은 아닙니다." : "등록된 연구와 식별 정보가 일치하지 않습니다. 확인된 수치와 원본 보고서는 아래에서 볼 수 있습니다."}</p>
       <div className={styles.limit}><strong>여기까지 믿을 수 있어요</strong><span>{narrative ? "배당·세금은 빠져 있습니다. 당시 알 수 있었던 정보만 썼는지도 검증 전이므로 미래 결과로 일반화할 수 없습니다." : "수치 자료의 검증과 결론 설명의 식별 확인은 별개입니다. 이 자료에 기존 연구의 해석을 붙이지 않습니다."}</span></div>
     </section>
+    <section className={styles.nextQuestion} aria-labelledby="next-title"><p className={styles.kicker}>아직 답하지 못한 질문</p><h2 id="next-title">{narrative ? "다른 기간과 배당·세금까지 반영해도 같은 결과일까요?" : "이 자료에 연결된 결론을 확인할 수 있을까요?"}</h2><p>{narrative ? "추가로 확인해야 할 질문입니다. 후속 연구가 실행 중이라는 뜻은 아닙니다." : "원본 보고서와 식별 정보를 확인해야 합니다. 일치가 확인되기 전에는 연구별 해석을 표시하지 않습니다."}</p>{narrative && <details className={styles.rulesDetails}><summary>추가 확인이 필요한 이유</summary><ul>{narrative.limitations.map((limit) => <li key={limit}>{limit}</li>)}</ul></details>}</section>
     <section className={styles.comparison} aria-labelledby="comparison-title">
       <div className={styles.sectionHead}><div><p className={styles.kicker}>결론의 근거 · 지정된 대표 비교 1개</p><h2 id="comparison-title">무엇이 달라졌나요?</h2></div><Link href={`/research/progress#study-${study.id}`}>모든 비교 보기 ↗</Link></div>
       <p className={styles.question}>{narrative?.question.replaceAll("재조정", "보유 비중 조정") ?? study.title}</p>
@@ -74,7 +75,7 @@ function RepresentativeResult({ study, comparison }: { study: Study; comparison:
       <p className={styles.scope}>최고 수익을 골라낸 비교나 최종 채택안이 아닙니다. 전체 변경 규칙과 다른 기간의 결과는 연구 결과에서 확인하세요.</p>
       <Link className={styles.source} href={`/research/history/download/${study.report_artifact_sha256}`}>이 비교의 원본 보고서 ↗</Link>
     </section>
-    <section className={styles.nextQuestion} aria-labelledby="next-title"><p className={styles.kicker}>아직 답하지 못한 질문</p><h2 id="next-title">{narrative ? "다른 기간과 배당·세금까지 반영해도 같은 결과일까요?" : "이 자료에 연결된 결론을 확인할 수 있을까요?"}</h2><p>{narrative ? "과거 결과를 투자 판단에 쓰려면 추가 확인이 필요합니다. 아래는 연구에 기록된 한계이며, 후속 작업이 실행 중이라는 뜻은 아닙니다." : "원본 보고서와 식별 정보를 확인해야 합니다. 일치가 확인되기 전에는 연구별 해석을 표시하지 않습니다."}</p>{narrative && <ul>{narrative.limitations.map((limit) => <li key={limit}>{limit}</li>)}</ul>}</section>
+
   </>;
 }
 
