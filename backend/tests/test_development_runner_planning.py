@@ -5,7 +5,7 @@ import json
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import pytest
 
@@ -59,7 +59,7 @@ def test_planning_area_is_private_and_fingerprint_excludes_planner_state(
 def test_roadmap_planning_identity_tracks_semantic_inputs_only() -> None:
     repo = Path(__file__).parents[2]
     roadmap = load_roadmap(repo)
-    tasks = [("research", "blocked", "attempt-1")]
+    tasks: list[tuple[str, str, str | None]] = [("research", "blocked", "attempt-1")]
     digest = roadmap_fingerprint(tasks, roadmap, "mandate-a", "code-a")
 
     assert roadmap_fingerprint(tasks, roadmap, "mandate-a", "code-a") == digest
@@ -111,11 +111,12 @@ def test_roadmap_waiting_candidate_survives_head_and_date_changes(
     monkeypatch.setattr(development_runner, "_git", fake_git)
     monkeypatch.setattr(development_runner, "datetime", Clock)
 
-    first = _planning_task(store, repo, ROADMAP_SCOPE, "mandate")
+    roadmap_scope = cast(Literal["investment-roadmap"], ROADMAP_SCOPE)
+    first = _planning_task(store, repo, roadmap_scope, "mandate")
     assert first is not None
     Clock.day = "2026-09-24"
     head = "b" * 40
-    second = _planning_task(store, repo, ROADMAP_SCOPE, "mandate")
+    second = _planning_task(store, repo, roadmap_scope, "mandate")
     assert second is not None
     assert second[0].id == first[0].id
     assert second[1] == first[1]
@@ -472,7 +473,7 @@ def test_roadmap_finish_planning_requires_scope_even_with_legacy_blocked_tasks(
         tmp_path / "planner-out",
         tmp_path / "planner-err",
     )
-    snapshot = [
+    snapshot: list[tuple[str, str, str | None]] = [
         (f"blocked-{index}", "blocked", f"attempt-{index}") for index in range(8)
     ]
 
