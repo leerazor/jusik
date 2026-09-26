@@ -10,7 +10,7 @@ export default function ResearchLayout({ children }: Readonly<{ children: React.
       <a className="skip-link" href="#research-content">본문으로 건너뛰기</a>
       <div className="research-shell">
         <header className="research-header">
-          <Link href="/research" className="brand"><span className="mark">J</span> jusik <span className="brand-sub">투자 판단 자료</span></Link>
+          <Link href="/research" className="brand"><span className="mark">J</span> jusik <span className="brand-sub">투자 연구</span></Link>
           <ResearchNavigation />
         </header>
         <div id="research-content">{children}</div>
