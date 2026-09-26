@@ -202,6 +202,12 @@ def validate_paper_cost_contract_manifest(
         profiles=tuple(parsed),
     )
     expected = build_bankis_paper_cost_contract(markets)
+    for profile, canonical in zip(contract.profiles, expected.profiles, strict=True):
+        if (profile.broker, profile.account_scope) != (
+            canonical.broker,
+            canonical.account_scope,
+        ):
+            raise ValueError("paper_cost_contract_profile_identity_mismatch")
     if contract.profile_hash != expected.profile_hash:
         raise ValueError("paper_cost_contract_hash_mismatch")
     if contract.contract_id != expected.contract_id:

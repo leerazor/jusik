@@ -62,6 +62,22 @@ def test_paper_contract_manifest_round_trips_and_rejects_tampering() -> None:
         validate_paper_cost_contract_manifest(tampered_id)
 
 
+@pytest.mark.parametrize("field", ["broker", "account_scope"])
+def test_manifest_rejects_profile_identity_tampering(field: str) -> None:
+    contract = build_bankis_paper_cost_contract(("KRX", "US"))
+    manifest = contract.manifest()
+    assert validate_paper_cost_contract_manifest(manifest) == contract
+    assert contract.profile_hash == (
+        "0562577c87ff33782e0ad4f365253a17a941ec17d167c6ad5615d6ca3ad7dcf2"
+    )
+
+    manifest["profiles"][0][field] = "another broker or account"  # type: ignore[index]
+    with pytest.raises(
+        ValueError, match="paper_cost_contract_profile_identity_mismatch"
+    ):
+        validate_paper_cost_contract_manifest(manifest)
+
+
 def test_manifest_rejects_duplicate_market_profiles_with_matching_hash_and_id() -> None:
     profile = kis_bankis_online_profile("KRX")
     manifest = build_bankis_paper_cost_contract(("KRX",)).manifest()
