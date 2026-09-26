@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## portfolio-held-band-preregistration-draft-v2
+
+- 상태: 진행. 현재 mandate에 맞춘 held-band 후속 사전등록의 실행 불가 초안을 준비합니다. v1 결과와 archive는 재생성·수정하지 않습니다.
+- 목표·완료 조건: 기존 2%p 대조군/4%p 후보를 후속 가설로만 기록하고, 신규 자료·자료 등급·정확한 평가 기간·요구수익률·실행 예산이 미확정인 점을 JSON과 한국어 문서에 명시합니다. 현재 정책, `MDD <= 20%` hard filter, 별도 validation·walk-forward·단회 untouched OOS, 후보 최대 3개·자동 승자/승격 금지를 반영합니다. `execution_allowed=false`를 고정하며 missing 값을 추정하지 않습니다.
+- 담당·소유: 단일 Luna `code_small`은 신규 draft JSON과 Markdown만 수정합니다. supervisor는 이 등록부·개발 기록·handoff·main 통합을 담당하고 별도 Sol review를 수행합니다.
+- 워크트리: `/home/kwl/projects/jusik-portfolio-held-band-preregistration-draft-v2`; 브랜치 `docs/portfolio-held-band-preregistration-draft-v2`; 기준 `2ea4dd8b4c8f4d50b5c2231eda603be49369be54`; 통합 대상 local `main`.
+- 입력: 현재 mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`, v1 문서와 사전등록·hash manifest 및 이전 독립 검토 기록. 신규 held-band 호환 관측이 2026-09-08 뒤에 없다는 read-only 조사 결과를 반영합니다.
+- 수정 허용 범위: 신규 `docs/research/portfolio-held-band-preregistration-draft-v2.md`와 `.json`만. 기존 v1 문서·archive, 제품 코드·테스트·runner·mandate·PAPER/DB·서비스 설정은 변경하지 않습니다.
+- 검증: JSON parser, `git diff --check`, 허용 파일·기존 archive hash 보존 대조, 별도 문서 review. pytest·실험·benchmark·data collection·network 호출은 하지 않습니다.
+- 종료 조건: 두 초안이 같은 값·미결정 항목·실행 차단 상태를 표시하고 독립 review 및 main 통합 검증을 통과하면 준비 작업만 완료합니다. required return·평가 기간·새 자료가 확정되기 전 등록 확정·실행은 계속 차단합니다.
+
 ## quality-first-model-routing
 
 - 상태: 완료. 중앙 모델·추론 설정, 실제 실행 연결, AA 비교 스킬로 단순화했습니다. 첫 시도 해결을 우선하며 가격만으로 낮추거나 모델을 순차 재시도하지 않습니다. 제품 `18976ff` local main fast-forward, 집중 244개·통합 107개 검사와 Ruff·strict mypy·독립 review 통과. 두 개인 skill 설치·hash 일치 및 실제 AA API OpenAI 103개 수집 확인.
