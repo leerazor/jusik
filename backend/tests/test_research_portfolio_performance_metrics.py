@@ -91,11 +91,38 @@ def test_sortino_requires_explicit_target_and_uses_downside_deviation() -> None:
         points, initial=Decimal("100"), annual_target_rate=Decimal("0")
     )
     assert missing["availability"] == "available"
-    assert missing["value"] is not None
+    assert missing["value"] == Decimal(0)
+    assert missing["reason"] is None
+    positive_target = adapter.sortino_from_nav(
+        points, initial=Decimal("100"), annual_target_rate=Decimal("0.04")
+    )
+    assert positive_target == {
+        "availability": "available",
+        "value": Decimal("-0.042730075704491978640730125162178795340659202950593"),
+        "reason": None,
+    }
     invalid = adapter.sortino_from_nav(
         points, initial=Decimal("100"), annual_target_rate=Decimal("-1")
     )
     assert invalid["reason"] == "invalid_downside_target"
+
+
+@pytest.mark.parametrize("annual_target_rate", ["NaN", "Infinity", "-Infinity"])
+def test_sortino_rejects_nonfinite_annual_target(annual_target_rate: str) -> None:
+    points = (
+        NAVPoint(datetime(2024, 1, 1, tzinfo=UTC), Decimal("100")),
+        NAVPoint(datetime(2024, 1, 2, tzinfo=UTC), Decimal("90")),
+    )
+    result = adapter.sortino_from_nav(
+        points,
+        initial=Decimal("100"),
+        annual_target_rate=Decimal(annual_target_rate),
+    )
+    assert result == {
+        "availability": "unavailable",
+        "value": None,
+        "reason": "invalid_downside_target",
+    }
 
 
 def test_synthetic_recovery_duration_uses_utc_peak_to_recovery_seconds() -> None:

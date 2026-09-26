@@ -503,7 +503,12 @@ def sortino_from_nav(
             "value": None,
             "reason": "insufficient_returns",
         }
-    if initial <= 0 or annual_target_rate <= Decimal("-1") or sessions_per_year <= 0:
+    if (
+        initial <= 0
+        or not annual_target_rate.is_finite()
+        or annual_target_rate <= Decimal("-1")
+        or sessions_per_year <= 0
+    ):
         return {
             "availability": "unavailable",
             "value": None,
