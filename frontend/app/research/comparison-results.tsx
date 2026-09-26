@@ -22,6 +22,7 @@ export function ComparisonResults({ study, comparison }: { study: Study; compari
     <div className={styles.interpretation}><strong>이 기간·조건에서 확인한 차이</strong><p>{narrative ? `바꾼 시험은 비교의 출발점인 시험보다 ${describeComparisonOutcome(comparison)}` : "이 자료에 맞는 연구 설명을 확인하지 못했습니다. 표시된 수치만으로 더 좋은 투자법을 정하지 마세요."}</p><p>더 높은 수익을 얻은 경우에도 중간 하락과 비용을 함께 보세요. 이 비교 하나로 실제 투자에 쓸 방식이 결정되지는 않습니다.</p></div>
     <details className={styles.details}><summary>사고파는 데 든 비용과 거래 규모 보기</summary>
       <p>거래 횟수가 줄어도 한 번에 사고파는 금액이 커지면 비용은 늘 수 있습니다. 이 비교는 거래·환전 비용을 기본 가정의 {comparison.cost_multiplier}배로 놓고 계산했습니다.</p>
+      <p className={styles.precision}>표가 잘리면 좌우로 밀어 두 시험의 비용을 모두 읽으세요. 키보드에서는 표에 초점을 두고 좌우 방향키를 사용하세요.</p>
       <div className={styles.scroll} tabIndex={0} role="region" aria-label="거래 부담 비교 표"><table><thead><tr><th>확인할 내용</th><th>{researchSettingLabels.baseline}</th><th>{researchSettingLabels.candidate}</th></tr></thead><tbody>
         <tr><th>거래·환전에 든 비용 합계</th><td>{researchAmount(comparison.baseline.total_cost_krw, 0)}원</td><td>{researchAmount(comparison.candidate.total_cost_krw, 0)}원</td></tr>
         <tr><th>거래가 있었던 날 수</th><td>{comparison.baseline.trade_days}일</td><td>{comparison.candidate.trade_days}일</td></tr>
