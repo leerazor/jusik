@@ -432,3 +432,97 @@ PASS로 완료됐고, 후속 2번의 strategy version 결속 receipt adapter는 
 6. 검증된 후보 보고, 독립 최종 검토, 인증된 인간 승인·deterministic risk/execution 경계를 연결한다. 실계좌 주문은 별도 승인 전 실행하지 않는다.
 
 이 후속 목록이 모두 구현됐거나 unattended 수익 창출이 가능하다는 의미는 아니다. 이번 최소 구현의 통과와 전체 autonomous trading lab 완성은 별도로 보고한다.
+
+## 17. 목표 기반 지속 운영
+
+2026-09-26 재감사와 재설계다. 기존 8개 프로필과 서비스·모델·동시성 경계를 유지한다.
+더 많은 상주 agent를 만드는 대신 planner의 작업 선택·인수인계·복구 책임을 강화한다.
+각 기능의 실제 적용 여부는 아래 적용 표와 작업별 개발 기록을 확인한다.
+
+### 목적과 판단 기준
+
+목표는 비용 차감 수익과 위험 대비 성과를 개선할 검증 가능한 기회를 계속 연구하는 것이다.
+agent 가동률·GPU 사용량·commit 수·백테스트 횟수는 운영 지표일 뿐 투자 성과가 아니다.
+미래 수익 극대화는 보장할 수 없다. 현행 mandate의 balanced objective, CAGR/MDD/Sharpe/Calmar,
+MDD 20% hard filter, 후보 최대 3개, holdout 재튜닝 금지, 별도 승인을 유지한다.
+단일 합성 점수나 수익률만으로 승자를 자동 선정하지 않는다.
+
+현재 legacy universe optimizer의 `total_return_pct - max_drawdown_pct` 점수·winner는
+`reconstructed_historical_exploration`의 과거 탐색 결과다. 현재 mandate의 투자 후보나
+독립 OOS 승인으로 옮기지 않는다. 기존 서비스의 운용 조건도 이번 dispatch 변경으로
+자동 변경하지 않는다. 새로운 비교 실험에는 별도의 고정 입력·기간·비용·실험 예산과
+사전등록 및 독립 검증이 필요하다.
+
+### 하나의 감독자, 네 작업 경로
+
+| 경로 | 선택 근거 | 산출물 | 막혔을 때 |
+| --- | --- | --- | --- |
+| 연구 준비·자료/회계 검증 | mandate와 roadmap상 적격 영역, 실제 입력·미해결 진단 | 결속된 readiness 또는 bounded 구현 과제 | 부족한 근거를 해당 작업에 기록하고 공학 작업 선택 |
+| 사전등록된 수익성 실험 | 완전한 계산 계약·허용된 데이터 등급·미사용 평가 창 | deterministic 결과·반증·비용 포함 비교 | 기존 holdout을 재사용하지 않고 자료/계약 개선 |
+| 제품·계산·운영 공학 | 재현 가능한 결함 또는 연구 진행에 필요한 계약 | 코드·회귀 증거·독립 review | 소유 환경 복구, 다른 READY, 유한 진단 |
+| 독립 검증·운영 복구 | 검토할 고정 산출물 또는 관측된 장애 | PASS/REJECT/UNAVAILABLE, 안전한 복구 기록 | 검토 대기는 해당 작업만 격리; 자기 승인 금지 |
+
+planner는 READY 실행, pending 검토, 안전한 연구 준비 과제 발굴, 공학 fallback의
+다음 행동을 명시한다. data_curator와 researcher는 자료 준비·경제적 이유를 제공하고,
+data_guardian/risk_reviewer/verifier는 각 gate를 독립 검증한다. 코드 변경은 한 engineer만
+소유하고 통합은 직렬이다. “기다림” 자체를 다른 agent에게 위임해 활동량을 만들지 않는다.
+
+### Scheduling 계약
+
+1. 전역 pause·예산·현재 mandate·Git·process ownership을 검사한다.
+2. 기존 READY와 처리 가능한 독립 구현 검토를 우선 처리한다.
+3. 빈 큐에서는 적격 연구 영역과 현재 입력을 확인한다. 제안은 바로 enqueue하지 않고
+   별도 read-only scope 검토에 넘긴다. scope PASS도 투자 검증·PAPER/LIVE 승인이 아니다.
+4. 첫 적용의 새 연구 제안은 자료·회계·사전등록 호환성·offline 계약 진단으로 제한한다.
+   generic planner 문구는 실험 사전등록이나 과거 holdout 재사용 승인이 아니다.
+5. scope가 WAIT/REJECT/무효 또는 필요한 자료가 없으면 해당 입력에 결과를 남기고
+   공학 backlog/discovery를 계속 처리한다. 같은 실패 계획을 공학 작업 앞에서 반복하지 않는다.
+6. 모든 경로에서 작업을 찾지 못하면 조사 범위·검사 증거·대안·재개 event/time을 기록한다.
+   소진된 입력을 반복 호출하거나 무의미한 코드 변경으로 fingerprint를 갱신하지 않는다.
+
+현재 roadmap 연구 제안의 독립 scope receipt는 proposal/evidence·planner attempt·HEAD·
+mandate·roadmap identity와 결속해야 한다. 원자 등록 직전에 현재 phase·area 예약·ID·
+증거 hash·queue cap·pause를 다시 검증한다. 과거 failed planner를 삭제하거나
+검토 없는 제안을 소급 승인하지 않는다. 연구 대기는 공학 발굴을 막는 전역 종료가 아니다.
+
+### 지속 실행과 인계의 의미
+
+“지속”은 예산·권한·유효 입력 범위에서 다음 의미 있는 작업을 별도 사용자 진행 명령 없이
+선택한다는 뜻이다. 공급자 장애, 미래 관측, 사람 승인까지 없애거나 LLM을 100% 가동한다는
+뜻이 아니다. 현재 systemd timer는 cycle 종료 후 120초에 다시 실행하며, 각 agent 호출은
+유한 작업이다. 채팅 응답 종료 뒤에도 남는 것은 이 runner이며 채팅 agent의 상시 감시가 아니다.
+
+작업 완료 시 인계에는 검증 산출물과 다음 후보 또는 정확한 재개 조건을 포함한다.
+`verify-and-stop`의 종료는 담당 작업의 검증 경계다. supervisor의 전체 dispatch 종료나
+다른 READY 작업 폐기 지시로 해석하지 않는다. 별도 API·결제·model fallback·권한 확대는
+승인 없이 도입하지 않는다. 외부 서비스 전체가 불가용하면 기다림을 숨기지 않는다.
+
+### 관측과 성과 보고
+
+활동 보고에는 관측 시각, 실행 중 task/attempt·역할·단계, 마지막 검증 완료 시각,
+READY 수, 대기 사유와 다음 허용 재시각을 구분한다. stage가 진행 중일 때 과거 backlog
+소진 표시를 현재 상태로 사용하지 않는다. heartbeat는 프로세스 생존이고 결과 검증은 별도다.
+
+연구 보고에는 사용한 자료 등급·정책·코드·입력 identity와 완료한 gate를 먼저 적는다.
+같은 조건의 baseline 대비 비용 차감 CAGR/MDD/Sharpe/Calmar 및 진단 지표를 기록한다.
+새 유효 실험이 없으면 “새 수익성 증거 없음”으로 보고한다. 기존 탐색 실행 2,771건 같은
+집계가 독립 검증된 전략 2,771개를 뜻하지 않는다. 검증 실패·폐기 역시 정보 진전으로 보존한다.
+
+### 적용 순서와 아직 남은 경계
+
+| 순서 | 작업 | 현재 범위 |
+| --- | --- | --- |
+| 1 | 연구 planner starvation 제거·독립 scope 등록·정직한 상태 | `lab-continuous-research-dispatch`의 구현·검증 범위 |
+| 2 | 구현 reviewer의 알려진 호출 장애도 영속 기한 재시도 | 후속 과제. 기존 discovery 재시도와 혼동하지 않음 |
+| 3 | no_work의 검사 파일/hash와 검증된 외부 readiness 변경 결속 | 후속 과제. 같은 자료 무한 재분석 금지 |
+| 4 | 현재 prospective 사전등록의 새 mandate 호환성 audit | 연구 준비 우선 과제. 평가 창 종료 전 OOS 실행 금지 |
+| 5 | 자료·회계 gate가 충족된 bounded 후보 비교·반증 | 조건부 연구. 지금 수익성 검증 완료로 표시하지 않음 |
+
+첫 slice의 독립 검토와 main 검사를 통과하면 runner를 기존 설정으로 재개한다.
+후속 과제는 위 순서와 현재 근거로 재평가하며 임의로 안전한 파일 allowlist를 넓히지 않는다.
+사람 판단이 필요한 것은 실주문·추가 결제·권한·credential·투자 기준 변경 같은 권한 경계다.
+일상적 코드 수정과 승인된 범위의 다음 과제 선택을 반복해서 사용자에게 떠넘기지 않는다.
+
+공식 OpenAI 문서는 [명확한 작업과 결과를 가진 독립 subagent 분담](https://developers.openai.com/api/docs/guides/agents-api/multi-agent)을 권장한다.
+여기서는 이를 기존 runner·worktree·scope 검증에 적용한다. 새로운 유료 Agents API로
+이관하거나 공식 문서의 예시 권한을 현재 프로젝트에 자동 부여하지 않는다.

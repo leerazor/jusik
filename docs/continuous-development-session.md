@@ -38,8 +38,18 @@ runner-generated audit record, and enqueue the next bounded attempt. Repair
 owned environments and tooling when the repair is reversible and in scope.
 Do not leave the runner silently idle merely because the previous cycle ended.
 
-If no existing item is actionable, use the enabled bounded engineering
-discovery path described in `development-runner.md`. A read-only agent proposes
+If no existing item is actionable, inspect eligible mandate-bound roadmap
+research opportunities before creating fresh engineering work. A proposed
+readiness/data/accounting/offline-contract task needs an independent read-only
+scope review and current evidence/identity checks before registration. A WAIT,
+REJECT, or failed plan is local to that input; continue engineering work instead
+of repeatedly asking the same planner. Generic planner prose does not authorize
+a new financial experiment, holdout reuse, investment validation, or promotion.
+The decision contract and staged implementation are in
+[goal-directed continuous operation](autonomous-trading-lab.md#17-목표-기반-지속-운영).
+
+When no reviewed research opportunity is actionable, use the enabled bounded
+engineering discovery path described in `development-runner.md`. A read-only agent proposes
 a concrete offline code task inside the reviewed module/test allowlist; an
 independent scope reviewer must pass it before deterministic registration.
 The user's 2026-09-26 request authorizes this routine next-task discovery without
@@ -59,6 +69,9 @@ models or permissions to bypass a failure. Unknown failures and integrity
 violations remain fail-closed and require diagnosis, not blind replay.
 Verify these instructions with failure-injection and restart tests; report
 the actual child activity or scheduled retry, not merely timer availability.
+Completing a bounded worker task and its verification is a handoff to the
+dispatcher, not an instruction to discard independent READY work. Do not keep
+agents busy with duplicate experiments or cosmetic changes just to avoid idle.
 
 The canonical research sequence is defined by research-mandate.json: bounded
 IS, separate validation hard filter, chronological walk-forward, one untouched

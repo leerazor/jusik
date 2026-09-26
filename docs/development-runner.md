@@ -32,7 +32,8 @@ PASS는 신규 고정 오프라인 공학 작업에서 확인했으며 과거 �
 
 `investment-roadmap` 전용 `automatic_engineering_backlog`는 기본 `false`입니다.
 설치 설정에서 명시적으로 켜면 기존 READY·review 후보를 우선 처리하고, 없을 때
-사전 등록된 오프라인 작업 다섯 개(전략 버전 증거 영수증, paper 계약 재시작 중복 방지,
+`planning_enabled`인 roadmap에서는 아래 독립 scope 검토를 거치는 연구 준비 기회를 먼저
+평가합니다. 실행 가능한 연구 제안이 없으면 사전 등록된 오프라인 작업 다섯 개(전략 버전 증거 영수증, paper 계약 재시작 중복 방지,
 공유 journal 취소 경합 방지, 체결별 명시적 수수료 보존, receipt revision DB guard)를
 각각 한 번만 등록해 같은 주기에 실행합니다. 기존 BLOCKED 작업은 재시도하거나
 소급 완료하지 않습니다. 작업별 소유 파일·hash·독립 review가 일치해야 공학 완료이며
@@ -40,6 +41,7 @@ PASS는 신규 고정 오프라인 공학 작업에서 확인했으며 과거 �
 `automatic_engineering_discovery=true`일 때 아래 자동 공학 발굴로 이어집니다.
 비활성이면 기존 `fixed_engineering_backlog_exhausted` 대기를 유지합니다.
 일반 roadmap planner의 `planning_enabled`와는 별개이며 투자 자료·phase 조건은 유지합니다.
+공학 backlog/discovery가 켜져 있다는 이유로 연구 planner 호출을 생략하지 않습니다.
 READY 복귀와 소진 기록은 같은 DB 트랜잭션 경계로 관리합니다. 운영 제어는 기존
 `resume`(진행)·`pause`(중지) 명령을 사용합니다. 타이머가 active인 것만으로 개발
 진행이나 투자 검증을 의미하지 않습니다.
@@ -220,6 +222,16 @@ cd backend
 실제 spawn CLI가 role 필드를 제공하지 않는 환경의 명시적 model/fork routing과 receipt 기반 parent/child 감사는 [agent tooling의 roleless CLI 절차](agent-tooling.md#roleless-cli-routing)를 따르고 `backend/jusik/agent_routing.py` adapter를 사용합니다. stale loaded-role fallback에서는 host가 지원하는 경우 `agent_type=default`, 기대 model·reasoning effort, `fork_turns=none`을 명시하며 adapter/helper의 exact-five 계약은 바꾸지 않습니다. 일반 코드 문제는 서로 다른 가설이 두 번 실패한 뒤 Astra 진단을 제한적으로 사용하고, 명백히 복잡한 금융 계산·미래 데이터 누출·설계 충돌은 감독 근거를 남기고 처음부터 한 번 선택할 수 있습니다. 외부 근거 부족은 source alternative 또는 독립 task로 전환합니다.
 
 ## 빈 큐 자동 연구 계획
+
+`investment-roadmap`의 새 planner 제안은 직접 연구 task로 등록하지 않습니다.
+검증된 단일 제안과 evidence를 pending으로 보존하고, 별도 읽기 전용 scope reviewer가
+자료·회계·사전등록 호환성·offline 계약 진단 범위와 실제 입력을 확인합니다.
+PASS receipt가 원 proposal/evidence·planner attempt·fingerprint·HEAD·mandate·roadmap에
+결속되고 등록 직전 phase/area·예약·중복·queue cap·pause 검사가 통과해야 한 건을 등록합니다.
+자료 부재·REJECT·무효 결과는 등록하지 않고 공학 fallback을 계속합니다.
+이 범위 검토는 독립 구현 review나 투자 검증을 대신하지 않습니다. 새로운 전략 평가,
+OOS 재사용·winner 선정·PAPER/live·실주문 권한을 일반 planner에 주지 않습니다.
+기존 generic `research` scope의 계약과 과거 planner 결과는 소급 변경하지 않습니다.
 
 `planning_enabled=true`이고 실행 가능한 연구 작업이 없으며 queued/running 연구 작업도 없을 때, 실행기는 내부 예약 영역 `__planning__`에서 planner를 한 번 dispatch합니다. research scope는 기존 task snapshot, 검증된 `main` HEAD, UTC 날짜를 fingerprint로 묶고 cost-adjusted portfolio return/risk/turnover 실험을 우선 검토합니다. investment-roadmap scope는 task snapshot, roadmap SHA-256, mandate governance digest, `main:backend/jusik` tree SHA-256으로 fingerprint를 묶습니다. 이 scope에서는 날짜와 unrelated commit이 planner identity를 바꾸지 않으며, roadmap·mandate·task·backend code 변경은 새 계획 검토를 만듭니다. `--planning-wait`를 붙인 `retry`는 completed 상태의 roadmap planner 중 마지막 결과가 `planning_waiting`인 task만 다시 큐에 넣고 이전 attempt ID를 연결합니다. 제안을 저장할 때는 fingerprint와 별도로 시작 시점의 `main` HEAD가 유지됐는지 확인합니다. planner state/history는 연구 pending 상한 8개에 포함하지 않습니다. 투자 로드맵 scope의 원자적 enqueue cap은 `queued`와 `running`만 계산하므로 과거 `blocked` 8개가 새 roadmap 작업을 막지 않습니다. research scope의 기존 pending 의미는 유지합니다.
 
