@@ -1,3 +1,4 @@
+import { researchReportHref } from "@/lib/research-reports";
 import { researchBackendUrl } from "@/lib/research";
 
 const runIdPattern = /^[a-f0-9]{64}$/;
@@ -9,6 +10,7 @@ export async function GET(
 ): Promise<Response> {
   const { runId, name } = await context.params;
   if (!runIdPattern.test(runId) || !allowed.has(name)) return new Response("Not found", { status: 404 });
+  if (name === "report.md") return new Response(null, { status: 307, headers: { location: researchReportHref({ kind: "dividends", id: runId }), "cache-control": "no-store" } });
   try {
     const response = await fetch(`${researchBackendUrl()}/api/research/portfolio/dividends/runs/${runId}/artifacts/${name}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
     if (!response.ok) return new Response("Not found", { status: 404 });

@@ -87,7 +87,7 @@ const knownStudies: readonly KnownStudy[] = [
     sourceSha256: "1a2934466efa12c09d08e7792b1a5e4b7c0c880d2aaabab9b25919bd0ec5c825",
     resultSha256: "019a2dc72dc720db5b0bbd818569e737569779abfe6db824229dc12757f805a7",
     reportArtifactSha256: "a2cbd8ad38472f3f5e32c2a300bd4a3c7edd9d7d45d9db050d3aff9bd548a535",
-    question: "고정된 32개 결과를 다시 읽어 4주·8주 운용 중 무엇을 우선 검토할지 판단할 수 있는가?",
+    question: "고정된 32개 결과를 다시 읽어 4주·8주마다 보유 비중을 검토하는 설정 중 무엇을 우선 검토할지 판단할 수 있는가?",
     relatedGoals: ["잦은 거래 지양", "실제 순수익·낙폭·거래 횟수·거래/FX 비용을 함께 비교", "사용자가 결과를 보고 우선순위 결정"],
     baselineRules: ["연 변동성 목표 15%", "4주마다 재조정", "비용 1x·3x"],
     candidateRules: ["연 변동성 목표 15%", "8주마다 재조정", "비용 1x·3x"],
@@ -133,4 +133,42 @@ export function candidateRuleForComparison(study: Study, comparisonId: string): 
   const id = comparisonId.endsWith("-c2") ? "B" : comparisonId.endsWith("-c1") ? "A" : null;
   if (!id) return null;
   return { id, label: `후보 ${id} · ${id === "A" ? "밴드 2%p" : "밴드 4%p"}`, mapping: "후보 A = 밴드 2%p · 후보 B = 밴드 4%p" };
+}
+
+export const researchSettingLabels = {
+  baseline: "연구용 비교 설정",
+  candidate: "변경해서 시험한 설정",
+} as const;
+
+export const researchCadenceExplanation = "4주·8주는 각각 28일·56일(달력 기준)마다 종목별로 돈을 나눠 넣는 비중을 다시 검토하는 간격입니다. 투자기간이나 반드시 사고파는 주기가 아닙니다. 비중 차이가 작은 경우 등에는 거래를 건너뛰고, 위험 방어를 위한 매도는 그 사이에도 발생할 수 있습니다.";
+
+export type ComparisonSettings = {
+  baselineRules: string[];
+  candidateRules: string[];
+  cadenceChanged: boolean;
+  multipleChanges: boolean;
+};
+
+export function getComparisonSettings(study: Study, comparisonId: string): ComparisonSettings | null {
+  const narrative = getStudyNarrative(study);
+  if (!narrative || !study.comparisons.some((item) => item.id === comparisonId)) return null;
+  const rule = candidateRuleForComparison(study, comparisonId);
+  if (study.id === "core10-low-cash" && !rule) return null;
+  const explainRule = (value: string): string => value.replace("투자 상한 ", "전체 돈 중 투자할 수 있는 한도 ").replace("4주마다 재조정", "4주(28일)마다 종목별 투자 비중 점검").replace("8주마다 재조정", "8주(56일)마다 종목별 투자 비중 점검");
+  return {
+    baselineRules: narrative.baselineRules.map(explainRule),
+    candidateRules: narrative.candidateRules.map((value) => explainRule(value.startsWith("후보 A/B") && rule ? `보유 비중 밴드 ${rule.id === "A" ? "2" : "4"}%p · 후보 ${rule.id}` : value)),
+    cadenceChanged: ["core10-low-cash", "volatility15-cadence-5270", "cadence-decision-20260913"].includes(study.id),
+    multipleChanges: study.id === "core10-low-cash",
+  };
+}
+
+export function researchStudyTitle(study: Study): string {
+  if (!getStudyNarrative(study)) return study.title;
+  return study.title.replace(/4주[·/]8주 운용/g, "4주·8주 보유 비중 검토");
+}
+
+export function researchSettingName(study: Study, label: string): string {
+  if (!getStudyNarrative(study)) return label;
+  return label.replace(/([48])주 운용/g, "$1주마다 보유 비중 검토");
 }

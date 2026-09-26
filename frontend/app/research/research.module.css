@@ -71,8 +71,8 @@
   .compareHead strong { font-size: 13px; }
   .metricRow dt { font-size: 14px; }
   .metricRow dd { font-size: 20px; letter-spacing: -.5px; white-space: nowrap; }
-  .metricRow dd::before { content: "기존 방식"; display: block; margin-bottom: 4px; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; }
-  .metricRow dd:last-child::before { content: "시험한 방식"; }
+  .metricRow dd::before { content: "연구용 비교 설정"; display: block; margin-bottom: 4px; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; }
+  .metricRow dd:last-child::before { content: "변경해서 시험한 설정"; }
   .ruleRow { font-size: 11px; }
   .destinations, .conditions dl { grid-template-columns: 1fr; }
   .nextQuestion h2 { font-size: 22px; }

@@ -1,8 +1,10 @@
+import { researchReportHref } from "@/lib/research-reports";
 import Link from "next/link";
+import { ComparisonSettings } from "./comparison-settings";
 import { OperationsRefresh } from "./lab/operations-refresh";
 import { compareDecimal, getResearchProgress, type Comparison, type ResearchProgress, type Study } from "@/lib/research-progress";
 import { researchAmount } from "@/lib/research";
-import { candidateRuleForComparison, getStudyNarrative, mandateSummary } from "@/lib/research-narrative";
+import { candidateRuleForComparison, getStudyNarrative, mandateSummary, researchSettingLabels, researchSettingName } from "@/lib/research-narrative";
 import { fractionToPercent } from "@/lib/research-decimal";
 import styles from "./research.module.css";
 
@@ -68,12 +70,13 @@ function RepresentativeResult({ study, comparison }: { study: Study; comparison:
       <div className={styles.sectionHead}><div><p className={styles.kicker}>결론의 근거 · 지정된 대표 비교 1개</p><h2 id="comparison-title">무엇이 달라졌나요?</h2></div><Link href={`/research/progress#study-${study.id}`}>모든 비교 보기 ↗</Link></div>
       <p className={styles.question}>{narrative?.question.replaceAll("재조정", "보유 비중 조정") ?? study.title}</p>
       <p className={styles.scope}>{comparison.period_start}–{comparison.period_end} · 비용 {comparison.cost_multiplier}배 · 현금 {comparison.cash_statistic === "mean" ? "평균" : "중앙값"} · 낙폭은 {comparison.drawdown_basis === "close_nav" ? "종가 평가액" : "전체 관측 평가액"} 기준</p>
-      <div className={styles.compareHead}><span>같은 조건에서 비교</span><div><strong>기존 방식</strong><small>{comparison.baseline.label}</small></div><div><strong>시험한 방식</strong><small>{comparison.candidate.label}{candidateRule ? ` · ${candidateRule.label}` : ""}</small></div></div>
-      {narrative && <details className={styles.rulesDetails}><summary>두 방식은 무엇이 다른가요? · 규칙과 용어</summary><div className={styles.ruleRow}><span>바꾼 규칙</span><p>{narrative.baselineRules.join(" · ")}</p><p>{narrative.candidateRules.join(" · ")}</p></div><p>투자 상한은 돈을 넣는 최대 비중입니다. 재조정은 보유 종목에 넣는 돈의 비중을 다시 맞추는 일입니다. 연 변동성 목표는 연간 수익률의 흔들림을 조절하는 목표이며, 약속된 수익률이나 손실 한도가 아닙니다.</p></details>}
-      <dl className={styles.metricRows}>{rows.map((row) => <div className={styles.metricRow} key={row.label}><dt>{row.label}<small>{row.meaning}</small></dt><dd><span className="sr-only">기존 방식 </span>{row.baseline}</dd><dd><span className="sr-only">시험한 방식 </span>{row.candidate}</dd></div>)}</dl>
+      <ComparisonSettings study={study} comparisonId={comparison.id} />
+      <div className={styles.compareHead}><span>같은 조건에서 비교</span><div><strong>{researchSettingLabels.baseline}</strong><small>{researchSettingName(study, comparison.baseline.label)}</small></div><div><strong>{researchSettingLabels.candidate}</strong><small>{researchSettingName(study, comparison.candidate.label)}{candidateRule ? ` · ${candidateRule.label}` : ""}</small></div></div>
+
+      <dl className={styles.metricRows}>{rows.map((row) => <div className={styles.metricRow} key={row.label}><dt>{row.label}<small>{row.meaning}</small></dt><dd><span className="sr-only">연구용 비교 설정 </span>{row.baseline}</dd><dd><span className="sr-only">변경해서 시험한 설정 </span>{row.candidate}</dd></div>)}</dl>
       <p className={styles.tradeoff}><strong>함께 감수한 점</strong> {tradeoffs.length > 0 ? `${tradeoffs.join(". ")}.` : "수익·현금만으로 개선을 판단할 수 없습니다. 하락 폭과 거래 부담을 함께 보세요."} {comparison.drawdown_basis === "close_nav" ? "종가 기준 하락 폭으로는 모든 관측 시점의 위험 목표 충족을 판단할 수 없습니다." : "하락 폭은 이 과거 비교의 범위에서만 확인된 값입니다."}</p>
       <p className={styles.scope}>최고 수익을 골라낸 비교나 최종 채택안이 아닙니다. 전체 변경 규칙과 다른 기간의 결과는 연구 결과에서 확인하세요.</p>
-      <Link className={styles.source} href={`/research/history/download/${study.report_artifact_sha256}`}>이 비교의 원본 보고서 ↗</Link>
+      <Link className={styles.source} href={researchReportHref({ kind: "history", id: study.report_artifact_sha256 })}>이 비교의 보고서 읽기 ↗</Link>
     </section>
 
   </>;
