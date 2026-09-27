@@ -2,19 +2,19 @@
 
 ## market-artifact-read-hash-binding
 
-- 상태: 진행 (독립 구현 담당 배정 완료)
+- 상태: 완료 (integrity guard 구현·검증·독립 review·local main 통합 완료)
 - 목표·완료 조건: `MarketHistoryStore.get_artifact(artifact_id)`가 DB에서 읽은 bytes의 SHA-256이 lookup key와 다르면 민감 정보 없이 fail closed하도록 합니다. 정상 bytes/content type과 absent-key `KeyError`를 보존하고, corrupted body가 HTTP download API의 성공 응답으로 전달되지 않는지 fixture 기반 regression으로 확인합니다. 자동 복구·DB 변경·과거 KRX export/OOS 복원은 하지 않습니다.
 - 담당·소유: planner의 read-only defect 재현 완료. 중앙 `role.code_small`에 따라 단일 구현 소유자를 배정하고, 별도 `review`와 supervisor 통합을 둡니다.
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-artifact-read-hash-binding`
-- 작업 브랜치: `fix/market-artifact-read-hash-binding`
-- 기준 커밋 SHA: `fd999991b5b9bc251f5aa9e4929e516428c279c4`. 통합 대상은 local `main`.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-artifact-read-hash-binding` (clean 제거 완료)
+- 작업 브랜치: `fix/market-artifact-read-hash-binding` (보존)
+- 기준 커밋 SHA: `fd999991b5b9bc251f5aa9e4929e516428c279c4`; 구현 commit `c9533f97b4dbc9c1aca7472e2b75546c18892b6f`; local `main` 통합 SHA `5903dc2275c6a47fb2012633770461bdc0724c65`.
 - 입력·선행 근거: `backend/jusik/market_history_store.py:get_artifact`는 content SHA key로 row를 조회하지만 반환 bytes digest를 확인하지 않습니다. `backend/jusik/market_research_api.py` download route는 store bytes를 그대로 반환합니다. 기존 test는 정상 artifact roundtrip만 검사합니다. planner는 memory connection stub으로 altered bytes가 수락됨을 재현했습니다.
 - provisional assumption: 저장된 bytes/key integrity guard만 추가하는 reversible fix입니다. API schema, persisted artifact, data grade, strategy/market/investment criteria, PIT acceptance를 변경하지 않습니다.
 - 수정 허용 범위: `backend/jusik/market_history_store.py`, focused tests in `backend/tests/test_market_research.py`, 이 task development record만. API route code는 regression에서 generic failure mapping이 실제로 필요하다는 근거가 있을 때만 supervisor 조율 뒤 포함합니다. mandate/v1/v2/historical files/runner config는 변경하지 않습니다.
 - 포트·테스트 DB·출력 경로: 독립 worktree의 temporary SQLite, fixture와 test client만 사용합니다. 실제 API service·운영 DB·external network·credential·orders·PAPER/live·비용은 없습니다.
-- 검증 기준: 정상 artifact bytes/content type, absent key `KeyError`, altered bytes rejection 및 corrupted payload가 성공 HTTP response로 전달되지 않음을 확인합니다. focused pytest, changed-file Ruff, store strict mypy, `git diff --check`, independent review를 수행합니다. 불일치는 자동 수정하지 않습니다.
+- 검증 결과: 통합 main `backend/tests/test_market_research.py` 33 passed; changed-file Ruff check/format, `market_history_store.py` strict mypy, `git diff --check`, independent review PASS. test module strict mypy에는 이번 변경과 무관한 기존 unused `type: ignore` 2건이 남아 있습니다. 구현 후 별도 API code 변경 없이 corrupted payload failure를 확인했습니다.
 - 차단 의존성: 없음. 이 integrity task는 `FINAL_VALIDATION`/OOS와 독립이며, OOS 조건은 별도 `PENDING/BLOCKED`로 유지합니다.
-- 개발 기록: `docs/development-records/2026-09-27-market-artifact-read-hash-binding.md` (구현 후 작성).
+- 개발 기록: `docs/development-records/2026-09-27-market-artifact-read-hash-binding.md`.
 - Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
 
 ## portfolio-held-band-krx-cache-fixture-profile
