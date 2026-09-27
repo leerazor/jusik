@@ -2,7 +2,7 @@
 
 ## portfolio-held-band-sample-size-identity-reconcile
 
-- 상태: 준비 (offline request identity 대조)
+- 상태: 진행 (offline request identity 대조)
 - 목표·완료 조건: 기존 immutable US cache/result/completed marker와 저장된 request descriptor 및 과거 audit을 대조해 `sample_size=100`과 diagnostics 101 unique symbols 차이를 설명할 수 있는 근거가 있는지 확인합니다. 원인을 입증하지 못하면 unresolved로 남깁니다. 심볼을 임의 포함·제외·join하거나 성과/OOS 판단으로 확장하지 않습니다.
 - 담당·소유: supervisor가 범위·증거·문서 통합을 책임지는 단일 소유 오프라인 감사입니다. mandate와 agent 역할·orchestration은 그대로 둡니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-sample-size-identity-reconcile`

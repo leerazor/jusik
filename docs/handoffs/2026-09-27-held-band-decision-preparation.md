@@ -1,9 +1,9 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T06:01:03Z
+- Updated: 2026-09-27T06:04:17Z
 - Workspace: `/home/kwl/projects/jusik`
-- Branch / verified product integration: `main` / `7881d7f4c6cbac2982ec380c2c178e7ddc003e5f`
-- 상태: 결정 권고 문서, offline synthetic chronology fixture, Massive·Alpha Vantage 공식 출처 후보 검토, 노출된 로컬 cache의 fixture 전용 품질 profile을 local main에 통합했습니다. V2는 draft이며 실행은 비활성입니다.
+- Branch / verified product integration: `main` / `8a95adae1fafebb30609b4188eab81052aaa3ee4`
+- 상태: 결정 권고 문서, offline synthetic chronology fixture, Massive·Alpha Vantage 공식 출처 후보 검토, 노출된 로컬 cache의 fixture 전용 품질 profile을 local main에 통합했습니다. 다음 offline request-identity 감사가 진행 중입니다. V2는 draft이며 실행은 비활성입니다.
 
 ## 완료한 작업
 
@@ -29,4 +29,4 @@
 
 바로 실행 가능한 cache status, PIT·event timing·universe fixture, synthetic future-observation replay, source 후보 문서 조사와 상세 cache fixture profile을 완료했습니다. 별도 `explore`는 기존 pipeline/readiness/source 코드와 테스트를 확인했으나 새 제품 코드 gap 근거를 찾지 못했습니다. 기존 replay는 synthetic, unregistered, non-accepted 상태를 fail-closed로 보장하지만 held-band preregistration freeze·outcome exposure/access·manifest 봉인·단회 평가를 모델링하지 않습니다. OOS 계약은 임의로 확장하지 않았습니다. V2 미결 20개 field는 null, `execution_allowed=false`로 둡니다. Approximate 자료를 최종 성과나 OOS 증거로 쓰지 않습니다.
 
-구현 근거와 provider 출처: [결정 준비 개발 기록](../development-records/2026-09-27-held-band-decision-preparation-v1.md), [chronology fixture 개발 기록](../development-records/2026-09-27-held-band-oos-chronology-fixture.md), [Massive source 후보 개발 기록](../development-records/2026-09-27-held-band-massive-source-evidence.md), [Alpha Vantage source 후보 개발 기록](../development-records/2026-09-27-held-band-alpha-vantage-source-evidence.md), [local cache fixture profile](../development-records/2026-09-27-held-band-local-cache-fixture-profile.md). tracked 문서 수정 구간에만 roadmap queue를 임시 pause했고, 이후 원래 `paused=false`와 timer active를 복구해 service inactive·active task 0을 확인합니다. 별도 일반 queue의 기존 `paused=true`는 보존합니다. 다음 runnable `portfolio-held-band-sample-size-identity-reconcile`을 작업 등록부에 준비했습니다. immutable request/cache receipts와 이전 request descriptor를 대조하며, 원인을 입증하지 못하면 unknown으로 둡니다. 실제 source API 호출은 credential/사용권 조건을 기다리고, 최종 OOS만 적격·미노출 미래자료와 사용자 승인 freeze를 기다립니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았고 remote push·시장자료 API 수집·지출·주문·DB/PAPER/live 변경은 없었습니다.
+구현 근거와 provider 출처: [결정 준비 개발 기록](../development-records/2026-09-27-held-band-decision-preparation-v1.md), [chronology fixture 개발 기록](../development-records/2026-09-27-held-band-oos-chronology-fixture.md), [Massive source 후보 개발 기록](../development-records/2026-09-27-held-band-massive-source-evidence.md), [Alpha Vantage source 후보 개발 기록](../development-records/2026-09-27-held-band-alpha-vantage-source-evidence.md), [local cache fixture profile](../development-records/2026-09-27-held-band-local-cache-fixture-profile.md). tracked 문서 수정 구간에만 roadmap queue를 임시 pause했고, 직전 task 완료 때 원래 `paused=false`와 timer active 복원을 확인했습니다. 별도 일반 queue의 기존 `paused=true`는 보존합니다. 현재 `portfolio-held-band-sample-size-identity-reconcile` task는 별도 worktree에서 수행합니다. immutable request/cache receipts와 이전 request descriptor를 대조하며, 원인을 입증하지 못하면 unknown으로 둡니다. 실제 source API 호출은 credential/사용권 조건을 기다리고, 최종 OOS만 적격·미노출 미래자료와 사용자 승인 freeze를 기다립니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았고 remote push·시장자료 API 수집·지출·주문·DB/PAPER/live 변경은 없었습니다.
