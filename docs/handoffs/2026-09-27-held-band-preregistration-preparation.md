@@ -1,8 +1,8 @@
 # Held-band 사전등록 준비 handoff
 
-- 기록 시각: 2026-09-26T23:50:49Z
+- 기록 시각: 2026-09-27T00:05:14Z
 - 작업 공간: `/home/kwl/projects/jusik`
-- 기록 작성 시 branch/commit: `main` / `f375f822b53ae591a23d8631c991629189ca73a7`
+- 기록 갱신 시 branch/commit: `main` / `3827b6b7ea5f2a8a0019203902a80f8e7391ce0e`; 초안 통합 commit은 `f375f822b53ae591a23d8631c991629189ca73a7`입니다.
 - 상태: 요청한 문서 준비는 완료했습니다. 실행 가능한 사전등록과 새 연구 실행은 미결정 입력과 적격 미래 자료가 없어 차단 상태입니다.
 
 ## 완료한 작업
@@ -17,6 +17,6 @@
 
 실행을 열기 전 신규 자료의 출처·universe·PIT 등급·기간, IS/validation/walk-forward/OOS의 정확한 경계와 최소 표본, 후보별 비용 기준 요구수익률의 지표·기간·값, 실행/계산 예산을 확정해야 합니다. 자료가 확보되면 사전등록과 최종 코드 identity를 고정하고 입력 manifest/hash를 봉인해야 합니다. v1 관측은 이미 알려진 후향 자료이므로 untouched OOS에 재사용하지 않습니다.
 
-현재 runner 상태는 queue `paused=true`, 실행 중 task 0개, timer active입니다. 복원 목적으로 실행한 one-shot service는 성공적으로 끝나 현재 inactive/dead입니다. 원격 push·실주문·PAPER/DB 변경은 없었습니다.
+service는 roadmap queue를 사용합니다. tracked 문서 편집 중 timer가 자동 실행한 cycle은 7회 `idle`, 1회 `blocked` (`tracked worktree is dirty`)였고 task 상태 수는 바뀌지 않았으며 실행 중 task도 없었습니다. integration 때 이 queue를 일시 pause·service stop했고, tracked tree가 clean해진 뒤 원래 `paused=false`로 복원했습니다. 현재 timer는 active, queue는 unpaused, service는 one-shot 상태로 inactive이며 실행 중 task는 0개입니다. 별도 `development-runner.json` 큐는 `paused=true` 상태를 유지했습니다. 원격 push·실주문·PAPER/DB 변경은 없었습니다.
 
 다음 세션은 이 handoff, 두 draft 및 최신 `docs/research-mandate.json`을 읽고 필요한 입력을 확정하세요. 모든 필수 입력·예산·hash identity가 고정되기 전에는 실행하지 않습니다.

@@ -1,7 +1,7 @@
 # Held-band 후속 사전등록 준비
 
 - 상태: 완료 (문서 준비만; 실행 가능한 사전등록은 차단)
-- 기록 시각: 2026-09-26T23:50:49Z
+- 기록 시각: 2026-09-27T00:05:14Z
 - 작업 slug: `portfolio-held-band-preregistration-draft-v2`
 - 기준/통합: `10e092a55ab50d96b09fe8c15b2a535530a9f8ad` / `f375f822b53ae591a23d8631c991629189ca73a7` (local `main` fast-forward)
 - 범위: held-band 후속 연구의 실행 불가 사전등록 초안 두 파일을 만들고 기존 v1 evidence를 보존했습니다.
@@ -29,7 +29,8 @@
 
 ## 안전·운영 상태
 
-- 시작 시 runner service와 timer가 active였고 큐는 이미 `paused=true`였습니다. 수동 작업 중 service를 멈췄다가 복원 목적으로 one-shot service를 시작했습니다. 최종 service는 `Result=success`, exit status 0으로 종료되어 inactive/dead이며 timer는 active입니다. 큐는 계속 paused이고 실행 중 task는 0개입니다.
+- service의 실제 설정은 `~/.config/jusik/roadmap-development-runner.json` (`investment-roadmap`)입니다. 수동 편집 전에 확인한 이 큐는 `paused=false`였고 timer는 active였습니다. 편집 도중 timer cycle은 7회 `idle`, 1회 `blocked` (`tracked worktree is dirty`)였으며 task 상태 수는 181개 중 completed 156, blocked 9, failed 15, waiting_external 1로 전후 같고 running task는 0개였습니다. 서비스 결과와 task 상태에서 실행된 task attempt는 없었습니다.
+- 통합 때 roadmap 큐를 pause하고 one-shot service를 정지했습니다. tracked worktree를 깨끗하게 만든 뒤 기존 `paused=false`로 복원했습니다. 운영 기록 정정 중 짧은 maintenance pause를 한 번 더 적용했고, 이 기록을 커밋한 뒤 같은 상태로 복원합니다. 최종 목표 상태는 timer active, queue unpaused, 실행 중 task 0개, one-shot service inactive입니다. 별도 `~/.config/jusik/development-runner.json` 큐는 원래 `paused=true`인 상태로 변경하지 않았습니다.
 - 실주문, PAPER/DB 변경, service 설정 변경, 원격 push, 새 자료 수집은 없습니다. 사용자 소유 루트 `HANDOFF.md`를 보존했습니다.
 - 소유 worktree `/home/kwl/projects/jusik-portfolio-held-band-preregistration-draft-v2`는 clean 상태에서 제거했습니다. 작업 브랜치와 두 작업 커밋은 보존했습니다.
 

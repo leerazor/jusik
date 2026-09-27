@@ -14,7 +14,7 @@
 - 검토 결과와 남은 문제: 최종 독립 review PASS, 미해결 코드·문서 결함 없음. 경제성 검증이나 새 자료의 PIT 적격성을 확인한 것은 아닙니다. 실행 재개에는 자료 출처·universe·PIT 등급·기간, 정확한 IS/validation/walk-forward/OOS 경계와 최소 표본, 후보별 비용 기준 요구수익률·지표·기간, 실행/계산 예산 및 자료 도착 후 identity/hash 고정이 필요합니다.
 - 병합 직전 main SHA `10e092a55ab50d96b09fe8c15b2a535530a9f8ad`; fast-forward 통합 SHA `f375f822b53ae591a23d8631c991629189ca73a7`. 통합 검증 실패와 복구는 없습니다.
 - 개발 기록: `docs/development-records/2026-09-27-held-band-preregistration-preparation.md` 갱신. Handoff: `docs/handoffs/2026-09-27-held-band-preregistration-preparation.md` 저장.
-- 정리·운영: 소유 worktree는 clean 상태 확인 후 정상 제거했고 브랜치·커밋은 보존했습니다. 사용자 소유 루트 `HANDOFF.md`는 수정하지 않았습니다. runner queue는 `paused=true`, 실행 중 task 0개, timer active입니다. 복원 목적으로 실행한 one-shot service는 exit status 0으로 종료되어 현재 inactive/dead입니다. 원격 push·실주문·서비스 설정 변경은 없습니다.
+- 정리·운영: 소유 worktree는 clean 상태 확인 후 정상 제거했고 브랜치·커밋은 보존했습니다. 사용자 소유 루트 `HANDOFF.md`는 수정하지 않았습니다. 실제 service가 쓰는 `roadmap-development-runner.json` 큐는 작업 중 처음엔 unpaused였습니다. tracked 문서 수정 중 timer cycle 7회는 `idle`, 1회는 `tracked worktree is dirty`로 `blocked`를 반환했으며 181개 task 상태 수는 전후 동일하고 running은 0이었습니다. 문서 통합 중 해당 큐를 잠시 pause하고 service를 멈춘 뒤, tracked tree가 깨끗해진 후 원래 unpaused 상태로 복원했습니다. 최종 timer는 active, one-shot service는 의도적 stop(SIGTERM 15) 뒤 inactive이며 실행 중 task는 없습니다. 별도 `development-runner.json` 큐는 기존 `paused=true` 상태로 그대로 두었습니다. 원격 push·실주문·서비스 설정 변경은 없습니다.
 
 ## quality-first-model-routing
 
