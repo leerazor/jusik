@@ -2,19 +2,20 @@
 
 ## portfolio-held-band-massive-source-evidence
 
-- 상태: 진행 (공개 공식 문서 조사 중; 적격 자료 판정·수집 아님)
+- 상태: 완료 (공개 문서 기반 후보 조사와 권고 반영; 자료 적격 판정·수집 아님)
 - 목표·완료 조건: Massive US 주식 자료를 새 출처 후보로 평가하고 현재 자료 출처 권고에 반영합니다. 가격·기업행동·과거 ticker/universe·available-at/PIT 의미, 요금제·사용권, 결측/coverage 확인 가능 범위, 대안·영향, provisional 적용 가능 범위와 사용자 승인/credential/비용 의존성을 기록합니다. 후보를 최종 source로 승인하거나 기준을 동결하지 않습니다.
 - 담당·소유: supervisor가 무료 공식 문서 조사와 문서 통합을 단일 소유합니다. 기존 mandate와 agent 역할·orchestration을 변경하지 않습니다.
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-massive-source-evidence`
-- 작업 브랜치: `docs/portfolio-held-band-massive-source-evidence`
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-massive-source-evidence` (검증·통합 후 clean 확인하고 정상 제거)
+- 작업 브랜치: `docs/portfolio-held-band-massive-source-evidence` (보존)
 - 기준 커밋 SHA: `b9c8cdc7c673b680c6e583cf6c762ca817216d6d` (등록부 선행 커밋).
-- 통합 대상 브랜치: local `main`.
+- 통합 대상 브랜치: local `main`; source note `41be8c2d518eabf02d0e6f5517e2deb3d10ba869`로 fast-forward 통합.
 - 입력: `docs/research/portfolio-held-band-decision-preparation-v1.md`, mandate SHA-256 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`, provider official docs/pricing/legal pages.
 - provisional assumption: Massive 공식 공개 문서에 보이는 interface·plan semantics는 조사와 schema/fixture 설계 참고로만 사용합니다. 현재·과거 reference 상태가 역사적 관측 시점의 완전한 membership, 당시 공개 시각, 수정 이력, 엄격 PIT를 증명한다고 가정하지 않습니다. 실제 data call·API key·상업적 사용권·유료 플랜은 가정하지 않습니다. source 원문 조건 또는 적격 manifest의 독립 검증에서 미확인 필드가 해소되면 재평가합니다.
 - 수정 허용 범위: `docs/research/portfolio-held-band-decision-preparation-v1.md`만. mandate, v2 초안/JSON, v1 archive, 코드·테스트·runner/서비스·DB·data cache 및 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
 - 포트·테스트 DB·출력 경로: 문서 전용, 로컬/OFFLINE. API 요청·계정 생성·credential 접근·자료 다운로드·유료 구매는 하지 않습니다.
-- 검증·중지 조건: 문서의 권고/근거/대안/가역 범위/승인/해제 조건과 공식 출처 링크를 대조하고 `git diff --check`, mandate SHA, v2 null/비실행 불변식을 확인합니다. 새 출처 사용이 구매·credential·법적 이용 범위 결정에 의존하면 그 자료 접근만 보류하며 문서 조사와 오프라인 개발은 계속합니다.
-- 실제 blocked task: 실제 Massive API 자료 확인은 API credential과 사용 목적에 맞는 권한이 없어 미실행. 최종 source allowlist·data acceptance·PIT/OOS 자격과 정식 preregistration freeze는 사용자 결정/승인 전 보류합니다.
+- 결과: 결정 준비 문서의 자료 출처 항목에 Massive Basic·유료 이력 범위, ticker events 필드·PIT 한계, Market Data Terms의 개인/비상업·non-display/전략 파생물 제약, 권고·대안·임시 사용 범위·해제 조건을 추가했습니다. Massive는 source-agnostic schema 문서 참고 후보일 뿐 현재 연구 자료원으로 채택하지 않았습니다.
+- 검토·검증: 대상은 한정 공개문서 조사·문서 변경입니다. 공식 pricing, endpoint, ticker-change, Market Data Terms 페이지와 변경 diff를 감독자가 대조했습니다. `git diff --check`, mandate SHA, v2의 미결 필드 20개 전부 null 및 `registered/approved/execution_allowed=false`를 확인했습니다. 코드·pytest 검사는 변경이 문서뿐이라 실행하지 않았습니다.
+- 실제 blocked task: 실제 Massive API 자료 확인은 API credential 및 연구·전략 파생물 사용을 허용하는 계약/권한이 없어 미실행. 유료 plan/license는 실제 비용 승인 전 구매하지 않습니다. 최종 source allowlist·data acceptance·PIT/OOS 자격과 정식 preregistration freeze는 사용자 승인 전 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-27-held-band-massive-source-evidence.md`.
 - Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
 
