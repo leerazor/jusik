@@ -3,7 +3,7 @@
 - 상태: bounded offline contract engineering 완료 (`ENGINEERING_COMPLETE/NOT_EVALUATED`); 운영 readiness 재개 연결은 PENDING
 - 기록 시각: 2026-09-27T13:33:23Z
 - 작업 slug: `lab-external-readiness-binding-v1`
-- 기준/통합: `fe186e60edb1f27c94a3bc0b9f48ff22b1f55c0e` / `d85f424c03936e5c0c90006f996dab8dbbc97e3c`
+- 기준/통합: `fe186e60edb1f27c94a3bc0b9f48ff22b1f55c0e` / code `d85f424c03936e5c0c90006f996dab8dbbc97e3c`, registry/docs `b294d944aa24ba849afd2e3e6af74e4083c1aa14`
 - 범위: existing external producer/validator와 artifact identity를 바탕으로 오프라인에서 receipt를 검사하는 기술 계약과 회귀 테스트를 추가했습니다. runner/scheduler 연결, 외부 artifact, mandate, preregistration, 투자·자료·OOS acceptance 조건은 바꾸지 않았습니다.
 
 ## 조사와 변경
@@ -32,8 +32,9 @@
 
 ## 안전·운영 상태와 남은 차단
 
-- 네트워크·provider·자료 수집·비용·credential·운영 DB/service/queue·PAPER/live·주문·remote push를 사용하거나 바꾸지 않았습니다. source/test/runner queue의 runtime 연결도 추가하지 않았습니다.
+- 시장/provider network·자료 수집·비용·credential·운영 DB/service/queue·PAPER/live·주문·remote push를 사용하거나 바꾸지 않았습니다. latest main을 확인하는 read-only Git fetch는 이 bounded 작업 전 수행돼 있었습니다. source/test/runner queue의 runtime 연결도 추가하지 않았습니다.
 - 실제 external readiness event를 runner에 연결하는 부분은 trusted producer가 task/attempt와 collector/validator identity를 publication하고, consumer가 검증할 안정적·원자적 receipt path를 제공할 때까지 PENDING입니다. 현 artifact collector hash null과 8 BLOCKED gate는 유지됩니다.
 - held-band `FINAL_VALIDATION`/OOS는 승인된 사전등록과 적격 미래 자료가 마련될 때까지 별도 task-local BLOCKED/PENDING입니다. 미정 필드는 `null`, `registered=false`, `approved=false`, `execution_allowed=false`를 유지합니다.
 - §17 priority 4의 static prospective mandate compatibility audit는 기존 자료에서 완료됐습니다. 재등록·수집·평가 실행은 사용자 승인, 적격 자료 및 미사용 evaluation window 없이는 진행할 수 없습니다. 기록 시점에 worktree registry에서 다른 READY task는 확인되지 않았습니다. 기존 manifest-integrity review FAIL/WAITING_EXTERNAL과 그 재시도 금지도 유지합니다. 같은 terminal `no_work` discovery를 반복 호출하지 않았습니다.
 - 다음 시작: trusted producer의 publication/atomic path contract가 실제 artifact로 제공되는지 확인한 뒤 receipt를 독립적으로 검증하고, 그때에만 runner fingerprint/scheduler integration을 별도 scope 검토합니다. 그 전까지는 별도 READY 등록 task가 나타날 때만 기존 우선순위로 진행합니다.
+- 검증 후 `/home/kwl/projects/jusik-lab-external-readiness-binding` 작업 worktree와 통합된 `feat/lab-external-readiness-binding` branch를 제거했습니다. root의 기존 미추적 `HANDOFF.md`는 보존했습니다.

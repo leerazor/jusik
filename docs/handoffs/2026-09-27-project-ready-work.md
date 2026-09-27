@@ -1,8 +1,8 @@
 # 프로젝트 READY 작업 handoff
 
-- Updated: 2026-09-27T13:33:23Z
+- Updated: 2026-09-27T13:34:26Z
 - Workspace: `/home/kwl/projects/jusik`
-- Latest code main: `d85f424c03936e5c0c90006f996dab8dbbc97e3c`; task/docs status update는 후속 기록 commit 예정
+- Latest verified local main before this handoff update: `b294d944aa24ba849afd2e3e6af74e4083c1aa14`; code integration `d85f424c03936e5c0c90006f996dab8dbbc97e3c`
 - 상태: 외부 readiness receipt의 bounded offline 기술 계약은 완료·통합·독립 review PASS입니다. 실제 producer/runner/scheduler 결속은 근거가 갖춰질 때까지 PENDING이며, 투자 검증이나 자료 적격화는 수행하지 않았습니다.
 
 ## 이번에 완료한 runnable task
@@ -11,6 +11,7 @@
 - 원문 artifact SHA와 semantic digest를 나누고 task/attempt/scope/request 조건·content·producer/validator identity/code SHA·gate identity/status를 검증합니다. `bound`는 hash/identity 결속이며 승인 신호가 아닙니다. raw payload streaming과 provisional resource cap을 추가했습니다.
 - 최초 review의 P2 memory/aggregate limit 및 P3 malformed argument 지적을 수정 후 같은 독립 reviewer가 PASS했습니다. reviewer와 worker의 local post-routing JSONL 감사 파일은 실행기에서 확인할 수 없어 helper post audit는 생략했으며, preflight는 PASS였습니다.
 - 통합 후 코드 확인·테스트 외에 외부 artifact, runner/queue/config/DB, 서비스, data provider를 변경하지 않았습니다. root의 사용자 소유 미추적 `HANDOFF.md`도 그대로 둡니다.
+- task worktree `/home/kwl/projects/jusik-lab-external-readiness-binding`와 통합 branch를 제거했습니다. 커밋된 code와 기록은 main에 보존돼 있습니다.
 
 ## Provisional 가정과 남은 차단
 
