@@ -1,8 +1,8 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T07:53:07Z
+- Updated: 2026-09-27T07:54:09Z
 - Workspace: `/home/kwl/projects/jusik`
-- Verified main before this handoff update: `a80b758d367fcf6ec04a8e68a565a0723e38985e`
+- Verified main before this handoff update: `be089a2fc507ad5c7ea94472e4c72effe5050886`
 - 상태: KRX 공식 출처 조사·fixture 프로파일, snapshot/artifact read hash guards, artifact write conflict guard를 local main에 통합했습니다. 투자 mandate·agent 역할·orchestration·사전등록 조건은 변경하지 않았습니다.
 
 ## 완료된 근거
@@ -32,7 +32,7 @@
 
 ## 운영 상태
 
-- 실제 development-runner queue는 `paused=true`이며 read-only status에서 35 DONE, 7 BLOCKED, 3 FAILED, queued/running 0입니다. 막힌 항목은 과거 retry 전 격리 기록이고 이번 변경으로 재시도하지 않습니다. service/timer는 수동 tracked 작업 중 일시 정지되어 있으며, 이번 추적 문서 commit 뒤 기존 timer `active`를 복구하고 queue pause를 유지합니다.
+- 실제 development-runner queue는 `paused=true`이며 read-only status에서 35 DONE, 7 BLOCKED, 3 FAILED, queued/running 0입니다. 막힌 항목은 과거 retry 전 격리 기록이고 이번 변경으로 재시도하지 않습니다. 기존 timer `active`를 복구했고, 재활성화 직후 one-shot service가 exit 0으로 종료했습니다. 최종 확인에서 timer `active`, service `inactive`, queue `paused=true`, queued/running 0입니다.
 - Artifact read 및 write-conflict worktree는 clean 제거했고 branch/commit은 보존했습니다.
 - KRX profile worktree는 clean fast-forward 후 제거했고 branch `docs/portfolio-held-band-krx-cache-fixture-profile`와 commit 이력은 보존했습니다.
 - root `HANDOFF.md`는 사용자 소유 미추적 파일로 유지하며 읽기·수정·stage하지 않았습니다. remote push, network/API/data collection, purchase, DB/broker/order/PAPER/live 실행은 없습니다.
