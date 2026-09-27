@@ -2,7 +2,7 @@
 
 ## market-artifact-write-conflict-guard
 
-- 상태: 준비 (planner 재현 완료, bounded 구현 범위 확정)
+- 상태: 진행 (전용 worktree·Python 3.13 환경 준비, 중앙 `role.code_small` 단일 구현 담당 배정)
 - 목표·완료 조건: `MarketHistoryStore.save_artifact()`가 digest key 아래 실제 저장된 bytes의 SHA-256을 확인해 반환합니다. 신규 저장과 동일 bytes 재저장은 기존처럼 성공해야 하고 기존 content type/captured_at metadata를 보존합니다. 같은 digest key에 다른 bytes가 이미 있으면 값을 덮어쓰지 않고 고정된 비민감 오류로 거부하며, service가 충돌 뒤 연구/전략 계산 함수를 호출하지 않는지 regression으로 확인합니다.
 - 담당·소유: planner의 read-only 재현·계획 완료. 중앙 `role.code_small`에 따른 단일 구현 소유자, 별도 `review`, supervisor 통합을 둡니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-market-artifact-write-conflict-guard`
