@@ -1,5 +1,20 @@
 # 워크트리 작업 등록부
 
+## portfolio-held-band-decision-preparation-v1
+
+- 상태: 진행 (권고·가역적 개발 가정 정리; 사전등록 조건·mandate는 변경하지 않음)
+- 목표·완료 조건: 자료 등급·시장/universe·출처·검증 기간·최소 표본·후보 요구수익률·예산에 대해 근거, 대안, 영향, provisional 적용 범위·해제 조건, 사용자 승인 여부를 별도 한국어 문서에 정리한다. 실행 가능한 조사·테스트와 실제 자료/OOS/투자 결정 차단을 구분하고, 기존 v2의 모든 null과 `execution_allowed=false` 및 기존 archive hash를 보존한다.
+- 담당·소유: `plan` 읽기 전용 계획 완료, `code_small` 단일 구현 담당자(새 결정 준비 문서 1개), `review` 독립 문서 검토. supervisor는 등록부·개발 기록·handoff·local `main` 통합을 소유한다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-decision-preparation-v1`
+- 작업 브랜치: `docs/portfolio-held-band-decision-preparation-v1`
+- 기준 커밋 SHA: 등록부 선행 커밋 `TBD`; 구현 시작 전 확정한다.
+- 통합 대상 브랜치: local `main`.
+- 입력: `docs/research-mandate.json` SHA-256 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`; held-band v2 초안과 v1 archive; 기존 market-data 수집·readiness 기록과 공식 provider 문서.
+- 수정 허용 범위: 구현자는 새 `docs/research/portfolio-held-band-decision-preparation-v1.md`만 수정한다. 등록부·개발 기록·handoff는 supervisor가 관리한다. v2 사전등록·mandate·v1 archive, 제품 코드·PAPER/live·DB·runner·사용자 루트 `HANDOFF.md`는 변경하지 않는다.
+- 데이터·실행 경계: 기존 근사·후향 자료는 metadata 조사·fixture·회귀에만 사용한다. 새 시장자료 수집·성과 experiment·OOS 판정·실주문·유료 서비스·credential 접근은 0회. 공식 provider 문서의 공개 열람은 허용한다.
+- 검증: 7개 미정 영역마다 권고안·근거·대안별 영향·provisional 적용 여부·승인 필요 여부·해제 조건 기록; 기존 mandate와 모순 없음; v2 null/false 및 보존 SHA 불변; 링크·표·범위 교차 확인; `git diff --check`; 독립 `review` PASS.
+- 종료 조건: 실제로 차단된 미래자료·최종 기준·예산만 차단으로 남기고, 문서 작업의 통합 검사·handoff를 완료한다. 수익성·PIT/OOS 적격성·승인 조건을 주장하거나 동결하지 않는다.
+
 ## portfolio-held-band-preregistration-draft-v2
 
 - 상태: 완료 (준비 단계만). 후속 사전등록 Markdown/JSON을 작성하고 local `main`에 통합했습니다. 실행 가능한 사전등록·실험·투자 성과 검증은 완료하지 않았으며 계속 차단 상태입니다.
