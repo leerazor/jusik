@@ -1,9 +1,9 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T07:14:40Z
+- Updated: 2026-09-27T07:17:18Z
 - Workspace: `/home/kwl/projects/jusik`
-- Current main: `4319a7f797216811deac0ac846d57b2a64944665` (작업 등록부 갱신 전)
-- 상태: KRX 공식 출처 조사와 prepared fixture 프로파일을 통합했습니다. 다음 runnable은 snapshot 저장소의 read-side hash binding guard입니다. 투자 mandate·agent 역할·orchestration·사전등록 조건은 변경하지 않았습니다.
+- Verified main before this handoff update: `85d2d015d8e87bb7f2c95f1a4b9c3fd0c4c98d7f`
+- 상태: KRX 공식 출처 조사와 prepared fixture 프로파일을 통합했습니다. `market-snapshot-read-hash-binding` 구현이 진행 중입니다. 투자 mandate·agent 역할·orchestration·사전등록 조건은 변경하지 않았습니다.
 
 ## 완료된 근거
 
@@ -21,12 +21,12 @@
 
 ## 바로 이어서 할 작업
 
-- 등록 task: `market-snapshot-read-hash-binding`. 기준 저장소 `docs/worktree-tasks.md`를 읽고, 독립 worktree `/home/kwl/projects/jusik-market-snapshot-read-hash-binding`과 `fix/market-snapshot-read-hash-binding`에서 단일 `code_small` 구현 담당자를 배정합니다.
+- 등록 task: `market-snapshot-read-hash-binding`. Planner가 `backend/jusik/market_history_store.py:get_snapshot()`에서 body canonical hash와 lookup key를 대조하지 않는 동작을 in-memory stub으로 재현했습니다. 격리 worktree `/home/kwl/projects/jusik-market-snapshot-read-hash-binding`, branch `fix/market-snapshot-read-hash-binding`, base `b0b28fa`를 생성했고 중앙 `role.code_small`로 단일 구현자를 배정했습니다.
 - 범위는 `backend/jusik/market_history_store.py`의 `get_snapshot()` read-side identity guard와 `backend/tests/test_market_research.py`의 mismatch/roundtrip/absent-key regression tests입니다. 잘못 결속된 과거 KRX export의 복원, migration, market/data acceptance는 범위 밖입니다.
 - 구현 후 별도 review, focused pytest, Ruff, configured strict mypy, 통합 main 검증, development record와 이 handoff 갱신을 수행합니다. 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
 
 ## 운영 상태
 
-- 실제 development-runner queue는 `paused=true`입니다. 추적 문서 통합 중 service/timer를 일시 정지했고 둘 다 현재 `inactive`입니다. 저장소 작업을 마친 뒤 기존 timer `active` 상태를 복구하되 queue pause는 유지합니다.
+- 실제 development-runner queue는 `paused=true`입니다. 추적 문서 통합 중 service/timer를 일시 정지했고 현재 둘 다 `inactive`입니다. 수동 tracked 작업을 마친 뒤 기존 timer `active` 상태를 복구하되 queue pause는 유지합니다.
 - KRX profile worktree는 clean fast-forward 후 제거했고 branch `docs/portfolio-held-band-krx-cache-fixture-profile`와 commit 이력은 보존했습니다.
 - root `HANDOFF.md`는 사용자 소유 미추적 파일로 유지하며 읽기·수정·stage하지 않았습니다. remote push, network/API/data collection, purchase, DB/broker/order/PAPER/live 실행은 없습니다.
