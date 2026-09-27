@@ -41,7 +41,9 @@ class PaperCostContract:
 
     def manifest(self) -> dict[str, object]:
         """Return a JSON-safe manifest for a new PAPER run."""
-        if any(profile.applies_to_frozen_history for profile in self.profiles):
+        if self.applies_to_frozen_history or any(
+            profile.applies_to_frozen_history for profile in self.profiles
+        ):
             raise ValueError("paper_cost_contract_frozen_history_forbidden")
         return {
             "schema_version": "paper-cost-contract-v1",

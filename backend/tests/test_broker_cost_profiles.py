@@ -52,6 +52,16 @@ def test_paper_contract_manifest_rejects_profile_for_frozen_history() -> None:
         unsafe_contract.manifest()
 
 
+def test_paper_contract_manifest_rejects_contract_for_frozen_history() -> None:
+    contract = build_bankis_paper_cost_contract(("KRX", "US"))
+    assert contract.manifest()["applies_to_frozen_history"] is False
+
+    with pytest.raises(
+        ValueError, match="^paper_cost_contract_frozen_history_forbidden$"
+    ):
+        replace(contract, applies_to_frozen_history=True).manifest()
+
+
 @pytest.mark.parametrize("markets", [(), ("KRX", "KRX"), ("US", "KRX", "US")])
 def test_bankis_paper_contract_rejects_empty_or_duplicate_markets(
     markets: tuple[BrokerMarket, ...],
