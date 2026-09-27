@@ -26,6 +26,7 @@ from jusik.development_runner_discovery import (
     source_fingerprint,
     spec_from_proposal,
     strict_output_schema,
+    validate_no_work,
     validate_proposal,
 )
 from jusik.development_runner_store import RunnerStore, RunnerTask
@@ -90,7 +91,7 @@ def _fake_child(path: Path, mode: str = "pass") -> None:
         "'owned_paths': json.loads(fields['Owned paths']), "
         "'reason': 'reproduced product gap' if verdict == 'PASS' else "
         "'already completed product gap'}\n"
-        "elif mode == 'no_work':\n"
+        "elif mode.startswith('no_work'):\n"
         "    payload = {'status': 'no_work', 'proposal': None, "
         "'inspected_domains': "
         "['paper_execution_contract', 'research_market_calendar'], "
@@ -99,6 +100,15 @@ def _fake_child(path: Path, mode: str = "pass") -> None:
         "'planner_attempt_id': fields['Planner attempt id'], "
         "'baseline_head': fields['Baseline HEAD'], "
         "'fingerprint': fields['Fingerprint']}\n"
+        "    payload['inspection_evidence'] = [{'path': name, 'sha256': "
+        "hashlib.sha256(Path(name).read_bytes()).hexdigest()} "
+        "for module in payload['inspected_domains'] "
+        "for name in (f'backend/jusik/{module}.py', "
+        "f'backend/tests/test_{module}.py')]\n"
+        "    if mode == 'no_work_hash_mismatch':\n"
+        "        payload['inspection_evidence'][0]['sha256'] = '0' * 64\n"
+        "    if mode == 'no_work_missing':\n"
+        "        del payload['inspection_evidence']\n"
         "else:\n"
         "    feedback = json.loads(prompt.split('Prior scope rejection feedback: ', 1)"
         "[1].splitlines()[0])\n"
@@ -507,6 +517,119 @@ def test_no_work_requires_actual_allowlisted_inspection() -> None:
         )
 
 
+def _no_work_result(repo: Path) -> DiscoveryResult:
+    domains = ["paper_execution_contract", "research_market_calendar"]
+    return DiscoveryResult(
+        planner_attempt_id="attempt",
+        baseline_head=_git(repo, "rev-parse", "main"),
+        fingerprint="b" * 64,
+        status="no_work",
+        inspected_domains=domains,
+        inspection_evidence=[
+            SourceEvidence(
+                path=path,
+                sha256=hashlib.sha256((repo / path).read_bytes()).hexdigest(),
+            )
+            for module in domains
+            for path in (
+                f"backend/jusik/{module}.py",
+                f"backend/tests/test_{module}.py",
+            )
+        ],
+        resume_condition="source or task state changes",
+        alternatives=["inspect another offline module"],
+    )
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    ["missing", "partial", "duplicate", "extra", "outside", "duplicate_domain"],
+)
+def test_no_work_requires_exact_inspection_receipts(
+    tmp_path: Path, invalid: str
+) -> None:
+    config, _ = _exhausted(tmp_path, tmp_path / "unused-child")
+    payload = _no_work_result(config.repo).model_dump(mode="json")
+    evidence = payload["inspection_evidence"]
+    if invalid == "missing":
+        del payload["inspection_evidence"]
+    elif invalid == "partial":
+        evidence.pop()
+    elif invalid == "duplicate":
+        evidence[-1] = evidence[0]
+    elif invalid == "extra":
+        evidence.append(
+            {"path": "backend/jusik/market_loss_accounting.py", "sha256": "0" * 64}
+        )
+    elif invalid == "outside":
+        evidence[-1]["path"] = "backend/tests/../tests/test_other.py"
+    else:
+        payload["inspected_domains"].append(payload["inspected_domains"][0])
+    with pytest.raises(ValueError, match="no_work needs"):
+        DiscoveryResult.model_validate(payload)
+
+
+def test_no_work_evidence_must_match_canonical_main(tmp_path: Path) -> None:
+    config, _ = _exhausted(tmp_path, tmp_path / "unused-child")
+    validate_no_work(config.repo, _no_work_result(config.repo))
+    (config.repo / "backend/jusik/paper_execution_contract.py").write_text(
+        "# uncommitted product change\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="not canonical main"):
+        validate_no_work(config.repo, _no_work_result(config.repo))
+
+
+@pytest.mark.parametrize("mode", ["no_work_missing", "no_work_hash_mismatch"])
+def test_invalid_no_work_receipt_is_not_persisted_as_no_work(
+    tmp_path: Path, mode: str
+) -> None:
+    fake = tmp_path / "fake-discovery.py"
+    _fake_child(fake, mode)
+    config, store = _exhausted(tmp_path, fake)
+    assert runner.run_once(config).reason == "discovery_invalid_result"
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute(
+            "SELECT status,reason,response_sha256 FROM discovery_attempts"
+        ).fetchall() == [("failed", "invalid_result", None)]
+        assert db.execute("SELECT stage FROM discovery_cycles").fetchall() == [
+            ("discover",)
+        ]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "backend/jusik/paper_execution_contract.py",
+        "backend/tests/test_paper_execution_contract.py",
+    ],
+)
+def test_no_work_rechecks_bytes_after_final_fingerprint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    fake = tmp_path / "fake-discovery.py"
+    _fake_child(fake, "no_work")
+    config, store = _exhausted(tmp_path, fake)
+    calls = 0
+
+    def changing_fingerprint(
+        repo: Path, mandate_digest: str, tasks: list[tuple[str, str, str | None]]
+    ) -> str:
+        nonlocal calls
+        fingerprint = source_fingerprint(repo, mandate_digest, tasks)
+        calls += 1
+        if calls == 2:
+            (repo / path).write_text("# late product change\n", encoding="utf-8")
+        return fingerprint
+
+    monkeypatch.setattr(runner, "source_fingerprint", changing_fingerprint)
+    assert runner.run_once(config).reason == "discovery_invalid_result"
+    assert calls == 2
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute(
+            "SELECT status,reason FROM discovery_attempts"
+        ).fetchall() == [("failed", "invalid_result")]
+
+
 def test_proposal_scope_pass_registers_once_and_survives_restart(
     tmp_path: Path,
 ) -> None:
@@ -631,15 +754,45 @@ def test_scope_reject_feedback_leads_to_distinct_candidate(tmp_path: Path) -> No
     assert statuses == [("rejected",), ("approved",)]
 
 
-def test_no_work_is_terminal_until_fingerprint_changes(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "path",
+    [
+        "backend/jusik/paper_execution_contract.py",
+        "backend/tests/test_paper_execution_contract.py",
+    ],
+)
+def test_no_work_is_terminal_until_fingerprint_changes(
+    tmp_path: Path, path: str
+) -> None:
     fake = tmp_path / "fake-discovery.py"
     _fake_child(fake, "no_work")
     config, store = _exhausted(tmp_path, fake)
-    assert runner.run_once(config).reason == "discovery_terminal"
+    result = runner.run_once(config)
+    assert result.reason == "discovery_terminal"
+    assert result.attempt_id is not None
+    raw = (
+        config.state_dir / "discovery" / result.attempt_id / "result.json"
+    ).read_bytes()
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute(
+            "SELECT status,response_sha256 FROM discovery_attempts"
+        ).fetchall() == [("no_work", hashlib.sha256(raw).hexdigest())]
     day = datetime.now(UTC).strftime("%Y-%m-%d")
     launches = store.launch_count(day)
     assert runner.run_once(config).reason == "discovery_no_work"
     assert store.launch_count(day) == launches
+    restarted = RunnerStore(store.db_path, config.history_dir)
+    assert runner.run_once(config).reason == "discovery_no_work"
+    assert restarted.launch_count(day) == launches
+    (config.repo / path).write_text("# committed product change\n", encoding="utf-8")
+    _git(config.repo, "add", path)
+    _git(config.repo, "commit", "-m", "change inspected product bytes")
+    assert runner.run_once(config).reason == "discovery_terminal"
+    assert restarted.launch_count(day) == launches + 1
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute(
+            "SELECT COUNT(DISTINCT fingerprint) FROM discovery_cycles"
+        ).fetchone() == (2,)
 
 
 def test_three_distinct_scope_rejections_stop_calls(tmp_path: Path) -> None:

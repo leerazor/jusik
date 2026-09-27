@@ -37,6 +37,7 @@ from jusik.development_runner_discovery import (
     proposal_digest,
     source_fingerprint,
     strict_output_schema,
+    validate_no_work,
     validate_proposal,
     validate_scope_review,
 )
@@ -2758,8 +2759,11 @@ def _run_engineering_discovery(
             "tests, plus completed task history. Rank reproducible product gaps by "
             "autonomous trading-lab readiness. Propose exactly one source/test pair "
             "from the allowlist, or no_work after inspecting at least two domains "
-            "with their exact allowlisted module names, concrete resume conditions "
-            "and alternatives. An absent real-data "
+            "with unique exact allowlisted module names, concrete resume conditions "
+            "and alternatives. For no_work, inspection_evidence must contain exactly "
+            "one backend/jusik/<module>.py and backend/tests/test_<module>.py path "
+            "with current SHA-256 for every inspected domain; no other paths. "
+            "An absent real-data "
             "source does not prevent all offline work. Require a concrete product "
             "defect or missing behavior, plausible reproduction, source and test "
             "SHA-256 evidence from canonical tracked main. No tests-only, style, "
@@ -2921,6 +2925,7 @@ def _run_engineering_discovery(
                     proposal=result.proposal,
                 )
             else:
+                validate_no_work(config.repo, result)
                 next_stage = store.finish_discovery_attempt(
                     fingerprint,
                     attempt_id,

@@ -108,6 +108,9 @@ class DiscoveryResult(BaseModel):
     status: Literal["proposal", "no_work"]
     proposal: DiscoveryProposal | None = None
     inspected_domains: list[str] = Field(default_factory=list, max_length=8)
+    inspection_evidence: list[SourceEvidence] = Field(
+        default_factory=list, max_length=16
+    )
     resume_condition: str | None = Field(default=None, max_length=500)
     alternatives: list[str] = Field(default_factory=list, max_length=4)
 
@@ -125,13 +128,27 @@ class DiscoveryResult(BaseModel):
         if self.status == "no_work" and (
             self.proposal is not None
             or len(self.inspected_domains) < 2
-            or len(set(self.inspected_domains)) < 2
+            or len(set(self.inspected_domains)) != len(self.inspected_domains)
             or not self.resume_condition
             or len(self.resume_condition.strip()) < 12
             or not self.alternatives
             or any(len(item.strip()) < 12 for item in self.alternatives)
         ):
             raise ValueError("no_work needs inspected domains and resume alternatives")
+        if self.status == "no_work":
+            expected = {
+                path
+                for module in self.inspected_domains
+                for path in (
+                    f"backend/jusik/{module}.py",
+                    f"backend/tests/test_{module}.py",
+                )
+            }
+            paths = [item.path for item in self.inspection_evidence]
+            if len(paths) != len(expected) or set(paths) != expected:
+                raise ValueError(
+                    "no_work needs exact inspected source and test evidence"
+                )
         return self
 
 
@@ -176,7 +193,17 @@ def validate_proposal(repo: Path, proposal: DiscoveryProposal) -> None:
         raise ValueError("duplicate source evidence")
     if not proposal.owned_paths.issubset({item.path for item in proposal.evidence}):
         raise ValueError("owned source and test evidence required")
-    for item in proposal.evidence:
+    _validate_source_evidence(repo, proposal.evidence)
+
+
+def validate_no_work(repo: Path, result: DiscoveryResult) -> None:
+    if result.status != "no_work":
+        raise ValueError("no_work result required")
+    _validate_source_evidence(repo, result.inspection_evidence)
+
+
+def _validate_source_evidence(repo: Path, evidence: list[SourceEvidence]) -> None:
+    for item in evidence:
         path = item.path
         if (
             not path.startswith(("backend/jusik/", "backend/tests/"))

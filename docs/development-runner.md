@@ -144,8 +144,16 @@ OS 수준의 파일 쓰기 격리를 새로 보장한다는 뜻은 아닙니다.
 제안은 코드·테스트 tree, mandate, 실제 task 상태에 결속됩니다. 등록 직전에 현재 HEAD와
 근거 hash도 다시 검사하며 spec과 소유 경로는 재시작 뒤에도 보존됩니다. 같은 입력에서
 서로 다른 후보는 최대 3건까지 검토하며 거절 근거를 다음 발굴에 전달합니다.
-실행 가능한 작업이 없다는 결과에는 확인한 영역과 구체적인 재개 조건·대안이 필요합니다.
+실행 가능한 작업이 없다는 `no_work` 결과에는 중복 없는 allowlisted domain 최소 두 개와
+구체적인 재개 조건·대안이 필요합니다. `inspection_evidence`에는 각 domain의 정확한
+`backend/jusik/<module>.py`와 `backend/tests/test_<module>.py` 경로 및 SHA-256을
+하나씩 담습니다. 누락·추가·중복·허용 범위 밖 경로는 거부합니다. host는 terminal 저장
+직전에 모든 증빙의 현재 bytes와 canonical tracked `main` hash를 재검증합니다.
+검증한 JSON은 기존 attempt의 `response_sha256`으로 결속하며 DB schema는 바꾸지 않습니다.
 명시적인 `no_work` 이후에는 단순 시각 경과나 discovery 자체 기록 때문에 같은 LLM 검사를 다시 호출하지 않습니다.
+source/test·mandate·task 상태가 바뀌면 기존 fingerprint 규칙으로 새 검사가 가능합니다.
+외부 data/readiness 변경 결속은 검증된 producer/validator 계약이 없어 PENDING입니다.
+재개 조건의 문구나 오래된 자료만으로 외부 readiness가 바뀌었다고 판단하지 않습니다.
 기존 quota·cooldown·pause·process 정체 검사를 각 호출에 적용합니다.
 
 발굴·범위 검토의 호출 실패는 `no_work`와 다릅니다. 종료된 child의 크기 제한 JSONL에서
