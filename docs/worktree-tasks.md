@@ -19,12 +19,12 @@
 
 ## market-snapshot-read-hash-binding
 
-- 상태: 준비 (다음 runnable; 독립 worktree 시작 예정)
+- 상태: 진행 (독립 구현 worktree 준비 완료)
 - 목표·완료 조건: `MarketHistoryStore.get_snapshot(input_hash)`가 row body를 모델로 복원한 뒤 계산된 `snapshot.input_hash`와 requested lookup key가 다른 경우 fail closed하도록 합니다. 정상 roundtrip 및 absent key의 기존 `KeyError`는 보존하고, 정상 schema의 다른 `RawArtifact`/snapshot body가 원래 key 아래 반환되는 경우를 focused regression test로 거부합니다. 과거 KRX prepared export와 run의 binding을 복원하거나 PIT 적격성을 승격하는 작업은 아닙니다.
-- 담당·소유: planner의 read-only gap 확인 완료. 중앙 `role.code_small`에 따라 단일 구현 소유자와 별도 reviewer를 지정하며 supervisor가 등록·통합을 소유합니다.
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-snapshot-read-hash-binding` (task 배정 전 생성)
-- 작업 브랜치: `fix/market-snapshot-read-hash-binding` (task 배정 전 생성)
-- 기준 커밋 SHA: 등록 완료 후 기록. 통합 대상은 local `main`.
+- 담당·소유: planner의 read-only gap 확인 완료. 중앙 `role.code_small`에 따른 단일 Luna 구현자와 별도 reviewer를 둡니다. supervisor는 등록·통합을 소유합니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-snapshot-read-hash-binding`
+- 작업 브랜치: `fix/market-snapshot-read-hash-binding`
+- 기준 커밋 SHA: `b0b28fa` (task 등록 포함). 통합 대상은 local `main`.
 - 입력·선행 근거: `backend/jusik/market_history_store.py:get_snapshot`; 정상 save/read roundtrip은 `backend/tests/test_market_research.py`에 있으나 lookup key/body canonical hash mismatch 경우 검증은 없습니다. planner의 SQLite connection stub 조사에서 schema-valid changed artifact를 다른 key 아래 반환해도 수락되는 동작을 재현했습니다.
 - provisional assumption: canonical identity check만 추가하는 reversible storage integrity guard입니다. schema, persisted rows, legacy data, investment criteria, PIT acceptance는 변경하지 않습니다.
 - 수정 허용 범위: `backend/jusik/market_history_store.py`, 해당 focused test, task development record만. supervisor는 이 등록부·handoff를 별도 소유합니다. mandate/v1/v2·historical files·PAPER/live·broker/API/credential·runner config 변경은 범위 밖입니다.
