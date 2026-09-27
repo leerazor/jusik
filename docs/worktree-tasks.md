@@ -1,5 +1,22 @@
 # 워크트리 작업 등록부
 
+## portfolio-held-band-oos-chronology-fixture
+
+- 상태: 진행 (오프라인 합성 회귀 fixture만; OOS qualification 아님)
+- 목표·완료 조건: 미래 관측 replay를 기존 held-band 승인 기준으로 오인하지 않도록, freeze 이후 event와 receipt, 비노출 상태, manifest 봉인, 결과 열기의 순서를 test-only fixture로 한 번 검증합니다. freeze 전 event의 늦은 receipt, 사전 노출, 누락·역전된 봉인, 봉인 이후 변조를 거부하고 실제 `replay()` 결과가 계속 synthetic/non-accepted임을 확인합니다.
+- 담당·소유: supervisor 단일 구현 소유자; 별도 `review` 독립 검토. 사용자 mandate와 역할·orchestration은 변경하지 않습니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-held-band-oos-chronology-fixture`
+- 작업 브랜치: `feat/held-band-oos-chronology-fixture`
+- 기준 커밋 SHA: `9b5acf674b6466f0198d9692c946132045a4559d` (등록부 선행 커밋).
+- 통합 대상 브랜치: local `main`.
+- 입력과 선행 작업: `docs/research/portfolio-held-band-decision-preparation-v1.md`, `docs/research/portfolio-held-band-preregistration-draft-v2.json`, `backend/jusik/research_future_observation_replay.py`와 해당 기존 test. 기존 mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`를 보존합니다.
+- provisional assumption: fixture의 고정 UTC 시각과 테스트 전용 `unexposed → sealed → opened` 단계는 chronology를 회귀 검증하기 위한 임시 모델입니다. 근거는 기존 replay가 receipt timing을 분류하지만 freeze/exposure/manifest-seal을 모델링하지 않는다는 코드 경계입니다. 적용 범위는 합성 테스트뿐이며 final preregistration, 실제 데이터 접근 제어, 최종 데이터 허용, 투자 판정에 적용하지 않습니다. 정식 freeze/exposure/data 계약과 적격 자료의 독립 검증이 생기면 대조·교체 또는 제거합니다.
+- 수정 허용 범위: `backend/tests/test_research_future_observation_replay.py`만. v2 JSON의 모든 미결 `null`, `registered/approved/execution_allowed=false`, mandate, 기존 데이터·성과 artifact 및 production API는 변경하지 않습니다.
+- 포트·테스트 DB·출력 경로: 서버·DB·시장자료·provider·broker API 없음. 격리 worktree의 Python 3.13 `.venv`, 로컬 테스트 cache만 사용합니다.
+- 검증·중지 조건: 새 choreography regression과 기존 replay 전체 파일, 변경 테스트 Ruff를 실행하고 별도 review 후 local `main` 통합 검사합니다. 모든 출력은 synthetic/non-registered/non-accepted여야 합니다. 실제 접근 격리, 데이터 적격성, OOS 평가 또는 결과 승격으로 해석될 조짐, mandate/v2 변경 필요, identity 불일치가 생기면 해당 test task를 중지하고 사유를 기록합니다.
+- 실제 blocked task: `FINAL_VALIDATION`/OOS 평가는 preregistration 승인·freeze 이후의 적격 PIT 및 분석자 미노출 미래자료 없이는 수행할 수 없습니다. 이 조건은 본 test-only task의 선행조건이 아닙니다.
+- 결과 커밋 / 검토 / 통합 / 개발 기록 / handoff: 진행 중.
+
 ## portfolio-held-band-decision-preparation-v1
 
 - 상태: 완료 (결정 권고 문서 통합; formal preregistration·성과 실행은 미승인 상태)
