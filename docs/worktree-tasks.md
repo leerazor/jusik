@@ -1,5 +1,20 @@
 # 워크트리 작업 등록부
 
+## roadmap-r2-02-contract-history-flag-guard-v1
+
+- 상태: 완료 (`ENGINEERING_COMPLETE/NOT_EVALUATED`; 별도 roadmap scope 승인 및 완료 reviewer PASS)
+- 목표·완료 조건: outer `PaperCostContract.applies_to_frozen_history=True`가 validator가 거부하는 새 PAPER manifest로 직렬화되는 경로를 막습니다. 정확한 고정 오류를 내고 정상 `False` contract와 기존 inner-profile guard를 유지합니다.
+- 선택 근거: 이전 READY slice는 각 profile의 historical flag를 거부했지만, outer contract의 동일 표식은 새 manifest 생성에서 여전히 허용됐습니다. 별도 proposal/evidence scope review는 이를 다른 state field의 bounded offline gap으로 확인해 같은 source/test 쌍에 등록했습니다.
+- 담당·소유: runner 단일 implementation attempt `e1009e2dccbc44008fc6b041ee269491`; planner `planner-c625027ffd943ea60332ad9b`, scope attempt `427ea2b9edea4039af18374c8b9d6008` PASS; host reviewer attempt `545a0c57856d4a9b8e55281ff8293f19` PASS.
+- 기준 커밋 SHA / 결과·통합 SHA: `19432bdbdba87d86d195e564697d40121ec5b29d` / `7411e7518407a69a053ce438f3d9e98cfc2d244b` (`main`). Runner task isolation은 통합 뒤 정리됐고 현재 task worktree는 남아 있지 않습니다.
+- 수정 허용 범위: `backend/jusik/broker_cost_profiles.py`, `backend/tests/test_broker_cost_profiles.py`만. 요율·mandate·투자 기준·자료 등급·R2-02 checkbox·runner 설정은 변경하지 않았습니다.
+- provisional technical assumption: outer contract가 historical용이라고 표시되면 새 PAPER manifest로 만들 수 없습니다. serializer와 저장 manifest validator의 기존 계약을 맞추기 위한 가역적 개발 전제이며 최종 데이터 허용·투자 승인 기준을 동결하지 않습니다.
+- 검증: main에서 `backend/tests/test_broker_cost_profiles.py` 35 passed, changed-file Ruff check/format, strict mypy 두 파일, `git diff --check` 통과. 별도 reviewer PASS receipt가 task·implementation attempt·baseline/main SHA와 두 source/test hash에 결속됐습니다.
+- 비용·운영: 고정 기존 fixture와 offline 코드만 사용했습니다. 금융 provider/data/API·credential·구매·운영 DB·주문·PAPER/live 실행·remote push 없음. queue는 documented `run-once`와 기존 timer cycle로 운용했고 service 설정은 변경하지 않았습니다.
+- 남은 차단: 이 bounded serialization task는 없음. R2-02 전체 법정 적용성·경제 평가는 공식 범위·유효기간·receipt가 부족해 NOT_EVALUATED입니다. 외부 readiness binding은 producer/validator identity 계약까지 PENDING, held-band FINAL_VALIDATION/OOS는 승인된 사전등록과 적격 미래 자료까지 task-local BLOCKED/PENDING입니다.
+- 개발 기록: `docs/development-records/2026-09-27-roadmap-r2-02-contract-history-flag-guard.md`.
+- Handoff: `docs/handoffs/2026-09-27-project-ready-work.md`.
+
 ## roadmap-r2-02-profile-history-flag-guard-v1
 
 - 상태: 완료 (`ENGINEERING_COMPLETE/NOT_EVALUATED`; 별도 roadmap scope 승인 및 완료 reviewer PASS)

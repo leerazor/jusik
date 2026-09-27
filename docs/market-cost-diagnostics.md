@@ -25,6 +25,6 @@ CLI 결과는 독립 산술과 저장값 대조를 기록하지만 항상 `econo
 
 저장값 불일치나 구조 오류는 최상위 `status=invalid`로 반환합니다. 산술이 일치해도 법정 적용 계약이 없으면 최상위 `status=blocked`입니다. 선택된 BanKIS online 공식 프로필은 [비용 프로필 기록](development-records/2026-09-20-bankis-cost-profile.md)과 SHA 고정된 source audit에 보존되어 있습니다. 해당 프로필의 표시 요율은 현재 범위의 근거로 유지하되 이 동결 파일럿의 `0.0018` 모델 가정에 소급 적용하지 않습니다. 시장 board·상품·계좌별 실제 적용 범위, 법정 유효기간, 체결 또는 결제 기준과 receipt가 결속되기 전까지 법정 검증과 경제 평가는 unavailable입니다.
 
-새 PAPER manifest를 만드는 `PaperCostContract.manifest()`는 포함 profile 중 하나라도 `applies_to_frozen_history=true`이면 거부합니다. 이 검사는 고정 과거 요율 profile이 새 PAPER 입력으로 직렬화되는 것을 막는 기존 데이터 경계이며, 요율·법정 적용성 또는 경제 평가를 승인하지 않습니다.
+새 PAPER manifest를 만드는 `PaperCostContract.manifest()`는 contract 자체 또는 포함 profile 중 하나라도 `applies_to_frozen_history=true`이면 거부합니다. 이 검사는 고정 과거 요율과 contract가 새 PAPER 입력으로 직렬화되는 것을 막는 데이터 경계이며, 요율·법정 적용성 또는 경제 평가를 승인하지 않습니다.
 
 CLI는 진단 전에 `--pilot`과 `--output`이 동일 파일이거나 기존 symlink/hardlink 별칭인지 확인합니다. 별칭이면 exit 2로 거부하고 pilot 원본을 보존합니다. 별도 output 경로만 진단 JSON을 기록합니다.
