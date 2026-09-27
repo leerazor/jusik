@@ -1,5 +1,21 @@
 # 워크트리 작업 등록부
 
+## lab-no-work-inspection-evidence-v1
+
+- 상태: 준비 (READY, §17 우선순위 3의 현재 실행 가능한 기술 slice)
+- 목표·완료 조건: engineering discovery의 `no_work` 결과가 검사했다고 주장하는 allowlisted domain마다 canonical tracked source/test 파일 경로와 SHA-256을 담고, runner가 결과를 terminal로 저장하기 전에 정확한 경로 쌍·현재 bytes hash를 재검증합니다. 기존 `no_work` terminal 동작과 same-input 중복 호출 억제는 유지합니다.
+- 우선순위 근거: `docs/autonomous-trading-lab.md` §17 표의 1, 1b, 2a, 2b는 완료 기록이 있고, 순서 3의 “no_work 검사 파일/hash와 readiness 변경 결속”은 후속으로 명시되어 있습니다. 현재 `DiscoveryResult`는 domain 이름만 담고 runner는 `resume_condition`만 영속 no_work 조건으로 넘깁니다. 현재 로드맵 큐의 WAITING_EXTERNAL 항목은 이 task와 독립적입니다.
+- 담당·소유: 중앙 `role.plan` read-only 계획 완료 후 `role.code` 단일 구현자, 별도 `role.review`, supervisor가 local main에 순차 통합합니다. worker는 다른 작업물·사용자 변경을 되돌리거나 수정하지 않습니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-lab-no-work-inspection-evidence` (등록 후 생성)
+- 작업 브랜치: `feat/lab-no-work-inspection-evidence`
+- 기준 커밋 SHA: `6fb62588955de4c22c25cb03a4a50063bdaea29` (등록 준비 기준; 등록 커밋에 맞춰 보정)
+- 수정 허용 범위: `backend/jusik/development_runner_discovery.py`, 필요한 dispatch-time validation in `backend/jusik/development_runner.py`, `backend/tests/test_development_runner_discovery.py`, 그리고 계약 설명에 필요한 `docs/development-runner.md`·`docs/autonomous-trading-lab.md`. task record/development record/handoff는 supervisor 소유입니다. 자동 discovery의 allowlist, agent role, mandate, 투자·사전등록 기준, runner 설정/큐, DB migration 및 주문 경로는 수정하지 않습니다.
+- provisional assumption: 검사한 domain 하나는 기존 allowlist의 정확한 `backend/jusik/<module>.py`와 `backend/tests/test_<module>.py` 한 쌍으로 표현합니다. runner는 clean canonical `main`에서 두 파일의 bytes SHA-256을 확인합니다. 이 기술 계약은 구현·검토용 임시 범위이며 preregistration이나 투자 합격 기준을 동결하지 않습니다.
+- 인수 검사: 최소 두 개의 중복 없는 allowlisted domain과 각 source/test SHA receipt를 요구합니다. 누락·추가·중복·allowlist 외 경로·hash 불일치·검사 중 변경은 `no_work`로 수용되지 않아야 합니다. 정상 receipt는 기존 attempt의 response SHA로 결과와 결속되고, 같은 fingerprint의 terminal/no-repeat와 바뀐 source/test의 재검사 동작을 보존합니다. proposal/scope 경로, pause·identity·quota·다른 READY 우선순위에 회귀가 없어야 합니다. focused pytest, 관련 Ruff/format, strict mypy, `git diff --check`, 독립 review PASS를 요구합니다.
+- task-local blocker: 외부 data/readiness 상태를 검증하고 stable identity를 제공하는 producer/validator 계약은 현재 찾지 못했습니다. 따라서 외부 readiness 변경 결속은 이 slice에서 구현하거나 완료로 주장하지 않고 별도 PENDING으로 둡니다. runner allowlist/정책 변경, 자료·credential·비용, 투자 기준 변경이 필요해지면 해당 부분을 차단하고 현재 bounded source/test receipt slice는 계속합니다.
+- 비용·운영: 오프라인 fixture/test만 사용하며 network/provider/API, credential, 비용, 운영 DB, service/queue, PAPER/live, 주문은 사용하지 않습니다.
+- 개발 기록: 구현 완료 또는 차단 시 `docs/development-records/2026-09-27-lab-no-work-inspection-evidence.md`에 결과를 남깁니다.
+
 ## market-artifact-write-conflict-guard
 
 - 상태: 완료 (구현·검증·독립 review·local main 통합·worktree 정리 완료)
