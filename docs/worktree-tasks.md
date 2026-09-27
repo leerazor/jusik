@@ -8,7 +8,7 @@
 - 담당·소유: 중앙 `role.plan` read-only 계획 완료 후 `role.code` 단일 구현자, 별도 `role.review`, supervisor가 local main에 순차 통합합니다. worker는 다른 작업물·사용자 변경을 되돌리거나 수정하지 않습니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-lab-no-work-inspection-evidence` (등록 후 생성)
 - 작업 브랜치: `feat/lab-no-work-inspection-evidence`
-- 기준 커밋 SHA: `6fb62588955de4c22c25cb03a4a50063bdaea29` (등록 준비 기준; 등록 커밋에 맞춰 보정)
+- 기준 제품 코드 SHA: `6fb62588955de4c22c25cb03a4a50063bdaea29`; 작업 등록 commit `88614ea4226651267ea08bd5449e9363727da3c0`은 문서만 변경합니다. 구현 worktree는 등록 metadata 확정 후의 local `main`에서 생성합니다.
 - 수정 허용 범위: `backend/jusik/development_runner_discovery.py`, 필요한 dispatch-time validation in `backend/jusik/development_runner.py`, `backend/tests/test_development_runner_discovery.py`, 그리고 계약 설명에 필요한 `docs/development-runner.md`·`docs/autonomous-trading-lab.md`. task record/development record/handoff는 supervisor 소유입니다. 자동 discovery의 allowlist, agent role, mandate, 투자·사전등록 기준, runner 설정/큐, DB migration 및 주문 경로는 수정하지 않습니다.
 - provisional assumption: 검사한 domain 하나는 기존 allowlist의 정확한 `backend/jusik/<module>.py`와 `backend/tests/test_<module>.py` 한 쌍으로 표현합니다. runner는 clean canonical `main`에서 두 파일의 bytes SHA-256을 확인합니다. 이 기술 계약은 구현·검토용 임시 범위이며 preregistration이나 투자 합격 기준을 동결하지 않습니다.
 - 인수 검사: 최소 두 개의 중복 없는 allowlisted domain과 각 source/test SHA receipt를 요구합니다. 누락·추가·중복·allowlist 외 경로·hash 불일치·검사 중 변경은 `no_work`로 수용되지 않아야 합니다. 정상 receipt는 기존 attempt의 response SHA로 결과와 결속되고, 같은 fingerprint의 terminal/no-repeat와 바뀐 source/test의 재검사 동작을 보존합니다. proposal/scope 경로, pause·identity·quota·다른 READY 우선순위에 회귀가 없어야 합니다. focused pytest, 관련 Ruff/format, strict mypy, `git diff --check`, 독립 review PASS를 요구합니다.
