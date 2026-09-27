@@ -2,7 +2,7 @@
 
 ## portfolio-held-band-sample-size-identity-reconcile
 
-- 상태: 진행 (offline request identity 대조)
+- 상태: 검증 (offline request identity 재현; runtime code SHA caveat)
 - 목표·완료 조건: 기존 immutable US cache/result/completed marker와 저장된 request descriptor 및 과거 audit을 대조해 `sample_size=100`과 diagnostics 101 unique symbols 차이를 설명할 수 있는 근거가 있는지 확인합니다. 원인을 입증하지 못하면 unresolved로 남깁니다. 심볼을 임의 포함·제외·join하거나 성과/OOS 판단으로 확장하지 않습니다.
 - 담당·소유: supervisor가 범위·증거·문서 통합을 책임지는 단일 소유 오프라인 감사입니다. mandate와 agent 역할·orchestration은 그대로 둡니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-sample-size-identity-reconcile`
@@ -15,6 +15,10 @@
 - 포트·테스트 DB·출력 경로: network/API/broker/service/DB 미사용. 재현 audit은 `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-sample-size-identity-reconcile` 아래에 원본과 분리해 저장합니다.
 - 검증·중지 조건: 원본 SHA/size, marker-result binding, sample selection metadata, diagnostics identities, request descriptor, 과거 감사 사이에 재현 가능한 연결이 있어야 합니다. 연결 불가 또는 입력 hash 변화 시 unresolved로 종료합니다. 성과·OOS·source acceptance를 수행하지 않습니다.
 - 실제 blocked task: 새 API receipt 수집은 provider 사용권 및 credential 조건 전까지 보류합니다. FINAL_VALIDATION/OOS는 적격·미노출 미래자료와 승인된 preregistration freeze 전까지 별도 pending입니다.
+- 결과: 두 Alpha listing checkpoint에서 각각 100개를 선택했고, 두 번째에서 99개 유지+1개 신규여서 누적 101개가 됩니다. 누적 identity set SHA가 diagnostics set과 일치합니다. 100 cap은 checkpoint별이며 cumulative source-symbol cap 400과 분리됩니다. 원 marker/result에는 code SHA, 원 manifest에는 137개 중 `request_descriptor`가 없어 exact runtime checkout은 미결속입니다. 재현 artifact `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-sample-size-identity-reconcile/profile.json`, SHA `06d392b6f8186a7240776fdd2c70a73107deafc3b0b832cd0e58a99840846887`.
+- 검증: replay 2회 결정성·set equality 통과, private script Ruff check/format 통과, 입력 및 marker/result hashes 확인. 제품 코드는 수정하지 않았습니다.
+- 개발 기록: `docs/development-records/2026-09-27-held-band-sample-size-identity-reconcile.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
 - 개발 기록: `docs/development-records/2026-09-27-held-band-sample-size-identity-reconcile.md`.
 - Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
 
