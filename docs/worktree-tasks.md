@@ -1,5 +1,19 @@
 # 워크트리 작업 등록부
 
+## roadmap-r2-02-manifest-integrity-guard-v1
+
+- 상태: `WAITING_EXTERNAL/independent_review_pending`; candidate review verdict `FAIL`, engineering completion 불인정
+- 목표·완료 조건: 변경된 cost profile의 현재 rate/source/identity와 serialized `profile_hash`·contract ID가 불일치하면 새 PAPER manifest 생성 단계에서 거부하고, 정상 contract 및 market subset round-trip을 보존합니다.
+- 선택 근거: 별도 scope review가 저장 manifest validator와 새 manifest 생성 경계의 차이를 고정 BanKIS fixture로 재현 가능한 bounded task로 승인했습니다.
+- 담당·소유: single implementation attempt `51c4b14e4d9d4434a46cc356de1953d2`; planner `planner-813409e72dcfc0f79588dd4b`; scope review `410d11130ea549b7a0b5a1ef4d0de37b`; completion review `a17f257d0ae648d98e2320b638cdd670` verdict FAIL.
+- 기준 SHA / main 통합 candidate: `7f13d3367a0a1d7c2705fd52b3c073945f4f6bd7` / `6c11427d4bd0bbea0e9704cc02b3040e0d6f5d58`. Runner가 review 전에 통합하는 계약에 따라 local main에 남지만, 완료 승인이나 remote publication으로 처리하지 않습니다.
+- 수정 범위: `backend/jusik/broker_cost_profiles.py`, `backend/tests/test_broker_cost_profiles.py`. mandate·투자 기준·요율·R2-02 checkbox는 변경하지 않았습니다.
+- provisional technical assumption: 변경된 profile은 기존 hash와 ID를 유지한 채 신규 manifest에 직렬화할 수 없습니다. 이는 serialization 경계용이며 최종 법정·데이터 허용·투자 기준이 아닙니다.
+- 검증: runner completion artifact는 `tests_passed=true`; 별도 main focused pytest 42 passed, Ruff/format/strict mypy와 `git diff --check 7f13d33..6c11427`도 통과했습니다. 이 검사는 reviewer FAIL을 해소하지 않습니다.
+- 차단 근거: reviewer receipt `/home/kwl/.local/share/jusik/roadmap-development-runner/reviews/a17f257d0ae648d98e2320b638cdd670/receipt.json`은 FAIL과 identity/hash만 저장하고 actionable finding을 제공하지 않습니다. runner는 `retry_policy=none`, resume은 같은 task/attempt/integrated commit에 결속된 별도 reviewer PASS receipt입니다. 동일 변경 자동 재시도나 verdict 자체 승격은 하지 않습니다.
+- 다음 재개·독립 READY: [개발 기록](docs/development-records/2026-09-27-roadmap-r2-02-manifest-integrity-guard.md)의 latest-main `no_work` evidence와 명시 resume condition을 따릅니다.
+- Handoff: `docs/handoffs/2026-09-27-project-ready-work.md`.
+
 ## roadmap-r2-02-contract-history-flag-guard-v1
 
 - 상태: 완료 (`ENGINEERING_COMPLETE/NOT_EVALUATED`; 별도 roadmap scope 승인 및 완료 reviewer PASS)
