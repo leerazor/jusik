@@ -1,5 +1,20 @@
 # 워크트리 작업 등록부
 
+## roadmap-r2-02-profile-history-flag-guard-v1
+
+- 상태: 완료 (`ENGINEERING_COMPLETE/NOT_EVALUATED`; 별도 roadmap scope 승인 및 완료 reviewer PASS)
+- 목표·완료 조건: `PaperCostContract.manifest()`가 내부 `BrokerCostProfile.applies_to_frozen_history=True`인 항목을 포함해도 outer contract flag만 보고 새 PAPER manifest를 생성할 수 있던 경로를 닫습니다. 위험 profile은 고정 오류로 거부하고 기존 정상 profile·부분집합·round-trip 동작을 유지합니다.
+- 선택 근거: latest-main planner가 R2-02 비용 계약의 오프라인 경계 문제를 제안했고 독립 scope review가 금융 자료·법정 요율 조사 없이 source/test 두 파일에 한정 가능한 구현으로 승인했습니다. 외부 금융자료나 비용이 필요한 R2-02의 법정 적용성·경제 평가는 범위에 넣지 않았습니다.
+- 담당·소유: runner 단일 implementation attempt `40507c5175ab4cadadc77463b807f29e`; scope approval `6f69eae7f5ad4921abd8b1783d13fedf`; 별도 host reviewer attempt `e8e648cda44348329d17c5056bb84229` verdict PASS.
+- 기준 커밋 SHA / 결과·통합 SHA: `5182304d1cf88993ae4628c73efdc773a0e819ca` / `3877e8bf933a0314b2d45ca81024fc6d1626b6f4` (`main`). Runner의 자동 task isolation은 통합 뒤 정리됐고, 현재 task worktree는 남아 있지 않습니다.
+- 수정 허용 범위: `backend/jusik/broker_cost_profiles.py`, `backend/tests/test_broker_cost_profiles.py`만. mandate·투자 기준·R2-02 checkbox·자료 등급·요율·runner 설정은 변경하지 않았습니다.
+- provisional technical assumption: `applies_to_frozen_history=True`는 새 PAPER run manifest의 허용 profile 집합에서 제외합니다. 이는 manifest serialization boundary를 닫는 가역적 개발 전제이며 최종 데이터 허용 기준, 투자 승인 또는 비용 가정을 동결하지 않습니다.
+- 검증: main에서 `backend/tests/test_broker_cost_profiles.py` 34 passed, changed-file Ruff check 및 format check, strict mypy 두 파일, `git diff --check` 통과. Reviewer receipt는 task·implementation attempt·baseline/main commit과 두 owned-file SHA-256에 결속됐습니다.
+- 비용·운영: offline fixture와 코드만 사용했습니다. provider/금융자료/API·credential·구매·운영 DB·주문·PAPER/live 실행·remote push 없음. documented `run-once` discovery와 기존 timer cycle만 사용했고 service 설정은 바꾸지 않았습니다.
+- 남은 차단: 이 bounded code task에는 없음. R2-02 전체 법정 적용성·경제 평가는 유효기간·시장/상품/계좌 범위와 receipt 부족으로 미완료입니다. 외부 readiness binding은 검증된 producer/validator identity 계약까지 PENDING, held-band FINAL_VALIDATION/OOS는 승인된 사전등록과 적격 미래 자료까지 task-local BLOCKED/PENDING입니다.
+- 개발 기록: `docs/development-records/2026-09-27-roadmap-r2-02-profile-history-flag-guard.md`.
+- Handoff: `docs/handoffs/2026-09-27-project-ready-work.md`.
+
 ## lab-discovery-dividend-accrual-replay-3d5d5526
 
 - 상태: 완료 (`ENGINEERING_COMPLETE/NOT_EVALUATED`; 별도 scope PASS와 완료 reviewer PASS)
