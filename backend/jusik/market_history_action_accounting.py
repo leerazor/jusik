@@ -584,6 +584,32 @@ def apply_split(
         return _reject(state, "decimal_operation_rejected", None)
 
 
+def _receivable_matches_action(
+    receivable: DividendReceivable, action: DividendAction
+) -> bool:
+    with localcontext(DECIMAL_CONTEXT):
+        action_entitlement = (
+            None
+            if action.entitled_quantity is None
+            else _decimal(action.entitled_quantity, "entitled_quantity")
+        )
+        action_amount = _decimal(action.amount_per_share, "amount_per_share")
+        return (
+            receivable.action_id == action.action_id
+            and receivable.symbol == action.symbol
+            and receivable.currency == action.currency
+            and action.entitlement_confirmed is True
+            and receivable.effective_at.astimezone(UTC)
+            == action.effective_at.astimezone(UTC)
+            and receivable.payment_at.astimezone(UTC)
+            == action.payment_at.astimezone(UTC)
+            and action_entitlement is not None
+            and receivable.entitled_quantity == action_entitlement
+            and receivable.amount_per_share == action_amount
+            and receivable.gross_amount == action_entitlement * action_amount
+        )
+
+
 def accrue_dividend(
     state: AccountingState,
     action: DividendAction,
@@ -601,6 +627,21 @@ def accrue_dividend(
             raise AccountingError("accrual boundary precedes effective boundary")
         replay = _existing_record(state, normalized, "accrual")
         if replay is not None:
+            if replay.status == "replayed":
+                receivable = next(
+                    (
+                        item
+                        for item in state.receivables
+                        if item.action_id == action.action_id
+                    ),
+                    None,
+                )
+                if receivable is not None and not _receivable_matches_action(
+                    receivable, action
+                ):
+                    raise ActionConflictError(
+                        "accrual semantics conflict with accrued entitlement"
+                    )
             return replay
         if not action.entitlement_confirmed or action.entitled_quantity is None:
             raise InsufficientActionError(
@@ -700,27 +741,7 @@ def pay_dividend(
         receivable = state.receivables[payment_index]
         if boundary < receivable.payment_at:
             raise AccountingError("payment boundary precedes payment date")
-        with localcontext(DECIMAL_CONTEXT):
-            action_entitlement = (
-                None
-                if action.entitled_quantity is None
-                else _decimal(action.entitled_quantity, "entitled_quantity")
-            )
-            action_amount = _decimal(action.amount_per_share, "amount_per_share")
-            semantics_match = (
-                receivable.symbol == action.symbol
-                and receivable.currency == action.currency
-                and action.entitlement_confirmed is True
-                and receivable.effective_at.astimezone(UTC)
-                == action.effective_at.astimezone(UTC)
-                and receivable.payment_at.astimezone(UTC)
-                == action.payment_at.astimezone(UTC)
-                and action_entitlement is not None
-                and receivable.entitled_quantity == action_entitlement
-                and receivable.amount_per_share == action_amount
-                and receivable.gross_amount == action_entitlement * action_amount
-            )
-        if not semantics_match:
+        if not _receivable_matches_action(receivable, action):
             raise ActionConflictError(
                 "payment semantics conflict with accrued entitlement"
             )

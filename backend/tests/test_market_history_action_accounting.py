@@ -589,6 +589,36 @@ def test_payment_rejects_changed_frozen_receivable_atomically() -> None:
     assert result.state == tampered
 
 
+@pytest.mark.parametrize(
+    "changed_field", ["amount", "quantity", "effective_at", "payment_at"]
+)
+def test_accrual_replay_rejects_changed_frozen_receivable_atomically(
+    changed_field: str,
+) -> None:
+    action = _dividend(action_id="dividend-accrual-replay", amount="2")
+    accrued = accrue_dividend(_state(), action, at=action.effective_at)
+    assert accrued.status == "applied"
+    original = accrued.state.receivables[0]
+    if changed_field == "amount":
+        changed = replace(
+            original, amount_per_share=Decimal("3"), gross_amount=Decimal("30")
+        )
+    elif changed_field == "quantity":
+        changed = replace(
+            original, entitled_quantity=Decimal("11"), gross_amount=Decimal("22")
+        )
+    elif changed_field == "effective_at":
+        changed = replace(original, effective_at=EFFECTIVE + timedelta(days=1))
+    else:
+        changed = replace(original, payment_at=EFFECTIVE + timedelta(days=3))
+    tampered = replace(accrued.state, receivables=(changed,))
+
+    result = accrue_dividend(tampered, action, at=action.effective_at)
+    assert result.status == "rejected"
+    assert result.reason == "accrual semantics conflict with accrued entitlement"
+    assert result.state is tampered
+
+
 def test_direct_dataclass_entitlement_confirmation_requires_bool() -> None:
     state = _state()
     action = replace(
