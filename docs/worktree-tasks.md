@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## portfolio-held-band-krx-source-evidence
+
+- 상태: 준비 (공식 문서 기반 source 후보 비교)
+- 목표·완료 조건: KRX 공식 문서에서 일별 주식 시계열, date-specific historical universe 근거, 보유 이력, 자료 시점·revision, API 이용 승인/credential, 공개·비상업 사용 조건을 조사합니다. KRX가 KR scope일 때 맡을 수 있는 역할과 Alpha Vantage/현재 fixture 대안의 영향을 권고합니다. 최종 market/source/data acceptance를 고정하지 않습니다.
+- 담당·소유: supervisor가 공개 공식 문서를 읽고 decision prep에 통합하는 단일 소유 조사입니다. mandate 및 agent 역할/orchestration은 변경하지 않습니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-krx-source-evidence`
+- 작업 브랜치: `docs/portfolio-held-band-krx-source-evidence`
+- 기준 커밋 SHA: `aa20a924ae28a450e605df538eefda1e50104c62` (verified local-main integration).
+- 통합 대상 브랜치: local `main`.
+- 입력: held-band 결정 준비 문서와 기존 KRX access 기록, 현재 공식 KRX Open API/service/terms 문서. mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`; v2 미결 상태.
+- provisional assumption: 공개 문서상의 endpoint·기간·access 절차를 source 후보와 schema 설계 질문으로만 기록합니다. 실제 응답, 접근 자격, 영리·비영리 이용 자격, timestamped PIT·전체 historical universe 증명으로 간주하지 않습니다.
+- 수정 허용 범위: held-band decision prep, 이 task development record/handoff, task registry만. mandate, v1/v2 registration, product code/test, raw local receipt/cache, credential, runner settings, 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
+- 포트·테스트 DB·출력 경로: 공개 공식 웹 문서만 읽습니다. 로그인, 계정 생성, credential 제공·사용, API/data request, 구매, DB/cache, broker/service는 사용하지 않습니다.
+- 검증·중지 조건: 각 결론을 KRX official source에 연결하고 access, history, membership, timestamp, terms를 구분합니다. 문서가 보장하지 않는 속성은 unknown으로 남깁니다. 최종 source/market selection 및 성과/OOS 판단은 범위 밖입니다.
+- 실제 blocked task: KRX API 실수집은 계정·인증키 신청 및 관리자 승인/credential 없이는 수행하지 않습니다. FINAL_VALIDATION/OOS는 별도 승인·미노출 미래자료 의존을 유지합니다.
+- 개발 기록: `docs/development-records/2026-09-27-held-band-krx-source-evidence.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+
 ## portfolio-held-band-sample-size-identity-reconcile
 
 - 상태: 완료 (offline request identity 재현; runtime code SHA caveat)

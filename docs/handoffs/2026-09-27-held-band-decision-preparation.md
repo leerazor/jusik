@@ -1,9 +1,9 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T06:25:15Z
+- Updated: 2026-09-27T06:27:00Z
 - Workspace: `/home/kwl/projects/jusik`
 - Branch / verified product integration: `main` / `b573b1963abe16959e36290dac177bebfd38343d`
-- 상태: 결정 권고 문서, offline synthetic chronology fixture, Massive·Alpha Vantage 공식 출처 후보 검토, 노출된 로컬 cache의 fixture 전용 profile 및 sample-size identity 재현을 local main에 통합했습니다. V2는 draft이며 실행은 비활성입니다.
+- 상태: 결정 권고 문서, offline synthetic chronology fixture, Massive·Alpha Vantage 공식 출처 후보 검토, 노출된 로컬 cache의 fixture 전용 profile 및 sample-size identity 재현을 local main에 통합했습니다. KRX source 후보 public-doc 검토가 시작됩니다. V2는 draft이며 실행은 비활성입니다.
 
 ## 완료한 작업
 
@@ -19,6 +19,7 @@
 - 새 read-only fixture profile은 cache의 `27,472 expected - 6,800 request-excluded = 20,672 member expected`를 분리해 실제 membership bar 결손 366개를 확인했습니다. 98 PTN bars는 membership row가 없어 join하지 않습니다. corporate-action 121행 전부 `observed_at`이 없고 `available_at`은 provider publication 시각이 아닙니다. 후속 offline replay는 두 checkpoint에서 각각 100개를 선택하고, 99개 유지+1개 신규인 cumulative 101개 set이 diagnostics와 hash 일치함을 확인했습니다. 원 marker에 code SHA가 없어 runtime checkout은 확정하지 않습니다. [profile 기록](../development-records/2026-09-27-held-band-local-cache-fixture-profile.md), [identity 재현 기록](../development-records/2026-09-27-held-band-sample-size-identity-reconcile.md)을 확인합니다. 성과·PIT·OOS 판정은 하지 않았습니다.
 - clean worktree `/home/kwl/projects/jusik-portfolio-held-band-local-cache-fixture-profile`는 제거했고 branch `docs/portfolio-held-band-local-cache-fixture-profile`는 보존했습니다. local `main`은 `8a95adae1fafebb30609b4188eab81052aaa3ee4`까지 통합했습니다. 사용자 루트 `HANDOFF.md`는 그대로 뒀습니다.
 - Worktree `/home/kwl/projects/jusik-portfolio-held-band-decision-preparation-v1`는 clean 확인 후 제거했습니다. Branch는 보존했습니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았습니다.
+- Clean cache-profile 및 sample-size identity worktrees를 제거하고 source branches는 보존했습니다. 현재 `main`은 `aa20a924ae28a450e605df538eefda1e50104c62`까지 통합했습니다. 사용자 루트 `HANDOFF.md`는 그대로 뒀습니다.
 - 후속 runnable slice `portfolio-held-band-oos-chronology-fixture`는 `backend/tests/test_research_future_observation_replay.py` 한 파일에만 추가했습니다. 테스트 전용 임시 timeline에서 freeze 뒤 event/receipt, manifest SHA 봉인, 결과 open 순서를 확인하고 pre-freeze late arrival, 사전 노출, seal 누락·변조, 조기 open을 거부합니다. 실제 replay의 `late_arrival`와 모든 non-accepted flag를 확인했습니다. 격리·통합 replay suite는 각각 30 passed, Ruff와 local main strict mypy 164 source도 통과했고 독립 review는 중대한 지적 없이 PASS했습니다. 자세한 근거는 [chronology fixture 개발 기록](../development-records/2026-09-27-held-band-oos-chronology-fixture.md)입니다.
 
 ## 남은 차단과 다음 실행
