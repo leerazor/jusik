@@ -1,5 +1,22 @@
 # 워크트리 작업 등록부
 
+## market-artifact-read-hash-binding
+
+- 상태: 준비 (다음 runnable; 독립 worktree 생성 후 단일 구현 담당 배정)
+- 목표·완료 조건: `MarketHistoryStore.get_artifact(artifact_id)`가 DB에서 읽은 bytes의 SHA-256이 lookup key와 다르면 민감 정보 없이 fail closed하도록 합니다. 정상 bytes/content type과 absent-key `KeyError`를 보존하고, corrupted body가 HTTP download API의 성공 응답으로 전달되지 않는지 fixture 기반 regression으로 확인합니다. 자동 복구·DB 변경·과거 KRX export/OOS 복원은 하지 않습니다.
+- 담당·소유: planner의 read-only defect 재현 완료. 중앙 `role.code_small`에 따라 단일 구현 소유자를 배정하고, 별도 `review`와 supervisor 통합을 둡니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-artifact-read-hash-binding` (task 배정 전 생성)
+- 작업 브랜치: `fix/market-artifact-read-hash-binding` (task 배정 전 생성)
+- 기준 커밋 SHA: 등록 commit 후 기록. 통합 대상은 local `main`.
+- 입력·선행 근거: `backend/jusik/market_history_store.py:get_artifact`는 content SHA key로 row를 조회하지만 반환 bytes digest를 확인하지 않습니다. `backend/jusik/market_research_api.py` download route는 store bytes를 그대로 반환합니다. 기존 test는 정상 artifact roundtrip만 검사합니다. planner는 memory connection stub으로 altered bytes가 수락됨을 재현했습니다.
+- provisional assumption: 저장된 bytes/key integrity guard만 추가하는 reversible fix입니다. API schema, persisted artifact, data grade, strategy/market/investment criteria, PIT acceptance를 변경하지 않습니다.
+- 수정 허용 범위: `backend/jusik/market_history_store.py`, focused tests in `backend/tests/test_market_research.py`, 이 task development record만. API route code는 regression에서 generic failure mapping이 실제로 필요하다는 근거가 있을 때만 supervisor 조율 뒤 포함합니다. mandate/v1/v2/historical files/runner config는 변경하지 않습니다.
+- 포트·테스트 DB·출력 경로: 독립 worktree의 temporary SQLite, fixture와 test client만 사용합니다. 실제 API service·운영 DB·external network·credential·orders·PAPER/live·비용은 없습니다.
+- 검증 기준: 정상 artifact bytes/content type, absent key `KeyError`, altered bytes rejection 및 corrupted payload가 성공 HTTP response로 전달되지 않음을 확인합니다. focused pytest, changed-file Ruff, store strict mypy, `git diff --check`, independent review를 수행합니다. 불일치는 자동 수정하지 않습니다.
+- 차단 의존성: 없음. 이 integrity task는 `FINAL_VALIDATION`/OOS와 독립이며, OOS 조건은 별도 `PENDING/BLOCKED`로 유지합니다.
+- 개발 기록: `docs/development-records/2026-09-27-market-artifact-read-hash-binding.md` (구현 후 작성).
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+
 ## portfolio-held-band-krx-cache-fixture-profile
 
 - 상태: 완료 (exposed approximate fixture 프로파일 전용; 데이터·전략 acceptance 아님)
@@ -19,12 +36,12 @@
 
 ## market-snapshot-read-hash-binding
 
-- 상태: 검증 (구현 커밋 완료; 독립 review 대기)
+- 상태: 완료 (storage read-side canonical identity guard)
 - 목표·완료 조건: `MarketHistoryStore.get_snapshot(input_hash)`가 row body를 모델로 복원한 뒤 계산된 `snapshot.input_hash`와 requested lookup key가 다른 경우 fail closed하도록 합니다. 정상 roundtrip 및 absent key의 기존 `KeyError`는 보존하고, 정상 schema의 다른 `RawArtifact`/snapshot body가 원래 key 아래 반환되는 경우를 focused regression test로 거부합니다. 과거 KRX prepared export와 run의 binding을 복원하거나 PIT 적격성을 승격하는 작업은 아닙니다.
 - 담당·소유: planner의 read-only gap 확인 완료. 중앙 `role.code_small`에 따른 단일 Luna 구현자와 별도 reviewer를 둡니다. supervisor는 등록·통합을 소유합니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-market-snapshot-read-hash-binding`
 - 작업 브랜치: `fix/market-snapshot-read-hash-binding`
-- 기준 커밋 SHA: `b0b28fa7a1e3ae918265f74181831268e80071c2` (task 등록 포함). 결과 commit `927b5cd1bd7eb2b6d284e954c5df40d54d5340fe`; 통합 대상은 local `main`.
+- 기준 커밋 SHA: `b0b28fa7a1e3ae918265f74181831268e80071c2` (task 등록 포함). 구현 commit `927b5cd1bd7eb2b6d284e954c5df40d54d5340fe`; supervisor merge 후 local `main` fast-forward 통합 SHA `32771f4f35d75cc23c554520b4a5c661e117c77b`.
 - 입력·선행 근거: `backend/jusik/market_history_store.py:get_snapshot`; 정상 save/read roundtrip은 `backend/tests/test_market_research.py`에 있으나 lookup key/body canonical hash mismatch 경우 검증은 없습니다. planner의 SQLite connection stub 조사에서 schema-valid changed artifact를 다른 key 아래 반환해도 수락되는 동작을 재현했습니다.
 - provisional assumption: canonical identity check만 추가하는 reversible storage integrity guard입니다. schema, persisted rows, legacy data, investment criteria, PIT acceptance는 변경하지 않습니다.
 - 수정 허용 범위: `backend/jusik/market_history_store.py`, 해당 focused test, task development record만. supervisor는 이 등록부·handoff를 별도 소유합니다. mandate/v1/v2·historical files·PAPER/live·broker/API/credential·runner config 변경은 범위 밖입니다.
@@ -32,9 +49,11 @@
 - 검증 기준: 정상 roundtrip, schema-valid body hash mismatch 거부, absent lookup의 `KeyError`를 포함한 focused pytest; 변경 파일 Ruff check/format 및 configured strict mypy; `git diff --check`; 독립 review. mismatch는 자동 repair하지 않고 입력·저장물을 수정하지 않습니다.
 - 1차 검증 결과: focused pytest 32 passed, Ruff check/format, 변경 store 모듈 strict mypy, `git diff --check` 통과. 전체 strict mypy는 격리 venv의 선택 의존성 `pyarrow`/`torch` 미설치로 관련 없는 기존 모듈에서 실패; test module strict 검사도 기존 unused `type: ignore` 2건으로 실패. 정확한 명령·오류 모듈·제한은 개발 기록에 보존했습니다.
 - 구현 결과: `get_snapshot`가 Pydantic 복원 뒤 `snapshot.input_hash == input_hash`를 확인하며 불일치 시 hash/body를 노출하지 않는 `ValueError`를 냅니다. 정상 roundtrip과 absent-key `KeyError`는 보존합니다.
+- 통합 검증 및 독립 검토: code review PASS. 통합 main focused `backend/tests/test_market_research.py` 32 passed, Ruff check/format, 변경 store strict mypy 및 diff check PASS. 전체 strict mypy의 optional dependency 누락과 test-module의 두 기존 unused ignore 오류는 개발 기록에 분리해 두었고 변경 코드 오류로 포장하지 않습니다.
 - 차단 의존성: 없음. fixture/test DB만으로 실행 가능합니다. held-band 최종 OOS는 이 task와 독립적으로 PENDING/BLOCKED 유지.
-- 개발 기록: `docs/development-records/2026-09-27-market-snapshot-read-hash-binding.md` (구현 후 작성).
+- 개발 기록: `docs/development-records/2026-09-27-market-snapshot-read-hash-binding.md`.
 - Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+- 종료: 통합 검증과 독립 review 후 clean worktree 제거, 작업 branch와 commit 보존. 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
 
 ## portfolio-held-band-krx-source-evidence
 
