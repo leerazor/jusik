@@ -1,9 +1,9 @@
 # Held-band 기존 로컬 cache fixture profile
 
 - 상태: 완료 (offline 개발 fixture의 품질·provenance 진단; 자료 적격성 판정 아님)
-- 기록 시각: 2026-09-27T05:58:16Z
+- 기록 시각: 2026-09-27T05:59:09Z
 - 작업 slug: `portfolio-held-band-local-cache-fixture-profile`
-- 기준/통합: `0cc78137798c81ce56ab5c8e893929f9f9d05ecc` / 문서 산출물 통합 SHA는 작업 등록부에 기록
+- 기준/통합: `0cc78137798c81ce56ab5c8e893929f9f9d05ecc` / `7881d7f4c6cbac2982ec380c2c178e7ddc003e5f`
 - 범위: 기존 US approximate 결과/cache와 Alpha Vantage listing receipt를 읽기 전용으로 대조했습니다. 연구 mandate, agent 역할, 제품 코드·테스트, 원본 자료, v2 초안과 사용자 루트 `HANDOFF.md`는 수정하지 않았습니다.
 
 ## 변경과 결정
