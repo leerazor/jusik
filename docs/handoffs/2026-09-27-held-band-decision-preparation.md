@@ -1,8 +1,8 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T07:39:39Z
+- Updated: 2026-09-27T07:41:23Z
 - Workspace: `/home/kwl/projects/jusik`
-- Verified main before this handoff update: `5903dc2275c6a47fb2012633770461bdc0724c65`
+- Verified main before this handoff update: `447e2d2dea58966fd6a5b187f45b74ae8ecd8ff4`
 - 상태: KRX 공식 출처 조사·fixture 프로파일, snapshot read hash guard, artifact read hash guard를 local main에 통합했습니다. 투자 mandate·agent 역할·orchestration·사전등록 조건은 변경하지 않았습니다.
 
 ## 완료된 근거
@@ -25,7 +25,7 @@
 
 - 완료 task: `market-artifact-read-hash-binding`, implementation commit `c9533f97b4dbc9c1aca7472e2b75546c18892b6f`, independent review PASS, local main `5903dc2275c6a47fb2012633770461bdc0724c65`에 통합. focused pytest 33 passed, Ruff/store strict mypy/diff check PASS. test-file strict mypy 기존 오류는 개발 기록에 남겼습니다.
 - snapshot fix branch `fix/market-snapshot-read-hash-binding`은 clean fast-forward 통합 후 worktree 제거, commit/branch 보존했습니다. 상세 기록은 [snapshot hash 개발 기록](../development-records/2026-09-27-market-snapshot-read-hash-binding.md)입니다.
-- 다음 task: `market-artifact-write-conflict-guard`. 동일 bytes 재저장 semantics와 기존 metadata를 보존하면서, 기존 key의 다른 bytes 충돌은 덮어쓰지 않고 fail closed하며 service 계산 함수 호출 전 실패하는지 별도 worktree에서 검증합니다. task 등록부와 provisional assumption을 기록했고 단일 구현자 배정/워크트리 준비가 다음 단계입니다. 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
+- 진행 task: `market-artifact-write-conflict-guard`. 동일 bytes 재저장 semantics와 기존 metadata를 보존하면서, 기존 key의 다른 bytes 충돌은 덮어쓰지 않고 fail closed하며 service 계산 함수 호출 전 실패하는지 검증합니다. task 등록·provisional assumption 기록, 별도 worktree, offline Python 3.13 환경, 중앙 `role.code_small` routing preflight를 완료했습니다. 구현 뒤 별도 review와 통합 검증을 진행합니다. 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
 
 ## 운영 상태
 

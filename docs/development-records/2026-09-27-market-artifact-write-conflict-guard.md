@@ -1,7 +1,7 @@
 # Market artifact write conflict guard
 
-- 상태: 준비 (planner 재현 완료, 독립 구현 전)
-- 기록 시각: 2026-09-27T07:39:39Z
+- 상태: 진행 (planner 재현·범위 확정, 단일 구현자 배정)
+- 기록 시각: 2026-09-27T07:41:23Z
 - 작업 slug: `market-artifact-write-conflict-guard`
 - 기준/통합: `a88b14cb389982790cb7fa0df11bc1b129c5b568` / 없음
 - provisional assumption: 신규 artifact 저장과 같은 bytes의 idempotent 재저장은 기존대로 성공합니다. 같은 digest key에 다른 bytes가 있으면 덮어쓰지 않고 fail closed하며, 기존 content type/captured_at metadata를 유지합니다. 이 값은 가역적인 저장 무결성 기본값이고 투자·데이터 합격 기준을 정하지 않습니다.
@@ -18,4 +18,5 @@
 - 외부 차단 조건이 없습니다. 임시 SQLite와 fixture만으로 실행할 수 있습니다.
 - 실제 credential·외부 API·운영 DB·주문·PAPER/live·실제 지출은 필요하지 않습니다.
 - `FINAL_VALIDATION`/OOS는 별도 task로 사용자 승인 preregistration freeze와 그 뒤 확보한 적격·미노출 미래자료 전까지 `PENDING/BLOCKED`입니다. 이 구현이나 임시 가정은 정식 기준을 동결하지 않습니다.
-- 다음 시작: `fix/market-artifact-write-conflict-guard` 전용 worktree에서 단일 `role.code_small` 구현자를 실행하고 별도 review를 수행합니다.
+- 작업 환경: `/home/kwl/projects/jusik-market-artifact-write-conflict-guard`, branch `fix/market-artifact-write-conflict-guard`, base `447e2d2dea58966fd6a5b187f45b74ae8ecd8ff4`; Python 3.13 venv는 잠금 의존성을 offline cache에서 설치했습니다.
+- 다음 단계: 구현자의 focused 변경과 검사를 받은 뒤 독립 review, local main 통합 검증, 기록 갱신을 합니다.
