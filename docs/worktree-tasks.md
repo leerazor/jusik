@@ -1,22 +1,43 @@
 # 워크트리 작업 등록부
 
+## portfolio-held-band-krx-cache-fixture-profile
+
+- 상태: 준비 (기존 로컬 KRX cache read-only fixture profile)
+- 목표·완료 조건: 기존 2026-09-19 KRX smoke의 수집 산출물만 읽어 daily membership/bar coverage, 누락·orphan·중복, 거래 불가 행, 수치 품질, corporate-action/observed timestamp, manifest integrity를 오프라인 프로파일링합니다. 재현 가능한 private audit과 개발 기록으로 fixture 사용 범위를 남깁니다. 성과·OOS·strict PIT·source acceptance 판단은 하지 않습니다.
+- 담당·소유: supervisor 단일 소유의 read-only offline audit입니다. 기존 mandate, agent 역할/orchestration은 바꾸지 않습니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-krx-cache-fixture-profile`
+- 작업 브랜치: `docs/portfolio-held-band-krx-cache-fixture-profile`
+- 기준 커밋 SHA: `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903` (등록 전 local main; 등록을 포함한 현재 main에서 worktree 생성)
+- 통합 대상 브랜치: local `main`.
+- 입력: 기존 `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r6-krx-smoke` 원본과 `docs/development-records/2026-09-19-r6-krx-smoke.md`. mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1` 및 v2 비실행 조건을 유지합니다.
+- provisional assumption: 과거 KRX 수집 결과는 디버깅·pipeline·회귀 fixture로만 읽습니다. 노출되었고 PIT·membership·기업행사 시점이 미검증이므로 성과·OOS·후보 승격·실거래 근거로 사용하지 않습니다.
+- 수정 허용 범위: held-band decision prep, 이 task development record/handoff, task registry, 새 private offline audit/script만. 원본 cache·receipt·raw files, mandate, v1/v2 registration, product code/test, credential, runner settings, 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
+- 포트·테스트 DB·출력 경로: 외부 네트워크/API, DB, broker, service, purchase 미사용. 산출물은 `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-krx-cache-fixture-profile` 아래 원본과 분리해 둡니다.
+- 검증·중지 조건: source result/manifest/completed marker 및 file hashes를 대조하고 결과를 2회 생성해 결정성을 확인합니다. missing/inconsistent input은 unknown 또는 해당 profile task만 blocked로 남깁니다. 가격 성과 계산과 universe 자동 보정/추정은 금지합니다.
+- 실제 blocked task: `FINAL_VALIDATION`/OOS는 사용자 승인 freeze 이후의 적격·미노출 미래 관측 전까지 `PENDING/BLOCKED`입니다. 새 KRX 수집·API 승인·credential 상태는 이 offline task에 필요하지 않습니다.
+- 개발 기록: `docs/development-records/2026-09-27-held-band-krx-cache-fixture-profile.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+
 ## portfolio-held-band-krx-source-evidence
 
-- 상태: 진행 (공식 문서 기반 source 후보 비교)
-- 목표·완료 조건: KRX 공식 문서에서 일별 주식 시계열, date-specific historical universe 근거, 보유 이력, 자료 시점·revision, API 이용 승인/credential, 공개·비상업 사용 조건을 조사합니다. KRX가 KR scope일 때 맡을 수 있는 역할과 Alpha Vantage/현재 fixture 대안의 영향을 권고합니다. 최종 market/source/data acceptance를 고정하지 않습니다.
-- 담당·소유: supervisor가 공개 공식 문서를 읽고 decision prep에 통합하는 단일 소유 조사입니다. mandate 및 agent 역할/orchestration은 변경하지 않습니다.
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-krx-source-evidence`
-- 작업 브랜치: `docs/portfolio-held-band-krx-source-evidence`
-- 기준 커밋 SHA: `aa20a924ae28a450e605df538eefda1e50104c62` (verified local-main integration).
-- 통합 대상 브랜치: local `main`.
-- 입력: held-band 결정 준비 문서와 기존 KRX access 기록, 현재 공식 KRX Open API/service/terms 문서. mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`; v2 미결 상태.
-- provisional assumption: 공개 문서상의 endpoint·기간·access 절차를 source 후보와 schema 설계 질문으로만 기록합니다. 실제 응답, 접근 자격, 영리·비영리 이용 자격, timestamped PIT·전체 historical universe 증명으로 간주하지 않습니다.
-- 수정 허용 범위: held-band decision prep, 이 task development record/handoff, task registry만. mandate, v1/v2 registration, product code/test, raw local receipt/cache, credential, runner settings, 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
-- 포트·테스트 DB·출력 경로: 공개 공식 웹 문서만 읽습니다. 로그인, 계정 생성, credential 제공·사용, API/data request, 구매, DB/cache, broker/service는 사용하지 않습니다.
-- 검증·중지 조건: 각 결론을 KRX official source에 연결하고 access, history, membership, timestamp, terms를 구분합니다. 문서가 보장하지 않는 속성은 unknown으로 남깁니다. 최종 source/market selection 및 성과/OOS 판단은 범위 밖입니다.
-- 실제 blocked task: KRX API 실수집은 계정·인증키 신청 및 관리자 승인/credential 없이는 수행하지 않습니다. FINAL_VALIDATION/OOS는 별도 승인·미노출 미래자료 의존을 유지합니다.
+- 상태: 완료 (KRX 공식 문서 기반 조건부 source 후보 권고; strict PIT 수용 아님)
+- 목표·완료 조건: KRX 공개 공식 문서의 일별 주식·history 범위, historical universe 근거, temporal/revision limits, API approval/credential, terms를 검토하고 KR scope에서의 source role과 Alpha Vantage/기존 fixture 대안을 문서화했습니다. 시장·source·data acceptance는 동결하지 않았습니다.
+- 담당·소유: supervisor가 공개 공식 문서를 읽고 decision prep에 통합하는 단일 소유 조사였습니다. mandate 및 agent 역할/orchestration은 유지했습니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-krx-source-evidence` (완료 후 깨끗하게 제거)
+- 작업 브랜치: `docs/portfolio-held-band-krx-source-evidence` (보존)
+- 기준 커밋 SHA: `57c5881f8ae20300ecdbcb9b3e1b683d043dbd04` (작업 워크트리 시작); 등록 전 main `aa20a924ae28a450e605df538eefda1e50104c62`.
+- 결과 커밋 SHA: `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903`.
+- 통합 대상 브랜치: local `main`; fast-forward 통합 SHA `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903`.
+- 결과: KOSPI·KOSDAQ 일별매매 및 종목기본정보는 공식 목록상 2010-01-04부터이므로 KR 주식 scope의 첫 가격 후보로 권고합니다. 그러나 비로그인 공개 문서는 역사적 전체 membership·공표/수신 timestamp·revision history·strict PIT 완전성을 증명하지 않습니다. API는 관리자 key/API별 승인 및 비상업 조건을 요구하고, 별도 구매는 비용·목적 심사 경로입니다. 기존 1년 approximate KRX input은 수집 완료였지만 pilot `insufficient`이므로 fixture 전용입니다.
+- provisional assumption: 공개 endpoint/history metadata는 조사·schema 질문 용도만 사용합니다. 이용 자격, 날짜별 complete universe, strict PIT 적격성, 최종 source/market은 가정하지 않습니다.
+- 수정 허용 범위: held-band decision prep, 이 task development record, task registry/handoff만 변경했습니다. mandate·v1/v2·product code/test·원본 cache·credential·runner settings는 변경하지 않았습니다.
+- 포트·테스트 DB·출력 경로: 공개 official web pages만 읽었습니다. 로그인, credential, API/data request, purchase, DB/cache raw access, broker/service는 사용하지 않았습니다.
+- 검증: `git diff HEAD^ HEAD --check`, KRX official pages open, internal relative link check, mandate SHA check, v2 20 unresolved null/status invariant, 독립 read-only review — 모두 통과. 제품 코드 변경이 없어 pytest/Ruff/mypy는 실행하지 않았습니다.
+- 검토 결과: 독립 review PASS, 중대한 지적 없음. review는 KRX official pages를 재조회하지 않았으며 supervisor가 source pages를 직접 대조했습니다.
+- 실제 blocked task: 새 API/data access는 API별 관리자 승인 및 credential/사용 목적 확인에 의존하고 현재 key status는 이 조사에서 확인하지 않았습니다. `FINAL_VALIDATION`/OOS는 별도 승인된 preregistration freeze와 적격·미노출 미래자료를 기다립니다. 유료 data/service purchase는 지출 승인 전 하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-27-held-band-krx-source-evidence.md`.
 - Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+- 종료: clean worktree 제거, source branch 보존. 사용자 루트 `HANDOFF.md`는 미수정.
 
 ## portfolio-held-band-sample-size-identity-reconcile
 

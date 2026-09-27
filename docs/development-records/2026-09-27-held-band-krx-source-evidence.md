@@ -3,7 +3,7 @@
 - 상태: 완료 (공식 문서 기반 source 후보 권고; strict PIT·최종 자료 수용 판정 아님)
 - 기록 시각: 2026-09-27T06:38:26Z
 - 작업 slug: `portfolio-held-band-krx-source-evidence`
-- 기준/통합: `aa20a924ae28a450e605df538eefda1e50104c62` / 통합 전
+- 기준/통합: `57c5881f8ae20300ecdbcb9b3e1b683d043dbd04` / `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903` (local `main`, fast-forward)
 - 범위: KRX Open API 및 별도 데이터상품의 공개 공식 문서를 검토하고, KRX가 이후 KR 주식 scope에서 맡을 수 있는 역할을 권고했습니다. 로그인, 인증키 사용, API/data request, 구매, mandate·v2·제품 코드 변경, 성과/OOS 평가는 하지 않았습니다.
 
 ## 변경과 결정

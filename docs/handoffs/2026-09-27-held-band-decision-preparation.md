@@ -1,33 +1,28 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T06:27:43Z
+- Updated: 2026-09-27T06:46:06Z
 - Workspace: `/home/kwl/projects/jusik`
-- Branch / verified product integration: `main` / `b573b1963abe16959e36290dac177bebfd38343d`
-- 상태: 결정 권고 문서, offline synthetic chronology fixture, Massive·Alpha Vantage 공식 출처 후보 검토, 노출된 로컬 cache의 fixture 전용 profile 및 sample-size identity 재현을 local main에 통합했습니다. KRX source 후보 public-doc 검토가 진행 중입니다. V2는 draft이며 실행은 비활성입니다.
+- Branch / verified source-evidence integration: `main` / `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903`
+- 상태: held-band v2 결정 준비는 계속 진행 중입니다. KRX 공식 출처 후보 검토를 완료·통합했고, 다음 독립 runnable은 기존 approximate KRX cache의 오프라인 fixture profile입니다. mandate와 기존 agent/orchestration은 변경하지 않았습니다.
 
-## 완료한 작업
+## 완료한 KRX 출처 검토
 
-- [결정 권고 문서](../research/portfolio-held-band-decision-preparation-v1.md)에 7개 미결 항목을 정리했습니다. 무료 가역 설계·test와 최종 정책·자료 승인·비용·credential·등록·실행 승인을 구분합니다.
-- 기존 US approximate 100-symbol cache를 read-only로 확인했습니다. 예상 bars 27,472개 중 20,306개가 있고 7,166개가 누락됐습니다. 25개 종목이 제외됐고 corporate-action 121행에는 관측 시각이 없습니다. Cache는 2026-09-24까지 수집되어 preregistration freeze 전에 노출됐습니다. Offline fixture/debug에만 사용합니다.
-- 올바른 output path의 cache status 검사 결과는 `completed=true`, entries 137개, `ready=false`였습니다. Alpha Vantage/FRED API key 환경변수는 명시적으로 unset했습니다. 새 수집에는 이 자격증명이 필요합니다. 기존 cache는 offline으로 계속 읽을 수 있습니다.
-- Mandate SHA와 v1 archive hash를 보존했습니다. V2 field는 `null`; `registered=false`, `approved=false`, `execution_allowed=false`입니다.
-- 독립 final review가 통과했습니다. `git diff --check`, 문서 링크, JSON 불변식, mandate/archive hash, role-routing post audit를 통과했습니다.
-- 앞서 focused test 58개 통과, 알려진 frozen-v1 SHA 불일치 1건. 달력 스트레스 test 18개 통과. 후속 오프라인 collector/held-band 경계 8개, PIT·FX·기업행동·universe-timing 8개, synthetic future-observation replay 29개가 통과했습니다. 첫 8개에서만 Starlette/httpx deprecation 경고 2개가 있었습니다. 전체 제품 suite는 재실행하지 않았습니다.
-- 공개 source 후보도 추가 조사했습니다. Nasdaq Data Link는 dataset별 접근·가격·key 조건과 교체 안내가 있어 범용 무료 PIT source로 확인되지 않았습니다. SEC ticker/exchange association은 현재 issuer identity 보조 자료이지 historical universe/price source가 아닙니다. 원문은 개발 기록에 연결했습니다.
-- Massive는 32K+ active/delisted ticker와 과거 symbol/events를 제시하지만, Basic은 2년 EOD·분당 5회 제한입니다. 유료 개인 tier도 5·10·20+년이지만, Market Data Terms가 비표시 전략 연구/파생물 사용을 허가 없이 금지해 현재 source로 채택하지 않았습니다. 공개 문서상 `date`와 특정일 ticker state는 당시 publication/receipt/revision 시점과 complete historical universe를 입증하지 않습니다. **Provisional 범위는 공개 interface 설명을 schema 후보로 보는 데 한정**했고, 실제 API, credential, account, 비용은 사용하지 않았습니다. 권고와 해제 조건은 [결정 문서](../research/portfolio-held-band-decision-preparation-v1.md)와 [출처 조사 기록](../development-records/2026-09-27-held-band-massive-source-evidence.md)에 남겼습니다.
-- Alpha Vantage는 US stock/ETF에 대해 2010년 이후 특정일 active/delisted 목록을 제공한다고 문서화합니다. 무료 API는 보통 하루 25회, raw daily free 기본값은 100행이며 `full`과 adjusted corporate-action 일봉은 premium입니다. 약관은 개인 비상업 범위의 사적 투자연구를 허용 예시로 명시하지만, 기관·제3자·금융기관 연계는 상업 범위가 될 수 있어 사용자의 자격을 가정하지 않았습니다. 날짜 질의만으로 공개시각·수정이력·생존자 없는 strict PIT가 입증되지는 않습니다. 고정 price는 이번에 확인하지 않았고 API key·계정·요금은 사용하지 않았습니다. [결정 문서](../research/portfolio-held-band-decision-preparation-v1.md), [출처 조사 기록](../development-records/2026-09-27-held-band-alpha-vantage-source-evidence.md)를 확인합니다.
-- 새 read-only fixture profile은 cache의 `27,472 expected - 6,800 request-excluded = 20,672 member expected`를 분리해 실제 membership bar 결손 366개를 확인했습니다. 98 PTN bars는 membership row가 없어 join하지 않습니다. corporate-action 121행 전부 `observed_at`이 없고 `available_at`은 provider publication 시각이 아닙니다. 후속 offline replay는 두 checkpoint에서 각각 100개를 선택하고, 99개 유지+1개 신규인 cumulative 101개 set이 diagnostics와 hash 일치함을 확인했습니다. 원 marker에 code SHA가 없어 runtime checkout은 확정하지 않습니다. [profile 기록](../development-records/2026-09-27-held-band-local-cache-fixture-profile.md), [identity 재현 기록](../development-records/2026-09-27-held-band-sample-size-identity-reconcile.md)을 확인합니다. 성과·PIT·OOS 판정은 하지 않았습니다.
-- clean worktree `/home/kwl/projects/jusik-portfolio-held-band-local-cache-fixture-profile`는 제거했고 branch `docs/portfolio-held-band-local-cache-fixture-profile`는 보존했습니다. local `main`은 `8a95adae1fafebb30609b4188eab81052aaa3ee4`까지 통합했습니다. 사용자 루트 `HANDOFF.md`는 그대로 뒀습니다.
-- Worktree `/home/kwl/projects/jusik-portfolio-held-band-decision-preparation-v1`는 clean 확인 후 제거했습니다. Branch는 보존했습니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았습니다.
-- Clean cache-profile 및 sample-size identity worktrees를 제거하고 source branches는 보존했습니다. 현재 `main`은 `aa20a924ae28a450e605df538eefda1e50104c62`까지 통합했습니다. 사용자 루트 `HANDOFF.md`는 그대로 뒀습니다.
-- 후속 runnable slice `portfolio-held-band-oos-chronology-fixture`는 `backend/tests/test_research_future_observation_replay.py` 한 파일에만 추가했습니다. 테스트 전용 임시 timeline에서 freeze 뒤 event/receipt, manifest SHA 봉인, 결과 open 순서를 확인하고 pre-freeze late arrival, 사전 노출, seal 누락·변조, 조기 open을 거부합니다. 실제 replay의 `late_arrival`와 모든 non-accepted flag를 확인했습니다. 격리·통합 replay suite는 각각 30 passed, Ruff와 local main strict mypy 164 source도 통과했고 독립 review는 중대한 지적 없이 PASS했습니다. 자세한 근거는 [chronology fixture 개발 기록](../development-records/2026-09-27-held-band-oos-chronology-fixture.md)입니다.
+- [결정 준비 문서](../research/portfolio-held-band-decision-preparation-v1.md)와 [KRX source evidence 개발 기록](../development-records/2026-09-27-held-band-krx-source-evidence.md)에 공식 서비스 범위·승인 절차·이용약관·historical PIT 한계를 기록했습니다.
+- KRX 공식 catalog는 KOSPI/KOSDAQ 일별매매 및 종목기본정보를 2010-01-04부터 제공한다고 표시합니다. KR 주식 scope를 나중에 선택할 경우 KRX는 첫 일별 가격 후보입니다. 공개 문서만으로는 당시 전체 eligible universe, listing/delisting 이력, 발표·수신 시각, correction history, strict PIT 완전성을 입증하지 못합니다.
+- API key와 API별 관리자 승인이 필요합니다. 약관은 비상업 사용, 제3자 제공 금지, key당 일 10,000회 한도와 정확성·완결성·연속 제공 비보장을 명시합니다. 구매 상품은 별도 비용·목적 심사를 거칩니다. 사용자 자격과 현재 credential 상태는 이 조사에서 확인하지 않았습니다.
+- 기존 KRX smoke는 2025-09-11 응답 960 universe행 중 무거래 31행을 제외해 929 bars로 정규화했고, 2025-09-11~2026-09-11 수집을 완료했습니다. Approximate pilot은 `insufficient`였고 성과 지표를 만들지 않았습니다. 기존 cache는 fixture/debug only이며 성과·OOS·후보/실거래 승인 근거가 아닙니다. 상세 기록은 [KRX smoke](../development-records/2026-09-19-r6-krx-smoke.md)를 봅니다.
+- 독립 read-only review PASS. `git diff --check`, local link 확인, mandate SHA, v2 unresolved 20 null과 비실행 상태를 통합 main에서 확인했습니다. 제품 코드가 없어 pytest/Ruff/mypy는 실행하지 않았습니다.
 
-## 남은 차단과 다음 실행
+## 미정·차단 조건
 
-`FINAL_VALIDATION`과 OOS만 승인된 preregistration freeze 뒤 적격 관측이 생기고, 미노출 상태 및 PIT/data-contract 검증을 통과할 때까지 `PENDING/BLOCKED`입니다. 새 외부 수집은 현재 필수 API key가 없어 차단됐고 KRX는 계정·관리자 access가 필요합니다. 유료 data/compute는 지출 승인 전 구매하지 않습니다. 최종 data acceptance, 신규 투자·합격 수치 기준, preregistration freeze·실행에는 사용자 승인이 필요합니다. 이들은 오프라인 조사·pipeline/test를 막지 않습니다.
+- Provisional: 기존 KRX 자료는 오프라인 pipeline/fixture 품질 점검에만 사용할 수 있습니다. 공개 endpoint metadata는 조사 및 source-agnostic schema 질문에만 반영합니다. 최종 시장·자료등급·source·합격기준은 동결하지 않았습니다.
+- 신규 KRX API 수집은 공개 문서 조사 범위를 벗어납니다. API별 승인, 사용 목적 적합성, credential을 확인해야 합니다. 현재 key 유무는 검사하지 않았습니다. 유료 data/service는 실제 지출 승인 전 구매하지 않습니다.
+- `FINAL_VALIDATION`/OOS만 승인된 preregistration freeze 뒤 적격하고 미노출된 미래 자료가 확보될 때까지 `PENDING/BLOCKED`입니다. v2 unresolved fields 20개는 `null`, `registered=false`, `approved=false`, `execution_allowed=false`로 유지됩니다.
+- 최종 data acceptance·신규 투자 기준·시장/source 확정·preregistration freeze/실행은 사용자 승인 대상입니다. 현재 오프라인 fixture 작업은 이 결정들에 의존하지 않습니다.
 
-임시 가정: 무료 로컬 계산과 합성 fixture는 설계·parser·회계·pipeline·회귀 검증에만 사용합니다. v1 및 approximate cache는 디버그/fixture 전용이며 최종 성과·OOS·후보 승인·실거래 근거에서 배제합니다. Massive는 공식 문서상 interface·plan 의미를 조사 대상으로만 provisional 처리하며 실제 데이터 적격·사용권은 가정하지 않습니다. 각 단계 전 사용자 승인 및 정식 검증 조건과 대조하고, 미충족이면 그 단계만 보류합니다. 근거·적용 범위·해제 조건은 [기존 결정 기록](../development-records/2026-09-27-held-band-decision-preparation-v1.md)과 [Massive 출처 기록](../development-records/2026-09-27-held-band-massive-source-evidence.md)에 남겼습니다.
+## 다음 실행과 운영 상태
 
-바로 실행 가능한 cache status, PIT·event timing·universe fixture, synthetic future-observation replay, source 후보 문서 조사와 상세 cache fixture profile을 완료했습니다. 별도 `explore`는 기존 pipeline/readiness/source 코드와 테스트를 확인했으나 새 제품 코드 gap 근거를 찾지 못했습니다. 기존 replay는 synthetic, unregistered, non-accepted 상태를 fail-closed로 보장하지만 held-band preregistration freeze·outcome exposure/access·manifest 봉인·단회 평가를 모델링하지 않습니다. OOS 계약은 임의로 확장하지 않았습니다. V2 미결 20개 field는 null, `execution_allowed=false`로 둡니다. Approximate 자료를 최종 성과나 OOS 증거로 쓰지 않습니다.
-
-구현 근거와 provider 출처: [결정 준비 개발 기록](../development-records/2026-09-27-held-band-decision-preparation-v1.md), [chronology fixture 개발 기록](../development-records/2026-09-27-held-band-oos-chronology-fixture.md), [Massive source 후보 개발 기록](../development-records/2026-09-27-held-band-massive-source-evidence.md), [Alpha Vantage source 후보 개발 기록](../development-records/2026-09-27-held-band-alpha-vantage-source-evidence.md), [local cache fixture profile](../development-records/2026-09-27-held-band-local-cache-fixture-profile.md), [sample-size identity 재현](../development-records/2026-09-27-held-band-sample-size-identity-reconcile.md). 각 task의 tracked 수정 전 roadmap queue를 pause하고 shared service를 중지했습니다. 직전 task 완료 때 원래 `paused=false`와 timer active를 복구한 뒤 다음 수동 task를 다시 pause했습니다. general queue 기존 `paused=true`는 유지합니다. 다음 runnable은 무료 공식 문서에서 KRX 일별 주식·historical universe 후보의 access, coverage, terms를 US 후보와 비교하는 것입니다. credential·자료 요청·최종 market/source 선택은 포함하지 않습니다. 실제 source API는 credential/사용권 조건 전까지 차단하며, 최종 OOS만 적격·미노출 미래자료와 사용자 승인 freeze를 기다립니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았고 remote push·시장자료 API 수집·지출·주문·DB/PAPER/live 변경은 없었습니다.
+- 등록한 `portfolio-held-band-krx-cache-fixture-profile`에서 `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r6-krx-smoke`를 원본 변경·외부 호출 없이 읽고, 기간별 membership/bar coverage·누락·orphan·duplicates·수치 품질·action/timestamp·manifest integrity를 프로파일링합니다. 산출물은 `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-krx-cache-fixture-profile`에 둡니다. 지표 성과 계산은 하지 않습니다.
+- 최신 확인 상태: roadmap runner `paused=true`, service `inactive`, timer `active`; 기존 queue에는 READY task가 없고 BLOCKED task는 개별 상태로 남아 있습니다. manual offline profile은 독립 실행 가능합니다.
+- KRX source branch `docs/portfolio-held-band-krx-source-evidence`는 보존했고 clean worktree를 제거했습니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았습니다.
+- 재개 prompt: “이 handoff와 활성 `portfolio-held-band-krx-cache-fixture-profile` 등록을 읽고, 작업 worktree 상태와 원본 audit hash를 확인한 뒤 오프라인·읽기 전용 profile을 실행하라. 성과·OOS 판단과 source 수집은 하지 말라.”
