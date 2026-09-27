@@ -2,7 +2,7 @@
 
 ## portfolio-held-band-oos-chronology-fixture
 
-- 상태: 진행 (오프라인 합성 회귀 fixture만; OOS qualification 아님)
+- 상태: 완료 (오프라인 합성 회귀 fixture 통합; OOS qualification 아님)
 - 목표·완료 조건: 미래 관측 replay를 기존 held-band 승인 기준으로 오인하지 않도록, freeze 이후 event와 receipt, 비노출 상태, manifest 봉인, 결과 열기의 순서를 test-only fixture로 한 번 검증합니다. freeze 전 event의 늦은 receipt, 사전 노출, 누락·역전된 봉인, 봉인 이후 변조를 거부하고 실제 `replay()` 결과가 계속 synthetic/non-accepted임을 확인합니다.
 - 담당·소유: supervisor 단일 구현 소유자; 별도 `review` 독립 검토. 사용자 mandate와 역할·orchestration은 변경하지 않습니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-held-band-oos-chronology-fixture`
@@ -15,7 +15,14 @@
 - 포트·테스트 DB·출력 경로: 서버·DB·시장자료·provider·broker API 없음. 격리 worktree의 Python 3.13 `.venv`, 로컬 테스트 cache만 사용합니다.
 - 검증·중지 조건: 새 choreography regression과 기존 replay 전체 파일, 변경 테스트 Ruff를 실행하고 별도 review 후 local `main` 통합 검사합니다. 모든 출력은 synthetic/non-registered/non-accepted여야 합니다. 실제 접근 격리, 데이터 적격성, OOS 평가 또는 결과 승격으로 해석될 조짐, mandate/v2 변경 필요, identity 불일치가 생기면 해당 test task를 중지하고 사유를 기록합니다.
 - 실제 blocked task: `FINAL_VALIDATION`/OOS 평가는 preregistration 승인·freeze 이후의 적격 PIT 및 분석자 미노출 미래자료 없이는 수행할 수 없습니다. 이 조건은 본 test-only task의 선행조건이 아닙니다.
-- 결과 커밋 / 검토 / 통합 / 개발 기록 / handoff: 진행 중.
+- 결과 커밋: `f241380ebaf43e0e98450c1d440e8fd60bd0ca2d`.
+- 독립 검토: 초기 P2 지적(부정 fixture가 helper 거부를 assert하지 않음)을 반영했습니다. 최종 `review`는 chronology helper가 정상 사례를 받고 pre-freeze event, 분석자 사전 접근, 봉인 시각/hash 누락, 조기 open, manifest 변조를 거부하며 replay의 비승인 flag를 유지함을 확인해 PASS했습니다. role routing pre/post도 중앙 `role.review`·`gpt-6-sol` 선택과 일치했습니다.
+- 통합: clean한 작업 branch의 테스트 파일 하나를 `main`에 fast-forward 통합했습니다. 코드 통합 SHA는 `f241380ebaf43e0e98450c1d440e8fd60bd0ca2d`입니다.
+- 검증: 작업별 venv와 통합 main에서 `test_research_future_observation_replay.py` 30개 PASS, 변경 파일 Ruff check/format PASS, `git diff --check` PASS. 통합 main의 `mypy jusik` 164개 source PASS. 격리 venv mypy는 lock에 포함되지 않은 optional `pyarrow`·`torch` import 때문에 실패했으며 main 환경 전체 mypy 통과로 대체 확인했습니다.
+- 운영 경계: mandate SHA는 동일합니다. v2 `unresolved_before_registration` 20개가 계속 null이고 `registered/approved/execution_allowed=false`; 이 fixture는 synthetic/non-registered/non-accepted 회귀 검증이며 실제 접근 격리·OOS 적격성·성과 증명이 아닙니다. 자료 수집·외부 API·비용·DB·PAPER/live·주문은 실행하지 않았습니다.
+- 결과 워크트리: 통합·검증 뒤 `/home/kwl/projects/jusik-held-band-oos-chronology-fixture` 제거; branch `feat/held-band-oos-chronology-fixture`는 보존합니다.
+- 개발 기록: `docs/development-records/2026-09-27-held-band-oos-chronology-fixture.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
 
 ## portfolio-held-band-decision-preparation-v1
 
