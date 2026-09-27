@@ -2,18 +2,24 @@
 
 ## portfolio-held-band-decision-preparation-v1
 
-- 상태: 진행 (권고·가역적 개발 가정 정리; 사전등록 조건·mandate는 변경하지 않음)
-- 목표·완료 조건: 자료 등급·시장/universe·출처·검증 기간·최소 표본·후보 요구수익률·예산에 대해 근거, 대안, 영향, provisional 적용 범위·해제 조건, 사용자 승인 여부를 별도 한국어 문서에 정리한다. 실행 가능한 조사·테스트와 실제 자료/OOS/투자 결정 차단을 구분하고, 기존 v2의 모든 null과 `execution_allowed=false` 및 기존 archive hash를 보존한다.
-- 담당·소유: `plan` 읽기 전용 계획 완료, `code_small` 단일 구현 담당자(새 결정 준비 문서 1개), `review` 독립 문서 검토. supervisor는 등록부·개발 기록·handoff·local `main` 통합을 소유한다.
+- 상태: 완료 (결정 권고 문서 통합; formal preregistration·성과 실행은 미승인 상태)
+- 목표·완료 조건: 자료 등급·시장/유니버스·출처·기간·최소 표본·요구수익률·예산을 권고·근거·대안별 영향·provisional 범위·해제 조건·승인 경계와 함께 기록한다. 기존 mandate, v2 null/`execution_allowed=false`, v1 archive identity를 보존하고 최종 OOS 평가와 지금 가능한 오프라인 작업을 분리한다.
+- 담당·소유: `explore` 자료 조사, `plan` 다음 runnable task 계획, `code_small` 단일 구현 담당자(문서 1개), `review` 독립 검토. supervisor는 실제 cache readiness 재검증·등록부·개발 기록·handoff·local `main` 통합을 소유한다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-decision-preparation-v1`
 - 작업 브랜치: `docs/portfolio-held-band-decision-preparation-v1`
-- 기준 커밋 SHA: 등록부 선행 커밋 `TBD`; 구현 시작 전 확정한다.
-- 통합 대상 브랜치: local `main`.
-- 입력: `docs/research-mandate.json` SHA-256 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`; held-band v2 초안과 v1 archive; 기존 market-data 수집·readiness 기록과 공식 provider 문서.
-- 수정 허용 범위: 구현자는 새 `docs/research/portfolio-held-band-decision-preparation-v1.md`만 수정한다. 등록부·개발 기록·handoff는 supervisor가 관리한다. v2 사전등록·mandate·v1 archive, 제품 코드·PAPER/live·DB·runner·사용자 루트 `HANDOFF.md`는 변경하지 않는다.
-- 데이터·실행 경계: 기존 근사·후향 자료는 metadata 조사·fixture·회귀에만 사용한다. 새 시장자료 수집·성과 experiment·OOS 판정·실주문·유료 서비스·credential 접근은 0회. 공식 provider 문서의 공개 열람은 허용한다.
-- 검증: 7개 미정 영역마다 권고안·근거·대안별 영향·provisional 적용 여부·승인 필요 여부·해제 조건 기록; 기존 mandate와 모순 없음; v2 null/false 및 보존 SHA 불변; 링크·표·범위 교차 확인; `git diff --check`; 독립 `review` PASS.
-- 종료 조건: 실제로 차단된 미래자료·최종 기준·예산만 차단으로 남기고, 문서 작업의 통합 검사·handoff를 완료한다. 수익성·PIT/OOS 적격성·승인 조건을 주장하거나 동결하지 않는다.
+- 기준 커밋 SHA: `05569736aad06ba67f7d100e2803f65539ee3622` (등록부 선행 커밋).
+- 결과 커밋: `1fddb6c49502bb0e9dec3ab6ef870ab6a04f20ce`, `a64bbef` 수정, `9172fd1` 수정, `bf18fb6d35604323f81548bd55fe68407df69c24` cache readiness 기록 추가.
+- 통합 대상 브랜치: local `main`; `bf18fb6d35604323f81548bd55fe68407df69c24`로 fast-forward 통합.
+- 입력: mandate SHA-256 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`; held-band v2 초안·v1 archive; 기존 market-data readiness 기록·official provider docs; `/home/kwl/.local/share/jusik/portfolio-audit/20260922-us-vintage-collection-100` cache.
+- 수정 허용 범위: 구현 담당자는 `docs/research/portfolio-held-band-decision-preparation-v1.md`만 수정했다. supervisor는 이 등록부·개발 기록·handoff를 관리했다. v2 preregistration·mandate·v1 archive, 제품 코드·PAPER/live·DB·runner 설정, 사용자 루트 `HANDOFF.md`는 변경하지 않았다.
+- 결과 문서: `docs/research/portfolio-held-band-decision-preparation-v1.md`. 7개 결정마다 권고·근거·대안과 영향·provisional 범위·승인 규칙·해제 조건을 기록했다. 최종 OOS에는 사용자 승인 preregistration freeze 뒤 생성되고 분석자에게 노출되지 않은 관측만 허용한다. 결과를 열기 전에 data manifest를 봉인한다. 최종 source/data 허용 기준은 사용자 승인이 필요하다. 무료 오프라인 조사, cache 품질 점검, fixture와 regression 작업은 계속 실행할 수 있다.
+- 데이터·실행 경계: 신규 시장자료 수집·network access·성과/OOS 실험·credential 접근·유료 service·broker order는 수행하지 않았다. 기존 100-symbol approximate cache를 read-only 점검했고 FRED vintage 원문과 cache metadata는 변경하지 않았다. API key를 unset한 `collect-status`는 `completed=true`, `entries=137`, `ready=false`를 반환했다. `ALPHA_VANTAGE_API_KEY`, `FRED_API_KEY` 부재는 새 수집을 막지만 기존 fixture의 오프라인 조회는 막지 않는다.
+- 검증: 7개 결정 section·12개 내부 링크·4개 공식 제공자 링크·v2 미결 field 20개·mandate SHA를 확인했다. 미결 값은 모두 `null`; `registered/approved/execution_allowed=false`. v1 preregistration/hash-manifest/results SHA, `git diff --check`, 독립 `review`를 통과했다. 기존 focused run은 58개 통과, frozen-v1 SHA 불일치 1건이며 달력 스트레스 suite는 18개 통과했다. 이번 후속 오프라인 점검은 collector marker/credential 경계와 held-band synthetic 경계·설정 테스트 8개가 통과했다(경고 2개는 Starlette/httpx deprecation). 고정 hash는 갱신하지 않았다. 전체 제품 suite는 재실행하지 않았다.
+- 결과 워크트리: 통합 전 clean 확인 후 `/home/kwl/projects/jusik-portfolio-held-band-decision-preparation-v1` 제거; 작업 브랜치는 보존.
+- 개발 기록: `docs/development-records/2026-09-27-held-band-decision-preparation-v1.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+- 남은 차단: 최종 validation/OOS는 freeze 이후 적격·미노출 자료가 없어 `PENDING/BLOCKED`다. 새 외부 수집은 필수 credential 또는 KRX access 승인이 필요하다. 유료 source/compute 구매는 실제 지출 승인이 필요하다. 이 차단은 오프라인 설계·fixture·품질 점검·test를 막지 않는다. 최종 수치 기준·자료 허용·preregistration freeze 전에 사용자 승인이 필요하다.
+- runner 상태: tracked 문서 수동 갱신 중 roadmap queue를 pause했다. 완료 후 원래 `paused=false`, timer active, one-shot service inactive, `running=0` 상태로 복구·검증한다. 별도 `development-runner.json` queue는 변경하지 않는다.
 
 ## portfolio-held-band-preregistration-draft-v2
 
