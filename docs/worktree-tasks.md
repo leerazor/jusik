@@ -2,12 +2,12 @@
 
 ## portfolio-held-band-krx-cache-fixture-profile
 
-- 상태: 준비 (기존 로컬 KRX cache read-only fixture profile)
+- 상태: 진행 (기존 로컬 KRX cache read-only fixture profile)
 - 목표·완료 조건: 기존 2026-09-19 KRX smoke의 수집 산출물만 읽어 daily membership/bar coverage, 누락·orphan·중복, 거래 불가 행, 수치 품질, corporate-action/observed timestamp, manifest integrity를 오프라인 프로파일링합니다. 재현 가능한 private audit과 개발 기록으로 fixture 사용 범위를 남깁니다. 성과·OOS·strict PIT·source acceptance 판단은 하지 않습니다.
 - 담당·소유: supervisor 단일 소유의 read-only offline audit입니다. 기존 mandate, agent 역할/orchestration은 바꾸지 않습니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-krx-cache-fixture-profile`
 - 작업 브랜치: `docs/portfolio-held-band-krx-cache-fixture-profile`
-- 기준 커밋 SHA: `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903` (등록 전 local main; 등록을 포함한 현재 main에서 worktree 생성)
+- 기준 커밋 SHA: `91def6a33a36cbcc4d665ccf5bdcfb0da5902b89` (등록 포함; pre-registration local main `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903`)
 - 통합 대상 브랜치: local `main`.
 - 입력: 기존 `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r6-krx-smoke` 원본과 `docs/development-records/2026-09-19-r6-krx-smoke.md`. mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1` 및 v2 비실행 조건을 유지합니다.
 - provisional assumption: 과거 KRX 수집 결과는 디버깅·pipeline·회귀 fixture로만 읽습니다. 노출되었고 PIT·membership·기업행사 시점이 미검증이므로 성과·OOS·후보 승격·실거래 근거로 사용하지 않습니다.
