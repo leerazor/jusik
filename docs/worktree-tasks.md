@@ -1,5 +1,22 @@
 # 워크트리 작업 등록부
 
+## market-artifact-write-conflict-guard
+
+- 상태: 준비 (planner 재현 완료, bounded 구현 범위 확정)
+- 목표·완료 조건: `MarketHistoryStore.save_artifact()`가 digest key 아래 실제 저장된 bytes의 SHA-256을 확인해 반환합니다. 신규 저장과 동일 bytes 재저장은 기존처럼 성공해야 하고 기존 content type/captured_at metadata를 보존합니다. 같은 digest key에 다른 bytes가 이미 있으면 값을 덮어쓰지 않고 고정된 비민감 오류로 거부하며, service가 충돌 뒤 연구/전략 계산 함수를 호출하지 않는지 regression으로 확인합니다.
+- 담당·소유: planner의 read-only 재현·계획 완료. 중앙 `role.code_small`에 따른 단일 구현 소유자, 별도 `review`, supervisor 통합을 둡니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-artifact-write-conflict-guard`
+- 작업 브랜치: `fix/market-artifact-write-conflict-guard`
+- 기준 커밋 SHA: `a88b14cb389982790cb7fa0df11bc1b129c5b568`; 통합 대상은 local `main`.
+- 입력·선행 근거: `backend/jusik/market_history_store.py:save_artifact()`는 `INSERT OR IGNORE` 뒤 저장 row의 bytes를 검증하지 않고 digest를 반환합니다. planner가 in-memory SQLite에서 정상 bytes의 digest key 아래 손상 bytes를 넣은 뒤 같은 정상 bytes 저장이 성공 digest를 반환하고, 저장된 손상 bytes는 read guard에서 거부되는 동작을 재현했습니다. `MarketResearchService.create_run()`은 반환 digest가 맞으면 계산 단계로 진행합니다.
+- provisional assumption: 동일 bytes 재수집은 idempotent 성공이며 기존 metadata를 보존합니다. 충돌 bytes는 자동 복구·덮어쓰기하지 않고 fail closed합니다. 이는 가역적인 저장 무결성 기본값이며 자료등급, 투자 정책, 데이터 승인, preregistration 및 OOS 조건을 확정하거나 변경하지 않습니다.
+- 수정 허용 범위: `backend/jusik/market_history_store.py`, focused tests in `backend/tests/test_market_research.py`, 이 task development record만. supervisor는 기준 저장소의 registry/handoff를 관리합니다. API schema, migration, 운영 데이터, source 설정, mandate/v1/v2, runner config는 변경하지 않습니다.
+- 포트·테스트 DB·출력 경로: 격리 worktree의 backend 환경과 temporary SQLite/fixture/test spies만 사용합니다. 외부 network/API, credentials, 운영 DB, 주문, PAPER/live, 비용은 없습니다.
+- 검증 기준: 신규 저장 및 get roundtrip, 동일 bytes 재저장 시 기존 metadata 유지, 충돌 시 원본 bytes 보존·비민감 오류, service 실패 뒤 계산 함수 미호출을 확인합니다. focused pytest, changed-file Ruff, store strict mypy, `git diff --check`, independent review를 수행합니다.
+- 차단 의존성: 없음. 이 integrity task는 투자 기준 승인 및 `FINAL_VALIDATION`/OOS와 독립입니다.
+- 개발 기록: `docs/development-records/2026-09-27-market-artifact-write-conflict-guard.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+
 ## market-artifact-read-hash-binding
 
 - 상태: 완료 (integrity guard 구현·검증·독립 review·local main 통합 완료)
