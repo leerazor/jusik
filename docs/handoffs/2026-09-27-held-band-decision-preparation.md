@@ -1,9 +1,9 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T05:30:02Z
+- Updated: 2026-09-27T05:38:29Z
 - Workspace: `/home/kwl/projects/jusik`
-- Branch / verified product integration: `main` / `41be8c2d518eabf02d0e6f5517e2deb3d10ba869`
-- 상태: 결정 권고 문서, offline synthetic chronology fixture, Massive 공식 출처 후보 검토를 통합했습니다. V2는 draft이며 실행은 비활성입니다.
+- Branch / verified product integration: `main` / `8ad78df52d8dd63438bca98ab234af8f621f5fab`
+- 상태: 결정 권고 문서, offline synthetic chronology fixture, Massive·Alpha Vantage 공식 출처 후보 검토를 통합했습니다. V2는 draft이며 실행은 비활성입니다.
 
 ## 완료한 작업
 
@@ -15,6 +15,7 @@
 - 앞서 focused test 58개 통과, 알려진 frozen-v1 SHA 불일치 1건. 달력 스트레스 test 18개 통과. 후속 오프라인 collector/held-band 경계 8개, PIT·FX·기업행동·universe-timing 8개, synthetic future-observation replay 29개가 통과했습니다. 첫 8개에서만 Starlette/httpx deprecation 경고 2개가 있었습니다. 전체 제품 suite는 재실행하지 않았습니다.
 - 공개 source 후보도 추가 조사했습니다. Nasdaq Data Link는 dataset별 접근·가격·key 조건과 교체 안내가 있어 범용 무료 PIT source로 확인되지 않았습니다. SEC ticker/exchange association은 현재 issuer identity 보조 자료이지 historical universe/price source가 아닙니다. 원문은 개발 기록에 연결했습니다.
 - Massive는 32K+ active/delisted ticker와 과거 symbol/events를 제시하지만, Basic은 2년 EOD·분당 5회 제한입니다. 유료 개인 tier도 5·10·20+년이지만, Market Data Terms가 비표시 전략 연구/파생물 사용을 허가 없이 금지해 현재 source로 채택하지 않았습니다. 공개 문서상 `date`와 특정일 ticker state는 당시 publication/receipt/revision 시점과 complete historical universe를 입증하지 않습니다. **Provisional 범위는 공개 interface 설명을 schema 후보로 보는 데 한정**했고, 실제 API, credential, account, 비용은 사용하지 않았습니다. 권고와 해제 조건은 [결정 문서](../research/portfolio-held-band-decision-preparation-v1.md)와 [출처 조사 기록](../development-records/2026-09-27-held-band-massive-source-evidence.md)에 남겼습니다.
+- Alpha Vantage는 US stock/ETF에 대해 2010년 이후 특정일 active/delisted 목록을 제공한다고 문서화합니다. 무료 API는 보통 하루 25회, raw daily free 기본값은 100행이며 `full`과 adjusted corporate-action 일봉은 premium입니다. 약관은 개인 비상업 범위의 사적 투자연구를 허용 예시로 명시하지만, 기관·제3자·금융기관 연계는 상업 범위가 될 수 있어 사용자의 자격을 가정하지 않았습니다. 날짜 질의만으로 공개시각·수정이력·생존자 없는 strict PIT가 입증되지는 않습니다. 고정 price는 이번에 확인하지 않았고 API key·계정·요금은 사용하지 않았습니다. [결정 문서](../research/portfolio-held-band-decision-preparation-v1.md), [출처 조사 기록](../development-records/2026-09-27-held-band-alpha-vantage-source-evidence.md)를 확인합니다.
 - Worktree `/home/kwl/projects/jusik-portfolio-held-band-decision-preparation-v1`는 clean 확인 후 제거했습니다. Branch는 보존했습니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았습니다.
 - 후속 runnable slice `portfolio-held-band-oos-chronology-fixture`는 `backend/tests/test_research_future_observation_replay.py` 한 파일에만 추가했습니다. 테스트 전용 임시 timeline에서 freeze 뒤 event/receipt, manifest SHA 봉인, 결과 open 순서를 확인하고 pre-freeze late arrival, 사전 노출, seal 누락·변조, 조기 open을 거부합니다. 실제 replay의 `late_arrival`와 모든 non-accepted flag를 확인했습니다. 격리·통합 replay suite는 각각 30 passed, Ruff와 local main strict mypy 164 source도 통과했고 독립 review는 중대한 지적 없이 PASS했습니다. 자세한 근거는 [chronology fixture 개발 기록](../development-records/2026-09-27-held-band-oos-chronology-fixture.md)입니다.
 
@@ -26,4 +27,4 @@
 
 바로 실행 가능한 cache status, PIT·event timing·universe fixture, synthetic future-observation replay와 Massive source 문서 검토를 완료했습니다. 별도 `explore`는 기존 pipeline/readiness/source 코드와 테스트를 확인했으나 새 제품 코드 gap 근거를 찾지 못했습니다. 기존 replay는 synthetic, unregistered, non-accepted 상태를 fail-closed로 보장하지만 held-band preregistration freeze·outcome exposure/access·manifest 봉인·단회 평가를 모델링하지 않습니다. OOS 계약은 임의로 확장하지 않았습니다. V2 미결 20개 field는 null, `execution_allowed=false`로 둡니다. Approximate 자료를 최종 성과나 OOS 증거로 쓰지 않습니다.
 
-구현 근거와 provider 출처: [결정 준비 개발 기록](../development-records/2026-09-27-held-band-decision-preparation-v1.md), [chronology fixture 개발 기록](../development-records/2026-09-27-held-band-oos-chronology-fixture.md), [Massive source 후보 개발 기록](../development-records/2026-09-27-held-band-massive-source-evidence.md). tracked 문서 수정 구간에만 roadmap queue를 임시 pause했고, 이후 원래 `paused=false`와 timer active를 복구한 뒤 service inactive·active task 0을 확인합니다. 별도 일반 queue의 기존 `paused=true`는 보존합니다. 다음 runnable은 Alpha Vantage 등 남은 US source의 공식 terms·as-of/PIT 및 update semantics 무료 조사와 기존 local cache quality gap 대조입니다. 실제 source API 호출은 credential/사용권 문제, 최종 OOS만 적격·미노출 미래자료와 사용자 승인 freeze를 기다립니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았고 remote push·시장자료 API 수집·지출·주문·DB/PAPER/live 변경은 없었습니다.
+구현 근거와 provider 출처: [결정 준비 개발 기록](../development-records/2026-09-27-held-band-decision-preparation-v1.md), [chronology fixture 개발 기록](../development-records/2026-09-27-held-band-oos-chronology-fixture.md), [Massive source 후보 개발 기록](../development-records/2026-09-27-held-band-massive-source-evidence.md), [Alpha Vantage source 후보 개발 기록](../development-records/2026-09-27-held-band-alpha-vantage-source-evidence.md). tracked 문서 수정 구간에만 roadmap queue를 임시 pause했고, 이후 원래 `paused=false`와 timer active를 복구해 service inactive·active task 0을 확인합니다. 별도 일반 queue의 기존 `paused=true`는 보존합니다. 기존 cache의 read-only count/status를 더 상세한 종목별 coverage·bar 결손·action/FX provenance 관점에서 재검토하는 것이 다음 runnable입니다. 결과는 개발/회귀 fixture 범위에 한정합니다. 실제 source API 호출은 credential/사용권 조건을 기다리고, 최종 OOS만 적격·미노출 미래자료와 사용자 승인 freeze를 기다립니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았고 remote push·시장자료 API 수집·지출·주문·DB/PAPER/live 변경은 없었습니다.

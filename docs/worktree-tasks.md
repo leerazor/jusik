@@ -2,19 +2,20 @@
 
 ## portfolio-held-band-alpha-vantage-source-evidence
 
-- 상태: 진행 (공개 공식 문서 평가 중; 실제 자료 사용·적격 판정 아님)
+- 상태: 완료 (공개 문서 기반 source 후보 권고 보완; 실제 자료 적격 판정 아님)
 - 목표·완료 조건: 기존 Alpha Vantage 권고의 historical listing/delisting, 가격·기업행동 이력, 무료/유료 범위, rate limit, 사용권을 공식 문서와 대조해 recommendation, 대안 영향, provisional 범위, credential/지출/최종 승인 경계를 기록합니다. 사용자 사용 목적이나 시장, 기준을 임의 결정하지 않습니다.
 - 담당·소유: supervisor가 무료 공식 문서 조사와 문서 통합을 단일 소유합니다. 기존 mandate 및 agent 역할·orchestration은 그대로 둡니다.
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-alpha-vantage-source-evidence`
-- 작업 브랜치: `docs/portfolio-held-band-alpha-vantage-source-evidence`
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-alpha-vantage-source-evidence` (clean 검증·통합 뒤 정상 제거)
+- 작업 브랜치: `docs/portfolio-held-band-alpha-vantage-source-evidence` (보존)
 - 기준 커밋 SHA: `a54a47b24571995e9204a3eab67eef976bc5058e` (등록부 선행 커밋).
-- 통합 대상 브랜치: local `main`.
+- 통합 대상 브랜치: local `main`; source note `8ad78df52d8dd63438bca98ab234af8f621f5fab`으로 fast-forward 통합.
 - 입력: `docs/research/portfolio-held-band-decision-preparation-v1.md`, mandate SHA-256 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`, Alpha Vantage API docs/support/Terms 공식 페이지.
 - provisional assumption: 문서에 공개된 endpoint·일반 rate limits·license wording을 후보 평가 및 source-agnostic schema 검토에만 사용합니다. private individual entitlement 적격성, 적용/발표시점 PIT, revision provenance, 전체 universe·기업행동·FX completeness는 미확인으로 둡니다. API key·계정·자료 응답·premium price는 가정하지 않습니다. 적격 원문 계약 및 secret-free manifest 검증 뒤 재평가합니다.
 - 수정 허용 범위: `docs/research/portfolio-held-band-decision-preparation-v1.md`만. mandate·v2 JSON/draft·v1 archive·제품 코드/테스트·runner/서비스·DB/cache 및 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
 - 포트·테스트 DB·출력 경로: 문서 전용, 공개 문서 read-only. API 호출·계정 개설·credential 사용·자료 저장·구독·주문은 하지 않습니다.
-- 검증·중지 조건: source recommendation, PIT 제한, 요금/권한 영향, alternatives, provisional 범위, 해제 조건, official link를 확인하고 `git diff --check`, mandate SHA, v2 20개 미결 null과 비실행 flag를 재확인합니다. API/credential/비용/최종 자료 허용이 필요한 세부 사용은 해당 단계만 보류합니다.
-- 실제 blocked task: 실제 API 응답 확인에는 필수 API key가 없습니다. private-individual eligibility가 성립하지 않으면 commercial terms/승인이 필요하며 사용 목적은 아직 확인되지 않았습니다. Full-history/premium purchase는 실제 비용 승인 전 진행하지 않습니다. 최종 PIT/data acceptance와 preregistration freeze는 사용자 승인 전 보류합니다.
+- 결과: `LISTING_STATUS`는 2010년 이후 날짜별 US stock/ETF active/delisted 후보 자료이며 API key가 필요합니다. 무료 25 requests/day와 일별 최근 100 rows, premium full history/adjusted bars의 제한을 기록했습니다. 개인 private investment research carveout과 commercial-use 경계도 구분했습니다. 날짜별 membership은 시점·수정 provenance와 전체 과거 universe를 입증하지 않아 strict PIT 승인 자료로 선택하지 않습니다.
+- 검토·검증: 공개 API documentation/support/rate-limit/Terms/Premium 페이지와 문서 변경을 대조했습니다. `git diff --check`, mandate SHA, v2 미결 20개 `null` 및 `registered/approved/execution_allowed=false` 확인. 문서 전용 변경이라 pytest·코드 lint는 실행하지 않았습니다.
+- 실제 blocked task: 실제 API 응답 확인에는 필수 API key가 없고 private-individual eligibility·사용 목적도 확정되지 않았습니다. Full-history/adjusted data용 premium purchase는 실제 비용 승인 전 보류합니다. 최종 PIT/data acceptance와 preregistration freeze는 사용자 승인 전 보류합니다.
 - 개발 기록: `docs/development-records/2026-09-27-held-band-alpha-vantage-source-evidence.md`.
 - Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
 
