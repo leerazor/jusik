@@ -2,12 +2,12 @@
 
 ## market-artifact-read-hash-binding
 
-- 상태: 준비 (다음 runnable; 독립 worktree 생성 후 단일 구현 담당 배정)
+- 상태: 진행 (독립 구현 담당 배정 완료)
 - 목표·완료 조건: `MarketHistoryStore.get_artifact(artifact_id)`가 DB에서 읽은 bytes의 SHA-256이 lookup key와 다르면 민감 정보 없이 fail closed하도록 합니다. 정상 bytes/content type과 absent-key `KeyError`를 보존하고, corrupted body가 HTTP download API의 성공 응답으로 전달되지 않는지 fixture 기반 regression으로 확인합니다. 자동 복구·DB 변경·과거 KRX export/OOS 복원은 하지 않습니다.
 - 담당·소유: planner의 read-only defect 재현 완료. 중앙 `role.code_small`에 따라 단일 구현 소유자를 배정하고, 별도 `review`와 supervisor 통합을 둡니다.
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-artifact-read-hash-binding` (task 배정 전 생성)
-- 작업 브랜치: `fix/market-artifact-read-hash-binding` (task 배정 전 생성)
-- 기준 커밋 SHA: 등록 commit 후 기록. 통합 대상은 local `main`.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-artifact-read-hash-binding`
+- 작업 브랜치: `fix/market-artifact-read-hash-binding`
+- 기준 커밋 SHA: `fd999991b5b9bc251f5aa9e4929e516428c279c4`. 통합 대상은 local `main`.
 - 입력·선행 근거: `backend/jusik/market_history_store.py:get_artifact`는 content SHA key로 row를 조회하지만 반환 bytes digest를 확인하지 않습니다. `backend/jusik/market_research_api.py` download route는 store bytes를 그대로 반환합니다. 기존 test는 정상 artifact roundtrip만 검사합니다. planner는 memory connection stub으로 altered bytes가 수락됨을 재현했습니다.
 - provisional assumption: 저장된 bytes/key integrity guard만 추가하는 reversible fix입니다. API schema, persisted artifact, data grade, strategy/market/investment criteria, PIT acceptance를 변경하지 않습니다.
 - 수정 허용 범위: `backend/jusik/market_history_store.py`, focused tests in `backend/tests/test_market_research.py`, 이 task development record만. API route code는 regression에서 generic failure mapping이 실제로 필요하다는 근거가 있을 때만 supervisor 조율 뒤 포함합니다. mandate/v1/v2/historical files/runner config는 변경하지 않습니다.
