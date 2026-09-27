@@ -31,3 +31,4 @@
 ## 다음 단계
 
 - 현 시점 기준: roadmap 큐는 이 기록 반영 중 잠시 pause, default research queue는 기존 paused입니다. 기록 commit 후 roadmap queue를 재개해 terminal `no_work` 상태와 timer만 확인합니다. source/test, mandate 또는 task-state change나 위에 적은 새 재현이 없다면 같은 discovery를 반복하지 않습니다.
+- 재개 확인: record commit `be2cfa7` 뒤 roadmap queue는 다시 unpaused가 됐고, 후속 timer cycle은 `idle/discovery_no_work`로 끝났습니다. 현재 timer active, service inactive, discovery terminal no_work, READY/RUNNING 0입니다. default research queue는 기존 paused를 유지합니다.

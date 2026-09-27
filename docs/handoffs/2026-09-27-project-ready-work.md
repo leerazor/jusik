@@ -1,6 +1,6 @@
 # 프로젝트 READY 작업 handoff
 
-- Updated: 2026-09-27T11:36:17Z
+- Updated: 2026-09-27T11:41:26Z
 - Workspace: `/home/kwl/projects/jusik`
 - Latest unreviewed product candidate on local main: `6c11427d4bd0bbea0e9704cc02b3040e0d6f5d58` (manifest integrity reviewer verdict FAIL; completed work 아님)
 - 마지막 reviewer-PASS code integration: `7411e7518407a69a053ce438f3d9e98cfc2d244b`
@@ -25,7 +25,7 @@
 
 ## 운영 상태와 다음 단계
 
-- roadmap queue는 기록을 위해 일시 pause했고 이 문서 commit 뒤 재개합니다. 최신 status는 READY/RUNNING 0, DONE 164, BLOCKED 9, FAILED 15, WAITING_EXTERNAL 2입니다. generic research queue도 기존 paused로 READY/RUNNING 0, DONE 35, BLOCKED 7, FAILED 3입니다. timer active, service inactive입니다.
+- roadmap queue는 기록 반영 뒤 재개했습니다. 최신 status는 READY/RUNNING 0, DONE 164, BLOCKED 9, FAILED 15, WAITING_EXTERNAL 2, discovery terminal `no_work`입니다. generic research queue는 기존 paused로 READY/RUNNING 0, DONE 35, BLOCKED 7, FAILED 3입니다. timer active, service inactive입니다.
 - latest-main planner는 proposal 없는 waiting을 남겼습니다. 뒤이어 network-disabled bounded discovery가 7개 allowlisted domain의 정확한 canonical source/test 14개 hash를 남기고 `no_work`로 terminal 처리했습니다. 확인 domain/대안과 evidence path는 [개발 기록](../development-records/2026-09-27-roadmap-r2-02-manifest-integrity-guard.md)에 있습니다. 같은 입력으로 다시 호출하지 않습니다.
 - discovery resume condition은 현재 기준 HEAD에서 잘못된 동작을 보이는 최소 offline 재현을 얻는 것입니다: dividend 의미 불일치 수락, uncertain 주문/취소 응답 뒤 중복 호출, 또는 미확인 날짜 이후의 잘못된 calendar session 중 하나를 허용된 source/test 쌍에서 보여야 합니다. 단순 시간 경과나 미래 자료 부재는 재개 조건이 아닙니다.
-- 실제 비용·유료 자료·credential·투자 기준 승인·실계좌 작업·remote push는 없었습니다. 다음 시작은 기록 commit 후 roadmap queue를 재개하고 terminal no_work 상태를 확인하는 것입니다. 새로운 재현 또는 source/test·mandate·task-state 변경 전에는 반복 호출하지 않습니다.
+- 실제 비용·유료 자료·credential·투자 기준 승인·실계좌 작업·remote push는 없었습니다. 다음 시작은 runner read-only status와 task registry를 확인하는 것입니다. 새로운 재현 또는 source/test·mandate·task-state 변경 전에는 같은 discovery를 반복 호출하지 않습니다.
