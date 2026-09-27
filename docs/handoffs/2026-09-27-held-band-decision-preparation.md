@@ -1,6 +1,6 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T02:47:15Z
+- Updated: 2026-09-27T02:50:25Z
 - Workspace: `/home/kwl/projects/jusik`
 - Branch / verified feature integration: `main` / `bf18fb6d35604323f81548bd55fe68407df69c24`
 - 상태: 결정 준비 문서를 통합했습니다. V2는 draft이며 실행은 비활성입니다.
@@ -13,7 +13,7 @@
 - Mandate SHA와 v1 archive hash를 보존했습니다. V2 field는 `null`; `registered=false`, `approved=false`, `execution_allowed=false`입니다.
 - 독립 final review가 통과했습니다. `git diff --check`, 문서 링크, JSON 불변식, mandate/archive hash, role-routing post audit를 통과했습니다.
 - 앞서 focused test 58개 통과, 알려진 frozen-v1 SHA 불일치 1건. 달력 스트레스 test 18개 통과. 후속 오프라인 collector/held-band 경계 8개, PIT·FX·기업행동·universe-timing 8개, synthetic future-observation replay 29개가 통과했습니다. 첫 8개에서만 Starlette/httpx deprecation 경고 2개가 있었습니다. 전체 제품 suite는 재실행하지 않았습니다.
-- 공개 source 후보도 추가 조사했습니다. Nasdaq Data Link는 dataset별 접근·가격·key 조건과 교체 안내가 있어 범용 무료 PIT source로 확인되지 않았습니다. SEC ticker/exchange association은 current issuer identity 보조 자료이지 historical universe/price source가 아닙니다. 원문은 개발 기록에 연결했습니다.
+- 공개 source 후보도 추가 조사했습니다. Nasdaq Data Link는 dataset별 접근·가격·key 조건과 교체 안내가 있어 범용 무료 PIT source로 확인되지 않았습니다. SEC ticker/exchange association은 현재 issuer identity 보조 자료이지 historical universe/price source가 아닙니다. 원문은 개발 기록에 연결했습니다.
 - Worktree `/home/kwl/projects/jusik-portfolio-held-band-decision-preparation-v1`는 clean 확인 후 제거했습니다. Branch는 보존했습니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았습니다.
 
 ## 남은 차단과 다음 실행
@@ -24,4 +24,4 @@
 
 바로 실행 가능한 cache status, PIT·event timing·universe fixture, synthetic future-observation replay 및 source 문서 검토를 이번 작업에서 수행했습니다. 기존 replay는 synthetic, unregistered, non-accepted 상태를 fail-closed로 보장하지만 held-band preregistration freeze·outcome exposure/access·manifest 봉인·단회 평가를 모델링하지 않습니다. 현재 코드 결함은 찾지 못해 OOS 계약을 임의로 확장하지 않았습니다. V2 미결 field는 null, `execution_allowed=false`로 둡니다. Approximate 자료를 최종 성과나 OOS 증거로 쓰지 않습니다.
 
-구현 근거와 provider 출처: [개발 기록](../development-records/2026-09-27-held-band-decision-preparation-v1.md). Metadata commit `95be807` 뒤 roadmap runner를 `paused=false`로 복구했습니다. timer active, one-shot service inactive, 181 task 중 active 0이며 fixed engineering backlog exhausted입니다. discovery는 `stale_head`로 source/test/mandate/task state 변경을 기다립니다. 원격 push·시장자료 API 수집·지출·주문·DB/service/PAPER/live 변경은 없었습니다.
+구현 근거와 provider 출처: [개발 기록](../development-records/2026-09-27-held-band-decision-preparation-v1.md). Metadata commit `95be807` 뒤 roadmap runner를 `paused=false`로 복구했습니다. timer active, one-shot service inactive, 181 task 중 active 0이며 fixed engineering backlog exhausted입니다. 후속 `run-once`는 `idle/discovery_stale_head`를 반환했습니다. discovery는 기존 proposal과 현재 `main` 기준 불일치로 terminal이며, runner fingerprint에 포함되는 Python source/test나 task-store 상태 변화가 없어 문서 전용 commit만으로 재발견되지 않습니다. 이 저장소 상태에는 재현된 제품 결함이 없어 tests-only task를 새로 만들지 않았습니다. remote push·시장자료 API 수집·지출·주문·DB/service/PAPER/live 변경은 없었습니다.
