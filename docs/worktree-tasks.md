@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## portfolio-held-band-local-cache-fixture-profile
+
+- 상태: 준비 (로컬 노출 자료의 오프라인 품질 프로파일)
+- 목표·완료 조건: 이미 수집·노출된 US approximate cache와 기존 Alpha Vantage listing receipt를 읽기 전용 분석하여 per-symbol 기간/coverage, 누락·중복·identity/event timestamp diagnostics, raw provenance와 fixture 재사용 가능 범위를 기록합니다. 분석 결과를 strict PIT·성과/OOS·source acceptance로 사용하지 않습니다.
+- 담당·소유: supervisor가 task 등록·외부 audit 산출물·문서 통합을 감독하고, 좁은 offline profile을 단일 소유로 실행합니다. mandate 및 기존 agent 역할·orchestration은 변경하지 않습니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-local-cache-fixture-profile`
+- 작업 브랜치: `docs/portfolio-held-band-local-cache-fixture-profile`
+- 기준 커밋 SHA: `6c6801f52668853b189e96c78994db099d0b411c` (등록부 선행 커밋).
+- 통합 대상 브랜치: local `main`.
+- 입력: 기존 공개·근사 audit `/home/kwl/.local/share/jusik/portfolio-audit/20260922-us-vintage-collection-100`와 기존 Alpha listing receipt `/home/kwl/.local/share/jusik/portfolio-audit/20260922-alpha-excluded-listing-20260922`; mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1` 및 v2의 비실행 조건.
+- provisional assumption: 기존 audit 파일은 외부 수집·수정 없이 offline fixture/debug 메타데이터 프로파일링에만 사용합니다. 표본/시계열은 이미 노출되고 approximate이며 API 제공 시점의 보존본도 미래 적격 OOS가 아니라고 둡니다. 데이터 의미·coverage가 불명확하면 unknown으로 남기며 성과 계산은 하지 않습니다.
+- 수정 허용 범위: 결정 준비 문서와 이 task의 development record/handoff만. 원본 audit/cache/raw blob, DB·credential, mandate, v2 초안, code/test, 운영 runner 설정, 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
+- 포트·테스트 DB·출력 경로: network/API/broker/service/DB 미사용. audit/profile 산출물은 task worktree 외부의 private task audit 하위에 별도로 저장하고 원본 cache와 분리합니다.
+- 검증·중지 조건: manifest/result와 raw receipt identity/hash, 표본·기간·결손·duplicates·action/FX timestamp 요약을 서로 대조합니다. audit 원본·해시가 바뀌었거나 파서가 재현되지 않으면 해당 필드를 unknown으로 두고 중지합니다. 성과·OOS·candidate selection은 실행하지 않습니다.
+- 실제 blocked task: 새로운 API receipt 수집은 Alpha/FRED key 부재 및 provider 사용 경계로 수행하지 않습니다. 최종 validation/OOS는 적격·미노출 미래자료와 승인된 preregistration freeze까지 별도 pending입니다.
+- 개발 기록: `docs/development-records/2026-09-27-held-band-local-cache-fixture-profile.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+
 ## portfolio-held-band-alpha-vantage-source-evidence
 
 - 상태: 완료 (공개 문서 기반 source 후보 권고 보완; 실제 자료 적격 판정 아님)
