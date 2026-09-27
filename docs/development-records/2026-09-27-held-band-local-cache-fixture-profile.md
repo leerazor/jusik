@@ -1,7 +1,7 @@
 # Held-band 기존 로컬 cache fixture profile
 
 - 상태: 완료 (offline 개발 fixture의 품질·provenance 진단; 자료 적격성 판정 아님)
-- 기록 시각: 2026-09-27T05:59:09Z
+- 기록 시각: 2026-09-27T06:01:03Z
 - 작업 slug: `portfolio-held-band-local-cache-fixture-profile`
 - 기준/통합: `0cc78137798c81ce56ab5c8e893929f9f9d05ecc` / `7881d7f4c6cbac2982ec380c2c178e7ddc003e5f`
 - 범위: 기존 US approximate 결과/cache와 Alpha Vantage listing receipt를 읽기 전용으로 대조했습니다. 연구 mandate, agent 역할, 제품 코드·테스트, 원본 자료, v2 초안과 사용자 루트 `HANDOFF.md`는 수정하지 않았습니다.
@@ -35,10 +35,11 @@
 ## 안전·운영 상태
 
 - 외부 시장자료 API, broker API, network collection, account/key, 구매/비용, DB/cache write, PAPER/live, 주문, remote push는 없었습니다. existing raw data는 그대로 두었습니다.
+- task worktree는 clean 상태로 제거했고 작업 branch는 보존했습니다. 사용자 작성 루트 `HANDOFF.md`는 수정하거나 stage하지 않았습니다.
 - 실제 새 provider 수집은 required credentials 및 사용권 검토 없이는 보류됩니다. `FINAL_VALIDATION`/OOS는 적격 미노출 미래자료 및 승인된 preregistration freeze 전까지 별도 `PENDING/BLOCKED`입니다.
 
 ## 증거와 재개
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-local-cache-profile/profile.json`; private artifact SHA 위 참조.
-- 다음 runnable: 기존 immutable request/cache receipts와 이전 request descriptor를 대조해 `sample_size=100` 대 diagnostics 101 discrepancy의 기원을 offline으로 확인합니다. 해소되지 않으면 unknown으로 유지하며 membership 자동 조인이나 성과 산출은 하지 않습니다.
+- 다음 runnable: 등록한 `portfolio-held-band-sample-size-identity-reconcile` task에서 immutable request/cache receipts와 이전 request descriptor를 대조합니다. 해소되지 않으면 unknown으로 유지하며 membership 자동 조인이나 성과 산출은 하지 않습니다.
 - 차단 항목은 위 실제 provider 접근 및 최종 OOS뿐이며, 독립적인 오프라인 품질·pipeline 작업은 계속 가능합니다.
