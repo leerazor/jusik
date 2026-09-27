@@ -1,9 +1,9 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T07:41:23Z
+- Updated: 2026-09-27T07:53:07Z
 - Workspace: `/home/kwl/projects/jusik`
-- Verified main before this handoff update: `447e2d2dea58966fd6a5b187f45b74ae8ecd8ff4`
-- 상태: KRX 공식 출처 조사·fixture 프로파일, snapshot read hash guard, artifact read hash guard를 local main에 통합했습니다. 투자 mandate·agent 역할·orchestration·사전등록 조건은 변경하지 않았습니다.
+- Verified main before this handoff update: `a80b758d367fcf6ec04a8e68a565a0723e38985e`
+- 상태: KRX 공식 출처 조사·fixture 프로파일, snapshot/artifact read hash guards, artifact write conflict guard를 local main에 통합했습니다. 투자 mandate·agent 역할·orchestration·사전등록 조건은 변경하지 않았습니다.
 
 ## 완료된 근거
 
@@ -12,6 +12,8 @@
 - 보존 run은 `insufficient`, `incomplete`, `readiness.ready=false`, `final_promotable=false`, metric/trade/equity 0입니다. cache는 exposed approximate fixture/debug/pipeline regression 용도만 허용하며 성과, OOS, PIT/data acceptance, 후보·실거래 승인 근거로 사용하지 않습니다. 상세 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-krx-cache-fixture-profile/`.
 - `MarketHistoryStore.get_snapshot()`은 복원된 snapshot의 canonical hash와 요청 key를 대조하도록 수정했습니다. 정상 roundtrip, schema-valid artifact/metadata 변조 거부, absent-key `KeyError`를 focused tests로 확인했고 독립 review PASS, main에서 32 tests 통과했습니다. 선택 의존성 및 테스트 파일의 기존 strict mypy 제한은 해당 개발 기록에 분리했습니다.
 - `MarketHistoryStore.get_artifact()`은 반환 bytes의 SHA-256을 요청 key와 대조하고 손상 row를 고정 오류로 거부합니다. 정상 bytes/content type, absent-key `KeyError`, corrupted HTTP body refusal을 main에서 33 focused tests로 확인했고 Ruff, store strict mypy, 독립 review PASS입니다. test module strict mypy의 기존 unused ignore 2건은 별도 제한입니다. 상세: [artifact hash 개발 기록](../development-records/2026-09-27-market-artifact-read-hash-binding.md).
+- `MarketHistoryStore.save_artifact()`은 저장 후 row bytes/key hash를 확인하며, 이미 손상된 row와 충돌하면 덮어쓰지 않고 거부합니다. 동일 bytes 재저장과 기존 metadata 보존, 충돌 row 보존, service 계산 미호출을 검증했습니다. reviewer PASS, main focused suite 34 passed, Ruff/store strict mypy/diff check PASS. 상세: [artifact write conflict 개발 기록](../development-records/2026-09-27-market-artifact-write-conflict-guard.md).
+- post-integration data/pipeline scan은 새 standalone READY를 찾지 못했습니다. 기존 US profile의 PTN 272 bars와 174 membership rows 차이 98개는 membership 시작 전 warmup 가격이며, 신규 checkpoint에서 warmup 보존·편입 전 거래 금지를 기존 [collector 회귀](../../backend/tests/test_market_data_collector.py#L2045)가 이미 확인합니다. 노출 fixture의 기존 coverage 점검을 중복하지 않습니다.
 - mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1` 유지. v2 unresolved fields 20개는 null이고 `registered=false`, `approved=false`, `execution_allowed=false`입니다.
 
 ## 남은 결정과 개별 차단
@@ -25,11 +27,12 @@
 
 - 완료 task: `market-artifact-read-hash-binding`, implementation commit `c9533f97b4dbc9c1aca7472e2b75546c18892b6f`, independent review PASS, local main `5903dc2275c6a47fb2012633770461bdc0724c65`에 통합. focused pytest 33 passed, Ruff/store strict mypy/diff check PASS. test-file strict mypy 기존 오류는 개발 기록에 남겼습니다.
 - snapshot fix branch `fix/market-snapshot-read-hash-binding`은 clean fast-forward 통합 후 worktree 제거, commit/branch 보존했습니다. 상세 기록은 [snapshot hash 개발 기록](../development-records/2026-09-27-market-snapshot-read-hash-binding.md)입니다.
-- 진행 task: `market-artifact-write-conflict-guard`. 동일 bytes 재저장 semantics와 기존 metadata를 보존하면서, 기존 key의 다른 bytes 충돌은 덮어쓰지 않고 fail closed하며 service 계산 함수 호출 전 실패하는지 검증합니다. task 등록·provisional assumption 기록, 별도 worktree, offline Python 3.13 환경, 중앙 `role.code_small` routing preflight를 완료했습니다. 구현 뒤 별도 review와 통합 검증을 진행합니다. 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
+- 완료 task: `market-artifact-write-conflict-guard`, 구현 commit `e08403eba263c27cc02b6f8613f0ffeea20e5b81`, independent review PASS, local main integration `a80b758d367fcf6ec04a8e68a565a0723e38985e`. task worktree clean 제거, branch/commit 보존.
+- 다음 진행: 확인된 held-band 범위에 별도 runnable task가 없습니다. 새 적격 입력 또는 재현 가능한 결함이 생기면 기존 승인 범위 안에서 데이터 조사·파이프라인·회귀 작업을 재개합니다. 미결 투자·자료 승인과 future OOS는 해당 task만 PENDING/BLOCKED로 유지합니다. 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
 
 ## 운영 상태
 
-- 실제 development-runner queue는 `paused=true`입니다. service/timer를 수동 tracked 작업 중 일시 정지했고 현재 둘 다 `inactive`입니다. tracked 문서 통합을 마치면 기존 timer `active` 상태를 복구하되 queue pause는 유지합니다.
-- Artifact read fix worktree는 clean 제거했고 branch/commit은 보존했습니다. artifact write-conflict task는 다음 독립 runnable입니다.
+- 실제 development-runner queue는 `paused=true`이며 read-only status에서 35 DONE, 7 BLOCKED, 3 FAILED, queued/running 0입니다. 막힌 항목은 과거 retry 전 격리 기록이고 이번 변경으로 재시도하지 않습니다. service/timer는 수동 tracked 작업 중 일시 정지되어 있으며, 이번 추적 문서 commit 뒤 기존 timer `active`를 복구하고 queue pause를 유지합니다.
+- Artifact read 및 write-conflict worktree는 clean 제거했고 branch/commit은 보존했습니다.
 - KRX profile worktree는 clean fast-forward 후 제거했고 branch `docs/portfolio-held-band-krx-cache-fixture-profile`와 commit 이력은 보존했습니다.
 - root `HANDOFF.md`는 사용자 소유 미추적 파일로 유지하며 읽기·수정·stage하지 않았습니다. remote push, network/API/data collection, purchase, DB/broker/order/PAPER/live 실행은 없습니다.
