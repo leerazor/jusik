@@ -1,6 +1,6 @@
 # 프로젝트 READY 작업 handoff
 
-- Updated: 2026-09-27T11:41:26Z
+- Updated: 2026-09-27T11:47:26Z
 - Workspace: `/home/kwl/projects/jusik`
 - Latest unreviewed product candidate on local main: `6c11427d4bd0bbea0e9704cc02b3040e0d6f5d58` (manifest integrity reviewer verdict FAIL; completed work 아님)
 - 마지막 reviewer-PASS code integration: `7411e7518407a69a053ce438f3d9e98cfc2d244b`
@@ -22,6 +22,7 @@
 - 외부 readiness 변경 결속은 검증 가능한 producer/validator identity 계약이 없어 PENDING입니다.
 - held-band `FINAL_VALIDATION`/OOS는 승인된 사전등록과 적격 미래 자료까지 task-local BLOCKED/PENDING입니다. 미정 JSON 값 23개는 null, `registered=false`, `approved=false`, `execution_allowed=false` 그대로 확인했습니다.
 - review FAIL인 manifest-integrity task와 기존 `lab-discovery-f20488dee5507d82a85c0bfd824c0090`는 서로 task-local WAITING_EXTERNAL이고 retry 근거가 없습니다. 둘 다 다른 task 선택을 막지 않습니다.
+- `lab-paper-execution-contract-v1`은 별도 BLOCKED입니다. legacy attempt에 integrated SHA가 없고 archived source/test hashes가 canonical main과 다르며, 기존 운영 문서가 새 reviewer 형식으로 소급 완료하지 못하게 합니다. 현재 독립 reviewer를 배정해도 original identity를 충족하지 못하므로 자동 재시도하지 않습니다.
 
 ## 운영 상태와 다음 단계
 

@@ -26,9 +26,11 @@
 - 실패 verdict와 별도로 local main focused `backend/tests/test_broker_cost_profiles.py` — 42 passed; 변경 파일 Ruff check/format 및 strict mypy, `git diff --check 7f13d33..6c11427` 통과했습니다. 이 검증은 review FAIL을 대체하지 않습니다.
 - 금융 provider/data/API·credential·구매·운영 DB·PAPER/live 실행·실주문·remote push는 없었습니다.
 - 이 task는 독립적인 WAITING_EXTERNAL입니다. 다른 기존 `lab-discovery-f20488dee5507d82a85c0bfd824c0090`도 review dependency가 해소되지 않아 WAITING_EXTERNAL입니다. roadmap 큐에는 현재 READY/RUNNING이 없습니다.
+- 기존 `lab-paper-execution-contract-v1`의 별도 BLOCKED 이유도 재확인했습니다. original attempt `65c9872721c044d885e9c2fdbb2ec561`은 `integrated_commit=null`이고 archived source/test SHA (`71e60042…`, `7eb4d741…`)가 canonical main 파일 SHA (`8bb86ed1…`, `110c33ef…`)와 다릅니다. 과거 운영 기록은 이를 새 reviewer 후보 형식이 아니라고 하며 소급 자동 완료를 금지합니다. 이전 수동 구현/review 기록은 있어도 원 attempt·현재 bytes에 결속되지 않아 이 blocker를 자동 해소하지 않습니다.
 - `docs/research/portfolio-held-band-preregistration-draft-v2.json`은 `registered=false`, `approved=false`, `execution_allowed=false`, unresolved null 23개 그대로 유지됩니다. held-band FINAL_VALIDATION/OOS는 승인된 preregistration과 적격 미래 자료까지 task-local BLOCKED/PENDING이며, 외부 readiness identity binding은 검증된 producer/validator 계약까지 PENDING입니다.
 
 ## 다음 단계
 
 - 현 시점 기준: roadmap 큐는 이 기록 반영 중 잠시 pause, default research queue는 기존 paused입니다. 기록 commit 후 roadmap queue를 재개해 terminal `no_work` 상태와 timer만 확인합니다. source/test, mandate 또는 task-state change나 위에 적은 새 재현이 없다면 같은 discovery를 반복하지 않습니다.
 - 재개 확인: record commit `be2cfa7` 뒤 roadmap queue는 다시 unpaused가 됐고, 후속 timer cycle은 `idle/discovery_no_work`로 끝났습니다. 현재 timer active, service inactive, discovery terminal no_work, READY/RUNNING 0입니다. default research queue는 기존 paused를 유지합니다.
+- legacy `lab-paper-execution-contract-v1`에는 현재 reviewer를 연결해도 기존 attempt의 SHA identity를 만족할 수 없어 새 review를 생성하지 않았습니다. 해당 queue blocker는 수동 조건이 바뀔 때까지 task-local로 둡니다.
