@@ -152,8 +152,16 @@ OS 수준의 파일 쓰기 격리를 새로 보장한다는 뜻은 아닙니다.
 검증한 JSON은 기존 attempt의 `response_sha256`으로 결속하며 DB schema는 바꾸지 않습니다.
 명시적인 `no_work` 이후에는 단순 시각 경과나 discovery 자체 기록 때문에 같은 LLM 검사를 다시 호출하지 않습니다.
 source/test·mandate·task 상태가 바뀌면 기존 fingerprint 규칙으로 새 검사가 가능합니다.
-외부 data/readiness 변경 결속은 검증된 producer/validator 계약이 없어 PENDING입니다.
-재개 조건의 문구나 오래된 자료만으로 외부 readiness가 바뀌었다고 판단하지 않습니다.
+`backend/jusik/development_runner_readiness.py`는 외부 receipt를 오프라인 검증하는 strict v1 기술 계약입니다.
+원문 artifact SHA와 metadata를 제외한 의미 digest를 분리하고, caller가 고정한 root 아래에서
+producer/validator identity·code hash·요청 조건·내용·gate 기록을 검증합니다. `bound`는 해당
+identity/hash가 결속됐다는 뜻일 뿐 gate 승인이 아닙니다. 이 모듈은 현재 runner의 fingerprint,
+terminal receipt, scheduler 재개 경로에 연결되지 않았습니다. 기존 expanded-universe artifact는
+executed collector source hash가 null이므로 이를 v1 receipt로 매핑하더라도 `bound` 조건을 만족하지 않으며,
+여덟 gate는 BLOCKED입니다. 따라서 외부
+data/readiness 기반 재평가 연결은 trusted producer의 완전한 identity와 안정적·원자적 publication
+경로가 마련될 때까지 PENDING입니다. 재개 조건의 문구나 오래된 자료만으로 readiness가 바뀌었다고
+판단하지 않습니다. 자세한 구현·검증 경계는 [개발 기록](development-records/2026-09-27-lab-external-readiness-binding.md)을 참조합니다.
 기존 quota·cooldown·pause·process 정체 검사를 각 호출에 적용합니다.
 
 발굴·범위 검토의 호출 실패는 `no_work`와 다릅니다. 종료된 child의 크기 제한 JSONL에서

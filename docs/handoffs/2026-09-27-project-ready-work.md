@@ -1,32 +1,29 @@
 # 프로젝트 READY 작업 handoff
 
-- Updated: 2026-09-27T11:47:26Z
+- Updated: 2026-09-27T13:33:23Z
 - Workspace: `/home/kwl/projects/jusik`
-- Latest unreviewed product candidate on local main: `6c11427d4bd0bbea0e9704cc02b3040e0d6f5d58` (manifest integrity reviewer verdict FAIL; completed work 아님)
-- 마지막 reviewer-PASS code integration: `7411e7518407a69a053ce438f3d9e98cfc2d244b`
-- 상태: dividend replay와 R2-02 inner/outer historical flag guard는 별도 scope/review PASS로 완료했습니다. 뒤이은 profile hash/ID 무결성 후보는 local main에 통합됐지만 독립 reviewer가 FAIL했고 task는 WAITING_EXTERNAL입니다. 최신 main의 bounded discovery는 no_work를 남겼습니다.
+- Latest code main: `d85f424c03936e5c0c90006f996dab8dbbc97e3c`; task/docs status update는 후속 기록 commit 예정
+- 상태: 외부 readiness receipt의 bounded offline 기술 계약은 완료·통합·독립 review PASS입니다. 실제 producer/runner/scheduler 결속은 근거가 갖춰질 때까지 PENDING이며, 투자 검증이나 자료 적격화는 수행하지 않았습니다.
 
-## 완료한 runnable task
+## 이번에 완료한 runnable task
 
-- §17 priority 3 no_work source/test receipt slice: [기록](../development-records/2026-09-27-lab-no-work-inspection-evidence.md), task registry에 통합·검증 완료로 기록했습니다.
-- 자동 discovery task `lab-discovery-3d5d5526ea36e9d3140338673e2185f9`: 기존 dividend receivable 의미와 다른 중복 accrual replay를 거부합니다. 단일 구현 commit `16e30ca`, 별도 reviewer PASS (finding 0), main focused 39 tests와 Ruff/format/strict mypy/diff check 통과. [개발 기록](../development-records/2026-09-27-lab-discovery-dividend-accrual-replay.md).
-- roadmap task `roadmap-r2-02-profile-history-flag-guard-v1`: 새 PAPER manifest에서 historical profile을 거부합니다. commit `3877e8b`, scope 및 별도 reviewer PASS, focused 34 tests와 Ruff/format/strict mypy/diff check 통과. 투자 상태 `NOT_EVALUATED`. [개발 기록](../development-records/2026-09-27-roadmap-r2-02-profile-history-flag-guard.md).
-- roadmap task `roadmap-r2-02-contract-history-flag-guard-v1`: outer historical contract flag가 새 PAPER manifest를 생성하지 못하게 합니다. commit `7411e75`, 별도 scope/completion review PASS, focused 35 tests와 Ruff/format/strict mypy/diff check 통과. 투자 상태 `NOT_EVALUATED`. [개발 기록](../development-records/2026-09-27-roadmap-r2-02-contract-history-flag-guard.md).
-- `roadmap-r2-02-manifest-integrity-guard-v1`은 구현 commit `6c11427`로 main에 있지만 별도 reviewer verdict `FAIL`; 완료 task로 세지 않습니다. runner receipt에는 수정 finding이 없어 WAITING_EXTERNAL이며 자동 retry는 하지 않습니다. [개발 기록](../development-records/2026-09-27-roadmap-r2-02-manifest-integrity-guard.md).
-- 선행 discovery의 `market_performance_metrics` 후보는 evaluator의 고정 source SHA 정책 변경을 요구해 scope review REJECT, 구현 등록하지 않았습니다.
-- runner task worktree는 현재 남아 있지 않습니다. root `HANDOFF.md`는 사용자 소유 미추적 파일로 그대로 둡니다.
+- `lab-external-readiness-binding-v1`: [작업 등록부](../worktree-tasks.md), [개발 기록](../development-records/2026-09-27-lab-external-readiness-binding.md). Main commit `d85f424`에 strict offline receipt parser/validator 및 회귀 테스트를 통합했습니다. 집중 pytest 164 passed, Ruff check/format, strict mypy, diff check와 별도 role.review PASS.
+- 원문 artifact SHA와 semantic digest를 나누고 task/attempt/scope/request 조건·content·producer/validator identity/code SHA·gate identity/status를 검증합니다. `bound`는 hash/identity 결속이며 승인 신호가 아닙니다. raw payload streaming과 provisional resource cap을 추가했습니다.
+- 최초 review의 P2 memory/aggregate limit 및 P3 malformed argument 지적을 수정 후 같은 독립 reviewer가 PASS했습니다. reviewer와 worker의 local post-routing JSONL 감사 파일은 실행기에서 확인할 수 없어 helper post audit는 생략했으며, preflight는 PASS였습니다.
+- 통합 후 코드 확인·테스트 외에 외부 artifact, runner/queue/config/DB, 서비스, data provider를 변경하지 않았습니다. root의 사용자 소유 미추적 `HANDOFF.md`도 그대로 둡니다.
 
-## 적용 가정과 task-local 차단
+## Provisional 가정과 남은 차단
 
-- provisional 기술 가정: accrual replay는 기존 payment semantic comparison을 재사용합니다. historical용 profile과 outer contract는 새 PAPER manifest의 입력이 아니라고 개발 중 가정했습니다. 이는 기존 serialization 경계를 구현한 임시값으로 investment/preregistration 기준은 동결하지 않았습니다.
-- 외부 readiness 변경 결속은 검증 가능한 producer/validator identity 계약이 없어 PENDING입니다.
-- held-band `FINAL_VALIDATION`/OOS는 승인된 사전등록과 적격 미래 자료까지 task-local BLOCKED/PENDING입니다. 미정 JSON 값 23개는 null, `registered=false`, `approved=false`, `execution_allowed=false` 그대로 확인했습니다.
-- review FAIL인 manifest-integrity task와 기존 `lab-discovery-f20488dee5507d82a85c0bfd824c0090`는 서로 task-local WAITING_EXTERNAL이고 retry 근거가 없습니다. 둘 다 다른 task 선택을 막지 않습니다.
-- `lab-paper-execution-contract-v1`은 별도 BLOCKED입니다. legacy attempt에 integrated SHA가 없고 archived source/test hashes가 canonical main과 다르며, 기존 운영 문서가 새 reviewer 형식으로 소급 완료하지 못하게 합니다. 현재 독립 reviewer를 배정해도 original identity를 충족하지 못하므로 자동 재시도하지 않습니다.
+- provisional resource cap: receipt 이외 artifact 최대 128개, receipt 포함 전체 256 MiB, 파일당 32 MiB, 64 KiB streaming chunk. 프로세스 자원 보호용 가역 기술 상한이며 투자·데이터 수용 기준이 아닙니다.
+- 현재 expanded-universe artifact는 offline validator SHA와 source bytes는 일치하지만 executed collector source hash가 null이라 이를 v1 receipt에 매핑해도 `bound`가 될 수 없습니다. 8개 readiness gate는 계속 BLOCKED입니다. Trusted producer identity와 안정적·원자적 publication 경로가 준비돼야만 실제 scheduler event 결속을 별도 scope 검토할 수 있습니다.
+- held-band `FINAL_VALIDATION`/OOS는 승인된 preregistration과 적격 미래 자료까지 task-local BLOCKED/PENDING입니다. 미정 값은 null, `registered=false`, `approved=false`, `execution_allowed=false`를 유지합니다.
+- roadmap priority 4의 static prospective mandate audit는 이미 끝났습니다. 재등록·자료 수집·평가에는 승인, 적격 자료 및 미사용 evaluation window가 필요합니다. 이번 조사에서 다음 READY registry task는 확인되지 않았습니다.
+- `roadmap-r2-02-manifest-integrity-guard-v1`은 reviewer FAIL과 `WAITING_EXTERNAL`을 그대로 유지합니다. actionable finding 또는 해당 task retry 근거가 없으므로 재검토를 재요청하지 않았습니다. `lab-discovery-f20488dee5507d82a85c0bfd824c0090` 및 legacy `lab-paper-execution-contract-v1`의 기존 task-local blockers도 그대로입니다.
 
-## 운영 상태와 다음 단계
+## 운영·다음 시작
 
-- roadmap queue는 기록 반영 뒤 재개했습니다. 최신 status는 READY/RUNNING 0, DONE 164, BLOCKED 9, FAILED 15, WAITING_EXTERNAL 2, discovery terminal `no_work`입니다. generic research queue는 기존 paused로 READY/RUNNING 0, DONE 35, BLOCKED 7, FAILED 3입니다. timer active, service inactive입니다.
-- latest-main planner는 proposal 없는 waiting을 남겼습니다. 뒤이어 network-disabled bounded discovery가 7개 allowlisted domain의 정확한 canonical source/test 14개 hash를 남기고 `no_work`로 terminal 처리했습니다. 확인 domain/대안과 evidence path는 [개발 기록](../development-records/2026-09-27-roadmap-r2-02-manifest-integrity-guard.md)에 있습니다. 같은 입력으로 다시 호출하지 않습니다.
-- discovery resume condition은 현재 기준 HEAD에서 잘못된 동작을 보이는 최소 offline 재현을 얻는 것입니다: dividend 의미 불일치 수락, uncertain 주문/취소 응답 뒤 중복 호출, 또는 미확인 날짜 이후의 잘못된 calendar session 중 하나를 허용된 source/test 쌍에서 보여야 합니다. 단순 시간 경과나 미래 자료 부재는 재개 조건이 아닙니다.
-- 실제 비용·유료 자료·credential·투자 기준 승인·실계좌 작업·remote push는 없었습니다. 다음 시작은 runner read-only status와 task registry를 확인하는 것입니다. 새로운 재현 또는 source/test·mandate·task-state 변경 전에는 같은 discovery를 반복 호출하지 않습니다.
+- 같은 terminal `no_work` discovery를 반복하지 않았고, queue/timer/service 상태도 이 task에서 바꾸지 않았습니다. 이전 handoff에 기록된 roadmap queue `READY/RUNNING 0`, timer active, service inactive 및 generic queue paused가 마지막 관측값이며 새 read-only runtime 조회는 수행하지 않았습니다.
+- 다음 concrete action: artifact/producer publication identity가 바뀌었는지 신규 증거로 확인될 때 offline receipt를 재검증합니다. trusted/atomic receipt path 이전에는 scheduler wiring을 하지 않습니다. 그 외에는 등록부에서 새 independently READY task가 생겼을 때 기존 worktree·review 절차로 선택합니다. 동일 no-work 탐색을 다시 호출하지 않습니다.
+- 실제 비용, 유료 자료, 필수 credential, mandate·투자 기준 변경, PAPER/live 또는 주문 작업은 수행하지 않았습니다. remote push도 없습니다.
+
+다음 세션은 이 handoff와 `docs/worktree-tasks.md`를 읽고 `git status --short`, `git worktree list`, 최신 local main을 확인한 뒤 첫 concrete action을 선택합니다.
