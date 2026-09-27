@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -32,6 +33,129 @@ def observation(**overrides: object) -> dict[str, object]:
     }
     value.update(overrides)
     return value
+
+
+def _provisional_stage(
+    *,
+    event_at: str = "2030-01-02T00:01:00Z",
+    sealed_at: str | None = "2030-01-02T00:03:00Z",
+    result_opened_at: str = "2030-01-02T00:04:00Z",
+    analyst_first_access_at: str | None = None,
+) -> dict[str, object]:
+    """Build a test-only chronology example, not an OOS acceptance contract."""
+    freeze_at = "2030-01-01T00:00:00Z"
+    event = observation(
+        observation_id="staged-oos",
+        event_at=event_at,
+        received_at="2030-01-02T00:02:00Z",
+        read_started_at="2030-01-02T00:01:59Z",
+        read_finished_at="2030-01-02T00:02:01Z",
+    )
+    manifest = {
+        "fixture_only": True,
+        "freeze_at": freeze_at,
+        "sealed_at": sealed_at,
+        "observation": {
+            "source_id": event["source_id"],
+            "observation_id": event["observation_id"],
+            "event_at": event["event_at"],
+            "received_at": event["received_at"],
+            "read_finished_at": event["read_finished_at"],
+            "raw_sha256": hashlib.sha256(str(event["raw"]).encode("utf-8")).hexdigest(),
+        },
+    }
+    manifest_bytes = json.dumps(
+        manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    stage: dict[str, object] = {
+        "freeze_at": freeze_at,
+        "window_start_at": "2030-01-02T00:00:00Z",
+        "window_end_at": "2030-01-03T00:00:00Z",
+        "observation": event,
+        "manifest": manifest,
+        "sealed_manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+        "result_opened_at": result_opened_at,
+        "analyst_first_access_at": analyst_first_access_at or result_opened_at,
+    }
+    return stage
+
+
+def _provisional_stage_ready(stage: dict[str, object]) -> bool:
+    """Check this reversible test choreography, not a production OOS gate."""
+
+    def utc(value: object) -> datetime | None:
+        if not isinstance(value, str):
+            return None
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo is not None else None
+
+    row_value = stage.get("observation")
+    manifest_value = stage.get("manifest")
+    if not isinstance(row_value, dict) or not isinstance(manifest_value, dict):
+        return False
+    row = row_value
+    manifest = manifest_value
+    manifest_row_value = manifest.get("observation")
+    if not isinstance(manifest_row_value, dict):
+        return False
+    manifest_row = manifest_row_value
+    freeze_at = utc(stage.get("freeze_at"))
+    event_at = utc(row.get("event_at"))
+    received_at = utc(row.get("received_at"))
+    read_finished_at = utc(row.get("read_finished_at"))
+    sealed_at = utc(manifest.get("sealed_at"))
+    opened_at = utc(stage.get("result_opened_at"))
+    analyst_access_at = utc(stage.get("analyst_first_access_at"))
+    if not all(
+        value is not None
+        for value in (
+            freeze_at,
+            event_at,
+            received_at,
+            read_finished_at,
+            sealed_at,
+            opened_at,
+            analyst_access_at,
+        )
+    ):
+        return False
+    assert freeze_at and event_at and received_at and read_finished_at
+    assert sealed_at and opened_at and analyst_access_at
+    if not (
+        freeze_at < event_at <= received_at <= read_finished_at
+        and read_finished_at < sealed_at < opened_at <= analyst_access_at
+    ):
+        return False
+    try:
+        manifest_bytes = json.dumps(
+            manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        return False
+    if hashlib.sha256(manifest_bytes).hexdigest() != stage.get(
+        "sealed_manifest_sha256"
+    ):
+        return False
+    raw = row.get("raw")
+    if (
+        not isinstance(raw, str)
+        or manifest_row.get("raw_sha256")
+        != hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    ):
+        return False
+    return all(
+        manifest_row.get(field) == row.get(field)
+        for field in (
+            "source_id",
+            "observation_id",
+            "event_at",
+            "received_at",
+            "read_finished_at",
+        )
+    )
 
 
 def test_window_boundaries_and_plus_nine() -> None:
@@ -487,3 +611,61 @@ def test_cli_is_deterministic_and_refuses_malformed_oversize_and_alias(
         str(tmp_path / "large-out.json"),
     ]
     assert subprocess.run(large_command, env=env).returncode != 0
+
+
+def test_provisional_staged_chronology_keeps_replay_non_accepted() -> None:
+    # This is a reversible synthetic fixture assumption, not preregistration,
+    # real access isolation, data qualification, or an OOS acceptance rule.
+    stage = _provisional_stage()
+    assert _provisional_stage_ready(stage)
+    row = stage["observation"]
+    assert isinstance(row, dict)
+    result = replay(
+        {
+            "synthetic": True,
+            "window_start_at": stage["window_start_at"],
+            "window_end_at": stage["window_end_at"],
+            "checked_at": row["read_finished_at"],
+            "observations": [row],
+        }
+    )
+    replayed = result.observations[0]
+    assert replayed.classifications == ["in_window"]
+    assert replayed.evidence_counts["available_receipts"] == 1
+    assert replayed.receipts[0].available_at_check is True
+    assert result.synthetic is True
+    assert result.registered is False
+    assert result.accepted_nav is False
+    assert result.evaluation_inputs_complete is False
+
+    late = _provisional_stage(event_at="2029-12-31T23:59:00Z")
+    assert not _provisional_stage_ready(late)
+    late_row = late["observation"]
+    assert isinstance(late_row, dict)
+    late_result = replay(
+        {
+            "synthetic": True,
+            "window_start_at": late["window_start_at"],
+            "window_end_at": late["window_end_at"],
+            "checked_at": late_row["read_finished_at"],
+            "observations": [late_row],
+        }
+    )
+    assert "late_arrival" in late_result.observations[0].classifications
+
+    missing_seal_hash = _provisional_stage()
+    del missing_seal_hash["sealed_manifest_sha256"]
+    mutated_after_seal = _provisional_stage()
+    sealed_manifest = mutated_after_seal["manifest"]
+    assert isinstance(sealed_manifest, dict)
+    sealed_observation = sealed_manifest["observation"]
+    assert isinstance(sealed_observation, dict)
+    sealed_observation["event_at"] = "2030-01-02T00:01:01Z"
+    invalid_stages = [
+        _provisional_stage(analyst_first_access_at="2029-12-31T23:59:00Z"),
+        _provisional_stage(sealed_at=None),
+        missing_seal_hash,
+        _provisional_stage(result_opened_at="2030-01-02T00:02:30Z"),
+        mutated_after_seal,
+    ]
+    assert all(not _provisional_stage_ready(invalid) for invalid in invalid_stages)
