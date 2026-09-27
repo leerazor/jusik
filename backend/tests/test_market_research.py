@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import sqlite3
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -470,7 +472,12 @@ def test_store_artifact_and_terminal_run_are_immutable(tmp_path: Path) -> None:
         )
         == artifact.artifact_id
     )
-    assert store.get_artifact(artifact.artifact_id)[0] == artifact.decoded_content
+    assert store.get_artifact(artifact.artifact_id) == (
+        artifact.decoded_content,
+        artifact.content_type,
+    )
+    with pytest.raises(KeyError):
+        store.get_artifact("f" * 64)
     store.save_snapshot(snapshot)
     loaded = store.get_snapshot(snapshot.input_hash)
     assert loaded.source_artifacts[0].decoded_content == artifact.decoded_content
@@ -485,6 +492,48 @@ def test_store_artifact_and_terminal_run_are_immutable(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError):
         store.update_run(run.id, status="failed", error="overwrite")
+
+
+def test_corrupted_artifact_is_rejected_by_store_and_download_api(
+    tmp_path: Path,
+) -> None:
+    content = b"original fixture artifact"
+    corrupted_content = b"corrupted fixture artifact"
+    artifact_id = hashlib.sha256(content).hexdigest()
+    store_path = tmp_path / "corrupted-artifact.db"
+    store = MarketHistoryStore(store_path)
+    assert (
+        store.save_artifact(
+            content,
+            content_type="application/octet-stream",
+            captured_at=datetime(2024, 3, 15, tzinfo=UTC),
+        )
+        == artifact_id
+    )
+    with sqlite3.connect(store_path) as connection:
+        connection.execute(
+            "UPDATE pit_artifacts SET content = ? WHERE content_sha256 = ?",
+            (corrupted_content, artifact_id),
+        )
+
+    with pytest.raises(
+        ValueError, match="stored market artifact failed SHA-256 verification"
+    ) as error:
+        store.get_artifact(artifact_id)
+    assert corrupted_content.decode() not in str(error.value)
+    assert artifact_id not in str(error.value)
+
+    api_app = FastAPI()
+    api_app.include_router(market_research_router)
+    api_app.state.market_research_service = MarketResearchService(
+        FixtureMarketHistorySource(), store
+    )
+    with TestClient(api_app, raise_server_exceptions=False) as client:
+        response = client.get(f"/api/research/market/artifacts/{artifact_id}")
+    assert response.status_code == 500
+    assert response.content != corrupted_content
+    assert corrupted_content not in response.content
+    assert artifact_id.encode() not in response.content
 
 
 @pytest.mark.parametrize("changed_field", ["source_artifact", "captured_at"])

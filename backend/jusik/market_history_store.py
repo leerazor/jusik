@@ -284,7 +284,10 @@ class MarketHistoryStore:
             ).fetchone()
         if row is None:
             raise KeyError(artifact_id)
-        return bytes(row["content"]), str(row["content_type"])
+        content = bytes(row["content"])
+        if hashlib.sha256(content).hexdigest() != artifact_id:
+            raise ValueError("stored market artifact failed SHA-256 verification")
+        return content, str(row["content_type"])
 
     def create_run(
         self, request: MarketResearchRequest, *, run_id: str | None = None
