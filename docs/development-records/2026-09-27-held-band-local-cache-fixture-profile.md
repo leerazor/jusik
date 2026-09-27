@@ -9,7 +9,7 @@
 ## 변경과 결정
 
 - [결정 준비 문서](../research/portfolio-held-band-decision-preparation-v1.md)에 기존 cache의 coverage 분모, 종목별 bar 결손, orphan bar, 중복·수치 품질, action/FX 시각 및 manifest 무결성 결과를 기록했습니다.
-- 전체 expected 27,472는 diagnostics의 101개 고유 심볼×272세션과 일치하지만 completion marker는 `sample_size=100`입니다. 제외 25개 심볼의 expected 6,800을 분리하면 포함 universe 20,672 중 20,306 bars가 있으며 실제 membership bar 결손은 366개(LIME 221, MDA 145)입니다. 별도의 98 PTN bars에는 membership row가 없어 임의 join하지 않습니다. 과거 기록도 101 diagnostics 행을 적었지만 marker 차이의 원인은 설명하지 않아 unresolved로 남겼습니다.
+- 전체 expected 27,472는 diagnostics의 101개 고유 심볼×272세션과 일치합니다. 후속 offline replay는 `sample_size=100`이 checkpoint별 선택 cap이고 두 checkpoint 간 cumulative unique symbol union이 101개인 원인을 재현했으며, 자세한 hash 비교와 runtime-code caveat는 [identity 재현 기록](2026-09-27-held-band-sample-size-identity-reconcile.md)에 있습니다. 원본 result가 실행한 exact code SHA는 여전히 기록되지 않았습니다. 제외 25개 심볼의 expected 6,800을 분리하면 포함 universe 20,672 중 20,306 bars가 있으며 실제 membership bar 결손은 366개(LIME 221, MDA 145)입니다. 별도의 98 PTN bars에는 membership row가 없어 임의 join하지 않습니다.
 - 중복 membership/bar key, 잘못된 OHLC, 결측 수치, 음수 volume은 0입니다. 272 FX행은 중복 없이 날짜/시각이 parse 가능하지만 timestamp는 정확한 공개시점이 아닙니다. 121 corporate-action행 모두 `observed_at`이 없습니다.
 - Alpha Vantage listing receipt는 2026-09-22 수집, 25개 요청 중 24개 일치·1개 미일치였고 receipt의 `observed_at`은 시각이 아닌 “provider publication timestamp unavailable” 문구입니다. 역사 날짜를 나중에 조회한 자료로, 동시대 관측 증거로 해석하지 않습니다.
 - collector의 `available_at`은 membership의 checkpoint session close, Yahoo bar의 market session close, FRED vintage date 다음 날 자정 convention으로 생성됩니다. 기술적 causal guard 및 fixture 메타데이터로는 확인 가능하지만 provider publication/revision PIT를 입증하지 않습니다.

@@ -2,16 +2,16 @@
 
 ## portfolio-held-band-sample-size-identity-reconcile
 
-- 상태: 검증 (offline request identity 재현; runtime code SHA caveat)
+- 상태: 완료 (offline request identity 재현; runtime code SHA caveat)
 - 목표·완료 조건: 기존 immutable US cache/result/completed marker와 저장된 request descriptor 및 과거 audit을 대조해 `sample_size=100`과 diagnostics 101 unique symbols 차이를 설명할 수 있는 근거가 있는지 확인합니다. 원인을 입증하지 못하면 unresolved로 남깁니다. 심볼을 임의 포함·제외·join하거나 성과/OOS 판단으로 확장하지 않습니다.
 - 담당·소유: supervisor가 범위·증거·문서 통합을 책임지는 단일 소유 오프라인 감사입니다. mandate와 agent 역할·orchestration은 그대로 둡니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-sample-size-identity-reconcile`
 - 작업 브랜치: `docs/portfolio-held-band-sample-size-identity-reconcile`
 - 기준 커밋 SHA: `8a95adae1fafebb30609b4188eab81052aaa3ee4` (이번 등록 전 local main의 검증된 product integration).
-- 통합 대상 브랜치: local `main`.
+- 통합 대상 브랜치: local `main`; 문서 산출물을 `b573b1963abe16959e36290dac177bebfd38343d`로 fast-forward 통합했습니다.
 - 입력: `20260922-us-vintage-collection-100` immutable result, completed marker, manifest/raw identities; `docs/development-records/2026-09-22-fred-historical-vintage.md`; `docs/development-records/2026-09-24-r1-05-request-descriptor.md`. mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`.
 - provisional assumption: 기존 파일은 offline request/output identity 대조에만 사용합니다. raw request 안의 URL·credential 등 민감값은 출력·기록하지 않고, 허용된 비밀 없는 field와 hash만 확인합니다. 증거가 모자라면 unknown 상태를 유지합니다.
-- 수정 허용 범위: held-band 결정 준비 문서, 이 task의 development record/handoff와 등록부, private task audit 산출물만. 원본 result/cache/raw receipt, mandate, v2 draft, 제품 코드/test, runner 상태, 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
+- 수정 허용 범위: held-band 결정 준비 문서, 이 task의 development record/handoff와 등록부, 선행 `local-cache-fixture-profile` 기록의 교차참조 정정, private task audit 산출물만. 원본 result/cache/raw receipt, mandate, v2 draft, 제품 코드/test, runner 상태, 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
 - 포트·테스트 DB·출력 경로: network/API/broker/service/DB 미사용. 재현 audit은 `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-sample-size-identity-reconcile` 아래에 원본과 분리해 저장합니다.
 - 검증·중지 조건: 원본 SHA/size, marker-result binding, sample selection metadata, diagnostics identities, request descriptor, 과거 감사 사이에 재현 가능한 연결이 있어야 합니다. 연결 불가 또는 입력 hash 변화 시 unresolved로 종료합니다. 성과·OOS·source acceptance를 수행하지 않습니다.
 - 실제 blocked task: 새 API receipt 수집은 provider 사용권 및 credential 조건 전까지 보류합니다. FINAL_VALIDATION/OOS는 적격·미노출 미래자료와 승인된 preregistration freeze 전까지 별도 pending입니다.
@@ -19,8 +19,7 @@
 - 검증: replay 2회 결정성·set equality 통과, private script Ruff check/format 통과, 입력 및 marker/result hashes 확인. 제품 코드는 수정하지 않았습니다.
 - 개발 기록: `docs/development-records/2026-09-27-held-band-sample-size-identity-reconcile.md`.
 - Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
-- 개발 기록: `docs/development-records/2026-09-27-held-band-sample-size-identity-reconcile.md`.
-- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+- 종료: clean worktree 제거 후 source branch를 보존합니다. 사용자 루트 `HANDOFF.md`는 수정하지 않았습니다.
 
 ## portfolio-held-band-local-cache-fixture-profile
 
@@ -37,7 +36,7 @@
 - 포트·테스트 DB·출력 경로: network/API/broker/service/DB 미사용. audit/profile 산출물은 task worktree 외부의 private task audit 하위에 별도로 저장하고 원본 cache와 분리합니다.
 - 검증·중지 조건: manifest/result와 raw receipt identity/hash, 표본·기간·결손·duplicates·action/FX timestamp 요약을 서로 대조합니다. audit 원본·해시가 바뀌었거나 파서가 재현되지 않으면 해당 필드를 unknown으로 두고 중지합니다. 성과·OOS·candidate selection은 실행하지 않습니다.
 - 실제 blocked task: 새로운 API receipt 수집은 Alpha/FRED key 부재 및 provider 사용 경계로 수행하지 않습니다. 최종 validation/OOS는 적격·미노출 미래자료와 승인된 preregistration freeze까지 별도 pending입니다.
-- 결과: diagnostics 101 unique symbols×272 sessions가 marker의 27,472 expected와 일치하지만 marker `sample_size=100`과의 원인은 미해결입니다. 25개 제외를 분리한 실제 member-bar 결손은 366개이며 별도 98 PTN bars는 membership identity가 없어 join하지 않습니다. action 121행 모두 `observed_at`이 없고 collector-derived `available_at`은 provider publication PIT가 아닙니다. profile `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-local-cache-profile/profile.json`, SHA-256 `495e363ebd37fdc7bcbe7f82974df76219b8b995cfed77061adc0aa323723e8e`.
+- 결과: 후속 offline audit에서 marker `sample_size=100`은 listing checkpoint별 선택 cap이며 diagnostics는 checkpoint 전체의 누적 집합임을 재현했습니다. checkpoint마다 100개, 두 번째 checkpoint에서 99개 유지+1개 신규, 누적101개 set이 diagnostics와 일치합니다. exact runtime code SHA는 여전히 미결속입니다([재현 기록](development-records/2026-09-27-held-band-sample-size-identity-reconcile.md)). 25개 제외를 분리한 실제 member-bar 결손은 366개이며 별도 98 PTN bars는 membership identity가 없어 join하지 않습니다. action 121행 모두 `observed_at`이 없고 collector-derived `available_at`은 provider publication PIT가 아닙니다. profile `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-local-cache-profile/profile.json`, SHA-256 `495e363ebd37fdc7bcbe7f82974df76219b8b995cfed77061adc0aa323723e8e`.
 - 검증: raw manifest content hash·completed result hash 대조, mandate SHA, v2 unresolved 20 null/non-execution invariant, relative links 및 `git diff --check` 통과. 문서-only라 pytest/Ruff/typecheck는 실행하지 않았습니다. 실제 API·성과/OOS·source acceptance 없음.
 - 종료: clean worktree를 제거했고 source branch는 보존했습니다. 결과는 local `main`에 통합했습니다. 사용자 루트 `HANDOFF.md`는 미수정입니다.
 - 개발 기록: `docs/development-records/2026-09-27-held-band-local-cache-fixture-profile.md`.

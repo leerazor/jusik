@@ -1,9 +1,9 @@
 # Held-band cache 표본 수와 identity 재현
 
 - 상태: 완료 (집계 메커니즘 재현; 원본 결과의 실행 code SHA 미결속)
-- 기록 시각: 2026-09-27T06:19:49Z
+- 기록 시각: 2026-09-27T06:25:15Z
 - 작업 slug: `portfolio-held-band-sample-size-identity-reconcile`
-- 기준/통합: `d9ba7a18a5de056253a350968f02f73e04240e9b` / 통합 제품 문서 SHA는 작업 등록부에 기록
+- 기준/통합: `d9ba7a18a5de056253a350968f02f73e04240e9b` / `b573b1963abe16959e36290dac177bebfd38343d`
 - 범위: 기존 US approximate cache에서 `sample_size=100`과 diagnostics 101 identities 차이를 오프라인으로 재구성했습니다. 원본 result/cache/receipt, mandate, v2 초안, collector/test와 운영 상태는 수정하지 않았습니다.
 
 ## 변경과 결정
@@ -18,6 +18,7 @@
 ## 문서·계약 영향
 
 - 사용자 문서: held-band 결정 준비 문서에 재현 결과, provisional 해석과 runtime provenance 한계를 추가했습니다.
+- 기존 cache profile 기록: 새 replay 결과 링크를 추가해 101-row cause가 아직 unresolved라는 과거 표현을 교정했습니다. 등록된 범위의 교차참조 정정입니다.
 - 운영 문서: task 등록부와 기존 project handoff를 결과·다음 시작점에 맞춰 갱신했습니다.
 - API·설정·데이터 계약: 변경 없음. `sample_size` 의미는 기존 코드·mandate를 읽어 재현했으며 formal criteria는 동결하지 않았습니다.
 
@@ -35,6 +36,7 @@
 
 - 기존 immutable result/cache와 two Alpha payload만 읽었습니다. manifest/result/raw hashes를 보존했습니다. endpoint, raw symbols, request values, credentials는 audit profile에 쓰지 않았습니다.
 - Network/API/broker, account/key, 구매·비용, DB/cache write, PAPER/live, 주문, remote push는 없었습니다.
+- clean task worktree는 제거하고 작업 branch는 보존합니다. 사용자 루트 `HANDOFF.md`는 수정하거나 stage하지 않았습니다.
 - `FINAL_VALIDATION`/OOS만 승인된 preregistration freeze, eligible unexposed future data, PIT/data-contract checks 전까지 별도 `PENDING/BLOCKED`입니다.
 
 ## 증거와 재개
