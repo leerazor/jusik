@@ -2,7 +2,7 @@
 
 ## market-artifact-read-hash-binding
 
-- 상태: 진행 (독립 구현 worktree 준비 완료; 단일 담당 배정 중)
+- 상태: 진행 (독립 구현 담당 배정 완료)
 - 목표·완료 조건: `MarketHistoryStore.get_artifact(artifact_id)`가 DB에서 읽은 bytes의 SHA-256이 lookup key와 다르면 민감 정보 없이 fail closed하도록 합니다. 정상 bytes/content type과 absent-key `KeyError`를 보존하고, corrupted body가 HTTP download API의 성공 응답으로 전달되지 않는지 fixture 기반 regression으로 확인합니다. 자동 복구·DB 변경·과거 KRX export/OOS 복원은 하지 않습니다.
 - 담당·소유: planner의 read-only defect 재현 완료. 중앙 `role.code_small`에 따라 단일 구현 소유자를 배정하고, 별도 `review`와 supervisor 통합을 둡니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-market-artifact-read-hash-binding`
