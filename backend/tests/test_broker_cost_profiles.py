@@ -1,5 +1,6 @@
 import hashlib
 import json
+from dataclasses import replace
 from decimal import Decimal
 from itertools import permutations
 
@@ -36,6 +37,19 @@ def test_bankis_paper_contract_is_hash_bound_and_history_safe() -> None:
     assert len(contract.profile_hash) == 64
     assert tuple(profile.market for profile in contract.profiles) == ("KRX", "US")
     assert contract.applies_to_frozen_history is False
+
+
+def test_paper_contract_manifest_rejects_profile_for_frozen_history() -> None:
+    contract = build_bankis_paper_cost_contract(("KRX", "US"))
+    unsafe_profile = replace(contract.profiles[0], applies_to_frozen_history=True)
+    unsafe_contract = replace(
+        contract, profiles=(unsafe_profile, *contract.profiles[1:])
+    )
+
+    with pytest.raises(
+        ValueError, match="paper_cost_contract_frozen_history_forbidden"
+    ):
+        unsafe_contract.manifest()
 
 
 @pytest.mark.parametrize("markets", [(), ("KRX", "KRX"), ("US", "KRX", "US")])
