@@ -516,7 +516,7 @@ READY 수, 대기 사유와 다음 허용 재시각을 구분한다. stage가 �
 | 1b | 새 roadmap 코드 산출물의 별도 완료 reviewer 연결 | `lab-roadmap-completion-review`: main `6739c63`·통합 338개 검사·독립 review PASS. 명시적인 v2 소유 계약만 host review 재사용; legacy 승인·보고 전용/금융 연구의 완료 계약은 자동 변경하지 않음. 실제 운영은 연결된 RUNTIME에서 별도 확인 |
 | 2a | 구현 완료 reviewer의 알려진 호출 장애를 영속 기한 재시도 | `lab-review-transport-retry`: 제품 `010e274` 독립 review PASS, main `3814b6f`·집중 242개 검사·Ruff·strict mypy PASS. 새로운 opt-in 이력만 적용하며 과거 실패를 재분류하지 않음. [기록](development-records/2026-09-26-review-transport-recovery.md) |
 | 2b | 연구 scope reviewer의 알려진 호출 장애 복구 | `lab-scope-review-transport-retry`: 제품 `7ab122d`, 독립 재검토·main `ee99764`·집중 282개 검사·Ruff·strict mypy PASS. 24시간 TTL·정확한 HEAD·승인 근거·구버전 격리 유지. [기록](development-records/2026-09-26-lab-scope-review-transport-retry.md); 실제 provider 장애 재시도와 투자 검증은 별개 |
-| 3 | no_work의 검사 파일/hash와 검증된 외부 readiness 변경 결속 | source/test slice: 최소 두 allowlisted domain의 정확한 경로 쌍·SHA-256을 host가 terminal 저장 직전 검증하고 기존 response SHA에 결속. 외부 readiness 변경 결속은 검증된 producer/validator 계약이 없어 PENDING. 같은 자료 무한 재분석 금지 |
+| 3 | no_work의 검사 파일/hash와 검증된 외부 readiness 변경 결속 | source/test slice는 main `cf5d78d`에 통합했고 [개발 기록](development-records/2026-09-27-lab-no-work-inspection-evidence.md)에 검증을 남김. 최소 두 allowlisted domain의 정확한 경로 쌍·SHA-256을 host가 terminal 저장 직전 검증하고 기존 response SHA에 결속. 외부 readiness 결속은 검증된 producer/validator 계약이 없어 PENDING. 같은 자료 무한 재분석 금지 |
 | 4 | 현재 prospective 사전등록의 새 mandate 호환성 audit | 정적 차이 점검 완료. legacy 계약을 새 mandate 승인으로 해석하지 않으며 실제 재등록·수집·검증은 남음. [성능 sprint 기록](development-records/2026-09-26-performance-sprint.md), 평가 창 종료 전 OOS 실행 금지 |
 | 5 | 자료·회계 gate가 충족된 bounded 후보 비교·반증 | 조건부 연구. 지금 수익성 검증 완료로 표시하지 않음 |
 
