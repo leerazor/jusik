@@ -472,10 +472,27 @@ def test_store_artifact_and_terminal_run_are_immutable(tmp_path: Path) -> None:
         )
         == artifact.artifact_id
     )
+    assert (
+        store.save_artifact(
+            artifact.decoded_content,
+            content_type="text/plain",
+            captured_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
+        == artifact.artifact_id
+    )
     assert store.get_artifact(artifact.artifact_id) == (
         artifact.decoded_content,
         artifact.content_type,
     )
+    with store._connect() as connection:
+        saved_metadata = connection.execute(
+            "SELECT content_type, captured_at FROM pit_artifacts "
+            "WHERE content_sha256 = ?",
+            (artifact.artifact_id,),
+        ).fetchone()
+    assert saved_metadata is not None
+    assert saved_metadata["content_type"] == artifact.content_type
+    assert saved_metadata["captured_at"] == artifact.captured_at.isoformat()
     with pytest.raises(KeyError):
         store.get_artifact("f" * 64)
     store.save_snapshot(snapshot)
@@ -492,6 +509,70 @@ def test_store_artifact_and_terminal_run_are_immutable(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError):
         store.update_run(run.id, status="failed", error="overwrite")
+
+
+def test_conflicting_artifact_write_fails_without_overwrite_or_calculation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = FixtureMarketHistorySource()
+    item = request()
+    snapshot = asyncio.run(source.collect(item))
+    artifact = snapshot.source_artifacts[0]
+    corrupted_content = b"pre-existing corrupted artifact"
+    store = MarketHistoryStore(tmp_path / "artifact-conflict.db")
+    with sqlite3.connect(store.path) as connection:
+        connection.execute(
+            "INSERT INTO pit_artifacts "
+            "(content_sha256, content, content_type, captured_at) "
+            "VALUES (?, ?, ?, ?)",
+            (
+                artifact.artifact_id,
+                corrupted_content,
+                artifact.content_type,
+                artifact.captured_at.isoformat(),
+            ),
+        )
+
+    with pytest.raises(
+        ValueError, match="stored market artifact conflicts with requested content"
+    ) as error:
+        store.save_artifact(
+            artifact.decoded_content,
+            content_type="text/plain",
+            captured_at=datetime(2020, 1, 1, tzinfo=UTC),
+        )
+    assert artifact.decoded_content.decode() not in str(error.value)
+    assert artifact.artifact_id not in str(error.value)
+    with sqlite3.connect(store.path) as connection:
+        saved_content = connection.execute(
+            "SELECT content FROM pit_artifacts WHERE content_sha256 = ?",
+            (artifact.artifact_id,),
+        ).fetchone()[0]
+    assert saved_content == corrupted_content
+
+    async def collect_snapshot(
+        _request: MarketResearchRequest,
+    ) -> MarketHistorySnapshot:
+        return snapshot
+
+    monkeypatch.setattr(source, "collect", collect_snapshot)
+    calculation_calls: list[str] = []
+
+    def unexpected_calculation(*args: object, **kwargs: object) -> None:
+        calculation_calls.append("called")
+
+    monkeypatch.setattr(
+        "jusik.market_research_service.run_market_research",
+        unexpected_calculation,
+    )
+    monkeypatch.setattr(
+        "jusik.market_research_service.run_approximate_market_research",
+        unexpected_calculation,
+    )
+    service = MarketResearchService(source, store)
+    with pytest.raises(RuntimeError, match="market research run failed"):
+        asyncio.run(service.create_run(item))
+    assert calculation_calls == []
 
 
 def test_corrupted_artifact_is_rejected_by_store_and_download_api(

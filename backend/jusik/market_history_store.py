@@ -273,6 +273,22 @@ class MarketHistoryStore:
                 """,
                 (digest, content, content_type, captured_at.isoformat()),
             )
+            row = connection.execute(
+                "SELECT content FROM pit_artifacts WHERE content_sha256 = ?",
+                (digest,),
+            ).fetchone()
+            if row is None:
+                raise ValueError(
+                    "stored market artifact conflicts with requested content"
+                )
+            stored_content = bytes(row["content"])
+            if (
+                stored_content != content
+                or hashlib.sha256(stored_content).hexdigest() != digest
+            ):
+                raise ValueError(
+                    "stored market artifact conflicts with requested content"
+                )
         return digest
 
     def get_artifact(self, artifact_id: str) -> tuple[bytes, str]:
