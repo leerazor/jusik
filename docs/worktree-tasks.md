@@ -2,7 +2,7 @@
 
 ## portfolio-held-band-krx-source-evidence
 
-- 상태: 준비 (공식 문서 기반 source 후보 비교)
+- 상태: 진행 (공식 문서 기반 source 후보 비교)
 - 목표·완료 조건: KRX 공식 문서에서 일별 주식 시계열, date-specific historical universe 근거, 보유 이력, 자료 시점·revision, API 이용 승인/credential, 공개·비상업 사용 조건을 조사합니다. KRX가 KR scope일 때 맡을 수 있는 역할과 Alpha Vantage/현재 fixture 대안의 영향을 권고합니다. 최종 market/source/data acceptance를 고정하지 않습니다.
 - 담당·소유: supervisor가 공개 공식 문서를 읽고 decision prep에 통합하는 단일 소유 조사입니다. mandate 및 agent 역할/orchestration은 변경하지 않습니다.
 - 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-krx-source-evidence`
