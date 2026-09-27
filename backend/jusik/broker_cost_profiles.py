@@ -45,7 +45,7 @@ class PaperCostContract:
             profile.applies_to_frozen_history for profile in self.profiles
         ):
             raise ValueError("paper_cost_contract_frozen_history_forbidden")
-        return {
+        manifest: dict[str, object] = {
             "schema_version": "paper-cost-contract-v1",
             "contract_id": self.contract_id,
             "profile_hash": self.profile_hash,
@@ -64,6 +64,8 @@ class PaperCostContract:
                 for profile in self.profiles
             ],
         }
+        validate_paper_cost_contract_manifest(manifest)
+        return manifest
 
 
 def _validate_profile(profile: BrokerCostProfile) -> None:
@@ -233,6 +235,8 @@ def validate_paper_cost_contract_manifest(
             canonical.account_scope,
         ):
             raise ValueError("paper_cost_contract_profile_identity_mismatch")
+        if profile != canonical:
+            raise ValueError("paper_cost_contract_hash_mismatch")
     if contract.profile_hash != expected.profile_hash:
         raise ValueError("paper_cost_contract_hash_mismatch")
     if contract.contract_id != expected.contract_id:

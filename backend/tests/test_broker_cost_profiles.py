@@ -62,6 +62,71 @@ def test_paper_contract_manifest_rejects_contract_for_frozen_history() -> None:
         replace(contract, applies_to_frozen_history=True).manifest()
 
 
+@pytest.mark.parametrize(
+    ("field", "error"),
+    [
+        ("online_fee_rate", "hash_mismatch"),
+        ("source_urls", "hash_mismatch"),
+        ("broker", "profile_identity_mismatch"),
+    ],
+)
+def test_paper_contract_manifest_rejects_changed_profile(
+    field: str, error: str
+) -> None:
+    contract = build_bankis_paper_cost_contract(("KRX", "US"))
+    profile = contract.profiles[0]
+    if field == "online_fee_rate":
+        changed_profile = replace(profile, online_fee_rate=Decimal("0.01"))
+    elif field == "source_urls":
+        changed_profile = replace(profile, source_urls=("https://example.com/changed",))
+    else:
+        changed_profile = replace(profile, broker="another broker")
+    changed_contract = replace(
+        contract, profiles=(changed_profile, *contract.profiles[1:])
+    )
+
+    with pytest.raises(ValueError, match=f"^paper_cost_contract_{error}$"):
+        changed_contract.manifest()
+
+
+@pytest.mark.parametrize(
+    ("field", "error"),
+    [
+        ("profile_hash", "hash_mismatch"),
+        ("contract_id", "id_mismatch"),
+    ],
+)
+def test_paper_contract_manifest_rejects_changed_identity(
+    field: str, error: str
+) -> None:
+    contract = build_bankis_paper_cost_contract(("KRX", "US"))
+    changed_contract = (
+        replace(contract, profile_hash="0" * 64)
+        if field == "profile_hash"
+        else replace(contract, contract_id="kis-bankis-online-paper-v1:wrong")
+    )
+
+    with pytest.raises(ValueError, match=f"^paper_cost_contract_{error}$"):
+        changed_contract.manifest()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("online_fee_rate", "0.01"),
+        ("source_urls", ["https://example.com/changed"]),
+    ],
+)
+def test_saved_manifest_rejects_changed_profile_with_original_hash(
+    field: str, value: object
+) -> None:
+    manifest = build_bankis_paper_cost_contract(("KRX", "US")).manifest()
+    manifest["profiles"][0][field] = value  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="^paper_cost_contract_hash_mismatch$"):
+        validate_paper_cost_contract_manifest(manifest)
+
+
 @pytest.mark.parametrize("markets", [(), ("KRX", "KRX"), ("US", "KRX", "US")])
 def test_bankis_paper_contract_rejects_empty_or_duplicate_markets(
     markets: tuple[BrokerMarket, ...],
