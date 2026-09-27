@@ -1,5 +1,22 @@
 # 워크트리 작업 등록부
 
+## lab-discovery-dividend-accrual-replay-3d5d5526
+
+- 상태: 완료 (`ENGINEERING_COMPLETE/NOT_EVALUATED`; 별도 scope PASS와 완료 reviewer PASS)
+- 목표·완료 조건: dividend accrual의 중복 replay가 기존 accrual record hash만 검사해 보유 receivable의 수량·주당액·effective/payment 시각이 달라져도 replayed로 반환하던 결함을 막습니다. 동일 action의 의미가 바뀌면 원상태를 보존하고 거부하며, 정확히 같은 replay와 payment 경로는 보존합니다.
+- 선택 근거: 최신 main fingerprint의 bounded discovery가 `market_history_action_accounting`에서 source/test 쌍 안에 재현 가능한 회계 replay 결함을 냈습니다. 별도 scope review는 불일치 입력과 기존 payment semantic check를 확인하고 두 파일만으로 수정할 수 있다고 PASS했습니다. 앞선 `market_performance_metrics` 제안은 고정 evaluator SHA 정책 변경이 필요해 거절됐고 enqueue하지 않았습니다.
+- 담당·소유: runner의 단일 engineering implementation attempt `203f3dc32fb54680b970171ef5b06f33`; 독립 host review attempt `dc7061cabeb44637a5b9a05b035a9d12` PASS, finding 0.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-lab-discovery-dividend-accrual-replay-3d5d5526` (통합 후 정리)
+- 작업 브랜치: `fix/lab-discovery-dividend-accrual-replay-3d5d5526` (결과 commit과 함께 보존)
+- 기준 커밋 SHA / 결과·통합 SHA: `23a4da93616e71390150d946b956caf30b8ce1d9` / `16e30ca6c59ce908aa82e7701c25e828e27053ae` (`main` fast-forward)
+- 수정 허용 범위: `backend/jusik/market_history_action_accounting.py`, `backend/tests/test_market_history_action_accounting.py`만. mandate·투자 정책·자료 허용 등급·사전등록·runner policy 및 queue 설정은 변경하지 않았습니다.
+- provisional technical assumption: accrual replay의 의미 일치 조건은 기존 payment 경로의 receivable/action 비교와 동일하게 재사용합니다. 이는 기존 accounting 코드 계약을 재사용하는 가역적 기술 가정이며 투자 승인·수익 합격 기준을 정의하지 않습니다.
+- 결과·검증: main focused pytest 39 passed, changed-file Ruff/format, 두 파일 strict mypy, `git diff --check` 통과. 독립 reviewer는 구현 attempt·baseline·main·소유 파일 hash에 결속된 PASS receipt를 남겼습니다.
+- 비용·운영: fixture/오프라인 코드만 사용했습니다. market/provider 수집·API·credential·구매·운영 DB·PAPER/live·주문·remote push 없음. `origin/main`은 read-only fetch로 확인했습니다.
+- 남은 차단: 이 bounded code task의 차단은 없습니다. 외부 readiness producer/validator identity 결속은 계약 부재로 PENDING이고, held-band FINAL_VALIDATION/OOS는 승인된 preregistration과 적격 미래 자료까지 task-local BLOCKED/PENDING입니다.
+- 개발 기록: `docs/development-records/2026-09-27-lab-discovery-dividend-accrual-replay.md`.
+- Handoff: `docs/handoffs/2026-09-27-project-ready-work.md`.
+
 ## lab-no-work-inspection-evidence-v1
 
 - 상태: 완료 (bounded source/test receipt slice 구현·검증·독립 review·local main 통합 완료; 외부 readiness binding은 별도 PENDING)
