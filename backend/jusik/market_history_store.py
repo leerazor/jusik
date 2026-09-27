@@ -255,7 +255,10 @@ class MarketHistoryStore:
             ).fetchone()
         if row is None:
             raise KeyError(input_hash)
-        return MarketHistorySnapshot.model_validate(json.loads(row["body"]))
+        snapshot = MarketHistorySnapshot.model_validate(json.loads(row["body"]))
+        if snapshot.input_hash != input_hash:
+            raise ValueError("snapshot input hash does not match requested key")
+        return snapshot
 
     def save_artifact(
         self, content: bytes, *, content_type: str, captured_at: datetime

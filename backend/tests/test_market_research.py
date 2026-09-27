@@ -487,6 +487,51 @@ def test_store_artifact_and_terminal_run_are_immutable(tmp_path: Path) -> None:
         store.update_run(run.id, status="failed", error="overwrite")
 
 
+@pytest.mark.parametrize("changed_field", ["source_artifact", "captured_at"])
+def test_store_rejects_snapshot_body_under_different_hash(
+    tmp_path: Path, changed_field: str
+) -> None:
+    snapshot = asyncio.run(FixtureMarketHistorySource().collect(request()))
+    store = MarketHistoryStore(tmp_path / f"{changed_field}.db")
+    store.save_snapshot(snapshot)
+
+    changed_data = snapshot.model_dump()
+    if changed_field == "source_artifact":
+        artifact = snapshot.source_artifacts[0]
+        changed_data["source_artifacts"] = (
+            RawArtifact.from_bytes(
+                b"changed fixture artifact",
+                content_type=artifact.content_type,
+                captured_at=artifact.captured_at,
+                source=artifact.source,
+            ),
+        )
+    else:
+        changed_data["captured_at"] = snapshot.captured_at.replace(
+            second=(snapshot.captured_at.second + 1) % 60
+        )
+    changed_snapshot = MarketHistorySnapshot.model_validate(changed_data)
+    assert changed_snapshot.input_hash != snapshot.input_hash
+
+    with store._connect() as connection:
+        connection.execute(
+            "UPDATE pit_snapshots SET body = ? WHERE input_hash = ?",
+            (changed_snapshot.model_dump_json(), snapshot.input_hash),
+        )
+
+    with pytest.raises(
+        ValueError, match="snapshot input hash does not match requested key"
+    ):
+        store.get_snapshot(snapshot.input_hash)
+
+
+def test_store_missing_snapshot_preserves_key_error(tmp_path: Path) -> None:
+    store = MarketHistoryStore(tmp_path / "missing.db")
+
+    with pytest.raises(KeyError, match="missing-snapshot"):
+        store.get_snapshot("missing-snapshot")
+
+
 def test_snapshot_rejects_duplicate_bars_and_actions() -> None:
     source = FixtureMarketHistorySource()
     item = request()
