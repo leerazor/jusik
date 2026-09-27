@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import tracemalloc
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 import pytest
 
+from jusik import development_runner_readiness as readiness
 from jusik.development_runner_readiness import (
     ReadinessBinding,
     ReadinessExpectations,
@@ -500,4 +502,126 @@ def test_nonfinite_criteria_json_fails_closed(audit: Audit) -> None:
     audit.reports.pop("request")
     audit.raw["request"] = body
     audit.publish()
+    assert audit.bind().status == "invalid"
+
+
+@pytest.mark.parametrize("value", [None, "relative", 1, [], {}])
+def test_bad_root_types_fail_closed(audit: Audit, value: object) -> None:
+    assert (
+        bind_external_readiness(
+            artifact_root=cast(Path, value),
+            artifact_paths=audit.paths,
+            expected=audit.expected,
+        ).status
+        == "invalid"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        "path",
+        1,
+        [],
+        [("receipt", "receipt.json")],
+        {"receipt": None},
+        {None: "receipt.json"},
+        {"receipt": Path("receipt.json")},
+        {"receipt": []},
+    ],
+)
+def test_bad_mapping_types_fail_closed(audit: Audit, value: object) -> None:
+    assert (
+        bind_external_readiness(
+            artifact_root=audit.root,
+            artifact_paths=cast(dict[str, str], value),
+            expected=audit.expected,
+        ).status
+        == "invalid"
+    )
+
+
+def test_bad_expectation_type_fails_closed(audit: Audit) -> None:
+    assert (
+        bind_external_readiness(
+            artifact_root=audit.root,
+            artifact_paths=audit.paths,
+            expected=cast(ReadinessExpectations, None),
+        ).status
+        == "invalid"
+    )
+
+
+def test_artifact_count_cap_boundary(
+    audit: Audit, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    count = len(audit.raw)
+    monkeypatch.setattr(readiness, "_MAX_ARTIFACTS", count)
+    assert audit.bind().status == "bound"
+    monkeypatch.setattr(readiness, "_MAX_ARTIFACTS", count - 1)
+    assert audit.bind().status == "invalid"
+
+
+def test_declared_count_cap_even_when_mapping_is_smaller(
+    audit: Audit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    count = len(audit.raw)
+    receipt = dict(audit.reports["receipt"])
+    hashes = dict(cast(dict[str, str], receipt["artifact_sha256"]))
+    hashes["content:extra"] = "c" * 64
+    receipt["artifact_sha256"] = hashes
+    body = _encode(receipt)
+    (audit.root / audit.paths["receipt"]).write_bytes(body)
+    audit.expected = audit.expected.model_copy(update={"receipt_sha256": _sha(body)})
+    monkeypatch.setattr(readiness, "_MAX_ARTIFACTS", count)
+    assert audit.bind().status == "invalid"
+
+
+def test_aggregate_bytes_cap_includes_receipt(
+    audit: Audit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    total = sum((audit.root / path).stat().st_size for path in audit.paths.values())
+    monkeypatch.setattr(readiness, "_MAX_TOTAL_BYTES", total)
+    assert audit.bind().status == "bound"
+    monkeypatch.setattr(readiness, "_MAX_TOTAL_BYTES", total - 1)
+    assert audit.bind().status == "invalid"
+
+
+def test_individual_file_cap_preserved(
+    audit: Audit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    largest = max((audit.root / path).stat().st_size for path in audit.paths.values())
+    monkeypatch.setattr(readiness, "_MAX_BYTES", largest)
+    assert audit.bind().status == "bound"
+    monkeypatch.setattr(readiness, "_MAX_BYTES", largest - 1)
+    assert audit.bind().status == "invalid"
+
+
+def test_raw_payload_streaming_has_bounded_peak_memory(audit: Audit) -> None:
+    audit.raw["content:prices"] = b"x" * (8 * 1024 * 1024)
+    contents = cast(list[dict[str, str]], audit.reports["result"]["contents"])
+    contents[0]["sha256"] = _sha(audit.raw["content:prices"])
+    audit.publish()
+    tracemalloc.start()
+    try:
+        binding = audit.bind()
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert binding.status == "bound"
+    assert peak < 2 * 1024 * 1024
+
+
+def test_aggregate_limit_dominates_missing_producer_hash(
+    audit: Audit,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audit.reports["provenance"]["executed_collector_source_hash"] = None
+    audit.publish()
+    total = sum((audit.root / path).stat().st_size for path in audit.paths.values())
+    monkeypatch.setattr(readiness, "_MAX_TOTAL_BYTES", total - 1)
     assert audit.bind().status == "invalid"

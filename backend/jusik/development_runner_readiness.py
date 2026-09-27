@@ -34,6 +34,11 @@ Identifier = Annotated[str, Field(min_length=1, max_length=200, pattern=r"\S")]
 GateStatus = Literal["BLOCKED", "PENDING", "PASS", "FAIL", "NOT_EVALUATED"]
 _REPORTS = frozenset({"request", "result", "validation", "provenance"})
 _MAX_BYTES = 32 * 1024 * 1024
+# Provisional offline resource bounds, not data-acceptance or readiness policy.
+# Count excludes receipt; aggregate bytes include receipt and every artifact.
+_MAX_ARTIFACTS = 128
+_MAX_TOTAL_BYTES = 256 * 1024 * 1024
+_READ_CHUNK_BYTES = 64 * 1024
 
 
 def _text(value: str) -> str:
@@ -200,6 +205,7 @@ class _ArtifactReader:
         if not root.is_absolute() or ".." in root.parts:
             raise ValueError("artifact root must be absolute")
         self._stack = stack
+        self._total_bytes = 0
         self._root_fd = self._directory("/", None)
         for part in root.parts[1:]:
             self._root_fd = self._directory(part, self._root_fd)
@@ -213,7 +219,7 @@ class _ArtifactReader:
         self._stack.callback(os.close, descriptor)
         return descriptor
 
-    def read(self, path: str) -> bytes:
+    def read(self, path: str, *, retain_body: bool) -> tuple[bytes, str]:
         parts = _parts(path)
         parent = self._root_fd
         for part in parts[:-1]:
@@ -227,15 +233,33 @@ class _ArtifactReader:
             before = os.fstat(stream.fileno())
             if not stat.S_ISREG(before.st_mode) or before.st_size > _MAX_BYTES:
                 raise ValueError("artifact must be a bounded regular file")
-            body = stream.read(_MAX_BYTES + 1)
+            if self._total_bytes + before.st_size > _MAX_TOTAL_BYTES:
+                raise ValueError("aggregate artifact bytes exceeded")
+            digest = hashlib.sha256()
+            body = bytearray()
+            size = 0
+            while chunk := stream.read(
+                min(
+                    _READ_CHUNK_BYTES,
+                    _MAX_BYTES - size + 1,
+                    _MAX_TOTAL_BYTES - self._total_bytes + 1,
+                )
+            ):
+                size += len(chunk)
+                self._total_bytes += len(chunk)
+                if size > _MAX_BYTES or self._total_bytes > _MAX_TOTAL_BYTES:
+                    raise ValueError("artifact byte limit exceeded")
+                digest.update(chunk)
+                if retain_body:
+                    body.extend(chunk)
             after = os.fstat(stream.fileno())
-            if len(body) > _MAX_BYTES or (
+            if size != before.st_size or (
                 before.st_size,
                 before.st_mtime_ns,
                 before.st_ctime_ns,
             ) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
                 raise ValueError("artifact changed during read")
-            return body
+            return bytes(body), digest.hexdigest()
 
 
 def _context(value: ReceiptContext) -> tuple[str, str, str]:
@@ -257,6 +281,18 @@ def bind_external_readiness(
     pins do not establish trust. No file is written and no provider is called.
     """
     try:
+        if (
+            not isinstance(artifact_root, Path)
+            or not isinstance(artifact_paths, Mapping)
+            or not isinstance(expected, ReadinessExpectations)
+        ):
+            raise ValueError("invalid caller input type")
+        if len(artifact_paths) > _MAX_ARTIFACTS + 1:
+            raise ValueError("artifact count exceeded")
+        for name, path in artifact_paths.items():
+            if not isinstance(name, str) or not isinstance(path, str):
+                raise ValueError("invalid artifact mapping type")
+            _parts(path)
         # Revalidate even instances made with model_construct/model_copy.
         pins = ReadinessExpectations.model_validate(expected.model_dump())
         paths = dict(artifact_paths)
@@ -264,11 +300,12 @@ def bind_external_readiness(
             raise ValueError("aliased artifact paths")
         with ExitStack() as stack:
             reader = _ArtifactReader(artifact_root, stack)
-            receipt_body = reader.read(paths["receipt"])
-            receipt_hash = hashlib.sha256(receipt_body).hexdigest()
+            receipt_body, receipt_hash = reader.read(paths["receipt"], retain_body=True)
             if receipt_hash != pins.receipt_sha256:
                 raise ValueError("receipt hash mismatch")
             receipt = ExternalReadinessReceipt.model_validate(_json(receipt_body))
+            if len(receipt.artifact_sha256) > _MAX_ARTIFACTS:
+                raise ValueError("declared artifact count exceeded")
             if set(paths) != {"receipt", *receipt.artifact_sha256}:
                 raise ValueError("artifact mapping mismatch")
             if not _REPORTS.issubset(receipt.artifact_sha256):
@@ -276,11 +313,11 @@ def bind_external_readiness(
             bodies = {}
             hashes = {"receipt": receipt_hash}
             for name, expected_hash in receipt.artifact_sha256.items():
-                body = reader.read(paths[name])
-                actual = hashlib.sha256(body).hexdigest()
+                body, actual = reader.read(paths[name], retain_body=name in _REPORTS)
                 if actual != expected_hash:
                     raise ValueError("artifact hash mismatch")
-                bodies[name] = body
+                if name in _REPORTS:
+                    bodies[name] = body
                 hashes[name] = actual
         request = _Request.model_validate(_json(bodies["request"]))
         result = _Result.model_validate(_json(bodies["result"]))
