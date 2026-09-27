@@ -1,5 +1,23 @@
 # 워크트리 작업 등록부
 
+## portfolio-held-band-massive-source-evidence
+
+- 상태: 진행 (공개 공식 문서 조사 중; 적격 자료 판정·수집 아님)
+- 목표·완료 조건: Massive US 주식 자료를 새 출처 후보로 평가하고 현재 자료 출처 권고에 반영합니다. 가격·기업행동·과거 ticker/universe·available-at/PIT 의미, 요금제·사용권, 결측/coverage 확인 가능 범위, 대안·영향, provisional 적용 가능 범위와 사용자 승인/credential/비용 의존성을 기록합니다. 후보를 최종 source로 승인하거나 기준을 동결하지 않습니다.
+- 담당·소유: supervisor가 무료 공식 문서 조사와 문서 통합을 단일 소유합니다. 기존 mandate와 agent 역할·orchestration을 변경하지 않습니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-massive-source-evidence`
+- 작업 브랜치: `docs/portfolio-held-band-massive-source-evidence`
+- 기준 커밋 SHA: `b9c8cdc7c673b680c6e583cf6c762ca817216d6d` (등록부 선행 커밋).
+- 통합 대상 브랜치: local `main`.
+- 입력: `docs/research/portfolio-held-band-decision-preparation-v1.md`, mandate SHA-256 `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1`, provider official docs/pricing/legal pages.
+- provisional assumption: Massive 공식 공개 문서에 보이는 interface·plan semantics는 조사와 schema/fixture 설계 참고로만 사용합니다. 현재·과거 reference 상태가 역사적 관측 시점의 완전한 membership, 당시 공개 시각, 수정 이력, 엄격 PIT를 증명한다고 가정하지 않습니다. 실제 data call·API key·상업적 사용권·유료 플랜은 가정하지 않습니다. source 원문 조건 또는 적격 manifest의 독립 검증에서 미확인 필드가 해소되면 재평가합니다.
+- 수정 허용 범위: `docs/research/portfolio-held-band-decision-preparation-v1.md`만. mandate, v2 초안/JSON, v1 archive, 코드·테스트·runner/서비스·DB·data cache 및 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
+- 포트·테스트 DB·출력 경로: 문서 전용, 로컬/OFFLINE. API 요청·계정 생성·credential 접근·자료 다운로드·유료 구매는 하지 않습니다.
+- 검증·중지 조건: 문서의 권고/근거/대안/가역 범위/승인/해제 조건과 공식 출처 링크를 대조하고 `git diff --check`, mandate SHA, v2 null/비실행 불변식을 확인합니다. 새 출처 사용이 구매·credential·법적 이용 범위 결정에 의존하면 그 자료 접근만 보류하며 문서 조사와 오프라인 개발은 계속합니다.
+- 실제 blocked task: 실제 Massive API 자료 확인은 API credential과 사용 목적에 맞는 권한이 없어 미실행. 최종 source allowlist·data acceptance·PIT/OOS 자격과 정식 preregistration freeze는 사용자 결정/승인 전 보류합니다.
+- 개발 기록: `docs/development-records/2026-09-27-held-band-massive-source-evidence.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+
 ## portfolio-held-band-oos-chronology-fixture
 
 - 상태: 완료 (오프라인 합성 회귀 fixture 통합; OOS qualification 아님)
