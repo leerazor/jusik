@@ -1,28 +1,32 @@
 # Held-band 결정 준비 handoff
 
-- Updated: 2026-09-27T06:46:06Z
+- Updated: 2026-09-27T07:14:40Z
 - Workspace: `/home/kwl/projects/jusik`
-- Branch / verified source-evidence integration: `main` / `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903`
-- 상태: held-band v2 결정 준비는 계속 진행 중입니다. KRX 공식 출처 후보 검토를 완료·통합했고, 다음 독립 runnable은 기존 approximate KRX cache의 오프라인 fixture profile입니다. mandate와 기존 agent/orchestration은 변경하지 않았습니다.
+- Current main: `4319a7f797216811deac0ac846d57b2a64944665` (작업 등록부 갱신 전)
+- 상태: KRX 공식 출처 조사와 prepared fixture 프로파일을 통합했습니다. 다음 runnable은 snapshot 저장소의 read-side hash binding guard입니다. 투자 mandate·agent 역할·orchestration·사전등록 조건은 변경하지 않았습니다.
 
-## 완료한 KRX 출처 검토
+## 완료된 근거
 
-- [결정 준비 문서](../research/portfolio-held-band-decision-preparation-v1.md)와 [KRX source evidence 개발 기록](../development-records/2026-09-27-held-band-krx-source-evidence.md)에 공식 서비스 범위·승인 절차·이용약관·historical PIT 한계를 기록했습니다.
-- KRX 공식 catalog는 KOSPI/KOSDAQ 일별매매 및 종목기본정보를 2010-01-04부터 제공한다고 표시합니다. KR 주식 scope를 나중에 선택할 경우 KRX는 첫 일별 가격 후보입니다. 공개 문서만으로는 당시 전체 eligible universe, listing/delisting 이력, 발표·수신 시각, correction history, strict PIT 완전성을 입증하지 못합니다.
-- API key와 API별 관리자 승인이 필요합니다. 약관은 비상업 사용, 제3자 제공 금지, key당 일 10,000회 한도와 정확성·완결성·연속 제공 비보장을 명시합니다. 구매 상품은 별도 비용·목적 심사를 거칩니다. 사용자 자격과 현재 credential 상태는 이 조사에서 확인하지 않았습니다.
-- 기존 KRX smoke는 2025-09-11 응답 960 universe행 중 무거래 31행을 제외해 929 bars로 정규화했고, 2025-09-11~2026-09-11 수집을 완료했습니다. Approximate pilot은 `insufficient`였고 성과 지표를 만들지 않았습니다. 기존 cache는 fixture/debug only이며 성과·OOS·후보/실거래 승인 근거가 아닙니다. 상세 기록은 [KRX smoke](../development-records/2026-09-19-r6-krx-smoke.md)를 봅니다.
-- 독립 read-only review PASS. `git diff --check`, local link 확인, mandate SHA, v2 unresolved 20 null과 비실행 상태를 통합 main에서 확인했습니다. 제품 코드가 없어 pytest/Ruff/mypy는 실행하지 않았습니다.
+- [결정 준비 문서](../research/portfolio-held-band-decision-preparation-v1.md)는 미정 항목별 권고·근거·대안 영향·provisional 사용범위·승인 경계를 유지합니다. KR 주식 scope가 나중에 선택될 경우 KRX Open API는 일별 가격의 첫 공식 조사 후보입니다. 카탈로그의 과거 제공 기간은 역사적 전체 eligible universe, 당시 관측·수정 시각, strict PIT 및 생존편향 통제를 증명하지 않습니다. API별 관리자 승인·사용 목적 적격성·credential 확인이 필요하고 유료 상품은 실제 비용 승인 전 구매하지 않습니다.
+- 기존 KRX prepared fixture의 14,446 universe/bar rows, 194 observed sessions, 94 symbols를 오프라인 프로파일링했습니다. 현재 저장소 calendar 기준 요청기간의 246 sessions 중 174개만 있으며, 72개가 prepared file에 없습니다. 관측범위 내부 calendar gap·중복·일방 membership/bar key·수치 오류는 발견되지 않았습니다. raw manifest와 serialized snapshot이 없어 raw cache integrity와 historical run-to-file binding은 미입증입니다. `available_at`은 collector가 current calendar close로 모델링한 시각이고 provider published/observed time이 아닙니다.
+- 보존 run은 `insufficient`, `incomplete`, `readiness.ready=false`, `final_promotable=false`, metric/trade/equity 0입니다. cache는 exposed approximate fixture/debug/pipeline regression 용도만 허용하며 성과, OOS, PIT/data acceptance, 후보·실거래 승인 근거로 사용하지 않습니다. 상세 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-krx-cache-fixture-profile/`.
+- mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1` 유지. v2 unresolved fields 20개는 null이고 `registered=false`, `approved=false`, `execution_allowed=false`입니다.
 
-## 미정·차단 조건
+## 남은 결정과 개별 차단
 
-- Provisional: 기존 KRX 자료는 오프라인 pipeline/fixture 품질 점검에만 사용할 수 있습니다. 공개 endpoint metadata는 조사 및 source-agnostic schema 질문에만 반영합니다. 최종 시장·자료등급·source·합격기준은 동결하지 않았습니다.
-- 신규 KRX API 수집은 공개 문서 조사 범위를 벗어납니다. API별 승인, 사용 목적 적합성, credential을 확인해야 합니다. 현재 key 유무는 검사하지 않았습니다. 유료 data/service는 실제 지출 승인 전 구매하지 않습니다.
-- `FINAL_VALIDATION`/OOS만 승인된 preregistration freeze 뒤 적격하고 미노출된 미래 자료가 확보될 때까지 `PENDING/BLOCKED`입니다. v2 unresolved fields 20개는 `null`, `registered=false`, `approved=false`, `execution_allowed=false`로 유지됩니다.
-- 최종 data acceptance·신규 투자 기준·시장/source 확정·preregistration freeze/실행은 사용자 승인 대상입니다. 현재 오프라인 fixture 작업은 이 결정들에 의존하지 않습니다.
+- 최종 데이터 허용·투자 합격 기준·시장/universe·최종 source·정식 preregistration freeze는 사용자 승인이 필요합니다. 기술적 provisional 기본값은 해당 기준을 동결하지 않습니다.
+- `FINAL_VALIDATION`/OOS만 사용자 승인 freeze와 그 뒤 확보한 적격·미노출 미래자료가 생길 때까지 `PENDING/BLOCKED`입니다.
+- 새 KRX API 수집에는 API별 관리자 승인, 이용 목적 적격성, 필수 credential 확인이 필요합니다. 현재 credential 상태는 확인하지 않았습니다. 유료 데이터 구매는 지출 승인 전 하지 않습니다.
+- 위 항목은 별도 코드 작업을 막지 않습니다. planner가 발견·재현한 `market_history_store.get_snapshot()`의 lookup-key/body canonical hash 불일치는 synthetic fixture와 temporary test DB로 수정·검증할 수 있습니다.
 
-## 다음 실행과 운영 상태
+## 바로 이어서 할 작업
 
-- 등록한 `portfolio-held-band-krx-cache-fixture-profile`에서 `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r6-krx-smoke`를 원본 변경·외부 호출 없이 읽고, 기간별 membership/bar coverage·누락·orphan·duplicates·수치 품질·action/timestamp·manifest integrity를 프로파일링합니다. 산출물은 `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-krx-cache-fixture-profile`에 둡니다. 지표 성과 계산은 하지 않습니다.
-- 최신 확인 상태: roadmap runner `paused=true`, service `inactive`, timer `active`; 기존 queue에는 READY task가 없고 BLOCKED task는 개별 상태로 남아 있습니다. manual offline profile은 독립 실행 가능합니다.
-- KRX source branch `docs/portfolio-held-band-krx-source-evidence`는 보존했고 clean worktree를 제거했습니다. 사용자 작성 루트 `HANDOFF.md`는 수정하지 않았습니다.
-- 재개 prompt: “이 handoff와 활성 `portfolio-held-band-krx-cache-fixture-profile` 등록을 읽고, 작업 worktree 상태와 원본 audit hash를 확인한 뒤 오프라인·읽기 전용 profile을 실행하라. 성과·OOS 판단과 source 수집은 하지 말라.”
+- 등록 task: `market-snapshot-read-hash-binding`. 기준 저장소 `docs/worktree-tasks.md`를 읽고, 독립 worktree `/home/kwl/projects/jusik-market-snapshot-read-hash-binding`과 `fix/market-snapshot-read-hash-binding`에서 단일 `code_small` 구현 담당자를 배정합니다.
+- 범위는 `backend/jusik/market_history_store.py`의 `get_snapshot()` read-side identity guard와 `backend/tests/test_market_research.py`의 mismatch/roundtrip/absent-key regression tests입니다. 잘못 결속된 과거 KRX export의 복원, migration, market/data acceptance는 범위 밖입니다.
+- 구현 후 별도 review, focused pytest, Ruff, configured strict mypy, 통합 main 검증, development record와 이 handoff 갱신을 수행합니다. 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
+
+## 운영 상태
+
+- 실제 development-runner queue는 `paused=true`입니다. 추적 문서 통합 중 service/timer를 일시 정지했고 둘 다 현재 `inactive`입니다. 저장소 작업을 마친 뒤 기존 timer `active` 상태를 복구하되 queue pause는 유지합니다.
+- KRX profile worktree는 clean fast-forward 후 제거했고 branch `docs/portfolio-held-band-krx-cache-fixture-profile`와 commit 이력은 보존했습니다.
+- root `HANDOFF.md`는 사용자 소유 미추적 파일로 유지하며 읽기·수정·stage하지 않았습니다. remote push, network/API/data collection, purchase, DB/broker/order/PAPER/live 실행은 없습니다.

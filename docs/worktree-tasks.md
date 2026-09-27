@@ -2,20 +2,36 @@
 
 ## portfolio-held-band-krx-cache-fixture-profile
 
-- 상태: 진행 (기존 로컬 KRX cache read-only fixture profile)
-- 목표·완료 조건: 기존 2026-09-19 KRX smoke의 prepared `kr-pilot.json`과 `run.json`만 읽어 daily membership/bar coverage, 누락·orphan·중복, 거래 불가 행, 수치 품질, corporate-action/observed timestamp를 오프라인 프로파일링합니다. prepared file SHA와 run input hash binding을 확인하고 재현 가능한 private audit과 개발 기록으로 fixture 사용 범위를 남깁니다. 보존된 audit 폴더에는 raw cache manifest/completed marker가 없으므로 raw cache integrity는 주장하지 않습니다. 성과·OOS·strict PIT·source acceptance 판단은 하지 않습니다.
-- 담당·소유: supervisor 단일 소유의 read-only offline audit입니다. 기존 mandate, agent 역할/orchestration은 바꾸지 않습니다.
-- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-krx-cache-fixture-profile`
-- 작업 브랜치: `docs/portfolio-held-band-krx-cache-fixture-profile`
-- 기준 커밋 SHA: `91def6a33a36cbcc4d665ccf5bdcfb0da5902b89` (등록 포함; pre-registration local main `4cc8c26352b3d3f9a17fd7874c88dfefaddc9903`)
-- 통합 대상 브랜치: local `main`.
-- 입력: `/home/kwl/.local/share/jusik/portfolio-audit/20260919-r6-krx-smoke/kr-pilot.json` prepared KRX rows와 `run.json`, 그리고 `docs/development-records/2026-09-19-r6-krx-smoke.md`. 해당 audit 폴더에는 이 두 파일만 있고 raw cache manifest/completed marker는 없습니다. mandate SHA `22efba4714bc0baf65c56bdfd84dcdee91184a760a13d4d30c5a94486c264ab1` 및 v2 비실행 조건을 유지합니다.
-- provisional assumption: 과거 KRX 수집 결과는 디버깅·pipeline·회귀 fixture로만 읽습니다. 노출되었고 PIT·membership·기업행사 시점이 미검증이므로 성과·OOS·후보 승격·실거래 근거로 사용하지 않습니다.
-- 수정 허용 범위: held-band decision prep, 이 task development record/handoff, task registry, 새 private offline audit/script만. 원본 cache·receipt·raw files, mandate, v1/v2 registration, product code/test, credential, runner settings, 사용자 루트 `HANDOFF.md`는 수정하지 않습니다.
-- 포트·테스트 DB·출력 경로: 외부 네트워크/API, DB, broker, service, purchase 미사용. 산출물은 `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-krx-cache-fixture-profile` 아래 원본과 분리해 둡니다.
-- 검증·중지 조건: source result/manifest/completed marker 및 file hashes를 대조하고 결과를 2회 생성해 결정성을 확인합니다. missing/inconsistent input은 unknown 또는 해당 profile task만 blocked로 남깁니다. 가격 성과 계산과 universe 자동 보정/추정은 금지합니다.
-- 실제 blocked task: `FINAL_VALIDATION`/OOS는 사용자 승인 freeze 이후의 적격·미노출 미래 관측 전까지 `PENDING/BLOCKED`입니다. 새 KRX 수집·API 승인·credential 상태는 이 offline task에 필요하지 않습니다.
+- 상태: 완료 (exposed approximate fixture 프로파일 전용; 데이터·전략 acceptance 아님)
+- 목표·완료 조건: 보존된 prepared `kr-pilot.json`과 `run.json`만 읽어 membership/bar coverage, 중복·일방 키, 수치 품질, action·시간 필드 및 run binding 한계를 재현 가능하게 기록했습니다. 원시 manifest/completed marker와 serialized snapshot이 없어 raw cache integrity와 run-to-file snapshot binding은 입증하지 않았습니다. 성과·OOS·strict PIT·source acceptance 판단은 하지 않았습니다.
+- 담당·소유: supervisor 단일 소유의 read-only offline audit. mandate와 agent 역할/orchestration은 유지했습니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-portfolio-held-band-krx-cache-fixture-profile` (통합 후 clean 제거)
+- 작업 브랜치: `docs/portfolio-held-band-krx-cache-fixture-profile` (보존)
+- 기준/결과 커밋 SHA: `91def6a33a36cbcc4d665ccf5bdcfb0da5902b89` / task commit `d0f92fc`; main metadata를 포함한 merge `4319a7f797216811deac0ac846d57b2a64944665`로 local `main` fast-forward 통합
+- 입력: `kr-pilot.json` SHA `d4448db8d418e45482589a1b39b6d4885992c31a58e2997357d8501b07a46352`, `run.json` SHA `652fa3985d7990143e77800210114d8533ece96a8e3b45e800c2a55f6ab9e64d`; current repository calendar SHA `ba26619a27e066ca32b1aaaf3b7da2b99f0c6658f731a000c5095c057081c1d8`. 원본 audit 폴더에는 JSON 두 개만 있습니다.
+- provisional assumption: 과거 KRX 자료는 pipeline/debug/회귀 fixture에만 사용합니다. 준비 표는 14,446 universe/bar 행, 194 sessions, 94 symbols를 포함하며 run 요청 범위에서 현재 프로젝트 calendar 기준 246 중 174 sessions만 보존합니다. 72개 prepared-file session 부재는 raw provider 누락 판정이 아닙니다. 표본·PIT 적격성·성과 기준으로 해석하지 않습니다.
+- 수정 범위: decision preparation 문서와 이 작업 개발 기록. private audit script/결과는 `/home/kwl/.local/share/jusik/portfolio-audit/20260927-held-band-krx-cache-fixture-profile`에 저장했습니다. 원본·mandate·v1/v2·제품 코드/테스트·credential·사용자 루트 `HANDOFF.md`는 변경하지 않았습니다.
+- 검증: Python 3.13 `py_compile`, private script Ruff check/format, 두 번의 profile byte-identical 재실행, `git diff --check`, 내부 상대 링크, mandate SHA, v2 20 null 및 `registered/approved/execution_allowed=false` 확인 — 통과. 프로파일 SHA `6d7b531d1135d4c5bb87b92998bd39882cceeb3e46bc649e593d8914f53b76e8`; 독립 read-only review PASS. 제품 코드 변경이 없어 pytest/mypy는 실행하지 않았습니다.
+- 남은 제한: run의 canonical snapshot hash를 보존된 file byte hash로 재검증할 수 없습니다. `available_at`은 current calendar close와 같으나 modeled collector time이지 실제 provider observed/published time이 아닙니다. events와 `observed_at`도 보존 표에 없습니다.
+- 실제 blocked task: `FINAL_VALIDATION`/OOS만 승인된 preregistration freeze와 그 뒤의 적격·미노출 미래자료를 기다립니다. 새 KRX API 사용은 API별 관리자 승인·이용 목적·credential 확인에 종속되고, 구매는 지출 승인 전 하지 않습니다.
 - 개발 기록: `docs/development-records/2026-09-27-held-band-krx-cache-fixture-profile.md`.
+- Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
+
+## market-snapshot-read-hash-binding
+
+- 상태: 준비 (다음 runnable; 독립 worktree 시작 예정)
+- 목표·완료 조건: `MarketHistoryStore.get_snapshot(input_hash)`가 row body를 모델로 복원한 뒤 계산된 `snapshot.input_hash`와 requested lookup key가 다른 경우 fail closed하도록 합니다. 정상 roundtrip 및 absent key의 기존 `KeyError`는 보존하고, 정상 schema의 다른 `RawArtifact`/snapshot body가 원래 key 아래 반환되는 경우를 focused regression test로 거부합니다. 과거 KRX prepared export와 run의 binding을 복원하거나 PIT 적격성을 승격하는 작업은 아닙니다.
+- 담당·소유: planner의 read-only gap 확인 완료. 중앙 `role.code_small`에 따라 단일 구현 소유자와 별도 reviewer를 지정하며 supervisor가 등록·통합을 소유합니다.
+- 워크트리 절대 경로: `/home/kwl/projects/jusik-market-snapshot-read-hash-binding` (task 배정 전 생성)
+- 작업 브랜치: `fix/market-snapshot-read-hash-binding` (task 배정 전 생성)
+- 기준 커밋 SHA: 등록 완료 후 기록. 통합 대상은 local `main`.
+- 입력·선행 근거: `backend/jusik/market_history_store.py:get_snapshot`; 정상 save/read roundtrip은 `backend/tests/test_market_research.py`에 있으나 lookup key/body canonical hash mismatch 경우 검증은 없습니다. planner의 SQLite connection stub 조사에서 schema-valid changed artifact를 다른 key 아래 반환해도 수락되는 동작을 재현했습니다.
+- provisional assumption: canonical identity check만 추가하는 reversible storage integrity guard입니다. schema, persisted rows, legacy data, investment criteria, PIT acceptance는 변경하지 않습니다.
+- 수정 허용 범위: `backend/jusik/market_history_store.py`, 해당 focused test, task development record만. supervisor는 이 등록부·handoff를 별도 소유합니다. mandate/v1/v2·historical files·PAPER/live·broker/API/credential·runner config 변경은 범위 밖입니다.
+- 포트·테스트 DB·출력 경로: 독립 worktree의 `tmp_path` 테스트 SQLite만 사용. 외부 API/network, 운영 DB, 주문 및 비용 없음.
+- 검증 기준: 정상 roundtrip, schema-valid body hash mismatch 거부, absent lookup의 `KeyError`를 포함한 focused pytest; 변경 파일 Ruff check/format 및 configured strict mypy; `git diff --check`; 독립 review. mismatch는 자동 repair하지 않고 입력·저장물을 수정하지 않습니다.
+- 차단 의존성: 없음. fixture/test DB만으로 실행 가능합니다. held-band 최종 OOS는 이 task와 독립적으로 PENDING/BLOCKED 유지.
+- 개발 기록: `docs/development-records/2026-09-27-market-snapshot-read-hash-binding.md` (구현 후 작성).
 - Handoff: `docs/handoffs/2026-09-27-held-band-decision-preparation.md`.
 
 ## portfolio-held-band-krx-source-evidence
