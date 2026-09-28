@@ -9,12 +9,12 @@
 
 ## 2026-09-28 trust-boundary brief 준비
 
-- 최신 `main`/`origin/main` 기준 `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0`; 문서 작업은 전용 `/home/kwl/projects/jusik-readiness-trust-boundary` worktree의 `docs/readiness-trust-boundary` branch에서 진행 중입니다. main 통합 SHA는 완료 후 등록합니다.
+- 작업 기준 `main`/`origin/main`은 `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0`로 같았습니다. 전용 branch commit `656f536201d021fcda35535a12b8e2abddfaf6bb`가 local `main` merge commit `cfd3ceb0b649e2b00338a7721b4bef4968d20679`에 통합됐습니다. 원격 push는 하지 않았습니다.
 - [설계 초안](../development-runner-readiness-trust-boundary.md)은 미승인·미적용입니다. 독립 review 뒤 source-hash pin만으로 실제 실행과 receipt SHA를 증명할 수 없고, 최초 trust-root bootstrap 및 오프라인 철회 freshness를 별도 확인해야 한다는 경계를 반영했습니다. 조건부 후보는 독립 reviewer 분리가 확인될 경우의 B안이며, authenticated execution-to-receipt 증거가 없으면 `PENDING`입니다. publisher·trust pin·execution attestation·scheduler/OOS는 구현하지 않았습니다.
 - 결과·사용자 결정 목록: [작업 등록부](../worktree-tasks.md)의 `lab-external-readiness-trust-boundary-decision-brief` 및 [개발 기록](../development-records/2026-09-28-lab-external-readiness-trust-boundary-decision-brief.md).
 - 독립 review 최종 결과: 추가 중대 지적 없음. routing/preflight, `git diff --check`, 변경 문서 링크 확인은 통과했고, 코드 테스트는 문서 전용 변경이라 실행하지 않았습니다. collaboration host가 parent/child JSONL 경로를 노출하지 않아 post-log helper audit은 미실행입니다.
 - 현재 queue 조사: roadmap runner 191 task, queued/running 0, `fixed_engineering_backlog_exhausted`; standard runner 45 task, queued/running 0. 추가 READY는 발견되지 않았으며 동일 discovery를 반복하지 않았습니다. 완료 후 roadmap runner의 원래 `paused=false`와 timer 상태를 복구하고 standard runner는 paused로 유지합니다.
-- 다음: 리뷰된 문서 변경을 local `main`에 통합하고 SHA를 작업 등록부·개발 기록·handoff에 기록합니다. 사용자 결정 전 trust 선택을 적용하지 말고, held-band OOS 및 외부 readiness 결속은 각 task만 `PENDING/BLOCKED`로 유지합니다.
+- 통합된 SHA를 작업 등록부·개발 기록에 반영했습니다. 마무리로 문서 검증과 tracked tree clean을 확인하고 roadmap runner의 기존 `paused=false`를 복구합니다. 사용자 결정 전 trust 선택을 적용하지 말고, held-band OOS 및 외부 readiness 결속은 각 task만 `PENDING/BLOCKED`로 유지합니다.
 
 ## 2026-09-28 후속 producer/validator 조사
 

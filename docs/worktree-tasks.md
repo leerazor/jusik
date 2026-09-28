@@ -41,7 +41,8 @@
 - 사용자 결정: 실행 actor와 신뢰 범위, 독립 hash owner 및 최초 trust-root bootstrap/배포·verifier 갱신 권한, 실행에서 receipt SHA까지 인증할 주체와 v1 bridge 범위, reviewer 분리만으로 충분한지, 철회 freshness 최대 age·rollback 대응, key/hash 철회와 과거 receipt 효력, fail-closed·복구 책임, 추후 scheduler 연결 범위입니다.
 - 수정 범위: `docs/development-runner-readiness-trust-boundary.md`, 이 등록부, `docs/development-runner.md`의 초안 링크, 개발 기록과 handoff. 제품 코드, publisher, external artifact, queue DB/config, data/투자 조건은 변경하지 않습니다.
 - 작업 위치·검증: 전용 문서 worktree `/home/kwl/projects/jusik-readiness-trust-boundary`, branch `docs/readiness-trust-boundary`; 기준 local `main`은 `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0`입니다. 독립 review에서 실행-attestation, 최초 trust-root bootstrap, 철회 freshness 지적을 반영했고 최종 재검토는 추가 중대 지적 없음입니다. routing/preflight, `git diff --check`, 문서 링크 확인이 통과했습니다. 코드 테스트는 해당하지 않습니다.
-- 개발 기록·handoff: [개발 기록](docs/development-records/2026-09-28-lab-external-readiness-trust-boundary-decision-brief.md); [handoff](docs/handoffs/2026-09-28-project-ready-work.md). local main 통합 SHA는 통합 후 기록합니다.
+- 통합: local `main` merge commit `cfd3ceb0b649e2b00338a7721b4bef4968d20679`; 통합 검증은 문서 전용 diff/links/whitespace 기준 통과했습니다.
+- 개발 기록·handoff: [개발 기록](docs/development-records/2026-09-28-lab-external-readiness-trust-boundary-decision-brief.md); [handoff](docs/handoffs/2026-09-28-project-ready-work.md).
 - 다음 시작: 사용자 trust-boundary 결정을 받으면 허용 범위만 새 scope review합니다. 그 전 publisher와 scheduler binding은 PENDING이며 같은 no-work 탐색을 반복하지 않습니다.
 
 ## roadmap-r2-02-manifest-integrity-guard-v1
