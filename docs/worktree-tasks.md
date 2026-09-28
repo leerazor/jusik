@@ -17,6 +17,19 @@
 - 기록·통합: 구현 결과와 main code 통합 SHA는 `d85f424c03936e5c0c90006f996dab8dbbc97e3c`, registry/docs 반영 commit은 `b294d944aa24ba849afd2e3e6af74e4083c1aa14`입니다. 검증 뒤 worktree와 merged branch를 제거했습니다. 개발 기록은 [2026-09-27 기록](development-records/2026-09-27-lab-external-readiness-binding.md), handoff는 [현재 프로젝트 handoff](handoffs/2026-09-28-project-ready-work.md)입니다.
 - 다음 등록 우선순위: §17 priority 4의 정적 mandate 호환성 audit는 완료되어 있습니다. 새 등록·자료 수집·평가 실행에는 아직 사용자 승인 또는 적격 자료/미사용 평가 창이 필요하고 현재 READY task는 확인되지 않았습니다. `roadmap-r2-02-manifest-integrity-guard-v1`의 review FAIL/WAITING_EXTERNAL은 별도 retry 근거가 없으므로 변경하지 않았습니다.
 
+## lab-external-readiness-producer-contract-investigation
+
+- 상태: 오프라인 identity/publication 조사 및 scope review 완료; 실제 producer identity capture와 scheduler 결속은 task-local `PENDING`.
+- 목표·완료 조건: 기존 collector, validator, artifact, consumer 계약을 오프라인으로 대조해 미래 receipt에 필요한 identity·hash와 비어 있는 증거를 특정하고, 승인된 범위에서 지금 구현 가능한 부분과 외부 trust dependency를 분리합니다. 같은 `no_work` discovery는 호출하지 않습니다.
+- 선택 근거와 입력: 직전 `lab-external-readiness-binding-v1`은 strict offline consumer를 구현했지만 actual producer publication은 PENDING으로 남겼습니다. 로컬 audit의 `collect.py`, `offline_validate.py`, `execution-provenance.json`, `validation.json`을 읽기 전용으로 대조했고, roadmap의 R1/R2 미완료 항목과 등록부의 WAITING_EXTERNAL 상태를 확인했습니다.
+- 조사 결과: `collector-current.sha256`은 보관된 현재 collector bytes와 일치하지만 실행 당시 hash 증거가 아니며, provenance의 `executed_collector_source_hash`는 null입니다. 현재 validator SHA는 저장 값과 파일 bytes가 일치하지만 v1 `validator_id` receipt가 없습니다. collector와 validator는 직접 쓰기/append하며 readiness receipt atomic publication은 없습니다. 기존 `publish.py`의 원자 교체는 보고서/seed 파일용입니다. 8개 gate는 모두 BLOCKED입니다.
+- scope/review 결정: publisher 전용 utility는 caller-provided claim을 serialize할 수 있어도 trust anchor를 만들지 못합니다. 기존 consumer 테스트 fixture에 synthetic publisher가 이미 있고 실제 caller·independent pin source가 없어, 현시점 신규 publisher 구현은 효용이 낮아 scope review `FAIL/PENDING`입니다. 신뢰된 실행 주체/source snapshot 및 independent pin 소유자가 확인된 뒤 publisher와 atomic path를 별도 scope review합니다. 기존 artifact의 hash를 소급 복원하거나 포장하지 않습니다.
+- 별도 roadmap 탐색: 새로 재현된 offline defect나 독립 READY 후보가 없습니다. R1 자료/coverage, R2 외부 계약·적격성 항목은 각각 기록된 dependency를 유지합니다. known `WAITING_EXTERNAL` retry 조건도 바뀌지 않았습니다. 같은 no-work 탐색은 반복하지 않습니다.
+- provisional 가정: 새 trust identity, pin owner, source allowlist, data/투자 조건을 가정하거나 동결하지 않았습니다. 기존 v1 resource cap은 오프라인 기술 상한으로만 유지합니다.
+- 승인·외부 의존성: trusted producer 실행 경계와 independent pin 제공 경로를 누가 소유하는지 확정이 필요합니다. 실제 collector 실행, 새 market data, credential, 비용, scheduler 설정, gate 승인, mandate/OOS 변경은 이 조사에 포함하지 않았습니다.
+- 작업 위치·검증: read-only 조사라 별도 구현 worktree는 만들지 않았습니다. baseline local `main`은 `8d3d52298e631c6193257d3d644c3f211ee0e8dd`; 테스트는 실행하지 않았습니다. 근거·별도 scope review는 [2026-09-28 개발 기록](development-records/2026-09-28-lab-external-readiness-producer-contract-investigation.md)에 있습니다.
+- 다음 시작: trusted execution source와 independently pinned identity의 소유자가 확인되면 그 증거와 atomic publication 경로만 대상으로 scope review를 수행합니다. 그 전에는 external readiness binding을 PENDING으로 보존하고 새 no-work 탐색을 반복하지 않습니다.
+
 ## roadmap-r2-02-manifest-integrity-guard-v1
 
 - 상태: `WAITING_EXTERNAL/independent_review_pending`; candidate review verdict `FAIL`, engineering completion 불인정
