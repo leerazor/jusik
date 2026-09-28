@@ -1,5 +1,15 @@
 # 프로젝트 READY 작업 handoff
 
+## 2026-09-28 종료 시점 갱신
+
+- Updated: `2026-09-28T12:54:42Z` (UTC). Workspace `/home/kwl/projects/jusik`, local `main` `7dfc9344cb154d84e511ef8b94ea4820914802f2`, `origin/main` `f39c7b06b93eee5eb74cebbda92c5d8989c526a7`. Local main은 원격보다 1 commit 앞서며, `7dfc934`는 receipt Unicode blank guard 작업 등록 문서만 추가합니다. 이번 handoff 갱신은 미커밋 상태로 둡니다.
+- 현재 대화의 작업은 마감 상태입니다. 신뢰 경계 결정안과 bounded CPU/CUDA fixture 검증은 아래 기존 세션 기록을 참조하세요. mandate·투자 기준·최종 데이터 정책은 변경하거나 동결하지 않았고 OOS/투자 성과를 평가하지 않았습니다.
+- 최신 확인: roadmap runner DB에 queued/running task 0개, discovery는 이전 `stale_identity` 상태입니다. runner service `inactive`, timer `active`; GPU stress/pytest/runner 프로세스는 실행 중이지 않았습니다. 반복 no-work 탐색은 새 registry/source/test/mandate 상태 변화가 생기기 전까지 재실행하지 않습니다.
+- 공개 evidence coverage worktree `/home/kwl/projects/jusik-public-evidence-coverage`의 기존 미커밋 코드를 읽기 전용으로 독립 검토했습니다. 일부 source 선택 시 다른 source 항목에서 `KeyError`가 나는 P2와 새 함수 테스트 부재를 찾았습니다. 변경은 미등록이고 현재 main에는 다른 계약의 구현·테스트가 있어, scope/소유권을 새로 등록하기 전 수정·통합하지 않습니다. 기존 dirty diff는 보존합니다.
+- `/home/kwl/projects/jusik-lab-continuous-engineering-backlog/backend/tests/test_development_runner_recovery.py`는 기존 untracked draft로 보존합니다. 나머지 등록 worktree는 clean입니다. 루트 `HANDOFF.md`도 기존 사용자 파일로 유지하며 읽기만 했습니다.
+- 남은 차단: held-band `FINAL_VALIDATION`/OOS는 승인된 preregistration과 적격 미래 자료가 생길 때까지 해당 task만 PENDING/BLOCKED입니다. trust-boundary 구현은 독립 trust-root owner·통제 경계에 대한 사용자 결정 전까지 PENDING입니다. 유료 자료·비용·credential이나 사용자 결정이 필요한 일은 보류합니다.
+- 다음 시작: 이 handoff와 `docs/worktree-tasks.md`를 읽고 최신 main/등록 상태부터 확인합니다. 새 독립 READY task가 생기면 기존 scope-review·작업별 worktree·단일 구현자·독립 review 절차로 실행합니다. 공개 evidence dirty worktree는 소유자와 등록된 범위가 확정될 때까지 보존합니다.
+
 - Updated: 2026-09-28T05:18:10Z
 - Workspace: `/home/kwl/projects/jusik`
 - 작업 시작 baseline: local `main` `bfe477b81bbe7a5736428be0e5eea83b0e5d57df`; 마지막 pre-push fetch의 `origin/main` `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0`. 개발 기록·등록부 closeout은 `1f21fb9fd9319810ef64b6331c2e867ee27bae2a`에 통합했습니다. 이 문서는 다음 handoff-only commit에 저장합니다.
