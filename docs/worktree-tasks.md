@@ -1,5 +1,33 @@
 # 워크트리 작업 등록부
 
+## trust-boundary-priority-decision-v1
+
+- 상태: 진행 (미승인 설계 문서 압축; trust-boundary 구현은 계속 PENDING)
+- 목표·완료 조건: 우선 사용자 결정 한 건만 남깁니다. 실행 주체와 독립 hash/trust-root의 소유·통제 경계를 함께 제안하고, 권고와 대안을 비교합니다. 회전·철회·실패·복구·v1 bridge·scheduler 연결 등은 별도 후속 결정으로 분리합니다. 어떤 신뢰 경계도 구현·적용하지 않습니다.
+- 근거와 입력: `lab-external-readiness-binding-v1`은 offline receipt 무결성/의미 identity를 검사하지만 실행 주체와 receipt 생성의 인증은 하지 않습니다. 기존 producer/validator 과거 hash와 독립 trust-root owner는 확인되지 않았고, 실행 evidence가 없어 producer 결속은 PENDING입니다.
+- 담당·소유: 전용 docs worktree의 단일 `role.code_small` 작업자; scope·계획은 `role.plan`, 완료 후 별도 `role.review`. 등록부·통합·기록은 supervisor 소유입니다.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-trust-boundary-priority-decision` / `docs/trust-boundary-priority-decision`.
+- 기준 커밋 / 통합 대상: 등록 커밋을 기준으로 생성; local `main`.
+- 수정 허용 범위: `docs/development-runner-readiness-trust-boundary.md`만 worker가 편집합니다. supervisor만 등록부·개발 기록·handoff를 갱신합니다. Publisher, launcher, scheduler, receipt, key/hash, trust-root 코드는 수정하지 않습니다.
+- 산출물·검증: 한 개의 우선 결정과 명시적 권고·대안·장단점, 사용자 승인 여부, 분리된 후속 결정 목록. 문서 링크와 상태/PENDING 불변식 및 `git diff --check`를 확인합니다. 코드 테스트는 해당 없음.
+- 차단·한계: 실제 owner와 control channel은 확인되지 않았습니다. 사용자가 우선 결정을 승인하고 실제 권한 경계가 증명되기 전까지 implementation은 PENDING입니다. 다른 follow-up 결정도 각각 필요 시 별도 승인합니다.
+- 비용·운영 제한: 무료 기존 문서만 사용; 서비스·credential·외부 자료·결제·OOS·PAPER/live·주문·remote push 없음.
+- 개발 기록·handoff: `docs/development-records/2026-09-28-trust-boundary-priority-decision.md`; `docs/handoffs/2026-09-28-project-ready-work.md`.
+
+## gpu-stress-fixture-parity-v1
+
+- 상태: 진행 (제한된 CPU/CUDA 기술 검증; 투자 평가는 아님)
+- 목표·완료 조건: 기존 `backend/tests/test_research_portfolio_gpu_stress.py`의 `_request(..., scenarios=4096)` 합성 fixture/seed/경로만 사용해 동일 request를 CPU와 CUDA에서 각각 1회 실행합니다. 내부 Torch/Decimal parity가 통과하고 `indices.json` 및 Decimal-authoritative `results.json` hash가 두 장치에서 같으며, CPU·CUDA 처리 시간이 기록되면 완료합니다. 결과는 테스트 경로·시간 측정 검증에만 사용합니다.
+- 근거·범위: 기존 GPU stress CLI의 CUDA 실제 실행 회귀가 없으므로 기존 fixture의 `scenarios` 인자를 사용해 최대 등록 상한에서 실제 경로를 확인합니다. seed `20260913`, block `2`, horizon `3`, 동일 4-point synthetic source는 유지합니다. 새 fixture·시나리오·시장자료는 만들지 않습니다.
+- 담당·소유: 실행은 supervisor가 GPU/CUDA 실행 주체, 조사·계획은 read-only agent, 최종 evidence는 별도 `role.review`가 확인합니다. 제품 코드 변경은 없습니다.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-gpu-stress-fixture-parity` / `test/gpu-stress-fixture-parity`.
+- 기준 커밋 / 통합 대상: 등록 커밋을 기준으로 생성; local `main`.
+- 허용 입력·출력: 기존 테스트 helper로 만든 request만 실행합니다. 새 출력은 `/home/kwl/.local/share/jusik/portfolio-audit/20260928-gpu-stress-fixture-parity-v1/` 아래에만 씁니다. CPU/CUDA 각각 새 output directory를 사용합니다.
+- 검증 명령: 기존 stress pytest file; `python -m jusik.research_portfolio_gpu_stress --request <same request> --output-dir <new output> --device cpu|cuda`; `indices.sha256`, `hash-manifest.json`, `environment.json` 대조; `git diff --check`.
+- 해석 한계: run 당시 GPU utilization이 변동·비격리 상태이면 시간은 관측값으로만 보존하고 speedup/용량/일반 성능 결론을 내리지 않습니다. OOS·전략 튜닝·투자 판단·후보 승인 근거로 재사용하지 않습니다.
+- 비용·운영 제한: 기존 offline fixture·설치 환경만 사용; 신규 설치/네트워크/비용/credential, 운영 서비스·설정 변경, PAPER/live·주문·remote push 없음. 부하 격리나 CUDA 실행 불가 시 해당 하위 확인만 차단하고 CPU 회귀 검증은 보존합니다.
+- 개발 기록·handoff: `docs/development-records/2026-09-28-gpu-stress-fixture-parity.md`; `docs/handoffs/2026-09-28-project-ready-work.md`.
+
 ## lab-external-readiness-binding-v1
 
 - 상태: offline receipt contract 기술 slice 완료 (`ENGINEERING_COMPLETE/NOT_EVALUATED`); 실제 producer·scheduler 결속은 task-local PENDING
