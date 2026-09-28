@@ -162,6 +162,7 @@ executed collector source hash가 null이므로 이를 v1 receipt로 매핑하�
 data/readiness 기반 재평가 연결은 trusted producer의 완전한 identity와 안정적·원자적 publication
 경로가 마련될 때까지 PENDING입니다. 재개 조건의 문구나 오래된 자료만으로 readiness가 바뀌었다고
 판단하지 않습니다. 자세한 구현·검증 경계는 [개발 기록](development-records/2026-09-27-lab-external-readiness-binding.md)을 참조합니다.
+trust owner·pin 경로·회전·철회 선택지는 [준비용 trust-boundary 초안](development-runner-readiness-trust-boundary.md)에 정리했습니다. 이 초안은 미승인·미적용이며 PENDING 상태를 바꾸지 않습니다.
 기존 quota·cooldown·pause·process 정체 검사를 각 호출에 적용합니다.
 
 발굴·범위 검토의 호출 실패는 `no_work`와 다릅니다. 종료된 child의 크기 제한 JSONL에서
