@@ -2,9 +2,19 @@
 
 - Updated: 2026-09-28
 - Workspace: `/home/kwl/projects/jusik`
-- Handoff 작성 직전 local `main`: `254d149898de03c2e32ed9e3ba95e09233fd0c4c`; remote `main`은 해당 SHA의 조상이며 원격 전용 커밋은 없었습니다.
+- 이번 후속 handoff 작성 직전 local `main`: `2027f87e3b20fc8e611e09523a116a06ac4b9224`; 조사·등록부 개발 기록을 통합했습니다. 이번 문서 기록 작업 전 fetch 당시 `origin/main`은 `8d3d52298e631c6193257d3d644c3f211ee0e8dd`였습니다.
+- 이전 handoff 작성 직전 local `main`: `254d149898de03c2e32ed9e3ba95e09233fd0c4c`; 당시 remote `main`은 해당 SHA의 조상이며 원격 전용 커밋은 없었습니다.
 - 최근 관련 커밋: 코드 `d85f424c03936e5c0c90006f996dab8dbbc97e3c`, 계약 기록 `b294d944aa24ba849afd2e3e6af74e4083c1aa14`, 통합 종료 기록 `254d149898de03c2e32ed9e3ba95e09233fd0c4c`.
 - 상태: bounded offline 기술 작업은 `ENGINEERING_COMPLETE/NOT_EVALUATED`입니다. 투자 성과나 자료 적격성을 평가하지 않았습니다.
+
+## 2026-09-28 후속 producer/validator 조사
+
+- offline 조사와 독립 scope review를 마쳤습니다. 결과는 [작업 등록부](../worktree-tasks.md)의 `lab-external-readiness-producer-contract-investigation` 및 [개발 기록](../development-records/2026-09-28-lab-external-readiness-producer-contract-investigation.md)에 남겼습니다.
+- 보관된 `collector-current.sha256`은 현재 `collect.py`와 일치하지만 과거 실행 hash가 아닙니다. `executed_collector_source_hash`는 계속 null입니다. 기록된 validator hash는 현재 validator bytes와 일치하지만 v1 `validator_id` receipt가 없습니다. producer/validator 출력은 readiness receipt로 원자 게시되지 않으며 8개 gate 모두 `BLOCKED`입니다.
+- Scope review는 운영용 producer publisher 구현을 `FAIL/PENDING`으로 판정했습니다. self-reported identity를 직렬화하는 untrusted helper는 신뢰를 만들지 못하고 현재 synthetic test fixture와 중복됩니다. 신뢰 경계를 정하거나 독립적으로 제공된 producer execution evidence가 생기기 전 scheduler 결속도 진행하지 않습니다.
+- 동일한 no-work 탐색을 반복하지 않고 별도 roadmap 범위만 확인했습니다. 새로 재현된 offline defect나 독립 READY 후보는 발견되지 않았습니다. 검토한 R1/R2 자료·coverage 항목과 R2-02 WAITING_EXTERNAL은 각 기존 의존성을 유지합니다.
+- 새 trust identity나 pin owner를 provisional로 정하지 않았습니다. 실제 재개에는 trusted execution source/snapshot과 producer·validator 기대값을 독립 pin하는 소유·전달 경계가 필요합니다. 이는 mandate·최종 데이터 정책 변경이 아니라 trust-boundary 선택이므로, 해당 소유자가 정해지면 그 contract만 새 scope review합니다.
+- 조사 중 외부 호출·자료 수집·비용·credential·scheduler/queue/service 변경·PAPER/live·주문은 없었습니다. 별도 구현 worktree를 만들지 않았습니다.
 
 ## 완료·검증된 작업
 
