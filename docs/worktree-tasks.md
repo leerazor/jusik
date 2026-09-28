@@ -30,6 +30,20 @@
 - 작업 위치·검증: read-only 조사라 별도 구현 worktree는 만들지 않았습니다. baseline local `main`은 `8d3d52298e631c6193257d3d644c3f211ee0e8dd`; 테스트는 실행하지 않았습니다. 근거·별도 scope review는 [2026-09-28 개발 기록](development-records/2026-09-28-lab-external-readiness-producer-contract-investigation.md)에 있습니다.
 - 다음 시작: trusted execution source와 independently pinned identity의 소유자가 확인되면 그 증거와 atomic publication 경로만 대상으로 scope review를 수행합니다. 그 전에는 external readiness binding을 PENDING으로 보존하고 새 no-work 탐색을 반복하지 않습니다.
 
+## lab-external-readiness-trust-boundary-decision-brief
+
+- 상태: 준비용 설계 초안 완료; trust-boundary 선택 및 publisher/scheduler 구현은 사용자 결정 전 `PENDING`입니다.
+- 목표·완료 조건: 실행 주체, 독립 producer/validator hash pin, key/hash 갱신·철회, 실패 동작, offline 검증·복구, 운영 부담을 비교하고 사용자 결정 항목을 명시합니다. 승인 전에는 설계나 신뢰 기준을 코드·운영 설정에 적용하지 않습니다.
+- 선택 근거와 입력: 직전 producer/validator 조사와 별도 scope review가 trust anchor와 pin owner 부재를 확인했습니다. 기존 v1 consumer가 요구하는 독립 pin, `bound`의 제한된 의미, 과거 collector hash 누락 및 atomic publication gap을 기준으로 초안을 작성했습니다.
+- 결과: v1 consumer는 pin 문자열과 receipt를 대조하지만 실제 실행/receipt 작성 주체를 인증하지 않는다는 점을 명시했습니다. 현재 권고는 독립 reviewer 분리가 확인될 때 B를 source allowlist로만 검토하고 별도 authenticated execution-to-receipt 증거를 요구하는 조건부안입니다. 서명 attestation, main-reviewed manifest, 별도 service, self-report를 비교했습니다. key/hash 철회 최신성은 독립 배포 generation·유효기간을 확인하고 stale/missing/rollback이면 fail closed하도록 했습니다. 어떤 안도 미승인 상태입니다.
+- 독립 무료 로컬 작업 delta 확인: roadmap runner는 191개 task, queued/running 0, `fixed_engineering_backlog_exhausted`, discovery terminal/stale identity입니다. standard runner는 45개 task, queued/running 0 (35 completed, 7 blocked, 2 interrupted, 1 failed)입니다. READY 항목은 확인되지 않았습니다. 보존 worktree 중 dirty/ahead 상태가 있는 소유 항목은 재할당하거나 내부 변경을 건드리지 않았습니다. 동일 no-work discovery는 반복하지 않았습니다.
+- provisional 가정: 없음. 설계의 권고와 대안은 provisional trust 기준이나 적용 승인이 아닙니다. 기존 v1 bounds·mandate·null preregistration·`execution_allowed=false`·8개 BLOCKED gate·OOS PENDING은 유지합니다.
+- 사용자 결정: 실행 actor와 신뢰 범위, 독립 hash owner 및 최초 trust-root bootstrap/배포·verifier 갱신 권한, 실행에서 receipt SHA까지 인증할 주체와 v1 bridge 범위, reviewer 분리만으로 충분한지, 철회 freshness 최대 age·rollback 대응, key/hash 철회와 과거 receipt 효력, fail-closed·복구 책임, 추후 scheduler 연결 범위입니다.
+- 수정 범위: `docs/development-runner-readiness-trust-boundary.md`, 이 등록부, `docs/development-runner.md`의 초안 링크, 개발 기록과 handoff. 제품 코드, publisher, external artifact, queue DB/config, data/투자 조건은 변경하지 않습니다.
+- 작업 위치·검증: 전용 문서 worktree `/home/kwl/projects/jusik-readiness-trust-boundary`, branch `docs/readiness-trust-boundary`; 기준 local `main`은 `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0`입니다. 독립 review에서 실행-attestation, 최초 trust-root bootstrap, 철회 freshness 지적을 반영했고 최종 재검토는 추가 중대 지적 없음입니다. routing/preflight, `git diff --check`, 문서 링크 확인이 통과했습니다. 코드 테스트는 해당하지 않습니다.
+- 개발 기록·handoff: [개발 기록](docs/development-records/2026-09-28-lab-external-readiness-trust-boundary-decision-brief.md); [handoff](docs/handoffs/2026-09-28-project-ready-work.md). local main 통합 SHA는 통합 후 기록합니다.
+- 다음 시작: 사용자 trust-boundary 결정을 받으면 허용 범위만 새 scope review합니다. 그 전 publisher와 scheduler binding은 PENDING이며 같은 no-work 탐색을 반복하지 않습니다.
+
 ## roadmap-r2-02-manifest-integrity-guard-v1
 
 - 상태: `WAITING_EXTERNAL/independent_review_pending`; candidate review verdict `FAIL`, engineering completion 불인정
