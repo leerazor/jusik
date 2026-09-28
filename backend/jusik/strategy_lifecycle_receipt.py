@@ -15,12 +15,17 @@ from dataclasses import dataclass
 from jusik.strategy_lifecycle import RevisionConflict, StrategyLifecycleStore
 
 _DIGEST = re.compile(r"[a-f0-9]{64}\Z")
+_SQLITE_STRIP_CHARS = (
+    "char(9, 10, 11, 12, 13, 28, 29, 30, 31, 32, 133, 160, 5760, "
+    "8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, "
+    "8202, 8232, 8233, 8239, 8287, 12288)"
+)
 
-_SCHEMA = """
+_SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS lifecycle_evidence_receipts (
     receipt_id TEXT PRIMARY KEY CHECK(
         receipt_id IS NOT NULL AND
-        length(trim(receipt_id, char(9, 10, 11, 12, 13, 32))) > 0
+        length(trim(receipt_id, {_SQLITE_STRIP_CHARS})) > 0
     ),
     strategy_id TEXT NOT NULL,
     version TEXT NOT NULL,
@@ -40,12 +45,6 @@ BEFORE INSERT ON lifecycle_evidence_receipts BEGIN
           AND s.version = NEW.version
           AND s.revision = NEW.strategy_revision
     );
-END;
-CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_id_insert_guard
-BEFORE INSERT ON lifecycle_evidence_receipts BEGIN
-    SELECT RAISE(ABORT, 'receipt id is required')
-    WHERE NEW.receipt_id IS NULL OR
-          length(trim(NEW.receipt_id, char(9, 10, 11, 12, 13, 32))) = 0;
 END;
 CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_no_update
 BEFORE UPDATE ON lifecycle_evidence_receipts BEGIN
@@ -82,6 +81,15 @@ class StrategyLifecycleReceiptStore:
             ):
                 raise ValueError("lifecycle registry is missing")
             db.executescript(_SCHEMA)
+            db.executescript(
+                "DROP TRIGGER IF EXISTS lifecycle_receipt_id_insert_guard;"
+                "CREATE TRIGGER lifecycle_receipt_id_insert_guard "
+                "BEFORE INSERT ON lifecycle_evidence_receipts BEGIN "
+                "SELECT RAISE(ABORT, 'receipt id is required') "
+                "WHERE NEW.receipt_id IS NULL OR "
+                f"length(trim(NEW.receipt_id, {_SQLITE_STRIP_CHARS})) = 0; "
+                "END;"
+            )
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.lifecycle.path, timeout=10)
@@ -157,6 +165,8 @@ class StrategyLifecycleReceiptStore:
         evidence_digest: str,
     ) -> StrategyEvidenceReceipt:
         """Require the stored receipt and the current registry revision to agree."""
+        if not receipt_id.strip():
+            raise ValueError("receipt id is required")
         if not _DIGEST.fullmatch(evidence_digest):
             raise ValueError("invalid evidence digest")
         if hashlib.sha256(evidence).hexdigest() != evidence_digest:

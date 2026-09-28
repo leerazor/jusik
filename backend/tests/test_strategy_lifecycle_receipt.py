@@ -185,7 +185,40 @@ def test_missing_or_blank_receipt_identity_is_rejected(
         )
 
 
-@pytest.mark.parametrize("receipt_id", [None, " ", "\t", "\n", " \t\r\n "])
+@pytest.mark.parametrize(
+    "receipt_id",
+    [
+        None,
+        " ",
+        "\t",
+        "\n",
+        " \t\r\n ",
+        "\x1c",
+        "\x1d",
+        "\x1e",
+        "\x1f",
+        "\x85",
+        "\u00a0",
+        "\u1680",
+        "\u2000",
+        "\u2001",
+        "\u2002",
+        "\u2003",
+        "\u2004",
+        "\u2005",
+        "\u2006",
+        "\u2007",
+        "\u2008",
+        "\u2009",
+        "\u200a",
+        "\u2028",
+        "\u2029",
+        "\u202f",
+        "\u205f",
+        "\u3000",
+        " \u00a0\u2003\t ",
+    ],
+)
 def test_direct_insert_rejects_blank_receipt_id(
     stores: tuple[StrategyLifecycleStore, StrategyLifecycleReceiptStore],
     receipt_id: str | None,
@@ -193,6 +226,17 @@ def test_direct_insert_rejects_blank_receipt_id(
     lifecycle, receipts = stores
     before = lifecycle.get("sample", "v1")
     events = lifecycle.events("sample", "v1")
+    with pytest.raises(ValueError, match="receipt id"):
+        _record(receipts, receipt_id=receipt_id or "")
+    with pytest.raises(ValueError, match="receipt id"):
+        receipts.verify(
+            receipt_id or "",
+            "sample",
+            "v1",
+            expected_revision=0,
+            evidence=EVIDENCE,
+            evidence_digest=DIGEST,
+        )
     with sqlite3.connect(lifecycle.path) as db:
         with pytest.raises(sqlite3.IntegrityError):
             db.execute(
@@ -204,18 +248,19 @@ def test_direct_insert_rejects_blank_receipt_id(
         assert db.execute(
             "SELECT COUNT(*) FROM lifecycle_evidence_receipts"
         ).fetchone() == (0,)
-    _record(receipts, receipt_id="valid-id")
-    assert (
-        receipts.verify(
-            "valid-id",
-            "sample",
-            "v1",
-            expected_revision=0,
-            evidence=EVIDENCE,
-            evidence_digest=DIGEST,
-        ).receipt_id
-        == "valid-id"
-    )
+    for valid_id in ("valid-id", "left\u00a0middle\u2003right", "\u2003x"):
+        _record(receipts, receipt_id=valid_id)
+        assert (
+            receipts.verify(
+                valid_id,
+                "sample",
+                "v1",
+                expected_revision=0,
+                evidence=EVIDENCE,
+                evidence_digest=DIGEST,
+            ).receipt_id
+            == valid_id
+        )
     assert lifecycle.get("sample", "v1") == before
     assert lifecycle.events("sample", "v1") == events
 
@@ -231,15 +276,24 @@ def test_reopen_existing_receipt_table_installs_id_guard(tmp_path: Path) -> None
             "receipt_id TEXT PRIMARY KEY CHECK(length(trim(receipt_id)) > 0), "
             "strategy_id TEXT NOT NULL, version TEXT NOT NULL, "
             "strategy_revision INTEGER NOT NULL, evidence_digest TEXT NOT NULL);"
+            "CREATE TRIGGER lifecycle_receipt_id_insert_guard "
+            "BEFORE INSERT ON lifecycle_evidence_receipts BEGIN "
+            "SELECT RAISE(ABORT, 'receipt id is required') "
+            "WHERE NEW.receipt_id IS NULL OR "
+            "length(trim(NEW.receipt_id, char(9,10,11,12,13,32)))=0; END;"
         )
         db.execute(
             "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
             ("existing", "sample", "v1", 0, DIGEST),
         )
+        db.execute(
+            "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
+            ("\u00a0", "sample", "v1", 0, DIGEST),
+        )
     StrategyLifecycleReceiptStore(lifecycle)
     reopened = StrategyLifecycleReceiptStore(lifecycle)
     with sqlite3.connect(lifecycle.path) as db:
-        for receipt_id in (None, "\t", "\n"):
+        for receipt_id in (None, "\t", "\n", "\u00a0", "\u2003", " \u00a0\u2003"):
             with pytest.raises(sqlite3.IntegrityError, match="receipt id is required"):
                 db.execute(
                     "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
@@ -249,10 +303,15 @@ def test_reopen_existing_receipt_table_installs_id_guard(tmp_path: Path) -> None
             "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
             ("current", "sample", "v1", 0, DIGEST),
         )
+        db.execute(
+            "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
+            ("current\u00a0id", "sample", "v1", 0, DIGEST),
+        )
         assert db.execute(
-            "SELECT receipt_id FROM lifecycle_evidence_receipts ORDER BY receipt_id"
+            "SELECT receipt_id FROM lifecycle_evidence_receipts "
+            "WHERE receipt_id IN ('current', 'existing') ORDER BY receipt_id"
         ).fetchall() == [("current",), ("existing",)]
-    for receipt_id in ("existing", "current"):
+    for receipt_id in ("existing", "current", "current\u00a0id"):
         assert (
             reopened.verify(
                 receipt_id,
@@ -263,6 +322,15 @@ def test_reopen_existing_receipt_table_installs_id_guard(tmp_path: Path) -> None
                 evidence_digest=DIGEST,
             ).receipt_id
             == receipt_id
+        )
+    with pytest.raises(ValueError, match="receipt id"):
+        reopened.verify(
+            "\u00a0",
+            "sample",
+            "v1",
+            expected_revision=0,
+            evidence=EVIDENCE,
+            evidence_digest=DIGEST,
         )
     assert lifecycle.get("sample", "v1") == before
     assert lifecycle.events("sample", "v1") == events
