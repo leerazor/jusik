@@ -13,8 +13,8 @@
 - [설계 초안](../development-runner-readiness-trust-boundary.md)은 미승인·미적용입니다. 독립 review 뒤 source-hash pin만으로 실제 실행과 receipt SHA를 증명할 수 없고, 최초 trust-root bootstrap 및 오프라인 철회 freshness를 별도 확인해야 한다는 경계를 반영했습니다. 조건부 후보는 독립 reviewer 분리가 확인될 경우의 B안이며, authenticated execution-to-receipt 증거가 없으면 `PENDING`입니다. publisher·trust pin·execution attestation·scheduler/OOS는 구현하지 않았습니다.
 - 결과·사용자 결정 목록: [작업 등록부](../worktree-tasks.md)의 `lab-external-readiness-trust-boundary-decision-brief` 및 [개발 기록](../development-records/2026-09-28-lab-external-readiness-trust-boundary-decision-brief.md).
 - 독립 review 최종 결과: 추가 중대 지적 없음. routing/preflight, `git diff --check`, 변경 문서 링크 확인은 통과했고, 코드 테스트는 문서 전용 변경이라 실행하지 않았습니다. collaboration host가 parent/child JSONL 경로를 노출하지 않아 post-log helper audit은 미실행입니다.
-- 현재 queue 조사: roadmap runner 191 task, queued/running 0, `fixed_engineering_backlog_exhausted`; standard runner 45 task, queued/running 0. 추가 READY는 발견되지 않았으며 동일 discovery를 반복하지 않았습니다. 완료 후 roadmap runner의 원래 `paused=false`와 timer 상태를 복구하고 standard runner는 paused로 유지합니다.
-- 통합된 SHA를 작업 등록부·개발 기록에 반영했습니다. 마무리로 문서 검증과 tracked tree clean을 확인하고 roadmap runner의 기존 `paused=false`를 복구합니다. 사용자 결정 전 trust 선택을 적용하지 말고, held-band OOS 및 외부 readiness 결속은 각 task만 `PENDING/BLOCKED`로 유지합니다.
+- 현재 queue 조사: roadmap runner 191 task, queued/running 0, `fixed_engineering_backlog_exhausted`; standard runner 45 task, queued/running 0. 추가 READY는 발견되지 않았으며 동일 discovery를 반복하지 않았습니다. closeout에서 roadmap runner는 기존 `paused=false`로 복구했고, timer active/service inactive입니다. standard runner는 paused로 유지합니다.
+- 통합된 SHA를 작업 등록부·개발 기록에 반영했고, 문서 검증과 tracked tree clean 확인을 마쳤습니다. 다음 세션은 현재 runner/service 상태를 확인하고, 사용자 결정 전 trust 선택을 적용하지 않습니다. held-band OOS 및 외부 readiness 결속은 각 task만 `PENDING/BLOCKED`로 유지합니다.
 
 ## 2026-09-28 후속 producer/validator 조사
 

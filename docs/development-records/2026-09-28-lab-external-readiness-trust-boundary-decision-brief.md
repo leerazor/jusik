@@ -1,7 +1,7 @@
 # 외부 readiness trust-boundary 결정안 준비
 
 - 상태: 준비용 설계와 독립 검토 완료; 사용자 trust-boundary 결정 및 실행 증거 경로는 `PENDING`입니다.
-- 기록 시각: 2026-09-28T04:19:30Z
+- 기록 시각: 2026-09-28T04:21:29Z
 - 작업 slug: `lab-external-readiness-trust-boundary-decision-brief`
 - 기준/통합: `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0` / merge commit `cfd3ceb0b649e2b00338a7721b4bef4968d20679`
 - 범위: 실행 actor, independently pinned producer/validator hash, task/attempt부터 실제 실행 snapshot과 receipt SHA까지의 증명, key/hash 갱신·철회, failure/recovery, 운영 부담과 결정 항목을 비교하는 미승인 설계 문서를 작성했습니다. publisher, execution attestation, trust pin, scheduler 결속, mandate·투자·자료/OOS 조건은 구현하거나 변경하지 않았습니다.
@@ -28,7 +28,7 @@
 
 ## 안전·운영 상태
 
-- free local 조사 외 market-data 수집, credential 사용, 비용, 외부 service, PAPER/live, 주문, queue/config/data 변경은 없습니다. 최신 `main` 확인을 위해 `git fetch origin`만 실행했습니다. 작업 중 자동 개발 service는 정지했습니다. tracked 문서 변경을 마치고 나면 roadmap runner의 문서 수정 전 `paused=false`와 timer 상태를 복구하며 standard runner의 기존 paused 상태를 유지합니다.
+- free local 조사 외 market-data 수집, credential 사용, 비용, 외부 service, PAPER/live, 주문, queue/config/data 변경은 없습니다. 최신 `main` 확인을 위해 `git fetch origin`만 실행했습니다. tracked 문서 수정 중 automatic service는 정지했습니다. closeout에서 roadmap runner를 원래 `paused=false`로 복구했으며 queued/running 0, service inactive, timer active입니다. standard runner는 기존 paused 상태를 유지합니다.
 - 전용 문서 worktree `/home/kwl/projects/jusik-readiness-trust-boundary`, branch `docs/readiness-trust-boundary`를 사용했습니다. 기존 소유 worktree는 수정하지 않았습니다. 사용자 소유 루트 `HANDOFF.md`도 그대로 보존했습니다.
 
 ## 증거와 재개
