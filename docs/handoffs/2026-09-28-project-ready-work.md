@@ -2,10 +2,20 @@
 
 - Updated: 2026-09-28
 - Workspace: `/home/kwl/projects/jusik`
-- 이번 후속 handoff 작성 직전 local `main`: `2027f87e3b20fc8e611e09523a116a06ac4b9224`; 조사·등록부 개발 기록을 통합했습니다. 이번 문서 기록 작업 전 fetch 당시 `origin/main`은 `8d3d52298e631c6193257d3d644c3f211ee0e8dd`였습니다.
+- 이번 추가 작업 직전 local `main`: `bfe477b81bbe7a5736428be0e5eea83b0e5d57df`; `origin/main`: `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0` (fetch 후 local main이 6 commits ahead). 이 handoff와 개발 기록을 closeout commit으로 저장합니다.
 - 이전 handoff 작성 직전 local `main`: `254d149898de03c2e32ed9e3ba95e09233fd0c4c`; 당시 remote `main`은 해당 SHA의 조상이며 원격 전용 커밋은 없었습니다.
 - 최근 관련 커밋: 코드 `d85f424c03936e5c0c90006f996dab8dbbc97e3c`, 계약 기록 `b294d944aa24ba849afd2e3e6af74e4083c1aa14`, 통합 종료 기록 `254d149898de03c2e32ed9e3ba95e09233fd0c4c`.
 - 상태: bounded offline 기술 작업은 `ENGINEERING_COMPLETE/NOT_EVALUATED`입니다. 투자 성과나 자료 적격성을 평가하지 않았습니다.
+
+## 2026-09-28 trust 결정 압축 및 GPU fixture 기술 검증
+
+- 사용자 요청에 따라 trust-boundary 구현은 보류했습니다. [권고안](../development-runner-readiness-trust-boundary.md)은 첫 사용자 결정 하나로 압축되어 있습니다: producer/validator와 분리된 trust-root owner가 신뢰 기준을 통제하고 별도 run controller가 고정된 실행 snapshot과 source/output hash를 결속하도록 하는 역할 분리 권고입니다. 실제 담당자·권한과 독립 control channel은 아직 지정·검증되지 않아 publisher, attestation, pin, scheduler 결속은 계속 `PENDING`입니다. Attestation/publication, v1 bridge, hash/key 갱신·철회와 freshness, 과거 receipt, 실패·복구, scheduler 연결은 각각 후속 승인 결정으로 남겼습니다.
+- [trust 결정 개발 기록](../development-records/2026-09-28-trust-boundary-priority-decision.md)과 [등록부](../worktree-tasks.md)의 `trust-boundary-priority-decision-v1`에서 결정 범위·대안·승인 경계를 확인합니다. 독립 문서 review와 routing post audit은 PASS이며 mandate·투자·데이터/OOS 기준은 바꾸지 않았습니다.
+- 기존 `backend/tests/test_research_portfolio_gpu_stress.py::_request`의 4-point synthetic fixture와 기존 stress CLI만 이용해 seed `20260913`, block `2`, horizon `3`, 4096 scenario의 동일 request를 CPU와 CUDA에서 각각 한 번 실행했습니다. task-local Python 3.13.15 / PyTorch `2.11.0+cu128` 환경의 focused test는 `17 passed`; CPU/CUDA output 및 hash manifest가 일치했고 둘 다 exit 0입니다. 최종 pair audit SHA는 `35b8983c38a1e1a18c0bffa93b60ace3663bb93899fc5b88e4295190ed65d644`입니다. 독립 isolated-environment/artifact review, 최종 개발 기록·handoff review, explore/plan/code_small/review 두 회차의 routing post audit 모두 PASS했습니다.
+- 측정값은 관측치일 뿐입니다: CPU/CUDA elapsed `0.085804s` / `0.361621s`, warmed CPU 2/8-thread `0.001976/0.001908s`, CUDA synchronized transfer-inclusive `0.002719s`. GPU utilization은 전후 `89%` / `46%`로 격리되지 않았고 표본도 3-step 단일 synthetic fixture입니다. 속도 우위나 throughput 결론을 내리지 않았고 OOS, 전략 튜닝, 투자 판단으로 사용하지 않았습니다.
+- task-local venv는 worktree 격리를 위해 만들었으며 누락 dependency 보완을 위해 공개 package index에서 무료 패키지를 내려받았습니다. 초기 setup 중 `9 passed, 8 failed`는 Pydantic 누락에 따른 fixture setup 문제로 보존했고 dependency 설치 후 `17 passed`했습니다. 시장자료·유료 service·credential·운영 서비스 설정은 사용 또는 변경하지 않았습니다. `jusik-research-universe.service`는 inactive이며 설정 불변입니다.
+- post-log routing audit은 기존 parent/child JSONL 증거로 확인했습니다. 마지막 reviewer audit은 parent `01a0dfc9-d8d7-7240-a2fb-5eeb6fa9e991`, child `01a0e662-1313-7e53-9e7f-873f1be4ba11`, role/model `review`/`gpt-6-sol`, actual type `review`로 PASS했습니다. 미확인 routing 증거 공백은 없습니다.
+- 현재 남은 사용자 결정은 실제 independent trust-root owner, run controller, 권한 분리와 통제 채널의 지정·증명입니다. 그 승인 전 구현은 시작하지 않습니다. OOS 및 투자 평가는 이번 task에 포함되지 않았습니다. closeout 후에는 roadmap runner를 기존 `paused=false`로 복원하고, task-local venv와 완료 worktree를 정리합니다. 사용자 소유 루트 `HANDOFF.md`는 그대로 보존하며 이 dated project handoff만 갱신합니다.
 
 ## 2026-09-28 trust-boundary brief 준비
 

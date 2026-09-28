@@ -2,7 +2,7 @@
 
 ## trust-boundary-priority-decision-v1
 
-- 상태: 진행 (미승인 설계 문서 압축; trust-boundary 구현은 계속 PENDING)
+- 상태: 완료 (권고 문서만 압축; user decision·trust implementation 계속 PENDING)
 - 목표·완료 조건: 우선 사용자 결정 한 건만 남깁니다. 실행 주체와 독립 hash/trust-root의 소유·통제 경계를 함께 제안하고, 권고와 대안을 비교합니다. 회전·철회·실패·복구·v1 bridge·scheduler 연결 등은 별도 후속 결정으로 분리합니다. 어떤 신뢰 경계도 구현·적용하지 않습니다.
 - 근거와 입력: `lab-external-readiness-binding-v1`은 offline receipt 무결성/의미 identity를 검사하지만 실행 주체와 receipt 생성의 인증은 하지 않습니다. 기존 producer/validator 과거 hash와 독립 trust-root owner는 확인되지 않았고, 실행 evidence가 없어 producer 결속은 PENDING입니다.
 - 담당·소유: 전용 docs worktree의 단일 `role.code_small` 작업자; scope·계획은 `role.plan`, 완료 후 별도 `role.review`. 등록부·통합·기록은 supervisor 소유입니다.
@@ -12,20 +12,23 @@
 - 산출물·검증: 한 개의 우선 결정과 명시적 권고·대안·장단점, 사용자 승인 여부, 분리된 후속 결정 목록. 문서 링크와 상태/PENDING 불변식 및 `git diff --check`를 확인합니다. 코드 테스트는 해당 없음.
 - 차단·한계: 실제 owner와 control channel은 확인되지 않았습니다. 사용자가 우선 결정을 승인하고 실제 권한 경계가 증명되기 전까지 implementation은 PENDING입니다. 다른 follow-up 결정도 각각 필요 시 별도 승인합니다.
 - 비용·운영 제한: 무료 기존 문서만 사용; 서비스·credential·외부 자료·결제·OOS·PAPER/live·주문·remote push 없음.
+- 결과·검토: worker commit `bfe477b81bbe7a5736428be0e5eea83b0e5d57df`, local `main` fast-forward 통합 `bfe477b81bbe7a5736428be0e5eea83b0e5d57df`. `git diff --check` 및 독립 문서 review PASS. explore/plan/code_small/review의 routing post audit 모두 중앙 선택 role/model과 일치했습니다.
 - 개발 기록·handoff: `docs/development-records/2026-09-28-trust-boundary-priority-decision.md`; `docs/handoffs/2026-09-28-project-ready-work.md`.
 
 ## gpu-stress-fixture-parity-v1
 
-- 상태: 진행 (제한된 CPU/CUDA 기술 검증; 투자 평가는 아님)
+- 상태: 완료 (제한된 CPU/CUDA 기술 검증; `ENGINEERING_COMPLETE/NOT_EVALUATED`)
 - 목표·완료 조건: 기존 `backend/tests/test_research_portfolio_gpu_stress.py`의 `_request(..., scenarios=4096)` 합성 fixture/seed/경로만 사용해 동일 request를 CPU와 CUDA에서 각각 1회 실행합니다. 내부 Torch/Decimal parity가 통과하고 `indices.json` 및 Decimal-authoritative `results.json` hash가 두 장치에서 같으며, CPU·CUDA 처리 시간이 기록되면 완료합니다. 결과는 테스트 경로·시간 측정 검증에만 사용합니다.
 - 근거·범위: 기존 GPU stress CLI의 CUDA 실제 실행 회귀가 없으므로 기존 fixture의 `scenarios` 인자를 사용해 최대 등록 상한에서 실제 경로를 확인합니다. seed `20260913`, block `2`, horizon `3`, 동일 4-point synthetic source는 유지합니다. 새 fixture·시나리오·시장자료는 만들지 않습니다.
 - 담당·소유: 실행은 supervisor가 GPU/CUDA 실행 주체, 조사·계획은 read-only agent, 최종 evidence는 별도 `role.review`가 확인합니다. 제품 코드 변경은 없습니다.
 - 워크트리·브랜치: `/home/kwl/projects/jusik-gpu-stress-fixture-parity` / `test/gpu-stress-fixture-parity`.
-- 기준 커밋 / 통합 대상: 등록 커밋을 기준으로 생성; local `main`.
+- 기준 커밋 / 통합 대상: 등록 당시 local `main` `e2c2bbcd228c96db3be4b1e65a940a8096098ab1`; 제품 코드 변경은 없고 task 결과·검증 기록만 main 문서 closeout에 통합합니다.
 - 허용 입력·출력: 기존 테스트 helper로 만든 request만 실행합니다. 새 출력은 `/home/kwl/.local/share/jusik/portfolio-audit/20260928-gpu-stress-fixture-parity-v1/` 아래에만 씁니다. CPU/CUDA 각각 새 output directory를 사용합니다.
 - 검증 명령: 기존 stress pytest file; `python -m jusik.research_portfolio_gpu_stress --request <same request> --output-dir <new output> --device cpu|cuda`; `indices.sha256`, `hash-manifest.json`, `environment.json` 대조; `git diff --check`.
 - 해석 한계: run 당시 GPU utilization이 변동·비격리 상태이면 시간은 관측값으로만 보존하고 speedup/용량/일반 성능 결론을 내리지 않습니다. OOS·전략 튜닝·투자 판단·후보 승인 근거로 재사용하지 않습니다.
-- 비용·운영 제한: 기존 offline fixture·설치 환경만 사용; 신규 설치/네트워크/비용/credential, 운영 서비스·설정 변경, PAPER/live·주문·remote push 없음. 부하 격리나 CUDA 실행 불가 시 해당 하위 확인만 차단하고 CPU 회귀 검증은 보존합니다.
+- 비용·운영 제한: 기존 offline fixture/code path만 실행했고 시장/provider 자료, 결제, credential, PAPER/live, 주문, 운영 설정 변경은 없습니다. worktree 격리 요건에 따라 task-local venv를 별도 준비하며 공개 package index에서 무료 의존성을 내려받았습니다. 외부 네트워크 사용은 이 환경 준비에 한정했고 입력 자료나 fixture는 바꾸지 않았습니다.
+- 결과·검토: task-local venv에서 기존 stress pytest `17 passed`; 최초 bootstrap 시도는 미설치 Pydantic 때문에 `9 passed, 8 failed`였고 core dependency 설치 후 통과했습니다. 동일 request로 CPU/CUDA CLI 각각 1회 실행, 둘 다 exit 0; 내부 Torch/Decimal 검사와 indices/results/summary/hash manifest가 일치했습니다. request SHA `8b06abc6d967802090edad52932af60a828245f792ef5a204c897d9e6635b1e1`; source SHA `9eead0c857a3b1a3540bd52a28f348cf62e5b379e823b797bd9939d0125e68ac`; 최종 isolated `verification.json` SHA `35b8983c38a1e1a18c0bffa93b60ace3663bb93899fc5b88e4295190ed65d644`; CPU/CUDA 동일 hash-manifest SHA `21c1f64999a5eee09815963393ef0017dd476cb570e723f73f4ee3cccfebb4b45`. 최초 root-venv pair는 보조 증거로만 보존했고 acceptance에서 제외했습니다. 독립 isolated-environment/artifact review와 최종 문서·증거 closeout review 모두 PASS. explore/plan/code_small/review 두 회차의 routing post audit PASS.
+- 처리 시간(관측): 최종 task-venv `elapsed_seconds`: CPU `0.085804s`, CUDA `0.361621s`. warmed backend timing은 CPU 2/8 threads `0.001976/0.001908s`, CUDA host/device transfer 포함·synchronized `0.002719s`. GPU utilization은 직전 89%, 종료 뒤 46%이며 격리되지 않았습니다. 단일 3-step synthetic fixture timing으로 속도 우위나 throughput을 추론하지 않습니다.
 - 개발 기록·handoff: `docs/development-records/2026-09-28-gpu-stress-fixture-parity.md`; `docs/handoffs/2026-09-28-project-ready-work.md`.
 
 ## lab-external-readiness-binding-v1
