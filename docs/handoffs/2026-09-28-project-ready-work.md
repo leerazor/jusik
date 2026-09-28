@@ -1,8 +1,8 @@
 # 프로젝트 READY 작업 handoff
 
-- Updated: 2026-09-28
+- Updated: 2026-09-28T05:18:10Z
 - Workspace: `/home/kwl/projects/jusik`
-- 이번 추가 작업 직전 local `main`: `bfe477b81bbe7a5736428be0e5eea83b0e5d57df`; `origin/main`: `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0` (fetch 후 local main이 6 commits ahead). 이 handoff와 개발 기록을 closeout commit으로 저장합니다.
+- 작업 시작 baseline: local `main` `bfe477b81bbe7a5736428be0e5eea83b0e5d57df`; 마지막 pre-push fetch의 `origin/main` `a9ba2e4e8784d72fb93512881cf3d3be7b191ee0`. 개발 기록·등록부 closeout은 `1f21fb9fd9319810ef64b6331c2e867ee27bae2a`에 통합했습니다. 이 문서는 다음 handoff-only commit에 저장합니다.
 - 이전 handoff 작성 직전 local `main`: `254d149898de03c2e32ed9e3ba95e09233fd0c4c`; 당시 remote `main`은 해당 SHA의 조상이며 원격 전용 커밋은 없었습니다.
 - 최근 관련 커밋: 코드 `d85f424c03936e5c0c90006f996dab8dbbc97e3c`, 계약 기록 `b294d944aa24ba849afd2e3e6af74e4083c1aa14`, 통합 종료 기록 `254d149898de03c2e32ed9e3ba95e09233fd0c4c`.
 - 상태: bounded offline 기술 작업은 `ENGINEERING_COMPLETE/NOT_EVALUATED`입니다. 투자 성과나 자료 적격성을 평가하지 않았습니다.
@@ -15,7 +15,7 @@
 - 측정값은 관측치일 뿐입니다: CPU/CUDA elapsed `0.085804s` / `0.361621s`, warmed CPU 2/8-thread `0.001976/0.001908s`, CUDA synchronized transfer-inclusive `0.002719s`. GPU utilization은 전후 `89%` / `46%`로 격리되지 않았고 표본도 3-step 단일 synthetic fixture입니다. 속도 우위나 throughput 결론을 내리지 않았고 OOS, 전략 튜닝, 투자 판단으로 사용하지 않았습니다.
 - task-local venv는 worktree 격리를 위해 만들었으며 누락 dependency 보완을 위해 공개 package index에서 무료 패키지를 내려받았습니다. 초기 setup 중 `9 passed, 8 failed`는 Pydantic 누락에 따른 fixture setup 문제로 보존했고 dependency 설치 후 `17 passed`했습니다. 시장자료·유료 service·credential·운영 서비스 설정은 사용 또는 변경하지 않았습니다. `jusik-research-universe.service`는 inactive이며 설정 불변입니다.
 - post-log routing audit은 기존 parent/child JSONL 증거로 확인했습니다. 마지막 reviewer audit은 parent `01a0dfc9-d8d7-7240-a2fb-5eeb6fa9e991`, child `01a0e662-1313-7e53-9e7f-873f1be4ba11`, role/model `review`/`gpt-6-sol`, actual type `review`로 PASS했습니다. 미확인 routing 증거 공백은 없습니다.
-- 현재 남은 사용자 결정은 실제 independent trust-root owner, run controller, 권한 분리와 통제 채널의 지정·증명입니다. 그 승인 전 구현은 시작하지 않습니다. OOS 및 투자 평가는 이번 task에 포함되지 않았습니다. closeout 후에는 roadmap runner를 기존 `paused=false`로 복원하고, task-local venv와 완료 worktree를 정리합니다. 사용자 소유 루트 `HANDOFF.md`는 그대로 보존하며 이 dated project handoff만 갱신합니다.
+- 남은 사용자 결정은 실제 independent trust-root owner, run controller, 권한 분리와 통제 채널의 지정·증명입니다. 승인 전 구현은 시작하지 않습니다. OOS 및 투자 평가는 이번 task에 포함되지 않았습니다. task-local `backend/.venv`와 두 완료 worktree/branch를 제거하고 외부 audit은 보존했습니다. roadmap DB는 `paused=false`, timer active, runner service inactive입니다. `jusik-research-universe.service`도 inactive이며 설정은 그대로입니다. root `HANDOFF.md`는 기존 사용자 파일이라 수정·stage하지 않았습니다.
 
 ## 2026-09-28 trust-boundary brief 준비
 
