@@ -1,45 +1,36 @@
-# 외부 readiness trust-boundary 결정안
+# 외부 readiness 실행 신뢰 경계 결정안
 
-- 상태: 준비용 초안, **미승인·미적용**. publisher·scheduler 구현이나 신뢰 기준 확정이 아닙니다.
-- 범위: 실행 신원, 독립 hash pin과 receipt publication만 다룹니다. mandate, 시장자료 허용, 투자 gate, FINAL_VALIDATION/OOS는 변경하지 않습니다.
+- 상태: 사용자 결정 대기, 미승인·미적용. 구현은 계속 `PENDING`입니다.
+- 범위: producer/validator 실행과 그 증거를 누가 통제하는지에 관한 설계 결정입니다. 기존 연구 위임 조건, 시장자료 수용 규칙, 투자 기준과 gate는 바꾸지 않습니다.
 
-## 현재 검증 경계
+## 우선 사용자 결정: 독립 실행과 trust-root 통제 주체
 
-v1 consumer는 receipt 밖에서 온 `ReadinessExpectations`와 receipt/provenance를 비교합니다. 여기에는 task/attempt, request criteria, receipt SHA, producer/validator ID와 source SHA가 포함됩니다. 그러나 consumer는 launcher가 해당 bytes를 실제 실행했는지, 실행자가 그 receipt를 만들었는지 인증하지 않습니다. producer가 pin된 hash 문자열을 provenance에 복사하는 것만으로는 실행 증명이 되지 않습니다. 따라서 source pin과 실제 `task/attempt → 실행 snapshot → receipt SHA`를 묶은, 독립 검증 가능한 실행 증거가 함께 필요합니다. 현재 v1에는 이 attestation 경계가 구현되어 있지 않습니다.
+현재 v1 consumer는 외부에서 제공한 `ReadinessExpectations`와 receipt 및 provenance를 대조하지만, launcher가 특정 bytes를 실제 실행했는지 또는 실행자가 receipt를 만들었는지는 인증하지 않습니다. 기존 expanded-universe 자료에는 과거 collector 실행 source hash가 없고(null), 확인된 독립 trust-root owner나 control channel도 없습니다. 현재 파일의 hash만으로 과거 실행을 증명할 수 없습니다. 따라서 producer가 기록한 self-report만으로는 실행 주체와 receipt의 독립 결속을 만들 수 없으며, 이 경계는 구현되어 있지 않습니다.
 
-기존 expanded-universe 자료에는 과거 collector 실행 SHA가 없습니다(null). 현재 파일의 hash는 과거 실행을 증명하지 않습니다. validator receipt 및 원자 publication 경계도 없습니다. 8개 gate는 `BLOCKED`, scheduler와 held-band OOS는 각각 기존 조건에 따라 `PENDING/BLOCKED`입니다.
+**권고하는 역할 분리:** producer와 validator 모두로부터 독립된 trust-root owner가 최초 신뢰 기준을 설정하고 이후 갱신·철회를 통제합니다. 별도의 run controller는 승인된 immutable producer/validator snapshot만 실행하고, 실제 source 및 output bytes를 hash해 task, attempt, receipt 증거에 결속합니다. owner와 controller의 실제 인물·조직, 권한, 통신·배포 경로는 아직 정하지 않았으며 현재 존재한다고 가정하지 않습니다.
 
-## 권고안과 대안
+사용자에게 필요한 결정은 이 두 독립 역할을 채택할지, 그리고 각 역할과 독립 control channel을 무엇으로 지정하고 어떻게 증명할지입니다. 지정된 owner와 channel이 선택되고 권한 분리가 입증되기 전까지 어떤 구현이나 임시 trust policy도 적용하지 않습니다. 그 전에는 readiness가 `PENDING`으로 남습니다.
 
-| 선택지 | 실행 주체와 독립 pin 경로 | 장점 | 부담·한계 |
+역할 분리를 구현할 수 있는 후보는 다음 두 가지입니다.
+
+| 후보 | 역할 배치 | 장점 | 한계와 운영 부담 |
 | --- | --- | --- | --- |
-| **A. 분리 실행자와 서명된 실행 attestation** | producer와 별도 운영자가 immutable producer/validator snapshot을 pin된 manifest로 승인하고, 별도 권한의 launcher가 그 snapshot만 실행합니다. attestor는 실행을 직접 감독하고 실제 snapshot/output bytes에서 hash를 계산해 task/attempt, criteria digest, 두 source hash, raw receipt SHA를 묶어 별도 보유 키로 서명·원자 게시합니다. 오프라인 verifier는 producer가 아닌 경로에 독립 배포된 trust root로 이를 검증한 뒤 v1에 독립 기대값을 제공합니다. | 승인된 source identity와 실제 실행·receipt를 가장 강하게 연결합니다. | v1은 attestation을 읽지 않으므로 verifier/bridge 계약의 별도 설계·review가 필요합니다. 최초 공개 trust root의 독립 bootstrap, 배포, 검증기 갱신, 서명키 보관·백업·회전·철회 책임과 운영이 추가됩니다. root와 manifest를 같은 권한자가 바꿀 수 있으면 순환 신뢰입니다. 현재 이런 기반이 있다고 가정하지 않습니다. |
-| B. 보호된 저장소의 reviewer 승인 manifest | producer와 권한이 분리된 reviewer가 producer·validator source hash의 versioned manifest를 승인합니다. launcher는 해당 불변 snapshot을 실행합니다. producer와 분리된 trusted run controller가 실제 실행을 관찰하고 snapshot/output hash를 계산해야 합니다. | 무료·오프라인으로 가능하고 source hash 변경 이력이 남습니다. 별도 키 기반이 없어 운영이 비교적 단순합니다. | 보호된 review 권한과 run controller 권한이 실제로 분리되어야 합니다. manifest만으로 실행 여부나 receipt 생성 주체를 증명하지 못하므로 실행 증거가 없으면 `PENDING`입니다. 현재 branch protection·독립 owner가 이 보장을 제공한다고 확인된 바 없습니다. |
-| C. 별도 host/attestation service | producer·저장소와 분리된 host/service가 source pin, 실행, receipt hash attestation과 배포를 맡습니다. 검증기는 별도 trust root를 사용합니다. | repo/producer 권한과 실행 증거를 분리하기 쉽습니다. | 권한·credential, 가용성·복구, 서비스 운영과 실제 비용이 생길 수 있습니다. 현재 존재나 구매를 전제하지 않습니다. |
-| D. producer self-report 또는 사후 현재-file hash | producer가 receipt에 hash를 기록하거나 실행 뒤 현재 source를 hash합니다. | 디버깅에는 저렴하고 간단합니다. | 독립 pin도 실행 증명도 아닙니다. 진단에만 쓰고 trust 근거로는 거부해야 합니다. |
+| 보호된 저장소 manifest + 별도 controller | 저장소의 보호된 승인 절차가 producer/validator hash manifest를 보관하고, 별도 run controller가 승인 snapshot을 실행해 실제 source/output hash를 기록합니다. trust-root owner는 producer/validator와 독립된 권한 및 control channel을 가져야 합니다. | 기존 저장소와 오프라인 절차를 활용할 수 있어 추가 서비스가 필요 없을 수 있습니다. manifest 변경 이력도 검토할 수 있습니다. | 저장소 보호만으로 controller가 실행한 bytes나 receipt 생성 주체가 증명되지는 않습니다. 저장소 관리자와 trust-root owner의 권한이 겹치거나 분리가 확인되지 않으면 독립성이 성립하지 않습니다. controller의 실행·증거 보존 경계를 별도로 운영해야 합니다. 현재 그러한 권한 분리가 확인되지 않았습니다. |
+| 별도 host/attestation service | producer 및 manifest 저장소와 분리된 host/service가 run controller 기능과 실행 증거 생성을 맡고, 독립 trust-root owner가 그 신뢰 기준을 통제합니다. | 저장소·producer와 실행 통제의 권한을 분리하기 쉽고 실제 실행과 output hash를 한 경계에서 기록할 수 있습니다. | 별도 host/service의 소유·권한·credential·가용성·백업·복구와 비용을 운영해야 합니다. 서비스가 있다고 가정할 수 없고, 그 자체로 독립성이 증명되는 것도 아닙니다. |
 
-**조건부 권고:** 지금은 publisher를 보류합니다. 최소 비용의 다음 설계 후보는 독립 reviewer 권한 분리가 실제 확인될 때만 B를 source allowlist로 검토하고, 별도의 authenticated execution-to-receipt 증거를 반드시 요구하는 것입니다. 현재 그 실행 증거 경로와 reviewer 권한 분리는 확인되지 않았으므로 어떤 안도 적용하지 않고 `PENDING`을 유지합니다. 위협 모델상 저장소·실행 host 관리자의 변조도 방어해야 한다면 A/C의 별도 attestor와 trust-root bootstrap을 먼저 결정해야 합니다. 이는 설계 권고이며 승인이나 provisional trust 기준이 아닙니다.
+이 비교는 승인된 설계 선택지가 아닙니다. 사용자 결정은 실제 주체와 control channel을 지정하고 권한 경계를 증거로 확인할 때까지 미완료입니다. 어느 후보도 선택·배포·구현하지 않으며, 구체적인 pin, attestation 또는 실패 정책을 미리 정하지 않습니다.
 
-## 갱신·철회, 실패와 복구
+## 별도 승인 대상인 후속 결정
 
-- producer와 validator hash는 별개로 pin합니다. 변경은 기존 값을 덮어쓰지 않고 승인자, 적용 시점/attempt 경계, 이전·신규 hash가 남는 새 manifest generation으로 추가합니다. 새 실행 전에 고정된 snapshot과 pin을 대조합니다.
-- 서명을 택하면 key 회전과 hash 변경을 분리 기록합니다. 신규 key는 이미 신뢰된 root 또는 별도 승인된 bootstrap 절차로 등록하고, verifier가 root를 읽는 독립 배포 경로와 root 업데이트 권한도 기록해야 합니다. 철회 상태는 독립 배포된 단조 증가 generation과 유효기간으로 최신성을 검사하고, verifier는 마지막으로 본 generation을 되돌릴 수 없어야 합니다. Offline 검증은 trusted clock으로 expiry를 확인해야 합니다. verifier가 generation을 안전하게 보존하지 못하거나 현재 상태를 인증할 수 없으면 stale 여부가 불명확한 것으로 fail closed합니다. 철회 상태가 없거나 만료·stale이면 fail closed합니다. 오프라인 verifier에 즉시 전파된다고 주장하지 않으며, 즉시성은 신선한 상태가 실제 배포·확인된 범위에 한정됩니다. 과거 receipt를 삭제·수정하지 않습니다. 손상 시점을 입증할 수 없을 때 과거 receipt의 효력을 취소할지는 사용자 결정입니다.
-- pin/attestation 누락, unknown·revoked key, source/validator/attempt/receipt SHA 불일치, dirty snapshot, 부분 게시, 철회 상태 누락·만료·generation rollback, 검증 실패는 fail closed합니다. 독립 기대값을 제공하지 않고 task만 `PENDING/BLOCKED`로 둡니다. self-report fallback, 자동 gate 승격, scheduler/OOS 재개는 하지 않습니다.
-- 실패 attempt와 원본 artifact는 보존하고 불완전한 staging은 격리합니다. 원인 수정 후 새 pin generation·새 attempt로 실행합니다. 독립 verifier가 실행 attestation과 raw receipt SHA를 확인한 다음 v1 consumer에 기대값을 전달해 재검증합니다. 과거 null 실행 hash는 소급 보완하지 않습니다. `bound`여도 gate 상태는 별도이며 자동 변경하지 않습니다.
+아래 항목은 우선 역할 결정과 구별되는 후속 설계·구현 범위입니다. 각각 필요한 시점에 별도 사용자 승인을 받아야 하며, 우선 결정을 승인해도 자동 승인되지 않습니다.
 
-## 검증·운영 부담
-
-선택된 경계의 test-only fixture는 source/validator mismatch, task·attempt·receipt SHA 불일치, unknown/revoked key, 최초 root 교체, key 회전, 누락·만료·rollback된 철회 generation, dirty source, 중복·부분 게시, restart 복구를 검증해야 합니다. 정상 경로도 독립 verifier가 실행 증거를 확인하고 v1 consumer가 독립 `ReadinessExpectations`로 receipt를 다시 읽는 것까지 확인합니다. 실패는 `bound`와 gate 승격 없이 종료해야 합니다. scheduler/OOS는 이 증명과 별개의 승인 단계입니다.
-
-B는 독립 reviewer와 저장소 권한 보호 부담, A는 root/key 수명주기와 bridge 개발 부담, C는 운영·권한·credential·비용 부담이 큽니다. 어느 선택에도 manifest 승인자, 실행 책임자, 철회 권한자, 복구 담당자의 실제 지정이 필요합니다.
-
-| 사용자 결정 필요 | 정해야 하는 내용 |
+| 후속 결정 | 별도 승인으로 정할 내용 |
 | --- | --- |
-| 실행 주체·신뢰 범위 | 현재 collector를 유지할지 분리 launcher/host를 둘지, producer·repo·host 관리자 중 누구를 신뢰 경계 밖에 둘지 |
-| 독립 pin과 trust root | hash manifest의 owner·저장·배포 경로, 최초 public root의 bootstrap 채널·owner, root를 verifier에 업데이트할 권한; 같은 repo/reviewer 분리로 충분한지 |
-| 실행-결과 증명 | task/attempt·snapshot·receipt SHA를 누가 인증할지, 독립 verifier와 v1 사이 bridge를 별도 구현 범위로 승인할지 |
-| 갱신·철회 | hash/key 회전 및 긴급 철회 권한, offline verifier가 허용할 철회 상태 최대 age와 stale 시 동작, 손상 시 과거 receipt 효력·재실행 범위 |
-| 실패·복구 | fail-closed 및 artifact 보존 권고 채택 여부, 새 attempt 승인·운영 책임자 |
-| 후속 연결 | 검증된 receipt 이후 scheduler 재평가를 별도 scope로 시작할지. 이것은 gate/OOS/투자 승인과 별개입니다. |
+| Attestation schema와 publication | task/attempt, 실행 snapshot, 실제 source/output hash, raw receipt hash의 증거 형식, 생성·검증·원자 공개 책임과 보존 경계 |
+| v1 bridge | 독립 검증 결과를 기존 `ReadinessExpectations` 및 v1 consumer에 전달하는 방식과 별도 구현 범위 |
+| Hash/key 변경·철회 및 freshness | producer와 validator hash 변경 이력, 서명 key와 root 갱신·철회 통제, 오프라인 검증의 철회 상태 최신성 기준 |
+| 과거 receipt | 과거 실행 hash가 빠진 receipt의 상태 및 손상·철회 이후 과거 receipt 효력 처리 |
+| 실패와 복구 | 불완전하거나 검증할 수 없는 실행의 artifact 보존·격리, 재개 책임과 새 attempt 처리 |
+| Scheduler 연결 | 검증된 receipt를 scheduler가 재평가에 사용하는 별도 연결 범위. 이것만으로 gate 통과나 OOS·투자 승인을 뜻하지 않음 |
 
-이 결정 전에는 권고와 대안 모두 참고 초안입니다. publisher, trust pin, execution attestation, scheduler binding은 구현하지 않습니다.
+이 문서는 설계 결정과 후속 승인 경계만 기록합니다. publisher, execution attestation, trust-root pin, scheduler binding은 구현되어 있지 않으며, 실제 owner와 control channel이 선택되고 검증될 때까지 `PENDING`입니다.
