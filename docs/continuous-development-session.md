@@ -93,8 +93,11 @@ when the data supports them.
 The user has little time and cannot sustain the current subscription plan.
 Within the existing mandate and safety gates, favor the fastest credible
 cost-inclusive return evidence or a named blocker resolution. Reuse valid
-existing work, avoid unchanged repeat calls, and keep routine next steps
-autonomous. A short plan and minimal delegation suffice for known small changes;
+existing work, avoid only redundant optional calls on unchanged inputs, and
+keep routine next steps autonomous. Complete required focused checks, independent
+review, and post-integration validation; repeat when code, inputs, or environment
+changes, a prior check fails, or a gate requires it. A short plan and minimal
+delegation suffice for known small changes;
 medium or larger work keeps independent review. See
 [the canonical priority](autonomous-trading-lab.md#17-목표-기반-지속-운영).
 This changes dispatch instructions, not deterministic queue eligibility or a
