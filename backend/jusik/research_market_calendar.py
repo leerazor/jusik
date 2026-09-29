@@ -261,8 +261,7 @@ class MarketCalendar:
             raise ValueError("at must include a timezone")
         calendar = EXCHANGE_CALENDAR.get(exchange)
         if calendar is None:
-            calendar = "XKRX" if exchange == "XKRX" else "XNYS"
-            return CalendarClock(calendar, "unavailable", at.date(), None, None, None)
+            raise MarketCalendarError("exchange_not_mapped")
         local_date = at.astimezone(CALENDAR_TIMEZONE[calendar]).date()
         lookup = self.lookup(exchange, local_date)
         if lookup.state == "unavailable":

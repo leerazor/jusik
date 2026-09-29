@@ -124,6 +124,24 @@ def test_session_boundaries_are_inclusive_and_next_session_stops_at_unknown() ->
     )
 
 
+def test_clock_rejects_unmapped_exchange_without_changing_lookup() -> None:
+    calendar = load_market_calendar()
+    at = datetime(2026, 7, 2, 14, tzinfo=UTC)
+
+    with pytest.raises(MarketCalendarError, match="^exchange_not_mapped$"):
+        calendar.clock("BAD", at)
+
+    lookup = calendar.lookup("BAD", at.date())
+    assert lookup.calendar is None
+    assert lookup.state == "unavailable"
+    assert lookup.reason == "exchange_not_mapped"
+    krx_clock = calendar.clock("KRX", at)
+    nys_clock = calendar.clock("NYS", at)
+    assert (krx_clock.calendar, krx_clock.phase) == ("XKRX", "post_close")
+    assert (nys_clock.calendar, nys_clock.phase) == ("XNYS", "regular_session")
+    assert calendar.clock("NAS", at) == nys_clock
+
+
 @pytest.mark.parametrize(
     ("mutate", "code"),
     [
