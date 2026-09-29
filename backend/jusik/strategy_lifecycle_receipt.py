@@ -20,13 +20,9 @@ _SQLITE_STRIP_CHARS = (
     "8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199, 8200, 8201, "
     "8202, 8232, 8233, 8239, 8287, 12288)"
 )
-
-_SCHEMA = f"""
-CREATE TABLE IF NOT EXISTS lifecycle_evidence_receipts (
-    receipt_id TEXT PRIMARY KEY CHECK(
-        receipt_id IS NOT NULL AND
-        length(trim(receipt_id, {_SQLITE_STRIP_CHARS})) > 0
-    ),
+_TABLE_SCHEMA = """
+CREATE TABLE lifecycle_evidence_receipts (
+    receipt_id TEXT PRIMARY KEY,
     strategy_id TEXT NOT NULL,
     version TEXT NOT NULL,
     strategy_revision INTEGER NOT NULL CHECK(strategy_revision >= 0),
@@ -36,7 +32,9 @@ CREATE TABLE IF NOT EXISTS lifecycle_evidence_receipts (
     FOREIGN KEY(strategy_id, version)
         REFERENCES lifecycle_strategies(strategy_id, version)
 );
-CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_insert_guard
+"""
+
+_REVISION_GUARD = """CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_insert_guard
 BEFORE INSERT ON lifecycle_evidence_receipts BEGIN
     SELECT RAISE(ABORT, 'receipt must match current strategy revision')
     WHERE NOT EXISTS (
@@ -45,16 +43,25 @@ BEFORE INSERT ON lifecycle_evidence_receipts BEGIN
           AND s.version = NEW.version
           AND s.revision = NEW.strategy_revision
     );
-END;
-CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_no_update
+END"""
+
+_NO_UPDATE_GUARD = """CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_no_update
 BEFORE UPDATE ON lifecycle_evidence_receipts BEGIN
     SELECT RAISE(ABORT, 'evidence receipt is immutable');
-END;
-CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_no_delete
+END"""
+
+_NO_DELETE_GUARD = """CREATE TRIGGER IF NOT EXISTS lifecycle_receipt_no_delete
 BEFORE DELETE ON lifecycle_evidence_receipts BEGIN
     SELECT RAISE(ABORT, 'evidence receipt is immutable');
-END;
-"""
+END"""
+
+_ID_GUARD_TRIGGER_SQL = f"""CREATE TRIGGER lifecycle_receipt_id_insert_guard
+BEFORE INSERT ON lifecycle_evidence_receipts BEGIN
+    SELECT RAISE(ABORT, 'receipt id is required')
+    WHERE NEW.receipt_id IS NULL OR trim(NEW.receipt_id, {_SQLITE_STRIP_CHARS}) = '';
+END"""
+
+_RECEIPT_COLUMNS = "receipt_id,strategy_id,version,strategy_revision,evidence_digest"
 
 
 @dataclass(frozen=True)
@@ -71,7 +78,7 @@ class StrategyLifecycleReceiptStore:
 
     def __init__(self, lifecycle: StrategyLifecycleStore) -> None:
         self.lifecycle = lifecycle
-        with closing(self._connect()) as db:
+        with closing(self._connect()) as db, db:
             if (
                 db.execute(
                     "SELECT 1 FROM sqlite_master WHERE type='table' "
@@ -80,16 +87,54 @@ class StrategyLifecycleReceiptStore:
                 is None
             ):
                 raise ValueError("lifecycle registry is missing")
-            db.executescript(_SCHEMA)
-            db.executescript(
-                "DROP TRIGGER IF EXISTS lifecycle_receipt_id_insert_guard;"
-                "CREATE TRIGGER lifecycle_receipt_id_insert_guard "
-                "BEFORE INSERT ON lifecycle_evidence_receipts BEGIN "
-                "SELECT RAISE(ABORT, 'receipt id is required') "
-                "WHERE NEW.receipt_id IS NULL OR "
-                f"length(trim(NEW.receipt_id, {_SQLITE_STRIP_CHARS})) = 0; "
-                "END;"
+            db.execute("BEGIN IMMEDIATE")
+            db.execute(
+                _TABLE_SCHEMA.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS", 1)
             )
+            self._migrate_trim_check(db)
+            for trigger in (
+                "lifecycle_receipt_insert_guard",
+                "lifecycle_receipt_no_update",
+                "lifecycle_receipt_no_delete",
+                "lifecycle_receipt_id_insert_guard",
+            ):
+                db.execute(f"DROP TRIGGER IF EXISTS {trigger}")
+            db.execute(_REVISION_GUARD)
+            db.execute(_NO_UPDATE_GUARD)
+            db.execute(_NO_DELETE_GUARD)
+            db.execute(_ID_GUARD_TRIGGER_SQL)
+
+    @staticmethod
+    def _migrate_trim_check(db: sqlite3.Connection) -> None:
+        schema = db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' "
+            "AND name='lifecycle_evidence_receipts'"
+        ).fetchone()
+        if schema is None or "length(trim(" not in str(schema["sql"]).lower().replace(
+            " ", ""
+        ):
+            return
+        db.execute("DROP TRIGGER IF EXISTS lifecycle_receipt_insert_guard")
+        db.execute("DROP TRIGGER IF EXISTS lifecycle_receipt_no_update")
+        db.execute("DROP TRIGGER IF EXISTS lifecycle_receipt_no_delete")
+        db.execute("DROP TRIGGER IF EXISTS lifecycle_receipt_id_insert_guard")
+        db.execute(
+            _TABLE_SCHEMA.replace(
+                "lifecycle_evidence_receipts",
+                "lifecycle_evidence_receipts_rebuilt",
+                1,
+            )
+        )
+        db.execute(
+            "INSERT INTO lifecycle_evidence_receipts_rebuilt "
+            f"({_RECEIPT_COLUMNS}) SELECT {_RECEIPT_COLUMNS} "
+            "FROM lifecycle_evidence_receipts"
+        )
+        db.execute("DROP TABLE lifecycle_evidence_receipts")
+        db.execute(
+            "ALTER TABLE lifecycle_evidence_receipts_rebuilt "
+            "RENAME TO lifecycle_evidence_receipts"
+        )
 
     def _connect(self) -> sqlite3.Connection:
         db = sqlite3.connect(self.lifecycle.path, timeout=10)

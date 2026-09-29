@@ -9,6 +9,7 @@ from threading import Event
 
 import pytest
 
+from jusik import strategy_lifecycle_receipt
 from jusik.strategy_lifecycle import (
     RevisionConflict,
     StrategyLifecycleStore,
@@ -185,6 +186,62 @@ def test_missing_or_blank_receipt_identity_is_rejected(
         )
 
 
+def test_nul_containing_receipt_id_is_valid_in_new_schema(
+    stores: tuple[StrategyLifecycleStore, StrategyLifecycleReceiptStore],
+) -> None:
+    lifecycle, receipts = stores
+    receipt_id = "\x00valid\x00id"
+    _record(receipts, receipt_id=receipt_id)
+    with sqlite3.connect(lifecycle.path) as db:
+        db.execute(
+            "INSERT INTO lifecycle_evidence_receipts "
+            "(receipt_id,strategy_id,version,strategy_revision,evidence_digest) "
+            "VALUES (?,?,?,?,?)",
+            ("\x00direct", "sample", "v1", 0, DIGEST),
+        )
+    assert (
+        receipts.verify(
+            receipt_id,
+            "sample",
+            "v1",
+            expected_revision=0,
+            evidence=EVIDENCE,
+            evidence_digest=DIGEST,
+        ).receipt_id
+        == receipt_id
+    )
+
+
+def test_trigger_refresh_rolls_back_if_replacement_fails(
+    stores: tuple[StrategyLifecycleStore, StrategyLifecycleReceiptStore],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lifecycle, _ = stores
+    with sqlite3.connect(lifecycle.path) as db:
+        db.execute("DROP TRIGGER lifecycle_receipt_id_insert_guard")
+        db.execute(
+            "CREATE TRIGGER lifecycle_receipt_id_insert_guard "
+            "BEFORE INSERT ON lifecycle_evidence_receipts BEGIN "
+            "SELECT RAISE(ABORT, 'receipt id is required') "
+            "WHERE NEW.receipt_id IS NULL OR length(trim(NEW.receipt_id))=0; END"
+        )
+    monkeypatch.setattr(
+        strategy_lifecycle_receipt,
+        "_ID_GUARD_TRIGGER_SQL",
+        "CREATE TRIGGER lifecycle_receipt_id_insert_guard BROKEN",
+    )
+    with pytest.raises(sqlite3.OperationalError):
+        StrategyLifecycleReceiptStore(lifecycle)
+    with sqlite3.connect(lifecycle.path) as db:
+        with pytest.raises(sqlite3.IntegrityError, match="receipt id is required"):
+            db.execute(
+                "INSERT INTO lifecycle_evidence_receipts "
+                "(receipt_id,strategy_id,version,strategy_revision,evidence_digest) "
+                "VALUES (?,?,?,?,?)",
+                (" ", "sample", "v1", 0, DIGEST),
+            )
+
+
 @pytest.mark.parametrize(
     "receipt_id",
     [
@@ -278,9 +335,8 @@ def test_reopen_existing_receipt_table_installs_id_guard(tmp_path: Path) -> None
             "strategy_revision INTEGER NOT NULL, evidence_digest TEXT NOT NULL);"
             "CREATE TRIGGER lifecycle_receipt_id_insert_guard "
             "BEFORE INSERT ON lifecycle_evidence_receipts BEGIN "
-            "SELECT RAISE(ABORT, 'receipt id is required') "
-            "WHERE NEW.receipt_id IS NULL OR "
-            "length(trim(NEW.receipt_id, char(9,10,11,12,13,32)))=0; END;"
+            "SELECT RAISE(ABORT, 'stale permissive receipt guard') "
+            "WHERE 0; END;"
         )
         db.execute(
             "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
@@ -307,11 +363,15 @@ def test_reopen_existing_receipt_table_installs_id_guard(tmp_path: Path) -> None
             "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
             ("current\u00a0id", "sample", "v1", 0, DIGEST),
         )
+        db.execute(
+            "INSERT INTO lifecycle_evidence_receipts VALUES (?,?,?,?,?)",
+            ("\x00legacy", "sample", "v1", 0, DIGEST),
+        )
         assert db.execute(
             "SELECT receipt_id FROM lifecycle_evidence_receipts "
             "WHERE receipt_id IN ('current', 'existing') ORDER BY receipt_id"
         ).fetchall() == [("current",), ("existing",)]
-    for receipt_id in ("existing", "current", "current\u00a0id"):
+    for receipt_id in ("existing", "current", "current\u00a0id", "\x00legacy"):
         assert (
             reopened.verify(
                 receipt_id,
@@ -332,6 +392,11 @@ def test_reopen_existing_receipt_table_installs_id_guard(tmp_path: Path) -> None
             evidence=EVIDENCE,
             evidence_digest=DIGEST,
         )
+    with sqlite3.connect(lifecycle.path) as db:
+        assert db.execute(
+            "SELECT receipt_id FROM lifecycle_evidence_receipts WHERE receipt_id=?",
+            ("\u00a0",),
+        ).fetchall() == [("\u00a0",)]
     assert lifecycle.get("sample", "v1") == before
     assert lifecycle.events("sample", "v1") == events
 
