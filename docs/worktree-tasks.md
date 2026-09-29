@@ -1,5 +1,12 @@
 # 워크트리 작업 등록부
 
+## listing-identity-scope-review
+
+- 상태: 읽기 전용 조사·계획 완료; 구현은 자료 조건 충족 전 보류.
+- 기준: local `main` `cbb4728`. `explore`가 collector와 진단 계약을 조사하고 `plan`이 구현 범위를 검토했습니다.
+- 결론: 기존 221+145 상장 전 결손·상장 후 0 결손 보고를 반복하는 새 모듈은 만들지 않습니다. 역사적 issuer/security·효력 기간·provider 관측 근거 없이 수집기 자동 결속이나 coverage 재분류는 할 수 없습니다. R1-05는 `waiting_external` 유지.
+- 기록: [범위 검토](development-records/2026-09-30-listing-identity-scope-review.md); [인계](handoffs/2026-09-30-automated-fixes-record.md).
+
 ## 2026-09-29 자동 공학 수정 두 건
 
 - `lab-discovery-fde5cf20f1f6c53cbb17b296d969f054`: Sortino NAV 중복·역순·시간대 누락 거부. `main` `611c817`, 독립 완료 검토 후 `ENGINEERING_COMPLETE/NOT_EVALUATED`. [개발 기록](development-records/2026-09-29-sortino-nav-chronology.md).
