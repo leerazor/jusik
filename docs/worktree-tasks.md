@@ -2,17 +2,18 @@
 
 ## strategy-lifecycle-receipt-unicode-blank-guard
 
-- 상태: 진행
+- 상태: 완료
 - 목표·완료 조건: Python API, SQLite 직접 INSERT, 재개방한 기존 DB, `verify()`가 receipt ID의 blank 여부를 같은 기준으로 판정합니다. Python `str.strip()` 기준으로 blank인 ID를 모두 거부하고 비공백 문자가 포함된 기존 ID는 허용합니다. 기존 trigger의 `IF NOT EXISTS` 한계를 테스트로 다룹니다.
 - 근거·계획: 임시 SQLite 재현에서 U+00A0만 있는 ID를 직접 INSERT하고 `verify()`까지 성공시켰지만 `record()`는 같은 ID를 `ValueError`로 거부했습니다. 근본 원인은 DB가 ASCII whitespace만 trim하는 점입니다. 독립 scope review와 plan 모두 trigger 재설치, `verify()` fail-closed, Unicode 및 구 DB 회귀를 권고했습니다.
 - provisional technical assumption: SQLite의 고정 Unicode whitespace 문자 집합은 이 런타임의 Python `str.strip()` blank 판정에 맞춥니다. 이는 reversible한 receipt 무결성 계약이며 mandate·투자 기준·자료 승인 조건을 변경하거나 동결하지 않습니다.
 - 담당·소유: 단일 중앙 `role.code_small` 구현자, 별도 `role.review`; 등록부·기록·통합은 supervisor 소유.
 - 워크트리·브랜치: `/home/kwl/projects/jusik-strategy-lifecycle-receipt-unicode-blank-guard` / `fix/strategy-lifecycle-receipt-unicode-blank-guard`.
-- 기준 커밋 / 통합 대상: 등록 커밋 이후 생성; local `main`.
+- 기준 커밋 / 통합 대상: `7dfc9344cb154d84e511ef8b94ea4820914802f2`; local `main`.
 - 수정 허용 범위: worker는 `backend/jusik/strategy_lifecycle_receipt.py` 및 `backend/tests/test_strategy_lifecycle_receipt.py`만 수정합니다. supervisor만 이 등록부와 작업별 개발 기록·handoff를 갱신합니다.
-- 검증: 기존 focused pytest 파일, 두 파일 Ruff check/format, 설정된 strict mypy, `git diff --check`, 독립 review PASS. 테스트는 U+00A0/U+2003/mixed whitespace, 유효 ID, 구 DB trigger refresh와 legacy blank receipt 거부를 포함합니다.
+- 검증: focused receipt pytest 51 passed; 두 파일 Ruff check/format과 strict mypy, `git diff --check`, 최종 독립 review PASS. 테스트는 Python `str.strip()` 공백 전부, NUL 포함 유효 ID, legacy schema 행 보존, trigger 교체 rollback을 포함합니다. 초기 독립 review의 두 finding은 보정 커밋 `49433e5`에서 해결했습니다.
 - 운영·비용 제한: 임시 SQLite와 synthetic fixture만 사용. mandate·PAPER/live·brokerage·운영 DB·외부 자료·credential·GPU·유료 서비스·remote push는 건드리지 않습니다.
-- 결과·차단·기록: 진행 중. 검증된 독립 READY engineering defect이며 사용자 결정이나 외부 의존성이 없습니다.
+- 결과·차단·기록: 구현 `4eaed394b1223fd69e8114de8ee4a7bf20690d8d`, review 보정 `49433e58b1128ca6a047a9d37d852a6fba1f4d61`. 보정 구현은 legacy CHECK table을 transaction 안에서 rebuild하고 기존 receipt를 보존하며 trigger를 원자 교체합니다. final review PASS. `main` fast-forward 통합 및 통합본 pytest 51 passed, Ruff check/format, 두 파일 strict mypy, diff check 통과. task worktree는 generated venv/cache만 확인 후 정상 제거했고 branch·commit은 보존했습니다.
+- 개발 기록: `docs/development-records/2026-09-29-strategy-lifecycle-receipt-unicode-blank-guard.md`; handoff: `docs/handoffs/2026-09-29-project-ready-work.md`.
 
 ## trust-boundary-priority-decision-v1
 
