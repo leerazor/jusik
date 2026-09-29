@@ -152,6 +152,9 @@ R1은 데이터가 당시 알 수 있었던 universe를 표현하는지 확인�
 - [ ] **R1-05** 부분 이력·identity 불일치·상장폐지 심볼은 원인과 coverage로 기록하며 조용히 삭제하지 않는다.
   - public evidence catalog의 SHA·item/source count 무결성 gate를 추가했지만, 이는 provider 전체
     coverage·PIT completeness를 증명하지 않으므로 R1-05 checkbox는 미완료로 유지합니다.
+  - 2026-09-29 새 공식 공시와 캐시 대조: LIME 221·MDA 145 누락 세션은 현대 미국 종목의 거래 시작 전이며,
+    listing의 옛 회사 identity와 Yahoo의 현대 회사 identity가 충돌합니다. [확보 원문과 다음 작업](development-records/2026-09-29-listing-identity-evidence.md)을
+    읽고 반복 가격 조회보다 기간별 identity 진단·보호를 먼저 검토합니다. 원본 cache·최종 acceptance·미완료 checkbox는 유지합니다.
 - [x] **R1-06** safe provider response fixture로 정상, null, quota, auth, parse, coverage 실패를 서로 다른 오류로 회귀 검증한다.
   - 증거: 합성 provider fixture17개(각1심볼/1세션, seed0), 정상/null/quota/auth/parse/coverage·실패 cache 차단·CLI insufficient 보존. 통합 `e335342829a50cd56f57c782ec12edb25764bb72`, main pytest143·Ruff·configured mypy·Terra 독립 재검토 PASS. [개발 기록](development-records/2026-09-16-r1-provider-response-fixtures.md); audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-06-518dc0fb/integration-verification.json` (SHA-256 `ac982d059e5ff974572bcc98405d923df4cdc1b91b7f0e13f456bbe4d28688ab`). 기존 format 부채는 동일하며 경제 평가는 `not-evaluated`; R1 전체 완료는 아닙니다.
 

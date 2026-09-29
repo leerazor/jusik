@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## listing-identity-evidence
+
+- 상태: 공식 원문 확보·자료 원인 조사 완료; identity 재대사와 R1-05 최종 판정 미완료.
+- 목표: 366세션 누락의 원천 근거를 확보하고 빠른 후속 작업을 구체화합니다.
+- 소유·범위: supervisor의 문서·원문 감사 작업; 제품 구현 없음. 독립 role.review는 저장된 근거를 읽기 전용 검토합니다.
+- 기준: local main `eadcaa06d5169b3992eea84e526d9bd2c19a9b29`; 문서만 기준 저장소에서 통합합니다. runner pause로 동시 변경을 막습니다.
+- 결과: 공식 공시 5개 HTTP 200·원문 hash 저장. LIME/MDA의 221+145 결손은 각각 2026-07-01/2026-03-12 이전이며 상장 후 캐시 결손 0. listing/Yahoo 회사명·상장 날짜 충돌을 확인했습니다.
+- 검증: 원 result와 Alpha 원문 hash, 세션 차집합, 공시 본문 확인·독립 review PASS(원인 근거 범위). 데이터 acceptance·가격 보간·자동 제외·원본 변경 없음.
+- 후속: 반복 가격 조회에 앞서 issuer/security·거래소·통화·기간의 identity 진단 후보를 독립 scope 검토합니다. 로드맵에 새 근거를 연결해 자동 planner가 재검토할 수 있게 합니다.
+- 기록: `docs/development-records/2026-09-29-listing-identity-evidence.md`; handoff: `docs/handoffs/2026-09-29-listing-identity-evidence.md`.
+
 ## fast-results-harness-priority
 
 - 상태: 완료 (정책·호출 지침 local main 통합; 운영 재개 관측은 별도 runtime 기록)
