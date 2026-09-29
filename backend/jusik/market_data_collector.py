@@ -32,7 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
 from jusik.market_history_approximate import (
     MAX_UNIQUE_SYMBOLS,
-    US_EVENT_TIMING_NORMALIZATION_VERSION,
+    US_EXCLUSION_NORMALIZATION_VERSION,
     US_MEMBERSHIP_SEED,
     ApproximateBarRow,
     ApproximateDataset,
@@ -50,6 +50,7 @@ from jusik.market_history_approximate import (
     deterministic_pool,
 )
 from jusik.market_history_models import Market
+from jusik.market_research_strategy import US_RESEARCH_EXCLUDED_SYMBOLS
 from jusik.research_market_calendar import MarketCalendar, default_market_calendar
 
 KRX_STK_URL = "https://data-dbg.krx.co.kr/svc/apis/sto/stk_bydd_trd"
@@ -2205,9 +2206,23 @@ def completed_collection_is_valid(
         return False
     try:
         content = output.read_bytes()
-        ApproximateDataset.model_validate_json(content)
+        dataset = ApproximateDataset.model_validate_json(content)
     except (OSError, ValueError):
         return False
+    if market == "US":
+        diagnostics = dataset.collection_diagnostics
+        if (
+            dataset.normalization_version != US_EXCLUSION_NORMALIZATION_VERSION
+            or diagnostics is None
+            or diagnostics.policy_excluded_symbols
+            != tuple(sorted(US_RESEARCH_EXCLUDED_SYMBOLS))
+            or any(
+                item.symbol in US_RESEARCH_EXCLUDED_SYMBOLS
+                for rows in (dataset.universe, dataset.bars, dataset.events)
+                for item in rows
+            )
+        ):
+            return False
     digest = hashlib.sha256(content).hexdigest()
     return digest == marker.output_sha256 == marker.dataset_sha256
 
@@ -2396,7 +2411,11 @@ class FreeMarketDataCollector:
                     )
                     continue
                 checkpoint_rows[listing_checkpoint] = listing.rows
-                eligible = {row.symbol for row in listing.rows}
+                eligible = {
+                    row.symbol
+                    for row in listing.rows
+                    if row.symbol not in US_RESEARCH_EXCLUDED_SYMBOLS
+                }
                 for row in listing.rows:
                     symbol_details.setdefault(row.symbol, row)
                 seeded = sorted(
@@ -2555,7 +2574,7 @@ class FreeMarketDataCollector:
             raw_rows = tuple(universe_rows)
             selected_symbols = set(symbols)
             source = "alpha_vantage"
-            normalization_version = US_EVENT_TIMING_NORMALIZATION_VERSION
+            normalization_version = US_EXCLUSION_NORMALIZATION_VERSION
         if market == "KR":
             first_day_rows = tuple(row for row in raw_rows if row.session == checkpoint)
             pool = deterministic_pool(first_day_rows, market=market, pool_end=end)
@@ -2829,6 +2848,7 @@ class FreeMarketDataCollector:
                 reason_counts=reason_counts,
                 request_excluded_symbols=tuple(sorted(excluded)),
                 request_excluded_symbol_count=len(excluded),
+                policy_excluded_symbols=tuple(sorted(US_RESEARCH_EXCLUDED_SYMBOLS)),
                 all_failed=all_failed,
             )
         if not bars:
@@ -2840,6 +2860,9 @@ class FreeMarketDataCollector:
         limitations: list[str] = []
         if market == "US":
             limitations.extend(alpha_limitations)
+            limitations.append(
+                "US research selection excludes LIME and MDA before checkpoint seeding"
+            )
         if market == "US":
             fred_start = warmup_start - timedelta(days=7)
             if isinstance(self.transport, NetworkCollectorTransport):

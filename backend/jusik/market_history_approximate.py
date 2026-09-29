@@ -31,7 +31,14 @@ from jusik.market_history_models import (
     PITMembership,
     SourceName,
 )
-from jusik.market_research_strategy import run_market_research
+from jusik.market_research_strategy import (
+    US_RESEARCH_EXCLUDED_SYMBOLS,
+    market_research_policy_for_grade,
+    market_research_policy_hash,
+    prepare_us_research_snapshot,
+    run_market_research,
+    us_research_exclusion_note,
+)
 from jusik.research_market_calendar import (
     MarketCalendar,
     MarketSession,
@@ -42,8 +49,10 @@ MAX_SAMPLE_SYMBOLS = 100
 MAX_UNIQUE_SYMBOLS = 400
 US_MEMBERSHIP_NORMALIZATION_VERSION = "approx-us-r1-membership-v1"
 US_EVENT_TIMING_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v1"
+US_EXCLUSION_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v2"
 US_MEMBERSHIP_POOL_POLICY_VERSION = "approximate-us-membership-pool-v1"
 US_EVENT_TIMING_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v1"
+US_EXCLUSION_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v2"
 US_MEMBERSHIP_SEED = 20260914
 APPROX_LOOKBACK_SESSIONS = 20
 APPROX_TARGET_WEIGHT = Decimal("0.05")
@@ -243,6 +252,9 @@ class CollectionDiagnostics(BaseModel):
     reason_counts: dict[CollectionDiagnosticReason, int] = Field(default_factory=dict)
     request_excluded_symbols: tuple[str, ...] = ()
     request_excluded_symbol_count: int = Field(default=0, ge=0)
+    policy_excluded_symbols: tuple[str, ...] = Field(
+        default=(), exclude_if=lambda value: not value
+    )
     all_failed: bool = False
 
     @model_validator(mode="after")
@@ -285,6 +297,12 @@ class CollectionDiagnostics(BaseModel):
             raise ValueError(
                 "diagnostic request exclusion count does not match symbols"
             )
+        if self.policy_excluded_symbols and self.policy_excluded_symbols != tuple(
+            sorted(US_RESEARCH_EXCLUDED_SYMBOLS)
+        ):
+            raise ValueError("diagnostic policy exclusions do not match US policy")
+        if any(item.symbol in self.policy_excluded_symbols for item in self.symbols):
+            raise ValueError("diagnostic selected policy-excluded symbol")
         aggregate = _aggregate_coverage(item.coverage for item in symbols)
         if aggregate != self.coverage:
             raise ValueError("diagnostic aggregate coverage does not match symbols")
@@ -588,6 +606,20 @@ def us_event_timing_contract_hash() -> str:
     )
 
 
+def us_exclusion_contract_hash() -> str:
+    """Return the new US selection contract without changing frozen hashes."""
+    return _hash(
+        {
+            "base": _us_contract_hash(
+                policy_version=US_EXCLUSION_POOL_POLICY_VERSION,
+                normalization_version=US_EXCLUSION_NORMALIZATION_VERSION,
+            ),
+            "excluded_symbols": sorted(US_RESEARCH_EXCLUDED_SYMBOLS),
+            "exclusion_stage": "before_checkpoint_seed_and_retention",
+        }
+    )
+
+
 def legacy_us_membership_contract_hash() -> str:
     """Return the R1-01 hash so legacy prepared artifacts remain identifiable."""
     return us_membership_contract_hash()
@@ -613,8 +645,7 @@ def _validate_us_membership_rows(
         session_symbols.add(row.symbol)
         all_symbols.add(row.symbol)
     if any(
-        len(symbols) > MAX_SAMPLE_SYMBOLS
-        for symbols in symbols_by_session.values()
+        len(symbols) > MAX_SAMPLE_SYMBOLS for symbols in symbols_by_session.values()
     ):
         raise ApproximateProviderError("US membership exceeds the per-session bound")
     if len(all_symbols) > MAX_UNIQUE_SYMBOLS:
@@ -805,6 +836,7 @@ class ApproximateMarketHistorySource:
         is_causal_us = request.market == "US" and dataset.normalization_version in {
             US_MEMBERSHIP_NORMALIZATION_VERSION,
             US_EVENT_TIMING_NORMALIZATION_VERSION,
+            US_EXCLUSION_NORMALIZATION_VERSION,
         }
         pool = (
             deterministic_pool(
@@ -814,12 +846,35 @@ class ApproximateMarketHistorySource:
             else None
         )
         if is_causal_us:
+            if dataset.normalization_version == US_EXCLUSION_NORMALIZATION_VERSION:
+                present = US_RESEARCH_EXCLUDED_SYMBOLS.intersection(
+                    item.symbol
+                    for rows in (dataset.universe, dataset.bars, dataset.events)
+                    for item in rows
+                )
+                if present:
+                    raise ApproximateProviderError(
+                        "prepared US data contains policy-excluded symbols: "
+                        + ", ".join(sorted(present))
+                    )
+                diagnostics = dataset.collection_diagnostics
+                if diagnostics is None or diagnostics.policy_excluded_symbols != tuple(
+                    sorted(US_RESEARCH_EXCLUDED_SYMBOLS)
+                ):
+                    raise ApproximateProviderError(
+                        "prepared US data lacks policy exclusion evidence"
+                    )
             _validate_us_membership_rows(dataset.universe, market=request.market)
             selected_rows = dataset.universe
             contract_hash = (
                 legacy_us_membership_contract_hash()
                 if dataset.normalization_version == US_MEMBERSHIP_NORMALIZATION_VERSION
-                else us_event_timing_contract_hash()
+                else (
+                    us_exclusion_contract_hash()
+                    if dataset.normalization_version
+                    == US_EXCLUSION_NORMALIZATION_VERSION
+                    else us_event_timing_contract_hash()
+                )
             )
         else:
             assert pool is not None
@@ -827,7 +882,11 @@ class ApproximateMarketHistorySource:
             contract_hash = pool.contract_hash
         event_timing_enabled = (
             request.market == "US"
-            and dataset.normalization_version == US_EVENT_TIMING_NORMALIZATION_VERSION
+            and dataset.normalization_version
+            in {
+                US_EVENT_TIMING_NORMALIZATION_VERSION,
+                US_EXCLUSION_NORMALIZATION_VERSION,
+            }
         )
         normalized_events: tuple[ApproximateEvent, ...]
         if event_timing_enabled:
@@ -1094,8 +1153,20 @@ def run_approximate_market_research(
     calendar: MarketCalendar,
     *,
     policy_hash: str | None = None,
+    allow_frozen_us_replay: bool = False,
 ) -> MarketResearchResult:
     """Run the same trading core as strict research with approximate coverage."""
+    excluded: tuple[str, ...] = ()
+    if request.market == "US" and not allow_frozen_us_replay:
+        snapshot, excluded = prepare_us_research_snapshot(snapshot)
+        current_hash = market_research_policy_hash(
+            market_research_policy_for_grade(
+                request.research_grade, market=request.market
+            )
+        )
+        if policy_hash is not None and policy_hash != current_hash:
+            raise ValueError("US research policy hash is not current")
+        policy_hash = current_hash
     unknown_event_ranges = tuple(
         item
         for item in snapshot.missing_ranges
@@ -1116,6 +1187,11 @@ def run_approximate_market_research(
                     item.removeprefix("us_event_timing:unknown:")
                     for item in unknown_event_ranges
                 ),
+                *(
+                    (us_research_exclusion_note(excluded),)
+                    if request.market == "US" and not allow_frozen_us_replay
+                    else ()
+                ),
             ),
             input_hash=snapshot.input_hash,
             policy_hash=policy_hash,
@@ -1126,11 +1202,23 @@ def run_approximate_market_research(
             research_grade=request.research_grade,
             pool_contract_hash=snapshot.pool_contract_hash,
         )
-    return run_market_research(
+    result = run_market_research(
         snapshot,
         request,
         readiness,
         calendar,
         policy_hash=policy_hash,
         allow_approximate=True,
+        allow_frozen_us_replay=allow_frozen_us_replay,
     )
+    if excluded:
+        generic_note = us_research_exclusion_note(())
+        return result.model_copy(
+            update={
+                "limitations": (
+                    *(item for item in result.limitations if item != generic_note),
+                    us_research_exclusion_note(excluded),
+                )
+            }
+        )
+    return result

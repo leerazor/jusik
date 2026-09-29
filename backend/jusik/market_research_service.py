@@ -34,7 +34,9 @@ from jusik.market_research_config import load_market_research_settings
 from jusik.market_research_strategy import (
     market_research_policy_for_grade,
     market_research_policy_hash,
+    prepare_us_research_snapshot,
     run_market_research,
+    us_research_exclusion_note,
 )
 from jusik.market_time_evidence import attach_time_evidence
 from jusik.research_market_calendar import MarketCalendar, default_market_calendar
@@ -115,8 +117,10 @@ class MarketResearchService:
         self.approximate_source = approximate_source
         self.policy_hash = market_research_policy_hash()
 
-    def _policy_hash_for_grade(self, grade: ResearchGrade) -> str:
-        return market_research_policy_hash(market_research_policy_for_grade(grade))
+    def _policy_hash_for_grade(self, grade: ResearchGrade, market: Market) -> str:
+        return market_research_policy_hash(
+            market_research_policy_for_grade(grade, market=market)
+        )
 
     def _source_for_grade(self, grade: ResearchGrade) -> MarketHistorySource:
         if grade == "approximate":
@@ -206,7 +210,7 @@ class MarketResearchService:
                 "현재 실행 가정과 일치하지 않아 최종 단계에서 참조할 수 없습니다.",
             )
         if pilot.result.policy_hash != self._policy_hash_for_grade(
-            pilot.request.research_grade
+            pilot.request.research_grade, pilot.request.market
         ):
             return False, "현재 연구 정책과 일치하지 않습니다."
         if (
@@ -294,7 +298,12 @@ class MarketResearchService:
                 raise MarketResearchConflict(
                     "research grade does not match configured source"
                 )
-            contract_hash = data_contract_hash(snapshot, readiness)
+            source_excluded: tuple[str, ...] = ()
+            if request.market == "US":
+                snapshot, source_excluded = prepare_us_research_snapshot(snapshot)
+            contract_hash = data_contract_hash(
+                snapshot, readiness, new_us_research=request.market == "US"
+            )
             snapshot = snapshot.model_copy(update={"data_contract_hash": contract_hash})
             if request.stage == "final" and pilot.data_contract_hash != contract_hash:
                 raise MarketResearchConflict("final data contract does not match pilot")
@@ -320,7 +329,9 @@ class MarketResearchService:
                     request,
                     readiness,
                     self.calendar,
-                    policy_hash=self._policy_hash_for_grade(request.research_grade),
+                    policy_hash=self._policy_hash_for_grade(
+                        request.research_grade, request.market
+                    ),
                 )
             else:
                 result = run_market_research(
@@ -328,7 +339,23 @@ class MarketResearchService:
                     request,
                     readiness,
                     self.calendar,
-                    policy_hash=self._policy_hash_for_grade(request.research_grade),
+                    policy_hash=self._policy_hash_for_grade(
+                        request.research_grade, request.market
+                    ),
+                )
+            if source_excluded:
+                generic_note = us_research_exclusion_note(())
+                result = result.model_copy(
+                    update={
+                        "limitations": (
+                            *(
+                                item
+                                for item in result.limitations
+                                if item != generic_note
+                            ),
+                            us_research_exclusion_note(source_excluded),
+                        )
+                    }
                 )
             result = attach_time_evidence(result, self.calendar)
             result = result.model_copy(

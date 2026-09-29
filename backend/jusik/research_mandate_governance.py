@@ -21,6 +21,7 @@ LEGACY_MANDATE_JSON_SHA256 = (
 )
 LEGACY_EXECUTION_HASH_KEY = "docs/research-mandate.json#legacy-execution-identity"
 GOVERNANCE_PROJECTION_HASH_KEY = "docs/research-mandate.json#governance-object"
+US_RESEARCH_POLICY_HASH_KEY = "docs/research-mandate.json#new-us-research-policy"
 
 GOVERNANCE_SCHEMA_VERSION = 1
 GOVERNANCE_POLICY_VERSION = "investment-roadmap-governance-v1"
@@ -159,6 +160,20 @@ def _governance_projection(governance: Mapping[str, Any]) -> bytes:
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def _us_research_projection(value: Any) -> bytes:
+    if value != {
+        "version": "us-research-symbol-exclusions-v1",
+        "excluded_symbols": ["LIME", "MDA"],
+        "selection": "exclude_before_checkpoint_seed_and_fill_vacancies",
+        "prepared_data": "legacy_filter_no_backfill;new_fill_vacancies",
+        "historical_replay": "frozen_inputs_and_results_unchanged",
+    }:
+        raise _invalid()
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
 
 
@@ -312,6 +327,11 @@ def validate_mandate(repo: Path) -> ValidatedMandate:
         _governance_projection(mandate["governance"])
     ).hexdigest()
     if entries.get(GOVERNANCE_PROJECTION_HASH_KEY) != governance_digest:
+        raise _invalid()
+    us_research_digest = hashlib.sha256(
+        _us_research_projection(mandate.get("new_us_research_policy"))
+    ).hexdigest()
+    if entries.get(US_RESEARCH_POLICY_HASH_KEY) != us_research_digest:
         raise _invalid()
 
     try:

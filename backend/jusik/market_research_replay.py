@@ -537,7 +537,12 @@ async def replay_manifest(
         market_research_policy_for_grade(request.research_grade)
     )
     replay_result = run_approximate_market_research(
-        snapshot, request, readiness, source.calendar, policy_hash=policy_hash
+        snapshot,
+        request,
+        readiness,
+        source.calendar,
+        policy_hash=policy_hash,
+        allow_frozen_us_replay=True,
     )
     assert baseline_run.result is not None
     comparison = _comparison(baseline_run.result, replay_result)

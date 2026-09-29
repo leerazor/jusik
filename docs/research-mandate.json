@@ -119,5 +119,12 @@
       "paper_contract": "unchanged;10% drawdown",
       "live_approval": "separate_explicit_approval"
     }
+  },
+  "new_us_research_policy": {
+    "version": "us-research-symbol-exclusions-v1",
+    "excluded_symbols": ["LIME", "MDA"],
+    "selection": "exclude_before_checkpoint_seed_and_fill_vacancies",
+    "prepared_data": "legacy_filter_no_backfill;new_fill_vacancies",
+    "historical_replay": "frozen_inputs_and_results_unchanged"
   }
 }

@@ -14,6 +14,7 @@ from jusik.research_mandate_governance import (
     GOVERNANCE_PROJECTION_HASH_KEY,
     LEGACY_EXECUTION_HASH_KEY,
     LEGACY_MANDATE_JSON_SHA256,
+    US_RESEARCH_POLICY_HASH_KEY,
     MandateGovernanceError,
     validate_dispatch_gate,
     validate_mandate,
@@ -57,6 +58,12 @@ def _refresh_json_hash(repo: Path) -> None:
             governance, ensure_ascii=False, sort_keys=True, separators=(",", ":")
         ).encode("utf-8")
     ).hexdigest()
+    policy = json.loads(raw)["new_us_research_policy"]
+    policy_digest = hashlib.sha256(
+        json.dumps(
+            policy, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
     marker = repo / "docs" / "research-mandate.md"
     text = marker.read_text(encoding="utf-8")
     import re
@@ -72,7 +79,11 @@ def _refresh_json_hash(repo: Path) -> None:
             else (
                 f"{GOVERNANCE_PROJECTION_HASH_KEY} {governance_digest}"
                 if line.startswith(f"{GOVERNANCE_PROJECTION_HASH_KEY} ")
-                else line
+                else (
+                    f"{US_RESEARCH_POLICY_HASH_KEY} {policy_digest}"
+                    if line.startswith(f"{US_RESEARCH_POLICY_HASH_KEY} ")
+                    else line
+                )
             )
         )
     hashes.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -98,7 +109,32 @@ def test_validates_additive_governance_and_enabled_dispatch(tmp_path: Path) -> N
         ).encode("utf-8")
     ).hexdigest()
     assert f"{GOVERNANCE_PROJECTION_HASH_KEY} {governance_digest}" in manifest
+    policy = json.loads(
+        (repo / "docs" / "research-mandate.json").read_text(encoding="utf-8")
+    )["new_us_research_policy"]
+    policy_digest = hashlib.sha256(
+        json.dumps(
+            policy, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+    ).hexdigest()
+    assert f"{US_RESEARCH_POLICY_HASH_KEY} {policy_digest}" in manifest
     assert validate_dispatch_gate(repo).digest == result.digest
+
+
+def test_us_policy_change_cannot_rewrite_legacy_projection(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    raw = (repo / "docs" / "research-mandate.json").read_bytes()
+    legacy = raw[: raw.index(b',\n  "governance":')] + b"\n}\n"
+    assert hashlib.sha256(legacy).hexdigest() == LEGACY_MANDATE_JSON_SHA256
+    _rewrite_json(
+        repo,
+        lambda value: value["new_us_research_policy"].update(
+            {"excluded_symbols": ["LIME"]}
+        ),
+    )
+    _refresh_json_hash(repo)
+    with pytest.raises(MandateGovernanceError, match="invalid"):
+        validate_mandate(repo)
 
 
 def test_rejects_duplicate_json_keys(tmp_path: Path) -> None:

@@ -20,6 +20,10 @@ from jusik.market_history_models import (
     RawArtifact,
 )
 from jusik.market_research_config import MarketResearchSettings
+from jusik.market_research_strategy import (
+    US_RESEARCH_EXCLUDED_SYMBOLS,
+    US_RESEARCH_SELECTION_VERSION,
+)
 from jusik.research_market_calendar import default_market_calendar
 
 
@@ -31,10 +35,13 @@ def _hash(value: object) -> str:
 
 
 def data_contract_hash(
-    snapshot: MarketHistorySnapshot, readiness: MarketReadiness
+    snapshot: MarketHistorySnapshot,
+    readiness: MarketReadiness,
+    *,
+    new_us_research: bool = False,
 ) -> str:
     """Hash only the normalized source contract, never dates or raw rows."""
-    payload = {
+    payload: dict[str, object] = {
         "version": "pit-data-contract-v1",
         "market": snapshot.market,
         "source_identities": sorted(
@@ -57,6 +64,14 @@ def data_contract_hash(
             "fx": "available_at_decision_cutoff",
         },
     }
+    if new_us_research:
+        if snapshot.market != "US":
+            raise ValueError("US research contract requires US market")
+        payload["version"] = "pit-data-contract-v2-us-exclusions"
+        payload["us_research_selection"] = {
+            "version": US_RESEARCH_SELECTION_VERSION,
+            "excluded_symbols": sorted(US_RESEARCH_EXCLUDED_SYMBOLS),
+        }
     return _hash(payload)
 
 

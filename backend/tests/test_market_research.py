@@ -25,6 +25,7 @@ from jusik.market_history_models import (
 from jusik.market_history_sources import (
     FixtureMarketHistorySource,
     UnavailableMarketHistorySource,
+    data_contract_hash,
 )
 from jusik.market_history_store import MarketHistoryStore
 from jusik.market_research_api import router as market_research_router
@@ -36,7 +37,9 @@ from jusik.market_research_service import (
 from jusik.market_research_strategy import (
     DRAWDOWN_LIMIT,
     MARKET_RESEARCH_POLICY,
+    market_research_policy_for_grade,
     market_research_policy_hash,
+    prepare_us_research_snapshot,
     run_market_research,
 )
 from jusik.research_market_calendar import default_market_calendar
@@ -80,6 +83,134 @@ def test_fixture_full_daily_bars_are_available_at_close() -> None:
         session = calendar.lookup("KSC", bar.session).session
         assert session is not None
         assert bar.available_at == session.close_at
+
+
+def test_new_us_strategy_filters_legacy_rows_without_changing_raw_artifact() -> None:
+    item = MarketResearchRequest(
+        market="US",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+    )
+    source = FixtureMarketHistorySource()
+    snapshot = asyncio.run(source.collect(item))
+    rename = {"US-A": "LIME", "US-B": "MDA"}
+    input_snapshot = snapshot.model_copy(
+        update={
+            "memberships": tuple(
+                row.model_copy(update={"symbol": rename.get(row.symbol, row.symbol)})
+                for row in snapshot.memberships
+            ),
+            "bars": tuple(
+                row.model_copy(update={"symbol": rename.get(row.symbol, row.symbol)})
+                for row in snapshot.bars
+            ),
+        }
+    )
+    prepared, excluded = prepare_us_research_snapshot(input_snapshot)
+    assert excluded == ("LIME", "MDA")
+    assert prepared.source_artifacts == input_snapshot.source_artifacts
+    assert prepared.completeness == input_snapshot.completeness
+    assert not {"LIME", "MDA"}.intersection(
+        row.symbol for row in (*prepared.memberships, *prepared.bars)
+    )
+    readiness = source.readiness("US", datetime(2026, 9, 14, tzinfo=UTC))
+    result = run_market_research(
+        input_snapshot, item, readiness, default_market_calendar()
+    )
+    assert result.status == "ready"
+    assert result.input_hash == prepared.input_hash
+    assert result.policy_hash == market_research_policy_hash(
+        market_research_policy_for_grade("strict", market="US")
+    )
+    assert all(
+        row.symbol not in {"LIME", "MDA"}
+        for row in (*result.candidate_evidence, *result.trades)
+    )
+    assert any("대체" in note for note in result.limitations)
+    assert data_contract_hash(snapshot, readiness) != data_contract_hash(
+        snapshot, readiness, new_us_research=True
+    )
+    with pytest.raises(ValueError, match="policy hash"):
+        run_market_research(
+            input_snapshot,
+            item,
+            readiness,
+            default_market_calendar(),
+            policy_hash=market_research_policy_hash(
+                market_research_policy_for_grade("strict")
+            ),
+        )
+
+
+def test_new_us_service_preserves_raw_and_rejects_old_pilot_policy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class LegacyRowsSource(FixtureMarketHistorySource):
+        async def collect(self, item: MarketResearchRequest) -> MarketHistorySnapshot:
+            snapshot = await super().collect(item)
+            rename = {"US-A": "LIME", "US-B": "MDA"}
+            return snapshot.model_copy(
+                update={
+                    "memberships": tuple(
+                        row.model_copy(
+                            update={"symbol": rename.get(row.symbol, row.symbol)}
+                        )
+                        for row in snapshot.memberships
+                    ),
+                    "bars": tuple(
+                        row.model_copy(
+                            update={"symbol": rename.get(row.symbol, row.symbol)}
+                        )
+                        for row in snapshot.bars
+                    ),
+                }
+            )
+
+    store = MarketHistoryStore(tmp_path / "new-us.db")
+    source = LegacyRowsSource()
+    service = MarketResearchService(source, store)
+    item = MarketResearchRequest(
+        market="US",
+        start_date=date(2025, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="pilot",
+    )
+    original = asyncio.run(source.collect(item))
+    pilot = asyncio.run(service.create_run(item))
+    assert pilot.status == "completed"
+    assert pilot.input_hash is not None
+    assert pilot.result is not None
+    stored = store.get_snapshot(pilot.input_hash)
+    assert [item.artifact_id for item in stored.source_artifacts] == [
+        item.artifact_id for item in original.source_artifacts
+    ]
+    assert [item.decoded_content for item in stored.source_artifacts] == [
+        item.decoded_content for item in original.source_artifacts
+    ]
+    assert stored.normalization_version == original.normalization_version
+    assert all(
+        row.symbol not in {"LIME", "MDA"} for row in (*stored.memberships, *stored.bars)
+    )
+    assert any("대체" in note for note in pilot.result.limitations)
+    old_policy = market_research_policy_hash(market_research_policy_for_grade("strict"))
+    old_pilot = pilot.model_copy(
+        update={"result": pilot.result.model_copy(update={"policy_hash": old_policy})}
+    )
+    promotable, reason = service.pilot_promotability(old_pilot)
+    assert not promotable
+    assert "정책" in reason
+    monkeypatch.setattr(store, "get_run", lambda _run_id: old_pilot)
+    final = MarketResearchRequest(
+        market="US",
+        start_date=date(2023, 9, 14),
+        end_date=date(2026, 9, 14),
+        stage="final",
+        pilot_run_id=pilot.id,
+    )
+    with pytest.raises(MarketResearchConflict, match="정책"):
+        asyncio.run(service.create_run(final))
 
 
 def test_entry_equal_to_prior_high_is_not_a_breakout() -> None:

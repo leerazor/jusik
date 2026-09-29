@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from jusik.fixture_app import app as fixture_app
 from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
+    US_EXCLUSION_NORMALIZATION_VERSION,
     US_MEMBERSHIP_NORMALIZATION_VERSION,
     ApproximateBarRow,
     ApproximateDataset,
@@ -28,6 +29,7 @@ from jusik.market_history_approximate import (
     MembershipGap,
     deterministic_pool,
     run_approximate_market_research,
+    us_exclusion_contract_hash,
     us_membership_contract_hash,
 )
 from jusik.market_history_models import Market, MarketResearchRequest
@@ -36,6 +38,7 @@ from jusik.market_research_strategy import (
     RESEARCH_MANDATE_JSON_SHA256,
     market_research_policy_for_grade,
     market_research_policy_hash,
+    prepare_us_research_snapshot,
 )
 from jusik.research_market_calendar import default_market_calendar
 
@@ -256,7 +259,9 @@ def test_causal_us_source_keeps_preselected_rows_and_contract_is_policy_only(
     source_path.write_bytes(dataset.model_dump_json().encode())
     try:
         snapshot = asyncio.run(
-            ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            ApproximateMarketHistorySource(
+                JsonApproximateProvider(source_path)
+            ).collect(
                 MarketResearchRequest(
                     market="US",
                     start_date=first_session,
@@ -269,6 +274,86 @@ def test_causal_us_source_keeps_preselected_rows_and_contract_is_policy_only(
         source_path.unlink(missing_ok=True)
     assert [item.symbol for item in snapshot.memberships] == ["AAA", "NEW"]
     assert snapshot.pool_contract_hash == us_membership_contract_hash()
+
+
+def test_prepared_us_legacy_rows_are_filtered_without_raw_rewrite(
+    tmp_path: Path,
+) -> None:
+    session = date(2026, 9, 14)
+    rows = tuple(
+        ApproximateUniverseRow(
+            session=session,
+            symbol=symbol,
+            name=symbol,
+            exchange="NMS",
+            currency="USD",
+        )
+        for symbol in ("AAA", "LIME", "MDA")
+    )
+    bars = tuple(
+        ApproximateBarRow(
+            session=session,
+            symbol=symbol,
+            exchange="NMS",
+            open=10,
+            high=11,
+            low=9,
+            close=10,
+            volume=100,
+            currency="USD",
+        )
+        for symbol in ("AAA", "LIME", "MDA")
+    )
+    dataset = ApproximateDataset(
+        market="US",
+        universe=rows,
+        bars=bars,
+        fx=(ApproximateFXRow(session=session, krw_per_usd=1400, spread_rate=0),),
+        normalization_version=US_EVENT_TIMING_NORMALIZATION_VERSION,
+    )
+    prepared_path = tmp_path / "legacy-us.json"
+    raw = dataset.model_dump_json().encode()
+    prepared_path.write_bytes(raw)
+    request = MarketResearchRequest(
+        market="US",
+        start_date=session,
+        end_date=session,
+        research_grade="approximate",
+    )
+    source = ApproximateMarketHistorySource(JsonApproximateProvider(prepared_path))
+    snapshot = asyncio.run(source.collect(request))
+    prepared, excluded = prepare_us_research_snapshot(snapshot)
+    assert excluded == ("LIME", "MDA")
+    assert prepared.source_artifacts == snapshot.source_artifacts
+    assert prepared.source_artifacts[0].decoded_content == raw
+    result = run_approximate_market_research(
+        snapshot,
+        request,
+        source.readiness("US", datetime(2026, 9, 14, tzinfo=UTC)),
+        default_market_calendar(),
+    )
+    assert result.input_hash == prepared.input_hash
+    assert any("대체" in note for note in result.limitations)
+    assert result.policy_hash == market_research_policy_hash(
+        market_research_policy_for_grade("approximate", market="US")
+    )
+
+    current = dataset.model_copy(
+        update={"normalization_version": US_EXCLUSION_NORMALIZATION_VERSION}
+    )
+    prepared_path.write_bytes(current.model_dump_json().encode())
+    with pytest.raises(ApproximateProviderError, match="policy-excluded"):
+        asyncio.run(source.collect(request))
+    clean_current = current.model_copy(
+        update={
+            "universe": (rows[0],),
+            "bars": (bars[0],),
+        }
+    )
+    prepared_path.write_bytes(clean_current.model_dump_json().encode())
+    with pytest.raises(ApproximateProviderError, match="exclusion evidence"):
+        asyncio.run(source.collect(request))
+    assert us_exclusion_contract_hash() != snapshot.pool_contract_hash
 
 
 @pytest.mark.parametrize("kind", ["splits", "dividends", "delisting"])
@@ -886,9 +971,7 @@ def test_causal_us_source_normalizes_membership_availability_to_utc(
             )
         )
     )
-    assert snapshot.memberships[0].available_at == datetime(
-        2026, 9, 12, 5, tzinfo=UTC
-    )
+    assert snapshot.memberships[0].available_at == datetime(2026, 9, 12, 5, tzinfo=UTC)
 
 
 @pytest.mark.parametrize(
@@ -1009,7 +1092,9 @@ def test_causal_us_source_rejects_four_hundred_one_across_sessions(
     source_path.write_bytes(dataset.model_dump_json().encode())
     with pytest.raises(ApproximateProviderError, match="cumulative"):
         asyncio.run(
-            ApproximateMarketHistorySource(JsonApproximateProvider(source_path)).collect(
+            ApproximateMarketHistorySource(
+                JsonApproximateProvider(source_path)
+            ).collect(
                 MarketResearchRequest(
                     market="US",
                     start_date=sessions[0],

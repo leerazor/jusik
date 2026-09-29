@@ -47,6 +47,7 @@ from jusik.market_data_collector import (
 )
 from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
+    US_EXCLUSION_NORMALIZATION_VERSION,
     ApproximateDataset,
     ApproximateEvent,
     ApproximateMarketHistorySource,
@@ -1760,6 +1761,26 @@ def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
     legacy_payload.pop("collection_diagnostics", None)
     legacy = ApproximateDataset.model_validate(legacy_payload)
     assert legacy.collection_diagnostics is None
+    legacy_content = round_tripped.model_copy(
+        update={"normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION}
+    ).model_dump_json().encode()
+    output.write_bytes(legacy_content)
+    AtomicResponseCache(cache_dir).write_completed(
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=output,
+        content=legacy_content,
+    )
+    assert not completed_collection_is_valid(
+        AtomicResponseCache(cache_dir),
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=output,
+    )
 
 
 def test_all_failure_collect_market_data_preserves_output_marker_and_cache(
@@ -2004,13 +2025,40 @@ def test_us_collector_uses_causal_version_and_unknown_gap_after_failed_checkpoin
     )
     assert (
         result.dataset.normalization_version
-        == US_EVENT_TIMING_NORMALIZATION_VERSION
+        == US_EXCLUSION_NORMALIZATION_VERSION
     )
     assert all(row.session < checkpoint for row in result.dataset.universe)
     assert any(
         "current_selected=0" in item and "cumulative_admitted=1" in item
         for item in result.limitations
     )
+
+
+def test_us_collector_excludes_symbols_before_seed_and_fills_vacancies() -> None:
+    result = asyncio.run(
+        FreeMarketDataCollector(
+            _CausalUSCheckpointTransport(
+                ("BBB", "LIME", "MDA", "CCC"),
+                initial_symbols=("AAA", "LIME", "MDA", "BBB"),
+            )
+        ).collect(
+            market="US",
+            start=date(2025, 9, 14),
+            end=date(2026, 9, 14),
+            sample_size=2,
+        )
+    )
+    checkpoint = date(2026, 1, 2)
+    before = {row.symbol for row in result.dataset.universe if row.session < checkpoint}
+    after = {row.symbol for row in result.dataset.universe if row.session >= checkpoint}
+    assert before == {"AAA", "BBB"}
+    assert after == {"BBB", "CCC"}
+    assert not {"LIME", "MDA"}.intersection(
+        row.symbol for row in (*result.dataset.universe, *result.dataset.bars)
+    )
+    assert result.collection_diagnostics is not None
+    assert result.collection_diagnostics.policy_excluded_symbols == ("LIME", "MDA")
+    assert any("excludes LIME and MDA" in item for item in result.limitations)
 
 
 def test_us_collector_future_newcomer_cannot_change_prior_membership_prefix() -> None:

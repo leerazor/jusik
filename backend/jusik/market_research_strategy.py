@@ -32,6 +32,8 @@ RESEARCH_MANDATE_VERSION = "2026-09-13"
 RESEARCH_MANDATE_JSON_SHA256 = (
     "f097fde7874063314e21f8be884b19d2e8cea3e1272c47e5991300c546548a7d"
 )
+US_RESEARCH_EXCLUDED_SYMBOLS = frozenset({"LIME", "MDA"})
+US_RESEARCH_SELECTION_VERSION = "us-research-symbol-exclusions-v1"
 MARKET_RESEARCH_POLICY: dict[str, object] = {
     "version": 2,
     "mandate_version": RESEARCH_MANDATE_VERSION,
@@ -83,10 +85,79 @@ def market_research_policy_hash(
     return hashlib.sha256(canonical).hexdigest()
 
 
-def market_research_policy_for_grade(grade: str) -> dict[str, object]:
-    if grade == "approximate":
-        return {**MARKET_RESEARCH_POLICY, **APPROXIMATE_MARKET_RESEARCH_POLICY}
-    return MARKET_RESEARCH_POLICY
+def market_research_policy_for_grade(
+    grade: str, *, market: str | None = None
+) -> dict[str, object]:
+    policy = (
+        {**MARKET_RESEARCH_POLICY, **APPROXIMATE_MARKET_RESEARCH_POLICY}
+        if grade == "approximate"
+        else MARKET_RESEARCH_POLICY
+    )
+    if market != "US":
+        return policy
+    return {
+        **policy,
+        "us_selection_version": US_RESEARCH_SELECTION_VERSION,
+        "us_excluded_symbols": sorted(US_RESEARCH_EXCLUDED_SYMBOLS),
+    }
+
+
+def prepare_us_research_snapshot(
+    snapshot: MarketHistorySnapshot,
+) -> tuple[MarketHistorySnapshot, tuple[str, ...]]:
+    present = {
+        item.symbol
+        for rows in (snapshot.memberships, snapshot.bars, snapshot.actions)
+        for item in rows
+    }
+    present.update(
+        symbol
+        for symbol in US_RESEARCH_EXCLUDED_SYMBOLS
+        if f"us_event_timing:unknown:{symbol}" in snapshot.missing_ranges
+    )
+    excluded = tuple(sorted(US_RESEARCH_EXCLUDED_SYMBOLS.intersection(present)))
+    if not excluded:
+        return snapshot, ()
+    return (
+        snapshot.model_copy(
+            update={
+                "memberships": tuple(
+                    item
+                    for item in snapshot.memberships
+                    if item.symbol not in US_RESEARCH_EXCLUDED_SYMBOLS
+                ),
+                "bars": tuple(
+                    item
+                    for item in snapshot.bars
+                    if item.symbol not in US_RESEARCH_EXCLUDED_SYMBOLS
+                ),
+                "actions": tuple(
+                    item
+                    for item in snapshot.actions
+                    if item.symbol not in US_RESEARCH_EXCLUDED_SYMBOLS
+                ),
+                "missing_ranges": tuple(
+                    item
+                    for item in snapshot.missing_ranges
+                    if not any(
+                        item == f"us_event_timing:unknown:{symbol}"
+                        for symbol in US_RESEARCH_EXCLUDED_SYMBOLS
+                    )
+                ),
+            }
+        ),
+        excluded,
+    )
+
+
+def us_research_exclusion_note(excluded: tuple[str, ...]) -> str:
+    if excluded:
+        return (
+            "미국 연구 정책에서 LIME·MDA를 제외했습니다. 입력의 제외 종목: "
+            + ", ".join(excluded)
+            + "; 준비 자료에 대체 종목을 소급 보충하지 않았습니다."
+        )
+    return "미국 연구 정책에서 LIME·MDA를 표본 선정 전에 제외합니다."
 
 
 class _PendingBuy(NamedTuple):
@@ -263,7 +334,7 @@ def _valid_coverage(
     return not missing, sorted(set(missing))
 
 
-def run_market_research(
+def _run_market_research_core(
     snapshot: MarketHistorySnapshot,
     request: MarketResearchRequest,
     readiness: MarketReadiness,
@@ -789,3 +860,41 @@ def run_market_research(
         research_grade=request.research_grade,
         pool_contract_hash=snapshot.pool_contract_hash,
     )
+
+
+def run_market_research(
+    snapshot: MarketHistorySnapshot,
+    request: MarketResearchRequest,
+    readiness: MarketReadiness,
+    calendar: MarketCalendar,
+    *,
+    policy_hash: str | None = None,
+    allow_approximate: bool = False,
+    allow_frozen_us_replay: bool = False,
+) -> MarketResearchResult:
+    """Apply the new US selection to execution rows, preserving raw artifacts."""
+    if request.market != "US" or allow_frozen_us_replay:
+        return _run_market_research_core(
+            snapshot,
+            request,
+            readiness,
+            calendar,
+            policy_hash=policy_hash,
+            allow_approximate=allow_approximate,
+        )
+    current_hash = market_research_policy_hash(
+        market_research_policy_for_grade(request.research_grade, market=request.market)
+    )
+    if policy_hash is not None and policy_hash != current_hash:
+        raise ValueError("US research policy hash is not current")
+    prepared, excluded = prepare_us_research_snapshot(snapshot)
+    result = _run_market_research_core(
+        prepared,
+        request,
+        readiness,
+        calendar,
+        policy_hash=current_hash,
+        allow_approximate=allow_approximate,
+    )
+    note = us_research_exclusion_note(excluded)
+    return result.model_copy(update={"limitations": (*result.limitations, note)})

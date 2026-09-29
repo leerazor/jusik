@@ -158,6 +158,7 @@ R1은 데이터가 당시 알 수 있었던 universe를 표현하는지 확인�
   - 같은 날 [증권 식별자 원문 5개](development-records/2026-09-29-security-identity-evidence.md)를 추가 확보하고
     독립 검토했습니다. 현대 CUSIP와 과거 식별자 관찰을 보강했지만 구 Lime 식별자 충돌·Alpha 행 결속·
     전체 유효기간·당시 provider receipt는 미해결입니다. 티커만으로 과거 listing과 현재 가격을 연결할 수 없습니다.
+  - 새 미국 연구에서는 `LIME`·`MDA`를 선정 전에 명시적으로 제외하고 적격 후보로 빈자리를 채웁니다. 이전 prepared 입력은 원본을 보존한 채 실행 행만 제외해 축소 표본으로 계속할 수 있으나 소급 보충하지 않습니다. 기존 366세션 결손 근거와 R1-05 미완료 상태는 그대로 둡니다.
 - [x] **R1-06** safe provider response fixture로 정상, null, quota, auth, parse, coverage 실패를 서로 다른 오류로 회귀 검증한다.
   - 증거: 합성 provider fixture17개(각1심볼/1세션, seed0), 정상/null/quota/auth/parse/coverage·실패 cache 차단·CLI insufficient 보존. 통합 `e335342829a50cd56f57c782ec12edb25764bb72`, main pytest143·Ruff·configured mypy·Terra 독립 재검토 PASS. [개발 기록](development-records/2026-09-16-r1-provider-response-fixtures.md); audit `/home/kwl/.local/share/jusik/portfolio-audit/20260916-r1-06-518dc0fb/integration-verification.json` (SHA-256 `ac982d059e5ff974572bcc98405d923df4cdc1b91b7f0e13f456bbe4d28688ab`). 기존 format 부채는 동일하며 경제 평가는 `not-evaluated`; R1 전체 완료는 아닙니다.
 
@@ -203,6 +204,8 @@ R3는 R0 계약이 정한 기존 자료만 읽어 화면에 보여주는 작업�
 ## R4 — 고정 정책 재실행과 미국 우선 평가
 
 R4는 R1·R2와 독립 review가 끝난 뒤 동일한 고정 정책으로 미국 1년을 다시 실행한다. 무료 자료·기존 cache를 먼저 audit하고, 자료가 부족할 때만 최소 수집을 추가한다. R3 UI는 연구 계산의 선행 조건이 아니며 새 결과 게시와 UX 검증에 사용한다. 1년 자료 게이트는 등급을 보존해 판정한다. strict pilot은 `run.status=completed`, `result.status=ready`, `result.completeness=complete`가 필요하고, approximate pilot은 `run.status=completed`, `result.status=approximate`, `result.completeness=approximate`이면 같은 시장·등급의 final이 참조할 수 있다. 두 등급 모두 고정 실행 가정, 현재 policy hash와 data contract hash, 자료 공급원의 simulated·grade 일치를 확인한다. strict 완료를 모든 자료에 무조건 요구하지 않는다. 이 단계의 pilot과 3년 final은 bounded 입력·비용·실행 예산을 사전에 고정하며, 최종 untouched OOS를 선택이나 튜닝에 사용하지 않는다.
+
+새 미국 pilot은 `us-research-symbol-exclusions-v1` 정책 및 신규 data contract hash로 실행합니다. 이전 policy hash의 pilot은 새 final에 사용할 수 없고, 새 수집은 `approx-us-r1-event-timing-v2` 정규화로 두 심볼을 seed 전에 제외합니다. 이전 prepared 입력의 축소 표본은 원본과 등급을 보존하고 대체 보충 없음·coverage 한계를 표시합니다.
 
 - [ ] **R4-01** 수정된 policy fingerprint로 정확히 1년 미국 pilot을 bounded 실행하고 기존 결과와 입력 차이를 기록하며, 무료 자료 우선·audit 후 최소 수집 순서를 증거로 남긴다.
   - 2026-09-20 재수집은 별도 audit에서 credentials/collection을 통과했지만, approximate pilot은
