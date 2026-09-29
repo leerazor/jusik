@@ -260,7 +260,7 @@ def replay(fixture: SyntheticFixture | dict[str, object]) -> ReplayResult:
                 _utc(item.event_at, "event_at")
                 read_started = _utc(item.read_started_at, "read_started_at")
                 read_finished = _utc(item.read_finished_at, "read_finished_at")
-                if received < read_started or read_finished < read_started:
+                if not read_started <= received <= read_finished:
                     raise ValueError("clock_invalid")
             except (TypeError, ValueError, OverflowError):
                 receipt_clock_invalid = True

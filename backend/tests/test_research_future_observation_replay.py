@@ -165,7 +165,12 @@ def test_window_boundaries_and_plus_nine() -> None:
             received_at="2030-01-01T00:00:00Z",
             read_started_at="2029-12-31T23:59:00Z",
         ),
-        observation(observation_id="end", received_at="2030-01-02T00:00:00Z"),
+        observation(
+            observation_id="end",
+            received_at="2030-01-02T00:00:00Z",
+            read_started_at="2030-01-02T00:00:00Z",
+            read_finished_at="2030-01-02T00:00:00Z",
+        ),
         observation(
             observation_id="korea",
             received_at="2030-01-01T09:00:00+09:00",
@@ -393,6 +398,30 @@ def test_receipt_before_its_read_starts_is_clock_invalid() -> None:
     assert result.evaluation_inputs_complete is False
 
 
+@pytest.mark.parametrize(
+    ("received_at", "expected_classification", "clock_invalid"),
+    [
+        ("2030-01-01T00:15:00Z", "in_window", False),
+        ("2030-01-01T00:30:00Z", "in_window", False),
+        ("2030-01-01T01:00:00Z", "clock_invalid", True),
+    ],
+)
+def test_receipt_must_be_within_its_read_interval(
+    received_at: str, expected_classification: str, clock_invalid: bool
+) -> None:
+    item = observation(
+        received_at=received_at,
+        read_started_at="2030-01-01T00:00:00Z",
+        read_finished_at="2030-01-01T00:30:00Z",
+    )
+    result = replay({**BASE, "observations": [item]})
+    classified = result.observations[0]
+    assert classified.classifications == [expected_classification]
+    assert classified.receipts[0].clock_invalid is clock_invalid
+    assert classified.evidence_counts["clock_invalid_receipts"] == int(clock_invalid)
+    assert result.counts["in_window"] == int(not clock_invalid)
+
+
 def test_conflict_also_keeps_duplicate_fact_and_future_receipt_is_not_due() -> None:
     result = replay(
         {
@@ -417,8 +446,16 @@ def test_duplicate_and_conflict_are_both_facts_when_all_receipts_are_known() -> 
             **BASE,
             "observations": [
                 observation(raw="a"),
-                observation(raw="a", received_at="2030-01-01T01:30:00Z"),
-                observation(raw="b", received_at="2030-01-01T02:00:00Z"),
+                observation(
+                    raw="a",
+                    received_at="2030-01-01T01:30:00Z",
+                    read_finished_at="2030-01-01T01:30:00Z",
+                ),
+                observation(
+                    raw="b",
+                    received_at="2030-01-01T02:00:00Z",
+                    read_finished_at="2030-01-01T02:00:00Z",
+                ),
             ],
         }
     )
