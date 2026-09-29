@@ -1,5 +1,13 @@
 # 워크트리 작업 등록부
 
+## security-identity-evidence
+
+- 상태: SEC 원문 5개 확보·해시 및 독립 검토 완료; R1-05 데이터 acceptance 미완료.
+- 범위·소유: supervisor 무료 공개 원문 수집·증거 기록, 독립 review. 제품·원 캐시·mandate 변경 없음.
+- 결과: 현대 Neutron/MDA Space CUSIP와 구 Lime/MDA 식별자 관찰 보강. 구 Lime 원문 간 불일치와 provider 행 결속·유효기간은 미해결이며 임의 선택하지 않았습니다.
+- 감사·검증: `/home/kwl/.local/share/jusik/portfolio-audit/20260929-security-identity-evidence/profile.json`, SHA `56fec8d067d13925b12f289caeda31b56590d685412fef4c41ac96ab4f2f4f84`; 원문 5개 HTTP200·SHA 및 기존 입력 불변·독립 review PASS.
+- 기록: `docs/development-records/2026-09-29-security-identity-evidence.md`. 재개는 그 근거에 필요한 별도 scope 검토이며 R1-05 전체 승인·새 수익성 검증은 아닙니다.
+
 ## wait-handoff-recovery
 
 - 상태: 조사·복구 준비. 원 실패와 SQLite online backup 보존, 자동 runner pause·service inactive 확인.
