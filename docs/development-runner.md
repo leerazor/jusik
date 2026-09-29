@@ -130,6 +130,12 @@ task dispatch는 이 기존 계약을 명시하고 하나의 사유를 두 필�
 안내합니다. 불일치 거부는 유지합니다. 형식 오류의 원본 completion을 사후 수정하지 않으며,
 생산자 문제를 고친 후 기존 `retry TASK_ID`로 새 보고를 받아 원 실패 시도와 분리합니다.
 유효한 외부 대기에 들어간 이후에는 기존 dependency/event 재개 조건을 그대로 적용합니다.
+`retry_policy=event`의 `dependency`에는 실제 증거 파일의 canonical 절대경로를,
+`dependency_identity`에는 그 파일의 현재 SHA-256을 넣습니다. 부족한 자료의 설명은
+사유와 `resume_condition`에 남깁니다. 검증할 파일이 없으면 경로를 만들지 말고
+`blocked`·`retry_policy=none`으로 보고합니다. 같은 파일의 hash가 그대로이면 재개되지
+않습니다. 이미 저장된 잘못된 연결의 일회성 복구는 원본·백업·독립 검토와 변경 범위를
+남긴 [복구 기록](development-records/2026-09-29-wait-handoff-recovery.md)을 참조합니다.
 
 외부·사람 대기는 active queue 상한을 점유하지 않습니다. 사람 승인은 자동 retry로
 만들지 않습니다. 자세한 CLI/DB 검사 결과와 이번 구현 범위는

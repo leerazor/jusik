@@ -10,7 +10,7 @@
 
 ## wait-handoff-recovery
 
-- 상태: 조사·복구 준비. 원 실패와 SQLite online backup 보존, 자동 runner pause·service inactive 확인.
+- 상태: 코드·운영 대기 복구 완료. 실제 자료 부족으로 R1-05는 `waiting_external` 유지.
 - 목표: 완료된 R1-05 진단의 대기 보고 형식 오류 재발을 막고, 원본을 바꾸지 않는 명시적 재시도로 유효한 대기·재개 조건을 남깁니다. 투자 자료 부족 자체를 해소했다고 처리하지 않습니다.
 - 기준: local `main` `1c01dbfb2569de84d1984830a59d3a38013c589c`; 통합 대상 local `main`.
 - 담당: 중앙 explore 조사→plan→단일 구현자→독립 review; 운영 복구·자료 확보와 기록은 supervisor 담당.
@@ -19,6 +19,10 @@
 - 사용자 제약: 현재 요금제 사용 기한은 2026-10-04, 추가 지출 상한과 $110 전환은 미결정·미승인. 정확한 종료 시각이나 자동 중지 승인은 주어지지 않았습니다.
 - 감사: `/home/kwl/.local/share/jusik/portfolio-audit/20260929-wait-handoff-recovery/backup.json`; 원 attempt `b6af09572cc2405a8aa63be725c27235`.
 - 종료: focused 검사·독립 review·local main 통합 검증, documented retry 결과 및 원본 보존 확인, 기존 runner 재개와 handoff 기록.
+- 결과: 구현 `f1b16ec`·`fbd20ef`·`3854943`, 최종 main 통합 `c477333b0c22d7f497c7ba605c59494e148369bf`; pytest 11 passed, Ruff/format·strict mypy·diff·독립 review·routing PASS.
+- 운영: 새 attempt `5e479285de044145baa4ca391863c400`의 이유 일치 및 원 실패 보존 확인. 복제 리허설·독립 검토 후 현재 blocker의 경로·해시만 보정하고 대기를 유지했습니다. 최종 서비스/다음 child 관측은 같은 audit의 `resume.json`을 봅니다.
+- 정리: clean 앱 관리 worktree는 재사용을 위해 보존. 추가 결제·투자 승인·원격 push 없음.
+- 기록·handoff: `docs/development-records/2026-09-29-wait-handoff-recovery.md`; `docs/handoffs/2026-09-29-wait-handoff-recovery.md`.
 
 ## listing-identity-evidence
 
