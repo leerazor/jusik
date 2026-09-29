@@ -3073,12 +3073,7 @@ async def collect_market_data(
         if cache.us_completed_path.exists():
             raise CollectorError("US collection completion already exists")
         if output.exists():
-            try:
-                ApproximateDataset.model_validate_json(output.read_bytes())
-            except (OSError, ValueError):
-                pass
-            else:
-                raise CollectorError("prepared collection output already exists")
+            raise CollectorError("prepared collection output already exists")
     owns_client = client is None
     http_client = client or httpx.AsyncClient()
     try:

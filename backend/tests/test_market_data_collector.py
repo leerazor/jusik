@@ -1784,8 +1784,9 @@ def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
     )
 
 
+@pytest.mark.parametrize("corrupt", [False, True])
 def test_new_us_collection_preserves_legacy_output_and_completion(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, corrupt: bool
 ) -> None:
     from jusik import market_data_collector as collector_module
 
@@ -1797,9 +1798,13 @@ def test_new_us_collection_preserves_legacy_output_and_completion(
         )
     )
     legacy_output = tmp_path / "legacy-prepared.json"
-    legacy_content = collected.dataset.model_copy(
-        update={"normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION}
-    ).model_dump_json().encode()
+    legacy_content = (
+        b'{"damaged":'
+        if corrupt
+        else collected.dataset.model_copy(
+            update={"normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION}
+        ).model_dump_json().encode()
+    )
     legacy_output.write_bytes(legacy_content)
     cache = AtomicResponseCache(tmp_path / "cache")
     cache.write_completed(
@@ -1875,7 +1880,6 @@ def test_all_failure_collect_market_data_preserves_output_marker_and_cache(
 
     output = tmp_path / "prepared.json"
     output_content = b'{"preserved":true}'
-    output.write_bytes(output_content)
     cache = AtomicResponseCache(tmp_path / "cache")
     cache.write_completed(
         market="US",
@@ -1922,7 +1926,7 @@ def test_all_failure_collect_market_data_preserves_output_marker_and_cache(
                 client=_RecordingHttpClient(),
             )
         )
-    assert output.read_bytes() == output_content
+    assert not output.exists()
     assert cache.completed_path.read_bytes() == before_completed
     assert cache.manifest_path.read_bytes() == before_manifest
 
