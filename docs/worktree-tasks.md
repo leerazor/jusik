@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## fast-results-harness-priority
+
+- 상태: 진행
+- 목표·완료 조건: 사용자의 시간 부족·현재 요금제 지속 불가, 개발 시간 단축과 빠른 수익성 결과·수익률 극대화 목표를 supervisor·custom agent·자동 runner의 실제 호출 지침에 반영합니다. 기존 큐에도 호출 시 적용하며 기존 투자·자료·독립 검토 기준을 보존합니다.
+- 담당·소유: 중앙 `role.explore` 조사 후 `role.plan` 계획, 단일 `role.code` 구현, 별도 `role.review`; 등록부·기록·통합은 supervisor 소유입니다.
+- 워크트리·브랜치: 완료 후 비어 있는 `/home/kwl/projects/jusik-strategy-lifecycle-receipt-unicode-integration`을 재사용; `codex/fast-results-harness-priority`.
+- 기준·통합 대상: 등록 전 main `bfdc8854ba9e20319a580511fb9fc820f9124410`; 등록 commit 이후 기준, local `main` 통합.
+- 수정 범위: `AGENTS.md`, `.codex/agents/*.toml`, `backend/jusik/development_runner.py`, 관련 focused runner tests, `docs/autonomous-trading-lab.md`, `docs/continuous-development-session.md`, `docs/development-runner.md`, `docs/agent-tooling.md`. 새 상태 schema·서비스·투자 실험은 포함하지 않습니다.
+- 검증·종료 조건: 기존 task를 포함한 모든 실제 dispatch prompt에 공통 우선순위가 전달되는 focused 검사, Ruff·strict mypy·독립 review·통합 검사·handoff 저장 후 기존 runner 재개. 새 수익률이나 시간 절감 측정값을 만들지 않습니다.
+- 운영 상태: 자동 runner는 기존 unpaused 상태를 확인하고 수동 변경 동안 pause·service inactive로 전환했습니다. timer 유지; 사용자 root `HANDOFF.md` 보존.
+- 개발 기록·handoff: `docs/development-records/2026-09-29-fast-results-harness-priority.md`; `docs/handoffs/2026-09-29-fast-results-harness-priority.md`.
+
 ## strategy-lifecycle-receipt-unicode-blank-guard
 
 - 상태: 완료
