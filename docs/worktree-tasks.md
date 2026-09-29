@@ -2,14 +2,15 @@
 
 ## exclude-lime-mda-us-research
 
-- 상태: 준비. 사용자가 앞으로 만드는 모든 미국 연구 표본에서 `LIME`·`MDA` 제외를 확정했습니다. 과거 동결 결과·원본·cache는 보존합니다.
+- 상태: 기술 완료·투자 미평가. 사용자가 앞으로 만드는 모든 미국 연구 표본에서 `LIME`·`MDA` 제외를 확정했습니다. 과거 동결 결과·원본·cache는 보존합니다.
 - 목표·완료 조건: 새 미국 종목 선정에서 두 심볼을 제외하고 대체 적격 종목으로 빈자리를 채웁니다. prepared/strict 입력과 전략 직접 진입도 새 연구에서 제외 정책을 우회하지 못하게 합니다. 제외 사실과 새 정책 identity를 기록하며 과거 replay·pilot은 그대로 재현합니다. 이 작업만으로 R1-05나 경제 평가를 완료하지 않습니다.
 - 담당: 중앙 `explore` 조사와 `plan` 계획 완료. 단일 `code` 구현자, 별도 `review`; 등록·통합·인계는 supervisor 소유.
 - 워크트리·브랜치: `/home/kwl/projects/jusik-exclude-lime-mda-us-research` / `feat/exclude-lime-mda-us-research`.
-- 기준·통합: local `main` `6530950a65c6defbead1d4f89aa160e281580720`에서 작업 등록 커밋을 만든 뒤 분기; local `main`에 순차 통합.
+- 기준·통합: 등록 `0c4d8fb`, 구현 `b5be880`·`c3b6d60`, review 보정 `b0cf4aa`·`2394294`; 로컬 `main` fast-forward 통합 `2394294e4246537a26986cd05066f4cf3eca1457`.
 - 소유: 구현자는 미국 선정·연구 공통 경계·정책/hash/mandate 검증의 backend 파일과 직접 관련 테스트, `docs/research-mandate.json`, `docs/research-mandate.md`, `docs/market-research-mandate.sha256`, `docs/market-research.md`, `docs/investment-development-roadmap.md`를 담당합니다. supervisor는 이 등록부, 작업별 개발 기록과 handoff를 담당합니다.
-- 검증: 미국 선정·준비 파일·strict·전략 직접 진입의 제외/대체/원본 불변 fixture, 신규/legacy 계약 hash와 동결 replay, pilot/final 불일치, mandate governance, focused pytest·Ruff·strict mypy·독립 review·통합 재검증.
+- 검증: 독립 최종 review PASS. 통합 `main`의 collector·history·research·mandate·replay·runner focused pytest 290 passed, Ruff check, 선택 파일 format, 7개 소스 strict mypy, mandate validator 및 diff check 통과. collector와 해당 테스트의 기존 전체 파일 format 차이는 보존했습니다.
 - 운영 경계: runner pause/service inactive에서 개발. 공급자 요청·주문·PAPER/live·원본 재작성·원격 push 없음. 완료 후 tracked clean 상태에서 runner를 기존 설정으로 재개합니다.
+- 개발 기록·handoff: [개발 기록](development-records/2026-09-30-exclude-lime-mda-us-research.md), [인계](handoffs/2026-09-30-exclude-lime-mda-us-research.md).
 
 ## listing-identity-scope-review
 
