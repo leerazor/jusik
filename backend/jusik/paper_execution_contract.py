@@ -152,24 +152,26 @@ class ExecutionLedger:
         self._orders: dict[str, OrderSnapshot] = {}
         self._cancel_attempted: set[str] = set()
         self._cancel_lock = Lock()
+        self._submit_lock = Lock()
         self._journal = (
             _OrderJournal(journal_path) if journal_path is not None else None
         )
 
     def submit(self, intent: OrderIntent) -> OrderSnapshot:
-        existing = self._current(intent.key)
-        if existing is not None:
-            if existing.intent != intent:
-                raise ValueError("idempotency_conflict")
-            return existing
-        pending = OrderSnapshot(intent, "pending")
-        if self._journal is not None:
-            existing = self._journal.insert_intent(pending)
+        with self._submit_lock:
+            existing = self._current(intent.key)
             if existing is not None:
                 if existing.intent != intent:
                     raise ValueError("idempotency_conflict")
                 return existing
-        self._orders[intent.key] = pending
+            pending = OrderSnapshot(intent, "pending")
+            if self._journal is not None:
+                existing = self._journal.insert_intent(pending)
+                if existing is not None:
+                    if existing.intent != intent:
+                        raise ValueError("idempotency_conflict")
+                    return existing
+            self._orders[intent.key] = pending
         try:
             result = self._broker.submit(intent)
         except Exception:

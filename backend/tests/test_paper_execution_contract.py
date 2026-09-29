@@ -5,7 +5,7 @@ import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal, localcontext
 from pathlib import Path
-from threading import Event
+from threading import Event, Lock
 
 import pytest
 
@@ -85,6 +85,57 @@ def test_idempotent_submit_and_conflicting_key() -> None:
     assert broker.submit_calls == 1
     with pytest.raises(ValueError, match="idempotency_conflict"):
         ledger.submit(intent(quantity="11"))
+    assert broker.submit_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("second_quantity", "lose_response"),
+    [("10", False), ("11", False), ("10", True)],
+)
+def test_concurrent_submit_claims_key_before_broker_call(
+    second_quantity: str, lose_response: bool
+) -> None:
+    broker = FakeBroker()
+    broker.fail_after_accept = lose_response
+    first_checked = Event()
+    second_checked = Event()
+    check_lock = Lock()
+
+    class PausedLedger(ExecutionLedger):
+        def __init__(self) -> None:
+            super().__init__(broker)
+            self.check_count = 0
+
+        def _current(self, key: str) -> OrderSnapshot | None:
+            current = super()._current(key)
+            with check_lock:
+                self.check_count += 1
+                first = self.check_count == 1
+                second = self.check_count == 2
+            if first:
+                first_checked.set()
+                second_checked.wait(timeout=0.25)
+            elif second:
+                second_checked.set()
+            return current
+
+    ledger = PausedLedger()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(ledger.submit, intent())
+        assert first_checked.wait(timeout=5)
+        second = pool.submit(ledger.submit, intent(quantity=second_quantity))
+        if lose_response:
+            with pytest.raises(TimeoutError, match="response_lost"):
+                first.result(timeout=5)
+            assert second.result(timeout=5).status == "pending"
+        else:
+            assert first.result(timeout=5).status == "open"
+            if second_quantity == "10":
+                assert second.result(timeout=5).status == "open"
+            else:
+                with pytest.raises(ValueError, match="idempotency_conflict"):
+                    second.result(timeout=5)
+
     assert broker.submit_calls == 1
 
 
