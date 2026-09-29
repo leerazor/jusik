@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -144,6 +145,10 @@ def test_wait_completion_prompt_contract_and_mismatch_rejection(
     tmp_path: Path, task_id: str, expected: str
 ) -> None:
     repo = _repo(tmp_path)
+    evidence_path = tmp_path / "artifacts" / "existing-source-receipt.json"
+    evidence_path.parent.mkdir()
+    evidence_path.write_text('{"receipt": "fixture"}\n', encoding="utf-8")
+    evidence_sha256 = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
     fake = tmp_path / "waiting.py"
     fake.write_text(
         "#!/usr/bin/env python3\n"
@@ -156,11 +161,18 @@ def test_wait_completion_prompt_contract_and_mismatch_rejection(
         "status = 'waiting_external' if fields['Task id'] == 'waiting-external' "
         "else 'waiting_human'\n"
         "retry_policy = 'event' if status == 'waiting_external' else 'manual'\n"
+        "dependency = "
+        + repr(str(evidence_path.resolve()))
+        + " if status == 'waiting_external' else 'operator decision'\n"
+        "dependency_identity = "
+        + repr(evidence_sha256)
+        + " if status == 'waiting_external' else None\n"
         "blocker = {'blocker_reason': "
         "'operator decision required (mismatch)' "
         "if fields['Task id'] == 'mismatched-wait' "
-        "else reason, 'attempted_actions': [], 'dependency': 'operator decision', "
-        "'dependency_identity': None, 'resume_condition': 'authenticated decision', "
+        "else reason, 'attempted_actions': [], 'dependency': dependency, "
+        "'dependency_identity': dependency_identity, "
+        "'resume_condition': 'authenticated decision', "
         "'retry_policy': retry_policy, 'next_eligible_retry': None, "
         "'alternative_ready_tasks': []}\n"
         "payload = {'task_id': fields['Task id'], 'attempt_id': fields['Attempt id'], "
@@ -202,3 +214,11 @@ def test_wait_completion_prompt_contract_and_mismatch_rejection(
     assert "waiting_external or waiting_human" in prompt
     assert "exactly the same character-for-character text" in prompt
     assert "copy it verbatim into both fields" in prompt
+    assert "dependency must be the canonical absolute path" in prompt
+    assert "dependency_identity its current file SHA-256" in prompt
+    assert "report the unresolved task as blocked with retry_policy=none" in prompt
+    if expected == "waiting_external":
+        saved_task = store.task(task_id)
+        assert saved_task is not None and saved_task.blocker is not None
+        assert saved_task.blocker["dependency"] == str(evidence_path.resolve())
+        assert saved_task.blocker["dependency_identity"] == evidence_sha256
