@@ -35,6 +35,10 @@ def _assert_delivered(directory: Path, *, legacy: bool = False) -> None:
     assert prompt.startswith(runner.FAST_RESULTS_PRIORITY + "\n\n")
     assert prompt.count(runner.FAST_RESULTS_PRIORITY) == 1
     assert "current subscription plan" in prompt
+    assert "2026-10-04" in prompt
+    assert "exact billing/end time is unknown" in prompt
+    assert "No new-spend cap has been set" in prompt
+    assert "not payment approval" in prompt
     assert "cost-inclusive net returns" in prompt
     assert "MDD <= 20%" in prompt
     if legacy:
@@ -125,3 +129,60 @@ def test_legacy_queued_task_without_seed_guidance_receives_priority(
     result = runner.run_once(config)
     assert result.status == "blocked" and result.attempt_id is not None
     _assert_delivered(config.state_dir / "attempts" / result.attempt_id, legacy=True)
+
+
+def test_wait_completion_prompt_contract_and_mismatch_rejection(
+    tmp_path: Path,
+) -> None:
+    repo = _repo(tmp_path)
+    fake = tmp_path / "waiting.py"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "from pathlib import Path\n"
+        "prompt = sys.stdin.read()\n"
+        "fields = dict(line.split(': ', 1) for line in prompt.splitlines() "
+        "if line.startswith(('Task id: ', 'Attempt id: ')))\n"
+        "reason = 'operator decision required'\n"
+        "blocker = {'blocker_reason': "
+        "'operator decision required (mismatch)' "
+        "if fields['Task id'] == 'mismatched-wait' "
+        "else reason, 'attempted_actions': [], 'dependency': 'operator decision', "
+        "'dependency_identity': None, 'resume_condition': 'authenticated decision', "
+        "'retry_policy': 'manual', 'next_eligible_retry': None, "
+        "'alternative_ready_tasks': []}\n"
+        "payload = {'task_id': fields['Task id'], 'attempt_id': fields['Attempt id'], "
+        "'status': 'waiting_human', 'integrated_commit': None, 'evidence': [], "
+        "'tests_passed': False, 'review_passed': False, 'handoff_path': None, "
+        "'blocked_reason': reason, 'followup': None, 'recovery_kind': None, "
+        "'blocker': blocker, 'engineering_status': None, 'investment_status': None}\n"
+        "Path(sys.argv[sys.argv.index('-o') + 1]).write_text(json.dumps(payload))\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o700)
+    _capture_stdin(fake)
+    config = runner.RunnerConfig(
+        repo=repo,
+        codex=str(fake),
+        state_dir=tmp_path / "state",
+        history_dir=tmp_path / "history",
+        history_db=tmp_path / "history.db",
+        artifact_dir=tmp_path / "artifacts",
+        planning_enabled=False,
+        cooldown_seconds=0,
+    )
+    store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
+    assert store.enqueue("waiting-human", "entry-amount-distribution", "wait")
+
+    valid = runner.run_once(config)
+    assert valid.status == "waiting_human" and valid.attempt_id is not None
+    _assert_delivered(config.state_dir / "attempts" / valid.attempt_id)
+    prompt_path = config.state_dir / "attempts" / valid.attempt_id / "prompt.txt"
+    prompt = prompt_path.read_text()
+    assert "waiting_external or waiting_human" in prompt
+    assert "exactly the same character-for-character text" in prompt
+    assert "copy it verbatim into both fields" in prompt
+
+    assert store.enqueue("mismatched-wait", "entry-amount-distribution", "wait")
+    mismatch = runner.run_once(config)
+    assert mismatch.status == "failed" and mismatch.reason == "completion_invalid"
