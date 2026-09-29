@@ -15,6 +15,18 @@ work under the user's continuing development authorization.
 
 ## Operating policy
 
+### 현재 사용자 제약 (2026-09-29 확인)
+
+- 현재 구독 요금제를 사용할 수 있는 마지막 날짜는 **2026-10-04**입니다.
+  정확한 청구·종료 시각은 확인되지 않았으며 자동 중지 시각으로 추정하지 않습니다.
+- 추가 지출 상한은 미결정이고 새 결제는 미승인입니다. 월 $110 요금제 전환 검토는
+  결제나 API 크레딧 구매 승인이 아닙니다.
+- 이번 집중 작업은 진단 인계 복구, 첫 유효 비교에 필요한 무료 자료 확보,
+  비용 포함 비교 또는 근거 있는 기각까지의 경로를 우선합니다. 10월 3일까지
+  결과·남은 차단·다음 유료 기간의 구체적 산출물로 연장을 판단할 수 있게 준비합니다.
+- 이 일정은 수익 보장, 자료 gate 완화 또는 자동 주문·승격 승인이 아닙니다.
+  기존 검증·위험 조건과 과거 실험의 고정 조건을 보존합니다.
+
 Apply the latest explicit user scope and any currently authorized budget or
 deadline. The historical `deadline_at` above is not active. When a task fails,
 inspect the durable attempt evidence, distinguish an actionable

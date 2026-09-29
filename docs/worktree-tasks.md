@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## wait-handoff-recovery
+
+- 상태: 조사·복구 준비. 원 실패와 SQLite online backup 보존, 자동 runner pause·service inactive 확인.
+- 목표: 완료된 R1-05 진단의 대기 보고 형식 오류 재발을 막고, 원본을 바꾸지 않는 명시적 재시도로 유효한 대기·재개 조건을 남깁니다. 투자 자료 부족 자체를 해소했다고 처리하지 않습니다.
+- 기준: local `main` `1c01dbfb2569de84d1984830a59d3a38013c589c`; 통합 대상 local `main`.
+- 담당: 중앙 explore 조사→plan→단일 구현자→독립 review; 운영 복구·자료 확보와 기록은 supervisor 담당.
+- 워크트리: `/home/kwl/.codex/worktrees/wait-handoff-recovery/jusik` (앱 관리 격리 checkout); 전용 `codex/wait-handoff-recovery` 브랜치를 사용합니다.
+- 범위: runner의 대기 보고 계약 전달과 focused 회귀 검사, 운영 문서. 원 completion·실패 행·금융 gate·mandate·독립 검토 기준을 보존합니다.
+- 사용자 제약: 현재 요금제 사용 기한은 2026-10-04, 추가 지출 상한과 $110 전환은 미결정·미승인. 정확한 종료 시각이나 자동 중지 승인은 주어지지 않았습니다.
+- 감사: `/home/kwl/.local/share/jusik/portfolio-audit/20260929-wait-handoff-recovery/backup.json`; 원 attempt `b6af09572cc2405a8aa63be725c27235`.
+- 종료: focused 검사·독립 review·local main 통합 검증, documented retry 결과 및 원본 보존 확인, 기존 runner 재개와 handoff 기록.
+
 ## listing-identity-evidence
 
 - 상태: 공식 원문 확보·자료 원인 조사 완료; identity 재대사와 R1-05 최종 판정 미완료.
