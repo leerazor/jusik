@@ -1,5 +1,11 @@
 # 워크트리 작업 등록부
 
+## 2026-09-29 자동 공학 수정 두 건
+
+- `lab-discovery-fde5cf20f1f6c53cbb17b296d969f054`: Sortino NAV 중복·역순·시간대 누락 거부. `main` `611c817`, 독립 완료 검토 후 `ENGINEERING_COMPLETE/NOT_EVALUATED`. [개발 기록](development-records/2026-09-29-sortino-nav-chronology.md).
+- `lab-discovery-c23e56fa96638e6051ef45a964d77a02`: 저장 현금과 native 현금·FX 불일치 거부. `main` `1df398c`, 독립 완료 검토 후 `ENGINEERING_COMPLETE/NOT_EVALUATED`. [개발 기록](development-records/2026-09-29-saved-cash-observation.md).
+- 현재 `main`의 관련 pytest 91개, Ruff check/format, strict mypy 통과. [인계](handoffs/2026-09-30-automated-fixes-record.md). 기존 사용자 소유 `HANDOFF.md`는 보존합니다. runner는 운영 절차에 따라 기록 작업 동안 pause 후 재개합니다.
+
 ## security-identity-evidence
 
 - 상태: SEC 원문 5개 확보·해시 및 독립 검토 완료; R1-05 데이터 acceptance 미완료.
