@@ -250,7 +250,12 @@ COMPLETION_WAIT_GUIDANCE = (
     "includes a structured blocker, set blocked_reason and "
     "blocker.blocker_reason to exactly the same character-for-character text. "
     "Choose one canonical reason string and copy it verbatim into both fields; "
-    "do not paraphrase. Preserve all completion schema and retry-policy rules."
+    "do not paraphrase. For retry_policy=event, dependency must be the canonical "
+    "absolute path of an existing evidence file and dependency_identity its "
+    "current file SHA-256; describe missing information in the reason and "
+    "resume_condition. If no existing file can be verified, do not invent an event "
+    "dependency: report the unresolved task as blocked with retry_policy=none. "
+    "Preserve all completion schema and retry-policy rules."
 )
 BACKLOG = (
     (
