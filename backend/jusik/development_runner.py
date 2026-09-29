@@ -174,6 +174,36 @@ COMMON_PROMPT = (
     "--device auto|cpu|cuda with pinned input, seed, bounds, and CPU parity; "
     "never promote approximate stress results."
 )
+FAST_RESULTS_PRIORITY = (
+    "The user has little time and cannot keep paying for the current subscription "
+    "plan. Minimize wall-clock time, LLM calls, and rework while pursuing the "
+    "fastest credible evidence toward maximizing cost-inclusive net returns "
+    "within current risk and data constraints; do not promise returns. Prefer "
+    "the fastest economically useful deliverable: a "
+    "valid comparison, a justified rejection, or resolution of a named blocker. "
+    "Reuse existing valid evidence and code. Defer generic refactors and trust-root "
+    "infrastructure unless they directly enable the selected result or are needed "
+    "for correctness or recovery. Keep routine next steps autonomous; compress "
+    "remaining user decisions into a concrete recommendation. Do not repeat "
+    "unchanged no-work searches, reviews, or tests. Planning and discovery "
+    "proposals must name the next usable profitability result or blocker, or "
+    "necessary correctness/recovery for it; scope reviewers should REJECT "
+    "unconnected generic work using existing reason fields. In existing "
+    "response fields where applicable, concisely state contribution, next "
+    "usable result, bounded "
+    "time/compute and stop condition. Never invent deadlines, budgets, savings, or "
+    "investment results. Preserve MDD <= 20%, balanced return/risk metrics, at "
+    "most three candidates, no automatic winner, and independent OOS/holdout "
+    "constraints. Completion reviewers preserve frozen acceptance, still FAIL "
+    "material defects, and keep the exact "
+    "required output schema."
+)
+
+
+def _with_fast_results_priority(prompt: str) -> str:
+    return f"{FAST_RESULTS_PRIORITY}\n\n{prompt}"
+
+
 RUNTIME_PROMPT_SUFFIX = (
     "Before removing any merged worktree after integration checks, archive all "
     "needed evidence, its SHA-256 hashes, and the handoff in durable files under "
@@ -1671,6 +1701,7 @@ def _run_planning(
     output_path = attempt_dir / "planning.json"
     stderr_path = attempt_dir / "stderr.log"
     stdout_path = attempt_dir / "stdout.jsonl"
+    prompt = _with_fast_results_priority(prompt)
     _write_private(attempt_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     try:
@@ -2265,6 +2296,7 @@ def _run_review(
         prompt = (
             "Frozen approved engineering acceptance:\n" + spec.prompt + "\n\n" + prompt
         )
+    prompt = _with_fast_results_priority(prompt)
     _write_private(review_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     schema_path = review_dir / "receipt.schema.json"
@@ -2530,6 +2562,7 @@ def _run_roadmap_scope_review(
                 for name, value in pending.owned_file_hashes.items()
             },
         }
+    prompt = _with_fast_results_priority(prompt)
     _write_private(review_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     _write_private(
@@ -2779,6 +2812,7 @@ def _run_engineering_discovery(
             f"Fingerprint: {fingerprint}"
         )
         schema = strict_output_schema(DiscoveryResult)
+    prompt = _with_fast_results_priority(prompt)
     _write_private(attempt_dir / "prompt.txt", prompt.encode())
     _write_private(stdout_path, b"")
     _write_private(schema_path, (json.dumps(schema, sort_keys=True) + "\n").encode())
@@ -3338,6 +3372,7 @@ def run_once(
         output_path = attempt_dir / "completion.json"
         stderr_path = attempt_dir / "stderr.log"
         stdout_path = attempt_dir / "stdout.jsonl"
+        prompt = _with_fast_results_priority(prompt)
         _write_private(attempt_dir / "prompt.txt", prompt.encode())
         _write_private(stdout_path, b"")
         try:

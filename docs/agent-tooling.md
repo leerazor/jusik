@@ -63,6 +63,17 @@ Context7는 이 프로젝트가 사용하는 Next.js·React·FastAPI 등 외부 
 
 Linear는 여러 worktree 작업의 사용자 가시성, 우선순위, 의존성, 완료 상태를 공유할 때 유용합니다. 저장소의 [작업 등록부](worktree-tasks.md)는 worktree 경로·브랜치·검증·통합·handoff를 담는 실행 기록이므로 계속 기준 기록으로 유지합니다. Linear issue가 입력으로 제공되면 시작 전에 범위와 완료 조건을 읽고, 작업 등록부에 issue 식별자 또는 링크만 기록할 수 있습니다. Linear 생성·상태 변경·댓글 작성은 외부 상태 변경이므로 사용자가 요청했거나 해당 작업 지시에 명시된 경우에만 합니다. issue에는 비밀값, 계좌 식별자, 원시 데이터, 내부 절대 경로, 긴 실행 로그를 넣지 않습니다. 작업 종료 후에는 검증 결과·커밋·handoff 경로의 짧은 요약만 남깁니다.
 
+## 빠른 결과 우선순위
+
+모든 custom role은 [목표 기반 지속 운영 §17](autonomous-trading-lab.md#17-목표-기반-지속-운영)의
+공통 우선순위를 적용합니다. 사용자의 시간 부족·현 구독 요금제 지속 불가를
+고려하여 검증 가능한 비용 차감 수익 결과까지의 시간, 호출, 재작업을 줄입니다.
+조사·계획은 다음 사용 가능한 비교·기각·차단 해소를 명시하고, 구현은 그 결과의
+직접 선행 조건 또는 필요한 정확성·복구에 집중합니다. 검토는 동결 조건과
+중대한 결함의 FAIL 기준을 유지합니다. 중간 이상 작업의 역할 순서는 유지하고,
+작은 기확정 범위는 짧은 계획과 필요한 최소 위임으로 처리합니다. 역할별 한 줄
+지침은 이 정본을 가리키며 모델·권한·schema를 변경하지 않습니다.
+
 ## Roleless CLI routing
 
 설치된 generic skill이 `agent_type`을 요구하더라도 실제 `collaboration.spawn_agent` capability probe가 `role_parameter="NONE"`이고 `model`, `reasoning_effort`, `fork_turns`를 지원하면 이 절차를 적용합니다. native interactive 경로에는 적용하지 않습니다. capability evidence는 실제 도구 probe JSON이어야 하며 추정하거나 role TOML만으로 대체하지 않습니다.

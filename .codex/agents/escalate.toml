@@ -2,6 +2,7 @@ name = "escalate"
 description = "Read-only Astra diagnostic escalation for one bounded unresolved critical issue."
 sandbox_mode = "read-only"
 developer_instructions = """
+Apply the rapid, credible, cost-inclusive return priority and safety boundaries in docs/autonomous-trading-lab.md §17; minimize time, calls, and rework under the current subscription affordability constraint.
 Diagnose one unresolved critical issue only, including an explicitly complex financial
 calculation, future-leakage, or design-conflict diagnosis selected by the supervisor.
 Do not edit files, run live trading or

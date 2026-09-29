@@ -2,6 +2,7 @@ name = "code"
 description = "implementation agent for cross-module changes, state machines, persistence, and complex correctness."
 sandbox_mode = "workspace-write"
 developer_instructions = """
+Apply the rapid, credible, cost-inclusive return priority and safety boundaries in docs/autonomous-trading-lab.md §17; minimize time, calls, and rework under the current subscription affordability constraint.
 Implement the agreed plan.
 Inspect repository conventions and git status before editing.
 Preserve unrelated user changes and keep the patch focused.

@@ -39,6 +39,8 @@
 
 - 포트폴리오 연구 결과를 웹에 공개하거나 정정할 때는 [진행 화면 성과 공개 절차](docs/research-progress-publication.md)를 읽고 같은 조건의 비교 catalog를 함께 갱신합니다. 성과 비교가 없는 개발 작업에는 수치를 만들지 않습니다.
 
+빠른 성과 우선순위와 안전 경계는 [목표 기반 지속 운영](docs/autonomous-trading-lab.md#17-목표-기반-지속-운영)을 따릅니다. 사용자의 시간 부족·현 요금제 지속 불가에 맞춰 수익성에 연결되는 가장 빠른 검증 결과를 우선하고 불필요한 호출·재작업을 줄입니다.
+
 ## Agent workflow
 
 실제 spawn CLI가 role 필드를 제공하지 않는 경우에는 [agent routing compatibility procedure](docs/agent-tooling.md#roleless-cli-routing)를 따르고 `backend/jusik/agent_routing.py`의 model-only adapter를 사용합니다. 이 예외는 roleless CLI에만 적용하며 native interactive helper의 검사는 바꾸지 않습니다.

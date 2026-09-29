@@ -7,6 +7,20 @@
 이 문서와 정책을 중복해서 수정하지 말고, 세션별 재개 정보는
 [`docs/handoffs/`](handoffs/)에 날짜별로 기록합니다.
 
+## 빠른 결과 지침의 전달
+
+사용자의 시간 부족과 현재 구독 요금제 지속 불가를 반영한 공통 우선순위는
+[§17 정본](autonomous-trading-lab.md#17-목표-기반-지속-운영)에 있습니다.
+runner는 planning, 완료 review, roadmap scope, discovery 및 discovery scope,
+일반·기존 큐 task의 완성된 프롬프트 앞에 같은 지침을 붙입니다. private
+`prompt.txt`와 실제 child stdin은 그 완성된 문자열을 공유합니다. 새 task seed에만
+붙이는 지침이 아니므로 과거 큐에도 호출 시 적용됩니다. 제안과 scope 검토는
+수익성에 쓸 다음 결과 또는 이름 붙인 차단 요인, 필요한 정확성·복구와의 연결을
+기존 필드에 적고 근거 없는 일반 공학 작업은 기존 판정으로 기각할 수 있습니다.
+완료 검토는 동결된 인수 조건과 엄격한 schema를 그대로 적용하며 새 우선순위로
+이미 승인된 산출물을 소급 거절하지 않습니다. 이 지침은 deterministic 큐 순위,
+상태 schema, 시간·호출 예산, 위험 한도나 투자 승인 조건을 변경하지 않습니다.
+
 ## 초기 설정
 
 자율 연구소의 task/strategy 상태와 역할은 [설계 정본](autonomous-trading-lab.md)을
