@@ -25,6 +25,9 @@ PRECISION = 50
 MAX_SESSIONS = 300
 MAX_TRADES = 200
 DECIMAL_CONTEXT = Context(prec=PRECISION, rounding=ROUND_HALF_EVEN)
+# The saved research strategy multiplies cash and FX at Python's default
+# Decimal precision. Reproduce that operation when checking saved observations.
+SAVED_CASH_CONTEXT = Context(prec=28, rounding=ROUND_HALF_EVEN)
 
 Availability = Literal["available", "unavailable"]
 ReportStatus = Literal["complete", "blocked", "invalid"]
@@ -783,6 +786,14 @@ def account_result(
             raise ValueError("equity sessions must be ISO dates")
         if equity_sessions != sorted(set(equity_sessions)):
             raise ValueError("equity sessions must be unique and chronological")
+        for point in result.equity:
+            with localcontext(SAVED_CASH_CONTEXT):
+                expected_cash_krw = point.cash_native * point.fx_krw_per_usd
+            if point.cash_krw != expected_cash_krw:
+                raise ValueError(
+                    "equity cash_krw does not match native cash and FX "
+                    f"on {point.session}"
+                )
         fill_sessions = {trade.fill_session for trade in result.trades}
         missing_fill_sessions = fill_sessions - set(equity_sessions)
         if missing_fill_sessions:

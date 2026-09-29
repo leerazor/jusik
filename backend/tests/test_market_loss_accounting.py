@@ -625,6 +625,28 @@ def test_saved_equity_is_unique_chronological_and_contains_fill_sessions() -> No
         account_result(_saved_result((_equity(date(2026, 1, 1)),), (trade,)))
 
 
+def test_saved_cash_rejects_inconsistent_observation() -> None:
+    first = _equity(date(2026, 1, 1))
+    inconsistent = _equity(date(2026, 1, 2)).model_copy(
+        update={"cash_krw": Decimal("2000")}
+    )
+
+    with pytest.raises(ValueError, match="cash_krw does not match native cash and FX"):
+        account_result(_saved_result((first, inconsistent)))
+
+
+def test_saved_cash_preserves_consistent_observations() -> None:
+    first = _equity(date(2026, 1, 1))
+    last = _equity(date(2026, 1, 2))
+
+    report = account_result(_saved_result((first, last)))
+
+    assert report.status == "blocked"
+    assert report.session_count == 2
+    assert report.cash_balance.available
+    assert report.cash_balance.value == Decimal("1000")
+
+
 def test_holiday_date_gap_is_not_inferred_as_missing() -> None:
     report = account_result(
         _saved_result((_equity(date(2026, 1, 1)), _equity(date(2026, 1, 5))))
