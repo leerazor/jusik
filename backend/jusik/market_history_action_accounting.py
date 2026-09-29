@@ -473,6 +473,23 @@ def _validate_state(state: AccountingState) -> None:
             raise AccountingError("receivable has no accrual record")
         if (action_id, "payment") in record_keys:
             raise AccountingError("paid dividend still has a receivable")
+    for receivable in state.receivables:
+        accrued_action = DividendAction(
+            action_id=receivable.action_id,
+            symbol=receivable.symbol,
+            effective_at=receivable.effective_at,
+            payment_at=receivable.payment_at,
+            amount_per_share=receivable.amount_per_share,
+            currency=receivable.currency,
+            entitled_quantity=receivable.entitled_quantity,
+            entitlement_confirmed=True,
+            price_basis="raw",
+        )
+        if (
+            normalize_action(accrued_action).identity_hash
+            != record_hashes[receivable.action_id]
+        ):
+            raise AccountingError("receivable conflicts with accrual record")
     for action_id, phase in record_keys:
         if phase == "payment" and (action_id, "accrual") not in record_keys:
             raise AccountingError("payment has no accrual record")

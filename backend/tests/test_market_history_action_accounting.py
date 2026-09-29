@@ -585,7 +585,7 @@ def test_payment_rejects_changed_frozen_receivable_atomically() -> None:
     )
     result = pay_dividend(tampered, action, at=action.payment_at)
     assert result.status == "rejected"
-    assert result.reason == "payment semantics conflict with accrued entitlement"
+    assert result.reason == "receivable conflicts with accrual record"
     assert result.state == tampered
 
 
@@ -615,8 +615,68 @@ def test_accrual_replay_rejects_changed_frozen_receivable_atomically(
 
     result = accrue_dividend(tampered, action, at=action.effective_at)
     assert result.status == "rejected"
-    assert result.reason == "accrual semantics conflict with accrued entitlement"
+    assert result.reason == "receivable conflicts with accrual record"
     assert result.state is tampered
+
+
+@pytest.mark.parametrize(
+    "changed_field", ["amount", "quantity", "effective_at", "payment_at"]
+)
+def test_split_rejects_receivable_conflicting_with_accrual_atomically(
+    changed_field: str,
+) -> None:
+    state = _state(price="100")
+    dividend = _dividend(action_id="dividend-before-split", amount="2")
+    accrued = accrue_dividend(state, dividend, at=dividend.effective_at)
+    assert accrued.status == "applied"
+    assert accrued.state.nav == Decimal("1020")
+    original = accrued.state.receivables[0]
+    if changed_field == "amount":
+        changed = replace(
+            original, amount_per_share=Decimal("20"), gross_amount=Decimal("200")
+        )
+    elif changed_field == "quantity":
+        changed = replace(
+            original, entitled_quantity=Decimal("20"), gross_amount=Decimal("40")
+        )
+    elif changed_field == "effective_at":
+        changed = replace(original, effective_at=EFFECTIVE + timedelta(hours=1))
+    else:
+        changed = replace(original, payment_at=original.payment_at + timedelta(days=1))
+    tampered = replace(accrued.state, receivables=(changed,))
+    split = replace(
+        _split(action_id="split-after-dividend"),
+        before_price=Decimal("100"),
+        after_price=Decimal("50"),
+    )
+
+    result = apply_split(tampered, split, at=split.effective_at)
+    assert result.status == "rejected"
+    assert result.reason == "receivable conflicts with accrual record"
+    assert result.state is tampered
+    assert result.state.action_records == accrued.state.action_records
+
+
+def test_valid_accrual_split_and_payment_preserve_nav() -> None:
+    state = _state(price="100")
+    dividend = _dividend(action_id="dividend-before-valid-split", amount="2")
+    accrued = accrue_dividend(state, dividend, at=dividend.effective_at)
+    assert accrued.status == "applied"
+    split = replace(
+        _split(action_id="valid-split-after-dividend"),
+        before_price=Decimal("100"),
+        after_price=Decimal("50"),
+    )
+
+    split_result = apply_split(accrued.state, split, at=split.effective_at)
+    assert split_result.status == "applied"
+    assert split_result.nav_before == split_result.nav_after == Decimal("1020")
+    assert split_result.state.receivables == accrued.state.receivables
+    paid = pay_dividend(split_result.state, dividend, at=dividend.payment_at)
+    assert paid.status == "applied"
+    assert paid.state.nav == Decimal("1020")
+    assert paid.state.cash == Decimal("20")
+    assert paid.state.receivables == ()
 
 
 def test_direct_dataclass_entitlement_confirmation_requires_bool() -> None:
