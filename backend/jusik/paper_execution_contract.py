@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from threading import Lock
 from typing import Literal, Protocol, cast
 
 Side = Literal["buy", "sell"]
@@ -150,6 +151,7 @@ class ExecutionLedger:
         self._broker = broker
         self._orders: dict[str, OrderSnapshot] = {}
         self._cancel_attempted: set[str] = set()
+        self._cancel_lock = Lock()
         self._journal = (
             _OrderJournal(journal_path) if journal_path is not None else None
         )
@@ -183,19 +185,20 @@ class ExecutionLedger:
         return self._accept(key, remote)
 
     def cancel(self, key: str) -> OrderSnapshot:
-        current = self._required(key)
-        if self._journal is not None:
-            current, claimed = self._journal.claim_cancel(key)
-        else:
-            claimed = key not in self._cancel_attempted
-        if current.status == "pending":
-            raise ValueError("order_outcome_unknown")
-        if current.status in ("filled", "cancelled", "rejected"):
-            return current
-        if not claimed:
-            raise ValueError("cancel_outcome_unknown")
-        # A lost response cannot prove the broker did not receive the request.
-        self._cancel_attempted.add(key)
+        with self._cancel_lock:
+            current = self._required(key)
+            if self._journal is not None:
+                current, claimed = self._journal.claim_cancel(key)
+            else:
+                claimed = key not in self._cancel_attempted
+            if current.status == "pending":
+                raise ValueError("order_outcome_unknown")
+            if current.status in ("filled", "cancelled", "rejected"):
+                return current
+            if not claimed:
+                raise ValueError("cancel_outcome_unknown")
+            # A lost response cannot prove the broker did not receive the request.
+            self._cancel_attempted.add(key)
         result = self._broker.cancel(key)
         return self._accept(key, result)
 

@@ -198,6 +198,34 @@ def test_cancel_after_partial_fill_is_idempotent() -> None:
     assert broker.cancel_calls == 1
 
 
+def test_concurrent_cancel_without_journal_calls_broker_once() -> None:
+    broker = FakeBroker()
+    ledger = ExecutionLedger(broker)
+    ledger.submit(intent())
+    first_check = Event()
+    second_check = Event()
+
+    class PausedClaimSet(set[str]):
+        def __contains__(self, key: object) -> bool:
+            claimed = super().__contains__(key)
+            if not first_check.is_set():
+                first_check.set()
+                second_check.wait(timeout=2)
+            else:
+                second_check.set()
+            return claimed
+
+    ledger._cancel_attempted = PausedClaimSet()
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(ledger.cancel, "k1")
+        assert first_check.wait(timeout=5)
+        second = pool.submit(ledger.cancel, "k1")
+        assert first.result(timeout=5).status == "cancelled"
+        assert second.result(timeout=5).status == "cancelled"
+
+    assert broker.cancel_calls == 1
+
+
 def test_cancelled_order_accepts_late_fill_without_reopening() -> None:
     broker = FakeBroker()
     ledger = ExecutionLedger(broker)
