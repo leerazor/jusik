@@ -119,7 +119,14 @@ def test_new_us_strategy_filters_legacy_rows_without_changing_raw_artifact() -> 
         input_snapshot, item, readiness, default_market_calendar()
     )
     assert result.status == "ready"
-    assert result.input_hash == prepared.input_hash
+    expected_data_hash = data_contract_hash(prepared, readiness, new_us_research=True)
+    assert result.data_contract_hash == expected_data_hash
+    assert (
+        result.input_hash
+        == prepared.model_copy(
+            update={"data_contract_hash": expected_data_hash}
+        ).input_hash
+    )
     assert result.policy_hash == market_research_policy_hash(
         market_research_policy_for_grade("strict", market="US")
     )
@@ -131,6 +138,25 @@ def test_new_us_strategy_filters_legacy_rows_without_changing_raw_artifact() -> 
     assert data_contract_hash(snapshot, readiness) != data_contract_hash(
         snapshot, readiness, new_us_research=True
     )
+    with pytest.raises(ValueError, match="data contract hash"):
+        run_market_research(
+            input_snapshot.model_copy(
+                update={
+                    "data_contract_hash": data_contract_hash(input_snapshot, readiness)
+                }
+            ),
+            item,
+            readiness,
+            default_market_calendar(),
+        )
+    with pytest.raises(TypeError, match="allow_frozen_us_replay"):
+        run_market_research(
+            input_snapshot,
+            item,
+            readiness,
+            default_market_calendar(),
+            **{"allow_frozen_us_replay": True},
+        )
     with pytest.raises(ValueError, match="policy hash"):
         run_market_research(
             input_snapshot,

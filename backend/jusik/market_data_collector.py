@@ -682,6 +682,7 @@ class AtomicResponseCache:
         self.raw_root = root / "raw"
         self.manifest_path = root / "manifest.json"
         self.completed_path = root / "completed.json"
+        self.us_completed_path = root / "completed-us-exclusions-v1.json"
 
     def _read_manifest(self) -> CacheManifest:
         if not self.manifest_path.is_file():
@@ -705,6 +706,22 @@ class AtomicResponseCache:
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temporary, path)
+        finally:
+            if temporary is not None and Path(temporary).exists():
+                Path(temporary).unlink()
+
+    def _atomic_create(self, path: Path, content: bytes) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary: str | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="wb", dir=path.parent, prefix=".tmp-", delete=False
+            ) as handle:
+                temporary = handle.name
+                handle.write(content)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.link(temporary, path)
         finally:
             if temporary is not None and Path(temporary).exists():
                 Path(temporary).unlink()
@@ -796,17 +813,27 @@ class AtomicResponseCache:
             dataset_sha256=digest,
             completed_at=datetime.now(UTC),
         )
-        self._atomic_write(
-            self.completed_path, marker.model_dump_json(indent=2).encode()
+        completed_path = (
+            self.us_completed_path if market == "US" else self.completed_path
         )
+        content = marker.model_dump_json(indent=2).encode()
+        if market == "US":
+            self._atomic_create(completed_path, content)
+        else:
+            self._atomic_write(completed_path, content)
         return marker
 
-    def read_completed(self) -> CompletedCollection | None:
-        if not self.completed_path.is_file():
+    def read_completed(
+        self, *, market: Market | None = None
+    ) -> CompletedCollection | None:
+        completed_path = (
+            self.us_completed_path if market == "US" else self.completed_path
+        )
+        if not completed_path.is_file():
             return None
         try:
             return CompletedCollection.model_validate(
-                json.loads(self.completed_path.read_bytes())
+                json.loads(completed_path.read_bytes())
             )
         except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
             return None
@@ -828,7 +855,8 @@ class AtomicResponseCache:
             "cache_dir": str(self.root),
             "entries": len(manifest.entries),
             "checkpoints": list(manifest.checkpoints),
-            "completed": self.read_completed() is not None,
+            "completed": self.read_completed() is not None
+            or self.read_completed(market="US") is not None,
         }
 
 
@@ -2193,7 +2221,7 @@ def completed_collection_is_valid(
     sample_size: int,
     output: Path,
 ) -> bool:
-    marker = cache.read_completed()
+    marker = cache.read_completed(market=market)
     if marker is None or not cache.raw_entries_valid():
         return False
     if (
@@ -3040,6 +3068,17 @@ async def collect_market_data(
     resume: bool = True,
     client: httpx.AsyncClient | None = None,
 ) -> CollectionOutput:
+    cache = AtomicResponseCache(cache_dir)
+    if market == "US":
+        if cache.us_completed_path.exists():
+            raise CollectorError("US collection completion already exists")
+        if output.exists():
+            try:
+                ApproximateDataset.model_validate_json(output.read_bytes())
+            except (OSError, ValueError):
+                pass
+            else:
+                raise CollectorError("prepared collection output already exists")
     owns_client = client is None
     http_client = client or httpx.AsyncClient()
     try:
@@ -3055,7 +3094,7 @@ async def collect_market_data(
             )
         fetcher = HttpFetcher(
             cast(HttpClient, http_client),
-            AtomicResponseCache(cache_dir),
+            cache,
             settings,
             resume=resume,
         )
@@ -3074,11 +3113,19 @@ async def collect_market_data(
                 handle.write(content)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary, output)
+            if market == "US":
+                try:
+                    os.link(temporary, output)
+                except FileExistsError as exc:
+                    raise CollectorError(
+                        "prepared collection output already exists"
+                    ) from exc
+            else:
+                os.replace(temporary, output)
         finally:
             if temporary is not None and Path(temporary).exists():
                 Path(temporary).unlink()
-        AtomicResponseCache(cache_dir).write_completed(
+        cache.write_completed(
             market=market,
             start=start,
             end=end,

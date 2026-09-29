@@ -33,6 +33,7 @@ from jusik.market_history_approximate import (
     us_membership_contract_hash,
 )
 from jusik.market_history_models import Market, MarketResearchRequest
+from jusik.market_history_sources import data_contract_hash
 from jusik.market_research_cli import main as market_research_cli
 from jusik.market_research_strategy import (
     RESEARCH_MANDATE_JSON_SHA256,
@@ -326,13 +327,38 @@ def test_prepared_us_legacy_rows_are_filtered_without_raw_rewrite(
     assert excluded == ("LIME", "MDA")
     assert prepared.source_artifacts == snapshot.source_artifacts
     assert prepared.source_artifacts[0].decoded_content == raw
+    readiness = source.readiness("US", datetime(2026, 9, 14, tzinfo=UTC))
     result = run_approximate_market_research(
         snapshot,
         request,
-        source.readiness("US", datetime(2026, 9, 14, tzinfo=UTC)),
+        readiness,
         default_market_calendar(),
     )
-    assert result.input_hash == prepared.input_hash
+    expected_data_hash = data_contract_hash(prepared, readiness, new_us_research=True)
+    assert result.data_contract_hash == expected_data_hash
+    assert (
+        result.input_hash
+        == prepared.model_copy(
+            update={"data_contract_hash": expected_data_hash}
+        ).input_hash
+    )
+    with pytest.raises(ValueError, match="data contract hash"):
+        run_approximate_market_research(
+            snapshot.model_copy(
+                update={"data_contract_hash": data_contract_hash(snapshot, readiness)}
+            ),
+            request,
+            readiness,
+            default_market_calendar(),
+        )
+    with pytest.raises(TypeError, match="allow_frozen_us_replay"):
+        run_approximate_market_research(
+            snapshot,
+            request,
+            readiness,
+            default_market_calendar(),
+            **{"allow_frozen_us_replay": True},
+        )
     assert any("대체" in note for note in result.limitations)
     assert result.policy_hash == market_research_policy_hash(
         market_research_policy_for_grade("approximate", market="US")

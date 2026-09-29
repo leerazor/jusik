@@ -27,7 +27,7 @@ from jusik.market_history_approximate import (
     ApproximateDataset,
     ApproximateMarketHistorySource,
     JsonApproximateProvider,
-    run_approximate_market_research,
+    _run_frozen_approximate_market_research,
 )
 from jusik.market_history_models import (
     MarketReadiness,
@@ -536,13 +536,12 @@ async def replay_manifest(
     policy_hash = market_research_policy_hash(
         market_research_policy_for_grade(request.research_grade)
     )
-    replay_result = run_approximate_market_research(
+    replay_result = _run_frozen_approximate_market_research(
         snapshot,
         request,
         readiness,
         source.calendar,
         policy_hash=policy_hash,
-        allow_frozen_us_replay=True,
     )
     assert baseline_run.result is not None
     comparison = _comparison(baseline_run.result, replay_result)

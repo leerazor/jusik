@@ -33,9 +33,8 @@ from jusik.market_history_models import (
 )
 from jusik.market_research_strategy import (
     US_RESEARCH_EXCLUDED_SYMBOLS,
-    market_research_policy_for_grade,
-    market_research_policy_hash,
-    prepare_us_research_snapshot,
+    _run_market_research_core,
+    prepare_new_us_research,
     run_market_research,
     us_research_exclusion_note,
 )
@@ -1153,20 +1152,51 @@ def run_approximate_market_research(
     calendar: MarketCalendar,
     *,
     policy_hash: str | None = None,
-    allow_frozen_us_replay: bool = False,
 ) -> MarketResearchResult:
     """Run the same trading core as strict research with approximate coverage."""
+    return _run_approximate_market_research_core(
+        snapshot,
+        request,
+        readiness,
+        calendar,
+        policy_hash=policy_hash,
+        frozen_replay=False,
+    )
+
+
+def _run_frozen_approximate_market_research(
+    snapshot: MarketHistorySnapshot,
+    request: MarketResearchRequest,
+    readiness: MarketReadiness,
+    calendar: MarketCalendar,
+    *,
+    policy_hash: str | None = None,
+) -> MarketResearchResult:
+    """Replay a manifest-validated frozen result with its original contracts."""
+    return _run_approximate_market_research_core(
+        snapshot,
+        request,
+        readiness,
+        calendar,
+        policy_hash=policy_hash,
+        frozen_replay=True,
+    )
+
+
+def _run_approximate_market_research_core(
+    snapshot: MarketHistorySnapshot,
+    request: MarketResearchRequest,
+    readiness: MarketReadiness,
+    calendar: MarketCalendar,
+    *,
+    policy_hash: str | None,
+    frozen_replay: bool,
+) -> MarketResearchResult:
     excluded: tuple[str, ...] = ()
-    if request.market == "US" and not allow_frozen_us_replay:
-        snapshot, excluded = prepare_us_research_snapshot(snapshot)
-        current_hash = market_research_policy_hash(
-            market_research_policy_for_grade(
-                request.research_grade, market=request.market
-            )
+    if request.market == "US" and not frozen_replay:
+        snapshot, policy_hash, excluded = prepare_new_us_research(
+            snapshot, request, readiness, policy_hash
         )
-        if policy_hash is not None and policy_hash != current_hash:
-            raise ValueError("US research policy hash is not current")
-        policy_hash = current_hash
     unknown_event_ranges = tuple(
         item
         for item in snapshot.missing_ranges
@@ -1189,7 +1219,7 @@ def run_approximate_market_research(
                 ),
                 *(
                     (us_research_exclusion_note(excluded),)
-                    if request.market == "US" and not allow_frozen_us_replay
+                    if request.market == "US" and not frozen_replay
                     else ()
                 ),
             ),
@@ -1202,15 +1232,24 @@ def run_approximate_market_research(
             research_grade=request.research_grade,
             pool_contract_hash=snapshot.pool_contract_hash,
         )
-    result = run_market_research(
-        snapshot,
-        request,
-        readiness,
-        calendar,
-        policy_hash=policy_hash,
-        allow_approximate=True,
-        allow_frozen_us_replay=allow_frozen_us_replay,
-    )
+    if frozen_replay:
+        result = _run_market_research_core(
+            snapshot,
+            request,
+            readiness,
+            calendar,
+            policy_hash=policy_hash,
+            allow_approximate=True,
+        )
+    else:
+        result = run_market_research(
+            snapshot,
+            request,
+            readiness,
+            calendar,
+            policy_hash=policy_hash,
+            allow_approximate=True,
+        )
     if excluded:
         generic_note = us_research_exclusion_note(())
         return result.model_copy(

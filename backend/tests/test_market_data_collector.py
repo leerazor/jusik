@@ -1765,6 +1765,7 @@ def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
         update={"normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION}
     ).model_dump_json().encode()
     output.write_bytes(legacy_content)
+    AtomicResponseCache(cache_dir).us_completed_path.unlink()
     AtomicResponseCache(cache_dir).write_completed(
         market="US",
         start=start,
@@ -1781,6 +1782,76 @@ def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
         sample_size=1,
         output=output,
     )
+
+
+def test_new_us_collection_preserves_legacy_output_and_completion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from jusik import market_data_collector as collector_module
+
+    start = date(2026, 2, 16)
+    end = date(2026, 3, 31)
+    collected = asyncio.run(
+        FreeMarketDataCollector(_DiagnosticUSTransport("partial")).collect(
+            market="US", start=start, end=end, sample_size=1
+        )
+    )
+    legacy_output = tmp_path / "legacy-prepared.json"
+    legacy_content = collected.dataset.model_copy(
+        update={"normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION}
+    ).model_dump_json().encode()
+    legacy_output.write_bytes(legacy_content)
+    cache = AtomicResponseCache(tmp_path / "cache")
+    cache.write_completed(
+        market="US", start=start, end=end, sample_size=1,
+        output=legacy_output, content=legacy_content,
+    )
+    cache.us_completed_path.rename(cache.completed_path)
+    old_marker = cache.completed_path.read_bytes()
+    settings = CollectorSettings(
+        alpha_vantage_api_key="configured", fred_api_key="configured",
+        request_budget=5_000,
+    )
+    client = _RecordingHttpClient()
+    with pytest.raises(CollectorError, match="output already exists"):
+        asyncio.run(
+            collect_market_data(
+                market="US", start=start, end=end, output=legacy_output,
+                cache_dir=cache.root, settings=settings, sample_size=1,
+                client=client,
+            )
+        )
+    assert client.calls == []
+    assert legacy_output.read_bytes() == legacy_content
+    assert cache.completed_path.read_bytes() == old_marker
+
+    async def prepared_collect(self: object, **_kwargs: object) -> object:
+        return collected
+
+    monkeypatch.setattr(
+        collector_module.FreeMarketDataCollector, "collect", prepared_collect
+    )
+    fresh_output = tmp_path / "new-prepared.json"
+    asyncio.run(
+        collect_market_data(
+            market="US", start=start, end=end, output=fresh_output,
+            cache_dir=cache.root, settings=settings, sample_size=1, client=client,
+        )
+    )
+    assert cache.completed_path.read_bytes() == old_marker
+    assert legacy_output.read_bytes() == legacy_content
+    assert completed_collection_is_valid(
+        cache, market="US", start=start, end=end, sample_size=1,
+        output=fresh_output,
+    )
+    with pytest.raises(CollectorError, match="completion already exists"):
+        asyncio.run(
+            collect_market_data(
+                market="US", start=start, end=end, output=tmp_path / "again.json",
+                cache_dir=cache.root, settings=settings, sample_size=1,
+                client=client,
+            )
+        )
 
 
 def test_all_failure_collect_market_data_preserves_output_marker_and_cache(
@@ -1814,6 +1885,7 @@ def test_all_failure_collect_market_data_preserves_output_marker_and_cache(
         output=output,
         content=output_content,
     )
+    cache.us_completed_path.rename(cache.completed_path)
     cache.put(
         source="yahoo",
         endpoint="https://example.test/chart",

@@ -160,6 +160,31 @@ def us_research_exclusion_note(excluded: tuple[str, ...]) -> str:
     return "미국 연구 정책에서 LIME·MDA를 표본 선정 전에 제외합니다."
 
 
+def prepare_new_us_research(
+    snapshot: MarketHistorySnapshot,
+    request: MarketResearchRequest,
+    readiness: MarketReadiness,
+    policy_hash: str | None,
+) -> tuple[MarketHistorySnapshot, str, tuple[str, ...]]:
+    """Bind public US execution to the current policy and data contract."""
+    from jusik.market_history_sources import data_contract_hash
+
+    current_policy_hash = market_research_policy_hash(
+        market_research_policy_for_grade(request.research_grade, market="US")
+    )
+    if policy_hash is not None and policy_hash != current_policy_hash:
+        raise ValueError("US research policy hash is not current")
+    prepared, excluded = prepare_us_research_snapshot(snapshot)
+    current_data_hash = data_contract_hash(prepared, readiness, new_us_research=True)
+    if (
+        prepared.data_contract_hash is not None
+        and prepared.data_contract_hash != current_data_hash
+    ):
+        raise ValueError("US research data contract hash is not current")
+    prepared = prepared.model_copy(update={"data_contract_hash": current_data_hash})
+    return prepared, current_policy_hash, excluded
+
+
 class _PendingBuy(NamedTuple):
     symbol: str
     signal_session: date
@@ -870,10 +895,9 @@ def run_market_research(
     *,
     policy_hash: str | None = None,
     allow_approximate: bool = False,
-    allow_frozen_us_replay: bool = False,
 ) -> MarketResearchResult:
     """Apply the new US selection to execution rows, preserving raw artifacts."""
-    if request.market != "US" or allow_frozen_us_replay:
+    if request.market != "US":
         return _run_market_research_core(
             snapshot,
             request,
@@ -882,12 +906,9 @@ def run_market_research(
             policy_hash=policy_hash,
             allow_approximate=allow_approximate,
         )
-    current_hash = market_research_policy_hash(
-        market_research_policy_for_grade(request.research_grade, market=request.market)
+    prepared, current_hash, excluded = prepare_new_us_research(
+        snapshot, request, readiness, policy_hash
     )
-    if policy_hash is not None and policy_hash != current_hash:
-        raise ValueError("US research policy hash is not current")
-    prepared, excluded = prepare_us_research_snapshot(snapshot)
     result = _run_market_research_core(
         prepared,
         request,

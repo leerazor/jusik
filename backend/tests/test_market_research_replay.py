@@ -123,7 +123,7 @@ def test_manifest_guards_fail_before_strategy(
         raise AssertionError("strategy must not run for an invalid manifest")
 
     monkeypatch.setattr(
-        "jusik.market_research_replay.run_approximate_market_research",
+        "jusik.market_research_replay._run_frozen_approximate_market_research",
         unexpected_strategy,
     )
     with pytest.raises(ReplayError):
