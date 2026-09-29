@@ -176,7 +176,11 @@ COMMON_PROMPT = (
 )
 FAST_RESULTS_PRIORITY = (
     "The user has little time and cannot keep paying for the current subscription "
-    "plan. Minimize wall-clock time, LLM calls, and rework while pursuing the "
+    "plan. The user confirmed the current subscription is usable through "
+    "2026-10-04; this is a calendar date only, and the exact billing/end time is "
+    "unknown. No new-spend cap has been set and new spending is not authorized. "
+    "The $110/month plan is under consideration only and is not payment approval. "
+    "Minimize wall-clock time, LLM calls, and rework while pursuing the "
     "fastest credible evidence toward maximizing cost-inclusive net returns "
     "within current risk and data constraints; do not promise returns. Prefer "
     "the fastest economically useful deliverable: a "
@@ -240,6 +244,13 @@ RUNTIME_PROMPT_SUFFIX = (
     "completion for missing evidence, set followup to null; followup is reserved "
     "for completed results that enqueue a separately validated task."
     f" {DEVELOPMENT_DELIVERY_POLICY}"
+)
+COMPLETION_WAIT_GUIDANCE = (
+    "For status waiting_external or waiting_human, and whenever a blocked result "
+    "includes a structured blocker, set blocked_reason and "
+    "blocker.blocker_reason to exactly the same character-for-character text. "
+    "Choose one canonical reason string and copy it verbatim into both fields; "
+    "do not paraphrase. Preserve all completion schema and retry-policy rules."
 )
 BACKLOG = (
     (
@@ -3357,7 +3368,7 @@ def run_once(
             "the CLI. Use the exact task and attempt ids, include SHA-256 evidence "
             "paths under the allowed roots, "
             "and report tests_passed, review_passed, integrated_commit, and "
-            f"handoff_path.\n\n{RUNTIME_PROMPT_SUFFIX}"
+            f"handoff_path. {COMPLETION_WAIT_GUIDANCE}\n\n{RUNTIME_PROMPT_SUFFIX}"
         )
         if roadmap is not None:
             try:
