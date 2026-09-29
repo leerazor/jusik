@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from test_development_runner import _repo
 from test_development_runner_discovery import _exhausted, _fake_child
 from test_development_runner_planning_scope import _fake_planner, _fake_scope
@@ -131,8 +132,16 @@ def test_legacy_queued_task_without_seed_guidance_receives_priority(
     _assert_delivered(config.state_dir / "attempts" / result.attempt_id, legacy=True)
 
 
+@pytest.mark.parametrize(
+    ("task_id", "expected"),
+    [
+        ("waiting-human", "waiting_human"),
+        ("waiting-external", "waiting_external"),
+        ("mismatched-wait", "completion_invalid"),
+    ],
+)
 def test_wait_completion_prompt_contract_and_mismatch_rejection(
-    tmp_path: Path,
+    tmp_path: Path, task_id: str, expected: str
 ) -> None:
     repo = _repo(tmp_path)
     fake = tmp_path / "waiting.py"
@@ -144,15 +153,18 @@ def test_wait_completion_prompt_contract_and_mismatch_rejection(
         "fields = dict(line.split(': ', 1) for line in prompt.splitlines() "
         "if line.startswith(('Task id: ', 'Attempt id: ')))\n"
         "reason = 'operator decision required'\n"
+        "status = 'waiting_external' if fields['Task id'] == 'waiting-external' "
+        "else 'waiting_human'\n"
+        "retry_policy = 'event' if status == 'waiting_external' else 'manual'\n"
         "blocker = {'blocker_reason': "
         "'operator decision required (mismatch)' "
         "if fields['Task id'] == 'mismatched-wait' "
         "else reason, 'attempted_actions': [], 'dependency': 'operator decision', "
         "'dependency_identity': None, 'resume_condition': 'authenticated decision', "
-        "'retry_policy': 'manual', 'next_eligible_retry': None, "
+        "'retry_policy': retry_policy, 'next_eligible_retry': None, "
         "'alternative_ready_tasks': []}\n"
         "payload = {'task_id': fields['Task id'], 'attempt_id': fields['Attempt id'], "
-        "'status': 'waiting_human', 'integrated_commit': None, 'evidence': [], "
+        "'status': status, 'integrated_commit': None, 'evidence': [], "
         "'tests_passed': False, 'review_passed': False, 'handoff_path': None, "
         "'blocked_reason': reason, 'followup': None, 'recovery_kind': None, "
         "'blocker': blocker, 'engineering_status': None, 'investment_status': None}\n"
@@ -172,17 +184,21 @@ def test_wait_completion_prompt_contract_and_mismatch_rejection(
         cooldown_seconds=0,
     )
     store = RunnerStore(config.state_dir / "runner.db", config.history_dir)
-    assert store.enqueue("waiting-human", "entry-amount-distribution", "wait")
+    assert store.enqueue(task_id, "entry-amount-distribution", "wait")
 
-    valid = runner.run_once(config)
-    assert valid.status == "waiting_human" and valid.attempt_id is not None
-    _assert_delivered(config.state_dir / "attempts" / valid.attempt_id)
-    prompt_path = config.state_dir / "attempts" / valid.attempt_id / "prompt.txt"
+    result = runner.run_once(config)
+    if expected == "completion_invalid":
+        assert result.status == "failed" and result.reason == expected
+        return
+
+    assert result.status == expected and result.attempt_id is not None
+    _assert_delivered(config.state_dir / "attempts" / result.attempt_id)
+    prompt_path = config.state_dir / "attempts" / result.attempt_id / "prompt.txt"
     prompt = prompt_path.read_text()
+    assert (
+        "Return the required completion JSON to the output path supplied by the CLI. "
+        "Use the exact task and attempt ids"
+    ) in prompt
     assert "waiting_external or waiting_human" in prompt
     assert "exactly the same character-for-character text" in prompt
     assert "copy it verbatim into both fields" in prompt
-
-    assert store.enqueue("mismatched-wait", "entry-amount-distribution", "wait")
-    mismatch = runner.run_once(config)
-    assert mismatch.status == "failed" and mismatch.reason == "completion_invalid"

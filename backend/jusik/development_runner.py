@@ -3365,11 +3365,10 @@ def run_once(
             f"Previous attempt id: {previous}\n\n{task.prompt}\n"
             f"{roadmap_prompt_text}\n\n{engineering_guidance}"
             "Return the required completion JSON to the output path supplied by "
-            f"{COMPLETION_WAIT_GUIDANCE} "
             "the CLI. Use the exact task and attempt ids, include SHA-256 evidence "
             "paths under the allowed roots, "
             "and report tests_passed, review_passed, integrated_commit, and "
-            f"handoff_path.\n\n{RUNTIME_PROMPT_SUFFIX}"
+            f"handoff_path. {COMPLETION_WAIT_GUIDANCE}\n\n{RUNTIME_PROMPT_SUFFIX}"
         )
         if roadmap is not None:
             try:
