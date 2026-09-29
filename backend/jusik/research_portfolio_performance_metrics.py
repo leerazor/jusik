@@ -521,6 +521,24 @@ def sortino_from_nav(
             "value": None,
             "reason": "invalid_nav",
         }
+    previous: datetime | None = None
+    for point in points:
+        timestamp = point.timestamp
+        reason: str | None
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            reason = "invalid_utc_timestamp"
+        else:
+            current = timestamp.astimezone(UTC)
+            reason = (
+                "duplicate_timestamp"
+                if previous is not None and current == previous
+                else "reversed_timestamp"
+                if previous is not None and current < previous
+                else None
+            )
+            previous = current
+        if reason is not None:
+            return {"availability": "unavailable", "value": None, "reason": reason}
     with localcontext() as context:
         context.prec = 50
         daily_target = (

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import cast
@@ -158,6 +158,52 @@ def test_sortino_rejects_invalid_nav_at_any_position(
         "value": None,
         "reason": "invalid_nav",
     }
+
+
+@pytest.mark.parametrize(
+    ("timestamps", "reason"),
+    [
+        ((datetime(2024, 1, 2, tzinfo=UTC),) * 2, "duplicate_timestamp"),
+        (
+            (
+                datetime(2024, 1, 2, tzinfo=UTC),
+                datetime(2024, 1, 2, 9, tzinfo=timezone(timedelta(hours=9))),
+            ),
+            "duplicate_timestamp",
+        ),
+        (
+            (
+                datetime(2024, 1, 3, tzinfo=UTC),
+                datetime(2024, 1, 2, tzinfo=UTC),
+            ),
+            "reversed_timestamp",
+        ),
+        (
+            (
+                datetime(2024, 1, 2, tzinfo=UTC),
+                datetime(2024, 1, 3),
+            ),
+            "invalid_utc_timestamp",
+        ),
+        (
+            (
+                datetime(2024, 1, 2),
+                datetime(2024, 1, 3, tzinfo=UTC),
+            ),
+            "invalid_utc_timestamp",
+        ),
+    ],
+)
+def test_sortino_rejects_invalid_nav_timestamps(
+    timestamps: tuple[datetime, datetime], reason: str
+) -> None:
+    points = tuple(
+        NAVPoint(timestamp, nav)
+        for timestamp, nav in zip(timestamps, (Decimal("90"), Decimal("95")))
+    )
+    assert adapter.sortino_from_nav(
+        points, initial=Decimal("100"), annual_target_rate=Decimal("0")
+    ) == {"availability": "unavailable", "value": None, "reason": reason}
 
 
 def test_synthetic_recovery_duration_uses_utc_peak_to_recovery_seconds() -> None:
