@@ -20,6 +20,9 @@ runner는 planning, 완료 review, roadmap scope, discovery 및 discovery scope,
 완료 검토는 동결된 인수 조건과 엄격한 schema를 그대로 적용하며 새 우선순위로
 이미 승인된 산출물을 소급 거절하지 않습니다. 이 지침은 deterministic 큐 순위,
 상태 schema, 시간·호출 예산, 위험 한도나 투자 승인 조건을 변경하지 않습니다.
+현재 사용자가 확인한 구독 기한과 지출 승인 상태는
+[세션 정책](continuous-development-session.md#현재-사용자-제약-2026-09-29-확인)에 기록하며,
+공통 dispatch 지침에도 전달합니다. 날짜만으로 청구 시각이나 자동 종료 시각을 추정하지 않습니다.
 
 ## 초기 설정
 
@@ -120,6 +123,13 @@ legacy 소문자 상태와 과거 attempt를 보존합니다. 구조화된 block
 의존성, 재개 조건, retry 정책·최초 허용 시각, 대안 task를 기록합니다. 과거 기록에 없는
 정보는 unknown과 빈 attempted_actions로 표현하고 새 사실을 만들지 않습니다.
 기존 완료 이력만으로 ENGINEERING_COMPLETE 또는 INVESTMENT_VALIDATED를 추론하지 않습니다.
+
+`waiting_external`·`waiting_human`, 또는 구조화 blocker를 포함한 `blocked` 보고는
+`blocked_reason`과 `blocker.blocker_reason`을 동일한 문자열로 제출해야 합니다.
+task dispatch는 이 기존 계약을 명시하고 하나의 사유를 두 필드에 그대로 복사하도록
+안내합니다. 불일치 거부는 유지합니다. 형식 오류의 원본 completion을 사후 수정하지 않으며,
+생산자 문제를 고친 후 기존 `retry TASK_ID`로 새 보고를 받아 원 실패 시도와 분리합니다.
+유효한 외부 대기에 들어간 이후에는 기존 dependency/event 재개 조건을 그대로 적용합니다.
 
 외부·사람 대기는 active queue 상한을 점유하지 않습니다. 사람 승인은 자동 retry로
 만들지 않습니다. 자세한 CLI/DB 검사 결과와 이번 구현 범위는
