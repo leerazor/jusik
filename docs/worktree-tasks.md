@@ -13,16 +13,17 @@
 
 ## runner-review-finding-receipt
 
-- 상태: 독립 범위 검토 PASS; 구현 진행
+- 상태: 완료 (기술 개선; 기존 FAIL은 `WAITING_EXTERNAL`, 해당 후보 완료 아님)
 - 목표·완료 조건: 새 독립 코드 검토의 FAIL receipt가 bounded 구조화 지적을 담고 해당 `review_attempts.receipt_json`에 task·implementation·review ID/hash와 함께 저장됩니다. PASS는 빈 finding만 허용합니다. finding 누락 또는 모호한 FAIL은 기존 FAIL 대기 상태를 유지하고 자동 수리·승격하지 않습니다. 기존 FAIL receipt는 복원·수정하지 않습니다.
 - 근거·계획: `ReviewReceipt`와 reviewer prompt가 verdict/identity만 허용하고 FAIL 상세가 폐기됩니다. `finish_review()`는 전체 receipt를 이미 review 이력에 저장하므로 저장 경계를 재사용합니다. 독립 `role.review` scope review는 receipt 보존 slice를 PASS했고, 자동 수리·재큐잉은 roadmap baseline/TTL/소유 파일 hash 재승인이 추가로 필요해 제외했습니다.
-- 기준·통합 대상: local `main` `00ca7a836bd4b723eb98e5981ade823aa1f9af71`; local `main`.
+- 기준·통합: 등록 `129fe33`; 구현 `ea07b7d5fb728170255d54916ef3ea919b74a0da`, 승인된 fixture 보정 `000d2f8357a6dbd87efd2b307c87e57df308c622`; 통합 직전 main `8e190dbb185d18eefd7455c3dae8d9c34920dd15`, 최종 local `main` `04e18a12c0d0a47826f135af1dc35b9ebb96d0e2`.
 - 담당·소유: `role.explore` 조사 및 `role.plan` 계획 완료, 별도 `role.review` scope PASS. 단일 `role.code` 구현자, 별도 최종 `role.review`; 등록·통합·기록은 supervisor 소유.
 - 워크트리·브랜치: `/home/kwl/projects/jusik-runner-review-finding-receipt` / `fix/runner-review-finding-receipt`.
 - 수정 허용 범위: `backend/jusik/development_runner_review.py`, `backend/jusik/development_runner_store.py`, `backend/jusik/development_runner.py`, 해당 runner review/transport/code-review 테스트와 scope reviewer가 승인한 `backend/tests/test_development_runner_discovery.py`의 fake PASS receipt fixture, `docs/development-runner.md`, 작업 기록. 추가 테스트는 새 required `findings=[]` receipt 필드만 반영하며 제품 코드는 수정하지 않습니다. 자동 repair/retry, reviewer eligibility/state transition, 기존 DB 행 보정, investment/data/mandate, service/config는 수정하지 않습니다.
-- 검증·종료: FAIL/PASS schema, owned path·길이·identity 경계, receipt 저장, 기존 PASS 완료 전이와 transport 재시도, FAIL의 WAITING_EXTERNAL 및 일반/event retry 불가를 focused 임시 DB/reviewer 검사로 검증하고 별도 완료 review 후 local `main` 통합.
-- 운영 경계: 구현 중 roadmap runner pause 및 timer/service inactive. 외부 provider/API·credential·구매·운영 DB·PAPER/live·주문·remote push 없음. tracked `main` clean 뒤 기존 runner 설정을 재개합니다. 사용자 소유 `HANDOFF.md`를 보존합니다.
-- 개발 기록·handoff: 구현·통합 후 `docs/development-records/2026-09-30-runner-review-finding-receipt.md` 및 handoff 기록을 생성합니다.
+- 검증·종료: 통합 main에서 review/transport/roadmap/discovery 4개 모듈 pytest 182 passed, 7개 관련 Python 파일 Ruff check·format, 변경 source 3개 strict mypy, merge diff check 통과. 독립 review는 최초 discovery fake receipt 누락을 지적했고, 별도 scope PASS 뒤 fixture-only commit을 반영한 전체 diff에 최종 PASS.
+- 운영 경계: 구현 중 roadmap runner pause 및 timer/service inactive. 기존 review FAIL의 finding은 복구할 수 없어 변경하지 않았습니다. 새 FAIL은 receipt에 bounded finding을 저장하지만, 자동 repair/retry·재검토·승격은 여전히 금지됩니다. 외부 provider/API·credential·구매·운영 DB·PAPER/live·주문·remote push 없음. 사용자 소유 `HANDOFF.md`를 보존했습니다.
+- 정리·운영: 코드 통합과 검증을 마쳤고 전용 worktree/branch를 제거했습니다. runner는 pause 및 timer/service inactive 상태를 유지합니다. 선행해 등록된 `project-memory-index` 문서 작업이 이 정지 상태를 유지하도록 명시했으므로, 해당 작업의 독립 검토·통합이 끝난 뒤에만 원래 timer를 재개합니다.
+- 개발 기록·handoff: [개발 기록](development-records/2026-09-30-runner-review-finding-receipt.md), [handoff](handoffs/2026-09-30-runner-review-finding-receipt.md).
 
 ## exclude-lime-mda-us-research
 
