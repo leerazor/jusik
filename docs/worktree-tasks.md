@@ -4973,12 +4973,13 @@
 
 ## aos-action-boundary-20260930
 
-- 상태: explore·독립 plan GO, AOS 오프라인 경계 파생1회 진행.
+- 상태: 완료 — 날짜 경계 후보 1회 계산·독립 review·main 통합 검증 PASS; 자료/성과 적격은 차단 유지.
 - 목표·완료 조건: 기존overlay·calendar의배당락일개장/지급일후현지자정 규칙을 AOS보고날짜에1회적용해종목/거래소/DST와출처·정책파생 경계를검증한다. 독립review·main기록·handoff완료, pilot채택/회계실행과분리한다.
 - workflow 선택: 반복결손문서·새모델없이 기존함수로새날짜입력의변환가능성만확인한다.
 - 담당: 기존explore→preferred_plan→ecos_code단일소유→ecos_review. runnerpaused/running0·service/timer inactive 유지.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-aos-action-boundary` / `research/aos-action-boundary`; scope 기준 `a4228c9`, 통합main.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-aos-action-boundary` / `research/aos-action-boundary`; scope 기준 `a4228c9`, 구현 `b2f3351`, main `4a8d66f448a6669bac50686f4a6fe502bfc97993`.
 - 입력: AOSsource-only 최종result·원본종목identity, 기존overlay/calendar/action-accounting/action-review sourcehash. 보호파일은scope.json에결속한다.
 - 범위: 전용audit단일스크립트·receipt와개발기록/인계2문서. 새생산코드/helper/model없음, 외부조회·금융실험·overlay전체실행·동일검사반복0. 코드import필요환경은작업별offline격리.
 - 완료판정: 후보effective/payment와offset을실제함수출력으로확인. sourcepublication분·provider observednull·search-only/Mergent 등급보존. 달력/identity 불일치중단. holdings/entitlement/action/ledger 생성없음.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-aos-action-boundary/`; 개발기록 `docs/development-records/2026-09-30-aos-action-boundary.md`; handoff `docs/handoffs/2026-09-30-aos-action-boundary.md`.
+- 결과: 10/31 개장 13:30Z(EDT), 11/18 지급경계 05:00Z(EST); 정책 후보 미채택. 보호19/source4·결속4·링크6 PASS, backend 불변. 환경/audit 보존, 기존검사·외부조회 반복0. 시세실패24/사건관측결손125 유지.
