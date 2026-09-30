@@ -1,7 +1,7 @@
 # ECOS 환율 원천·시점 계약 근거
 
 - 상태: 문서 작업 완료, main 통합 대기
-- 기록 시각: 2026-09-30T04:40:26Z
+- 기록 시각: 2026-09-30T04:43:06Z
 - 작업 slug: `ecos-fx-source-contract-20260930`
 - 기준/통합: `4a4d2480ab61c274325a8f7bf619b4af211b2d31` / 없음 (감독자 확정 예정)
 - 범위: ECOS 공식 항목과 한국은행 산정 기준의 확인 범위, PIT 재개 조건만 문서화. 코드·원시 자료·성과 계약 변경 없음.
@@ -21,7 +21,7 @@
 ## 검증
 
 - `sha256sum`과 저장된 `verification.json`: backend 소스·테스트 2개, 실제 조회 산출물 6개, baseline 1개의 해시 일치 9건. backend tree는 기존 검사 대상 커밋 이후 차이 없음. 공식 자료 2개의 해시는 별도 manifest와 일치하며 manifest SHA-256은 `e47a5ea28a90b05c4963702b515693693f8617da9ea776902bf29bfcd8767188`.
-- 공식 ECOS 항목 응답의 지정 코드·주기·항목명·단위, 저장된 한국은행 FAQ의 산정 설명과 문서 문구를 대조했다. 문서 상대 링크와 `git diff --check`를 확인했다.
+- 이번 작업에서 공식 ECOS 항목 metadata와 한국은행 FAQ를 각각 새로 조회·보존하고, 지정 코드·주기·항목명·단위 및 산정 설명을 문서와 대조했다. 기존 4일 환율은 다시 조회하지 않았다. 문서 상대 링크와 `git diff --check`를 확인했다.
 - 기존 코드 `e9cf0a4`의 집중 pytest 182개, Ruff check/format, strict mypy 통과는 `integration-verification.json`의 기록을 재사용했다. 이번 작업에 코드·입력 변경이 없으므로 재실행하지 않았다. Python 빌드 대상도 변경 없음.
 
 ## 안전·운영 상태
