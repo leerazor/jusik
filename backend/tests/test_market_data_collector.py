@@ -48,6 +48,7 @@ from jusik.market_data_collector import (
 from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
     US_EXCLUSION_NORMALIZATION_VERSION,
+    US_NULL_BAR_NORMALIZATION_VERSION,
     US_PREFERRED_NORMALIZATION_VERSION,
     US_WARRANT_NORMALIZATION_VERSION,
     ApproximateDataset,
@@ -582,6 +583,71 @@ def test_yahoo_parser_validates_identity_arrays_and_action_events() -> None:
             start=date(2026, 9, 11),
             end=date(2026, 9, 14),
         )
+
+
+def test_yahoo_parser_skips_only_wholly_null_bar_and_preserves_split() -> None:
+    null_time = int(datetime(2026, 9, 8, 13, 30, tzinfo=UTC).timestamp())
+    valid_time = int(datetime(2026, 9, 9, 13, 30, tzinfo=UTC).timestamp())
+    result = {
+        "meta": {
+            "symbol": "TNMG",
+            "currency": "USD",
+            "instrumentType": "EQUITY",
+            "exchangeName": "NMS",
+            "exchangeTimezoneName": "America/New_York",
+        },
+        "timestamp": [null_time, valid_time],
+        "indicators": {
+            "quote": [
+                {
+                    "open": [None, 10],
+                    "high": [None, 11],
+                    "low": [None, 9],
+                    "close": [None, 10],
+                    "volume": [None, 100],
+                }
+            ]
+        },
+        "events": {
+            "splits": {str(null_time): {"date": null_time, "splitRatio": "2:1"}}
+        },
+    }
+
+    def parse(candidate: dict[str, object]) -> object:
+        return parse_yahoo_chart(
+            json.dumps({"chart": {"result": [candidate]}}).encode(),
+            symbol="TNMG",
+            exchange="NAS",
+            currency="USD",
+            start=date(2026, 9, 8),
+            end=date(2026, 9, 9),
+        )
+
+    parsed = parse(result)
+    assert [bar.session for bar in parsed.bars] == [date(2026, 9, 9)]
+    assert len(parsed.event_rows) == 1
+    assert parsed.event_rows[0].kind == "splits"
+    assert parsed.event_rows[0].occurrence_at is not None
+    assert parsed.event_rows[0].observed_at is None
+
+    for field, value in (("open", None), ("open", "bad"), ("open", True), ("open", 0)):
+        candidate = json.loads(json.dumps(result))
+        quote = candidate["indicators"]["quote"][0]
+        quote[field][1] = value
+        with pytest.raises(CollectorError):
+            parse(candidate)
+
+    duplicate = json.loads(json.dumps(result))
+    duplicate["timestamp"][1] = null_time
+    with pytest.raises(CollectorError, match="duplicate sessions"):
+        parse(duplicate)
+
+    empty = json.loads(json.dumps(result))
+    empty["timestamp"] = [null_time]
+    for values in empty["indicators"]["quote"][0].values():
+        values.pop()
+    with pytest.raises(CollectorCoverageError, match="no requested sessions"):
+        parse(empty)
 
 
 def test_yahoo_parser_preserves_occurrence_and_observed_event_times() -> None:
@@ -1771,8 +1837,8 @@ def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
     )
     round_tripped = ApproximateDataset.model_validate_json(output.read_bytes())
     assert round_tripped.collection_diagnostics is not None
-    assert round_tripped.normalization_version == US_WARRANT_NORMALIZATION_VERSION
-    assert AtomicResponseCache(cache_dir).us_warrant_completed_path.exists()
+    assert round_tripped.normalization_version == US_NULL_BAR_NORMALIZATION_VERSION
+    assert AtomicResponseCache(cache_dir).us_null_bar_completed_path.exists()
     assert completed_collection_is_valid(
         AtomicResponseCache(cache_dir),
         market="US",
@@ -1793,7 +1859,7 @@ def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
         .encode()
     )
     output.write_bytes(legacy_content)
-    AtomicResponseCache(cache_dir).us_warrant_completed_path.unlink()
+    AtomicResponseCache(cache_dir).us_null_bar_completed_path.unlink()
     AtomicResponseCache(cache_dir).write_completed(
         market="US",
         start=start,
@@ -1891,7 +1957,7 @@ def test_new_us_collection_preserves_legacy_output_and_completion(
     )
     assert cache.completed_path.read_bytes() == old_marker
     assert legacy_output.read_bytes() == legacy_content
-    assert cache.us_warrant_completed_path.exists()
+    assert cache.us_null_bar_completed_path.exists()
     assert completed_collection_is_valid(
         cache,
         market="US",
@@ -1915,7 +1981,9 @@ def test_new_us_collection_preserves_legacy_output_and_completion(
         )
 
 
-def test_us_v2_v3_v4_completion_markers_coexist_and_bind_output(tmp_path: Path) -> None:
+def test_us_v2_v3_v4_v5_completion_markers_coexist_and_bind_output(
+    tmp_path: Path,
+) -> None:
     start = date(2026, 2, 16)
     end = date(2026, 3, 31)
     dataset = asyncio.run(
@@ -1927,6 +1995,7 @@ def test_us_v2_v3_v4_completion_markers_coexist_and_bind_output(tmp_path: Path) 
     v2_output = tmp_path / "v2.json"
     v3_output = tmp_path / "v3.json"
     v4_output = tmp_path / "v4.json"
+    v5_output = tmp_path / "v5.json"
     v2_content = (
         dataset.model_copy(
             update={"normalization_version": US_EXCLUSION_NORMALIZATION_VERSION}
@@ -1941,10 +2010,18 @@ def test_us_v2_v3_v4_completion_markers_coexist_and_bind_output(tmp_path: Path) 
         .model_dump_json()
         .encode()
     )
-    v4_content = dataset.model_dump_json().encode()
+    v4_content = (
+        dataset.model_copy(
+            update={"normalization_version": US_WARRANT_NORMALIZATION_VERSION}
+        )
+        .model_dump_json()
+        .encode()
+    )
+    v5_content = dataset.model_dump_json().encode()
     v2_output.write_bytes(v2_content)
     v3_output.write_bytes(v3_content)
     v4_output.write_bytes(v4_content)
+    v5_output.write_bytes(v5_content)
     cache.write_completed(
         market="US",
         start=start,
@@ -1973,8 +2050,19 @@ def test_us_v2_v3_v4_completion_markers_coexist_and_bind_output(tmp_path: Path) 
         content=v4_content,
         normalization_version=US_WARRANT_NORMALIZATION_VERSION,
     )
+    v4_marker = cache.us_warrant_completed_path.read_bytes()
+    cache.write_completed(
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=v5_output,
+        content=v5_content,
+        normalization_version=US_NULL_BAR_NORMALIZATION_VERSION,
+    )
     assert cache.us_completed_path.read_bytes() == old_marker
     assert cache.us_preferred_completed_path.read_bytes() == v3_marker
+    assert cache.us_warrant_completed_path.read_bytes() == v4_marker
     assert cache.read_completed(market="US") is not None
     assert (
         cache.read_completed(
@@ -1988,8 +2076,14 @@ def test_us_v2_v3_v4_completion_markers_coexist_and_bind_output(tmp_path: Path) 
         )
         is not None
     )
+    assert (
+        cache.read_completed(
+            market="US", normalization_version=US_NULL_BAR_NORMALIZATION_VERSION
+        )
+        is not None
+    )
     assert cache.status()["completed"] is True
-    for output in (v2_output, v3_output, v4_output):
+    for output in (v2_output, v3_output, v4_output, v5_output):
         assert completed_collection_is_valid(
             cache,
             market="US",
@@ -2016,14 +2110,24 @@ def test_us_v2_v3_v4_completion_markers_coexist_and_bind_output(tmp_path: Path) 
         sample_size=1,
         output=v4_output,
     )
+    v5_output.write_bytes(v4_content)
+    assert not completed_collection_is_valid(
+        cache,
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=v5_output,
+    )
     with pytest.raises(CollectorError, match="unsupported US normalization"):
         cache.read_completed(market="US", normalization_version="unknown")
     cache.us_completed_path.unlink()
     cache.us_preferred_completed_path.unlink()
+    cache.us_warrant_completed_path.unlink()
     assert cache.status()["completed"] is True
 
 
-def test_v3_v4_completion_rejects_relabelled_preferred_name(tmp_path: Path) -> None:
+def test_v3_v4_v5_completion_rejects_relabelled_preferred_name(tmp_path: Path) -> None:
     start = date(2026, 2, 16)
     end = date(2026, 3, 31)
     dataset = asyncio.run(
@@ -2052,6 +2156,7 @@ def test_v3_v4_completion_rejects_relabelled_preferred_name(tmp_path: Path) -> N
         (US_EXCLUSION_NORMALIZATION_VERSION, tmp_path / "v2.json"),
         (US_PREFERRED_NORMALIZATION_VERSION, tmp_path / "v3.json"),
         (US_WARRANT_NORMALIZATION_VERSION, tmp_path / "v4.json"),
+        (US_NULL_BAR_NORMALIZATION_VERSION, tmp_path / "v5.json"),
     ):
         content = (
             preferred.model_copy(update={"normalization_version": version})
@@ -2080,7 +2185,7 @@ def test_v3_v4_completion_rejects_relabelled_preferred_name(tmp_path: Path) -> N
         ) is (version == US_EXCLUSION_NORMALIZATION_VERSION)
 
 
-def test_v4_completion_rejects_relabelled_warrant_name(tmp_path: Path) -> None:
+def test_v4_v5_completion_rejects_relabelled_warrant_name(tmp_path: Path) -> None:
     start, end = date(2026, 2, 16), date(2026, 3, 31)
     dataset = asyncio.run(
         FreeMarketDataCollector(_DiagnosticUSTransport("partial")).collect(
@@ -2107,6 +2212,7 @@ def test_v4_completion_rejects_relabelled_warrant_name(tmp_path: Path) -> None:
     for version, expected in (
         (US_PREFERRED_NORMALIZATION_VERSION, True),
         (US_WARRANT_NORMALIZATION_VERSION, False),
+        (US_NULL_BAR_NORMALIZATION_VERSION, False),
     ):
         output = tmp_path / f"{version}.json"
         content = (
@@ -2375,7 +2481,7 @@ def test_us_collector_uses_causal_version_and_unknown_gap_after_failed_checkpoin
             sample_size=1,
         )
     )
-    assert result.dataset.normalization_version == US_WARRANT_NORMALIZATION_VERSION
+    assert result.dataset.normalization_version == US_NULL_BAR_NORMALIZATION_VERSION
     assert all(row.session < checkpoint for row in result.dataset.universe)
     assert any(
         "current_selected=0" in item and "cumulative_admitted=1" in item

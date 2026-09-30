@@ -52,11 +52,13 @@ US_EVENT_TIMING_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v1"
 US_EXCLUSION_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v2"
 US_PREFERRED_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v3"
 US_WARRANT_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v4"
+US_NULL_BAR_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v5"
 US_MEMBERSHIP_POOL_POLICY_VERSION = "approximate-us-membership-pool-v1"
 US_EVENT_TIMING_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v1"
 US_EXCLUSION_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v2"
 US_PREFERRED_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v3"
 US_WARRANT_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v4"
+US_NULL_BAR_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v5"
 US_MEMBERSHIP_SEED = 20260914
 APPROX_LOOKBACK_SESSIONS = 20
 APPROX_TARGET_WEIGHT = Decimal("0.05")
@@ -665,6 +667,20 @@ def us_warrant_contract_hash() -> str:
     )
 
 
+def us_null_bar_contract_hash() -> str:
+    """Return the distinct US contract that retains wholly null price sessions."""
+    return _hash(
+        {
+            "base": _us_contract_hash(
+                policy_version=US_NULL_BAR_POOL_POLICY_VERSION,
+                normalization_version=US_NULL_BAR_NORMALIZATION_VERSION,
+            ),
+            "excluded_symbols": sorted(US_RESEARCH_EXCLUDED_SYMBOLS),
+            "exclusion_stage": "before_checkpoint_seed_and_retention",
+        }
+    )
+
+
 def legacy_us_membership_contract_hash() -> str:
     """Return the R1-01 hash so legacy prepared artifacts remain identifiable."""
     return us_membership_contract_hash()
@@ -884,6 +900,7 @@ class ApproximateMarketHistorySource:
             US_EXCLUSION_NORMALIZATION_VERSION,
             US_PREFERRED_NORMALIZATION_VERSION,
             US_WARRANT_NORMALIZATION_VERSION,
+            US_NULL_BAR_NORMALIZATION_VERSION,
         }
         if (
             request.market == "US"
@@ -903,6 +920,7 @@ class ApproximateMarketHistorySource:
                 US_EXCLUSION_NORMALIZATION_VERSION,
                 US_PREFERRED_NORMALIZATION_VERSION,
                 US_WARRANT_NORMALIZATION_VERSION,
+                US_NULL_BAR_NORMALIZATION_VERSION,
             }:
                 present = US_RESEARCH_EXCLUDED_SYMBOLS.intersection(
                     item.symbol
@@ -924,14 +942,15 @@ class ApproximateMarketHistorySource:
                 if dataset.normalization_version in {
                     US_PREFERRED_NORMALIZATION_VERSION,
                     US_WARRANT_NORMALIZATION_VERSION,
+                    US_NULL_BAR_NORMALIZATION_VERSION,
                 } and any(is_us_preferred_name(item.name) for item in dataset.universe):
                     raise ApproximateProviderError(
                         "prepared US data contains preferred product name"
                     )
-                if (
-                    dataset.normalization_version == US_WARRANT_NORMALIZATION_VERSION
-                    and any(is_us_warrant_name(item.name) for item in dataset.universe)
-                ):
+                if dataset.normalization_version in {
+                    US_WARRANT_NORMALIZATION_VERSION,
+                    US_NULL_BAR_NORMALIZATION_VERSION,
+                } and any(is_us_warrant_name(item.name) for item in dataset.universe):
                     raise ApproximateProviderError(
                         "prepared US data contains warrant product name"
                     )
@@ -943,6 +962,7 @@ class ApproximateMarketHistorySource:
                 US_EXCLUSION_NORMALIZATION_VERSION: us_exclusion_contract_hash,
                 US_PREFERRED_NORMALIZATION_VERSION: us_preferred_contract_hash,
                 US_WARRANT_NORMALIZATION_VERSION: us_warrant_contract_hash,
+                US_NULL_BAR_NORMALIZATION_VERSION: us_null_bar_contract_hash,
             }[dataset.normalization_version]()
         else:
             assert pool is not None
@@ -956,6 +976,7 @@ class ApproximateMarketHistorySource:
                 US_EXCLUSION_NORMALIZATION_VERSION,
                 US_PREFERRED_NORMALIZATION_VERSION,
                 US_WARRANT_NORMALIZATION_VERSION,
+                US_NULL_BAR_NORMALIZATION_VERSION,
             }
         )
         normalized_events: tuple[ApproximateEvent, ...]
