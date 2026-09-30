@@ -13,9 +13,11 @@ from pydantic import ValidationError
 from jusik.fixture_app import app as fixture_app
 from jusik.market_history_approximate import (
     US_EXCLUSION_NORMALIZATION_VERSION,
+    US_NULL_BAR_NORMALIZATION_VERSION,
     US_PREFERRED_NORMALIZATION_VERSION,
     US_WARRANT_NORMALIZATION_VERSION,
     us_exclusion_contract_hash,
+    us_null_bar_contract_hash,
     us_preferred_contract_hash,
     us_warrant_contract_hash,
 )
@@ -1126,6 +1128,7 @@ def test_final_requires_completed_matching_pilot_and_collects_own_period(
     [
         (US_EXCLUSION_NORMALIZATION_VERSION, US_PREFERRED_NORMALIZATION_VERSION),
         (US_PREFERRED_NORMALIZATION_VERSION, US_WARRANT_NORMALIZATION_VERSION),
+        (US_WARRANT_NORMALIZATION_VERSION, US_NULL_BAR_NORMALIZATION_VERSION),
     ],
 )
 def test_us_final_rejects_mismatched_pilot_contract(
@@ -1140,6 +1143,7 @@ def test_us_final_rejects_mismatched_pilot_contract(
                 US_EXCLUSION_NORMALIZATION_VERSION: us_exclusion_contract_hash(),
                 US_PREFERRED_NORMALIZATION_VERSION: us_preferred_contract_hash(),
                 US_WARRANT_NORMALIZATION_VERSION: us_warrant_contract_hash(),
+                US_NULL_BAR_NORMALIZATION_VERSION: us_null_bar_contract_hash(),
             }[self.version]
             return snapshot.model_copy(
                 update={

@@ -34,6 +34,7 @@ from jusik.market_history_approximate import (
     MAX_UNIQUE_SYMBOLS,
     US_EXCLUSION_NORMALIZATION_VERSION,
     US_MEMBERSHIP_SEED,
+    US_NULL_BAR_NORMALIZATION_VERSION,
     US_PREFERRED_NORMALIZATION_VERSION,
     US_WARRANT_NORMALIZATION_VERSION,
     ApproximateBarRow,
@@ -689,6 +690,7 @@ class AtomicResponseCache:
         self.us_completed_path = root / "completed-us-exclusions-v1.json"
         self.us_preferred_completed_path = root / "completed-us-exclusions-v2.json"
         self.us_warrant_completed_path = root / "completed-us-exclusions-v3.json"
+        self.us_null_bar_completed_path = root / "completed-us-exclusions-v4.json"
 
     def _completed_path(
         self, market: Market | None, normalization_version: str | None
@@ -703,6 +705,8 @@ class AtomicResponseCache:
             return self.us_preferred_completed_path
         if normalization_version == US_WARRANT_NORMALIZATION_VERSION:
             return self.us_warrant_completed_path
+        if normalization_version == US_NULL_BAR_NORMALIZATION_VERSION:
+            return self.us_null_bar_completed_path
         raise CollectorError("unsupported US normalization version")
 
     def _read_manifest(self) -> CacheManifest:
@@ -882,6 +886,10 @@ class AtomicResponseCache:
             is not None
             or self.read_completed(
                 market="US", normalization_version=US_WARRANT_NORMALIZATION_VERSION
+            )
+            is not None
+            or self.read_completed(
+                market="US", normalization_version=US_NULL_BAR_NORMALIZATION_VERSION
             )
             is not None,
         }
@@ -1658,6 +1666,8 @@ def parse_yahoo_chart(
             raise CollectorError("Yahoo chart contains duplicate sessions")
         seen_sessions.add(session)
         values = {field: arrays[field][index] for field in fields}
+        if all(value is None for value in values.values()):
+            continue
         if any(value is None for value in values.values()):
             raise CollectorError("Yahoo chart contains incomplete OHLCV")
         bars.append(
@@ -2255,6 +2265,7 @@ def completed_collection_is_valid(
             US_EXCLUSION_NORMALIZATION_VERSION,
             US_PREFERRED_NORMALIZATION_VERSION,
             US_WARRANT_NORMALIZATION_VERSION,
+            US_NULL_BAR_NORMALIZATION_VERSION,
         }:
             return False
         normalization_version = dataset.normalization_version
@@ -2273,11 +2284,16 @@ def completed_collection_is_valid(
                 in {
                     US_PREFERRED_NORMALIZATION_VERSION,
                     US_WARRANT_NORMALIZATION_VERSION,
+                    US_NULL_BAR_NORMALIZATION_VERSION,
                 }
                 and any(is_us_preferred_name(item.name) for item in dataset.universe)
             )
             or (
-                normalization_version == US_WARRANT_NORMALIZATION_VERSION
+                normalization_version
+                in {
+                    US_WARRANT_NORMALIZATION_VERSION,
+                    US_NULL_BAR_NORMALIZATION_VERSION,
+                }
                 and any(is_us_warrant_name(item.name) for item in dataset.universe)
             )
         ):
@@ -2645,7 +2661,7 @@ class FreeMarketDataCollector:
             raw_rows = tuple(universe_rows)
             selected_symbols = set(symbols)
             source = "alpha_vantage"
-            normalization_version = US_WARRANT_NORMALIZATION_VERSION
+            normalization_version = US_NULL_BAR_NORMALIZATION_VERSION
         if market == "KR":
             first_day_rows = tuple(row for row in raw_rows if row.session == checkpoint)
             pool = deterministic_pool(first_day_rows, market=market, pool_end=end)
@@ -3108,7 +3124,7 @@ async def collect_market_data(
 ) -> CollectionOutput:
     cache = AtomicResponseCache(cache_dir)
     if market == "US":
-        if cache.us_warrant_completed_path.exists():
+        if cache.us_null_bar_completed_path.exists():
             raise CollectorError("US collection completion already exists")
         if output.exists():
             raise CollectorError("prepared collection output already exists")
@@ -3166,7 +3182,7 @@ async def collect_market_data(
             output=output,
             content=content,
             normalization_version=(
-                US_WARRANT_NORMALIZATION_VERSION if market == "US" else None
+                US_NULL_BAR_NORMALIZATION_VERSION if market == "US" else None
             ),
         )
         return output_result
