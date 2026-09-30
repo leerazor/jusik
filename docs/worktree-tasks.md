@@ -4986,12 +4986,13 @@
 
 ## us-warrant-classification-20260930
 
-- 상태: explore·독립 plan GO, 구현 준비.
+- 상태: 완료 — 구현·독립 review·main 통합 검증 PASS; 데이터/성과 적격은 미평가.
 - 목표: 캐시 Alpha 원문에 명시된 GPACW `Wt Exp 07012020`의 워런트 분류 누락을 좁게 수정하고 v4 계약으로 격리한다.
 - 담당: source_freshness_explore → preferred_plan → ecos_code 단일 구현 → ecos_review 독립 검토. runner paused/running0, service/timer inactive.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-us-warrant-classification` / `fix/us-warrant-classification`; 기준 `0d64f82`.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-us-warrant-classification` / `fix/us-warrant-classification`; 기준 `0d64f82`.
 - 범위: classifier·v4 normalization/pool contract/marker·reader/완료검증·관련 회귀·계약 문서. 기존 v2/v3 hash·reader·원본 보존, 티커형태만의 제외 금지. 외부조회·full수집·금융실험0.
 - 검증·종료: 직접 `Wt Exp 8digits` 근거와 부정 사례, legacy 수용/v4 relabel 거부, marker 공존/status/preflight 및 계약 불일치. 독립 review·main 통합 검증·기록·handoff·정리.
 - 자료 상태: 기존 실패24 중 GPACW 분류 원인 확인; 재선정 후 새 결손 수는 미평가. 사건125 관측 결손·성과 차단 유지.
 - workflow 판단: 이미 찾은 직접 근거를 재감사 문서로 반복하지 않고 작은 정확성 수정으로 연결한다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-warrant-classification/`; 개발기록 `docs/development-records/2026-09-30-us-warrant-classification.md`; handoff `docs/handoffs/2026-09-30-us-warrant-classification.md`.
+- 통합: 구현 `56a79b5`, main `abfca4c9ff7165fd57ff1a59a3ef942c8d443062`. focused54/Ruff/format/mypy/mandate PASS, main의 동일 코드·변경11파일/보호19/raw2 결속 검증으로 기존 검사 재사용. audit 보존 후 정리 완료. 다음: v4 선정·정확 요청키 차이만 오프라인 확인.
