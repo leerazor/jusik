@@ -5036,10 +5036,11 @@
 
 ## yahoo-price-basis-source-20260930
 
-- 상태: 진행 — explore·독립 plan 조건부 GO; FX 동일 입력 재검사 NO-GO.
+- 상태: 조사·통합 완료, 자료 확인 BLOCKED_OFFICIAL_ARTICLE_429 — 재시도0, TNMG basis unknown 유지.
 - 목표: 공식 Yahoo 문서의 Close/Adj Close 분할·배당 조정 규칙을 확인하고 chart JSON/TNMG 적용 가능 여부를 분리한다.
 - 담당: source_freshness_explore → preferred_plan → ecos_code 단일 소유 → ecos_review. runner paused/running0, service/timer inactive, 기존 실패 작업의 새 재시도 근거 없음.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-yahoo-price-basis-source` / `research/yahoo-price-basis-source`; 기준 `53d86f9`.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-yahoo-price-basis-source` / `research/yahoo-price-basis-source`; 기준 `53d86f9`.
 - 범위: 사전고정 query 검색1, 공식본문1 open(선택URL 사전기록), 반환 rendering/hash/receipt·문서2. 가격조회/동일외부재시도/생산코드/캐시/회계실행0. 일반 규칙을 실제 TNMG historical quote에 추정 적용 금지.
 - 검증·종료: 원문 명시 규칙·적용범위 구분, 보호hash/문서경로 결속·독립review·local main 통합·handoff·정리. blocked면 정확 재개조건 저장하고 runner 안전재개 여부 확인.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-yahoo-price-basis-source/`; 개발기록 `docs/development-records/2026-09-30-yahoo-price-basis-source.md`; 인계 `docs/handoffs/2026-09-30-yahoo-price-basis-source.md`.
+- 결과·통합: 구현 `a199ca6`, main `60bdf34ff486824f035a206be33b4c9d4629b783`. 검색1/open1, 본문429·스니펫승격0. 독립review·audit5/문서2/보호6/main backend동일성PASS, 환경설치0·정리완료. 대안/재개조건은 audit alternatives.json, 수동종료후runner상태는 runner-resume.json.
