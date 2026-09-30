@@ -4824,3 +4824,16 @@
 - 운영: 시작·종료 runner paused=true, service/timer inactive. DB·기존 FX/cache·NAV·전략·readiness·PAPER/live·원격 push 변경 없음.
 - 개발 기록: [ECOS 환율 대조](development-records/2026-09-30-ecos-fx-comparison.md); 사용법: [진단 CLI](ecos-fx-comparison.md).
 - handoff: [재개 지점](handoffs/2026-09-30-ecos-fx-comparison.md).
+
+## ecos-fx-source-contract-20260930
+
+- 상태: 진행; 공식 출처의 환율 기준·공표시점 증거 범위를 문서화한다.
+- 목표·완료 조건: 기존 검사·동결 산출물 불변성 확인, ECOS 항목 metadata와 한국은행 FAQ 근거 보존, 성과 적용 재개 조건 및 자동 후속 실행의 다음 행동 명시.
+- 담당: 기존 단일 code 구현 담당자가 문서 보강; supervisor 출처 조사·범위 확정, 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-ecos-fx-source-contract` / `docs/ecos-fx-source-contract`.
+- 기준: `42a421e`; 통합 대상 `main`.
+- 수정 허용: `docs/ecos-fx-comparison.md`, 해당 작업의 개발 기록·handoff. 코드·전략·데이터 계약의 실행 동작 변경 없음.
+- 검증: 출처·manifest SHA 및 문서 주장 대조, 상대 링크·diff 검사. 소스 해시가 같은 기존 182개 테스트 결과 재사용.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-ecos-fx-source-contract/manifest.json`.
+- 운영: runner paused, service/timer inactive, 실행 task 없음. Codex heartbeat `automation` 활성(30분 간격), 중복 writer 확인 후 작업.
+- 개발 기록: `docs/development-records/2026-09-30-ecos-fx-source-contract.md`; handoff: `docs/handoffs/2026-09-30-ecos-fx-source-contract.md`.
