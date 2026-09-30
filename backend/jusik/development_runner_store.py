@@ -14,6 +14,7 @@ from typing import Any
 
 from jusik.development_runner_contract import (
     AUTOMATIC_ENGINEERING_BACKLOG,
+    ENGINEERING_OWNED_PATHS,
     ENGINEERING_SPEC_BY_ID,
     Blocker,
     EngineeringSpec,
@@ -1758,7 +1759,9 @@ class RunnerStore:
                     raise ValueError("invalid review transport owned hashes")
                 # Reuse the public identity schema without accepting any verdict.
                 validate_receipt(
-                    context | {"verdict": "FAIL"}, context, frozenset(hashes)
+                    context | {"verdict": "FAIL", "findings": []},
+                    context,
+                    frozenset(hashes),
                 )
                 if (
                     context.get("task_id") != candidate.task.id
@@ -2041,6 +2044,8 @@ class RunnerStore:
             raise ValueError("invalid review status")
         if status == "completed" and receipt is None:
             raise ValueError("completed review requires receipt")
+        if failure_code == "review_rejected" and receipt is None:
+            raise ValueError("rejected review requires receipt")
         if retry_kind is not None and (
             retry_kind not in {"capacity", "rate_limit", "network", "server", "auth"}
             or status != "failed"
@@ -2113,6 +2118,35 @@ class RunnerStore:
                         candidate
                     )
                     stored_context = json.dumps(context, sort_keys=True)
+            if receipt is not None:
+                context = json.loads(str(row["context_json"]))
+                spec = self.engineering_spec(candidate.task.id)
+                owned_paths = (
+                    spec.owned_paths
+                    if spec is not None
+                    else ENGINEERING_OWNED_PATHS
+                    if candidate.task.area == "__engineering__"
+                    and not candidate.task.id.startswith("lab-discovery-")
+                    else None
+                )
+                if (
+                    not isinstance(context, dict)
+                    or owned_paths is None
+                    or context.get("task_id") != candidate.task.id
+                    or context.get("implementation_attempt_id")
+                    != candidate.implementation_attempt_id
+                    or context.get("review_attempt_id") != review_id
+                    or context.get("baseline_head") != candidate.baseline_head
+                    or context.get("product_commit", context.get("main_head"))
+                    != candidate.completion.get("integrated_commit")
+                ):
+                    raise ValueError("review receipt context changed")
+                validated = validate_receipt(receipt, context, owned_paths)
+                if (status, failure_code, validated.verdict) not in {
+                    ("completed", None, "PASS"),
+                    ("failed", "review_rejected", "FAIL"),
+                }:
+                    raise ValueError("review receipt verdict and status differ")
             if status == "completed":
                 if candidate.task.area != "__engineering__":
                     if self.roadmap_code_scope(candidate.task.id) is None:
@@ -2219,7 +2253,8 @@ class RunnerStore:
                         return False
                 try:
                     expected_receipt = json.loads(str(row["context_json"])) | {
-                        "verdict": "PASS"
+                        "verdict": "PASS",
+                        "findings": [],
                     }
                 except (TypeError, ValueError):
                     db.rollback()

@@ -40,6 +40,7 @@ class Clock:
                 return cls.fromtimestamp(clock.now.timestamp(), tz)
 
         monkeypatch.setattr(runner, "datetime", FrozenDateTime)
+        monkeypatch.setattr(journal, "datetime", FrozenDateTime)
         monkeypatch.setattr(journal, "utc_now", lambda: clock.now.isoformat())
 
     def advance(self, seconds: int) -> None:
@@ -96,7 +97,10 @@ def test_transport_failure_survives_restart_and_requires_due_independent_pass(
     assert len(rows) == 2 and rows[0] == failed
     assert stdout_path.read_bytes() == original_stdout
     receipt = json.loads(rows[1]["receipt_json"])
-    assert receipt == json.loads(rows[1]["context_json"]) | {"verdict": "PASS"}
+    assert receipt == json.loads(rows[1]["context_json"]) | {
+        "verdict": "PASS",
+        "findings": [],
+    }
     assert receipt["product_commit"] == product
     assert receipt["main_head"] == product
     task = restarted.task("engineering")
@@ -646,14 +650,14 @@ def test_caller_cannot_remove_transport_anchor_from_finalization(
         replace(candidate, transport_anchor=None),
         "retry",
         status="completed",
-        receipt=context | {"verdict": "PASS"},
+        receipt=context | {"verdict": "PASS", "findings": []},
         repo=config.repo,
     )
     assert store.finish_review(
         candidate,
         "retry",
         status="completed",
-        receipt=context | {"verdict": "PASS"},
+        receipt=context | {"verdict": "PASS", "findings": []},
         repo=config.repo,
     )
 
@@ -862,7 +866,7 @@ def test_final_transport_pass_transaction_rechecks_current_identity(
             candidate,
             "retry",
             status="completed",
-            receipt=context | {"verdict": "PASS"},
+            receipt=context | {"verdict": "PASS", "findings": []},
             repo=config.repo,
         )
     task = store.task("engineering")
