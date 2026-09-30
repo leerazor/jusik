@@ -1,5 +1,16 @@
 # 워크트리 작업 등록부
 
+## project-memory-index
+
+- 상태: 진행 (문서 작업).
+- 목표·완료 조건: 새 세션의 짧은 공통 메모리 진입점과 작업별 선택 읽기·갱신 규칙을 연결합니다. 기존 기록·사용자 소유 `HANDOFF.md`를 보존하고 링크·원본 우선순위·현재 상태 대조를 검증합니다.
+- 담당·범위: 문서 구현 소유자는 supervisor 한 명, 완료 diff는 별도 `role.review`가 읽기 전용 검토합니다. `AGENTS.md`, `MEMORY.md`, `docs/architecture.md`, `docs/development-records.md`, 이 등록부와 작업별 기록·인계만 수정합니다.
+- 기준·통합 대상: local `main` `129fe33f0ab022c5874440e8cc6370a6ab89d4fb`; local `main`.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-project-memory-index` / `docs/project-memory-index`.
+- 검증·종료: 상대 링크·선택 읽기 예제·메모리 분량·원본 보존·diff 검사, 독립 review, local `main` 통합과 인계 저장. 제품 코드 변경이 없어 제품 테스트는 실행하지 않습니다.
+- 운영 경계: 시작 시 roadmap runner `paused=true`, timer/service `inactive`. 다른 `runner-review-finding-receipt` 구현 작업의 중지 상태를 유지하며 이 작업에서 재개하지 않습니다. 전역 Codex 설정·운영 DB·서비스·외부 API·거래·remote push 변경 없음.
+- 개발 기록·handoff: 완료 시 `docs/development-records/2026-09-30-project-memory-index.md`, `docs/handoffs/2026-09-30-project-memory-index.md`에 저장합니다.
+
 ## runner-review-finding-receipt
 
 - 상태: 독립 범위 검토 PASS; 구현 진행
