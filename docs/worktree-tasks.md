@@ -5023,12 +5023,13 @@
 
 ## berz-security-source-20260930
 
-- 상태: 진행 — explore·독립 plan 조건부 GO.
+- 상태: 완료 — SEC 근거·TNMG 가격기준 차단 확인, 독립 review·main 결속 PASS; 투자 검증 미완료.
 - 목표: 보존 SEC metadata의 BERZ 문서 한 건으로 후일 법적 상품유형과 평가 시작 전 근거의 결손을 구별한다. 새 분류·수집 계약은 만들지 않는다.
 - 담당: source_freshness_explore → preferred_plan → ecos_code 단일 소유 → ecos_review. runner 재확인 후 paused=true/running0, service/timer inactive.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-berz-security-source` / `research/berz-security-source`; 기준 `53239d7`.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-berz-security-source` / `research/berz-security-source`; 기준 `53239d7`.
 - 범위: 정확 SEC URL GET1·원문/메타데이터/hash·source verdict·개발기록·인계. retry0/redirect0/search0, 30s/60s/10MiB, 실패시 즉시 중단. filing2025-11-03은 eval2025-09-11 이후로 선정시점 분류·PIT·성과에 소급 적용 금지.
 - 검증/종료: 원문과 BERZ/상품 설명 직접 대조 또는 접근실패 근거, 원본 보호, 독립 review·main 동일성 검증·기록·정리. 코드/캐시/준비자료/전략/OOS 변경0.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-berz-security-source/`; 개발기록 `docs/development-records/2026-09-30-berz-security-source.md`; handoff `docs/handoffs/2026-09-30-berz-security-source.md`.
 - workflow 판단: 원문1건으로 자동 분류 수정 가능성의 근거 부족을 구체화하고 반복 조회를 막는다.
 - 독립 범위 확장(동일 단일 소유): planner가 새 TNMG raw의 split2 전후 가격기준 대사를 GO로 판단했다. `tnmg-basis-scope.json`에 별도 고정, network/회계실행0·가격기준 추정금지, `tnmg-basis-*` receipt만 생성. 기존 SEC scope와 예산은 불변. 이전 nullbar 검사에 없던 split 중복적용 위험을 확인한다.
+- 결과·통합: 구현 `f926ae2`, main `e5499edec2338acaaa7c13657e9a4baf0f720f4b`. GET1 SEC200, TNMG offline/회계실행0. 문서 동명키 해시 누락 교정 후 audit9·문서2·보호5·backend불변 결속PASS. 환경/원문 보존·정리완료. BERZ 후일 ETN근거와 TNMG 가격기준 unknown 차단을 분리, 기존142cache 유지.

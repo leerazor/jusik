@@ -32,7 +32,7 @@ rg -n -F '작업-slug' docs/worktree-tasks.md
 
 - 새 미국 연구의 `LIME`·`MDA` 제외와 과거 결과 보존: [정책 적용 기록](docs/development-records/2026-09-30-exclude-lime-mda-us-research.md), [해당 인계](docs/handoffs/2026-09-30-exclude-lime-mda-us-research.md). 새 실행의 최종 조건은 현재 연구 조건과 JSON에서 확인합니다.
 - 새 제외 정책의 미국 1년 자료는 [준비·결손 판정](docs/development-records/2026-09-30-us-exclusion-pilot-readiness.md)을 재사용합니다. 같은 27개 요청을 반복하지 않으며, 요청 제외 25종목·사건 관측시각 결손·우선주 분류 누락을 [인계의 재개 조건](docs/handoffs/2026-09-30-us-exclusion-pilot-readiness.md)에 따라 해결합니다. collector 완료는 자료·성과 적격이 아닙니다.
-- [v5 TNMG 복구 인계](docs/handoffs/2026-09-30-us-null-bar-recovery.md)의 캐시142개를 재사용합니다. TNMG 271/272세션·분할2 관측시각 미상, 기존 사건125 결손 유지. 9/22 보관소에 거부 원문이 있으므로 최근 캐시만으로 원문 부재를 단정하지 않습니다. 같은 TNMG/EPRX/ICUI 조회·검사를 반복하지 않습니다. 최종 prepared·PIT·성과 적격은 미검증입니다.
+- [v5 인계](docs/handoffs/2026-09-30-us-null-bar-recovery.md)의 캐시142를 재사용합니다. [BERZ·TNMG 근거](docs/handoffs/2026-09-30-berz-security-source.md): BERZ 후일 ETN 확인, TNMG 가격기준 unknown·분할 관측 미상으로 NAV 차단. 9/22 거부 원문을 우선 활용하고 동일 TNMG/EPRX/ICUI/SEC 요청·검사는 반복하지 않습니다. 최종 prepared·PIT·성과는 미검증입니다.
 - 상장 전 결손과 identity 근거를 다시 조사하기 전: [기존 범위 검토](docs/development-records/2026-09-30-listing-identity-scope-review.md). 기존 조사 완료를 데이터 acceptance 완료로 해석하지 않습니다.
 - 자동개발 대기·재개 진단을 반복하기 전: [대기 복구 기록](docs/development-records/2026-09-29-wait-handoff-recovery.md), [연속 실행 원칙](docs/continuous-development-session.md#continuous-execution-rule). 실제 실행기 상태는 운영 명령으로 다시 확인합니다.
 
