@@ -1,9 +1,9 @@
 # ECOS 환율 원천·시점 계약 근거
 
-- 상태: 문서 작업 완료, main 통합 대기
+- 상태: 완료; 독립 검토·main 통합 검증 완료
 - 기록 시각: 2026-09-30T04:43:06Z
 - 작업 slug: `ecos-fx-source-contract-20260930`
-- 기준/통합: `4a4d2480ab61c274325a8f7bf619b4af211b2d31` / 없음 (감독자 확정 예정)
+- 기준/통합: `4a4d2480ab61c274325a8f7bf619b4af211b2d31` / `cbd63b9ad5298096f0424a18ab07f4291bf55c5f`
 - 범위: ECOS 공식 항목과 한국은행 산정 기준의 확인 범위, PIT 재개 조건만 문서화. 코드·원시 자료·성과 계약 변경 없음.
 
 ## 변경과 결정
@@ -26,10 +26,13 @@
 
 ## 안전·운영 상태
 
+- 독립 review는 `36ce49f`에서 PASS. main 통합 후 검토한 문서 3개와 bytes 일치, 상대 링크·공식 자료 SHA·backend tree 불변·diff 검사를 통과했다. 이번 audit의 `integration-verification.json`에 보존했다.
+- 사용자 자동 진행 요청에 따라 Codex 같은 대화의 heartbeat `automation`을 30분 간격 ACTIVE로 생성했다. 기존 systemd runner는 동시 쓰기를 막기 위해 paused 상태를 유지한다. 통합 검증 후 전용 worktree와 브랜치를 정리했다.
+
 - PAPER·실주문·서비스·DB·cache·원시 자료·배포·원격 push 변경 없음. 자동 실행기는 paused, service/timer inactive이고 실행 task가 없다는 감독자 확인 상태를 보존했다.
 
 ## 증거와 재개
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-ecos-fx-source-contract/`; manifest: 같은 경로의 `manifest.json`; hash: 위 SHA-256. 기존 검사: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-ecos-fx-comparison/integration-verification.json` 및 `live-verification.json`.
-- 남은 작업·차단 조건: 독립 검토·main 통합. PIT·수익성 증명은 여전히 미완료이며 공표·수정 이력과 FX 적용 계약 근거가 필요하다.
+- 남은 작업·차단 조건: 이번 문서 검증 작업은 완료. PIT·수익성 증명은 여전히 미완료이며 공표·수정 이력과 FX 적용 계약 근거가 필요하다.
 - 다음 시작: 인계와 현재 mandate·작업 등록부에서 실제 READY 연구 후보를 확인하고 좁은 독립 작업을 선정한다. 동일 ECOS 근거를 반복 조회하지 않는다.

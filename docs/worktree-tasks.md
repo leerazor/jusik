@@ -4827,7 +4827,7 @@
 
 ## ecos-fx-source-contract-20260930
 
-- 상태: 진행; 공식 출처의 환율 기준·공표시점 증거 범위를 문서화한다.
+- 상태: 완료; 공식 출처의 환율 기준·공표시점 증거 범위 문서화·독립 review·main 통합 검증 완료.
 - 목표·완료 조건: 기존 검사·동결 산출물 불변성 확인, ECOS 항목 metadata와 한국은행 FAQ 근거 보존, 성과 적용 재개 조건 및 자동 후속 실행의 다음 행동 명시.
 - 담당: 기존 단일 code 구현 담당자가 문서 보강; supervisor 출처 조사·범위 확정, 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-ecos-fx-source-contract` / `docs/ecos-fx-source-contract`.
@@ -4837,3 +4837,4 @@
 - 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-ecos-fx-source-contract/manifest.json`.
 - 운영: runner paused, service/timer inactive, 실행 task 없음. Codex heartbeat `automation` 활성(30분 간격), 중복 writer 확인 후 작업.
 - 개발 기록: `docs/development-records/2026-09-30-ecos-fx-source-contract.md`; handoff: `docs/handoffs/2026-09-30-ecos-fx-source-contract.md`.
+- 구현/통합: `36ce49f45e250fb9608d40db1a5fd4d551451193` / `cbd63b9ad5298096f0424a18ab07f4291bf55c5f`. 검토 PASS, main 문서 일치·링크·출처 해시·backend 불변·diff 검사 PASS. 전용 worktree·브랜치 정리 완료.

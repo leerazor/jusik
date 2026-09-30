@@ -35,6 +35,7 @@ rg -n -F '작업-slug' docs/worktree-tasks.md
 - 자동개발 대기·재개 진단을 반복하기 전: [대기 복구 기록](docs/development-records/2026-09-29-wait-handoff-recovery.md), [연속 실행 원칙](docs/continuous-development-session.md#continuous-execution-rule). 실제 실행기 상태는 운영 명령으로 다시 확인합니다.
 
 - ECOS 환율 대조는 공개 sample로 최대 10개 날짜를 확인하는 [진단 CLI](docs/ecos-fx-comparison.md)를 사용합니다. [실제 조회·통합 근거](docs/development-records/2026-09-30-ecos-fx-comparison.md)를 먼저 확인하며, 공표시점·수정 이력 미확인 자료를 과거 성과 입력으로 승격하지 않습니다.
+- ECOS 공식 항목·환율 산정 기준은 [원천 계약 기록](docs/development-records/2026-09-30-ecos-fx-source-contract.md)에서 확인합니다. [자동 후속 실행 인계](docs/handoffs/2026-09-30-ecos-fx-source-contract.md)의 중복 실행 방지·재개 조건을 읽고 동일 조사를 반복하지 않습니다.
 
 ## 최신성과 충돌 처리
 
