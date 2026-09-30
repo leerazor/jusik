@@ -5044,3 +5044,12 @@
 - 검증·종료: 원문 명시 규칙·적용범위 구분, 보호hash/문서경로 결속·독립review·local main 통합·handoff·정리. blocked면 정확 재개조건 저장하고 runner 안전재개 여부 확인.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-yahoo-price-basis-source/`; 개발기록 `docs/development-records/2026-09-30-yahoo-price-basis-source.md`; 인계 `docs/handoffs/2026-09-30-yahoo-price-basis-source.md`.
 - 결과·통합: 구현 `a199ca6`, main `60bdf34ff486824f035a206be33b4c9d4629b783`. 검색1/open1, 본문429·스니펫승격0. 독립review·audit5/문서2/보호6/main backend동일성PASS, 환경설치0·정리완료. 대안/재개조건은 audit alternatives.json, 수동종료후runner상태는 runner-resume.json.
+
+## lab-discovery-a24f8490c379152849d9a2dbacf85c39
+
+- 상태: 완료 — runner `ENGINEERING_COMPLETE`, 투자 `NOT_EVALUATED`.
+- 목표/범위: journal 없는 원장의 동시 reconcile 수량 역행 방지; paper_execution_contract source/test 두 파일, 오프라인 fake broker만.
+- 담당: runner discovery `b7f632e489dd4835b060035c1884a3f6` → scope `76a7dc109c0b488b9d7a14b25e2d9640` → 구현 `842992f138c747caa9203fef707ab875` → 독립 review `7403a8c02a4042ef8d9df22c5b7d2189` PASS.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-lab-discovery-a24f8490c379152849d9a2dbacf85c39` / `fix/lab-discovery-a24f8490c379152849d9a2dbacf85c39`; 기준 `e9a140c`.
+- 통합/검증: main `4d514c9551d1d4b2c42574af1fc293e85d1181b0`. regression전실패·후43PASS, Ruff/format/mypy PASS, review·main파일hash 결속 PASS. root 동일검사재실행0, 캐시142·mandate보존.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-paper-reconcile-monotonicity/integration.json`; [기록](development-records/2026-09-30-lab-discovery-a24f8490c379152849d9a2dbacf85c39.md)·[인계](handoffs/2026-09-30-lab-discovery-a24f8490c379152849d9a2dbacf85c39.md). 후속 runner 관찰은 같은 audit의 runner-resume.json.
