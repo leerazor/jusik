@@ -4853,12 +4853,16 @@
 
 ## us-exclusion-pilot-readiness-20260930
 
-- 상태: 준비; 사용자 우선순위 실행 승인에 따른 신규 미국 1년 파일럿 자료 준비. 실행 전 독립 scope 검토 중.
+- 상태: 자료 준비·진단 완료; data_readiness=insufficient. 독립 review 및 main 통합 검증 PASS. 데이터 인수·성과 비교는 차단.
 - 목표·완료 조건: LIME·MDA 제외를 선정 전에 적용한 새 입력을 기존 무료 캐시와 필요한 결손 조회로 준비하고, 독립 readiness 판정 또는 구체적 missing-inputs manifest를 남긴다. 전략·수익률 실험은 이번 자료 준비 범위에 포함하지 않는다.
 - 담당: explore 조사 → plan 계획 → 독립 scope → 단일 code 실행 → 독립 review. 기존 실패 큐 task 재승인과 별개인 사용자 승인 작업.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-us-exclusion-pilot-readiness` / `research/us-exclusion-pilot-readiness`; 기준 `fbdc6cd`, 통합 `main`.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-us-exclusion-pilot-readiness` / `research/us-exclusion-pilot-readiness`; 조사 기준 `fbdc6cd`, 등록 후 구현 기준 `604c659`, 통합 `main`. 검증·산출물·환경 기록 보존 후 워크트리와 브랜치 정리 완료.
 - 입력: 평가기간 2025-09-11~2026-09-11, sample100, 현행 20거래일 warmup·mandate. 9월24일 fresh-cache 원문137개 SHA 검증 완료. 원본227개 hash는 audit baseline 두 파일에 고정.
 - 범위·예산: 기존 collector와 새 audit 캐시 복사본·신규 output 사용; 먼저 offline miss 목록 고정. 실제 요청 최대300attempt, live20분, 원시100MiB 사전·사후 검사(내장 hard limit 아님). `.env` 값 복사·출력 금지, 원본·운영DB·전략·PAPER/live 변경 금지.
-- 산출물: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-exclusion-pilot-readiness/`의 `scope.json`, `baseline.json`, `reuse-source-baseline.json`, 이후 `readiness.json` 또는 `missing-inputs.json`.
+- 산출물: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-exclusion-pilot-readiness/`의 `us-1y-exclusions.json`, `missing-inputs.json`, `final-review.json`, `integration-verification.json` 및 scope·원본 baseline·실행 증거·환경 기록.
 - 수정 허용: 새 audit 실행 스크립트·결과 및 해당 개발 기록·handoff. 코드 결함이 확인되면 원인·범위를 먼저 감독자에게 전달한다.
 - 개발 기록: `docs/development-records/2026-09-30-us-exclusion-pilot-readiness.md`; handoff: `docs/handoffs/2026-09-30-us-exclusion-pilot-readiness.md`.
+- 구현/통합: `853d253c05c6d9991cc41983cdd9148063dd8e55` / `0095c5c9fe33349b536226010364b823ec7812ee`.
+- 검증·결과: 고정 miss 27개만 실제 조회, 유효 cache 신규 2개. 원본 227개·작업 cache 139개 hash, prepared·marker·정책 제외·문서 링크·backend/mandate 불변 확인. audit 스크립트 Ruff·strict mypy PASS. 기존 backend 테스트 재실행 없음.
+- 남은 문제·다음 작업: 요청 제외 25개, 사건 observed_at 결손 125행/37심볼, MET-P-F preferred 분류 누락. 별도 버전으로 분류 계약 수정을 먼저 검토하고 유효 역사·사건 근거를 보완한다. 데이터 gate 전 비용/NAV·전략 비교 실행 0회; 동일 live 요청 반복 금지.
+- 운영: runner paused, service/timer inactive, heartbeat 후속 작업은 기존 소유권 확인 후 진행. 실주문·PAPER/live·결제·Toss·원격 push 없음.
