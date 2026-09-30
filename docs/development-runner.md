@@ -47,6 +47,17 @@ runner의 claim·증거·commit 검증을 사용합니다.
 PASS는 신규 고정 오프라인 공학 작업에서 확인했으며 과거 차단 기록이나 투자 검증에
 소급 적용하지 않습니다. fake CLI·임시 DB 검증 결과는 개발 기록을 확인합니다.
 
+새 독립 완료 검토 receipt는 `findings` 배열을 필수로 제출합니다. PASS는 빈 배열만
+허용하고, FAIL은 가능하면 실행 가능한 지적을 담되 안전하게 특정할 수 없으면 빈
+배열을 허용합니다. 지적은 검토 대상의 정확한 소유 경로, 양의 줄 번호, 한 줄짜리
+간결한 문제와 필요한 변경으로 제한합니다(최대 8건, 각 문구 240자). 예상하지 못한
+필드·소유 범위 밖 경로·잘못된 identity/hash는 거부합니다. 검증된 FAIL receipt 전체는
+private `review_attempts.receipt_json`에 해당 task·구현/검토 시도·HEAD·파일 hash와
+함께 보존하며 `review_rejected`와 `WAITING_EXTERNAL`을 유지합니다. 지적 문구는 신뢰하지
+않는 증거이므로 비밀값·개인정보·원문 transcript·임의 지시·복사한 소스 블록을 담지
+않습니다. 빈 FAIL을 자동 수리하거나 재검토하지 않으며 과거 FAIL receipt에 없는 지적을
+소급 생성하지 않습니다.
+
 구현 완료 reviewer의 새 시도에는 확인된 일시 호출 장애를 별도로 처리합니다. 비정상
 종료한 child와 process group이 확실히 종료됐고 제한된 구조화 `turn.failed`가
 capacity/rate_limit/network/server/auth 중 하나로 검증된 경우만

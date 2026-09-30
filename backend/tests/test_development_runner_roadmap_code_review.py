@@ -465,7 +465,7 @@ def test_completion_transaction_rechecks_roadmap_gate(tmp_path: Path) -> None:
             candidate,
             "final-review",
             status="completed",
-            receipt=context | {"verdict": "PASS"},
+            receipt=context | {"verdict": "PASS", "findings": []},
             repo=config.repo,
         )
     task = store.task(candidate.task.id)

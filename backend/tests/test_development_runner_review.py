@@ -6,6 +6,7 @@ import os
 import sqlite3
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -90,7 +91,13 @@ def _candidate(tmp_path: Path) -> tuple[RunnerConfig, RunnerStore, str, str]:
     return config, store, baseline, head
 
 
-def _fake_reviewer(path: Path, *, verdict: str, wrong_head: bool = False) -> None:
+def _fake_reviewer(
+    path: Path,
+    *,
+    verdict: str,
+    wrong_head: bool = False,
+    findings: list[dict[str, Any]] | None = None,
+) -> None:
     path.write_text(
         "#!/usr/bin/env python3\n"
         "import json, sys\n"
@@ -99,6 +106,7 @@ def _fake_reviewer(path: Path, *, verdict: str, wrong_head: bool = False) -> Non
         "context = json.loads(prompt.split('fields: ', 1)[1])\n"
         + ("context['main_head'] = '0' * 40\n" if wrong_head else "")
         + f"context['verdict'] = {verdict!r}\n"
+        + f"context['findings'] = {findings if findings is not None else []!r}\n"
         "Path(sys.argv[sys.argv.index('-o') + 1]).write_text(\n"
         "    json.dumps(context), encoding='utf-8')\n",
         encoding="utf-8",
@@ -134,7 +142,7 @@ def test_review_pass_finalizes_only_matching_candidate(tmp_path: Path) -> None:
         ).fetchone()
     assert row is not None and row[0] == "completed"
     receipt = json.loads(row[1])
-    assert receipt == json.loads(row[2]) | {"verdict": "PASS"}
+    assert receipt == json.loads(row[2]) | {"verdict": "PASS", "findings": []}
     assert receipt["baseline_head"] == baseline
     assert receipt["main_head"] == head
     assert implementation == ("completed",)
@@ -160,6 +168,100 @@ def test_review_failure_stays_waiting_and_is_not_retried(
         assert db.execute("SELECT COUNT(*) FROM review_attempts").fetchone()[0] == 1
         assert (
             db.execute("SELECT status FROM review_attempts").fetchone()[0] == "failed"
+        )
+
+
+def test_fail_findings_are_bound_and_do_not_release_candidate(tmp_path: Path) -> None:
+    config, store, baseline, head = _candidate(tmp_path)
+    path = sorted(ENGINEERING_OWNED_PATHS)[0]
+    finding = {
+        "path": path,
+        "line": 1,
+        "issue": "The fixture accepts an invalid value.",
+        "required_change": "Reject that value before saving.",
+    }
+    fake = tmp_path / "fake-reviewer.py"
+    _fake_reviewer(fake, verdict="FAIL", findings=[finding])
+
+    assert run_once(config.model_copy(update={"codex": str(fake)})).status == "idle"
+    with sqlite3.connect(store.db_path) as db:
+        row = db.execute(
+            "SELECT id,status,failure_code,receipt_json,context_json "
+            "FROM review_attempts"
+        ).fetchone()
+    assert row is not None
+    review_id, status, failure_code, receipt_json, context_json = row
+    assert (status, failure_code) == ("failed", "review_rejected")
+    receipt = json.loads(receipt_json)
+    assert receipt == json.loads(context_json) | {
+        "verdict": "FAIL",
+        "findings": [finding],
+    }
+    assert (
+        receipt["task_id"],
+        receipt["implementation_attempt_id"],
+        receipt["review_attempt_id"],
+        receipt["baseline_head"],
+        receipt["main_head"],
+    ) == ("engineering", "implementation", review_id, baseline, head)
+    assert (
+        receipt["owned_file_hashes"][path]
+        == hashlib.sha256((config.repo / path).read_bytes()).hexdigest()
+    )
+    assert store.retry("engineering") is False
+    event = tmp_path / "event.txt"
+    event.write_text("unrelated event\n", encoding="utf-8")
+    assert store.release_event("engineering", event) is False
+    assert store.review_candidate() is None
+    task = store.task("engineering")
+    assert task is not None
+    assert (task.canonical_state, task.engineering_status, task.investment_status) == (
+        "WAITING_EXTERNAL",
+        None,
+        None,
+    )
+    assert run_once(config.model_copy(update={"codex": str(fake)})).status == "idle"
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute("SELECT COUNT(*) FROM review_attempts").fetchone() == (1,)
+        assert db.execute("SELECT receipt_json FROM review_attempts").fetchone() == (
+            receipt_json,
+        )
+
+
+def test_old_fail_receipt_remains_unchanged_and_ineligible(tmp_path: Path) -> None:
+    config, store, _, _ = _candidate(tmp_path)
+    candidate = store.review_candidate()
+    assert candidate is not None
+    context = runner._review_context(candidate, "old-review", config)
+    old_receipt = json.dumps(context | {"verdict": "FAIL"}, sort_keys=True)
+    with sqlite3.connect(store.db_path) as db:
+        db.execute(
+            "INSERT INTO review_attempts "
+            "(id,task_id,implementation_attempt_id,status,started_at,ended_at,"
+            "output_path,failure_code,receipt_json,context_json) "
+            "VALUES(?,?,?,'failed',?,?,?,?,?,?)",
+            (
+                "old-review",
+                candidate.task.id,
+                candidate.implementation_attempt_id,
+                "2026-01-01T00:00:00+00:00",
+                "2026-01-01T00:00:01+00:00",
+                str(tmp_path / "old-receipt"),
+                "review_rejected",
+                old_receipt,
+                json.dumps(context, sort_keys=True),
+            ),
+        )
+    assert store.review_candidate() is None
+    assert (
+        run_once(
+            config.model_copy(update={"codex": str(tmp_path / "must-not-run")})
+        ).status
+        == "idle"
+    )
+    with sqlite3.connect(store.db_path) as db:
+        assert db.execute("SELECT receipt_json FROM review_attempts").fetchone() == (
+            old_receipt,
         )
 
 
@@ -278,6 +380,7 @@ def test_rejected_review_dispatches_independent_ready_task(tmp_path: Path) -> No
         "if 'identity fields: ' in prompt:\n"
         "    payload = json.loads(prompt.split('fields: ', 1)[1])\n"
         "    payload['verdict'] = 'FAIL'\n"
+        "    payload['findings'] = []\n"
         "else:\n"
         "    fields = dict(line.split(': ', 1) for line in prompt.splitlines() "
         "if line.startswith(('Task id: ', 'Attempt id: ')))\n"
@@ -321,6 +424,11 @@ def test_review_command_is_read_only_and_receipt_schema_is_exact(
         set(schema["properties"]["owned_file_hashes"]["required"])
         == ENGINEERING_OWNED_PATHS
     )
+    findings_schema = schema["properties"]["findings"]
+    assert findings_schema["maxItems"] == 8
+    assert findings_schema["items"]["properties"]["path"]["enum"] == sorted(
+        ENGINEERING_OWNED_PATHS
+    )
     with pytest.raises(ValueError, match="identity mismatch"):
         validate_receipt(
             {
@@ -333,6 +441,7 @@ def test_review_command_is_read_only_and_receipt_schema_is_exact(
                     path: "c" * 64 for path in ENGINEERING_OWNED_PATHS
                 },
                 "verdict": "PASS",
+                "findings": [],
             },
             {
                 "task_id": "expected",
@@ -345,6 +454,77 @@ def test_review_command_is_read_only_and_receipt_schema_is_exact(
                 },
             },
         )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing",
+        "not_list",
+        "too_many",
+        "outside_path",
+        "zero_line",
+        "boolean_line",
+        "blank_issue",
+        "newline_issue",
+        "long_issue",
+        "long_change",
+        "extra_field",
+        "bad_hash",
+        "wrong_review",
+        "pass_with_finding",
+    ],
+)
+def test_review_findings_reject_malformed_or_unbound_content(
+    mutation: str,
+) -> None:
+    finding: dict[str, Any] = {
+        "path": sorted(ENGINEERING_OWNED_PATHS)[0],
+        "line": 1,
+        "issue": "Incorrect result.",
+        "required_change": "Reject the bad input.",
+    }
+    context: dict[str, Any] = {
+        "task_id": "engineering",
+        "implementation_attempt_id": "implementation",
+        "review_attempt_id": "review",
+        "baseline_head": "a" * 40,
+        "main_head": "b" * 40,
+        "owned_file_hashes": {path: "c" * 64 for path in ENGINEERING_OWNED_PATHS},
+    }
+    payload = context | {"verdict": "FAIL", "findings": [finding]}
+    if mutation == "missing":
+        payload.pop("findings")
+    elif mutation == "not_list":
+        payload["findings"] = finding
+    elif mutation == "too_many":
+        payload["findings"] = [finding] * 9
+    elif mutation == "outside_path":
+        finding["path"] = "backend/jusik/unowned.py"
+    elif mutation == "zero_line":
+        finding["line"] = 0
+    elif mutation == "boolean_line":
+        finding["line"] = True
+    elif mutation == "blank_issue":
+        finding["issue"] = "   "
+    elif mutation == "newline_issue":
+        finding["issue"] = "First line\nsecond line"
+    elif mutation == "long_issue":
+        finding["issue"] = "x" * 241
+    elif mutation == "long_change":
+        finding["required_change"] = "x" * 241
+    elif mutation == "extra_field":
+        finding["untrusted"] = "unexpected"
+    elif mutation == "bad_hash":
+        payload["owned_file_hashes"] = {
+            path: "0" * 64 for path in ENGINEERING_OWNED_PATHS
+        }
+    elif mutation == "wrong_review":
+        payload["review_attempt_id"] = "other"
+    elif mutation == "pass_with_finding":
+        payload["verdict"] = "PASS"
+    with pytest.raises(ValueError):
+        validate_receipt(payload, context)
 
 
 def test_orphaned_review_group_escalates_before_recovery(
