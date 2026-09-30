@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
+from decimal import localcontext
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +87,39 @@ def test_success_persists_bounded_raw_hash_and_diagnostic_delta(tmp_path: Path) 
     assert "진단값" in (output / "comparison.md").read_text()
 
 
+def test_fetched_at_is_after_body_receipt_and_failure_is_null(tmp_path: Path) -> None:
+    baseline, sha, output = _fixture(tmp_path)
+    before = NOW
+    after = NOW + timedelta(seconds=5)
+    clock = {"value": before}
+
+    class DelayedStream(httpx.SyncByteStream):
+        def __iter__(self) -> Iterator[bytes]:
+            yield _success()
+            clock["value"] = after
+
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, stream=DelayedStream())
+        )
+    ) as client:
+        report = run_comparison(
+            baseline=baseline,
+            baseline_sha256=sha,
+            dates=["2025-09-11"],
+            output_dir=output,
+            client=client,
+            now=lambda: clock["value"],
+        )
+    assert report["rows"][0]["fetched_at"] == after.isoformat()
+    assert report["rows"][0]["fetched_at"] != before.isoformat()
+
+    missing_path = tmp_path / "missing"
+    missing_path.mkdir()
+    missing, _, _ = _run(missing_path, b'{"RESULT":{"CODE":"INFO-200"}}')
+    assert missing["rows"][0]["fetched_at"] is None
+
+
 @pytest.mark.parametrize(
     "changes",
     [
@@ -95,6 +130,8 @@ def test_success_persists_bounded_raw_hash_and_diagnostic_delta(tmp_path: Path) 
         {"DATA_VALUE": "NaN"},
         {"DATA_VALUE": "Infinity"},
         {"DATA_VALUE": "0"},
+        {"DATA_VALUE": "1E+1000000"},
+        {"DATA_VALUE": "1E-1000000"},
     ],
 )
 def test_wrong_identity_or_rate_fails_closed(
@@ -106,6 +143,48 @@ def test_wrong_identity_or_rate_fails_closed(
     assert row["delta_krw_per_usd"] is None
     assert row["raw_sha256"] is None
     assert not list(output.glob("ecos-*.json"))
+
+
+def test_arithmetic_failure_is_isolated_per_date(tmp_path: Path) -> None:
+    baseline, sha, output = _fixture(tmp_path)
+    baseline.write_bytes(
+        b"observation_date,DEXKOUS\n2025-09-11,1388.97\n2025-09-12,1389.00\n"
+    )
+    sha = hashlib.sha256(baseline.read_bytes()).hexdigest()
+    calls = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200,
+            content=_success(
+                "20250911" if calls == 1 else "20250912",
+                DATA_VALUE="1E+999" if calls == 1 else "1390.00",
+            ),
+        )
+
+    with localcontext() as context:
+        context.Emax = 100
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            report = run_comparison(
+                baseline=baseline,
+                baseline_sha256=sha,
+                dates=["2025-09-11", "2025-09-12"],
+                output_dir=output,
+                client=client,
+                now=lambda: NOW,
+            )
+    assert calls == 2
+    first, second = report["rows"]
+    assert first["ecos_status"] == "error"
+    assert first["reason"] == "arithmetic_error"
+    assert first["fetched_at"] is None
+    assert first["delta_krw_per_usd"] is None
+    assert first["raw_sha256"] is None
+    assert second["ecos_status"] == "observed"
+    assert second["delta_krw_per_usd"] == "1.00"
+    assert json.loads((output / "comparison.json").read_text()) == report
 
 
 @pytest.mark.parametrize(
@@ -233,6 +312,8 @@ def test_more_than_ten_unique_dates_never_call_provider(tmp_path: Path) -> None:
     [
         b"observation_date,OTHER\n2025-09-11,1388.97\n",
         b"observation_date,DEXKOUS\n2025-09-11,NaN\n",
+        b"observation_date,DEXKOUS\n2025-09-11,1E+1000000\n",
+        b"observation_date,DEXKOUS\n2025-09-11,1E-1000000\n",
         b"observation_date,DEXKOUS\n2025-09-11,1388.97\n2025-09-11,.\n",
     ],
 )

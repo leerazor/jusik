@@ -13,6 +13,6 @@ cd backend
   --output-dir /path/to/new-diagnostic-directory
 ```
 
-CSV 해시·행·날짜·출력 충돌은 조회 전에 확인한다. 날짜마다 HTTPS GET 한 번만 수행하며 재시도·redirect가 없다. 정상 ECOS JSON 원문만 크기를 제한해 저장하고 SHA-256 및 UTC 조회시각을 JSON 보고서에 기록한다. 결측·오류에는 값을 만들지 않고 FRED의 명시적 결측과 행 부재도 구분한다. 출력은 새 디렉터리의 `comparison.json`, `comparison.md`, 성공 날짜별 원문 JSON이다. 기존 CSV, DB, cache, 전략, readiness는 변경하지 않는다.
+CSV 해시·행·날짜·출력 충돌은 조회 전에 확인한다. 날짜마다 HTTPS GET 한 번만 수행하며 재시도·redirect가 없다. 정상 ECOS JSON 원문만 크기를 제한해 저장하고 SHA-256 및 본문 수신 후 UTC 조회시각을 JSON 보고서에 기록한다. 결측·오류의 `fetched_at`은 `null`이며 값을 만들지 않는다. FRED의 명시적 결측과 행 부재도 구분한다. 수치가 비정상적이거나 차이 계산이 불가능하면 해당 날짜만 오류로 남긴다. 출력은 새 디렉터리의 `comparison.json`, `comparison.md`, 성공 날짜별 원문 JSON이다. 기존 CSV, DB, cache, 전략, readiness는 변경하지 않는다.
 
 ECOS의 공표 시각과 vintage는 확인되지 않았으므로 `publication_at`·`vintage`는 `null`, `point_in_time_verified`와 `eligible_for_performance`는 `false`다. 이 진단을 NAV, 비용 차감 수익률, 전략 선정 또는 PAPER/live 승격에 사용하지 않는다.

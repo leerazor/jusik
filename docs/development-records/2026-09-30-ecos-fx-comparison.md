@@ -1,7 +1,7 @@
 # ECOS·FRED 원/달러 진단 비교
 
 - 상태: 구현 완료, 독립 검토·통합 대기
-- 기록 시각: 2026-09-30T04:06:33Z
+- 기록 시각: 2026-09-30T04:13:44Z
 - 작업 slug: `ecos-fx-comparison-20260930`
 - 기준/통합: `6e964ca2b9a2fec15523e6320b6d074a39725a7c` / 없음
 - 범위: 고정 FRED CSV와 ECOS 공개 sample 응답의 최대 10일 진단 대조만 추가. 성과·전략·운영 입력은 그대로 보존.
@@ -11,6 +11,7 @@
 - `backend/jusik/research_ecos_fx_comparison.py`: 해시로 고정한 CSV를 조회 전 검증하고, 날짜마다 고정 HTTPS sample endpoint를 한 번 조회한다. 성공 원문과 해시·조회시각, 명시적 결측·부재·실패 및 Decimal 차이를 새 출력 디렉터리에 기록한다.
 - 기존 `parse_fred_csv_observations`는 명시적 결측 행을 버리고 전체 값이 없으면 예외를 발생시키므로, 진단에 필요한 결측·부재 구분을 위해 별도 작은 CSV 파서를 사용했다. 헤더·중복·유효 환율 검사는 동일하게 실패 폐쇄 방식이다.
 - `backend/tests/test_research_ecos_fx_comparison.py`: MockTransport로 identity, 실패, 결측, 해시, 입력 불변성과 조회 전 차단을 검증한다.
+- 독립 검토 지적에 따라 극단적인 Decimal 지수의 baseline은 조회 전 거절하고 ECOS 값·차이 계산 실패는 해당 날짜 오류로 격리한다. `fetched_at`은 성공 본문 수신 후에 기록하며 실패에는 `null`을 둔다.
 
 ## 문서·계약 영향
 
@@ -20,7 +21,7 @@
 
 ## 검증
 
-- `backend/.venv/bin/python -m pytest backend/tests/test_research_ecos_fx_comparison.py backend/tests/test_market_data_collector.py -q` — 176개 통과.
+- `backend/.venv/bin/python -m pytest backend/tests/test_research_ecos_fx_comparison.py backend/tests/test_market_data_collector.py -q` — 182개 통과.
 - `backend/.venv/bin/ruff check backend/jusik/research_ecos_fx_comparison.py backend/tests/test_research_ecos_fx_comparison.py` — 통과.
 - `backend/.venv/bin/ruff format --check backend/jusik/research_ecos_fx_comparison.py backend/tests/test_research_ecos_fx_comparison.py` — 통과.
 - `backend/.venv/bin/mypy --config-file backend/pyproject.toml backend/jusik/research_ecos_fx_comparison.py backend/tests/test_research_ecos_fx_comparison.py` — strict 통과.

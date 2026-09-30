@@ -12,7 +12,7 @@ import re
 import sys
 from collections.abc import Callable
 from datetime import UTC, date, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, DecimalException, InvalidOperation
 from pathlib import Path
 from typing import Any, Literal
 
@@ -25,6 +25,7 @@ DATE_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}\Z")
 SHA_PATTERN = re.compile(r"[0-9a-fA-F]{64}\Z")
 ECOS_PATH = "StatisticSearch/sample/json/kr/1/10/731Y001/D/{day}/{day}/0000001"
 ECOS_ORIGIN = "https://ecos.bok.or.kr/api/"
+MAX_SAFE_RATE_EXPONENT = 100_000
 
 
 class InputError(ValueError):
@@ -45,7 +46,11 @@ def _positive_decimal(value: str) -> Decimal:
         number = Decimal(value)
     except InvalidOperation as exc:
         raise ValueError("invalid rate") from exc
-    if not number.is_finite() or number <= 0:
+    if (
+        not number.is_finite()
+        or number <= 0
+        or abs(number.adjusted()) > MAX_SAFE_RATE_EXPONENT
+    ):
         raise ValueError("invalid rate")
     return number
 
@@ -108,34 +113,34 @@ def _prepare(
 
 def _fetch(
     client: httpx.Client, session: date, now: Callable[[], datetime]
-) -> tuple[Status, Decimal | None, str | None, bytes | None, str]:
+) -> tuple[Status, Decimal | None, str | None, bytes | None, str | None]:
     day = session.strftime("%Y%m%d")
     url = ECOS_ORIGIN + ECOS_PATH.format(day=day)
-    fetched_at = now().astimezone(UTC).isoformat()
     try:
         with client.stream("GET", url, follow_redirects=False) as response:
             if response.status_code != 200:
-                return "error", None, "http_error", None, fetched_at
+                return "error", None, "http_error", None, None
             body = bytearray()
             for chunk in response.iter_bytes(chunk_size=8192):
                 body.extend(chunk)
                 if len(body) > MAX_RESPONSE_BYTES:
-                    return "error", None, "response_too_large", None, fetched_at
+                    return "error", None, "response_too_large", None, None
     except httpx.HTTPError:
-        return "error", None, "transport_error", None, fetched_at
+        return "error", None, "transport_error", None, None
     raw = bytes(body)
+    received_at = now().astimezone(UTC).isoformat()
     try:
         payload = json.loads(raw)
     except (ValueError, UnicodeDecodeError):
-        return "error", None, "invalid_json", None, fetched_at
+        return "error", None, "invalid_json", None, None
     if not isinstance(payload, dict):
-        return "error", None, "invalid_envelope", None, fetched_at
+        return "error", None, "invalid_envelope", None, None
     envelope = payload.get("StatisticSearch")
     if not isinstance(envelope, dict):
         result = payload.get("RESULT")
         if isinstance(result, dict) and result.get("CODE") == "INFO-200":
-            return "missing", None, "provider_no_data", None, fetched_at
-        return "error", None, "provider_error", None, fetched_at
+            return "missing", None, "provider_no_data", None, None
+        return "error", None, "provider_error", None, None
     rows = envelope.get("row")
     count = envelope.get("list_total_count")
     if (
@@ -145,7 +150,7 @@ def _fetch(
         or count not in (1, "1")
         or not isinstance(rows[0], dict)
     ):
-        return "error", None, "invalid_rows", None, fetched_at
+        return "error", None, "invalid_rows", None, None
     row = rows[0]
     if (
         row.get("STAT_CODE") != "731Y001"
@@ -154,12 +159,12 @@ def _fetch(
         or row.get("UNIT_NAME") != "원"
         or not isinstance(row.get("DATA_VALUE"), str)
     ):
-        return "error", None, "identity_mismatch", None, fetched_at
+        return "error", None, "identity_mismatch", None, None
     try:
         rate = _positive_decimal(row["DATA_VALUE"])
     except ValueError:
-        return "error", None, "invalid_value", None, fetched_at
-    return "observed", rate, None, raw, fetched_at
+        return "error", None, "invalid_value", None, None
+    return "observed", rate, None, raw, received_at
 
 
 def _write_new(path: Path, body: bytes) -> None:
@@ -199,9 +204,21 @@ def run_comparison(
                 else "observed"
             )
             baseline_value = fred.get(session)
-            delta = (
-                ecos - baseline_value if ecos is not None and baseline_value else None
-            )
+            delta: Decimal | None = None
+            delta_pct: Decimal | None = None
+            if ecos is not None and baseline_value is not None:
+                try:
+                    delta = ecos - baseline_value
+                    delta_pct = delta / baseline_value * 100
+                except DecimalException:
+                    status, ecos, reason, raw, fetched_at = (
+                        "error",
+                        None,
+                        "arithmetic_error",
+                        None,
+                        None,
+                    )
+                    delta = None
             raw_sha = hashlib.sha256(raw).hexdigest() if raw is not None else None
             raw_file = f"ecos-{session.isoformat()}.json" if raw is not None else None
             if raw is not None and raw_file is not None:
@@ -215,8 +232,8 @@ def run_comparison(
                     "ecos_krw_per_usd": str(ecos) if ecos else None,
                     "reason": reason,
                     "delta_krw_per_usd": str(delta) if delta is not None else None,
-                    "delta_pct_vs_fred": str(delta / baseline_value * 100)
-                    if delta is not None and baseline_value
+                    "delta_pct_vs_fred": str(delta_pct)
+                    if delta_pct is not None
                     else None,
                     "raw_file": raw_file,
                     "raw_sha256": raw_sha,
