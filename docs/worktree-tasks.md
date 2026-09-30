@@ -4928,12 +4928,15 @@
 
 ## aos-event-source-20260930
 
-- 상태: 기확정 explore·독립 plan 재사용, AOS 배당 원문1건 조사 진행.
+- 상태: 완료 — AOS1건 공표근거·독립 review·main 통합·handoff 완료. 역사 최초관측·전체 자료 인수는 미확인.
 - 목표·완료 조건: AOS 2025-10-31 배당의 raw identity를 동결하고 발행사/SEC 원문과 연결해 공표시점 근거의 정확도·한계를 판정한다. 독립 review·main 기록·handoff까지 완료하며 prepared/성과는 변경하지 않는다.
 - workflow 선택: 이미 승인된 단일 사건 scope를 재사용해 조사·계획 호출 반복을 줄이고 날짜와 정확시각 혼동은 독립 검토로 확인한다.
 - 담당: ecos_code 단일 소유자, ecos_review 독립 검토. runner paused/running0·service/timer inactive 확인. 기존 작업자·루트 사용자 HANDOFF 보존.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-aos-event-source` / `research/aos-event-source`; 기준 `501851c`, 통합 main.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-aos-event-source` / `research/aos-event-source`; 기준 `501851c`, 통합 main.
 - 범위: 새 audit의 identity/출처스냅샷/진단 JSON과 개발기록·인계 2문서. 원문조회 전 raw금액·날짜·종류·SHA 고정; 공식 검색1회·원문열람최대2회, 연결불가 즉시 차단. 날짜만 있는 근거에서 시각 추정 금지.
 - 보존: 생산코드·정책·원본 cache140·prepared·125사건을 변경하지 않는다. 추가 Yahoo조회·일괄수집·전략NAV·성과승격 없음.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-aos-event-source/`; 이전 독립scope와 보호hash는 scope.json에 결속.
 - 개발 기록: `docs/development-records/2026-09-30-aos-event-source.md`; handoff: `docs/handoffs/2026-09-30-aos-event-source.md`.
+- 결과: 공식검색1·발행사원문/직접연결배포본 open2. 0.36달러, 기준일10-31·지급일11-17, 배포표기2025-10-13 17:54 ET=21:54 UTC(분단위). Yahoo 날짜역할/13:30Z 의미·실제 과거최초관측·vintage 미검증. prepared/PIT/성과 승격 없음.
+- 구현/통합: `79078e0eb0b35765c7954a2379a347f01d1e2bea` / `760803d7fa47c68476df64846f6f0dc69755ccca`; 병합직전 `07461b3`. 독립 review·main backend불변/원본11hash/증거결속/예산 PASS, 실패 없음. 기록·handoff 갱신, audit보존 후 전용worktree/branch 정리.
+- 다음: 대량조회 전에 event observed_at 계약과 분단위 공표근거·날짜역할 정합성을 읽기전용 scope로 검토한다. 125관측시각 결손·24시세실패/전체자료차단은 유지한다.
