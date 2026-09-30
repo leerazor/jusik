@@ -25,7 +25,7 @@
 ## 안전·운영 상태
 
 - 초기 관측에서 runner paused, service/timer inactive, 전체 204건(완료 176·차단 9·실패 16·외부 대기 3), READY·running 0. Codex heartbeat는 30분 ACTIVE 유지하며 중복 writer를 막기 위해 기존 systemd runner를 함께 재개하지 않는다. Toss 제외, ECOS 기존 근거 재조회 없음. 실주문·배포·원격 push 없음.
-- 프로젝트 `.env`, `backend.env`, process 범위에서 `API_K_DART`·직접 KOSIS 키 변수 부재를 확인했으나 외부 vault 전체 상태는 모른다. KOSIS 일반 proxy는 키 없이 가능하므로 서비스 전체 불가로 해석하지 않는다.
+- 프로젝트 `.env`, `backend/.env`, process 범위에서 `API_K_DART`·직접 KOSIS 키 변수 부재를 확인했으나 외부 vault 전체 상태는 모른다. KOSIS 일반 proxy는 키 없이 가능하므로 서비스 전체 불가로 해석하지 않는다.
 
 ## 증거와 재개
 
