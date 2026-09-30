@@ -19,7 +19,7 @@
 - 기준·통합 대상: local `main` `00ca7a836bd4b723eb98e5981ade823aa1f9af71`; local `main`.
 - 담당·소유: `role.explore` 조사 및 `role.plan` 계획 완료, 별도 `role.review` scope PASS. 단일 `role.code` 구현자, 별도 최종 `role.review`; 등록·통합·기록은 supervisor 소유.
 - 워크트리·브랜치: `/home/kwl/projects/jusik-runner-review-finding-receipt` / `fix/runner-review-finding-receipt`.
-- 수정 허용 범위: `backend/jusik/development_runner_review.py`, `backend/jusik/development_runner_store.py`, `backend/jusik/development_runner.py`, 해당 세 runner review/transport/code-review 테스트, `docs/development-runner.md`, 작업 기록. 자동 repair/retry, reviewer eligibility/state transition, 기존 DB 행 보정, investment/data/mandate, service/config는 수정하지 않습니다.
+- 수정 허용 범위: `backend/jusik/development_runner_review.py`, `backend/jusik/development_runner_store.py`, `backend/jusik/development_runner.py`, 해당 runner review/transport/code-review 테스트와 scope reviewer가 승인한 `backend/tests/test_development_runner_discovery.py`의 fake PASS receipt fixture, `docs/development-runner.md`, 작업 기록. 추가 테스트는 새 required `findings=[]` receipt 필드만 반영하며 제품 코드는 수정하지 않습니다. 자동 repair/retry, reviewer eligibility/state transition, 기존 DB 행 보정, investment/data/mandate, service/config는 수정하지 않습니다.
 - 검증·종료: FAIL/PASS schema, owned path·길이·identity 경계, receipt 저장, 기존 PASS 완료 전이와 transport 재시도, FAIL의 WAITING_EXTERNAL 및 일반/event retry 불가를 focused 임시 DB/reviewer 검사로 검증하고 별도 완료 review 후 local `main` 통합.
 - 운영 경계: 구현 중 roadmap runner pause 및 timer/service inactive. 외부 provider/API·credential·구매·운영 DB·PAPER/live·주문·remote push 없음. tracked `main` clean 뒤 기존 runner 설정을 재개합니다. 사용자 소유 `HANDOFF.md`를 보존합니다.
 - 개발 기록·handoff: 구현·통합 후 `docs/development-records/2026-09-30-runner-review-finding-receipt.md` 및 handoff 기록을 생성합니다.
