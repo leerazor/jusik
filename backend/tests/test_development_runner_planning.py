@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import pytest
-
 from jusik.development_runner import (
     RunnerConfig,
     _codex_command,
@@ -134,6 +133,14 @@ def test_tracked_research_mandate_preserves_authoritative_fields() -> None:
     staged_policy = mandate.pop("staged_market_research_policy")
     approximate_policy = mandate.pop("approximate_market_data_policy")
     governance = mandate.pop("governance")
+    us_research_policy = mandate.pop("new_us_research_policy")
+    assert us_research_policy == {
+        "version": "us-research-symbol-exclusions-v1",
+        "excluded_symbols": ["LIME", "MDA"],
+        "selection": "exclude_before_checkpoint_seed_and_fill_vacancies",
+        "prepared_data": "legacy_filter_no_backfill;new_fill_vacancies",
+        "historical_replay": "frozen_inputs_and_results_unchanged",
+    }
     assert approximate_policy == {
         "grade": (
             "approximate results are for personal investment judgment and never "

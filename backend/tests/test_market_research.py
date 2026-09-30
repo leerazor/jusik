@@ -8,9 +8,13 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
-
 from jusik.fixture_app import app as fixture_app
+from jusik.market_history_approximate import (
+    US_EXCLUSION_NORMALIZATION_VERSION,
+    US_PREFERRED_NORMALIZATION_VERSION,
+    us_exclusion_contract_hash,
+    us_preferred_contract_hash,
+)
 from jusik.market_history_models import (
     CorporateAction,
     MarketHistorySnapshot,
@@ -43,6 +47,7 @@ from jusik.market_research_strategy import (
     run_market_research,
 )
 from jusik.research_market_calendar import default_market_calendar
+from pydantic import ValidationError
 
 
 def request(market: str = "KR") -> MarketResearchRequest:
@@ -1109,6 +1114,52 @@ def test_final_requires_completed_matching_pilot_and_collects_own_period(
         asyncio.run(
             service.create_run(
                 final_request.model_copy(update={"pilot_run_id": "missing"})
+            )
+        )
+
+
+def test_us_final_rejects_v2_pilot_when_source_uses_v3(tmp_path: Path) -> None:
+    class VersionedSource(FixtureMarketHistorySource):
+        version = US_EXCLUSION_NORMALIZATION_VERSION
+
+        async def collect(self, item: MarketResearchRequest) -> MarketHistorySnapshot:
+            snapshot = await super().collect(item)
+            pool_hash = (
+                us_exclusion_contract_hash()
+                if self.version == US_EXCLUSION_NORMALIZATION_VERSION
+                else us_preferred_contract_hash()
+            )
+            return snapshot.model_copy(
+                update={
+                    "normalization_version": self.version,
+                    "pool_contract_hash": pool_hash,
+                }
+            )
+
+    source = VersionedSource()
+    service = MarketResearchService(source, MarketHistoryStore(tmp_path / "runs.db"))
+    pilot = asyncio.run(
+        service.create_run(
+            MarketResearchRequest(
+                market="US",
+                start_date=date(2025, 9, 14),
+                end_date=date(2026, 9, 14),
+                stage="pilot",
+            )
+        )
+    )
+    assert pilot.status == "completed"
+    source.version = US_PREFERRED_NORMALIZATION_VERSION
+    with pytest.raises(MarketResearchConflict, match="data contract"):
+        asyncio.run(
+            service.create_run(
+                MarketResearchRequest(
+                    market="US",
+                    start_date=date(2023, 9, 14),
+                    end_date=date(2026, 9, 14),
+                    stage="final",
+                    pilot_run_id=pilot.id,
+                )
             )
         )
 
