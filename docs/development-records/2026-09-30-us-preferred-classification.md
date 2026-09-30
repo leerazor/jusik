@@ -1,14 +1,14 @@
 # 미국 우선주 상품명 분류 보정
 
-- 상태: 구현 완료, 독립 검토·main 통합 대기
-- 기록 시각: 2026-09-30T06:25:21Z
+- 상태: 완료; 독립 재검토와 main 통합 검증 PASS. 데이터 인수·성과 검증은 미완료
+- 기록 시각: 2026-09-30T06:55:03Z
 - 작업 slug: `us-preferred-classification-20260930`
-- 기준/통합: `584df86c5daa1a8506e5c8f3fba86da1cbb7ec9d` / 감독자 확정 예정
+- 기준/통합: `584df86c5daa1a8506e5c8f3fba86da1cbb7ec9d` / `f8307ae80e8b46827f7f209093d2d4e14c18c91e`. 구현 `06862d8`, 검토 보완 `adbe3e524d19996374c9acf42dda39ce672ec8bd`.
 - 범위: Alpha Vantage `PRF PERPETUAL` 연속 상품명과 신규 미국 수집 v3 계약·완료 증거. 전략·수익률·NAV·원본 재수집 없음.
 
 ## 변경과 결정
 
-- 기존 cache 상품명 `Metlife Inc 4.75 PRF PERPETUAL USD 25 11000th int Ser F`가 `Stock`으로 분류되어 ordinary가 되던 오류를 재현했다. `\bprf\s+perpetual\b`만 `OTHER`로 추가했다. 단독 단어, 다른 중간 단어, `PRFX`, 티커 형태만으로는 제외하지 않는다. 공식 제품 근거는 audit `preferred-source-notes.json`이다.
+- 기존 cache 상품명 `Metlife Inc 4.75 PRF PERPETUAL USD 25 11000th int Ser F`가 `Stock`으로 분류되어 ordinary가 되던 오류를 재현했다. `\bprf\s+perpetual\b`만 `OTHER`로 추가했다. 단독 단어, 다른 중간 단어, `PRFX`, 티커 형태만으로는 제외하지 않는다. [공식 제품 근거](../../../../.local/share/jusik/portfolio-audit/20260930-us-exclusion-pilot-readiness/preferred-source-notes.json)는 이전 자료 준비 audit에 보존했다.
 - 신규 collector 출력은 `approx-us-r1-event-timing-v3`, 별도 pool hash와 `completed-us-exclusions-v2.json`을 쓴다. 기존 v2 정규화·pool hash·`completed-us-exclusions-v1.json`·prepared 파일은 보존한다. 직접 완료 기록/조회 호출의 기본은 v2이며, 출력 검증은 파일 안의 정규화 버전으로 marker를 선택한다.
 - 기존 `data_contract_hash` 계산은 수정하지 않았다. 정규화 버전과 pool hash가 입력에 포함되어 v2 pilot과 v3 final을 구분한다. 미지원 미국 정규화 버전은 읽기·완료 검증에서 거부한다.
 - 독립 review에서 v2 자료의 정규화 문자열만 v3로 바꾸면 `PRF PERPETUAL` 이름을 가진 universe가 v3 reader와 완료 검증을 통과하는 오류를 확인했다. 공통 이름 판정 함수를 parser·reader·완료 검증에 적용해 v3에서 거부한다. v2 reader·marker 수용은 회귀로 보존했다.
@@ -33,6 +33,10 @@
 - 서비스·runner·실거래·PAPER·배포·원격 push·credential은 변경하지 않았다. 기존 자료의 요청 제외 25심볼과 사건 125행 관측시각 결손은 해결되지 않았다. 기술 구현을 자료 인수 또는 투자 성과로 해석하지 않는다.
 
 ## 증거와 재개
+
+- 독립 재검토의 회귀 2개 PASS. main 병합 후 pytest 247개(7.69초)·Ruff check/format 6파일·소스 strict mypy 2파일·mandate/dispatch·보존 해시 검증 모두 PASS. 의존 패키지 deprecation 경고 2개는 범위 밖으로 유지했다.
+- 검토·통합 증거는 audit `review-initial.json`, `review-final.json`, `integration-pytest-command.json`, `integration-pytest.txt`, `integration-static.json`, `integration-preservation.json`, `verification-manifest.json`에 있다. 역할별 실제 모델 post 감사도 PASS했다.
+- 실행 환경을 `environment.json`에 보존하고 완료 worktree·브랜치를 일반 Git 명령으로 정리했다. 사용자 루트 `HANDOFF.md`는 보존했다.
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-preferred-classification/` (`baseline.json`, `legacy-contract-hashes.json`, `event-observation-blocker.json`). 기존 prepared와 작업 cache는 `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-exclusion-pilot-readiness/`에 보존.
 - 새 수집 전에 기존 cache만으로 v3 선정·miss 변화를 오프라인 계산해 범위를 고정한다. 동일 Yahoo 요청은 새 증거 없이 반복하지 않는다. 사건 관측시각은 시세 재조회나 fetch 시각 치환으로 해결할 수 없으며 종목·사건별 역사 관측시각 원본 근거가 필요하다. 접근·비용은 미확인이다.
