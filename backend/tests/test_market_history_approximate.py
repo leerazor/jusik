@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
 from jusik.fixture_app import app as fixture_app
 from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
     US_EXCLUSION_NORMALIZATION_VERSION,
     US_MEMBERSHIP_NORMALIZATION_VERSION,
+    US_PREFERRED_NORMALIZATION_VERSION,
     ApproximateBarRow,
     ApproximateDataset,
     ApproximateEvent,
@@ -29,8 +29,10 @@ from jusik.market_history_approximate import (
     MembershipGap,
     deterministic_pool,
     run_approximate_market_research,
+    us_event_timing_contract_hash,
     us_exclusion_contract_hash,
     us_membership_contract_hash,
+    us_preferred_contract_hash,
 )
 from jusik.market_history_models import Market, MarketResearchRequest
 from jusik.market_history_sources import data_contract_hash
@@ -380,6 +382,122 @@ def test_prepared_us_legacy_rows_are_filtered_without_raw_rewrite(
     with pytest.raises(ApproximateProviderError, match="exclusion evidence"):
         asyncio.run(source.collect(request))
     assert us_exclusion_contract_hash() != snapshot.pool_contract_hash
+
+
+def test_v2_v3_us_contracts_are_distinct_and_legacy_hashes_frozen(
+    tmp_path: Path,
+) -> None:
+    assert us_membership_contract_hash() == (
+        "65470639a4a71c9ec0a2aa5ae8a0a622f9d6ffe09ffc6679866f9301b8b2533d"
+    )
+    assert us_event_timing_contract_hash() == (
+        "a95c61ca436937b1edfde09399711de143d7043c23a9c5b9e06f5f42bc0a651f"
+    )
+    assert us_exclusion_contract_hash() == (
+        "dbbe73c54028643f612ec6a6fa34300f0070f07c7b9d788f41dc1a2737caefb1"
+    )
+    assert us_preferred_contract_hash() != us_exclusion_contract_hash()
+
+    session = date(2026, 9, 14)
+    row = ApproximateUniverseRow(
+        session=session, symbol="AAA", name="AAA", exchange="NMS", currency="USD"
+    )
+    bar = ApproximateBarRow(
+        session=session,
+        symbol="AAA",
+        exchange="NMS",
+        open=10,
+        high=11,
+        low=9,
+        close=10,
+        volume=100,
+        currency="USD",
+    )
+    diagnostics = CollectionDiagnostics(
+        requested_start=session,
+        requested_end=session,
+        warmup_start=session,
+        coverage=CollectionCoverage(
+            expected_sessions=0,
+            actual_sessions=0,
+            missing_sessions=0,
+            retained_sessions=0,
+            event_excluded_sessions=0,
+        ),
+        policy_excluded_symbols=("LIME", "MDA"),
+    )
+    dataset = ApproximateDataset(
+        market="US",
+        universe=(row,),
+        bars=(bar,),
+        normalization_version=US_EXCLUSION_NORMALIZATION_VERSION,
+        collection_diagnostics=diagnostics,
+    )
+    output = tmp_path / "prepared.json"
+    request = MarketResearchRequest(
+        market="US",
+        start_date=session,
+        end_date=session,
+        research_grade="approximate",
+    )
+    source = ApproximateMarketHistorySource(JsonApproximateProvider(output))
+    hashes: list[str] = []
+    data_hashes: list[str] = []
+    for version in (
+        US_EXCLUSION_NORMALIZATION_VERSION,
+        US_PREFERRED_NORMALIZATION_VERSION,
+    ):
+        output.write_bytes(
+            dataset.model_copy(update={"normalization_version": version})
+            .model_dump_json()
+            .encode()
+        )
+        snapshot = asyncio.run(source.collect(request))
+        hashes.append(snapshot.pool_contract_hash)
+        data_hashes.append(
+            data_contract_hash(
+                snapshot,
+                source.readiness("US", datetime(2026, 9, 14, tzinfo=UTC)),
+                new_us_research=True,
+            )
+        )
+    assert hashes == [us_exclusion_contract_hash(), us_preferred_contract_hash()]
+    assert data_hashes[0] != data_hashes[1]
+    output.write_bytes(
+        dataset.model_copy(
+            update={"normalization_version": "approx-us-r1-event-timing-v4"}
+        )
+        .model_dump_json()
+        .encode()
+    )
+    with pytest.raises(ApproximateProviderError, match="unsupported US normalization"):
+        asyncio.run(source.collect(request))
+    preferred = dataset.model_copy(
+        update={
+            "universe": (
+                row.model_copy(
+                    update={
+                        "symbol": "MET-P-F",
+                        "name": "Metlife Inc 4.75 PRF PERPETUAL USD 25 Ser F",
+                    }
+                ),
+            ),
+            "bars": (bar.model_copy(update={"symbol": "MET-P-F"}),),
+        }
+    )
+    output.write_bytes(preferred.model_dump_json().encode())
+    assert asyncio.run(source.collect(request)).pool_contract_hash == (
+        us_exclusion_contract_hash()
+    )
+    output.write_bytes(
+        preferred.model_copy(
+            update={"normalization_version": US_PREFERRED_NORMALIZATION_VERSION}
+        )
+        .model_dump_json()
+        .encode()
+    )
+    with pytest.raises(ApproximateProviderError, match="preferred product name"):
+        asyncio.run(source.collect(request))
 
 
 @pytest.mark.parametrize("kind", ["splits", "dividends", "delisting"])

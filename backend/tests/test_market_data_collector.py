@@ -10,7 +10,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-
 from jusik.market_data_collector import (
     AtomicResponseCache,
     CollectorAuthenticationError,
@@ -48,6 +47,7 @@ from jusik.market_data_collector import (
 from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
     US_EXCLUSION_NORMALIZATION_VERSION,
+    US_PREFERRED_NORMALIZATION_VERSION,
     ApproximateDataset,
     ApproximateEvent,
     ApproximateMarketHistorySource,
@@ -412,6 +412,18 @@ def test_alpha_listing_status_reports_row_exclusions_and_rejects_bad_header() ->
             _AlphaProductType.OTHER,
         ),
         ("stock", "AAA", "Acme preferred shares", _AlphaProductType.OTHER),
+        (
+            "Stock",
+            "MET-P-F",
+            "Metlife Inc 4.75 PRF PERPETUAL USD 25 11000th int Ser F",
+            _AlphaProductType.OTHER,
+        ),
+        ("Stock", "AAA", "Acme prf    perpetual Series F", _AlphaProductType.OTHER),
+        ("Stock", "AAA", "Acme PRF", _AlphaProductType.ORDINARY),
+        ("Stock", "AAA", "Acme PERPETUAL", _AlphaProductType.ORDINARY),
+        ("Stock", "AAA", "Acme PRFX PERPETUAL", _AlphaProductType.ORDINARY),
+        ("Stock", "AAA", "Acme PRF Series F PERPETUAL", _AlphaProductType.ORDINARY),
+        ("Stock", "MET-P-F", "Acme common stock", _AlphaProductType.ORDINARY),
         (
             "stock",
             "AAA",
@@ -804,9 +816,7 @@ def test_koreaexim_parser_requires_successful_usd_row_and_uses_next_day_bound() 
             }
         ]
     ).encode()
-    row = parse_koreaexim_exchange_response(
-        body, session=date(2025, 9, 11)
-    )
+    row = parse_koreaexim_exchange_response(body, session=date(2025, 9, 11))
     assert row.krw_per_usd == Decimal("1388.97")
     assert row.available_at == datetime(2025, 9, 12, tzinfo=UTC)
 
@@ -838,9 +848,7 @@ def test_koreaexim_parser_requires_successful_usd_row_and_uses_next_day_bound() 
 )
 def test_fred_csv_parser_fails_closed(body: bytes, error: type[Exception]) -> None:
     with pytest.raises(error):
-        parse_fred_csv_observations(
-            body, start=date(2026, 9, 1), end=date(2026, 9, 14)
-        )
+        parse_fred_csv_observations(body, start=date(2026, 9, 1), end=date(2026, 9, 14))
 
 
 def test_atomic_cache_verifies_raw_hash_and_does_not_expose_request_secret(
@@ -1749,6 +1757,8 @@ def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
     )
     round_tripped = ApproximateDataset.model_validate_json(output.read_bytes())
     assert round_tripped.collection_diagnostics is not None
+    assert round_tripped.normalization_version == US_PREFERRED_NORMALIZATION_VERSION
+    assert AtomicResponseCache(cache_dir).us_preferred_completed_path.exists()
     assert completed_collection_is_valid(
         AtomicResponseCache(cache_dir),
         market="US",
@@ -1761,11 +1771,15 @@ def test_collect_market_data_writes_round_trippable_and_legacy_dataset(
     legacy_payload.pop("collection_diagnostics", None)
     legacy = ApproximateDataset.model_validate(legacy_payload)
     assert legacy.collection_diagnostics is None
-    legacy_content = round_tripped.model_copy(
-        update={"normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION}
-    ).model_dump_json().encode()
+    legacy_content = (
+        round_tripped.model_copy(
+            update={"normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION}
+        )
+        .model_dump_json()
+        .encode()
+    )
     output.write_bytes(legacy_content)
-    AtomicResponseCache(cache_dir).us_completed_path.unlink()
+    AtomicResponseCache(cache_dir).us_preferred_completed_path.unlink()
     AtomicResponseCache(cache_dir).write_completed(
         market="US",
         start=start,
@@ -1803,26 +1817,38 @@ def test_new_us_collection_preserves_legacy_output_and_completion(
         if corrupt
         else collected.dataset.model_copy(
             update={"normalization_version": US_EVENT_TIMING_NORMALIZATION_VERSION}
-        ).model_dump_json().encode()
+        )
+        .model_dump_json()
+        .encode()
     )
     legacy_output.write_bytes(legacy_content)
     cache = AtomicResponseCache(tmp_path / "cache")
     cache.write_completed(
-        market="US", start=start, end=end, sample_size=1,
-        output=legacy_output, content=legacy_content,
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=legacy_output,
+        content=legacy_content,
     )
     cache.us_completed_path.rename(cache.completed_path)
     old_marker = cache.completed_path.read_bytes()
     settings = CollectorSettings(
-        alpha_vantage_api_key="configured", fred_api_key="configured",
+        alpha_vantage_api_key="configured",
+        fred_api_key="configured",
         request_budget=5_000,
     )
     client = _RecordingHttpClient()
     with pytest.raises(CollectorError, match="output already exists"):
         asyncio.run(
             collect_market_data(
-                market="US", start=start, end=end, output=legacy_output,
-                cache_dir=cache.root, settings=settings, sample_size=1,
+                market="US",
+                start=start,
+                end=end,
+                output=legacy_output,
+                cache_dir=cache.root,
+                settings=settings,
+                sample_size=1,
                 client=client,
             )
         )
@@ -1839,24 +1865,183 @@ def test_new_us_collection_preserves_legacy_output_and_completion(
     fresh_output = tmp_path / "new-prepared.json"
     asyncio.run(
         collect_market_data(
-            market="US", start=start, end=end, output=fresh_output,
-            cache_dir=cache.root, settings=settings, sample_size=1, client=client,
+            market="US",
+            start=start,
+            end=end,
+            output=fresh_output,
+            cache_dir=cache.root,
+            settings=settings,
+            sample_size=1,
+            client=client,
         )
     )
     assert cache.completed_path.read_bytes() == old_marker
     assert legacy_output.read_bytes() == legacy_content
+    assert cache.us_preferred_completed_path.exists()
     assert completed_collection_is_valid(
-        cache, market="US", start=start, end=end, sample_size=1,
+        cache,
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
         output=fresh_output,
     )
     with pytest.raises(CollectorError, match="completion already exists"):
         asyncio.run(
             collect_market_data(
-                market="US", start=start, end=end, output=tmp_path / "again.json",
-                cache_dir=cache.root, settings=settings, sample_size=1,
+                market="US",
+                start=start,
+                end=end,
+                output=tmp_path / "again.json",
+                cache_dir=cache.root,
+                settings=settings,
+                sample_size=1,
                 client=client,
             )
         )
+
+
+def test_us_v2_v3_completion_markers_coexist_and_bind_output(tmp_path: Path) -> None:
+    start = date(2026, 2, 16)
+    end = date(2026, 3, 31)
+    dataset = asyncio.run(
+        FreeMarketDataCollector(_DiagnosticUSTransport("partial")).collect(
+            market="US", start=start, end=end, sample_size=1
+        )
+    ).dataset
+    cache = AtomicResponseCache(tmp_path / "cache")
+    v2_output = tmp_path / "v2.json"
+    v3_output = tmp_path / "v3.json"
+    v2_content = (
+        dataset.model_copy(
+            update={"normalization_version": US_EXCLUSION_NORMALIZATION_VERSION}
+        )
+        .model_dump_json()
+        .encode()
+    )
+    v3_content = dataset.model_dump_json().encode()
+    v2_output.write_bytes(v2_content)
+    v3_output.write_bytes(v3_content)
+    cache.write_completed(
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=v2_output,
+        content=v2_content,
+    )
+    old_marker = cache.us_completed_path.read_bytes()
+    cache.write_completed(
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=v3_output,
+        content=v3_content,
+        normalization_version=US_PREFERRED_NORMALIZATION_VERSION,
+    )
+    assert cache.us_completed_path.read_bytes() == old_marker
+    assert cache.read_completed(market="US") is not None
+    assert (
+        cache.read_completed(
+            market="US", normalization_version=US_PREFERRED_NORMALIZATION_VERSION
+        )
+        is not None
+    )
+    assert cache.status()["completed"] is True
+    for output in (v2_output, v3_output):
+        assert completed_collection_is_valid(
+            cache,
+            market="US",
+            start=start,
+            end=end,
+            sample_size=1,
+            output=output,
+        )
+    v3_output.write_bytes(v2_content)
+    assert not completed_collection_is_valid(
+        cache,
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=v3_output,
+    )
+    v3_output.write_bytes(
+        dataset.model_copy(
+            update={"normalization_version": "approx-us-r1-event-timing-v4"}
+        )
+        .model_dump_json()
+        .encode()
+    )
+    assert not completed_collection_is_valid(
+        cache,
+        market="US",
+        start=start,
+        end=end,
+        sample_size=1,
+        output=v3_output,
+    )
+    with pytest.raises(CollectorError, match="unsupported US normalization"):
+        cache.read_completed(market="US", normalization_version="unknown")
+    cache.us_completed_path.unlink()
+    assert cache.status()["completed"] is True
+
+
+def test_v3_completion_rejects_relabelled_preferred_name(tmp_path: Path) -> None:
+    start = date(2026, 2, 16)
+    end = date(2026, 3, 31)
+    dataset = asyncio.run(
+        FreeMarketDataCollector(_DiagnosticUSTransport("partial")).collect(
+            market="US", start=start, end=end, sample_size=1
+        )
+    ).dataset
+    preferred = dataset.model_copy(
+        update={
+            "universe": tuple(
+                row.model_copy(
+                    update={
+                        "symbol": "MET-P-F",
+                        "name": "Metlife Inc 4.75 PRF PERPETUAL USD 25 Ser F",
+                    }
+                )
+                for row in dataset.universe
+            ),
+            "bars": tuple(
+                row.model_copy(update={"symbol": "MET-P-F"}) for row in dataset.bars
+            ),
+        }
+    )
+    cache = AtomicResponseCache(tmp_path / "cache")
+    for version, output in (
+        (US_EXCLUSION_NORMALIZATION_VERSION, tmp_path / "v2.json"),
+        (US_PREFERRED_NORMALIZATION_VERSION, tmp_path / "v3.json"),
+    ):
+        content = (
+            preferred.model_copy(update={"normalization_version": version})
+            .model_dump_json()
+            .encode()
+        )
+        output.write_bytes(content)
+        cache.write_completed(
+            market="US",
+            start=start,
+            end=end,
+            sample_size=1,
+            output=output,
+            content=content,
+            normalization_version=(
+                version if version == US_PREFERRED_NORMALIZATION_VERSION else None
+            ),
+        )
+        assert completed_collection_is_valid(
+            cache,
+            market="US",
+            start=start,
+            end=end,
+            sample_size=1,
+            output=output,
+        ) is (version == US_EXCLUSION_NORMALIZATION_VERSION)
 
 
 def test_all_failure_collect_market_data_preserves_output_marker_and_cache(
@@ -1954,9 +2139,7 @@ class _ThreeCheckpointUSCheckpointTransport(_USCheckpointTransport):
 class _CappedUSCheckpointTransport(_USCheckpointTransport):
     async def alpha_listing(self, as_of: date) -> bytes:
         self.alpha_calls += 1
-        symbols = tuple(
-            f"Y{self.alpha_calls}{index:03d}" for index in range(100)
-        )
+        symbols = tuple(f"Y{self.alpha_calls}{index:03d}" for index in range(100))
         rows = [
             f"{symbol},Sample {symbol},NASDAQ,Stock,2020-01-01,null,Active"
             for symbol in symbols
@@ -2099,10 +2282,7 @@ def test_us_collector_uses_causal_version_and_unknown_gap_after_failed_checkpoin
             sample_size=1,
         )
     )
-    assert (
-        result.dataset.normalization_version
-        == US_EXCLUSION_NORMALIZATION_VERSION
-    )
+    assert result.dataset.normalization_version == US_PREFERRED_NORMALIZATION_VERSION
     assert all(row.session < checkpoint for row in result.dataset.universe)
     assert any(
         "current_selected=0" in item and "cumulative_admitted=1" in item
@@ -2171,9 +2351,7 @@ def test_us_collector_keeps_warmup_prices_but_admits_new_symbol_at_checkpoint(
 ) -> None:
     result = asyncio.run(
         FreeMarketDataCollector(
-            _CausalUSCheckpointTransport(
-                ("AAA", "NEW"), initial_symbols=("AAA",)
-            )
+            _CausalUSCheckpointTransport(("AAA", "NEW"), initial_symbols=("AAA",))
         ).collect(
             market="US",
             start=date(2025, 9, 14),
@@ -2300,14 +2478,11 @@ def test_us_collector_recovery_after_gap_retains_incumbent_and_fills_vacancy(
     failed_checkpoint = date(2025, 1, 2)
     recovery_session = date(2026, 1, 7)
     recovery_rows = [
-        row
-        for row in result.dataset.universe
-        if row.session >= recovery_session
+        row for row in result.dataset.universe if row.session >= recovery_session
     ]
     assert {row.symbol for row in recovery_rows} == {"AAA", "NEW"}
     assert all(
-        row.session < failed_checkpoint
-        or row.session >= recovery_session
+        row.session < failed_checkpoint or row.session >= recovery_session
         for row in result.dataset.universe
     )
     assert "BBB" not in {row.symbol for row in recovery_rows}
@@ -2381,24 +2556,16 @@ def test_us_collector_source_strategy_prefix_is_invariant_to_future_listing(
     )
     checkpoint = date(2026, 1, 2)
     baseline_membership_prefix = tuple(
-        item
-        for item in baseline_snapshot.memberships
-        if item.valid_from < checkpoint
+        item for item in baseline_snapshot.memberships if item.valid_from < checkpoint
     )
     changed_membership_prefix = tuple(
-        item
-        for item in changed_snapshot.memberships
-        if item.valid_from < checkpoint
+        item for item in changed_snapshot.memberships if item.valid_from < checkpoint
     )
     baseline_evidence_prefix = tuple(
-        item
-        for item in baseline_result.candidate_evidence
-        if item.session < checkpoint
+        item for item in baseline_result.candidate_evidence if item.session < checkpoint
     )
     changed_evidence_prefix = tuple(
-        item
-        for item in changed_result.candidate_evidence
-        if item.session < checkpoint
+        item for item in changed_result.candidate_evidence if item.session < checkpoint
     )
     assert baseline_membership_prefix == changed_membership_prefix
     assert baseline_evidence_prefix == changed_evidence_prefix
@@ -2461,9 +2628,7 @@ def test_us_collector_delayed_event_isolates_rows_from_observed_date(
     assert result.dataset.events[0].occurrence_at == datetime(
         2026, 1, 5, 14, 30, tzinfo=UTC
     )
-    assert result.dataset.events[0].observed_at == datetime(
-        2026, 1, 5, 22, tzinfo=UTC
-    )
+    assert result.dataset.events[0].observed_at == datetime(2026, 1, 5, 22, tzinfo=UTC)
     assert all(
         row.session < date(2026, 1, 6)
         for row in result.dataset.universe
@@ -2526,9 +2691,7 @@ def test_us_collector_delayed_event_isolates_rows_from_observed_date(
         default_market_calendar(),
     )
     baseline_prepared = tmp_path / "delayed-event-baseline.json"
-    baseline_prepared.write_bytes(
-        baseline_collected.dataset.model_dump_json().encode()
-    )
+    baseline_prepared.write_bytes(baseline_collected.dataset.model_dump_json().encode())
     baseline_source = ApproximateMarketHistorySource(
         JsonApproximateProvider(baseline_prepared)
     )
@@ -2541,14 +2704,10 @@ def test_us_collector_delayed_event_isolates_rows_from_observed_date(
     )
     effective_cutoff = date(2026, 1, 6)
     event_candidates = tuple(
-        item
-        for item in research.candidate_evidence
-        if item.session < effective_cutoff
+        item for item in research.candidate_evidence if item.session < effective_cutoff
     )
     baseline_candidates = tuple(
-        item
-        for item in baseline.candidate_evidence
-        if item.session < effective_cutoff
+        item for item in baseline.candidate_evidence if item.session < effective_cutoff
     )
     event_trades = tuple(
         item for item in research.trades if item.session < effective_cutoff

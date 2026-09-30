@@ -34,6 +34,7 @@ from jusik.market_history_approximate import (
     MAX_UNIQUE_SYMBOLS,
     US_EXCLUSION_NORMALIZATION_VERSION,
     US_MEMBERSHIP_SEED,
+    US_PREFERRED_NORMALIZATION_VERSION,
     ApproximateBarRow,
     ApproximateDataset,
     ApproximateEvent,
@@ -48,6 +49,7 @@ from jusik.market_history_approximate import (
     _event_cutoff_session,
     canonicalize_approximate_events,
     deterministic_pool,
+    is_us_preferred_name,
 )
 from jusik.market_history_models import Market
 from jusik.market_research_strategy import US_RESEARCH_EXCLUDED_SYMBOLS
@@ -683,6 +685,20 @@ class AtomicResponseCache:
         self.manifest_path = root / "manifest.json"
         self.completed_path = root / "completed.json"
         self.us_completed_path = root / "completed-us-exclusions-v1.json"
+        self.us_preferred_completed_path = root / "completed-us-exclusions-v2.json"
+
+    def _completed_path(
+        self, market: Market | None, normalization_version: str | None
+    ) -> Path:
+        if market != "US":
+            if normalization_version is not None:
+                raise CollectorError("normalization selector requires US market")
+            return self.completed_path
+        if normalization_version in (None, US_EXCLUSION_NORMALIZATION_VERSION):
+            return self.us_completed_path
+        if normalization_version == US_PREFERRED_NORMALIZATION_VERSION:
+            return self.us_preferred_completed_path
+        raise CollectorError("unsupported US normalization version")
 
     def _read_manifest(self) -> CacheManifest:
         if not self.manifest_path.is_file():
@@ -758,9 +774,7 @@ class AtomicResponseCache:
             else manifest.checkpoints
         )
         bindings = tuple(
-            item
-            for item in manifest.checkpoint_bindings
-            if item.key != key
+            item for item in manifest.checkpoint_bindings if item.key != key
         )
         if checkpoint is not None:
             bindings += (CacheCheckpointBinding(key=key, checkpoint=checkpoint),)
@@ -801,6 +815,7 @@ class AtomicResponseCache:
         sample_size: int,
         output: Path,
         content: bytes,
+        normalization_version: str | None = None,
     ) -> CompletedCollection:
         digest = hashlib.sha256(content).hexdigest()
         marker = CompletedCollection(
@@ -813,9 +828,7 @@ class AtomicResponseCache:
             dataset_sha256=digest,
             completed_at=datetime.now(UTC),
         )
-        completed_path = (
-            self.us_completed_path if market == "US" else self.completed_path
-        )
+        completed_path = self._completed_path(market, normalization_version)
         content = marker.model_dump_json(indent=2).encode()
         if market == "US":
             self._atomic_create(completed_path, content)
@@ -824,11 +837,12 @@ class AtomicResponseCache:
         return marker
 
     def read_completed(
-        self, *, market: Market | None = None
+        self,
+        *,
+        market: Market | None = None,
+        normalization_version: str | None = None,
     ) -> CompletedCollection | None:
-        completed_path = (
-            self.us_completed_path if market == "US" else self.completed_path
-        )
+        completed_path = self._completed_path(market, normalization_version)
         if not completed_path.is_file():
             return None
         try:
@@ -856,7 +870,11 @@ class AtomicResponseCache:
             "entries": len(manifest.entries),
             "checkpoints": list(manifest.checkpoints),
             "completed": self.read_completed() is not None
-            or self.read_completed(market="US") is not None,
+            or self.read_completed(market="US") is not None
+            or self.read_completed(
+                market="US", normalization_version=US_PREFERRED_NORMALIZATION_VERSION
+            )
+            is not None,
         }
 
 
@@ -1205,9 +1223,7 @@ def parse_krx_daily_trade_response(
         # KRX uses '-' or zero-valued OHLC/volume fields for an untraded or
         # suspended instrument. Preserve membership but do not invent a daily
         # bar for that symbol.
-        if all(
-            not _krx_trade_value_missing(value) for value in price_fields
-        ):
+        if all(not _krx_trade_value_missing(value) for value in price_fields):
             assert all(value is not None for value in price_fields)
             bars.append(
                 ApproximateBarRow(
@@ -1328,6 +1344,8 @@ def _classify_alpha_product(
     for product_type, pattern in _ALPHA_NAME_PRODUCT_PATTERNS:
         if pattern.search(normalized_name):
             evidence.add(product_type)
+    if is_us_preferred_name(name):
+        evidence.add(_AlphaProductType.OTHER)
 
     nonordinary = evidence - {_AlphaProductType.ORDINARY}
     if len(nonordinary) == 1:
@@ -1856,9 +1874,7 @@ def parse_koreaexim_exchange_response(
     for row in rows:
         result_code = str(row.get("result", "")).strip()
         if result_code == "3":
-            raise CollectorAuthenticationError(
-                "Korea Exim authentication was rejected"
-            )
+            raise CollectorAuthenticationError("Korea Exim authentication was rejected")
         if result_code != "1":
             raise CollectorError("Korea Exim response result is not successful")
     usd_rows = [
@@ -2100,9 +2116,7 @@ class NetworkCollectorTransport:
             validator=validate,
         )
 
-    async def fred_vintage(
-        self, vintage: date, start: date, end: date
-    ) -> bytes:
+    async def fred_vintage(self, vintage: date, start: date, end: date) -> bytes:
         key = self.settings.fred_api_key
         if key is None:
             raise CollectorError("FRED_API_KEY is not configured")
@@ -2201,10 +2215,7 @@ def estimate_network_requests(
         # Two boards each require one date-specific daily trade response.
         return len(sessions) * 2
     checkpoint_count = len(_listing_checkpoints(sessions))
-    base = (
-        checkpoint_count
-        + min(MAX_UNIQUE_SYMBOLS, sample_size * checkpoint_count)
-    )
+    base = checkpoint_count + min(MAX_UNIQUE_SYMBOLS, sample_size * checkpoint_count)
     # US PIT FX uses one vintage-date request plus approximately weekly
     # historical-vintage requests. Keep the estimate conservative before
     # network I/O so a small budget cannot hide look-ahead-prone data.
@@ -2221,7 +2232,40 @@ def completed_collection_is_valid(
     sample_size: int,
     output: Path,
 ) -> bool:
-    marker = cache.read_completed(market=market)
+    try:
+        content = output.read_bytes()
+        dataset = ApproximateDataset.model_validate_json(content)
+    except (OSError, ValueError):
+        return False
+    if dataset.market != market:
+        return False
+    normalization_version: str | None = None
+    if market == "US":
+        if dataset.normalization_version not in {
+            US_EXCLUSION_NORMALIZATION_VERSION,
+            US_PREFERRED_NORMALIZATION_VERSION,
+        }:
+            return False
+        normalization_version = dataset.normalization_version
+        diagnostics = dataset.collection_diagnostics
+        if (
+            diagnostics is None
+            or diagnostics.policy_excluded_symbols
+            != tuple(sorted(US_RESEARCH_EXCLUDED_SYMBOLS))
+            or any(
+                item.symbol in US_RESEARCH_EXCLUDED_SYMBOLS
+                for rows in (dataset.universe, dataset.bars, dataset.events)
+                for item in rows
+            )
+            or (
+                normalization_version == US_PREFERRED_NORMALIZATION_VERSION
+                and any(is_us_preferred_name(item.name) for item in dataset.universe)
+            )
+        ):
+            return False
+    marker = cache.read_completed(
+        market=market, normalization_version=normalization_version
+    )
     if marker is None or not cache.raw_entries_valid():
         return False
     if (
@@ -2232,25 +2276,6 @@ def completed_collection_is_valid(
         or marker.output_path != str(output.resolve())
     ):
         return False
-    try:
-        content = output.read_bytes()
-        dataset = ApproximateDataset.model_validate_json(content)
-    except (OSError, ValueError):
-        return False
-    if market == "US":
-        diagnostics = dataset.collection_diagnostics
-        if (
-            dataset.normalization_version != US_EXCLUSION_NORMALIZATION_VERSION
-            or diagnostics is None
-            or diagnostics.policy_excluded_symbols
-            != tuple(sorted(US_RESEARCH_EXCLUDED_SYMBOLS))
-            or any(
-                item.symbol in US_RESEARCH_EXCLUDED_SYMBOLS
-                for rows in (dataset.universe, dataset.bars, dataset.events)
-                for item in rows
-            )
-        ):
-            return False
     digest = hashlib.sha256(content).hexdigest()
     return digest == marker.output_sha256 == marker.dataset_sha256
 
@@ -2578,8 +2603,7 @@ class FreeMarketDataCollector:
                     and (next_checkpoint is None or session < next_checkpoint)
                 )
                 details_by_symbol = {
-                    row.symbol: row
-                    for row in checkpoint_rows[listing_checkpoint] or ()
+                    row.symbol: row for row in checkpoint_rows[listing_checkpoint] or ()
                 }
                 for session in period_sessions:
                     for symbol in selected:
@@ -2602,7 +2626,7 @@ class FreeMarketDataCollector:
             raw_rows = tuple(universe_rows)
             selected_symbols = set(symbols)
             source = "alpha_vantage"
-            normalization_version = US_EXCLUSION_NORMALIZATION_VERSION
+            normalization_version = US_PREFERRED_NORMALIZATION_VERSION
         if market == "KR":
             first_day_rows = tuple(row for row in raw_rows if row.session == checkpoint)
             pool = deterministic_pool(first_day_rows, market=market, pool_end=end)
@@ -2673,11 +2697,7 @@ class FreeMarketDataCollector:
             candidate_rows = raw_rows
             for symbol in symbols:
                 candidate_row = next(
-                    (
-                        item
-                        for item in candidate_rows
-                        if item.symbol == symbol
-                    ),
+                    (item for item in candidate_rows if item.symbol == symbol),
                     us_symbol_details.get(symbol),
                 )
                 if candidate_row is None:
@@ -2905,7 +2925,8 @@ class FreeMarketDataCollector:
                     if vintage <= end
                     and (
                         vintage >= fred_start
-                        or index == max(
+                        or index
+                        == max(
                             (
                                 candidate_index
                                 for candidate_index, candidate in enumerate(
@@ -2926,9 +2947,7 @@ class FreeMarketDataCollector:
                     vintage_query_start = fred_start - timedelta(days=30)
                     vintage_rows.extend(
                         parse_fred_observations(
-                            await self.transport.fred_vintage(
-                                vintage, fred_start, end
-                            ),
+                            await self.transport.fred_vintage(vintage, fred_start, end),
                             start=vintage_query_start,
                             end=end,
                             available_at=datetime.combine(
@@ -3070,7 +3089,7 @@ async def collect_market_data(
 ) -> CollectionOutput:
     cache = AtomicResponseCache(cache_dir)
     if market == "US":
-        if cache.us_completed_path.exists():
+        if cache.us_preferred_completed_path.exists():
             raise CollectorError("US collection completion already exists")
         if output.exists():
             raise CollectorError("prepared collection output already exists")
@@ -3127,6 +3146,9 @@ async def collect_market_data(
             sample_size=sample_size,
             output=output,
             content=content,
+            normalization_version=(
+                US_PREFERRED_NORMALIZATION_VERSION if market == "US" else None
+            ),
         )
         return output_result
     finally:
