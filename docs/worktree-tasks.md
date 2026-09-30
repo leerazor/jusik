@@ -4810,3 +4810,19 @@
 - 2026-09-24 R1-05 MarketParquet free-window probe: 공식 안내의 최근 약 365일/delisted 포함 주장을 대조하기 위해 인증 없이 2026-09-23·2026-09-17 daily Parquet는 HTTP 200, 2026-01-10은 401, 2025-09-11은 403을 확인했습니다. 무료 계정 key 없이는 canonical 누락 기간을 보완하지 않으며, key가 추가돼도 PIT·배당·기업행사 완전성은 별도 검증합니다. 기록 `docs/development-records/2026-09-24-r1-05-provider-alternatives.md`.
 - 2026-09-24 R1-05 MarketParquet key reader: `marketparquet` 선택 의존성과 `research_marketparquet` bounded manifest/Parquet probe를 추가했습니다. `timestamp`/`date` 구형·신형 스키마를 처리하고 `2026-07-01` 실제 파일에서 LIME/MDA 0행을 확인했지만 전체 이력 부재로 해석하지 않았습니다. 회귀 4개·Ruff·strict mypy 통과, canonical cache·성과·거래 설정은 변경하지 않았습니다.
 - 2026-09-24 fast-track 실행 전환: 기존 user service가 `research_universe --collection-only --device cpu`로 종목별 optimizer를 건너뛰고 있어, 서비스를 중지한 뒤 user drop-in `fast-track.conf`에서 `research_universe run --device cuda --poll-seconds 60`로 전환했습니다. optimizer control의 `daemon_mode=optimizer`, GPU 사용률과 1302 후보 batch를 확인했습니다. 실거래·PAPER/live·원격 push는 수행하지 않습니다.
+
+
+## ecos-fx-comparison-20260930
+
+- 상태: 진행; ECOS 환율 진단 전용 연동 조사·계획.
+- 목표·완료 조건: 지정 날짜 최대 10개의 ECOS 원/달러 매매기준율을 기존 준비 FX와 대조하고, 원문 해시·조회시각·차이·공표시점 미확인 상태가 있는 별도 보고서를 생성합니다. focused 검사·독립 review·main 통합·실제 소량 조회까지 확인합니다.
+- 담당: supervisor 조율; 중앙 profile explore → plan → 단일 code 구현 → 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-ecos-fx-comparison` / `feat/ecos-fx-comparison` (계획 확정 후 생성).
+- 기준 커밋: `2029d1911777252f31da61c134fcf6fc5d1445ac`; 통합 대상: 로컬 `main`.
+- 입력: 기존 R2-03 FX 대체 원천 조사, frozen FX 자료, `bok-ecos-stats`의 731Y001/D/0000001 계약.
+- 허용 범위: 진단 CLI/parser·직접 테스트·사용 문서·개발 기록; 기존 전략·collector 기본값·DB·NAV·readiness·PAPER/live는 변경하지 않습니다.
+- 환경·산출물: 작업별 Python 환경, DB/서버 없음; audit `/home/kwl/.local/share/jusik/portfolio-audit/20260930-ecos-fx-comparison/`.
+- 운영: 시작 시 roadmap runner paused=true, service/timer inactive 및 operator hold 확인; 기존 중지 상태를 유지합니다.
+- 검증·결과 커밋: 대기.
+- 개발 기록: `docs/development-records/2026-09-30-ecos-fx-comparison.md` (예정).
+- handoff: `docs/handoffs/2026-09-30-ecos-fx-comparison.md` (예정).
