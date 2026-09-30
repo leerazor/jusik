@@ -35,6 +35,7 @@ from jusik.market_history_approximate import (
     US_EXCLUSION_NORMALIZATION_VERSION,
     US_MEMBERSHIP_SEED,
     US_PREFERRED_NORMALIZATION_VERSION,
+    US_WARRANT_NORMALIZATION_VERSION,
     ApproximateBarRow,
     ApproximateDataset,
     ApproximateEvent,
@@ -50,6 +51,7 @@ from jusik.market_history_approximate import (
     canonicalize_approximate_events,
     deterministic_pool,
     is_us_preferred_name,
+    is_us_warrant_name,
 )
 from jusik.market_history_models import Market
 from jusik.market_research_strategy import US_RESEARCH_EXCLUDED_SYMBOLS
@@ -686,6 +688,7 @@ class AtomicResponseCache:
         self.completed_path = root / "completed.json"
         self.us_completed_path = root / "completed-us-exclusions-v1.json"
         self.us_preferred_completed_path = root / "completed-us-exclusions-v2.json"
+        self.us_warrant_completed_path = root / "completed-us-exclusions-v3.json"
 
     def _completed_path(
         self, market: Market | None, normalization_version: str | None
@@ -698,6 +701,8 @@ class AtomicResponseCache:
             return self.us_completed_path
         if normalization_version == US_PREFERRED_NORMALIZATION_VERSION:
             return self.us_preferred_completed_path
+        if normalization_version == US_WARRANT_NORMALIZATION_VERSION:
+            return self.us_warrant_completed_path
         raise CollectorError("unsupported US normalization version")
 
     def _read_manifest(self) -> CacheManifest:
@@ -873,6 +878,10 @@ class AtomicResponseCache:
             or self.read_completed(market="US") is not None
             or self.read_completed(
                 market="US", normalization_version=US_PREFERRED_NORMALIZATION_VERSION
+            )
+            is not None
+            or self.read_completed(
+                market="US", normalization_version=US_WARRANT_NORMALIZATION_VERSION
             )
             is not None,
         }
@@ -1308,6 +1317,7 @@ _ALPHA_ASSET_TYPE_MAP: dict[str, _AlphaProductType] = {
 _ALPHA_NAME_PRODUCT_PATTERNS: tuple[tuple[_AlphaProductType, re.Pattern[str]], ...] = (
     (_AlphaProductType.ETF, re.compile(r"\betfs?\b")),
     (_AlphaProductType.WARRANT, re.compile(r"\bwarrants?\b")),
+    (_AlphaProductType.WARRANT, re.compile(r"\bwt\s+exp\s+\d{8}\b")),
     (
         _AlphaProductType.OTHER,
         re.compile(
@@ -2244,6 +2254,7 @@ def completed_collection_is_valid(
         if dataset.normalization_version not in {
             US_EXCLUSION_NORMALIZATION_VERSION,
             US_PREFERRED_NORMALIZATION_VERSION,
+            US_WARRANT_NORMALIZATION_VERSION,
         }:
             return False
         normalization_version = dataset.normalization_version
@@ -2258,8 +2269,16 @@ def completed_collection_is_valid(
                 for item in rows
             )
             or (
-                normalization_version == US_PREFERRED_NORMALIZATION_VERSION
+                normalization_version
+                in {
+                    US_PREFERRED_NORMALIZATION_VERSION,
+                    US_WARRANT_NORMALIZATION_VERSION,
+                }
                 and any(is_us_preferred_name(item.name) for item in dataset.universe)
+            )
+            or (
+                normalization_version == US_WARRANT_NORMALIZATION_VERSION
+                and any(is_us_warrant_name(item.name) for item in dataset.universe)
             )
         ):
             return False
@@ -2626,7 +2645,7 @@ class FreeMarketDataCollector:
             raw_rows = tuple(universe_rows)
             selected_symbols = set(symbols)
             source = "alpha_vantage"
-            normalization_version = US_PREFERRED_NORMALIZATION_VERSION
+            normalization_version = US_WARRANT_NORMALIZATION_VERSION
         if market == "KR":
             first_day_rows = tuple(row for row in raw_rows if row.session == checkpoint)
             pool = deterministic_pool(first_day_rows, market=market, pool_end=end)
@@ -3089,7 +3108,7 @@ async def collect_market_data(
 ) -> CollectionOutput:
     cache = AtomicResponseCache(cache_dir)
     if market == "US":
-        if cache.us_preferred_completed_path.exists():
+        if cache.us_warrant_completed_path.exists():
             raise CollectorError("US collection completion already exists")
         if output.exists():
             raise CollectorError("prepared collection output already exists")
@@ -3147,7 +3166,7 @@ async def collect_market_data(
             output=output,
             content=content,
             normalization_version=(
-                US_PREFERRED_NORMALIZATION_VERSION if market == "US" else None
+                US_WARRANT_NORMALIZATION_VERSION if market == "US" else None
             ),
         )
         return output_result

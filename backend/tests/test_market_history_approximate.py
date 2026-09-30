@@ -7,12 +7,14 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
 from jusik.fixture_app import app as fixture_app
 from jusik.market_history_approximate import (
     US_EVENT_TIMING_NORMALIZATION_VERSION,
     US_EXCLUSION_NORMALIZATION_VERSION,
     US_MEMBERSHIP_NORMALIZATION_VERSION,
     US_PREFERRED_NORMALIZATION_VERSION,
+    US_WARRANT_NORMALIZATION_VERSION,
     ApproximateBarRow,
     ApproximateDataset,
     ApproximateEvent,
@@ -33,6 +35,7 @@ from jusik.market_history_approximate import (
     us_exclusion_contract_hash,
     us_membership_contract_hash,
     us_preferred_contract_hash,
+    us_warrant_contract_hash,
 )
 from jusik.market_history_models import Market, MarketResearchRequest
 from jusik.market_history_sources import data_contract_hash
@@ -384,7 +387,7 @@ def test_prepared_us_legacy_rows_are_filtered_without_raw_rewrite(
     assert us_exclusion_contract_hash() != snapshot.pool_contract_hash
 
 
-def test_v2_v3_us_contracts_are_distinct_and_legacy_hashes_frozen(
+def test_v2_v3_v4_us_contracts_are_distinct_and_legacy_hashes_frozen(
     tmp_path: Path,
 ) -> None:
     assert us_membership_contract_hash() == (
@@ -396,7 +399,10 @@ def test_v2_v3_us_contracts_are_distinct_and_legacy_hashes_frozen(
     assert us_exclusion_contract_hash() == (
         "dbbe73c54028643f612ec6a6fa34300f0070f07c7b9d788f41dc1a2737caefb1"
     )
-    assert us_preferred_contract_hash() != us_exclusion_contract_hash()
+    assert us_preferred_contract_hash() == (
+        "7334579f144c2a6d03812e859cefc8444b2f6de2f096adaab7a2f09728b4694e"
+    )
+    assert us_warrant_contract_hash() != us_preferred_contract_hash()
 
     session = date(2026, 9, 14)
     row = ApproximateUniverseRow(
@@ -446,6 +452,7 @@ def test_v2_v3_us_contracts_are_distinct_and_legacy_hashes_frozen(
     for version in (
         US_EXCLUSION_NORMALIZATION_VERSION,
         US_PREFERRED_NORMALIZATION_VERSION,
+        US_WARRANT_NORMALIZATION_VERSION,
     ):
         output.write_bytes(
             dataset.model_copy(update={"normalization_version": version})
@@ -461,11 +468,15 @@ def test_v2_v3_us_contracts_are_distinct_and_legacy_hashes_frozen(
                 new_us_research=True,
             )
         )
-    assert hashes == [us_exclusion_contract_hash(), us_preferred_contract_hash()]
-    assert data_hashes[0] != data_hashes[1]
+    assert hashes == [
+        us_exclusion_contract_hash(),
+        us_preferred_contract_hash(),
+        us_warrant_contract_hash(),
+    ]
+    assert len(set(data_hashes)) == 3
     output.write_bytes(
         dataset.model_copy(
-            update={"normalization_version": "approx-us-r1-event-timing-v4"}
+            update={"normalization_version": "approx-us-r1-event-timing-v5"}
         )
         .model_dump_json()
         .encode()
@@ -489,14 +500,49 @@ def test_v2_v3_us_contracts_are_distinct_and_legacy_hashes_frozen(
     assert asyncio.run(source.collect(request)).pool_contract_hash == (
         us_exclusion_contract_hash()
     )
+    for version in (
+        US_PREFERRED_NORMALIZATION_VERSION,
+        US_WARRANT_NORMALIZATION_VERSION,
+    ):
+        output.write_bytes(
+            preferred.model_copy(update={"normalization_version": version})
+            .model_dump_json()
+            .encode()
+        )
+        with pytest.raises(ApproximateProviderError, match="preferred product name"):
+            asyncio.run(source.collect(request))
+
+    warrant = dataset.model_copy(
+        update={
+            "universe": (
+                row.model_copy(
+                    update={
+                        "symbol": "GPACW",
+                        "name": "Global Partner Acquisition Corp Wt Exp 07012020",
+                    }
+                ),
+            ),
+            "bars": (bar.model_copy(update={"symbol": "GPACW"}),),
+        }
+    )
+    for version in (
+        US_EXCLUSION_NORMALIZATION_VERSION,
+        US_PREFERRED_NORMALIZATION_VERSION,
+    ):
+        output.write_bytes(
+            warrant.model_copy(update={"normalization_version": version})
+            .model_dump_json()
+            .encode()
+        )
+        asyncio.run(source.collect(request))
     output.write_bytes(
-        preferred.model_copy(
-            update={"normalization_version": US_PREFERRED_NORMALIZATION_VERSION}
+        warrant.model_copy(
+            update={"normalization_version": US_WARRANT_NORMALIZATION_VERSION}
         )
         .model_dump_json()
         .encode()
     )
-    with pytest.raises(ApproximateProviderError, match="preferred product name"):
+    with pytest.raises(ApproximateProviderError, match="warrant product name"):
         asyncio.run(source.collect(request))
 
 

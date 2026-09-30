@@ -51,19 +51,27 @@ US_MEMBERSHIP_NORMALIZATION_VERSION = "approx-us-r1-membership-v1"
 US_EVENT_TIMING_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v1"
 US_EXCLUSION_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v2"
 US_PREFERRED_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v3"
+US_WARRANT_NORMALIZATION_VERSION = "approx-us-r1-event-timing-v4"
 US_MEMBERSHIP_POOL_POLICY_VERSION = "approximate-us-membership-pool-v1"
 US_EVENT_TIMING_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v1"
 US_EXCLUSION_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v2"
 US_PREFERRED_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v3"
+US_WARRANT_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v4"
 US_MEMBERSHIP_SEED = 20260914
 APPROX_LOOKBACK_SESSIONS = 20
 APPROX_TARGET_WEIGHT = Decimal("0.05")
 _US_PREFERRED_NAME_PATTERN = re.compile(r"\bprf\s+perpetual\b")
+_US_WARRANT_NAME_PATTERN = re.compile(r"\bwt\s+exp\s+\d{8}\b")
 
 
 def is_us_preferred_name(name: str) -> bool:
     """Recognize the bounded Alpha Vantage preferred-name evidence for v3."""
     return _US_PREFERRED_NAME_PATTERN.search(name.strip().casefold()) is not None
+
+
+def is_us_warrant_name(name: str) -> bool:
+    """Recognize the bounded Alpha Vantage warrant-name evidence for v4."""
+    return _US_WARRANT_NAME_PATTERN.search(name.strip().casefold()) is not None
 
 
 CollectionDiagnosticReason = Literal[
@@ -643,6 +651,20 @@ def us_preferred_contract_hash() -> str:
     )
 
 
+def us_warrant_contract_hash() -> str:
+    """Return the distinct US selection contract with warrant-name filtering."""
+    return _hash(
+        {
+            "base": _us_contract_hash(
+                policy_version=US_WARRANT_POOL_POLICY_VERSION,
+                normalization_version=US_WARRANT_NORMALIZATION_VERSION,
+            ),
+            "excluded_symbols": sorted(US_RESEARCH_EXCLUDED_SYMBOLS),
+            "exclusion_stage": "before_checkpoint_seed_and_retention",
+        }
+    )
+
+
 def legacy_us_membership_contract_hash() -> str:
     """Return the R1-01 hash so legacy prepared artifacts remain identifiable."""
     return us_membership_contract_hash()
@@ -861,6 +883,7 @@ class ApproximateMarketHistorySource:
             US_EVENT_TIMING_NORMALIZATION_VERSION,
             US_EXCLUSION_NORMALIZATION_VERSION,
             US_PREFERRED_NORMALIZATION_VERSION,
+            US_WARRANT_NORMALIZATION_VERSION,
         }
         if (
             request.market == "US"
@@ -879,6 +902,7 @@ class ApproximateMarketHistorySource:
             if dataset.normalization_version in {
                 US_EXCLUSION_NORMALIZATION_VERSION,
                 US_PREFERRED_NORMALIZATION_VERSION,
+                US_WARRANT_NORMALIZATION_VERSION,
             }:
                 present = US_RESEARCH_EXCLUDED_SYMBOLS.intersection(
                     item.symbol
@@ -897,14 +921,19 @@ class ApproximateMarketHistorySource:
                     raise ApproximateProviderError(
                         "prepared US data lacks policy exclusion evidence"
                     )
-                if (
-                    dataset.normalization_version == US_PREFERRED_NORMALIZATION_VERSION
-                    and any(
-                        is_us_preferred_name(item.name) for item in dataset.universe
-                    )
-                ):
+                if dataset.normalization_version in {
+                    US_PREFERRED_NORMALIZATION_VERSION,
+                    US_WARRANT_NORMALIZATION_VERSION,
+                } and any(is_us_preferred_name(item.name) for item in dataset.universe):
                     raise ApproximateProviderError(
                         "prepared US data contains preferred product name"
+                    )
+                if (
+                    dataset.normalization_version == US_WARRANT_NORMALIZATION_VERSION
+                    and any(is_us_warrant_name(item.name) for item in dataset.universe)
+                ):
+                    raise ApproximateProviderError(
+                        "prepared US data contains warrant product name"
                     )
             _validate_us_membership_rows(dataset.universe, market=request.market)
             selected_rows = dataset.universe
@@ -913,6 +942,7 @@ class ApproximateMarketHistorySource:
                 US_EVENT_TIMING_NORMALIZATION_VERSION: us_event_timing_contract_hash,
                 US_EXCLUSION_NORMALIZATION_VERSION: us_exclusion_contract_hash,
                 US_PREFERRED_NORMALIZATION_VERSION: us_preferred_contract_hash,
+                US_WARRANT_NORMALIZATION_VERSION: us_warrant_contract_hash,
             }[dataset.normalization_version]()
         else:
             assert pool is not None
@@ -925,6 +955,7 @@ class ApproximateMarketHistorySource:
                 US_EVENT_TIMING_NORMALIZATION_VERSION,
                 US_EXCLUSION_NORMALIZATION_VERSION,
                 US_PREFERRED_NORMALIZATION_VERSION,
+                US_WARRANT_NORMALIZATION_VERSION,
             }
         )
         normalized_events: tuple[ApproximateEvent, ...]

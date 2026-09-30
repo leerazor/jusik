@@ -205,7 +205,7 @@ R3는 R0 계약이 정한 기존 자료만 읽어 화면에 보여주는 작업�
 
 R4는 R1·R2와 독립 review가 끝난 뒤 동일한 고정 정책으로 미국 1년을 다시 실행한다. 무료 자료·기존 cache를 먼저 audit하고, 자료가 부족할 때만 최소 수집을 추가한다. R3 UI는 연구 계산의 선행 조건이 아니며 새 결과 게시와 UX 검증에 사용한다. 1년 자료 게이트는 등급을 보존해 판정한다. strict pilot은 `run.status=completed`, `result.status=ready`, `result.completeness=complete`가 필요하고, approximate pilot은 `run.status=completed`, `result.status=approximate`, `result.completeness=approximate`이면 같은 시장·등급의 final이 참조할 수 있다. 두 등급 모두 고정 실행 가정, 현재 policy hash와 data contract hash, 자료 공급원의 simulated·grade 일치를 확인한다. strict 완료를 모든 자료에 무조건 요구하지 않는다. 이 단계의 pilot과 3년 final은 bounded 입력·비용·실행 예산을 사전에 고정하며, 최종 untouched OOS를 선택이나 튜닝에 사용하지 않는다.
 
-새 미국 pilot은 `us-research-symbol-exclusions-v1` 정책 및 신규 data contract hash로 실행합니다. 이전 policy hash의 pilot은 새 final에 사용할 수 없고, 새 수집은 `approx-us-r1-event-timing-v3` 정규화로 두 심볼을 seed 전에 제외하며 `PRF PERPETUAL` 연속 상품명을 분류합니다. v2 입력·해시는 보존하고 v2 pilot과 v3 final의 data contract hash 불일치는 거부합니다. 이전 prepared 입력의 축소 표본은 원본과 등급을 보존하고 대체 보충 없음·coverage 한계를 표시합니다.
+새 미국 pilot은 `us-research-symbol-exclusions-v1` 정책 및 신규 data contract hash로 실행합니다. 이전 policy hash의 pilot은 새 final에 사용할 수 없고, 새 수집은 `approx-us-r1-event-timing-v4` 정규화로 두 심볼을 seed 전에 제외하며 `PRF PERPETUAL` 연속 상품명과 `Wt Exp` 뒤 8자리 날짜가 오는 워런트 명칭을 분류합니다. v2·v3 입력과 해시는 보존하고 이전 pilot과 v4 final의 data contract hash 불일치는 거부합니다. 이전 prepared 입력의 축소 표본은 원본과 등급을 보존하고 대체 보충 없음·coverage 한계를 표시합니다.
 
 - [ ] **R4-01** 수정된 policy fingerprint로 정확히 1년 미국 pilot을 bounded 실행하고 기존 결과와 입력 차이를 기록하며, 무료 자료 우선·audit 후 최소 수집 순서를 증거로 남긴다.
   - 2026-09-20 재수집은 별도 audit에서 credentials/collection을 통과했지만, approximate pilot은
