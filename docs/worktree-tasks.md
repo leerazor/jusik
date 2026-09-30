@@ -4886,12 +4886,16 @@
 
 ## us-v3-offline-cache-audit-20260930
 
-- 상태: 계획·독립 scope 검토; 새 v3의 표본과 캐시 결손을 외부 조회 없이 확인한다.
+- 상태: 완료 — 오프라인 요청 범위 진단·독립 review·main 통합·handoff 완료. 자료 인수와 성과 검증은 미완료.
 - 목표·완료 조건: 기존 working-cache 139개를 전용 audit 복사본으로 재사용해 동일 미국 1년/sample100/20세션 warmup의 v3 누적 선정·정확 요청 key·이전 실패 대비 변화를 고정한다. 오프라인 실패·산출물·완료 marker는 연구 입력과 분리하고 독립 검토·main 기록·handoff까지 완료한다.
 - 담당: 기존 explore → 중앙 plan의 독립 scope → 단일 code 실행 → 독립 review. 기준 `7de3e88`, runner paused/running 0, service/timer inactive.
-- 예정 워크트리/브랜치: `/home/kwl/projects/jusik-us-v3-offline-cache-audit` / `research/us-v3-offline-cache-audit`; 통합 `main`.
+- 작업 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-us-v3-offline-cache-audit` / `research/us-v3-offline-cache-audit`; 통합 `main`.
 - 입력: `20260930-us-exclusion-pilot-readiness/working-cache`의 manifest/raw, 기존 v2 prepared·누적 진단·frozen-misses/live-attempts, v3 분류 수정 기록. 원본은 읽기 전용이며 새 복사본만 변경한다.
 - 수정 허용: 새 audit 스크립트·JSON과 작업별 개발 기록·handoff. production·정책·원본·계정 설정 변경 없음. 실제 시장·웹 요청 0, 금융 실험 0; mock 시도 최대 300, 실행 60초, 산출물 100MiB 사전·사후 점검(내장 hard limit 아님).
 - 검증: 복사본 raw 해시, 요청 key·기간·캐시 집합, 실제 실패와 mock 거부 구분, 완료 marker 격리, 원본 보존. 기존 247개 검사는 코드·입력이 같으므로 재사용한다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-v3-offline-cache-audit/`.
 - 개발 기록: `docs/development-records/2026-09-30-us-v3-offline-cache-audit.md`; handoff: `docs/handoffs/2026-09-30-us-v3-offline-cache-audit.md`.
+- 결과: 캐시 139개 재사용, 실제 요청 0; 새 가상 miss25 = 기존 실패24 + 신규 ICUI1. MET-P-F 제거, CFG/NOEM 재사용. 누적101→101·일별75~76은 sample100 완전성 증거가 아니다.
+- 구현/통합: `872d5fdd787fffdffde868e8b87c44c721195a1f` / `df0a9404f800c159a6994035e01a8cb35e91870d`; 병합 직전 `f37d4a3b8499296cf7a240c36eb07112c8c9cbd7`. 독립 review PASS, main 결속·원본7 hash·전체 backend 불변 PASS. 기존 247 tests 근거 재사용.
+- 통합 검사 수정: 기존 baseline의 backend_tree는 backend/jusik 대상이다. 최초 잘못된 경로 비교를 수정하고 전체 backend 불변도 확인했다. 생산 코드 수정 없음.
+- 정리·다음: 환경·증거 audit 보존 후 전용 worktree/branch 제거. 신규 ICUI1 제한 조회 scope가 다음 자료 작업이며 동일 실패24 재요청은 새 근거가 필요하다. marker 격리·ready=false·UNTRUSTED 유지, 사건 관측시각 결손도 미해소.

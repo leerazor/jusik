@@ -1,9 +1,9 @@
 # 미국 v3 캐시 오프라인 감사
 
-- 상태: 자료 요청 범위 진단 완료, 독립 검토·main 통합 대기. 데이터 인수·성과 검증은 미완료
+- 상태: 자료 요청 범위 진단·독립 검토·main 통합 완료. 데이터 인수·성과 검증은 미완료
 - 기록 시각: 2026-09-30T07:13:09Z
 - 작업 slug: `us-v3-offline-cache-audit-20260930`
-- 기준/통합: `f37d4a3b8499296cf7a240c36eb07112c8c9cbd7` / 감독자 확정 예정
+- 기준/통합: `f37d4a3b8499296cf7a240c36eb07112c8c9cbd7` / `df0a9404f800c159a6994035e01a8cb35e91870d`
 - 범위: 미국 2025-09-11~2026-09-11, warmup 20세션, sample100, v3 수집 경로를 기존 cache 복사본에서 deny-all로 1회 검사. 생산 코드·mandate·원본 자료 변경 없음.
 
 ## 실행과 결과
@@ -22,3 +22,10 @@
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-v3-offline-cache-audit/` (`baseline.json`, `audit_v3_cache.py`, `result.json`, `binding.json`, 격리된 출력/marker). 비교 원본은 이전 자료 준비 audit의 `frozen-misses.json`, `live-attempts.json`, `missing-inputs.json`이다.
 - 가상 실패는 실제 공급자 응답이나 자료 적격 증거가 아니다. 같은 Yahoo 요청 24건은 새 원본 근거 없이 재시도하지 않는다. 새 `ICUI` 요청과 사건별 역사 관측시각·상장/가격 결손은 별도 scope에서 비용·접근을 검토해야 한다. 기존 25 요청 제외·125 사건 관측시각 결손이 해결되었다고 해석하지 않는다.
+
+## 독립 검토·통합·문서 영향
+
+- 구현 `872d5fdd787fffdffde868e8b87c44c721195a1f`; 독립 review는 오프라인 요청 범위 진단에 한해 PASS, 중요한 지적 없음. `review-final.json`, `routing-code.json`, `routing-review.json`에 검토·중앙 모델 실행 근거를 저장했다.
+- main 통합 후 `integration.json`: script/result/baseline 결속, 보호 원본 7개, 격리 marker, 전체 backend tree 불변 PASS. 최초 확인에서는 기존 `backend_tree` 필드를 `backend` 경로로 잘못 해석해 assertion이 실패했다. 실제 기록 대상 `backend/jusik`으로 바로잡고 전체 `backend`도 이전 검증 commit과 같음을 별도로 확인했다. 코드 변경은 없었다.
+- 기능·API·설정·연구 계약 변경이 없어 기능 문서는 추가 수정하지 않았다. 작업 등록부·MEMORY 진입점·이 인계를 갱신했다. `environment.json`에 버전을 보존하고 깨끗한 작업 워크트리·브랜치를 정리했다. 루트 사용자 소유 `HANDOFF.md`는 보존했다.
+- 다음 1순위는 신규 `ICUI` 정확 key 1건의 제한 조회 scope다. 기존 실패 24건은 새 증거 없이 반복하지 않는다. 역사 관측시각 결손은 별도 자료 확보 조건이며 가격 요청 성공만으로 비용 포함 비교를 시작할 수 없다.
