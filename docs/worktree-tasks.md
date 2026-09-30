@@ -5031,3 +5031,4 @@
 - 검증/종료: 원문과 BERZ/상품 설명 직접 대조 또는 접근실패 근거, 원본 보호, 독립 review·main 동일성 검증·기록·정리. 코드/캐시/준비자료/전략/OOS 변경0.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-berz-security-source/`; 개발기록 `docs/development-records/2026-09-30-berz-security-source.md`; handoff `docs/handoffs/2026-09-30-berz-security-source.md`.
 - workflow 판단: 원문1건으로 자동 분류 수정 가능성의 근거 부족을 구체화하고 반복 조회를 막는다.
+- 독립 범위 확장(동일 단일 소유): planner가 새 TNMG raw의 split2 전후 가격기준 대사를 GO로 판단했다. `tnmg-basis-scope.json`에 별도 고정, network/회계실행0·가격기준 추정금지, `tnmg-basis-*` receipt만 생성. 기존 SEC scope와 예산은 불변. 이전 nullbar 검사에 없던 split 중복적용 위험을 확인한다.
