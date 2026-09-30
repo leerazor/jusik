@@ -1,5 +1,7 @@
 # 거래일 시점 시장 연구
 
+별도 환율 공급원 확인은 [ECOS·FRED 원/달러 진단 비교](ecos-fx-comparison.md)를 따른다. 이 비교는 성과 입력이 아니다.
+
 성과 지표의 동결 NAV 입력·근거·unavailable 경계는
 [동결 NAV 시장 성과 지표 계약](market-performance-metrics.md)을 따른다.
 
