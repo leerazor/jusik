@@ -4940,3 +4940,15 @@
 - 결과: 공식검색1·발행사원문/직접연결배포본 open2. 0.36달러, 기준일10-31·지급일11-17, 배포표기2025-10-13 17:54 ET=21:54 UTC(분단위). Yahoo 날짜역할/13:30Z 의미·실제 과거최초관측·vintage 미검증. prepared/PIT/성과 승격 없음.
 - 구현/통합: `79078e0eb0b35765c7954a2379a347f01d1e2bea` / `760803d7fa47c68476df64846f6f0dc69755ccca`; 병합직전 `07461b3`. 독립 review·main backend불변/원본11hash/증거결속/예산 PASS, 실패 없음. 기록·handoff 갱신, audit보존 후 전용worktree/branch 정리.
 - 다음: 대량조회 전에 event observed_at 계약과 분단위 공표근거·날짜역할 정합성을 읽기전용 scope로 검토한다. 125관측시각 결손·24시세실패/전체자료차단은 유지한다.
+
+## event-observation-contract-20260930
+
+- 상태: explore·독립 plan 완료, 계약·자료 결손 matrix 기록 진행.
+- 목표·완료 조건: AOS 공표근거와 현행 observed_at 의미·배당 전달 경로를 대조하고 필요한 자료/회계 연결 조건을 표로 고정한다. 독립 review·main 통합·handoff까지 완료한다.
+- workflow 선택: 외부자료 추가조회 전 기존 회계함수 재사용과 실제 빠진입력을 확인해 의미 없는125건 수집·중복회계 구현을 줄인다.
+- 담당: source_freshness_explore → preferred_plan → ecos_code 단일 기록 owner → ecos_review. runner paused/running0·service/timer inactive 유지.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-event-observation-contract` / `docs/event-observation-contract`; scope 기준 `2e79d6b`, 통합 main.
+- 입력: 기존AOS assessment/identity/snapshots, 현재코드/docs, 회계 primitive·offline evaluator·후향overlay 경계. baseline.json은 backend/source/mandate/AOS hash를 고정한다.
+- 허용: 감사matrix JSON, 개발기록·인계 2문서. 생산코드·prepared·동결자료·정책 변경 및 adapter구현 없음. 외부조회·금융실험·동일검사재실행0.
+- 검증: 필드→근거→소비경로→부족/재개조건, timestamp의 수집/공개 역할과 분단위 정밀도, dividendNAV 경계. 결속hash·문서링크·독립review/main코드불변 확인.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-event-observation-contract/`; 개발기록 `docs/development-records/2026-09-30-event-observation-contract.md`; handoff `docs/handoffs/2026-09-30-event-observation-contract.md`.
