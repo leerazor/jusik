@@ -5020,3 +5020,14 @@
 - 완료: 유효271/결손1·split보존·unknown차단 및 legacy회귀, 독립 review·main 통합검증·기록·handoff·정리. 기술완료/원문확보와 준비자료·성과적격 분리.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-null-bar-recovery/`; 개발기록 `docs/development-records/2026-09-30-us-null-bar-recovery.md`; handoff `docs/handoffs/2026-09-30-us-null-bar-recovery.md`.
 - 결과·통합: 구현 `0396ed6`, main `14b850ff1187e752b9cbd1d081157b74b059fa64`. 회귀16·정적검사 PASS 재사용, main backend/11파일·audit11·보호28 결속 PASS. TNMG 271/272bars·split2 unknown, cache142 정본 확보. 환경·audit 보존 후 정리 완료. 다음: 9/22 거부원문부터 남은 결손의 인수 조건 확인.
+
+## berz-security-source-20260930
+
+- 상태: 진행 — explore·독립 plan 조건부 GO.
+- 목표: 보존 SEC metadata의 BERZ 문서 한 건으로 후일 법적 상품유형과 평가 시작 전 근거의 결손을 구별한다. 새 분류·수집 계약은 만들지 않는다.
+- 담당: source_freshness_explore → preferred_plan → ecos_code 단일 소유 → ecos_review. runner 재확인 후 paused=true/running0, service/timer inactive.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-berz-security-source` / `research/berz-security-source`; 기준 `53239d7`.
+- 범위: 정확 SEC URL GET1·원문/메타데이터/hash·source verdict·개발기록·인계. retry0/redirect0/search0, 30s/60s/10MiB, 실패시 즉시 중단. filing2025-11-03은 eval2025-09-11 이후로 선정시점 분류·PIT·성과에 소급 적용 금지.
+- 검증/종료: 원문과 BERZ/상품 설명 직접 대조 또는 접근실패 근거, 원본 보호, 독립 review·main 동일성 검증·기록·정리. 코드/캐시/준비자료/전략/OOS 변경0.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-berz-security-source/`; 개발기록 `docs/development-records/2026-09-30-berz-security-source.md`; handoff `docs/handoffs/2026-09-30-berz-security-source.md`.
+- workflow 판단: 원문1건으로 자동 분류 수정 가능성의 근거 부족을 구체화하고 반복 조회를 막는다.
