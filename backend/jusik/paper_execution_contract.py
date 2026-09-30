@@ -153,6 +153,7 @@ class ExecutionLedger:
         self._cancel_attempted: set[str] = set()
         self._cancel_lock = Lock()
         self._submit_lock = Lock()
+        self._accept_lock = Lock()
         self._journal = (
             _OrderJournal(journal_path) if journal_path is not None else None
         )
@@ -218,9 +219,12 @@ class ExecutionLedger:
     def _accept(self, key: str, result: OrderSnapshot) -> OrderSnapshot:
         if self._journal is not None:
             self._journal.accept(key, result)
-        else:
+            self._orders[key] = result
+            return result
+        validate_snapshot(result)
+        with self._accept_lock:
             _validate_transition(self._required(key), result)
-        self._orders[key] = result
+            self._orders[key] = result
         return result
 
 

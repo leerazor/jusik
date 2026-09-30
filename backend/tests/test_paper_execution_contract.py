@@ -537,6 +537,44 @@ def test_shared_journal_cannot_overwrite_newer_fills(
     assert ExecutionLedger(broker, path).submit(intent()) == latest
 
 
+def test_concurrent_reconcile_without_journal_preserves_newer_fill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    broker = FakeBroker()
+    ledger = ExecutionLedger(broker)
+    ledger.submit(intent(quantity="2"))
+    first_fill = Fill("f1", Decimal("1"), Decimal("9"))
+    second_fill = Fill("f2", Decimal("1"), Decimal("9.25"))
+    stale = OrderSnapshot(intent(quantity="2"), "partial", (first_fill,))
+    latest = OrderSnapshot(intent(quantity="2"), "filled", (first_fill, second_fill))
+    validating_stale = Event()
+    resume_stale = Event()
+    original_validate = execution_contract.validate_snapshot
+
+    def pause_stale_validation(snapshot: OrderSnapshot) -> None:
+        original_validate(snapshot)
+        if snapshot is stale:
+            validating_stale.set()
+            if not resume_stale.wait(timeout=5):
+                raise AssertionError("stale_reconciliation_not_released")
+
+    monkeypatch.setattr(execution_contract, "validate_snapshot", pause_stale_validation)
+    broker.orders["k1"] = stale
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        stale_future = pool.submit(ledger.reconcile, "k1")
+        assert validating_stale.wait(timeout=5)
+        broker.orders["k1"] = latest
+        try:
+            assert pool.submit(ledger.reconcile, "k1").result(timeout=2) == latest
+        finally:
+            resume_stale.set()
+        with pytest.raises(ValueError, match="reconciliation_fill_mismatch"):
+            stale_future.result(timeout=5)
+
+    assert ledger.submit(intent(quantity="2")) == latest
+    assert ledger.submit(intent(quantity="2")).filled_quantity == Decimal("2")
+
+
 def test_restart_does_not_retry_uncertain_cancel_or_rejection(tmp_path: Path) -> None:
     broker = FakeBroker()
     path = tmp_path / "orders.sqlite3"
