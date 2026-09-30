@@ -4841,10 +4841,12 @@
 
 ## external-context-audit-20260930
 
-- 상태: 진행; 외부자료 상태 전달 후보를 읽기 전용 조사·계획 검토한 결과 NO-GO. 결함 수정이나 기능 추가 대상은 확인되지 않았다.
+- 상태: 완료; 외부자료 상태 전달 후보를 읽기 전용 조사·계획 검토한 결과 NO-GO. 결함 수정이나 기능 추가 대상은 확인되지 않았다.
 - 목표·완료 조건: 모닝 브리핑 스킬의 시점·stale 구분 기준을 기존 소비 경로에 대조하고, 확인된 판단·재개 조건을 영구 기록한다.
 - 담당: explore 조사, plan의 소비 경로 검증, 단일 code 문서 기록, 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-external-context-audit` / `docs/external-context-audit`; 기준 `6915a42`, 통합 `main`.
 - 범위: `docs/development-records/2026-09-30-external-context-audit.md`, `docs/handoffs/2026-09-30-external-context-audit.md`만 신규 작성. 기존 코드·입력·운영 정책 변경 없음.
 - 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-external-context-audit/initial-state.json`, `decision.json`.
 - 검증: 코드 소비 경로·고정 해시·문서 링크·diff 검사. 코드 변경이 없어 테스트·시세 재조회 생략.
+- 구현/통합: 문서 `bacadeab72742ef44976e6c0438fb8a57c07a1a5` / `cd96475e6d208f669e787711861ac2fbba0a9faa`. 독립 review 및 main 문서 일치·해시 9개·링크·diff PASS. worktree·브랜치 정리 완료.
+- 개발 기록: [감사 판단](development-records/2026-09-30-external-context-audit.md); handoff: [재개 조건](handoffs/2026-09-30-external-context-audit.md).

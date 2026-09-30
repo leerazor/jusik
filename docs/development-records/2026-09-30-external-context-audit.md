@@ -1,9 +1,9 @@
 # 외부자료 상태 전달 후보 감사
 
-- 상태: 감사 완료, 구현 NO_GO; main 통합 대기
+- 상태: 감사 완료, 구현 NO_GO; 독립 검토·main 통합 검증 완료
 - 기록 시각: 2026-09-30T05:11:09Z
 - 작업 slug: `external-context-audit-20260930`
-- 기준/통합: `1c98251fd7d529ce9c4bf8fd5818c93ab9b16dde` / 없음 (감독자 확정 예정)
+- 기준/통합: `1c98251fd7d529ce9c4bf8fd5818c93ab9b16dde` / `cd96475e6d208f669e787711861ac2fbba0a9faa`
 - 범위: 현재 소비 경로의 시점·stale 의미를 검토하고 판단만 보존. 코드·입력·운영 정책 변경 없음.
 
 ## 변경과 결정
@@ -23,6 +23,8 @@
 - 관련 소비 경로와 상대 링크·`git diff --check`를 확인했다. 테스트·시세 네트워크 요청은 0회이며 코드 변경이 없어 재실행하지 않았다. 도구 설치 관련 조회까지 포함한 네트워크 전체 0회 주장은 하지 않는다.
 
 ## 안전·운영 상태
+
+- 독립 review는 `bacadeab`에서 PASS. main에서 검토 문서와 bytes 일치, 고정 해시 9개·상대 링크·diff 검사 통과. `integration-verification.json`에 보존했으며 이번 전용 worktree·브랜치를 정리했다.
 
 - 초기 관측에서 runner paused, service/timer inactive, 전체 204건(완료 176·차단 9·실패 16·외부 대기 3), READY·running 0. Codex heartbeat는 30분 ACTIVE 유지하며 중복 writer를 막기 위해 기존 systemd runner를 함께 재개하지 않는다. Toss 제외, ECOS 기존 근거 재조회 없음. 실주문·배포·원격 push 없음.
 - 프로젝트 `.env`, `backend/.env`, process 범위에서 `API_K_DART`·직접 KOSIS 키 변수 부재를 확인했으나 외부 vault 전체 상태는 모른다. KOSIS 일반 proxy는 키 없이 가능하므로 서비스 전체 불가로 해석하지 않는다.

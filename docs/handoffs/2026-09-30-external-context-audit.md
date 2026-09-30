@@ -1,6 +1,6 @@
 # 외부자료 상태 전달 후보 인계
 
-- 갱신: 2026-09-30T05:11:09Z. 작업 트리 `/home/kwl/projects/jusik-external-context-audit`, 브랜치 `docs/external-context-audit`, 기준 `1c98251fd7d529ce9c4bf8fd5818c93ab9b16dde`. main 통합 SHA는 감독자가 확정한다.
+- 갱신: 2026-09-30T05:14:55Z. 저장소 `/home/kwl/projects/jusik`, `main`; 통합 `cd96475e6d208f669e787711861ac2fbba0a9faa`. 독립 review 및 main 문서·해시·링크·diff 검사 PASS, 이번 worktree와 브랜치 정리 완료.
 - 목표·결론: `forward_external_status` 후보는 NO_GO. 과거 cutoff 입력에 현재 상태 집계를 붙이면 미래 수집 결과가 소급된다. 현재 signal·FX 소비자는 관측값을 사용하고 `external_status` 결함은 재현되지 않았다. [개발 기록](../development-records/2026-09-30-external-context-audit.md)에 경로와 근거를 남겼다.
 - 확인된 상태: 감사 시 runner paused, service/timer inactive, 204건 중 완료 176·차단 9·실패 16·외부 대기 3, READY/running 0. Codex heartbeat 30분 ACTIVE 유지, Toss 제외. 기존 runner를 동시에 재개하지 않는다. 감사 완료는 프로젝트 전체 개발 완료가 아니다.
 - 외부 조건: 프로젝트 env/process에 DART·직접 KOSIS 키가 없었으나 vault 전체는 확인하지 않았다. 키 없는 KOSIS 일반 proxy까지 불가로 보지 않는다. manifest-integrity guard, receipt-id discovery, listing-identity는 각각 review finding·조건·자료가 부족해 재시도하지 않았다.
