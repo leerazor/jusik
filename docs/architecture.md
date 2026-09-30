@@ -24,9 +24,9 @@
 
 ## 새 작업 시작 순서
 
-1. `AGENTS.md`, 이 문서, 관련 하위 `AGENTS.md`를 읽습니다.
-2. `docs/worktree-tasks.md`에서 활성·차단 작업과 충돌하는 경로를 확인합니다.
-3. 해당 slug의 `docs/development-records/` 기록과 최신 `HANDOFF.md`를 읽고 실제 Git 상태를 대조합니다.
+1. `AGENTS.md`, [공통 메모리](../MEMORY.md), 이 문서와 관련 하위 `AGENTS.md`를 읽습니다. 이미 이번 세션에서 읽은 문서는 변경되지 않았다면 다시 읽지 않습니다.
+2. 공통 메모리의 검색 순서로 `docs/worktree-tasks.md`의 활성·차단 후보와 관련 소유 경로를 확인한 뒤 해당 작업 항목만 읽습니다.
+3. 해당 slug의 개발 기록과 등록부가 가리키는 인계를 읽고 실제 Git 상태를 대조합니다. 최신성 판단과 루트 `HANDOFF.md` 처리 기준은 공통 메모리를 따릅니다.
 4. 연구 작업은 `docs/research-mandate.md`와 JSON을 먼저 확인합니다. runner 또는 worktree 작업은 해당 운영 문서를 먼저 읽습니다.
 5. 투자 개발 후속 작업은 [투자 개발 로드맵](investment-development-roadmap.md)을 먼저 읽고 해당 단계의 체크리스트·증거·의존성을 따릅니다.
 
