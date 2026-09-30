@@ -4850,3 +4850,15 @@
 - 검증: 코드 소비 경로·고정 해시·문서 링크·diff 검사. 코드 변경이 없어 테스트·시세 재조회 생략.
 - 구현/통합: 문서 `bacadeab72742ef44976e6c0438fb8a57c07a1a5` / `cd96475e6d208f669e787711861ac2fbba0a9faa`. 독립 review 및 main 문서 일치·해시 9개·링크·diff PASS. worktree·브랜치 정리 완료.
 - 개발 기록: [감사 판단](development-records/2026-09-30-external-context-audit.md); handoff: [재개 조건](handoffs/2026-09-30-external-context-audit.md).
+
+## us-exclusion-pilot-readiness-20260930
+
+- 상태: 준비; 사용자 우선순위 실행 승인에 따른 신규 미국 1년 파일럿 자료 준비. 실행 전 독립 scope 검토 중.
+- 목표·완료 조건: LIME·MDA 제외를 선정 전에 적용한 새 입력을 기존 무료 캐시와 필요한 결손 조회로 준비하고, 독립 readiness 판정 또는 구체적 missing-inputs manifest를 남긴다. 전략·수익률 실험은 이번 자료 준비 범위에 포함하지 않는다.
+- 담당: explore 조사 → plan 계획 → 독립 scope → 단일 code 실행 → 독립 review. 기존 실패 큐 task 재승인과 별개인 사용자 승인 작업.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-us-exclusion-pilot-readiness` / `research/us-exclusion-pilot-readiness`; 기준 `fbdc6cd`, 통합 `main`.
+- 입력: 평가기간 2025-09-11~2026-09-11, sample100, 현행 20거래일 warmup·mandate. 9월24일 fresh-cache 원문137개 SHA 검증 완료. 원본227개 hash는 audit baseline 두 파일에 고정.
+- 범위·예산: 기존 collector와 새 audit 캐시 복사본·신규 output 사용; 먼저 offline miss 목록 고정. 실제 요청 최대300attempt, live20분, 원시100MiB 사전·사후 검사(내장 hard limit 아님). `.env` 값 복사·출력 금지, 원본·운영DB·전략·PAPER/live 변경 금지.
+- 산출물: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-exclusion-pilot-readiness/`의 `scope.json`, `baseline.json`, `reuse-source-baseline.json`, 이후 `readiness.json` 또는 `missing-inputs.json`.
+- 수정 허용: 새 audit 실행 스크립트·결과 및 해당 개발 기록·handoff. 코드 결함이 확인되면 원인·범위를 먼저 감독자에게 전달한다.
+- 개발 기록: `docs/development-records/2026-09-30-us-exclusion-pilot-readiness.md`; handoff: `docs/handoffs/2026-09-30-us-exclusion-pilot-readiness.md`.
