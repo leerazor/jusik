@@ -4955,3 +4955,15 @@
 - 결과: source·시각표현·replay파생입력·사전정책·전달계약 구분. 원천 최초수집receipt나정확초를일률적추가gate로만들지않음. 기존배당회계는재사용가능하지만현근사입력은배당제외, 후향overlay의pilot이식금지 유지.
 - 구현/통합: `584f057b7244801406cc5f9722cd9d28066143c8` / `cfd57f1061eae349289ac8c278e97e32649dc29c`; 병합직전 `86eef581b0f94bee0980b6709e7d95dbdd0861fa`. 독립review/main hash·결속·코드불변 PASS, 통합실패없음. 기록·handoff갱신, audit보존 후 worktree/branch정리.
 - 다음: AOS1사례 최소원천필드와 date/time precision의격리계약 scope검토. 외부조회/금융실험/동일테스트재실행0, 기존24시세실패·125사건관측시각 결손유지.
+
+## aos-event-evidence-20260930
+
+- 상태: explore·독립 plan GO, AOS 단일 source-only 증거 자료 준비 진행.
+- 목표·완료 조건: 공표 분 정밀도와 날짜역할을 보존하는 별도 JSON v1을 만들고, 발행사 배당이력의 배당락일1건만 제한 확인한다. 원문/기존prepared 변경없이 증거결속·독립review·main 기록·handoff까지 완료한다.
+- workflow 선택: 기존 identity/assessment를 재사용하며 일반모델·새회계코드 없이 실제 ex-date 결손 하나를 좁힌다.
+- 담당: 기존explore→preferred_plan독립scope→ecos_code단일소유→ecos_review. runnerpaused/running0/service·timer inactive 유지.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-aos-event-evidence` / `research/aos-event-evidence`; scope 기준 `94c367a`, 통합main.
+- 범위: 새audit JSON과 개발기록/인계2문서. 원문표기/zone/minute precision, amount/record/payment/ex 역할과 null관측값보존. nominal minute bucket은표시해석일뿐확정availability가아니다.
+- 예산: scope.json의고정query 공식issuer 검색1·선정원문open1 이하, 기존발표문/PR배포본재조회·다른출처fallback·시세조회0. 없거나불일치면즉시BLOCKED. 표준lib 증거/hash/예산검사만, 새framework/venv/테스트/실험/adapter없음.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-aos-event-evidence/`; scope.json에원본보호hash·독립scope·검색예산고정.
+- 개발기록: `docs/development-records/2026-09-30-aos-event-evidence.md`; handoff: `docs/handoffs/2026-09-30-aos-event-evidence.md`.
