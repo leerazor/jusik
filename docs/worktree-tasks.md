@@ -5011,11 +5011,12 @@
 
 ## us-null-bar-recovery-20260930
 
-- 상태: explore·독립 plan 조건부 GO, 구현 준비.
+- 상태: 완료 — v5 수정·TNMG GET1·독립 review·main 통합 검증 PASS. 준비자료·성과 적격은 미평가.
 - 목표: 9/22 보존 TNMG 원문으로 null OHLCV 전체 거부 원인을 재현하고, 완전 null 행만 명시적 결손으로 남겨 유효 가격·split 사건을 보존한다.
 - 담당: source_freshness_explore → preferred_plan → ecos_code 단일 구현 → ecos_review 독립 검토. runner paused/running0, service/timer inactive.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-us-null-bar-recovery` / `fix/us-null-bar-recovery`; 기준 `d624cd0`.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-us-null-bar-recovery` / `fix/us-null-bar-recovery`; 기준 `d624cd0`.
 - 범위: 최소 parser 수정·v5 norm/pool/hash/marker·관련 회귀·계약 문서. v2~v4·원본 보존. 일부null/잘못된값/중복/all-empty 거부, split observed 미확인 경제차단 유지. 이전원문은 exact query 미확인으로 현재cache삽입금지.
 - 조건부 GET: 원문실패재현·회귀·독립core review PASS 후 TNMG canonical 요청1개만 재개. 근거변화/이전실패를명시, 전용141cachecopy·사전sentinel·30s/60s/10MiB/retry0/redirect0. 응답형태변경/실패시cache인수·재시도금지. 전체수집/mock/다른심볼재요청/금융실험0.
 - 완료: 유효271/결손1·split보존·unknown차단 및 legacy회귀, 독립 review·main 통합검증·기록·handoff·정리. 기술완료/원문확보와 준비자료·성과적격 분리.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-null-bar-recovery/`; 개발기록 `docs/development-records/2026-09-30-us-null-bar-recovery.md`; handoff `docs/handoffs/2026-09-30-us-null-bar-recovery.md`.
+- 결과·통합: 구현 `0396ed6`, main `14b850ff1187e752b9cbd1d081157b74b059fa64`. 회귀16·정적검사 PASS 재사용, main backend/11파일·audit11·보호28 결속 PASS. TNMG 271/272bars·split2 unknown, cache142 정본 확보. 환경·audit 보존 후 정리 완료. 다음: 9/22 거부원문부터 남은 결손의 인수 조건 확인.
