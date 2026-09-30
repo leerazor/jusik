@@ -4866,3 +4866,15 @@
 - 검증·결과: 고정 miss 27개만 실제 조회, 유효 cache 신규 2개. 원본 227개·작업 cache 139개 hash, prepared·marker·정책 제외·문서 링크·backend/mandate 불변 확인. audit 스크립트 Ruff·strict mypy PASS. 기존 backend 테스트 재실행 없음.
 - 남은 문제·다음 작업: 요청 제외 25개, 사건 observed_at 결손 125행/37심볼, MET-P-F preferred 분류 누락. 별도 버전으로 분류 계약 수정을 먼저 검토하고 유효 역사·사건 근거를 보완한다. 데이터 gate 전 비용/NAV·전략 비교 실행 0회; 동일 live 요청 반복 금지.
 - 운영: runner paused, service/timer inactive, heartbeat 후속 작업은 기존 소유권 확인 후 진행. 실주문·PAPER/live·결제·Toss·원격 push 없음.
+
+## us-preferred-classification-20260930
+
+- 상태: 계획; 신규 미국 파일럿에서 확인된 우선주 상품명 분류 오류의 별도 정규화 버전 수정.
+- 목표·완료 조건: `PRF PERPETUAL` 연속 단어를 우선주 계열로 제외하고 새 수집 버전·완료 marker를 분리한다. 기존 v2 준비 자료·계약 hash·완료 조회 해석과 원본을 보존하고, 새 버전과의 pilot/final 계약 혼용을 거부하는 focused 회귀·독립 review·main 통합 검증을 완료한다.
+- 담당: 기존 explore 조사 → 중앙 plan → 단일 code 구현 → 독립 review. runner paused/running 0, service/timer inactive 확인.
+- 예정 워크트리/브랜치: `/home/kwl/projects/jusik-us-preferred-classification` / `fix/us-preferred-classification`; 조사 기준 `4b00c4c`, 통합 대상 `main`.
+- 입력: 직전 [자료 준비 인계](handoffs/2026-09-30-us-exclusion-pilot-readiness.md), audit `preferred-source-notes.json`의 공식 제품 근거. 기존 v2 prepared SHA `c1b8220c3ffd5beb548ced1209b75442c8a4077dbeac032c9d4d0b025a3c514d` 고정.
+- 수정 허용: collector·approximate source의 상품 분류/정규화/완료 조회 경계와 직접 테스트, 관련 시장 연구 문서·개발 기록·handoff. mandate JSON 투자조건·legacy 정책·LIME/MDA 제외 조건, 원본·DB·권한·의존성 불변.
+- 검증·종료: 정확한 명칭과 비해당 경계, v2/v3 reader/hash/marker 공존, 계약 불일치 거부. 외부 시세·웹 조회와 전략·NAV·성과 실험 0회. 기존 자료 결손과 투자 적격은 미해결로 유지한다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-preferred-classification/`.
+- 개발 기록: `docs/development-records/2026-09-30-us-preferred-classification.md`; handoff: `docs/handoffs/2026-09-30-us-preferred-classification.md`.
