@@ -4912,3 +4912,13 @@
 - 검증: 정확 allowlist/key·HTTP/parse identity·달력과 실제 bar 차이·사건 observation 결손 구분, 원본 hash/출력 결속, script static 검사와 독립 review. 같은 key는 결과와 무관하게 자동 재요청하지 않는다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-icui-bounded-gap/`; scope.json에 원본 hash·독립 scope·정확 요청과 예산 고정.
 - 개발 기록: `docs/development-records/2026-09-30-us-icui-bounded-gap.md`; handoff: `docs/handoffs/2026-09-30-us-icui-bounded-gap.md`.
+
+## project-workflow-20260930
+
+- 상태: 완료 — 운영 지침 문서 정리; 실제 효율 개선은 후속 작업에서 평가.
+- 목표·범위: 프로젝트 workflow 안내 작성, 기존 agent 절차 이동, 시작 참조 연결. 생산 코드·연구 조건 변경 없음.
+- 담당·경로: 주 agent 직접 문서 편집, `/home/kwl/projects/jusik`, `main`; 별도 worktree 없음.
+- 기준 SHA: `59eeac7dce8bb80f8f65b4d497a8e3880c19abe5`; 통합 SHA: `git log --diff-filter=A --format=%H -- docs/project-workflow.md`로 식별하는 main 커밋.
+- 검증: 상대 링크·anchor, agent 본문 보존, `git diff --check`. 앱 검사·독립 agent 검토는 문서 변경 범위에서 생략.
+- 개발 기록: [판단·검증·유용성](development-records/2026-09-30-project-workflow.md).
+- handoff: [다음 작업의 참조 방법](handoffs/2026-09-30-project-workflow.md). 기존 runner 정지 상태와 다른 작업은 유지.
