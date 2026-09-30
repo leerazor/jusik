@@ -4899,3 +4899,16 @@
 - 구현/통합: `872d5fdd787fffdffde868e8b87c44c721195a1f` / `df0a9404f800c159a6994035e01a8cb35e91870d`; 병합 직전 `f37d4a3b8499296cf7a240c36eb07112c8c9cbd7`. 독립 review PASS, main 결속·원본7 hash·전체 backend 불변 PASS. 기존 247 tests 근거 재사용.
 - 통합 검사 수정: 기존 baseline의 backend_tree는 backend/jusik 대상이다. 최초 잘못된 경로 비교를 수정하고 전체 backend 불변도 확인했다. 생산 코드 수정 없음.
 - 정리·다음: 환경·증거 audit 보존 후 전용 worktree/branch 제거. 신규 ICUI1 제한 조회 scope가 다음 자료 작업이며 동일 실패24 재요청은 새 근거가 필요하다. marker 격리·ready=false·UNTRUSTED 유지, 사건 관측시각 결손도 미해소.
+
+## us-icui-bounded-gap-20260930
+
+- 상태: 독립 scope GO, 제한 자료 보완 진행.
+- 목표·완료 조건: v3 캐시 감사에서 새로 확인된 ICUI 정확 key 한 건만 조회하여 원문·identity·거래일 coverage·사건 관측시각 진단을 보존하고 독립 review·main 기록·handoff까지 완료한다. 연구 입력 인수·성과 실행은 포함하지 않는다.
+- 담당: 기존 explore → plan 독립 scope → 단일 ecos_code → 독립 ecos_review. runner paused/running0, service/timer inactive 확인.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-us-icui-bounded-gap` / `research/us-icui-bounded-gap`; 통합 main. scope 기준 `1a8ab35`.
+- 입력: 이전 working-cache139 manifest/raw 및 v3 offline result의 ICUI exact key. 기간 2025-08-13~2026-09-11, 기대272세션. 원본은 hash 보호하고 새 cache 복사본만 사용한다.
+- 허용 범위: audit 스크립트·JSON과 작업별 개발기록/인계 2문서. 생산 코드·정책·기존 캐시·공유 운영 상태 변경 없음.
+- 예산: 실제 GET1/재시도0/redirect0, request30초·전체60초, streaming response10MiB hard cap, audit100MiB 사전후 점검. full collector·완료marker·prepared dataset·전략·NAV·성과 실행 없음.
+- 검증: 정확 allowlist/key·HTTP/parse identity·달력과 실제 bar 차이·사건 observation 결손 구분, 원본 hash/출력 결속, script static 검사와 독립 review. 같은 key는 결과와 무관하게 자동 재요청하지 않는다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-icui-bounded-gap/`; scope.json에 원본 hash·독립 scope·정확 요청과 예산 고정.
+- 개발 기록: `docs/development-records/2026-09-30-us-icui-bounded-gap.md`; handoff: `docs/handoffs/2026-09-30-us-icui-bounded-gap.md`.
