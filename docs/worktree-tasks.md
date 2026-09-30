@@ -1,5 +1,18 @@
 # 워크트리 작업 등록부
 
+## runner-review-finding-receipt
+
+- 상태: 독립 범위 검토 PASS; 구현 진행
+- 목표·완료 조건: 새 독립 코드 검토의 FAIL receipt가 bounded 구조화 지적을 담고 해당 `review_attempts.receipt_json`에 task·implementation·review ID/hash와 함께 저장됩니다. PASS는 빈 finding만 허용합니다. finding 누락 또는 모호한 FAIL은 기존 FAIL 대기 상태를 유지하고 자동 수리·승격하지 않습니다. 기존 FAIL receipt는 복원·수정하지 않습니다.
+- 근거·계획: `ReviewReceipt`와 reviewer prompt가 verdict/identity만 허용하고 FAIL 상세가 폐기됩니다. `finish_review()`는 전체 receipt를 이미 review 이력에 저장하므로 저장 경계를 재사용합니다. 독립 `role.review` scope review는 receipt 보존 slice를 PASS했고, 자동 수리·재큐잉은 roadmap baseline/TTL/소유 파일 hash 재승인이 추가로 필요해 제외했습니다.
+- 기준·통합 대상: local `main` `00ca7a836bd4b723eb98e5981ade823aa1f9af71`; local `main`.
+- 담당·소유: `role.explore` 조사 및 `role.plan` 계획 완료, 별도 `role.review` scope PASS. 단일 `role.code` 구현자, 별도 최종 `role.review`; 등록·통합·기록은 supervisor 소유.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-runner-review-finding-receipt` / `fix/runner-review-finding-receipt`.
+- 수정 허용 범위: `backend/jusik/development_runner_review.py`, `backend/jusik/development_runner_store.py`, `backend/jusik/development_runner.py`, 해당 세 runner review/transport/code-review 테스트, `docs/development-runner.md`, 작업 기록. 자동 repair/retry, reviewer eligibility/state transition, 기존 DB 행 보정, investment/data/mandate, service/config는 수정하지 않습니다.
+- 검증·종료: FAIL/PASS schema, owned path·길이·identity 경계, receipt 저장, 기존 PASS 완료 전이와 transport 재시도, FAIL의 WAITING_EXTERNAL 및 일반/event retry 불가를 focused 임시 DB/reviewer 검사로 검증하고 별도 완료 review 후 local `main` 통합.
+- 운영 경계: 구현 중 roadmap runner pause 및 timer/service inactive. 외부 provider/API·credential·구매·운영 DB·PAPER/live·주문·remote push 없음. tracked `main` clean 뒤 기존 runner 설정을 재개합니다. 사용자 소유 `HANDOFF.md`를 보존합니다.
+- 개발 기록·handoff: 구현·통합 후 `docs/development-records/2026-09-30-runner-review-finding-receipt.md` 및 handoff 기록을 생성합니다.
+
 ## exclude-lime-mda-us-research
 
 - 상태: 기술 완료·투자 미평가. 사용자가 앞으로 만드는 모든 미국 연구 표본에서 `LIME`·`MDA` 제외를 확정했습니다. 과거 동결 결과·원본·cache는 보존합니다.
