@@ -3,7 +3,7 @@
 - 상태: 단일 배당락일 **출처 표기** 확인 완료; 과거 자료 인수·PIT·성과 적격은 미완료
 - 기록 시각: 2026-09-30T08:47:55.197879+00:00
 - 작업 slug: `aos-event-evidence-20260930`
-- 기준/통합: `2d049b9c4de9cf9ce09697eecb4a96a2cc286b18` / 감독자 확정 예정
+- 기준/통합: `2d049b9c4de9cf9ce09697eecb4a96a2cc286b18` / `2776affb78a702614baf59866455ad09284ff547`
 - 범위: 기존 AOS 한 사건의 source-only 근거. 생산 모델·준비 자료·정책·시세 캐시 변경 없음
 
 ## 증거와 판정
@@ -20,3 +20,10 @@
 - workflow 판단: 도움 됨 — 기존 source-only 계약·행렬을 재사용하고 정확한 한 배당락일만 조회했다.
 - 근거: 공식 검색 1회·원문 열기 1회, 보호 15개 SHA 일치, 생산 코드·준비 자료 변경 0. 시간·호출 절감 비교값은 미측정이다.
 - 다음 조정: 유지 — 원문 출처 역할과 렌더링 한계를 함께 기록하고 자료 인수·성과 검증과 분리한다.
+
+## 통합과 정리
+
+- 구현 `a8c0243bdd2e5ce6a1d453c73972395f05c051c8`; 독립 review는 출처표시 날짜 증거에 한해 PASS. main 통합 후 backend 불변·보호15 hash·prior matrix·조회전/후 결속·예산·미승격 검증 PASS. `review-final.json`, `integration.json`, `routing-code-review.json`에 근거를 보존했다.
+- review 중 초기 source-only v1의 ex_date=null과 후속 결과가 혼동될 가능성을 확인했으나, 초기 SHA로 결속된 사전자료와 사후 result의 역할이 구분됨을 검증해 수정 finding 없이 종결했다. 최종 읽기 진입점은 result.json이다.
+- 기능·API·설정·자료 계약은 변경하지 않았다. 기록·인계·등록부·MEMORY를 갱신했고 audit/환경 보존 후 깨끗한 worktree/branch를 정리했다. 사용자 루트 HANDOFF와 다른 작업, runnerpaused/inactive 유지. 주문·PAPER·결제·권한·credential·push 변경 없음.
+- 다음 독립 범위에서는 이번 ex-date 근거를 반영해 source-only 사건과 기존 DividendAction의 effective_at/payment_at 사이 변환에 필요한 시각 정밀도·날짜 경계를 검토한다. 실제 source 가용성이나 권리수량을 추정하지 않고, 확정할 수 없는 필드는 미확인으로 유지한다. 이번 범위에서 adapter·회계·성과 실행은 하지 않았다.
