@@ -5033,3 +5033,13 @@
 - workflow 판단: 원문1건으로 자동 분류 수정 가능성의 근거 부족을 구체화하고 반복 조회를 막는다.
 - 독립 범위 확장(동일 단일 소유): planner가 새 TNMG raw의 split2 전후 가격기준 대사를 GO로 판단했다. `tnmg-basis-scope.json`에 별도 고정, network/회계실행0·가격기준 추정금지, `tnmg-basis-*` receipt만 생성. 기존 SEC scope와 예산은 불변. 이전 nullbar 검사에 없던 split 중복적용 위험을 확인한다.
 - 결과·통합: 구현 `f926ae2`, main `e5499edec2338acaaa7c13657e9a4baf0f720f4b`. GET1 SEC200, TNMG offline/회계실행0. 문서 동명키 해시 누락 교정 후 audit9·문서2·보호5·backend불변 결속PASS. 환경/원문 보존·정리완료. BERZ 후일 ETN근거와 TNMG 가격기준 unknown 차단을 분리, 기존142cache 유지.
+
+## yahoo-price-basis-source-20260930
+
+- 상태: 진행 — explore·독립 plan 조건부 GO; FX 동일 입력 재검사 NO-GO.
+- 목표: 공식 Yahoo 문서의 Close/Adj Close 분할·배당 조정 규칙을 확인하고 chart JSON/TNMG 적용 가능 여부를 분리한다.
+- 담당: source_freshness_explore → preferred_plan → ecos_code 단일 소유 → ecos_review. runner paused/running0, service/timer inactive, 기존 실패 작업의 새 재시도 근거 없음.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-yahoo-price-basis-source` / `research/yahoo-price-basis-source`; 기준 `53d86f9`.
+- 범위: 사전고정 query 검색1, 공식본문1 open(선택URL 사전기록), 반환 rendering/hash/receipt·문서2. 가격조회/동일외부재시도/생산코드/캐시/회계실행0. 일반 규칙을 실제 TNMG historical quote에 추정 적용 금지.
+- 검증·종료: 원문 명시 규칙·적용범위 구분, 보호hash/문서경로 결속·독립review·local main 통합·handoff·정리. blocked면 정확 재개조건 저장하고 runner 안전재개 여부 확인.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-yahoo-price-basis-source/`; 개발기록 `docs/development-records/2026-09-30-yahoo-price-basis-source.md`; 인계 `docs/handoffs/2026-09-30-yahoo-price-basis-source.md`.
