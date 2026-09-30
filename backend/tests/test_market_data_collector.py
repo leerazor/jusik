@@ -1988,6 +1988,62 @@ def test_us_v2_v3_completion_markers_coexist_and_bind_output(tmp_path: Path) -> 
     assert cache.status()["completed"] is True
 
 
+def test_v3_completion_rejects_relabelled_preferred_name(tmp_path: Path) -> None:
+    start = date(2026, 2, 16)
+    end = date(2026, 3, 31)
+    dataset = asyncio.run(
+        FreeMarketDataCollector(_DiagnosticUSTransport("partial")).collect(
+            market="US", start=start, end=end, sample_size=1
+        )
+    ).dataset
+    preferred = dataset.model_copy(
+        update={
+            "universe": tuple(
+                row.model_copy(
+                    update={
+                        "symbol": "MET-P-F",
+                        "name": "Metlife Inc 4.75 PRF PERPETUAL USD 25 Ser F",
+                    }
+                )
+                for row in dataset.universe
+            ),
+            "bars": tuple(
+                row.model_copy(update={"symbol": "MET-P-F"}) for row in dataset.bars
+            ),
+        }
+    )
+    cache = AtomicResponseCache(tmp_path / "cache")
+    for version, output in (
+        (US_EXCLUSION_NORMALIZATION_VERSION, tmp_path / "v2.json"),
+        (US_PREFERRED_NORMALIZATION_VERSION, tmp_path / "v3.json"),
+    ):
+        content = (
+            preferred.model_copy(update={"normalization_version": version})
+            .model_dump_json()
+            .encode()
+        )
+        output.write_bytes(content)
+        cache.write_completed(
+            market="US",
+            start=start,
+            end=end,
+            sample_size=1,
+            output=output,
+            content=content,
+            normalization_version=(
+                version if version == US_PREFERRED_NORMALIZATION_VERSION else None
+            ),
+        )
+        assert completed_collection_is_valid(
+            cache,
+            market="US",
+            start=start,
+            end=end,
+            sample_size=1,
+            output=output,
+        ) is (version == US_EXCLUSION_NORMALIZATION_VERSION)
+
+
 def test_all_failure_collect_market_data_preserves_output_marker_and_cache(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

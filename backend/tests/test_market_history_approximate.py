@@ -472,6 +472,32 @@ def test_v2_v3_us_contracts_are_distinct_and_legacy_hashes_frozen(
     )
     with pytest.raises(ApproximateProviderError, match="unsupported US normalization"):
         asyncio.run(source.collect(request))
+    preferred = dataset.model_copy(
+        update={
+            "universe": (
+                row.model_copy(
+                    update={
+                        "symbol": "MET-P-F",
+                        "name": "Metlife Inc 4.75 PRF PERPETUAL USD 25 Ser F",
+                    }
+                ),
+            ),
+            "bars": (bar.model_copy(update={"symbol": "MET-P-F"}),),
+        }
+    )
+    output.write_bytes(preferred.model_dump_json().encode())
+    assert asyncio.run(source.collect(request)).pool_contract_hash == (
+        us_exclusion_contract_hash()
+    )
+    output.write_bytes(
+        preferred.model_copy(
+            update={"normalization_version": US_PREFERRED_NORMALIZATION_VERSION}
+        )
+        .model_dump_json()
+        .encode()
+    )
+    with pytest.raises(ApproximateProviderError, match="preferred product name"):
+        asyncio.run(source.collect(request))
 
 
 @pytest.mark.parametrize("kind", ["splits", "dividends", "delisting"])

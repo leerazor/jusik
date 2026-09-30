@@ -49,6 +49,7 @@ from jusik.market_history_approximate import (
     _event_cutoff_session,
     canonicalize_approximate_events,
     deterministic_pool,
+    is_us_preferred_name,
 )
 from jusik.market_history_models import Market
 from jusik.market_research_strategy import US_RESEARCH_EXCLUDED_SYMBOLS
@@ -1326,7 +1327,6 @@ _ALPHA_NAME_PRODUCT_PATTERNS: tuple[tuple[_AlphaProductType, re.Pattern[str]], .
     ),
     (_AlphaProductType.OTHER, re.compile(r"\b(?:adr|ads)\b")),
     (_AlphaProductType.OTHER, re.compile(r"\bdepositary\s+receipts?\b")),
-    (_AlphaProductType.OTHER, re.compile(r"\bprf\s+perpetual\b")),
 )
 
 
@@ -1344,6 +1344,8 @@ def _classify_alpha_product(
     for product_type, pattern in _ALPHA_NAME_PRODUCT_PATTERNS:
         if pattern.search(normalized_name):
             evidence.add(product_type)
+    if is_us_preferred_name(name):
+        evidence.add(_AlphaProductType.OTHER)
 
     nonordinary = evidence - {_AlphaProductType.ORDINARY}
     if len(nonordinary) == 1:
@@ -2254,6 +2256,10 @@ def completed_collection_is_valid(
                 item.symbol in US_RESEARCH_EXCLUDED_SYMBOLS
                 for rows in (dataset.universe, dataset.bars, dataset.events)
                 for item in rows
+            )
+            or (
+                normalization_version == US_PREFERRED_NORMALIZATION_VERSION
+                and any(is_us_preferred_name(item.name) for item in dataset.universe)
             )
         ):
             return False

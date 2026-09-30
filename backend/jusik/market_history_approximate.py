@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -57,6 +58,13 @@ US_PREFERRED_POOL_POLICY_VERSION = "approximate-us-event-timing-pool-v3"
 US_MEMBERSHIP_SEED = 20260914
 APPROX_LOOKBACK_SESSIONS = 20
 APPROX_TARGET_WEIGHT = Decimal("0.05")
+_US_PREFERRED_NAME_PATTERN = re.compile(r"\bprf\s+perpetual\b")
+
+
+def is_us_preferred_name(name: str) -> bool:
+    """Recognize the bounded Alpha Vantage preferred-name evidence for v3."""
+    return _US_PREFERRED_NAME_PATTERN.search(name.strip().casefold()) is not None
+
 
 CollectionDiagnosticReason = Literal[
     "partial_history",
@@ -888,6 +896,15 @@ class ApproximateMarketHistorySource:
                 ):
                     raise ApproximateProviderError(
                         "prepared US data lacks policy exclusion evidence"
+                    )
+                if (
+                    dataset.normalization_version == US_PREFERRED_NORMALIZATION_VERSION
+                    and any(
+                        is_us_preferred_name(item.name) for item in dataset.universe
+                    )
+                ):
+                    raise ApproximateProviderError(
+                        "prepared US data contains preferred product name"
                     )
             _validate_us_membership_rows(dataset.universe, market=request.market)
             selected_rows = dataset.universe
