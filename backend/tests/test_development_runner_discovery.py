@@ -718,6 +718,7 @@ def test_dynamic_spec_uses_existing_exact_diff_and_independent_review(
         "prompt = sys.stdin.read()\n"
         "payload = json.loads(prompt.split('fields: ', 1)[1])\n"
         "payload['verdict'] = 'PASS'\n"
+        "payload['findings'] = []\n"
         "Path(sys.argv[sys.argv.index('-o') + 1]).write_text(json.dumps(payload))\n",
         encoding="utf-8",
     )
