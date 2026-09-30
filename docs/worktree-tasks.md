@@ -4883,3 +4883,15 @@
 - 독립 검토: 첫 REJECT의 v3 재라벨 우회를 동일 구현자가 수정했다. 공통 분류 규칙을 v3 reader·완료 검증에도 적용했고 독립 회귀 2개 및 재검토 PASS. v2 동작 유지.
 - 통합 검증: pytest 247 PASS, Ruff check/format 6파일 PASS, strict mypy 소스 2파일 PASS, mandate/dispatch PASS. 보호 파일 6개·구 계약 해시 3개·정책 manifest 4행·사건 원문 3개 불변. source/test hash와 명령·결과는 audit `verification-manifest.json`에 연결했다.
 - 다음 작업: 기존 캐시로만 v3 표본·miss 변화를 먼저 계산한다. 기존 25종목·125사건 결손은 이번 코드 수정으로 해소되지 않았으며 사건별 역사 관측시각 원문이 필요하다. 같은 Yahoo 요청 반복·fetch 시각 치환·성과 승격 금지.
+
+## us-v3-offline-cache-audit-20260930
+
+- 상태: 계획·독립 scope 검토; 새 v3의 표본과 캐시 결손을 외부 조회 없이 확인한다.
+- 목표·완료 조건: 기존 working-cache 139개를 전용 audit 복사본으로 재사용해 동일 미국 1년/sample100/20세션 warmup의 v3 누적 선정·정확 요청 key·이전 실패 대비 변화를 고정한다. 오프라인 실패·산출물·완료 marker는 연구 입력과 분리하고 독립 검토·main 기록·handoff까지 완료한다.
+- 담당: 기존 explore → 중앙 plan의 독립 scope → 단일 code 실행 → 독립 review. 기준 `7de3e88`, runner paused/running 0, service/timer inactive.
+- 예정 워크트리/브랜치: `/home/kwl/projects/jusik-us-v3-offline-cache-audit` / `research/us-v3-offline-cache-audit`; 통합 `main`.
+- 입력: `20260930-us-exclusion-pilot-readiness/working-cache`의 manifest/raw, 기존 v2 prepared·누적 진단·frozen-misses/live-attempts, v3 분류 수정 기록. 원본은 읽기 전용이며 새 복사본만 변경한다.
+- 수정 허용: 새 audit 스크립트·JSON과 작업별 개발 기록·handoff. production·정책·원본·계정 설정 변경 없음. 실제 시장·웹 요청 0, 금융 실험 0; mock 시도 최대 300, 실행 60초, 산출물 100MiB 사전·사후 점검(내장 hard limit 아님).
+- 검증: 복사본 raw 해시, 요청 key·기간·캐시 집합, 실제 실패와 mock 거부 구분, 완료 marker 격리, 원본 보존. 기존 247개 검사는 코드·입력이 같으므로 재사용한다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-v3-offline-cache-audit/`.
+- 개발 기록: `docs/development-records/2026-09-30-us-v3-offline-cache-audit.md`; handoff: `docs/handoffs/2026-09-30-us-v3-offline-cache-audit.md`.
