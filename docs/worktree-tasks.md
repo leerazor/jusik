@@ -4983,3 +4983,15 @@
 - 완료판정: 후보effective/payment와offset을실제함수출력으로확인. sourcepublication분·provider observednull·search-only/Mergent 등급보존. 달력/identity 불일치중단. holdings/entitlement/action/ledger 생성없음.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-aos-action-boundary/`; 개발기록 `docs/development-records/2026-09-30-aos-action-boundary.md`; handoff `docs/handoffs/2026-09-30-aos-action-boundary.md`.
 - 결과: 10/31 개장 13:30Z(EDT), 11/18 지급경계 05:00Z(EST); 정책 후보 미채택. 보호19/source4·결속4·링크6 PASS, backend 불변. 환경/audit 보존, 기존검사·외부조회 반복0. 시세실패24/사건관측결손125 유지.
+
+## us-warrant-classification-20260930
+
+- 상태: explore·독립 plan GO, 구현 준비.
+- 목표: 캐시 Alpha 원문에 명시된 GPACW `Wt Exp 07012020`의 워런트 분류 누락을 좁게 수정하고 v4 계약으로 격리한다.
+- 담당: source_freshness_explore → preferred_plan → ecos_code 단일 구현 → ecos_review 독립 검토. runner paused/running0, service/timer inactive.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-us-warrant-classification` / `fix/us-warrant-classification`; 기준 `0d64f82`.
+- 범위: classifier·v4 normalization/pool contract/marker·reader/완료검증·관련 회귀·계약 문서. 기존 v2/v3 hash·reader·원본 보존, 티커형태만의 제외 금지. 외부조회·full수집·금융실험0.
+- 검증·종료: 직접 `Wt Exp 8digits` 근거와 부정 사례, legacy 수용/v4 relabel 거부, marker 공존/status/preflight 및 계약 불일치. 독립 review·main 통합 검증·기록·handoff·정리.
+- 자료 상태: 기존 실패24 중 GPACW 분류 원인 확인; 재선정 후 새 결손 수는 미평가. 사건125 관측 결손·성과 차단 유지.
+- workflow 판단: 이미 찾은 직접 근거를 재감사 문서로 반복하지 않고 작은 정확성 수정으로 연결한다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-warrant-classification/`; 개발기록 `docs/development-records/2026-09-30-us-warrant-classification.md`; handoff `docs/handoffs/2026-09-30-us-warrant-classification.md`.
