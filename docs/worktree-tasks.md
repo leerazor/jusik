@@ -4999,11 +4999,12 @@
 
 ## us-v4-cache-gaps-20260930
 
-- 상태: explore·독립 plan GO, 구현 준비.
+- 상태: 완료 — 오프라인 선정/요청 진단과 EPRX 원문1건 보완·독립 review·main 통합 검증 PASS. 자료·성과 적격은 미평가.
 - 목표: 실제 v4 수집 경로의 선정·요청키 차이를 캐시140개로 오프라인 1회 확인하고, 사전조건을 충족하는 새 결손이 정확히 1개면 같은 작업에서 GET1회만 보완한다.
 - 담당: 기존 source_freshness_explore → preferred_plan → ecos_code 단일 소유 → ecos_review. runner paused/running0, service/timer inactive.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-us-v4-cache-gaps` / `research/us-v4-cache-gaps`; 기준 `b44d895`.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-us-v4-cache-gaps` / `research/us-v4-cache-gaps`; 기준 `b44d895`.
 - 범위: 기존 v3 감사·ICUI one-shot 절차의 최소 재사용, 전용 cache/audit/문서. 생산코드 변경 없음. 원본·기존 실패 요청 보존, 새 selection 함수 복제 없음.
 - 종료: exact키·선정 metadata 대조, v4 가상실패 출력 UNTRUSTED 고정·marker 격리·ready=false, 조건부 GET은 atomic sentinel/30s·60s/10MiB/retry0/redirect0. 새miss0이면조회없이완료, >1 또는 identity/이력불명확이면조회0. 성공후collector재실행0.
 - 검증: 원본hash·코드/입력결속·요청예산·독립review·main통합/handoff/정리. 자료·성과적격승격금지, 전략·NAV·OOS0.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-v4-cache-gaps/`; 개발기록 `docs/development-records/2026-09-30-us-v4-cache-gaps.md`; handoff `docs/handoffs/2026-09-30-us-v4-cache-gaps.md`.
+- 결과·통합: offline miss24=기존23+EPRX1, 실제GET1 HTTP200·272/272bars·event0, 별도캐시141. 구현 `f8cb6a1`, main `67526fe7c153a6ac1079321828d977bb58f0f7dd`. binding 경로 충돌은 원문/결과 재실행 없이 교정·검증. 원본24·산출물15·문서2 결속 PASS, 환경보존/정리완료. 재사용정본은 이번 audit의 gap-cache-copy.
