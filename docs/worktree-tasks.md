@@ -4902,10 +4902,10 @@
 
 ## us-icui-bounded-gap-20260930
 
-- 상태: 독립 scope GO, 제한 자료 보완 진행.
+- 상태: 완료 — ICUI 원문 보완·독립 review·main 통합·handoff 완료. 전체 자료 인수·성과 검증은 미완료.
 - 목표·완료 조건: v3 캐시 감사에서 새로 확인된 ICUI 정확 key 한 건만 조회하여 원문·identity·거래일 coverage·사건 관측시각 진단을 보존하고 독립 review·main 기록·handoff까지 완료한다. 연구 입력 인수·성과 실행은 포함하지 않는다.
 - 담당: 기존 explore → plan 독립 scope → 단일 ecos_code → 독립 ecos_review. runner paused/running0, service/timer inactive 확인.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-us-icui-bounded-gap` / `research/us-icui-bounded-gap`; 통합 main. scope 기준 `1a8ab35`.
+- 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-us-icui-bounded-gap` / `research/us-icui-bounded-gap`; 통합 main. scope 기준 `1a8ab35`.
 - 입력: 이전 working-cache139 manifest/raw 및 v3 offline result의 ICUI exact key. 기간 2025-08-13~2026-09-11, 기대272세션. 원본은 hash 보호하고 새 cache 복사본만 사용한다.
 - 허용 범위: audit 스크립트·JSON과 작업별 개발기록/인계 2문서. 생산 코드·정책·기존 캐시·공유 운영 상태 변경 없음.
 - 예산: 실제 GET1/재시도0/redirect0, request30초·전체60초, streaming response10MiB hard cap, audit100MiB 사전후 점검. full collector·완료marker·prepared dataset·전략·NAV·성과 실행 없음.
@@ -4922,3 +4922,6 @@
 - 검증: 상대 링크·anchor, agent 본문 보존, `git diff --check`. 앱 검사·독립 agent 검토는 문서 변경 범위에서 생략.
 - 개발 기록: [판단·검증·유용성](development-records/2026-09-30-project-workflow.md).
 - handoff: [다음 작업의 참조 방법](handoffs/2026-09-30-project-workflow.md). 기존 runner 정지 상태와 다른 작업은 유지.
+- 결과: GET1/HTTP200/30,776bytes, ICUI NAS USD parser PASS·272/272세션·사건0, cache139→140. 기존24 실패키는 재요청하지 않았다. 원본9hash·결속·marker0 및 독립 review/main 검증 PASS.
+- 구현/통합: `00a7cb2f455d7a0b232db5380af4e0225f98c59b` / `ff5eb6ebd7bfa5c62481f6ee1a9dfd66915dc0a7`; 병합 직전 `59eeac7dce8bb80f8f65b4d497a8e3880c19abe5`. 통합 검증 실패 없음. 개발 기록·handoff 갱신, audit·환경 보존 후 worktree/branch 정리.
+- 다음: 이 audit cache-copy140을 재사용하고 AOS 배당1건 공식 발표/SEC 원문 scope로 진행. 기존125관측시각 결손(배당115/분할10)은 미해소, 비용/NAV·성과실험은 자료 gate 이후.
