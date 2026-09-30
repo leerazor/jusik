@@ -4996,3 +4996,14 @@
 - workflow 판단: 이미 찾은 직접 근거를 재감사 문서로 반복하지 않고 작은 정확성 수정으로 연결한다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-warrant-classification/`; 개발기록 `docs/development-records/2026-09-30-us-warrant-classification.md`; handoff `docs/handoffs/2026-09-30-us-warrant-classification.md`.
 - 통합: 구현 `56a79b5`, main `abfca4c9ff7165fd57ff1a59a3ef942c8d443062`. focused54/Ruff/format/mypy/mandate PASS, main의 동일 코드·변경11파일/보호19/raw2 결속 검증으로 기존 검사 재사용. audit 보존 후 정리 완료. 다음: v4 선정·정확 요청키 차이만 오프라인 확인.
+
+## us-v4-cache-gaps-20260930
+
+- 상태: explore·독립 plan GO, 구현 준비.
+- 목표: 실제 v4 수집 경로의 선정·요청키 차이를 캐시140개로 오프라인 1회 확인하고, 사전조건을 충족하는 새 결손이 정확히 1개면 같은 작업에서 GET1회만 보완한다.
+- 담당: 기존 source_freshness_explore → preferred_plan → ecos_code 단일 소유 → ecos_review. runner paused/running0, service/timer inactive.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-us-v4-cache-gaps` / `research/us-v4-cache-gaps`; 기준 `b44d895`.
+- 범위: 기존 v3 감사·ICUI one-shot 절차의 최소 재사용, 전용 cache/audit/문서. 생산코드 변경 없음. 원본·기존 실패 요청 보존, 새 selection 함수 복제 없음.
+- 종료: exact키·선정 metadata 대조, v4 가상실패 출력 UNTRUSTED 고정·marker 격리·ready=false, 조건부 GET은 atomic sentinel/30s·60s/10MiB/retry0/redirect0. 새miss0이면조회없이완료, >1 또는 identity/이력불명확이면조회0. 성공후collector재실행0.
+- 검증: 원본hash·코드/입력결속·요청예산·독립review·main통합/handoff/정리. 자료·성과적격승격금지, 전략·NAV·OOS0.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-us-v4-cache-gaps/`; 개발기록 `docs/development-records/2026-09-30-us-v4-cache-gaps.md`; handoff `docs/handoffs/2026-09-30-us-v4-cache-gaps.md`.
