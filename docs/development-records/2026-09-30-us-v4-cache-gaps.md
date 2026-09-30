@@ -1,0 +1,11 @@
+# 미국 v4 캐시 결손 점검
+
+- 작업: `us-v4-cache-gaps-20260930`; 기준 `b44d895`; main 통합은 감독자 예정.
+- [고정 범위](../../../../.local/share/jusik/portfolio-audit/20260930-us-v4-cache-gaps/scope.json)의 24개 보호 원본과 ICUI 작업의 140개 캐시를 확인하고, marker 없이 전용 캐시로 복사했다. [오프라인 진단](../../../../.local/share/jusik/portfolio-audit/20260930-us-v4-cache-gaps/result.json)은 deny-all 수집기 한 번의 결과다. v4 가상 miss는 24개로 v3의 25개보다 하나 적다. GPACW는 후보에서 빠졌고, ICUI는 기존 캐시를 재사용했으며, EPRX가 누적 선정에 추가됐다. 새 exact Yahoo 키는 EPRX 한 건뿐이다. 이 수치는 누적 진단 목록 비교이고 전체 checkpoint 명단의 복원이나 데이터 완전성을 뜻하지 않는다.
+- 오프라인 출력 `offline-UNTRUSTED-v4.json`은 연구 입력이 아니다. 생성된 v4 완료 marker를 즉시 격리하고 `collect-status.ready=false`를 확인했다. 별도 `gap-cache-copy`에서 [고정 GET 조건](../../../../.local/share/jusik/portfolio-audit/20260930-us-v4-cache-gaps/get-scope.json)을 검증했다. Alpha 원문 두 곳 모두 EPRX를 `Eupraxia Pharmaceuticals Inc`·NASDAQ·Stock·Active로 표시하며, 해당 키는 과거 frozen/live/v3/ICUI sentinel/140 캐시에 없었다.
+- 단일 Yahoo GET은 사전 sentinel을 기록하고 30초 요청·60초 전체 제한, 재시도·리다이렉트 0, 스트리밍 10 MiB 상한으로 수행했다. [조회 결과](../../../../.local/share/jusik/portfolio-audit/20260930-us-v4-cache-gaps/gap-result.json)는 HTTP 200, 29,490바이트, NAS/USD와 OHLCV 검증 통과, 거래소 세션 272개 중 일봉 272개, 사건 0개다. 검증된 원문만 별도 캐시에 저장되어 140→141개가 되었고 새 완료 marker는 없다. 오프라인 출력이나 기존 캐시·준비 자료는 수정하지 않았다.
+- 오프라인 시점의 가상 miss 24개는 기존 실패 23개와 EPRX 1개다. 조회 후 후속 재사용 기준은 `gap-cache-copy/manifest.json`(SHA `b352ea91287a5c77296874b4bbc7e803919fee80e42d315faceecf4276becf15`, 141개)이다. collector를 다시 실행하지 않았으므로 최종 v4 prepared·universe coverage는 검증되지 않았다.
+- [결속 기록](../../../../.local/share/jusik/portfolio-audit/20260930-us-v4-cache-gaps/verification.json)은 스크립트·결과·원문·sentinel 해시, 원본 24개 재확인, 전후 캐시 상태를 연결한다. 두 audit 스크립트의 Ruff check/format과 strict mypy가 통과했다. 기존 v4 회귀 54개는 코드 hash가 그대로여서 반복하지 않았다. 시장 요청은 조건부 1회뿐이며 전략·NAV·금융 실험·주문은 0회다.
+- 두 실행 스크립트가 같은 `binding.json` 경로를 사용해 GET 단계에서 오프라인 binding이 덮였다. 실행 결과와 스크립트는 변경하지 않고 GET binding bytes를 `gap-binding.json`에 보존했으며, 오프라인 script/result/baseline 해시로 `binding.json`을 사후 재구성했다. 최종 결속 기록은 이 증거 경로 교정을 명시한다.
+- EPRX 원문 성공은 v4 prepared 자료 인수나 전체 24개 miss 해결, 사건 관측시각·PIT·비용 차감 수익률 검증을 뜻하지 않는다. 동일 요청 재시도 없이 다른 결손의 원천 근거를 별도 범위에서 검토한다.
+- workflow: 기존 오프라인 probe와 단일 조회 절차를 좁게 재사용했다. 140개 캐시와 오프라인 진단을 고정한 채 조회용 사본을 분리했다. 다음 작업은 새 데이터 근거가 실제 인수 차단을 줄일 때만 연다.
