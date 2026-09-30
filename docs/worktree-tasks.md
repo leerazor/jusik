@@ -4925,3 +4925,15 @@
 - 결과: GET1/HTTP200/30,776bytes, ICUI NAS USD parser PASS·272/272세션·사건0, cache139→140. 기존24 실패키는 재요청하지 않았다. 원본9hash·결속·marker0 및 독립 review/main 검증 PASS.
 - 구현/통합: `00a7cb2f455d7a0b232db5380af4e0225f98c59b` / `ff5eb6ebd7bfa5c62481f6ee1a9dfd66915dc0a7`; 병합 직전 `59eeac7dce8bb80f8f65b4d497a8e3880c19abe5`. 통합 검증 실패 없음. 개발 기록·handoff 갱신, audit·환경 보존 후 worktree/branch 정리.
 - 다음: 이 audit cache-copy140을 재사용하고 AOS 배당1건 공식 발표/SEC 원문 scope로 진행. 기존125관측시각 결손(배당115/분할10)은 미해소, 비용/NAV·성과실험은 자료 gate 이후.
+
+## aos-event-source-20260930
+
+- 상태: 기확정 explore·독립 plan 재사용, AOS 배당 원문1건 조사 진행.
+- 목표·완료 조건: AOS 2025-10-31 배당의 raw identity를 동결하고 발행사/SEC 원문과 연결해 공표시점 근거의 정확도·한계를 판정한다. 독립 review·main 기록·handoff까지 완료하며 prepared/성과는 변경하지 않는다.
+- workflow 선택: 이미 승인된 단일 사건 scope를 재사용해 조사·계획 호출 반복을 줄이고 날짜와 정확시각 혼동은 독립 검토로 확인한다.
+- 담당: ecos_code 단일 소유자, ecos_review 독립 검토. runner paused/running0·service/timer inactive 확인. 기존 작업자·루트 사용자 HANDOFF 보존.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-aos-event-source` / `research/aos-event-source`; 기준 `501851c`, 통합 main.
+- 범위: 새 audit의 identity/출처스냅샷/진단 JSON과 개발기록·인계 2문서. 원문조회 전 raw금액·날짜·종류·SHA 고정; 공식 검색1회·원문열람최대2회, 연결불가 즉시 차단. 날짜만 있는 근거에서 시각 추정 금지.
+- 보존: 생산코드·정책·원본 cache140·prepared·125사건을 변경하지 않는다. 추가 Yahoo조회·일괄수집·전략NAV·성과승격 없음.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-aos-event-source/`; 이전 독립scope와 보호hash는 scope.json에 결속.
+- 개발 기록: `docs/development-records/2026-09-30-aos-event-source.md`; handoff: `docs/handoffs/2026-09-30-aos-event-source.md`.
