@@ -3,7 +3,7 @@
 - 상태: 계약 결손 기록 완료; 자료·PIT·성과 적격은 차단 유지
 - 기록 시각: 2026-09-30T08:22:13.009839+00:00
 - 작업 slug: `event-observation-contract-20260930`
-- 기준/통합: `86eef581b0f94bee0980b6709e7d95dbdd0861fa` / 감독자 확정 예정
+- 기준/통합: `86eef581b0f94bee0980b6709e7d95dbdd0861fa` / `cfd57f1061eae349289ac8c278e97e32649dc29c`
 - 범위: 기존 AOS 1건 근거와 현재 코드의 소비 경로만 대조. 생산 코드·준비 자료·정책·원본·수집 상태 변경 없음
 
 ## 필드 계약과 결정
@@ -28,3 +28,9 @@
 - workflow 판단: 도움 됨 — 확정된 scope와 기존 코드·AOS 근거를 재사용해 필수 원천, 파생 입력, 사전 정책을 분리했다.
 - 근거: 새 네트워크·수집·테스트 반복 0회, 기준 source 해시 6개와 증거 결속 PASS. 시간·호출 절감의 비교 측정은 하지 않았다.
 - 다음 조정: 유지 — 필드 계약이 증명되기 전 구현과 대량 조회를 열지 않고, 좁은 독립 범위에서 표현 가능성부터 판단한다.
+
+## 통합과 정리
+
+- 구현 `584f057b7244801406cc5f9722cd9d28066143c8`; 독립 review는 계약 감사에 한해 PASS. main 통합 후 전체 backend·기준6파일·추가회계/overlay2파일·AOS근거 불변 및 matrix/scope 결속 PASS. `review-final.json`, `integration.json`, `routing-code-review.json`에 결과를 보존했다.
+- 원문·prepared·캐시140 검사는 변경 없는 worker 검증을 재사용했다. 환경·audit 보존 후 깨끗한 전용 worktree/branch를 정리했다. 루트 사용자 HANDOFF와 다른 작업은 보존했고 runner paused/inactive, 주문·PAPER·결제·권한·credential·push 변경 없음.
+- 원천 사건125개 관측시각 결손과 기존24 시세 실패는 그대로다. 이번 완료는 왜 비용 포함 배당 NAV 비교를 아직 실행할 수 없는지와 다음 연결 조건을 명확히 한 결과다.
