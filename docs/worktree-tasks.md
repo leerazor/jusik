@@ -4814,15 +4814,13 @@
 
 ## ecos-fx-comparison-20260930
 
-- 상태: 진행; ECOS 환율 진단 전용 연동 조사·계획.
-- 목표·완료 조건: 지정 날짜 최대 10개의 ECOS 원/달러 매매기준율을 기존 준비 FX와 대조하고, 원문 해시·조회시각·차이·공표시점 미확인 상태가 있는 별도 보고서를 생성합니다. focused 검사·독립 review·main 통합·실제 소량 조회까지 확인합니다.
-- 담당: supervisor 조율; 중앙 profile explore → plan → 단일 code 구현 → 독립 review.
-- 워크트리/브랜치: `/home/kwl/projects/jusik-ecos-fx-comparison` / `feat/ecos-fx-comparison` (계획 확정 후 생성).
-- 기준 커밋: `2029d1911777252f31da61c134fcf6fc5d1445ac`; 통합 대상: 로컬 `main`.
-- 입력: 기존 R2-03 FX 대체 원천 조사, frozen FX 자료, `bok-ecos-stats`의 731Y001/D/0000001 계약.
-- 허용 범위: 진단 CLI/parser·직접 테스트·사용 문서·개발 기록; 기존 전략·collector 기본값·DB·NAV·readiness·PAPER/live는 변경하지 않습니다.
-- 환경·산출물: 작업별 Python 환경, DB/서버 없음; audit `/home/kwl/.local/share/jusik/portfolio-audit/20260930-ecos-fx-comparison/`.
-- 운영: 시작 시 roadmap runner paused=true, service/timer inactive 및 operator hold 확인; 기존 중지 상태를 유지합니다.
-- 검증·결과 커밋: 대기.
-- 개발 기록: `docs/development-records/2026-09-30-ecos-fx-comparison.md` (예정).
-- handoff: `docs/handoffs/2026-09-30-ecos-fx-comparison.md` (예정).
+- 상태: 완료; 진단 CLI·실제 소량 조회·독립 review·main 통합 검증 완료. 경제 성과 적용은 미승격.
+- 목표·범위: 고정 FRED CSV와 최대 10개 선택 날짜의 ECOS sample 원/달러 매매기준율을 대조한다. 값·차이·결측·해시·응답 수신시각·공표시점 미확인을 별도 보고서로 기록한다.
+- 담당: 중앙 profile explore → plan → 단일 code 구현 → 독립 review. code가 검토 지적 2건을 수정하고 review PASS.
+- 기준/구현/통합: `6e964ca` / `71346ed` / `e9cf0a44645269d83ad78a58e26d5f2741af342f`.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-ecos-fx-comparison` / `feat/ecos-fx-comparison`; 통합 검증·환경/산출물 보존 후 모두 정리.
+- 검증: main pytest 182개·Ruff check/format·strict mypy·diff check 통과. ECOS 4회 조회 모두 관측값 확보, FRED 명시 결측 두 날짜를 별도 후보로 확인. 원본·mandate SHA 불변.
+- 산출물: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-ecos-fx-comparison`의 `live/comparison.json`, `live/comparison.md`, `live-verification.json`, `integration-verification.json`.
+- 운영: 시작·종료 runner paused=true, service/timer inactive. DB·기존 FX/cache·NAV·전략·readiness·PAPER/live·원격 push 변경 없음.
+- 개발 기록: [ECOS 환율 대조](development-records/2026-09-30-ecos-fx-comparison.md); 사용법: [진단 CLI](ecos-fx-comparison.md).
+- handoff: [재개 지점](handoffs/2026-09-30-ecos-fx-comparison.md).

@@ -34,6 +34,8 @@ rg -n -F '작업-slug' docs/worktree-tasks.md
 - 상장 전 결손과 identity 근거를 다시 조사하기 전: [기존 범위 검토](docs/development-records/2026-09-30-listing-identity-scope-review.md). 기존 조사 완료를 데이터 acceptance 완료로 해석하지 않습니다.
 - 자동개발 대기·재개 진단을 반복하기 전: [대기 복구 기록](docs/development-records/2026-09-29-wait-handoff-recovery.md), [연속 실행 원칙](docs/continuous-development-session.md#continuous-execution-rule). 실제 실행기 상태는 운영 명령으로 다시 확인합니다.
 
+- ECOS 환율 대조는 공개 sample로 최대 10개 날짜를 확인하는 [진단 CLI](docs/ecos-fx-comparison.md)를 사용합니다. [실제 조회·통합 근거](docs/development-records/2026-09-30-ecos-fx-comparison.md)를 먼저 확인하며, 공표시점·수정 이력 미확인 자료를 과거 성과 입력으로 승격하지 않습니다.
+
 ## 최신성과 충돌 처리
 
 - 메모리는 요약·검색 수단이며 새 승인이나 정책 원본이 아닙니다. 현재 사용자 지시·적용 지침과 검증한 Git·코드·계약·실행 상태를 우선하고, 충돌한 요약은 근거를 확인한 뒤 수정합니다. 과거 동결 실험에는 당시 계약을 유지합니다.
