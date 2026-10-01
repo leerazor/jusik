@@ -5067,3 +5067,15 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261001-tnmg-sec-split-source/`; 계획 `plan.json`, 조회 범위 `scope-proposal.json`.
 - 결과: 2025 비율1:20·본문예정일2024-12-23 충돌, 2026 비율1:8·9/8 예정. 구현 `811953c`, main `8ac3f8803536a06beee6688fc2bb47126ea19433`; 보호8/결속18 PASS. 기존 검사재실행0, raw/PIT/NAV 승격0. Exhibit후속은 기대 추가가치 낮아 NO_GO(본문 UNREAD), 정정·공식 기업행동 근거의 정확URL+새 scope에서 재개.
 - 개발기록 `docs/development-records/2026-10-01-tnmg-sec-split-source.md`; handoff `docs/handoffs/2026-10-01-tnmg-sec-split-source.md`. audit 보존 후 worktree/branch 정리, clean main에서 runner 재개.
+
+
+## us-gap-provenance-20261001
+
+- 상태: 완료 — 시도별 상태 정정·독립 검토·main 결속 PASS.
+- 목표: AVNS 9/22 HTTP200빈응답과 9/30 HTTP404를 분리하고 결손22의 출처·재개조건을 정확히 인계한다. 무료 대체 원문·분류 조사에서 새 가격 인수 근거는 찾지 못했다.
+- 담당: source_freshness_explore 조사 → supervisor 한정 문서계획 → ecos_code 단일 구현 → ecos_review 독립 검토.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-us-gap-provenance` / `docs/us-gap-provenance`; 기준 `bcde06d`. runner paused·service/timer inactive.
+- 범위: BERZ 기록·인계의 날짜별 출처 명확화, 신규 기록·인계와 전용 audit. 원본 receipt·cache142·코드·계약·동결 결과 보존. 네트워크/테스트/성과실행0.
+- 종료: 원본SHA·시도시각·22개 상태/개수 결속, 독립검토·main통합·기록·handoff·정리. 최종v5 prepared 재생성으로 표현하지 않는다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261001-us-gap-provenance/`; 계획 `scope.json`.
+- 통합: 구현 `7af5628`, main `652c59ab03350a1e96a2b1eddda7925a1059fa75`; 원천4·문서4·scope/result 결속 PASS, backend불변·네트워크/테스트0. 원문·판정 보존 후 worktree/branch 정리. 후속 SP 원천조회 scope 조건부 GO로 수동 session pause 유지.
