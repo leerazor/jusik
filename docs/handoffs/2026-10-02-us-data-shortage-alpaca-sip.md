@@ -1,8 +1,9 @@
 # 미국 자료 결손 Alpaca SIP 판정 인계
 
-- 시각: 2026-10-01T22:28:09Z. 저장소 `/home/kwl/projects/jusik`, 작업 브랜치 `docs/us-data-shortage-alpaca-sip-20261002` (`34f16c8` 기준). 통합 SHA는 [등록부](../worktree-tasks.md#us-data-shortage-alpaca-sip-20261002)에서 확인한다.
+- 시각: 2026-10-01T22:28:09Z. 저장소 `/home/kwl/projects/jusik`, 작업 브랜치 `docs/us-data-shortage-alpaca-sip-20261002` (`34f16c8` 기준). 문서 local `main` 통합 `8048a09`, 등록부 종료 `2dbcae0`; 현재 상태와 최신 SHA는 [등록부](../worktree-tasks.md#us-data-shortage-alpaca-sip-20261002)와 Git에서 확인한다.
 - 목표와 상태: 추가된 Massive 키로 자료 부족 해소 가능성을 판단했다. 기본 [Massive 약관](https://massive.com/legal/market-data-terms-of-service)의 연구·전략 이용 제한 때문에 별도 서면 사용권 확인 전 API 호출은 0회. 기존 Alpaca 키의 SIP 과거 일봉은 제한 조회를 마쳤지만 전체 자료 인수는 `insufficient`, 성과는 `not-evaluated`다.
 - 증거: [개발 기록](../development-records/2026-10-02-us-data-shortage-alpaca-sip.md), [22종목 판정](/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-sip-feasibility/assessment.json)(SHA-256 `67d08092d37125586550e7d554fbde7a0e0106f95bd61bf8d54d56e0e8939355`), 같은 private audit의 원문 2개. 하이픈 없는 16개 표기 중 9개에 봉, 7개는 0봉; ALB-P-A에서 일괄 400, 하이픈 6개는 미판정. RAPT는 2025-08-13~2026-03-02 138봉이며 [Nasdaq](https://www.nasdaqtrader.com/TraderNews.aspx?id=ECA2026-124)이 3월 2일 마지막 거래·3월 3일 현금 인수를 확인한다. 기존 EODHD 3월 3~6일 0거래량 반복값은 체결 일봉으로 쓰지 않는다.
 - 보존 경계: v5 final prepared 미재생성, 기존 125건 사건 관측시각 결손, BERZ/FNGS 신원 불일치, 합병 현금 처리·나머지 종목의 신원/상장 상태 미확인. 캐시·mandate·NAV·PAPER/live·주문·결제·DB·원격 push 변경 없음. 사용자 소유 루트 `HANDOFF.md` 보존.
 - 운영: 문서 변경 전 runner `paused=true` 확인, service stop 후 `inactive`; timer는 active. 완료 후 원래 pause를 유지한다. 등록부 사전 커밋 `34f16c8`에는 동시 진행 중인 `research-decision-reasons`의 등록부 상태 갱신 4줄도 함께 포함됐으며 내용을 보존했다.
+- 검증: 원문·판정 해시와 22종목 분류, 이번 작업의 문서 링크·메모리 크기·Git diff 및 통합 ancestry가 통과했다. 전체 등록부 링크 검사는 기존의 없는 링크 1개로 실패해 이번 항목을 분리해 재검증했다. 제품 코드 변경이 없어 제품 테스트·금융 실험은 하지 않았다.
 - 다음 시작: 이 인계와 `assessment.json`부터 읽고 Alpaca 조회를 반복하지 않는다. 양성 종목의 신원·기업행사 시점, 0봉·표기 불가 종목의 다른 공식 원천, RAPT 합병 현금 처리와 사건 `observed_at`을 해결한 뒤에만 v5 final 준비·PIT·성과 게이트를 다시 판정한다. Massive 별도 서면 이용권이 확인되면 그 범위에서만 2회 계획을 재평가한다.

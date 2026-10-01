@@ -24,7 +24,7 @@
 
 - 비공개 audit의 두 원문 SHA-256 재검사: RAPT `95e04c847d7b318d769564b690334e1d8e2c68dd5fb3e82f3d12ed2d89cb1da8`, 16종목 `c21db7287d5345b00f9097a544086f74b96187e454699eaa2e73fe127d2bae29`.
 - 단일 RAPT 138봉과 일괄 응답의 RAPT 138봉이 완전히 같고, 일괄 응답에 다음 페이지 토큰이 없음을 확인했다. 9개 양성 종목의 일봉은 모두 날짜·OHLCV 필드가 있다. EODHD 3월 3~6일 거래량 0을 저장된 원문에서 재확인했다.
-- [판정 JSON](/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-sip-feasibility/assessment.json) SHA-256 `67d08092d37125586550e7d554fbde7a0e0106f95bd61bf8d54d56e0e8939355`. 문서 링크·diff·Git 검사는 통합 때 기록한다. 코드·계약 변경이 없어 pytest·Ruff·mypy·금융 실험은 실행하지 않았다.
+- [판정 JSON](/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-sip-feasibility/assessment.json) SHA-256 `67d08092d37125586550e7d554fbde7a0e0106f95bd61bf8d54d56e0e8939355`. 통합 `main`에서 원문 해시·22종목 분류·이번 작업의 문서 링크·메모리 80줄/8 KiB 제한·`git show --check`·브랜치 ancestry가 통과했다. 전체 등록부 링크 검사에서는 기존의 없는 링크 1개를 발견해 이번 작업 항목만 좁혀 재검증했다. 코드·계약 변경이 없어 pytest·Ruff·mypy·금융 실험은 실행하지 않았다.
 
 ## 안전·운영 상태
 
