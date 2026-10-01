@@ -1,5 +1,19 @@
 # 워크트리 작업 등록부
 
+## research-decision-reasons
+
+- 상태: 조사·계획 진행
+- 목표·완료 조건: 기존 연구 기록으로 확인되는 거래 미실행 사유를 사용자 화면에서 이유별로 요약하고 원문 내역으로 연결합니다. 신호 부재·전체 현금 원인·미기록 사유를 추정하지 않습니다. 의미 있는 집중 검사, 독립 코드·초보자 화면 검토, local main 통합·검증·인계를 마칩니다.
+- 담당: 중앙 explore → plan → 단일 code → 독립 review. supervisor는 등록·통합·기록 담당.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-research-decision-reasons` / `feat/research-decision-reasons` (생성 예정).
+- 기준: `6b7178e`; 통합 대상 local `main`.
+- 입력·소유: 기존 typed research 진단과 연구 UI; 구체적 파일 범위는 조사·계획에서 확정합니다. 전략·성과·동결 결과·주문·운영 데이터는 변경하지 않습니다.
+- 격리: 작업별 의존성·빌드 출력·fixture·preview 포트 사용. 운영 서비스 배포는 범위 밖.
+- 운영: 시작 runner paused=false, service/timer active. 수동 작업 전 pause 후 service inactive/MainPID=0 확인. 종료 시 시작 상태 복원.
+- 검증·커밋·검토·통합: 대기.
+- workflow 판단: 기존 데이터 흐름을 먼저 조사해 이유 오분류와 중복 구현 방지; 절감 효과 미측정.
+- 기록·인계: `docs/development-records/2026-10-02-research-decision-reasons.md`, `docs/handoffs/2026-10-02-research-decision-reasons.md` (완료 시 저장).
+
 ## us-data-shortage-source-feasibility-20261001
 
 - 상태: 완료 — 기존 설정 키의 가격 원천 2건 제한 조회와 결정 기록·인계 통합 완료. 자료 인수는 `insufficient`, 경제 평가는 `not-evaluated`.
