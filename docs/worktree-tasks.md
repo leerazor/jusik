@@ -10,6 +10,7 @@
 - 외부 조회·결과: Alpaca 실제 4회(성공 2·400 2), Massive 0회. 비하이픈 16종목 중 9개에 OHLCV·7개 0봉, 하이픈 6개 미판정. RAPT 마지막 거래 2026-03-02·현금 인수는 Nasdaq으로 확인했다.
 - 격리·검증: 원시 응답은 비공개 audit에 보존했다. 원문 SHA·22종목 분류·문서 링크·`MEMORY.md` 분량·diff 검사 통과. 제품 코드·계약 변경이 없어 pytest·Ruff·mypy·금융 실험은 생략했다. 캐시·전략·NAV·원격 push 변경 없음.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-sip-feasibility/assessment.json` SHA-256 `67d08092d37125586550e7d554fbde7a0e0106f95bd61bf8d54d56e0e8939355`; [개발 기록](development-records/2026-10-02-us-data-shortage-alpaca-sip.md), [인계](handoffs/2026-10-02-us-data-shortage-alpaca-sip.md).
+- 정리: 통합 검사 후 깨끗한 전용 워크트리와 병합된 브랜치를 제거했다. 원래 runner pause를 유지하고 service `inactive`·timer `active`를 확인했다. 병행 `research-decision-reasons`의 미커밋 등록부 변경과 루트 `HANDOFF.md`는 보존했다.
 
 ## research-decision-reasons
 
