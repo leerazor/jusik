@@ -8,6 +8,6 @@
 - 기존 22종목 추적과 2025 Alpha Active 표기 간 모순을 진단하는 근거지만, Alpha/Yahoo의 역사적 증권 identity 연결이나 404 원인 증명은 아니다. 재선정·PIT·관측시각·coverage·NAV·성과 적격은 승격하지 않는다.
 - 검증: 첫 단계 [결속](/home/kwl/.local/share/jusik/portfolio-audit/20261001-sp-listing-source/binding.json)은 불변이다. 새 [원문 결속](/home/kwl/.local/share/jusik/portfolio-audit/20261001-sp-listing-source/supplemental-binding.json)에 별도 scope·선행 sentinel·원문·판정 SHA, 보호 파일 4개 불변과 문서 링크를 보존했다. 추가 검색·링크 순회·재시도 0회, 요청 10 MiB/30초·전체 60초 제한. 생산 코드 불변으로 pytest·Ruff·mypy·build는 재실행하지 않았다. 주문·금융 실험·추가 결제·서비스·push 변경 없음.
 - 재개: 실제 Nasdaq 거래중단 또는 Form 25 제출·상장폐지 이행 자료의 정확 URL이 있으면 별도 범위에서 확인한다. 기존 8-K·검색을 반복하지 않으며, 그 뒤에도 Alpha/Yahoo identity와 당시 이용 가능성·기간별 봉 근거를 독립 확인해야 한다.
-- workflow 판단: 검색 전 게이트로 불충분한 결과에서 원문 요청을 중지했다.
-- 근거: 실제 검색 1회·원문 0회; 시간·비용 절감 비교치는 미측정이다.
-- 다음 조정: 완료 사건과 증권 identity를 함께 보여 주는 새 URL 근거가 없으면 가설을 미해결로 유지한다.
+- workflow 판단: 첫 검색 단계에서는 게이트 미충족으로 원문 요청을 중지했고, 이후 독립 승인된 정확 8-K만 조회했다.
+- 근거: 총 검색 1회·SEC 원문 GET 1회(첫 단계 0회, 보충 단계 1회); 시간·비용 절감 비교치는 미측정이다.
+- 다음 조정: 합병 완료는 확인됐다. 실제 거래중단·상장폐지 이행과 Alpha/Yahoo identity·자료/PIT 적격은 새 근거가 있을 때만 재검토한다.
