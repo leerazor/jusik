@@ -2,13 +2,14 @@
 
 ## us-data-shortage-alpaca-sip-20261002
 
-- 상태: 진행 — 기존 Alpaca 키의 과거 SIP 일봉 제한 조회 완료, 원천·거래종료 판정 문서화 중. 자료 인수는 `insufficient`, 경제 평가는 `not-evaluated`.
+- 상태: 완료 — 기존 Alpaca 키의 과거 SIP 일봉 제한 조회·판정·인계 통합 완료. 자료 인수는 `insufficient`, 경제 평가는 `not-evaluated`.
 - 목표·완료 조건: 추적 22종목의 가격 조회 가능 범위를 확인하고 RAPT 인수 이후의 무거래 반복값을 구분해, 추가 결제와 무근거 데이터 채우기를 피할 다음 결정을 기록한다.
 - 담당·범위: supervisor 단일 문서 소유. 작업 워크트리 `/home/kwl/projects/jusik-us-data-shortage-alpaca-sip`, 브랜치 `docs/us-data-shortage-alpaca-sip-20261002`; 통합 대상 local `main`.
-- 기준: 등록 전 `554ad542f9f39081783a4e28f6c68182dd9075a4`; 기존 결손22·RAPT 원천 판정·현재 연구 조건을 재사용한다.
+- 기준·통합: 등록 전 `554ad542f9f39081783a4e28f6c68182dd9075a4`, 등록 `34f16c8`, 문서 구현·local `main` 통합 `8048a09`. 기존 결손22·RAPT 원천 판정·현재 연구 조건을 재사용했다.
 - 수정 허용: 이 등록부, `MEMORY.md`의 기존 원천 판정 색인, 이번 개발 기록·인계. 코드·mandate·원본 캐시·사용자 소유 루트 `HANDOFF.md`·운영 DB·PAPER/live는 보존한다.
-- 격리·검증: 원시 응답은 비공개 audit에 보존하고 문서에는 요약·해시만 기록한다. 문서 링크·JSON 결속·Git diff를 검증한다. 전략·NAV·성과 실행과 원격 push는 하지 않는다.
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-sip-feasibility/assessment.json`; [개발 기록](development-records/2026-10-02-us-data-shortage-alpaca-sip.md), [인계](handoffs/2026-10-02-us-data-shortage-alpaca-sip.md) (완료 시 저장).
+- 외부 조회·결과: Alpaca 실제 4회(성공 2·400 2), Massive 0회. 비하이픈 16종목 중 9개에 OHLCV·7개 0봉, 하이픈 6개 미판정. RAPT 마지막 거래 2026-03-02·현금 인수는 Nasdaq으로 확인했다.
+- 격리·검증: 원시 응답은 비공개 audit에 보존했다. 원문 SHA·22종목 분류·문서 링크·`MEMORY.md` 분량·diff 검사 통과. 제품 코드·계약 변경이 없어 pytest·Ruff·mypy·금융 실험은 생략했다. 캐시·전략·NAV·원격 push 변경 없음.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-sip-feasibility/assessment.json` SHA-256 `67d08092d37125586550e7d554fbde7a0e0106f95bd61bf8d54d56e0e8939355`; [개발 기록](development-records/2026-10-02-us-data-shortage-alpaca-sip.md), [인계](handoffs/2026-10-02-us-data-shortage-alpaca-sip.md).
 
 ## research-decision-reasons
 
