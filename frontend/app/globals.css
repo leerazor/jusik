@@ -1461,3 +1461,62 @@ footer {
   .research-nav { flex-wrap: nowrap; width: 100%; justify-content: space-between; gap: 0; }
   .research-nav > a, .research-more > summary { padding: 10px 8px; font-size: 12px; }
 }
+
+/* Keep policy context visible while reading the decision summary on narrow screens. */
+@media (max-width: 650px) {
+  .decision-reason-summary th:first-child,
+  .decision-reason-summary td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    width: 110px;
+    min-width: 110px;
+    max-width: 110px;
+    padding-inline: 10px;
+    background: white;
+    white-space: normal;
+    box-shadow: 1px 0 0 var(--line);
+  }
+  .decision-reason-summary th:first-child {
+    z-index: 2;
+    background: #f8faf9;
+  }
+  .decision-reason-evidence table {
+    min-width: 0;
+    white-space: normal;
+  }
+  .decision-reason-evidence thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .decision-reason-evidence tbody,
+  .decision-reason-evidence tr,
+  .decision-reason-evidence td {
+    display: block;
+  }
+  .decision-reason-evidence tr {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 10px;
+  }
+  .decision-reason-evidence td {
+    padding: 8px 10px;
+    text-align: left;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+  .decision-reason-evidence td + td {
+    border-top: 1px solid #edf1ef;
+  }
+  .decision-reason-evidence td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+}
