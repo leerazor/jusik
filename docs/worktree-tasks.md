@@ -5079,3 +5079,17 @@
 - 종료: 원본SHA·시도시각·22개 상태/개수 결속, 독립검토·main통합·기록·handoff·정리. 최종v5 prepared 재생성으로 표현하지 않는다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261001-us-gap-provenance/`; 계획 `scope.json`.
 - 통합: 구현 `7af5628`, main `652c59ab03350a1e96a2b1eddda7925a1059fa75`; 원천4·문서4·scope/result 결속 PASS, backend불변·네트워크/테스트0. 원문·판정 보존 후 worktree/branch 정리. 후속 SP 원천조회 scope 조건부 GO로 수동 session pause 유지.
+
+
+## sp-listing-source-20261001
+
+- 상태: 완료 — SEC 합병 완료 원문 확보, 독립 review·main 결속 PASS. 자료/성과 차단 유지.
+- 목표: SP의 저장 Alpha Active/Stock/NASDAQ 기록과 Yahoo404를 공식 완료/거래종료 공시로 대조한다. 실패 원인을 미리 가정하지 않는다.
+- 담당: 기존 결손 조사 → tnmg_split_plan 독립 계획 → ecos_code 단일 구현 → ecos_review 독립 검토.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-sp-listing-source` / `research/sp-listing-source`; 기준 `6e6a0a5`. 이전작업 통합/정리완료, runner paused·service/timer inactive 유지.
+- 조회: scope의 SEC 한정 검색어1회, issuer/ticker·완료/상장폐지 연결이 명시된 적격 결과만 primary1건; 부적격이면open0. 다른검색·링크추적·Yahoo재요청0.
+- 범위: 신규audit/개발기록/인계2문서. 원본cache·코드·정책·선정·성과 불변. 본문/시각/hash·요청예산·제한을 결속한다.
+- 종료: 직접근거 또는명시적미해결, 독립review·main통합·검증·handoff·정리·runner재개. 자동PIT/identity결속/재선정/가격coverage승격금지.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261001-sp-listing-source/`; `scope.json`, `plan.json`.
+- 보충 범위: 검색1/open0 최초 단계와 전체 응답 복구 기록을 보존한다. 동일 CIK/발행사로 연결된 정확8-K 1회 GET만 독립 계획 GO(`supplemental-scope.json`). 읽기 허가와 사실 인수 게이트를 분리하며 금융·자료 기준은 불변이다.
+- 결과: 총 검색1·SEC GET1(HTTP200), SP Plus/Nasdaq SP 보통주·2024-05-16 합병 완료 확인. 실제 거래중단/Form25 이행일·과거 공급자 identity 연결은 미확인. 구현 `c2231c4`, main `cebe5a0`; 보호4·원문8·문서2 결속 PASS, backend불변. worktree/branch 정리 완료. [기록](development-records/2026-10-01-sp-listing-source.md)·[인계](handoffs/2026-10-01-sp-listing-source.md); clean main에서 runner 재개 후 audit의 실제 관찰을 따른다.
