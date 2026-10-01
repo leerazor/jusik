@@ -9,7 +9,7 @@
 - 수정 허용: 이 등록부, `MEMORY.md`의 재개 색인 한 줄, 이번 개발 기록·인계만. 코드·mandate·원본 캐시·사용자 소유 루트 `HANDOFF.md`·운영 DB·PAPER/live는 보존한다.
 - 외부 조회: 기존 설정 키로 `RAPT` Alpha Vantage 전체 일봉 1회, EODHD 일봉 1회만 수행했고 원문·SHA를 전용 audit에 보존했다. 추가 가격 sweep·결제·원격 push 없음.
 - 검증·중지: 두 원문 SHA와 안전 요약, 22종목 범위와 준비기간, 공식 원천 계약, 문서 링크·diff·Git 상태를 대조했다. 단일 심볼 결과를 전체 coverage나 PIT로 승격하지 않는다. 코드 불변이므로 제품 테스트는 재실행하지 않았다.
-- 구현/통합: 등록 `a24a349`, 문서 `a3d12d5`, 로컬 `main` fast-forward `a3d12d5`; 등록부 종료 커밋은 이 행을 담은 다음 커밋. 문서 워크트리·브랜치는 검증 후 정리한다.
+- 구현/통합: 등록 `a24a349`, 문서 `a3d12d5`, 로컬 `main` fast-forward `a3d12d5`, 등록부 종료 `7755094`. 문서 워크트리·브랜치 정리 완료. 통합 audit `integration-verification.json` SHA-256 `39abed95fc34f46b64b7b317fbb0fc444f23bb82464556d0836c00a324075ef9`.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261001-data-shortage-decision/`; [개발 기록](development-records/2026-10-01-us-data-shortage-source-feasibility.md), [인계](handoffs/2026-10-01-us-data-shortage-source-feasibility.md). Massive 키·사용권 없이는 2회 preflight 미실행, 미래 관측 미등록.
 
 ## project-memory-index
