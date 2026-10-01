@@ -1,13 +1,23 @@
 # 워크트리 작업 등록부
 
+## us-data-shortage-alpaca-sip-20261002
+
+- 상태: 진행 — 기존 Alpaca 키의 과거 SIP 일봉 제한 조회 완료, 원천·거래종료 판정 문서화 중. 자료 인수는 `insufficient`, 경제 평가는 `not-evaluated`.
+- 목표·완료 조건: 추적 22종목의 가격 조회 가능 범위를 확인하고 RAPT 인수 이후의 무거래 반복값을 구분해, 추가 결제와 무근거 데이터 채우기를 피할 다음 결정을 기록한다.
+- 담당·범위: supervisor 단일 문서 소유. 작업 워크트리 `/home/kwl/projects/jusik-us-data-shortage-alpaca-sip`, 브랜치 `docs/us-data-shortage-alpaca-sip-20261002`; 통합 대상 local `main`.
+- 기준: 등록 전 `554ad542f9f39081783a4e28f6c68182dd9075a4`; 기존 결손22·RAPT 원천 판정·현재 연구 조건을 재사용한다.
+- 수정 허용: 이 등록부, `MEMORY.md`의 기존 원천 판정 색인, 이번 개발 기록·인계. 코드·mandate·원본 캐시·사용자 소유 루트 `HANDOFF.md`·운영 DB·PAPER/live는 보존한다.
+- 격리·검증: 원시 응답은 비공개 audit에 보존하고 문서에는 요약·해시만 기록한다. 문서 링크·JSON 결속·Git diff를 검증한다. 전략·NAV·성과 실행과 원격 push는 하지 않는다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-sip-feasibility/assessment.json`; [개발 기록](development-records/2026-10-02-us-data-shortage-alpaca-sip.md), [인계](handoffs/2026-10-02-us-data-shortage-alpaca-sip.md) (완료 시 저장).
+
 ## research-decision-reasons
 
-- 상태: 조사·계획 진행
+- 상태: 구현 진행
 - 목표·완료 조건: 기존 연구 기록으로 확인되는 거래 미실행 사유를 사용자 화면에서 이유별로 요약하고 원문 내역으로 연결합니다. 신호 부재·전체 현금 원인·미기록 사유를 추정하지 않습니다. 의미 있는 집중 검사, 독립 코드·초보자 화면 검토, local main 통합·검증·인계를 마칩니다.
 - 담당: 중앙 explore → plan → 단일 code → 독립 review. supervisor는 등록·통합·기록 담당.
-- 워크트리·브랜치: `/home/kwl/projects/jusik-research-decision-reasons` / `feat/research-decision-reasons` (생성 예정).
-- 기준: `6b7178e`; 통합 대상 local `main`.
-- 입력·소유: 기존 typed research 진단과 연구 UI; 구체적 파일 범위는 조사·계획에서 확정합니다. 전략·성과·동결 결과·주문·운영 데이터는 변경하지 않습니다.
+- 워크트리·브랜치: `/home/kwl/projects/jusik-research-decision-reasons` / `feat/research-decision-reasons`.
+- 기준: 등록 전 `6b7178e`, 구현 기준 `554ad54`; 통합 대상 local `main`.
+- 입력·소유: `frontend/lib/portfolio-decision-reasons.ts`, `frontend/app/research/portfolio/`, 집중 검증 script, `docs/investor-web-design.md`. 기존 비교별 base.policy_events의 frequency_skip·band_skip·cap_constraint_deferred만 사건 단위로 요약합니다. 전략·성과·API·동결 결과·주문·운영 데이터는 변경하지 않습니다.
 - 격리: 작업별 의존성·빌드 출력·fixture·preview 포트 사용. 운영 서비스 배포는 범위 밖.
 - 운영: 시작 runner paused=false, service/timer active. 수동 작업 전 pause 후 service inactive/MainPID=0 확인. 종료 시 시작 상태 복원.
 - 검증·커밋·검토·통합: 대기.
