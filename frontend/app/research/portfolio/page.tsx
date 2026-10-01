@@ -1,4 +1,5 @@
 import { researchReportHref } from "@/lib/research-reports";
+import { PolicyDecisionReasons, policyLabels } from "./decision-reasons";
 import {
   getLatestPortfolioRun,
   getPortfolioStatus,
@@ -19,13 +20,6 @@ const gateLabels = {
   rates: "금리 필터",
   fx_vix: "환율·VIX 필터",
   stress: "원유·금·회사채 필터",
-} as const;
-const policyLabels = {
-  corrected_control: "체결 수정 대조군",
-  reentry_only: "재진입만",
-  volatility_only: "변동성 배율만",
-  combined: "재진입 + 변동성",
-  low_turnover_combined: "저회전 결합",
 } as const;
 const policyCurveClasses = ["curve-one", "curve-two", "curve-three", "curve-four", "curve-five"] as const;
 const lifecycleLabels = {
@@ -179,8 +173,9 @@ function PortfolioContent({ run, status }: { run: PortfolioRun; status: Portfoli
             {experiment.comparisons.flatMap((comparison) => comparison.diagnostics.monthly.map((month) => <tr key={`${comparison.policy}-${month.month}`}><td>{policyLabels[comparison.policy]}</td><td>{month.month}</td><td>{month.trade_count}건</td><td>{percent(month.turnover_pct)}</td><td>{month.active ? "보유 또는 거래" : "현금 대기"}</td></tr>))}
           </tbody></table></div>
 
+          <PolicyDecisionReasons comparisons={experiment.comparisons} />
           <div className="policy-events">
-            {experiment.comparisons.map((comparison) => <article className="metric-card" key={comparison.policy}><span>{policyLabels[comparison.policy]}</span><strong>{comparison.diagnostics.reentry_count}회 재진입</strong><small>위험 청산 {comparison.diagnostics.exit_count} · 4주 건너뜀 {comparison.diagnostics.frequency_skip_count} · 2%p 구간 {comparison.diagnostics.band_skip_count} · 변동성 축소 {comparison.diagnostics.volatility_scale_event_count}</small></article>)}
+            {experiment.comparisons.map((comparison) => <article className="metric-card" key={comparison.policy}><span>{policyLabels[comparison.policy]}</span><strong>{comparison.diagnostics.reentry_count}회 재진입</strong><small>위험 청산 {comparison.diagnostics.exit_count} · 변동성 축소 {comparison.diagnostics.volatility_scale_event_count}</small></article>)}
           </div>
           <div className="table-wrap"><table><thead><tr><th>정책</th><th>시각 (UTC)</th><th>상태 변화</th><th>설명</th></tr></thead><tbody>
             {experiment.comparisons.flatMap((comparison) => comparison.base.policy_events.filter((event) => event.kind in lifecycleLabels).map((event, index) => <tr key={`${comparison.policy}-${event.at}-${event.kind}-${index}`}><td>{policyLabels[comparison.policy]}</td><td>{event.at}</td><td>{lifecycleLabels[event.kind as keyof typeof lifecycleLabels]}</td><td>{event.detail}</td></tr>))}

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "verify:market-research-contract": "tsx scripts/verify-market-research-contract.ts",
     "verify:research-reports": "tsx scripts/verify-research-reports.ts",
-    "verify:research-charts": "tsx scripts/verify-research-charts.ts"
+    "verify:research-charts": "tsx scripts/verify-research-charts.ts",
+    "verify:portfolio-decision-reasons": "tsx scripts/verify-portfolio-decision-reasons.ts"
   },
   "dependencies": {
     "next": "16.3.4",
