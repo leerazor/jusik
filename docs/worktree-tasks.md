@@ -14,17 +14,15 @@
 
 ## research-decision-reasons
 
-- 상태: 구현 진행
-- 목표·완료 조건: 기존 연구 기록으로 확인되는 거래 미실행 사유를 사용자 화면에서 이유별로 요약하고 원문 내역으로 연결합니다. 신호 부재·전체 현금 원인·미기록 사유를 추정하지 않습니다. 의미 있는 집중 검사, 독립 코드·초보자 화면 검토, local main 통합·검증·인계를 마칩니다.
-- 담당: 중앙 explore → plan → 단일 code → 독립 review. supervisor는 등록·통합·기록 담당.
-- 워크트리·브랜치: `/home/kwl/projects/jusik-research-decision-reasons` / `feat/research-decision-reasons`.
-- 기준: 등록 전 `6b7178e`, 구현 기준 `554ad54`; 통합 대상 local `main`.
-- 입력·소유: `frontend/lib/portfolio-decision-reasons.ts`, `frontend/app/research/portfolio/`, 집중 검증 script, `docs/investor-web-design.md`. 기존 비교별 base.policy_events의 frequency_skip·band_skip·cap_constraint_deferred만 사건 단위로 요약합니다. 전략·성과·API·동결 결과·주문·운영 데이터는 변경하지 않습니다.
-- 격리: 작업별 의존성·빌드 출력·fixture·preview 포트 사용. 운영 서비스 배포는 범위 밖.
-- 운영: 시작 runner paused=false, service/timer active. 수동 작업 전 pause 후 service inactive/MainPID=0 확인. 병행 `us-data-shortage-alpaca-sip-20261002` 수동 작업도 종료된 것을 확인한 뒤 시작 상태 복원; 미종료 시 pause를 유지하고 인계.
-- 검증·커밋·검토·통합: 대기.
-- workflow 판단: 기존 데이터 흐름을 먼저 조사해 이유 오분류와 중복 구현 방지; 절감 효과 미측정.
-- 기록·인계: `docs/development-records/2026-10-02-research-decision-reasons.md`, `docs/handoffs/2026-10-02-research-decision-reasons.md` (완료 시 저장).
+- 상태: 개발 완료 — 독립 코드·화면 검토, local main 통합·검증·인계 완료. 운영 웹 서비스 배포는 미수행.
+- 목표·결과: `/research/portfolio`의 정책별 기본 이벤트 3종을 단위별로 요약하고 원문 펼침으로 연결합니다. 신호 부재·전체 현금 원인·미기록 사유를 추정하지 않습니다.
+- 담당·소유: 중앙 explore/plan, 단일 code 구현, 별도 code review와 화면만 보는 novice reviewer. frontend helper/component/page·scoped CSS·집중 검사·화면 문서만 변경. 백엔드·API·전략·성과·동결 결과 보존.
+- 기준·통합: 기준 `554ad54`, 구현 `7606f2e`·보완 `8a6fe26`; 병합 직전 `3f78b2f`, 제품 통합 `7ce3142d74d42bd94d2912a3f37ef131e375b3d9`.
+- 검증: 구현·main 집중 검사/lint/typecheck/build PASS, 독립 코드 재검토·초보자 화면 재검토 PASS, 합성 4상태 HTTP200·PC/390px·main preview PASS. child 모델/effort 감사 PASS. 투자 성과 검증 아님.
+- 운영·정리: 시작 runner unpaused/service·timer active, 수동 작업 동안 pause. 병행 Alpaca 문서 작업 종료 확인 뒤 기록 commit 후 runner 복원(runtime-after.json). 운영 웹 배포·주문·데이터 변경·원격 push 없음. 전용 `/home/kwl/projects/jusik-research-decision-reasons`와 branch, 3352/3353/8352 테스트 서버 정상 정리.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-research-decision-reasons/`; manifest·검사·캡처·fixture 보존.
+- workflow: 기존 원천 재사용으로 집계 의미와 모바일 이해 오류를 확인·보완; 시간/호출 절감 미측정.
+- 기록·인계: [개발 기록](development-records/2026-10-02-research-decision-reasons.md), [인계](handoffs/2026-10-02-research-decision-reasons.md).
 
 ## us-data-shortage-source-feasibility-20261001
 
