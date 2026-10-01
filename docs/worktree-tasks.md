@@ -21,7 +21,7 @@
 - 기준: 등록 전 `6b7178e`, 구현 기준 `554ad54`; 통합 대상 local `main`.
 - 입력·소유: `frontend/lib/portfolio-decision-reasons.ts`, `frontend/app/research/portfolio/`, 집중 검증 script, `docs/investor-web-design.md`. 기존 비교별 base.policy_events의 frequency_skip·band_skip·cap_constraint_deferred만 사건 단위로 요약합니다. 전략·성과·API·동결 결과·주문·운영 데이터는 변경하지 않습니다.
 - 격리: 작업별 의존성·빌드 출력·fixture·preview 포트 사용. 운영 서비스 배포는 범위 밖.
-- 운영: 시작 runner paused=false, service/timer active. 수동 작업 전 pause 후 service inactive/MainPID=0 확인. 종료 시 시작 상태 복원.
+- 운영: 시작 runner paused=false, service/timer active. 수동 작업 전 pause 후 service inactive/MainPID=0 확인. 병행 `us-data-shortage-alpaca-sip-20261002` 수동 작업도 종료된 것을 확인한 뒤 시작 상태 복원; 미종료 시 pause를 유지하고 인계.
 - 검증·커밋·검토·통합: 대기.
 - workflow 판단: 기존 데이터 흐름을 먼저 조사해 이유 오분류와 중복 구현 방지; 절감 효과 미측정.
 - 기록·인계: `docs/development-records/2026-10-02-research-decision-reasons.md`, `docs/handoffs/2026-10-02-research-decision-reasons.md` (완료 시 저장).
