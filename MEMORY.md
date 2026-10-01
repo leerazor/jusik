@@ -32,7 +32,7 @@ rg -n -F '작업-slug' docs/worktree-tasks.md
 
 - 새 미국 연구의 `LIME`·`MDA` 제외와 과거 결과 보존: [정책 적용 기록](docs/development-records/2026-09-30-exclude-lime-mda-us-research.md), [해당 인계](docs/handoffs/2026-09-30-exclude-lime-mda-us-research.md). 새 실행의 최종 조건은 현재 연구 조건과 JSON에서 확인합니다.
 - 새 제외 정책의 미국 1년 자료는 [준비·결손 판정](docs/development-records/2026-09-30-us-exclusion-pilot-readiness.md)을 재사용합니다. 같은 27개 요청을 반복하지 않으며, 요청 제외 25종목·사건 관측시각 결손·우선주 분류 누락을 [인계의 재개 조건](docs/handoffs/2026-09-30-us-exclusion-pilot-readiness.md)에 따라 해결합니다. collector 완료는 자료·성과 적격이 아닙니다.
-- [v5 인계](docs/handoffs/2026-09-30-us-null-bar-recovery.md)의 캐시142를 재사용합니다. [가격기준 후속 인계](docs/handoffs/2026-09-30-yahoo-price-basis-source.md): Yahoo 공식본문429, TNMG basis unknown·분할 관측 미상으로 NAV 차단. 이전 BERZ 후일 ETN 근거도 연결됩니다. 동일 조회·FX 검사를 반복하지 않으며 새 증거/READY 상태를 확인합니다. 최종 prepared·PIT·성과는 미검증입니다.
+- [v5 인계](docs/handoffs/2026-09-30-us-null-bar-recovery.md)의 캐시142를 재사용합니다. [TNMG SEC 후속 인계](docs/handoffs/2026-10-01-tnmg-sec-split-source.md): 분할비율2건 확인, 2025 날짜충돌·2026 예정표현·관측시각/가격기준 미확인으로 NAV 차단. [Yahoo429 기록](docs/handoffs/2026-09-30-yahoo-price-basis-source.md)과 원문 재조회·동일 FX 검증은 반복하지 않습니다. 최종 prepared·PIT·성과 미검증.
 - 상장 전 결손과 identity 근거를 다시 조사하기 전: [기존 범위 검토](docs/development-records/2026-09-30-listing-identity-scope-review.md). 기존 조사 완료를 데이터 acceptance 완료로 해석하지 않습니다.
 - 자동개발 대기·재개 진단을 반복하기 전: [대기 복구 기록](docs/development-records/2026-09-29-wait-handoff-recovery.md), [연속 실행 원칙](docs/continuous-development-session.md#continuous-execution-rule). 실제 실행기 상태는 운영 명령으로 다시 확인합니다.
 

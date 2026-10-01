@@ -5053,3 +5053,17 @@
 - 워크트리/브랜치(정리 완료): `/home/kwl/projects/jusik-lab-discovery-a24f8490c379152849d9a2dbacf85c39` / `fix/lab-discovery-a24f8490c379152849d9a2dbacf85c39`; 기준 `e9a140c`.
 - 통합/검증: main `4d514c9551d1d4b2c42574af1fc293e85d1181b0`. regression전실패·후43PASS, Ruff/format/mypy PASS, review·main파일hash 결속 PASS. root 동일검사재실행0, 캐시142·mandate보존.
 - 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20260930-paper-reconcile-monotonicity/integration.json`; [기록](development-records/2026-09-30-lab-discovery-a24f8490c379152849d9a2dbacf85c39.md)·[인계](handoffs/2026-09-30-lab-discovery-a24f8490c379152849d9a2dbacf85c39.md). 후속 runner 관찰은 같은 audit의 runner-resume.json.
+
+
+## tnmg-sec-split-source-20261001
+
+- 상태: 완료 — primary2건 확보·독립 review·main 통합 검증 PASS. 날짜 충돌·자료/성과 차단 유지.
+- 목표: TNMG 2025-12-23·2026-09-08 분할의 공시 본문·효력일 근거를 확보한다. Yahoo 가격 기준·결손 가격·PIT/성과 검증과 구분한다.
+- 담당: source_freshness_explore → tnmg_split_plan → ecos_code 단일 구현 → ecos_review 독립 검토. runner paused, service/timer inactive, running0 확인.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-tnmg-sec-split-source` / `research/tnmg-sec-split-source`; 기준 `60fd537e67c319586c5ea722a303784d1b176f40`.
+- 범위: 신규 audit와 개발 기록·handoff 두 파일. 저장소 코드·정책·캐시142·동결 결과는 보존한다. supervisor가 등록부·통합을 담당한다.
+- 조회: 고정 primary URL 두 개만 각각 GET1, 전체2회 상한; atomic sentinel/10MiB/30s·60s/retry0/redirect0/search0. exhibit 자동 추적 금지, 실패 재시도 금지.
+- 종료: 원문·metadata·요청시도 결속, 본문 근거 또는 명시적 결손, 독립 review·main 검증·기록·handoff·정리. SEC acceptance를 최초 공개시각으로 승격하지 않는다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261001-tnmg-sec-split-source/`; 계획 `plan.json`, 조회 범위 `scope-proposal.json`.
+- 결과: 2025 비율1:20·본문예정일2024-12-23 충돌, 2026 비율1:8·9/8 예정. 구현 `811953c`, main `8ac3f8803536a06beee6688fc2bb47126ea19433`; 보호8/결속18 PASS. 기존 검사재실행0, raw/PIT/NAV 승격0. Exhibit후속은 기대 추가가치 낮아 NO_GO(본문 UNREAD), 정정·공식 기업행동 근거의 정확URL+새 scope에서 재개.
+- 개발기록 `docs/development-records/2026-10-01-tnmg-sec-split-source.md`; handoff `docs/handoffs/2026-10-01-tnmg-sec-split-source.md`. audit 보존 후 worktree/branch 정리, clean main에서 runner 재개.
