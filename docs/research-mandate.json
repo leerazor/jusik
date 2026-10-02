@@ -71,7 +71,7 @@
   "governance": {
     "schema_version": 1,
     "policy_version": "investment-roadmap-governance-v1",
-    "dispatch_enabled": true,
+    "dispatch_enabled": false,
     "objective": {
       "kind": "balanced",
       "cost_adjusted": true,

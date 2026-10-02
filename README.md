@@ -1,5 +1,7 @@
 # Jusik
 
+새 연구는 [/research/approved-universe](/research/approved-universe)에서 직접 고른 한국·미국 종목을 등록하는 단계부터 시작합니다. 등록 목록은 처음에 비어 있고 기존 운영 종목과 분리됩니다. 다음 단계에서 자료를 확인하고 같은 종목의 단순 보유와 비용을 포함한 낮은 거래 빈도 후보를 비교합니다. 등록만으로 자동매매나 실거래가 시작되지 않습니다. [연구 계획](docs/approved-universe-plan.md)을 참고하세요.
+
 등록한 한국투자증권(KIS)과 키움증권 계좌를 한 화면에서 조회하는 로컬 읽기 전용 현황판입니다. 계좌별 자산 요약과 국내·해외 주식 보유내역을 함께 표시합니다. 프론트엔드는 Next.js App Router, React, TypeScript를 사용하고 백엔드는 Python 3.13과 FastAPI를 사용합니다.
 
 ## 투자자 워크플로

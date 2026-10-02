@@ -38,7 +38,7 @@ function RepresentativeResult({ study, comparison }: { study: Study; comparison:
   const narrative = getStudyNarrative(study);
   return <>
     <section className={styles.comparison} id="trial" aria-labelledby="comparison-title">
-      <p className={styles.kicker}>01 · 무엇을 바꿔서 시험했나요?</p>
+      <p className={styles.kicker}>이전 연구 참고 · 새 등록 종목의 성과가 아닙니다</p>
       <h2 id="comparison-title">{narrative?.reading.question ?? "이 자료의 두 연구 설정을 비교합니다"}</h2>
       <ComparisonTakeaway study={study} comparison={comparison} />
       <ComparisonSettings study={study} comparisonId={comparison.id} />
@@ -65,7 +65,7 @@ function ResearchConditions() {
     ["레버리지 상품", `배분 ${fractionToPercent(mandateSummary.leverage)}% 범위`],
     ["거래 선호", mandateSummary.comparisonPreference],
     ["과거 확인 기간", `${mandateSummary.lookbackYears}년 요구 · 실제 확보 기간은 비교마다 다름`],
-    ["종목 범위", "기존 종목·현금·광범위 지수 ETF·단기채 ETF · 짧은 이력 ETF는 주 연구를 막으면 제외 가능"],
+    ["종목 범위", "직접 등록한 한국·미국 종목을 우선 비교 · 현금 포함"],
     ["신호와 주문", "실시간 신호 탐지 · 주문 빈도와는 별개"],
     ["투자기간", mandateSummary.investmentHorizonLabel],
     ["운영 조건", "실거래 유보 · 별도 모의 관찰의 PAPER 10% 계약 유지"],
@@ -81,9 +81,10 @@ export default async function ResearchHubPage({ searchParams }: PageProps) {
   return <main className={styles.main}>
     <OperationsRefresh />
     <section className={styles.hero}>
-      <p className={styles.kicker}>처음 읽는 투자 연구</p>
-      <h1>더 벌었을까요?<br />위험도 함께 봅니다.</h1>
-      <p>연구자가 같은 과거 주가에 두 규칙을 적용한 <strong>가상 시험</strong>입니다. 수익뿐 아니라 하락과 비용을 함께 비교합니다.</p>
+      <p className={styles.kicker}>직접 고른 종목으로 시작하는 연구</p>
+      <h1>단순 보유보다 나은지<br />비용과 위험까지 비교합니다.</h1>
+      <p>먼저 한국·미국 종목을 등록하세요. 이후 같은 종목의 단순 보유와 거래가 적은 후보를 비교합니다. 아래 과거 시험은 새 목록의 성과가 아닙니다.</p>
+      <Link className={styles.primaryLink} href="/research/approved-universe">비교할 종목 등록하기 ↗</Link>
     </section>
     {query.error && <div className={styles.alert} role="alert"><h2>연구 도구 요청 결과</h2><p>{query.error === "event-json" ? "시장 이벤트 JSON 배열 형식을 확인하세요." : "연구 도구 요청을 처리하지 못했습니다."} <Link href="/research/lab">연구 도구로 이동</Link></p></div>}
     {availabilityNotice(progress)}

@@ -1,0 +1,9 @@
+# 사용자 등록 종목 연구 인계
+
+- 작업 브랜치: `feat/approved-universe`, 기준 `2fb6200`; 통합·검토는 supervisor 담당.
+- 첫 산출물: `/research/approved-universe`와 독립 GET/PUT 등록 API. 목록은 빈 상태에서 시작하고 revision으로 충돌을 막는다.
+- 현재 우선 계획: `docs/approved-universe-plan.md`; legacy R0–R7은 참조. governance 신규 dispatch는 false, 기존 실행 projection은 보존.
+- 검증 명령과 결과: `docs/development-records/2026-10-02-approved-universe.md` 참조.
+- 프리뷰: loopback 3012/8012, 격리 DB·출력은 `/home/kwl/.local/share/jusik/portfolio-audit/20261002-approved-universe`.
+- 다음 행동: 독립 화면·코드 검토를 받아 중대 지적을 수정하고 supervisor가 로컬 main에 통합 검증. 이후 사용자가 고른 실제 종목을 기다린다.
+- 실주문, PAPER, 원격 push, 외부 수집은 수행하지 않았다.

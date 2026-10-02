@@ -1,6 +1,12 @@
 # 현재 연구 운용 조건
 
-현재 `docs/research-mandate.json` 전체 bytes SHA-256은 `2c0b41ef4246c8f9bc0c99f1b4d544364e2350371bf5fa3f4cee2d9ce3e62749`입니다.
+## 현재 우선 연구 범위
+
+사용자가 직접 등록한 한국·미국 종목만 새 연구의 시작 목록으로 사용한다. 등록 목록은 처음에 비어 있으며 기존 탐색 universe나 운영 universe를 승인된 목록으로 간주하지 않는다. 우선 목표는 같은 종목의 단순 보유와 매수·보유·매도·현금으로 이루어진 낮은 회전율 후보를 비용 차감 기준으로 비교하는 것이다. 등록만으로 시세 자료 적격성, 투자 후보, PAPER 또는 실거래를 승인하지 않는다. 새 연구 절차는 [승인 종목 연구 계획](approved-universe-plan.md)을 따른다.
+
+기존 R0–R7 및 미국 PIT 연구는 과거 근거와 재현을 위한 참조다. 새 사용자 선택 종목 연구의 선행 차단 조건으로 사용하지 않는다. 전용 roadmap runner의 새 dispatch는 이 전환 기간에 비활성화하며 기존 실행 기록과 동결 조건은 유지한다.
+
+현재 `docs/research-mandate.json` 전체 bytes SHA-256은 `ab6d712922b0a148361b3c8170c77cf44f7ef871b2a6878ac51d66447350f904`입니다.
 
 자동 연구는 함께 추적하는 `research-mandate.json`의 실행 범위를 따릅니다. 현재 JSON 전체 bytes SHA-256은 manifest의 `docs/research-mandate.json` 항목과 일치하며, manifest에는 immutable legacy execution identity와 canonical `#governance-object` projection을 별도 항목으로 둡니다. 기존 policy consumer와 과거 replay는 legacy identity를 계속 사용하고, roadmap dispatch는 governance-object projection을 사용합니다. 과거 실험이 고정한 원본과 계약은 해당 실험의 근거로 보존하고 새 조건을 적용했다고 과거 결과를 다시 해석하지 않습니다. 승인된 설계는 [투자 개발 로드맵](investment-development-roadmap.md)의 canonical execution plan과 JSON governance에 동기화되어 있으며, roadmap runner는 전용 scope에서만 dispatch합니다. JSON의 versioned governance는 balanced objective, 비용 차감 primary metrics, diagnostic 분리, `MDD <= 20%` hard filter, 후보 최대 3개와 자동 선택·승격 금지, bounded validation 순서와 별도 live 승인을 고정합니다. 새 연구를 dispatch하기 전 runner는 JSON·Markdown·checksum·roadmap marker·git readiness를 fail-closed로 검증하고, 불일치·누락·미확인은 claim·attempt·launch 전에 차단합니다. 실제 주문·PAPER/live 자동 승격은 계속 금지합니다.
 
