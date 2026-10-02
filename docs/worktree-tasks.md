@@ -5143,3 +5143,15 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261001-sp-listing-source/`; `scope.json`, `plan.json`.
 - 보충 범위: 검색1/open0 최초 단계와 전체 응답 복구 기록을 보존한다. 동일 CIK/발행사로 연결된 정확8-K 1회 GET만 독립 계획 GO(`supplemental-scope.json`). 읽기 허가와 사실 인수 게이트를 분리하며 금융·자료 기준은 불변이다.
 - 결과: 총 검색1·SEC GET1(HTTP200), SP Plus/Nasdaq SP 보통주·2024-05-16 합병 완료 확인. 실제 거래중단/Form25 이행일·과거 공급자 identity 연결은 미확인. 구현 `c2231c4`, main `cebe5a0`; 보호4·원문8·문서2 결속 PASS, backend불변. worktree/branch 정리 완료. [기록](development-records/2026-10-01-sp-listing-source.md)·[인계](handoffs/2026-10-01-sp-listing-source.md); clean main에서 runner 재개 후 audit의 실제 관찰을 따른다.
+
+
+## approved-universe-20261002
+
+- 상태: 진행 — 사용자가 2번(사용자 승인 종목 내 저빈도 운용)을 선택, 첫 등록 기능과 목표 전환.
+- 목표/완료: 승인 종목을 명시 입력·저장·조회하는 UI/API, 빈 목록과 미연결 상태 표시, 과거 PAPER/성과 보존, 로컬 main 통합·검증·인계. 종목 확정·성과 검증·주문 연결은 별도 후속이다.
+- 담당: approved_universe_explore → approved_universe_plan → 단일 code 소유 → 독립 review.
+- 워크트리/브랜치: `/home/kwl/projects/jusik-approved-universe` / `feat/approved-universe`; 기준 `254996e`.
+- 범위: 새 독립 등록 저장소와 연구 API·UI, 연결 메뉴, 새 목표 문서와 legacy roadmap dispatch 중지 계약. frozen PAPER 원장·자료·구정책 prefix 보존.
+- 운영: roadmap runner pause·service inactive 확인. 구 목표 자동 실행은 전환 기간 재개하지 않음. 사용자 소유 `HANDOFF.md` 보존.
+- 검증: 등록·중복·잘못된 식별자·빈목록·오류와 기존 경계 focused tests, frontend lint/typecheck/build, 실제 화면 독립 이해도 검토.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-approved-universe/`; 기록 `docs/development-records/2026-10-02-approved-universe.md`; 인계 `docs/handoffs/2026-10-02-approved-universe.md`.
