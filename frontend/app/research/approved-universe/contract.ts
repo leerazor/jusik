@@ -18,3 +18,4 @@ export const approvedUniverseSchema = z.object({
 });
 
 export type ApprovedInstrument = z.infer<typeof approvedInstrumentSchema>;
+export type ApprovedUniverse = z.infer<typeof approvedUniverseSchema>;

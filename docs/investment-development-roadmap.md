@@ -8,7 +8,7 @@
 - 적용 범위: 미국 손실 진단을 먼저 끝내고, 검증 가능한 경우에만 한국 확장과 PAPER 판단으로 넘어간다.
 - 이 문서는 미래 작업의 목표와 완료 조건을 기록한다. 이 커밋으로 어떤 단계도 완료되지 않는다.
 - canonical policy_version: `investment-roadmap-governance-v1`
-- 이 문서는 투자 개발의 canonical execution plan이다. 승인 설계와 `docs/research-mandate.json`의 versioned governance가 동기화되었고, dispatcher의 fail-closed 구현·검증이 완료된 뒤 전용 scope runner를 재개한다. 일반 research scope, PAPER/live, 실제 주문과 remote push는 재개하지 않는다.
+- 이 문서는 과거 R0–R7 경로의 canonical execution plan과 증거를 보존한다. 현재 신규 연구의 실행 계획은 [사용자 등록 종목 연구 계획](approved-universe-plan.md)이다. JSON governance는 동기화되어 있지만 `dispatch_enabled=false`이므로 전용 scope runner의 신규 dispatch는 차단된다. 일반 research scope, PAPER/live, 실제 주문과 remote push도 이 전환으로 재개하지 않는다.
 
 ## 목적과 우선순위
 
