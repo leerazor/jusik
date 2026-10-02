@@ -2,7 +2,7 @@
 
 ## alpaca-price-evidence-20261002
 
-- 상태: 계획 검토 — 새 Alpaca 원문을 실제 재사용 가능한 검증 가격 묶음으로 준비.
+- 상태: 완료 — 독립 검토·main 통합 검증 PASS, 9종목 1,683봉 증거 준비. 연구 인수 미완료.
 - 목표: 원문 1,683봉의 구조·날짜·정합성을 검사하고 정규화 가격·정확한 결손·미해결 인수 조건을 별도 출력한다. 기존 단순 개수 판정을 입력 검사로 발전시킨다.
 - 담당: source_freshness_explore 조사 → tnmg_split_plan 독립 계획 → ecos_code 단일 구현 → ecos_review 독립 검토. supervisor 등록·통합.
 - 기준: `edcf129`; 워크트리 `/home/kwl/projects/jusik-alpaca-price-evidence`, 브랜치 `feat/alpaca-price-evidence`; local main 통합.
@@ -11,6 +11,8 @@
 - 운영: 다른 화면 배포 문서 종료 `edcf129`, tracked clean 확인 후 runner pause/service inactive. 작업 소유 상태를 확인하고 종료 시 안전 조건에 따라 복원.
 - 종료: 승인 계획 기준 구현·실제 원문 한정 실행·독립 검토·main 통합 검증·기록·인계·워크트리 정리. 정규화 성공은 신원·PIT·NAV 적격이 아니다.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-price-evidence/`.
+- 결과: 구현 `62dd8c0`, main `e94cdbc`; pytest15·Ruff·strict mypy·보호8 hash PASS. 출력 경합 P2를 원자적 no-replace로 수정·검토했다. 원문 재요청0, 성과 승격0. 환경·결과 보존 후 worktree/branch 정리 완료.
+- [개발 기록](development-records/2026-10-02-alpaca-price-evidence.md)·[인계](handoffs/2026-10-02-alpaca-price-evidence.md); 실제 runner 복원 상태는 audit `runtime-after.json`을 확인한다.
 
 ## us-data-shortage-alpaca-sip-20261002
 

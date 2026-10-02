@@ -33,7 +33,7 @@ rg -n -F '작업-slug' docs/worktree-tasks.md
 - 새 미국 연구의 `LIME`·`MDA` 제외와 과거 결과 보존: [정책 적용 기록](docs/development-records/2026-09-30-exclude-lime-mda-us-research.md), [해당 인계](docs/handoffs/2026-09-30-exclude-lime-mda-us-research.md). 새 실행의 최종 조건은 현재 연구 조건과 JSON에서 확인합니다.
 - 새 제외 정책의 미국 1년 자료는 [준비·결손 판정](docs/development-records/2026-09-30-us-exclusion-pilot-readiness.md)을 재사용합니다. 같은 27개 요청을 반복하지 않으며, 요청 제외 25종목·사건 관측시각 결손·우선주 분류 누락을 [인계의 재개 조건](docs/handoffs/2026-09-30-us-exclusion-pilot-readiness.md)에 따라 해결합니다. collector 완료는 자료·성과 적격이 아닙니다.
 - [v5 캐시142](docs/handoffs/2026-09-30-us-null-bar-recovery.md) 재사용. [결손22](docs/handoffs/2026-10-01-us-gap-provenance.md)(AVNS 시도별 상이), [TNMG](docs/handoffs/2026-10-01-tnmg-sec-split-source.md)(분할 날짜충돌), [SP](docs/handoffs/2026-10-01-sp-listing-source.md)(합병·상폐 미확인). 같은 조회 반복 금지; final prepared·PIT·NAV·성과 미검증.
-- [미국 결손 후속](docs/development-records/2026-10-02-us-data-shortage-alpaca-sip.md): Massive 사용권 미확인·호출 0회. Alpaca SIP 16개 중 9개 양성·7개 0봉, 6개 표기 미판정. RAPT는 2026-03-02 거래 종료·현금 인수. 자료 인수 미완료.
+- [미국 결손](docs/development-records/2026-10-02-us-data-shortage-alpaca-sip.md): Massive 사용권 미확인·호출0. [Alpaca 가격 준비](docs/handoffs/2026-10-02-alpaca-price-evidence.md): 9종목1,683봉·결손 검증, 7개0봉·6개미조회. 신원·사건시각·연구인수 미완료.
 - 상장 전 결손과 identity 근거를 다시 조사하기 전: [기존 범위 검토](docs/development-records/2026-09-30-listing-identity-scope-review.md). 기존 조사 완료를 데이터 acceptance 완료로 해석하지 않습니다.
 - 자동개발 대기·재개 진단을 반복하기 전: [대기 복구 기록](docs/development-records/2026-09-29-wait-handoff-recovery.md), [연속 실행 원칙](docs/continuous-development-session.md#continuous-execution-rule). 실제 실행기 상태는 운영 명령으로 다시 확인합니다.
 
