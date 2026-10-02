@@ -9,6 +9,10 @@ function line(item: ApprovedInstrument): string {
   return item.market === "KR" ? `KR,${item.symbol}` : `US,${item.exchange},${item.symbol}`;
 }
 
+function normalizedLineEndings(value: string): string {
+  return value.replace(/\r\n?/g, "\n");
+}
+
 export function ApprovedUniverseEditor({ initial }: { initial: ApprovedUniverse }) {
   const [state, formAction, pending] = useActionState(saveApprovedUniverse, {
     status: "idle", message: "", snapshot: null, submitted: null,
@@ -16,7 +20,8 @@ export function ApprovedUniverseEditor({ initial }: { initial: ApprovedUniverse 
   const [draft, setDraft] = useState(initial.instruments.map(line).join("\n"));
   const snapshot = state.snapshot ?? initial;
   const stale = state.status === "stale";
-  const editedAfterSave = state.status === "saved" && state.submitted !== draft;
+  const editedAfterSave = state.status === "saved"
+    && normalizedLineEndings(state.submitted ?? "") !== normalizedLineEndings(draft);
   return <>
     <p className={styles.status}>종목 등록 {snapshot.instruments.length ? "완료" : "대기"} · 성과 비교 준비 중 · 자동매매 미연결</p>
     {state.status !== "idle" && !editedAfterSave && <p className={state.status === "saved" ? styles.success : styles.error} role={state.status === "saved" ? "status" : "alert"}>{state.message} {stale && <button type="button" onClick={() => window.location.reload()}>현재 목록 다시 불러오기</button>}</p>}

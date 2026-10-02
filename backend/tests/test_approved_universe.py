@@ -69,6 +69,21 @@ def test_api_isolated_from_operations_universe(tmp_path: Path) -> None:
     app = create_research_app(
         settings=settings,
         approved_universe_db_path=tmp_path / "approved.db",
+        forward_db_path=tmp_path / "forward.db",
+        universe_db_path=tmp_path / "universe-input.db",
+        external_db_path=tmp_path / "external.db",
+        history_dir=tmp_path / "history",
+        history_db_path=tmp_path / "history.db",
+        action_collection_db_path=tmp_path / "actions.db",
+        portfolio_report_dir=tmp_path / "reports",
+        dividend_report_dir=tmp_path / "dividends",
+        validation_report_dir=tmp_path / "validation",
+        prospective_dir=tmp_path / "prospective",
+        prospective_source_report_dir=tmp_path / "reports",
+        boundary_capture_dir=tmp_path / "boundary",
+        runner_db_path=tmp_path / "runner.db",
+        runner_config_path=tmp_path / "runner-config.json",
+        progress_history_dir=tmp_path / "history",
         action_collection_enabled=False,
     )
     with TestClient(app) as client:
