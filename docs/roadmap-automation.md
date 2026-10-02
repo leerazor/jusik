@@ -1,5 +1,7 @@
 # 투자 개발 로드맵 자동 실행기
 
+현재 새 연구는 [사용자 등록 종목 계획](approved-universe-plan.md)을 따른다. 이 문서는 과거 R0–R7 runner 계약의 참조이며 현재 JSON governance의 `dispatch_enabled=false`가 신규 claim·attempt·launch를 차단한다. 별도 승인 없이 아래 전용 runner 설정을 재개하지 않는다.
+
 `development_runner`의 `investment-roadmap` scope는 기존 연구 큐와 상태를 공유하지 않는 전용 실행 흐름입니다. `RunnerConfig.scope`의 기본값은 `research`이며, 투자 scope는 전용 state 디렉터리로 초기화해야 합니다. 기존 연구 state, legacy state, 다른 scope로 만들어진 state를 재사용하면 실행을 차단합니다.
 
 투자 scope의 area는 `docs/investment-development-roadmap.md`에 추적된 checklist ID를 소문자로 정규화한 값입니다. 실행기는 문서를 authoritative completion source로 읽습니다. 문서가 없거나 malformed이면 자식 dispatch를 시작하지 않습니다. 초기화는 빈 queue만 만들며 `roadmap-r1-01-v1` seed는 검토된 준비 단계에서 enqueue해야 합니다.
@@ -25,6 +27,6 @@ phase gate는 R0 완료 후 R1·R2·R3를 독립적으로 허용하고, R1과 R2
 
 ### 운영 제어
 
-전용 config는 `~/.config/jusik/roadmap-development-runner.json`, state는 `~/.local/share/jusik/roadmap-development-runner`입니다. 기존 `jusik-research` scope와 state는 재개하지 않고, `investment-roadmap` scope만 사용합니다. `planning_enabled=true`와 `dispatch_enabled=true`는 현재 승인 설계와 checksum 검증을 통과한 뒤 적용하며, 한 cycle은 하나의 bounded slice만 처리합니다. 실제 시작 여부·attempt ID·확인 시각은 audit와 runner status를 기준으로 확인합니다.
+전용 config는 `~/.config/jusik/roadmap-development-runner.json`, state는 `~/.local/share/jusik/roadmap-development-runner`입니다. 기존 `jusik-research` scope와 state는 재개하지 않습니다. 이 문서의 `planning_enabled=true`와 `dispatch_enabled=true`는 과거 전용 실행 설정의 기록이며 현재 승인 상태가 아닙니다. 현재 JSON governance는 dispatch를 차단하고 runner는 pause/inactive 상태로 유지합니다. 실제 시작 여부·attempt ID·확인 시각은 audit와 runner status를 기준으로 확인합니다.
 
 수동 작업 전에는 backend에서 `.venv/bin/python -m jusik.development_runner pause --config ~/.config/jusik/roadmap-development-runner.json`을 실행하고, `systemctl --user stop jusik-development-runner.service`와 inactive 확인을 수행합니다. `status`, `resume`, `retry`에도 같은 config를 명시합니다. 자동 child는 자기 service를 중지하지 않습니다. WSL이 종료되면 자동 실행도 멈춥니다.

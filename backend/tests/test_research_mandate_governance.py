@@ -89,12 +89,12 @@ def _refresh_json_hash(repo: Path) -> None:
     hashes.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def test_validates_additive_governance_and_enabled_dispatch(tmp_path: Path) -> None:
+def test_validates_additive_governance_and_disabled_dispatch(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
 
     result = validate_mandate(repo)
 
-    assert result.dispatch_enabled is True
+    assert result.dispatch_enabled is False
     manifest = (repo / "docs" / "market-research-mandate.sha256").read_text(
         encoding="utf-8"
     )
@@ -118,7 +118,8 @@ def test_validates_additive_governance_and_enabled_dispatch(tmp_path: Path) -> N
         ).encode("utf-8")
     ).hexdigest()
     assert f"{US_RESEARCH_POLICY_HASH_KEY} {policy_digest}" in manifest
-    assert validate_dispatch_gate(repo).digest == result.digest
+    with pytest.raises(MandateGovernanceError, match="disabled"):
+        validate_dispatch_gate(repo)
 
 
 def test_us_policy_change_cannot_rewrite_legacy_projection(tmp_path: Path) -> None:
@@ -214,7 +215,7 @@ def test_rejects_governance_mutation_with_stale_projection(tmp_path: Path) -> No
     )
     path.write_bytes(
         path.read_bytes().replace(
-            b'"dispatch_enabled": true', b'"dispatch_enabled": false'
+            b'"dispatch_enabled": false', b'"dispatch_enabled": true'
         )
     )
     _refresh_json_hash(repo)

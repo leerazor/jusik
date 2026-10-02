@@ -1,10 +1,12 @@
 # 전략 연구 백엔드
 
+현재 새 연구의 첫 단계는 [사용자 등록 종목 계획](approved-universe-plan.md)의 등록이다. `GET/PUT /api/research/approved-universe`는 기존 운영 universe와 다른 SQLite 목록을 읽고 전체 교체한다. 처음에는 빈 목록이며 `PUT`에 현재 `revision`과 최대 100개의 `{market, exchange, symbol}` 항목을 보낸다. 한국은 `KR/KRX/6자리 영숫자`, 미국은 `US/NAS|NYS|AMS/티커`를 받는다. 중복·잘못된 형식은 422, 오래된 revision은 409다. 응답에는 새 revision과 UTC 저장 시각이 있다. 기본 DB는 연구 DB 옆 `approved-universe.db`이며 테스트에서는 `create_research_app(approved_universe_db_path=...)`로 분리한다. 이 API는 등록만 수행하며 주문·운영 목록·시세 적격성에 영향을 주지 않는다. 아래 내용은 과거 연구와 별도 PAPER 계약의 참조다.
+
 전략 연구 기능은 기존 실계좌 조회 백엔드와 분리된 모의 검증 서비스입니다. KIS 모의투자 앱 키로 선택한 국내주식 1~10개의 과거 일봉을 읽고 추세·거래량 전략을 같은 조건에서 비교합니다. 실시간 시세도 읽기 전용이며 증권사 주문 API는 구현하지 않습니다. 사용자가 승인한 체결은 앱 내부 paper 원장에만 기록됩니다.
 
 ## 정본 계획과 적용 범위
 
-투자 연구의 실행 순서·승격 게이트·현재 운영 상태는 [투자 개발 로드맵](investment-development-roadmap.md)을 canonical execution plan으로 따릅니다. 현재 `docs/research-mandate.json` SHA-256은 `2c0b41ef4246c8f9bc0c99f1b4d544364e2350371bf5fa3f4cee2d9ce3e62749`이며 Markdown·checksum과 동기화되어 있습니다. 전용 roadmap runner는 fail-closed 검증을 유지한 채 수동 pause/inactive 상태로 운영 중이고, 새 dispatch·PAPER/live 승격·실주문은 자동으로 수행하지 않습니다. 이 문서는 기존 optimizer mechanics와 전진 PAPER10% 계약을 설명하는 backend reference로 남으며, 로드맵의 새 후보 설계나 PAPER 결과를 자동으로 적용하지 않습니다. versioned governance와 fail-closed dispatch validator는 investment-roadmap scope에만 적용되고 일반 research scope의 기존 실행·재생 계약은 보존합니다.
+현재 신규 연구의 순서는 [사용자 등록 종목 계획](approved-universe-plan.md)을 따릅니다. [투자 개발 로드맵](investment-development-roadmap.md)은 과거 R0–R7 실행·승격 계약의 참조입니다. 현재 `docs/research-mandate.json` SHA-256은 `ab6d712922b0a148361b3c8170c77cf44f7ef871b2a6878ac51d66447350f904`이며 Markdown·checksum과 동기화되어 있습니다. 전용 roadmap runner는 fail-closed 검증과 `dispatch_enabled=false`를 유지하며 수동 pause/inactive 상태입니다. 새 dispatch·PAPER/live 승격·실주문은 수행하지 않습니다. 이 문서는 기존 optimizer mechanics와 전진 PAPER10% 계약을 설명하는 backend reference로 남으며, 기존 연구의 결과를 새 등록 목록에 적용하지 않습니다. versioned governance와 fail-closed dispatch validator는 investment-roadmap scope에만 적용되고 일반 research scope의 기존 실행·재생 계약은 보존합니다.
 
 ## 실행
 

@@ -1,12 +1,14 @@
 # 투자 개발 로드맵
 
-- 문서 상태: 진행 — 승인된 전용 runner 자동 실행 (R0 완료, R1 이후 순차 진행)
+> 현재 우선순위(2026-10-02): [사용자 등록 종목 연구 계획](approved-universe-plan.md). 사용자가 고른 한국·미국 종목을 먼저 등록하고 같은 목록의 단순 보유와 낮은 회전율 후보를 비용 포함 비교한다. 아래 R0–R7은 과거 연구의 증거·재현 참조이며 새 연구의 주 경로나 선행 차단 조건이 아니다. 기존 전용 roadmap dispatch는 꺼져 있다.
+
+- 문서 상태: 과거 연구 참조 — 전용 runner 신규 dispatch 비활성화
 - 기준 커밋: `c2ada5c`
 - 작성일: 2026-09-15
 - 적용 범위: 미국 손실 진단을 먼저 끝내고, 검증 가능한 경우에만 한국 확장과 PAPER 판단으로 넘어간다.
 - 이 문서는 미래 작업의 목표와 완료 조건을 기록한다. 이 커밋으로 어떤 단계도 완료되지 않는다.
 - canonical policy_version: `investment-roadmap-governance-v1`
-- 이 문서는 투자 개발의 canonical execution plan이다. 승인 설계와 `docs/research-mandate.json`의 versioned governance가 동기화되었고, dispatcher의 fail-closed 구현·검증이 완료된 뒤 전용 scope runner를 재개한다. 일반 research scope, PAPER/live, 실제 주문과 remote push는 재개하지 않는다.
+- 이 문서는 과거 R0–R7 경로의 canonical execution plan과 증거를 보존한다. 현재 신규 연구의 실행 계획은 [사용자 등록 종목 연구 계획](approved-universe-plan.md)이다. JSON governance는 동기화되어 있지만 `dispatch_enabled=false`이므로 전용 scope runner의 신규 dispatch는 차단된다. 일반 research scope, PAPER/live, 실제 주문과 remote push도 이 전환으로 재개하지 않는다.
 
 ## 목적과 우선순위
 

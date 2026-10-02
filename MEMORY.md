@@ -9,6 +9,7 @@
 | 개발 시간·비용을 줄이고 검증 가능한 비용 차감 수익률을 우선합니다. | [목표와 우선순위](docs/autonomous-trading-lab.md#17-목표-기반-지속-운영), [현재 시간·지출 제약](docs/continuous-development-session.md) |
 | 작업 순서·경로·유용성 평가는 workflow, 시스템 경계·진입점은 구조 안내에서 찾습니다. | [프로젝트 workflow](docs/project-workflow.md), [구조 안내](docs/architecture.md) |
 | 새 연구의 조건과 과거 실험의 고정 조건을 구분합니다. 기술 완료가 투자 검증 완료는 아닙니다. | [현재 연구 조건](docs/research-mandate.md), [조건 JSON](docs/research-mandate.json), [투자 로드맵](docs/investment-development-roadmap.md) |
+| 현재 우선 목표는 직접 등록한 종목의 단순 보유와 비용 포함 저회전 후보 비교입니다. 기존 R0–R7은 역사적 참조입니다. | [승인 종목 연구 계획](docs/approved-universe-plan.md) |
 | 작업 소유권·진행 상태·재개 조건은 작업별 기록을 따릅니다. | [작업 등록부](docs/worktree-tasks.md), [개발 기록 기준](docs/development-records.md) |
 | 모델 선택·도구 사용과 실행기 상태는 실행 시 확인합니다. | [agent 도구](docs/agent-tooling.md), [중앙 모델 선택](.codex/model-routing.json), [실행기 운영](docs/development-runner.md) |
 

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const primaryItems = [
   { href: "/research", label: "한눈에 보기", matches: (path: string) => path === "/research" },
+  { href: "/research/approved-universe", label: "비교할 종목 등록", matches: (path: string) => path.startsWith("/research/approved-universe") },
   { href: "/research/progress", label: "연구 결과", matches: (path: string) => path.startsWith("/research/progress") || path.startsWith("/research/reports/") || path.startsWith("/research/validation") },
   { href: "/research/forward", label: "모의 관찰", matches: (path: string) => path.startsWith("/research/forward") },
 ];

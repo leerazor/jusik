@@ -15,6 +15,12 @@ from fastapi import FastAPI, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from jusik.approved_universe import (
+    ApprovedUniverseSnapshot,
+    ApprovedUniverseStore,
+    ApprovedUniverseUpdate,
+    StaleApprovedUniverseError,
+)
 from jusik.kis_stream import KisReadOnlyStream
 from jusik.market_research_api import router as market_research_router
 from jusik.market_research_service import production_market_research_service
@@ -149,6 +155,7 @@ def create_research_app(
     prospective_code_root: Path = DEFAULT_CODE_ROOT,
     forward_db_path: Path | None = None,
     universe_db_path: Path = DEFAULT_INPUT_DB,
+    approved_universe_db_path: Path | None = None,
     external_db_path: Path = DEFAULT_EXTERNAL_DB,
     history_dir: Path | None = None,
     history_db_path: Path | None = None,
@@ -187,6 +194,10 @@ def create_research_app(
             resolved_history_dir, resolved_history_db
         )
         operation_store = operations_store or OperationsStore(run_store.path)
+        app.state.approved_universe_store = ApprovedUniverseStore(
+            approved_universe_db_path
+            or run_store.path.with_name("approved-universe.db")
+        )
         client = httpx.AsyncClient(
             base_url=configured.base_url,
             timeout=15,
@@ -337,6 +348,32 @@ def create_research_app(
         allowed_hosts=["127.0.0.1", "localhost", "testserver"],
     )
     research_app.include_router(market_research_router)
+
+    @research_app.get(
+        "/api/research/approved-universe", response_model=ApprovedUniverseSnapshot
+    )
+    def approved_universe(response: Response) -> ApprovedUniverseSnapshot:
+        response.headers["Cache-Control"] = "no-store"
+        approved_store: ApprovedUniverseStore = (
+            research_app.state.approved_universe_store
+        )
+        return approved_store.read()
+
+    @research_app.put(
+        "/api/research/approved-universe", response_model=ApprovedUniverseSnapshot
+    )
+    def replace_approved_universe(
+        update: ApprovedUniverseUpdate, response: Response
+    ) -> ApprovedUniverseSnapshot:
+        response.headers["Cache-Control"] = "no-store"
+        try:
+            approved_store: ApprovedUniverseStore = (
+                research_app.state.approved_universe_store
+            )
+            return approved_store.replace(update)
+        except StaleApprovedUniverseError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
     portfolio_repository = PortfolioRunRepository(portfolio_report_dir)
     dividend_repository = DividendOverlayRepository(dividend_report_dir)
     robustness_repository = PortfolioRobustnessRepository(validation_report_dir)
