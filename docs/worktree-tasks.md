@@ -5147,11 +5147,13 @@
 
 ## approved-universe-20261002
 
-- 상태: 진행 — 사용자가 2번(사용자 승인 종목 내 저빈도 운용)을 선택, 첫 등록 기능과 목표 전환.
+- 상태: 첫 등록 기능·목표 전환 완료 — 사용자 선택 종목 운용의 성과 비교·거래 연결은 후속.
 - 목표/완료: 승인 종목을 명시 입력·저장·조회하는 UI/API, 빈 목록과 미연결 상태 표시, 과거 PAPER/성과 보존, 로컬 main 통합·검증·인계. 종목 확정·성과 검증·주문 연결은 별도 후속이다.
 - 담당: approved_universe_explore → approved_universe_plan → 단일 code 소유 → 독립 review.
 - 워크트리/브랜치: `/home/kwl/projects/jusik-approved-universe` / `feat/approved-universe`; 기준 `254996e`.
 - 범위: 새 독립 등록 저장소와 연구 API·UI, 연결 메뉴, 새 목표 문서와 legacy roadmap dispatch 중지 계약. frozen PAPER 원장·자료·구정책 prefix 보존.
 - 운영: roadmap runner pause·service inactive 확인. 구 목표 자동 실행은 전환 기간 재개하지 않음. 사용자 소유 `HANDOFF.md` 보존.
 - 검증: 등록·중복·잘못된 식별자·빈목록·오류와 기존 경계 focused tests, frontend lint/typecheck/build, 실제 화면 독립 이해도 검토.
-- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-approved-universe/`; 기록 `docs/development-records/2026-10-02-approved-universe.md`; 인계 `docs/handoffs/2026-10-02-approved-universe.md`.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-approved-universe/`; 기록 `docs/development-records/2026-10-02-approved-universe-20261002.md`; 인계 `docs/handoffs/2026-10-02-approved-universe-20261002.md`.
+
+- 결과/통합: 구현 `90d8a41`, main `045ff9e`. 독립 코드/화면 검토·통합25+fixture2·frontend검사·browser E2E PASS. 실제3000/8001 반영·운영 등록목록 빈 상태·외부401. runner paused/dispatch false 유지. 전용 preview·worktree·병합 브랜치 정리 완료.
