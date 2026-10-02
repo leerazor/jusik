@@ -14,12 +14,12 @@
 
 ## research-decision-reasons
 
-- 상태: 개발 완료 — 독립 코드·화면 검토, local main 통합·검증·인계 완료. 운영 웹 서비스 배포는 미수행.
+- 상태: 개발 완료 — 독립 코드·화면 검토, local main 통합·검증·인계 완료. 사용자 승인 후 운영 웹 배포 완료.
 - 목표·결과: `/research/portfolio`의 정책별 기본 이벤트 3종을 단위별로 요약하고 원문 펼침으로 연결합니다. 신호 부재·전체 현금 원인·미기록 사유를 추정하지 않습니다.
 - 담당·소유: 중앙 explore/plan, 단일 code 구현, 별도 code review와 화면만 보는 novice reviewer. frontend helper/component/page·scoped CSS·집중 검사·화면 문서만 변경. 백엔드·API·전략·성과·동결 결과 보존.
 - 기준·통합: 기준 `554ad54`, 구현 `7606f2e`·보완 `8a6fe26`; 병합 직전 `3f78b2f`, 제품 통합 `7ce3142d74d42bd94d2912a3f37ef131e375b3d9`.
 - 검증: 구현·main 집중 검사/lint/typecheck/build PASS, 독립 코드 재검토·초보자 화면 재검토 PASS, 합성 4상태 HTTP200·PC/390px·main preview PASS. child 모델/effort 감사 PASS. 투자 성과 검증 아님.
-- 운영·정리: 시작 runner unpaused/service·timer active, 수동 작업 동안 pause. 병행 Alpaca 문서 작업 종료 확인 뒤 기록 commit 후 runner 복원(runtime-after.json). 운영 웹 배포·주문·데이터 변경·원격 push 없음. 전용 `/home/kwl/projects/jusik-research-decision-reasons`와 branch, 3352/3353/8352 테스트 서버 정상 정리.
+- 운영·정리: 시작 runner unpaused/service·timer active, 수동 작업 동안 pause. 병행 Alpaca 문서 작업 종료 확인 뒤 기록 commit 후 runner 복원(runtime-after.json). 후속 승인으로 `a460407`를 start.sh 배포, API/웹200·외부401·PC/모바일/원문 검증 PASS. 주문·데이터 직접 변경·원격 push 없음. 전용 `/home/kwl/projects/jusik-research-decision-reasons`와 branch, 3352/3353/8352 테스트 서버 정상 정리.
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-research-decision-reasons/`; manifest·검사·캡처·fixture 보존.
 - workflow: 기존 원천 재사용으로 집계 의미와 모바일 이해 오류를 확인·보완; 시간/호출 절감 미측정.
 - 기록·인계: [개발 기록](development-records/2026-10-02-research-decision-reasons.md), [인계](handoffs/2026-10-02-research-decision-reasons.md).

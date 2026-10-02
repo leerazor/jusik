@@ -1,6 +1,6 @@
 # 기록된 포트폴리오 거래 보류 사유 요약
 
-- 상태: 개발 완료. 로컬 main 통합·검증 완료, 운영 웹 서비스 배포는 수행하지 않았습니다.
+- 상태: 개발·운영 배포 완료. 사용자의 운영 적용 요청으로 기존 서비스에 반영하고 실제 화면을 확인했습니다.
 - 기록 시각: 2026-10-01T22:43:48.769163+00:00
 - 작업 slug: `research-decision-reasons`
 - 기준/통합: `554ad542f9f39081783a4e28f6c68182dd9075a4` / `7ce3142d74d42bd94d2912a3f37ef131e375b3d9`.
@@ -40,7 +40,16 @@
 ## 증거와 재개
 
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-research-decision-reasons/`. `verification.json`, `routing-audit.json`, `main-build.log`, `implementation.patch`, 합성 fixture, 화면 캡처와 `manifest.json`을 보존했습니다. 후속 runtime 파일을 제외한 최초 manifest SHA-256은 `32cf772c5733b9d789d77d0b8c85353858c9c48fe8f297b6e9d44da64e0c3ced`입니다.
-- [인계](../handoffs/2026-10-02-research-decision-reasons.md)를 다음 시작점으로 사용합니다. 현재 작업의 개발 잔여 없음. 운영 화면 반영은 별도 배포 단계입니다.
+- [인계](../handoffs/2026-10-02-research-decision-reasons.md)를 다음 시작점으로 사용합니다. 현재 작업의 개발·배포 잔여 없음. 아래 사용자 승인 후 배포 기록을 따릅니다.
 - workflow 판단: 도움 됨 — 원천 이벤트의 서로 다른 단위와 모바일 이해 장애를 조사·독립 검토로 확인했습니다.
 - 근거: 기존 이벤트/API 재사용, 단일 구현자 보완, 집중·통합 검증 PASS. 시간·호출·수익 개선은 미측정입니다.
 - 다음 조정: 유지 — 기록되지 않은 원인은 추정하지 않고 추가 연구 없이 표시 범위에서 종료합니다.
+
+## 사용자 승인 후 운영 배포
+
+- 배포 시각: 2026-10-02T01:08:16.506654+00:00
+- 배포 기준: `a460407`; 검증한 제품 통합 이후 제품 변경 없음. `./start.sh`가 고유 빌드 출력으로 production build한 뒤 3000/8000/8001 서비스를 기동했습니다. 기존 외부 인증 정책과 터널을 재사용했습니다.
+- 두 백엔드 health와 `/research`, `/research/portfolio` 모두 HTTP 200이며 운영 결과에서 새 사유 요약이 확인됩니다. 브라우저에서 실제 원문 펼침과 1440px/390px 문서 너비 일치를 확인했습니다.
+- 인증 없는 외부 HTTPS 요청은 401과 Basic challenge를 반환합니다. credential·인증 설정·연구 데이터·전략·주문 기능 변경 없음.
+- 시작 당시 runner unpaused/timer active/service inactive였고 배포 동안만 pause했습니다. 이 기록 commit 뒤 기존 unpaused 상태를 복원하며 실제 결과는 `deployment/runner-after.json`에 보존합니다.
+- 배포 로그·health.json·browser.log·PC/모바일 캡처는 기존 audit의 `deployment/`에 있습니다. 실행한 운영 서비스는 계속 유지하며 검증용 브라우저만 종료했습니다. 운영 적용 잔여 없음.
