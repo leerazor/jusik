@@ -1,5 +1,17 @@
 # 워크트리 작업 등록부
 
+## alpaca-price-evidence-20261002
+
+- 상태: 계획 검토 — 새 Alpaca 원문을 실제 재사용 가능한 검증 가격 묶음으로 준비.
+- 목표: 원문 1,683봉의 구조·날짜·정합성을 검사하고 정규화 가격·정확한 결손·미해결 인수 조건을 별도 출력한다. 기존 단순 개수 판정을 입력 검사로 발전시킨다.
+- 담당: source_freshness_explore 조사 → tnmg_split_plan 독립 계획 → ecos_code 단일 구현 → ecos_review 독립 검토. supervisor 등록·통합.
+- 기준: `edcf129`; 워크트리 `/home/kwl/projects/jusik-alpaca-price-evidence`, 브랜치 `feat/alpaca-price-evidence`; local main 통합.
+- 입력: `20261002-alpaca-sip-feasibility`의 assessment·plain-16·RAPT 원문. 원본·캐시142·mandate·동결 계산기 보존.
+- 범위: 오프라인 입력 준비 모듈·집중 테스트·사용 문서·개발 기록·인계. 네트워크·새 금융실험·기존 snapshot/DB/cache 쓰기·성과 승격·원격 push 금지.
+- 운영: 다른 화면 배포 문서 종료 `edcf129`, tracked clean 확인 후 runner pause/service inactive. 작업 소유 상태를 확인하고 종료 시 안전 조건에 따라 복원.
+- 종료: 승인 계획 기준 구현·실제 원문 한정 실행·독립 검토·main 통합 검증·기록·인계·워크트리 정리. 정규화 성공은 신원·PIT·NAV 적격이 아니다.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-alpaca-price-evidence/`.
+
 ## us-data-shortage-alpaca-sip-20261002
 
 - 상태: 완료 — 기존 Alpaca 키의 과거 SIP 일봉 제한 조회·판정·인계 통합 완료. 자료 인수는 `insufficient`, 경제 평가는 `not-evaluated`.
