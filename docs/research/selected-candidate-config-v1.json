@@ -56,7 +56,8 @@
     "backend/jusik/research_portfolio_models.py": "e1fda47a0dc4cb37e4186b778d902cd293e6e2ec1fbd1be2b367bb967c865024",
     "backend/jusik/research_portfolio_engine.py": "2e48b0bcedb740210a6dd58f6b15e99e2b2e1c416aacf553569ec0ea98166653",
     "backend/jusik/approved_universe_buy_hold.py": "50eaac00df0f3a213f1beb1d5616e07d88876f2ba68299583d8721fae0a54b53",
-    "backend/jusik/market_history_action_accounting.py": "c183fa54a7fd4b368fee6ec7ac45568e420a6381336e6d8a87553e1f440b1af2"
+    "backend/jusik/market_history_action_accounting.py": "c183fa54a7fd4b368fee6ec7ac45568e420a6381336e6d8a87553e1f440b1af2",
+    "backend/jusik/selected_candidate_signals.py": "f4ef052ea99efba1cd598a012c505d372258802811520c3be1e234a376d605c8"
   },
   "unresolved": {
     "registry_snapshot_and_cohort_hash": null,
