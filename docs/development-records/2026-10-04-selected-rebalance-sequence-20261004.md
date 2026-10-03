@@ -3,7 +3,7 @@
 - 상태: 구현 완료, 독립 검토·main 통합 전
 - 기록 시각: 2026-10-03T17:02:29Z
 - 작업 slug: `selected-rebalance-sequence-20261004`
-- 기준/통합: `eb56a4f42610ffa79b2767e12cd8dfeeac2ccaa1` / 없음
+- 기준/통합: `eb56a4f42610ffa79b2767e12cd8dfeeac2ccaa1` / `74a55817fbe31b483035142b04d10dbd9c2a201b`
 - 범위: 등록 revision 1의 KR 전체 cohort에 명시적으로 주입한 유한 목표 결정열을 기존 raw 회계 사건 루프에서 체결한다. 실제 후보 일정·신호 연결·성과 실행은 포함하지 않는다.
 
 ## 변경과 결정
@@ -43,3 +43,10 @@
 - workflow 판단: 도움 됨 — 고정 계획과 이전 직렬화 호환 스크립트를 재사용해 같은 회계 루프 안에서 범위를 제한했다.
 - 근거: 작은 정수 완전열거, 기존 전체 출력 바이트 비교, 회귀 검사를 수행했다. 시간·호출 절감량은 미측정이다.
 - 다음 조정: 유지 — 감독 독립 검토 전 합성 결과를 투자 적격으로 승격하지 않는다.
+
+## supervisor 통합
+
+- 구현022e67f 독립 Sol/high review PASS. 별도 소규모 3,870건 수량/현금/상한 검증. main74a5581에서 208개 검사(6.36초)·Ruff·strict mypy PASS.
+- 독립 100MKRW 3결정 산술, 입력 순열 전체 동일, 매도/추가매수 전후 배당 권리·지급 단회성 PASS. probe는 pre_rebalance/open·accrual/payment를 구분해 대사했다.
+- 영구 audit `/home/kwl/.local/share/jusik/portfolio-audit/20261004-selected-rebalance/`, manifest SHA `c1c270edc2f890486577710f46b36050bbb7e358b3a579a2d6671f0151443877`.
+- 남은 전략 연결: 고정 신호·4주 일정·2%p band·episode/cooldown/재진입. 실제자료 적격과 실제 수익성은 미검증. codewriter 종료, 동일 관리형 checkout은 다음 승인된 작업 재사용 위해 보존한다.

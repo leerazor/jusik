@@ -1,6 +1,6 @@
 # 등록 종목 연구 연속 진행 인계
 
-- 최근 갱신: 2026-10-04 KST / UTC2026-10-03T16:36 전후. root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
+- 최근 갱신: 2026-10-04 KST / UTC2026-10-03T17:10 전후. root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
 - 사용자 승인: 한 단계 검증 후 다음 안전한 단계 계속. 등록16/revision1 유지. 자동매매·실주문·PAPER/live·GitHub Pages·원격push·추가결제·credential정책변경·투자기준완화 금지.
 - 초기 총1억원·레버리지20%·MDD20% 유지. 과거자료를 untouched OOS로 표시하지 않는다. 기존 runner/timer inactive, governance dispatch false. 기존 heartbeat만 유지.
 
@@ -17,9 +17,9 @@
 
 ## 현재 단계 — 다음 시작
 
-- 신호 계산 main4e1ff56/189검사/독립 재검토 PASS. 같은 통화·동시 첫 시가 초기 target batch main42214b8/200검사/독립 검토·산술 PASS. 각각 2026-10-04 작업별 인계 재사용.
-- 현재 selected-rebalance-sequence-20261004 구현022e67f·208검사PASS·독립검토중. `/tmp/selected-rebalance-plan-result.txt`, codeCLI01a101e4-af50-7242-a80b-38e39abd6672. 초기 매수의 state 대입을 추가 매수에 재사용하면 보유·미수금 유실 위험이 있어, 기존 매도/매수 전이와 KRW현금을 보존하는 KR 명시 cohort 유한 target sequence를 구현한다. branch codex/selected-rebalance-sequence, /tmp/selected-rebalance-code-events.jsonl.
-- 관리형 checkout은 다음 작업 재사용 위해 보존, codewriter 종료·reviewer 실행 중. 새 writer 중복 생성 금지. 등록16/revision1·기준 유지, 실제 자료/성과/전체 전략 미완료.
+- 신호 main4e1ff56/189검사, 초기 target batch main42214b8/200검사, KR 재조정 main74a5581/208검사 모두 독립검토·main통합 PASS. 각2026-10-04 작업별 인계 재사용.
+- 현재 selected-kr-candidate-policy-20261004 plan 준비. 완료된 raw 원장·신호를 동결4주 일정/2%p band와 위험정책에 연결할 유용한 범위를 설계한다. `/tmp/selected-kr-policy-plan-events.jsonl`, 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938. 새 탐색 대신 기존결과재사용, 실제성과주장없음.
+- codewriter/reviewer 종료. 관리형 checkout은 다음 작업에 재사용, 구현미배정. 등록16/revision1·모든 사용자 기준 유지. 실제자료/전체전략/수익성미완료.
 
 ## 실행 도구·중복 방지
 

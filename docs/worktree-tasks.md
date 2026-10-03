@@ -5419,9 +5419,15 @@
 
 ## selected-rebalance-sequence-20261004
 
-- 상태: 구현022e67f·208검사/린트/타입·독립3결정/배당/순열 probe PASS, 독립 코드 검토 중. KR 명시 cohort 유한 목표 시퀀스·보유/배당권리/매도대금 보존. codewriter 종료, reviewer01a101ef-ad38-73b3-8758-3d376d76f9fd /tmp/selected-rebalance-review-events.jsonl.
+- 상태: 완료. 구현022e67f 독립3870건 검토PASS, main74a5581 통합208검사/린트/타입/독립3결정·배당·순열 PASS. codewriter/reviewer 종료.
+- 기록/인계: docs/development-records/2026-10-04-selected-rebalance-sequence-20261004.md 및 같은 이름 docs/handoffs 파일.
 - 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, 관리형checkout 재사용·branch codex/selected-rebalance-sequence. rawcore/신규tests/규약/confighash/작업기록만, /tmp/selected-rebalance-code. 다른 writer없음.
 - 소유: 기존Luna/medium CLI explore01a101db-2b98-7813-a412-63418263ff55, /tmp/selected-rebalance-explore-events.jsonl. 등록16/revision1·주문금지·별도 cohort 명시·투자기준 유지.
 - 선행: 초기 batch9ed4b1e 독립PASS·main42214b8 통합200검사PASS. 코드·자료·DB 변경 없음. 신호/일정/위험 전이 전체를 완료로 주장하지 않는다.
 
 - batch 기록/인계: docs/development-records/2026-10-04-selected-multi-target-execution-20261004.md 및 같은 이름 docs/handoffs 파일.
+
+## selected-kr-candidate-policy-20261004
+
+- 상태: 계획 준비. 완료된 신호·초기 batch·KR 재조정 위에 동결된 일정/밴드·위험 정책 연결의 다음 유용한 구현 범위를 확정한다. 기존 탐색 재사용, 재탐색/실험/코드 없음.
+- 소유: 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938. /tmp/selected-kr-policy-plan-events.jsonl. 동결 조건 변경·자료 적격 완화·실제 수익성 주장 금지.
