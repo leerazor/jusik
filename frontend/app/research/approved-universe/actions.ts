@@ -2,7 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { researchBackendUrl } from "@/lib/research";
-import { approvedUniverseSchema, type ApprovedInstrument, type ApprovedUniverse } from "./contract";
+import { approvedReadinessSchema, approvedUniverseSchema, type ApprovedInstrument, type ApprovedReadiness, type ApprovedUniverse } from "./contract";
+
+export async function refreshApprovedReadiness(): Promise<ApprovedReadiness | null> {
+  try {
+    const response = await fetch(`${researchBackendUrl()}/api/research/approved-universe/readiness`, {
+      cache: "no-store", signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) return null;
+    return approvedReadinessSchema.parse(await response.json());
+  } catch {
+    return null;
+  }
+}
 
 export type SaveState = {
   status: "idle" | "saved" | "invalid" | "confirm-clear" | "stale" | "error";
@@ -61,7 +73,7 @@ export async function saveApprovedUniverse(_previous: SaveState, formData: FormD
   try {
     const saved = approvedUniverseSchema.parse(await response.json());
     revalidatePath("/research/approved-universe");
-    return { status: "saved", message: `종목 등록 완료 · 현재 목록 ${saved.revision}판. 저장은 목록만 등록하며 자동 비교나 주문을 시작하지 않습니다.`, snapshot: saved, submitted: raw };
+    return { status: "saved", message: `종목 등록 완료 · 등록 목록 버전 ${saved.revision}. 저장은 목록만 등록하며 자동 비교나 주문을 시작하지 않습니다.`, snapshot: saved, submitted: raw };
   } catch {
     return failure("error", "저장 응답을 확인할 수 없습니다. 현재 목록을 다시 불러와 확인하세요.");
   }

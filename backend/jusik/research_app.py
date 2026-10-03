@@ -21,6 +21,10 @@ from jusik.approved_universe import (
     ApprovedUniverseUpdate,
     StaleApprovedUniverseError,
 )
+from jusik.approved_universe_readiness import (
+    ApprovedUniverseReadiness,
+    build_approved_universe_readiness,
+)
 from jusik.kis_stream import KisReadOnlyStream
 from jusik.market_research_api import router as market_research_router
 from jusik.market_research_service import production_market_research_service
@@ -198,6 +202,11 @@ def create_research_app(
             approved_universe_db_path
             or run_store.path.with_name("approved-universe.db")
         )
+        app.state.approved_readiness_paths = (
+            universe_db_path,
+            resolved_action_collection_db,
+            external_db_path,
+        )
         client = httpx.AsyncClient(
             base_url=configured.base_url,
             timeout=15,
@@ -358,6 +367,25 @@ def create_research_app(
             research_app.state.approved_universe_store
         )
         return approved_store.read()
+
+    @research_app.get(
+        "/api/research/approved-universe/readiness",
+        response_model=ApprovedUniverseReadiness,
+    )
+    def approved_universe_readiness(response: Response) -> ApprovedUniverseReadiness:
+        response.headers["Cache-Control"] = "no-store"
+        approved_store: ApprovedUniverseStore = (
+            research_app.state.approved_universe_store
+        )
+        universe_path, action_path, external_path = (
+            research_app.state.approved_readiness_paths
+        )
+        return build_approved_universe_readiness(
+            approved_store.read(),
+            universe_db_path=universe_path,
+            action_db_path=action_path,
+            external_db_path=external_path,
+        )
 
     @research_app.put(
         "/api/research/approved-universe", response_model=ApprovedUniverseSnapshot
