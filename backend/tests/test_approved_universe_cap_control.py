@@ -245,6 +245,73 @@ def test_closed_market_and_last_breach_remain_unfilled() -> None:
     assert result.leverage_breached
 
 
+def non_open_recovery_data() -> FrozenReferenceInput:
+    base = five_assets()
+    lever = base.cohort[0]
+    bars = tuple(
+        replace(bar, raw_close=D("150"))
+        if bar.open_at == at(2) and not bar.instrument.leveraged
+        else bar
+        for bar in base.sessions
+        if not (bar.instrument == lever and bar.open_at == at(2))
+    )
+    bars += tuple(
+        RawSession(
+            lever,
+            at(day),
+            at(day, 3),
+            D("300"),
+            D("300"),
+            at(day),
+            at(day, 3),
+        )
+        for day in (3, 4)
+    )
+    return replace(base, sessions=bars, evaluation_end=at(4, 4))
+
+
+def test_non_open_recovery_resets_pending_before_new_open_breach() -> None:
+    result = run_cap_control_reference(non_open_recovery_data(), sell_costs())
+    recovered = next(point for point in result.points if point.at == at(2, 3))
+    new_breach = next(point for point in result.points if point.at == at(3))
+    assert recovered.leveraged_fraction == D("0.20")
+    assert not recovered.leverage_breach
+    assert new_breach.leverage_breach
+    assert [sale.at for sale in result.sales] == [at(4)]
+    assert [
+        (attempt.status, attempt.observed_breach_at, attempt.at)
+        for attempt in result.attempts
+    ] == [
+        ("natural_recovery", at(1, 3), at(2, 3)),
+        ("repaired", at(3), at(4)),
+    ]
+    assert result.leverage_breached
+
+
+def test_terminal_non_open_recovery_has_no_unfilled_status() -> None:
+    base = five_assets(us_lever=True)
+    lever = base.cohort[0]
+    data = replace(
+        base,
+        sessions=tuple(
+            bar
+            for bar in base.sessions
+            if not (bar.instrument == lever and bar.open_at == at(2))
+        ),
+        fx=base.fx + (FXObservation(at(2, 4), at(2, 4), D("500")),),
+    )
+    result = run_cap_control_reference(data, sell_costs())
+    assert result.sales == ()
+    assert [(attempt.status, attempt.at) for attempt in result.attempts] == [
+        ("natural_recovery", at(2, 4))
+    ]
+    assert next(
+        point for point in result.points if point.at == at(2, 3)
+    ).leverage_breach
+    assert not result.points[-1].leverage_breach
+    assert result.leverage_breached
+
+
 def test_natural_recovery_and_partial_repair_are_distinct() -> None:
     base = five_assets()
     lever = base.cohort[0]

@@ -566,6 +566,26 @@ def _run_reference_core(
             points.append(result)
         return result
 
+    def settle_pending(evaluated: ReferencePoint) -> None:
+        nonlocal pending_since
+        if sell_costs is None:
+            return
+        if not evaluated.leverage_breach and pending_since is not None:
+            attempts.append(
+                CapControlAttempt(
+                    pending_since,
+                    evaluated.at,
+                    "natural_recovery",
+                    evaluated.nav_krw,
+                    evaluated.leveraged_value_krw,
+                    evaluated.nav_krw,
+                    evaluated.leveraged_value_krw,
+                )
+            )
+            pending_since = None
+        elif evaluated.leverage_breach and pending_since is None:
+            pending_since = evaluated.at
+
     events: list[tuple[datetime, int, str, object]] = []
     for action in data.actions:
         if isinstance(action, SplitEvent):
@@ -582,7 +602,7 @@ def _run_reference_core(
             )
         )
     events.sort(key=lambda x: (x[0], x[1], x[2]))
-    point(data.evaluation_start, "initial")
+    settle_pending(point(data.evaluation_start, "initial"))
     timestamp_phase = ""
     phase_names = ("split", "dividend_ex", "dividend_payment", "open", "close")
     opens_at: list[RawSession] = []
@@ -927,18 +947,10 @@ def _run_reference_core(
                         )
                         if not after.leverage_breach:
                             pending_since = None
-            point(at, timestamp_phase)
-            if (
-                sell_costs is not None
-                and points[-1].leverage_breach
-                and pending_since is None
-            ):
-                pending_since = at
+            settle_pending(point(at, timestamp_phase))
     if len(trades) != len(data.cohort):
         raise ReferenceInputError("not every cohort instrument was purchased")
-    point(data.evaluation_end, "evaluation_end")
-    if sell_costs is not None and points[-1].leverage_breach and pending_since is None:
-        pending_since = data.evaluation_end
+    settle_pending(point(data.evaluation_end, "evaluation_end"))
     if sell_costs is not None and pending_since is not None:
         last = points[-1]
         attempts.append(
