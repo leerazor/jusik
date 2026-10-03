@@ -20,7 +20,7 @@
 
 - 신호/초기batch/KR재조정/위험없는정책에 이어 **KR위험정책 main7cc20002/268검사·독립검토·통합 PASS**. 구현8efee89의 P2 2건을cf1c8ac에서 수정했다. 비용연쇄cap재평가와 첫strict공통개장선택 모두 독립 재현PASS.
 - 독립Fraction4사례: 청산·회복·재진입시각/정수수량/현금/NAV/episode·lifetime고점 및입력순서반전 PASS. 구11개/KRsequence출력보존. 상세 `2026-10-04-selected-kr-risk-policy-20261004.md` 인계와audit20261004-selected-kr-risk-policy/manifest7597cdc4... 재사용.
-- 현재 **selected-kr-comparison-20261004 단일 구현 진행**. 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, exec20701. `/tmp/selected-kr-comparison-code-events.jsonl`·stderr, 지시 `/tmp/selected-kr-comparison-code.txt`. 계획 `/tmp/selected-kr-comparison-plan-result.txt` 완료, 중복조사/계획/구현 금지.
+- 현재 **selected-kr-comparison-20261004 단일 구현 진행**. 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, 이전 exec20701 종료; 필수 정책 SHA pin 범위 추가 후 동일 소유자 exec29224 재개. `/tmp/selected-kr-comparison-code-events.jsonl`·stderr, 지시 `/tmp/selected-kr-comparison-code.txt`. 계획 `/tmp/selected-kr-comparison-plan-result.txt` 완료, 중복조사/계획/구현 금지.
 - 탐색완료 `/tmp/selected-kr-comparison-explore-result.txt`. 탐색의 두 누락을 supervisor가 보완: 기존riskfree함수 아닌 run_kr_selected_candidate_risk_reference 사용; market_performance_metrics와 research_portfolio_performance_metrics의 기존지표/투영 재사용. 새지표/원장 중복작성금지.
 - checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-comparison`, base67a5cd40bf83b3e395fbd7823358f3b016bf96af. 소유 새comparison모듈/tests·기존성과평가기 최소호환확장/tests·규약/성과문서/개발기록. raw회계·후보정책·숫자조건/flags 변경금지. 완료commit→독립review→main통합/관련검사/인계. rootUSER HANDOFF보존.
 - 목표: 같은등록/cohort/기간/통화/자본/가격/배당/비용으로 순수보유·capcontrol·정확히2후보 합성비교. fixture등급, riskfree결손Sharpeunavailable, 전체chronologyMDD보존, 자동승자/실제성과/OOS승격 없음.
@@ -34,3 +34,7 @@
 - CLI explore01a101db-2b98-7813-a412-63418263ff55 Luna/medium; plan01a101de-0d5f-7881-b2de-c09d33f2d938 Sol/high; review01a101ef-ad38-73b3-8758-3d376d76f9fd Sol/high. 현재독립source검토들은종료.
 - Node /home/kwl/.nvm/versions/node/v24.20.0/bin; worktree frontenddependencies445 offline설치완료. 현재preview서버는종료했다. 운영webstack active/3000·research8001, 기존인증유지.
 - 사용자변경·credential·rootHANDOFF 보존. 신규조사전에최신등록목록/작업등록부/Git/writer를확인하고동일캐시·실패조회·완료검사를반복하지않는다.
+
+- 후속 독립 대사: /tmp/selected-kr-comparison-independent/probe.py 및 worktree-result.json, 기존 Fraction 기대8사례와 새 adapter의 NAV/수익률/MDD/최초체결/무위험률 미비 표시 일치 PASS. 아직 frozen commit 독립검토·통합 전.
+
+- 구현완료62f1a7594bead126f223336fe47464039d64a215, code exec29224 종료, checkout clean. 268+132검사/Ruff/mypy PASS. 독립review exec81399 진행. 다음은 검토 결과에 따른 동일소유자 수정 또는 main통합.
