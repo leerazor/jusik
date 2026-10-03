@@ -1,11 +1,11 @@
-"""Synthetic KR candidate policy bridge; no actual source acceptance or risk exits."""
+"""Synthetic KR candidate policy bridge; no actual source acceptance."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
@@ -18,6 +18,7 @@ from jusik.approved_universe_buy_hold import (
     HoldQuantityInstruction,
     Instrument,
     KRInstruction,
+    KRPolicyDirective,
     KRTargetSequenceReference,
     ReferencePoint,
     SellCostAssumptions,
@@ -72,6 +73,48 @@ class KRCandidatePolicyReference:
     status: Literal["synthetic_reference_only"]
     candidate: CandidateMethod
     decisions: tuple[CandidateDecision, ...]
+    ledger: KRTargetSequenceReference
+    episode_peak_krw: Decimal
+    episode_max_drawdown_fraction: Decimal
+    lifetime_peak_krw: Decimal
+    investment_qualification: Literal["not_evaluated"] = "not_evaluated"
+
+
+@dataclass(frozen=True)
+class KRRiskEvent:
+    at: datetime
+    status: Literal[
+        "latched",
+        "liquidation_completed",
+        "all_cash_completed",
+        "cooldown",
+        "recovery_confirmed",
+        "recovery_reset",
+        "reentry_ready",
+        "reentry_decision",
+    ]
+    consecutive_confirmations: int = 0
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class KRCapEvent:
+    observed_at: datetime
+    at: datetime
+    status: Literal["observed", "natural_recovery", "repaired", "repaired_by_target"]
+    pre_nav_krw: Decimal
+    post_nav_krw: Decimal
+    pre_leveraged_value_krw: Decimal
+    post_leveraged_value_krw: Decimal
+
+
+@dataclass(frozen=True)
+class KRCandidateRiskReference:
+    status: Literal["synthetic_reference_only"]
+    candidate: CandidateMethod
+    decisions: tuple[CandidateDecision, ...]
+    risk_events: tuple[KRRiskEvent, ...]
+    cap_events: tuple[KRCapEvent, ...]
     ledger: KRTargetSequenceReference
     episode_peak_krw: Decimal
     episode_max_drawdown_fraction: Decimal
@@ -270,6 +313,219 @@ def run_kr_selected_candidate_reference(
         "synthetic_reference_only",
         candidate,
         tuple(decisions),
+        result,
+        episode_peak,
+        episode_max_drawdown,
+        max((INITIAL_KRW, *(point.nav_krw for point in result.points))),
+    )
+
+
+def run_kr_selected_candidate_risk_reference(
+    raw_input: FrozenReferenceInput,
+    signal_input: FrozenSignalInput,
+    config_bytes: bytes,
+    candidate: CandidateMethod,
+    sell_costs: SellCostAssumptions,
+) -> KRCandidateRiskReference:
+    """Run the fixed KR candidate with synthetic episode exit and reentry."""
+    _bind_inputs(raw_input, signal_input)
+    _frozen_config(config_bytes, signal_input)
+    _sell_rates(sell_costs)
+    scheduled = _schedule(raw_input.evaluation_start, raw_input.evaluation_end)
+    if _time(signal_input.decided_at, "signal decision") != scheduled[0]:
+        raise PolicyInputError("signal template decision differs from schedule")
+    cadence = set(scheduled)
+    weekly: list[datetime] = []
+    monday = scheduled[0]
+    while monday < _time(raw_input.evaluation_end, "evaluation end"):
+        weekly.append(monday)
+        monday += timedelta(days=7)
+    ordered = tuple(
+        sorted(
+            raw_input.cohort,
+            key=lambda item: (
+                item.market,
+                item.exchange,
+                item.symbol,
+                item.identity_hash,
+            ),
+        )
+    )
+    decisions: list[CandidateDecision] = []
+    risk_events: list[KRRiskEvent] = []
+    cap_events: list[KRCapEvent] = []
+    episode_peak = INITIAL_KRW
+    episode_max_drawdown = Decimal(0)
+    latched = False
+    liquidation_completed_at: datetime | None = None
+    confirmations = 0
+    ready_at: datetime | None = None
+
+    def plan(at: datetime) -> SignalPlan:
+        return plan_selected_candidate(
+            replace(signal_input, decided_at=at), candidate, config_bytes
+        )
+
+    def vector_for(
+        at: datetime, prior: ReferencePoint, planned: SignalPlan, *, reentry: bool
+    ) -> tuple[KRInstruction, ...]:
+        if planned.status != "ready" or planned.targets is None:
+            raise PolicyInputError(f"signal_incomplete: {planned.reason}")
+        positions = {position.instrument: position for position in prior.positions}
+        gross = sum((Fraction(p.value_krw) for p in prior.positions), Fraction(0))
+        cap_breached = (
+            gross > GROSS * Fraction(prior.nav_krw)
+            or Fraction(prior.leveraged_value_krw)
+            > Fraction(LIMIT) * Fraction(prior.nav_krw)
+            or any(
+                Fraction(p.value_krw) > Fraction(LIMIT) * Fraction(prior.nav_krw)
+                for p in prior.positions
+            )
+        )
+        instructions: list[KRInstruction] = []
+        holds: list[tuple[Instrument, Decimal]] = []
+        for target in planned.targets:
+            position = positions.get(target.instrument)
+            quantity = position.quantity if position is not None else Decimal(0)
+            value = position.value_krw if position is not None else Decimal(0)
+            if not reentry and _hold_in_band(
+                target.weight, value, prior.nav_krw, caps_clear=not cap_breached
+            ):
+                instructions.append(
+                    HoldQuantityInstruction(
+                        target.instrument, at, target.weight, quantity
+                    )
+                )
+                holds.append((target.instrument, quantity))
+            else:
+                instructions.append(
+                    TargetInstruction(target.instrument, at, target.weight)
+                )
+        decisions.append(CandidateDecision(at, planned, tuple(holds)))
+        return tuple(instructions)
+
+    def at_event(at: datetime, phase: str, prior: ReferencePoint) -> KRPolicyDirective:
+        nonlocal episode_peak, episode_max_drawdown, latched
+        nonlocal liquidation_completed_at, confirmations, ready_at
+        if phase == "close":
+            if latched:
+                return KRPolicyDirective()
+            episode_peak = max(episode_peak, prior.nav_krw)
+            drawdown = (episode_peak - prior.nav_krw) / episode_peak
+            episode_max_drawdown = max(episode_max_drawdown, drawdown)
+            if Fraction(episode_peak - prior.nav_krw) < EPISODE_EXIT * Fraction(
+                episode_peak
+            ):
+                return KRPolicyDirective()
+            latched = True
+            confirmations = 0
+            ready_at = None
+            risk_events.append(KRRiskEvent(at, "latched"))
+            if all(position.quantity == 0 for position in prior.positions):
+                liquidation_completed_at = at
+                risk_events.append(KRRiskEvent(at, "all_cash_completed"))
+                return KRPolicyDirective(cancel_pending=True)
+            liquidation_completed_at = None
+            return KRPolicyDirective(
+                tuple(TargetInstruction(item, at, Decimal(0)) for item in ordered),
+                cancel_pending=True,
+                liquidation=True,
+            )
+        if at not in cadence and not latched:
+            return KRPolicyDirective()
+        if latched:
+            if liquidation_completed_at is None:
+                return KRPolicyDirective()
+            if at.date() < liquidation_completed_at.astimezone(UTC).date() + timedelta(
+                days=28
+            ):
+                risk_events.append(KRRiskEvent(at, "cooldown"))
+                return KRPolicyDirective()
+            planned = plan(at)
+            valid = (
+                planned.status == "ready"
+                and planned.targets is not None
+                and sum(target.weight > 0 for target in planned.targets) >= 2
+            )
+            if not valid:
+                confirmations = 0
+                ready_at = None
+                reason = (
+                    planned.reason
+                    if planned.status != "ready"
+                    else "insufficient_eligible_assets"
+                )
+                risk_events.append(KRRiskEvent(at, "recovery_reset", reason=reason))
+                return KRPolicyDirective()
+            confirmations += 1
+            risk_events.append(KRRiskEvent(at, "recovery_confirmed", confirmations))
+            if confirmations == 2:
+                ready_at = at
+                risk_events.append(KRRiskEvent(at, "reentry_ready", confirmations))
+            if at not in cadence or ready_at is None or at <= ready_at:
+                return KRPolicyDirective()
+            episode_peak = prior.nav_krw
+            latched = False
+            liquidation_completed_at = None
+            confirmations = 0
+            ready_at = None
+            risk_events.append(KRRiskEvent(at, "reentry_decision"))
+            return KRPolicyDirective(vector_for(at, prior, planned, reentry=True))
+        if at not in cadence:
+            return KRPolicyDirective()
+        return KRPolicyDirective(vector_for(at, prior, plan(at), reentry=False))
+
+    def at_fill(at: datetime, after: ReferencePoint, liquidation: bool) -> None:
+        nonlocal liquidation_completed_at
+        if liquidation:
+            if any(position.quantity != 0 for position in after.positions):
+                raise PolicyInputError("risk liquidation incomplete")
+            liquidation_completed_at = at
+            risk_events.append(KRRiskEvent(at, "liquidation_completed"))
+
+    def at_cap(
+        observed_at: datetime,
+        at: datetime,
+        status: str,
+        before: ReferencePoint,
+        after: ReferencePoint,
+    ) -> None:
+        if status not in (
+            "observed",
+            "natural_recovery",
+            "repaired",
+            "repaired_by_target",
+        ):
+            raise PolicyInputError("unsupported cap event")
+        cap_events.append(
+            KRCapEvent(
+                observed_at,
+                at,
+                status,  # type: ignore[arg-type]
+                before.nav_krw,
+                after.nav_krw,
+                before.leveraged_value_krw,
+                after.leveraged_value_krw,
+            )
+        )
+
+    result = _run_reference_core(
+        raw_input,
+        sell_costs=sell_costs,
+        kr_decision_times=tuple(weekly),
+        kr_dynamic_hook=at_event,
+        kr_dynamic_fill_hook=at_fill,
+        kr_dynamic_cap_hook=at_cap,
+    )
+    assert isinstance(result, KRTargetSequenceReference)
+    if latched and liquidation_completed_at is None:
+        raise PolicyInputError("risk liquidation window_end_unfilled")
+    return KRCandidateRiskReference(
+        "synthetic_reference_only",
+        candidate,
+        tuple(decisions),
+        tuple(risk_events),
+        tuple(cap_events),
         result,
         episode_peak,
         episode_max_drawdown,
