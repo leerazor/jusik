@@ -5345,7 +5345,7 @@
 
 ## selected-candidate-config-freeze-20261003
 
-- 상태: explore/plan 완료, 문서 JSON 작성 준비. 기존 gross60%·종목20%·vol10%·episode latch10%를 성과 최적화 없는 연구 대조값으로 명시 선택. 레버리지20%·MDD20% 유지, 실행허용false.
+- 상태: 완료. f4de839 독립PASS, main6ca71bb 통합·JSON/hash/flags 검사PASS. 기존 gross60%·종목20%·vol10%·episode latch10%를 성과 최적화 없는 연구 대조값으로 명시 선택. 레버리지20%·MDD20% 유지, 실행허용false.
 - 소유: 기존 Luna/medium explore CLI 세션01a101db-2b98-7813-a412-63418263ff55. 구현 writer 없음.
 - 입력/끝 조건: main2f2822d, 등록16/rev1, equal/none·inverse_volatility/none·4주/2%p 기존규칙 유지. 실제구현값·시점계약 확인→plan→문서/JSON 고정 및 독립검토. 성과실행·criteria완화·주문·DB쓰기 없음.
 - 자료 작업 병행 경계: GOOGL/NVDA issuer ex-date 신규검색은 직접확인 가능한 새사건근거를 찾지 못했다. 이미검증한FAQ나실패URL을 재조회하지 않고 실행설정의 사전등록 결손을 처리한다.
@@ -5361,6 +5361,9 @@
 
 ## approved-dividend-review-status-20261003
 
-- 상태: read-only explore 진행. TQQQ13건 모두불일치인데현재API는검토건수만제공하므로 UI가실제차단이유를구분하는지확인.
+- 상태: explore/plan 완료, 단일 code 구현 시작. 최신revision의 최신review 집계와 동일symbol 등록identity충돌 failclosed 확정.
 - 소유: 기존Luna/medium CLI explore, /tmp/approved-dividend-status-explore-events.jsonl. application writer 없음.
 - 범위: 현등록identity·latestreview/currentrevision결속보존, 비교검토상태별표시의 최소계약·검사·화면검토 계획. matched를수익/입력적격으로표시하지않는다.
+
+- 후보설정 기록/인계: docs/development-records/2026-10-03-selected-candidate-config-freeze-20261003.md 및 docs/handoffs/2026-10-03-selected-candidate-config-freeze-20261003.md.
+- 배당상태 구현 소유: Sol/high 기존 code CLI01a101e4-af50-7242-a80b-38e39abd6672, 관리형 official-dividend-input checkout 재사용, codex/approved-dividend-review-status. 계획 /tmp/approved-dividend-status-plan-result.txt, focused backend/frontend·독립 코드/화면 검토 후 main 통합.
