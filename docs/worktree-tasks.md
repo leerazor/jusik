@@ -5377,3 +5377,14 @@
 - target bridge 구현 소유: 기존Sol/high code CLI01a101e4-af50-7242-a80b-38e39abd6672, 동일관리형checkout/codex/selected-candidate-ledger-bridge. plan /tmp/selected-candidate-bridge-plan-result.txt, supervisor capcontrol3사례 사전직렬화SHA90a70498db03492a0ba91a47aeeecbe5e75552d89b9e64938fc01e81c4b535ee.
 
 - 배당상태 기록/인계: docs/development-records/2026-10-03-approved-dividend-review-status-20261003.md 및 docs/handoffs/2026-10-03-approved-dividend-review-status-20261003.md. 다음targetbridgewriter진행중.
+
+## selected-ready-cohort-20261003
+
+- 상태: 기존근거 read-only 점검. 등록16목록유지한별도동일조건cohort의실제자료가능여부와최소미확인선행근거구분.
+- 소유: 기존Luna/medium exploreCLI01a101db-2b98-7813-a412-63418263ff55, /tmp/selected-ready-cohort-explore-result.txt. 새외부조회/DB/성과/코드변경없음.
+- 목적/종료: 비용명시가정시나리오허용과자료적격을구분하여불필요전역차단방지. 기존캐시로READY없으면구체재개사건만정리하며동일audit반복생성금지.
+
+## selected-kodex-raw-receipt-20261003
+
+- 상태: read-only source실행계획. KODEX487230원주가 요청receipt 결손을 기존자료재사용 또는 최대1공식GET로 보완할 경로확인.
+- 소유: 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, /tmp/kodex-raw-receipt-plan-result.txt. 아직조회/DB/토큰쓰기없음. 기존credential/token cache유효조건, 비밀/계좌출력금지·주문금지·100봉1페이지/재시도0 상한.
