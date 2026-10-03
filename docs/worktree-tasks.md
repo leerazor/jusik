@@ -5448,6 +5448,6 @@
 
 ## selected-kr-risk-policy-20261004
 
-- 상태: delta explore·plan 완료. `/tmp/selected-risk-plan-result.txt`; 선행 정책 통합 후 적용. 현재 정책 구현 완료·독립 검토·통합이 선행 조건이며 두 번째 writer를 만들지 않는다.
-- 조사: 기존 Luna/medium exploreCLI01a101db-2b98-7813-a412-63418263ff55 종료. `/tmp/selected-risk-explore-result.txt`. 계획 소유 기존 Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, `/tmp/selected-risk-plan-events.jsonl`.
-- 범위: main의 고정 규약·설정·공유 원장과 현재 정책 계획을 바탕으로 episode 청산·pending 우선순위·재진입·cap 처리의 최소 경계와 검증 조건 조사. 코드/DB/서비스/원격 변경 없음.
+- 상태: explore·plan 완료, 선행 정책 mainb992712/240검사 통합완료. `/tmp/selected-risk-plan-result.txt`에 따라 단일 구현 진행.
+- 조사/계획 종료: /tmp/selected-risk-explore-result.txt, /tmp/selected-risk-plan-result.txt. 구현 소유 기존 Sol/high CLI01a101e4-af50-7242-a80b-38e39abd6672. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-risk-policy`, base32e9d9ad8320e40d1af32fd4f7274bbd1274fc41. `/tmp/selected-kr-risk-code-events.jsonl`.
+- 범위: 기존 policy/rawcore·신규 risk tests·규약/confighash·개발기록. 같은 원장의 episode청산·pending우선순위·28일대기/주간2회/재진입·cap 처리. 기존 공개계약 보존, 실제자료/성과/DB/서비스/원격 변경 금지. 구현 commit 후 독립검토·main통합·검증·인계.
