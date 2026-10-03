@@ -13,6 +13,7 @@
 - US10 raw7931봉 및ARM/GEV상장경계: selected-alpaca-raw-source 인계. NVDA2024-06-10고가차이미해결, 연구인수미완료.
 - KODEX487230 현재원주가22봉: 정상auth1+시세1/재시도0, 기존22일OHLCV일치 독립PASS. 2026-10-04-selected-kodex-raw-receipt-20261003 인계. 공개필드추출만보존, 전체원응답미보존; 과거543행lineage/PIT/자료적격을증명하지않는다.
 - KRX/KASI 공식근거: 9/1~10/2 예상22일대사PASS. 연간KRX동적조회timeout, official_calendar_complete/historical_session_times_verified/nav_ready false. 2026-10-04-selected-krx-calendar-source-20261004 인계. 같은실패조회재시도금지.
+- KIS 새 휴장일 endpoint CTCA0903R: 18:17:48UTC 기존연구host auth1/GET1 → HTTP500, retry0/pagination0, 자료0. `2026-10-04-selected-kis-calendar-receipt-20261004.md` 인계/audit 재사용. 원인미확정, 동일재시도·live전환 금지; 새지원근거/공식거래소자료가 재개조건.
 - 비용 실계좌정보0/16은 명시적비용가정시나리오의전역차단조건이아님. KRW ETF원장에불필요USD환전을추가하지않는다. 실제 READYcohort는아직확인못함.
 
 ## 현재 단일 writer — 다음 시작
