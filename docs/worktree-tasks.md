@@ -5199,7 +5199,7 @@
 - 범위: 등록 종목 자료 상태 → 공식 배당/분할/환율/비용 → NAV 검증 → 동조건 사전등록 비교 → 미래 검증. Pages·자동매매·승격 제외.
 - 운영: roadmap 개발 runner 및 timer 중지/pause 유지. 재부팅으로 다시 시작된 과거 `research_universe run --device cuda --poll-seconds 60` 서비스도 stop/disable하여 93후보 반복 재개를 막음. 원본 DB·결과 보존.
 - 제한: 컴퓨터·앱 실행 및 사용 가능한 요금제/도구 권한 필요. 동일 실패 입력 재시도·빈 보고 반복 금지.
-- 다음: 준비 상태 구현 완료 후 공식 자료 검증 진행 중. 최신 인계 `docs/handoffs/2026-10-03-gev-dividend-evidence.md`에서 이어감.
+- 다음: 공식 배당 입력 구현·MSFT 검증 완료. 최신 인계 `docs/handoffs/2026-10-03-official-dividend-input-20261003.md`에서 NAV/FX/비용 검증으로 이어감.
 
 ## gev-dividend-evidence-20261003
 
@@ -5214,10 +5214,13 @@
 
 ## official-dividend-input-20261003
 
-- 상태: 조사 완료·계획 중. 사용자 요청에 따라 다음 개발 단계 즉시 진행.
+- 상태: 완료. 독립 재검토 PASS, main 통합 `dd3f01f`; 구현 최종 `c509a794`.
 - 목표: 원문과 공급자 revision을 보존하는 공식 현금 배당 입력을 offline 검증·동결하여 후속 NAV 검증에 전달한다. 공급자 금액 충돌은 기록하고 기존 strict review/overlay 적격 판정은 보존한다.
 - 담당: explore `official_dividend_explore` → plan `official_dividend_plan` → 단일 code `official_dividend_code` → 독립 review.
 - 워크트리: `/home/kwl/.codex/worktrees/official-dividend-input/jusik` (앱 관리형); 브랜치 `codex/official-dividend-input`, 기준 `5b97061`, 로컬 main 통합. 독립 venv, 임시 fixture/출력 사용.
 - 범위: 입력 계약·검증 CLI·focused tests·문서. UI/서비스/운영 DB·원장·주문·PAPER/live·remote push 변경 금지.
 - 검증: 필수 사실/원문 해시·종목 및 exact revision 연결·Decimal·오염/결손 차단, canonical artifact hash, 기존 overlay 회귀. 실제 준비 자료는 원본을 읽기 전용으로 사용.
 - 끝 조건: 독립 코드 검토와 main focused 검사 및 실제 확보된 공식 자료의 격리 입력 검증. 그 뒤 별도 NAV 독립 검증 단계로 이어감.
+- 검증: main37 passed/API2 제외, Ruff/strict mypy PASS. MSFT12건 최종438bf7... artifact 동결/idempotence, 실제 배당액+가상 거래상태의 독립 회계 대사 PASS. 전체 비용 차감 NAV/성과는 미검증.
+- 작업 환경: clean/전부 병합/프로세스없음. 관리형 checkout은 곧 이어질 NAV/FX 검증에 재사용하도록 free 상태 보존.
+- 기록: `docs/development-records/2026-10-03-official-dividend-input-20261003.md`; 인계: `docs/handoffs/2026-10-03-official-dividend-input-20261003.md`.
