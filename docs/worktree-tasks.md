@@ -5345,7 +5345,14 @@
 
 ## selected-candidate-config-freeze-20261003
 
-- 상태: read-only explore 진행. 기존 규약의 후보2개에 대해 실행 전 JSON으로 고정해야 할 누락 설정을 조사한다.
+- 상태: explore/plan 완료, 문서 JSON 작성 준비. 기존 gross60%·종목20%·vol10%·episode latch10%를 성과 최적화 없는 연구 대조값으로 명시 선택. 레버리지20%·MDD20% 유지, 실행허용false.
 - 소유: 기존 Luna/medium explore CLI 세션01a101db-2b98-7813-a412-63418263ff55. 구현 writer 없음.
 - 입력/끝 조건: main2f2822d, 등록16/rev1, equal/none·inverse_volatility/none·4주/2%p 기존규칙 유지. 실제구현값·시점계약 확인→plan→문서/JSON 고정 및 독립검토. 성과실행·criteria완화·주문·DB쓰기 없음.
 - 자료 작업 병행 경계: GOOGL/NVDA issuer ex-date 신규검색은 직접확인 가능한 새사건근거를 찾지 못했다. 이미검증한FAQ나실패URL을 재조회하지 않고 실행설정의 사전등록 결손을 처리한다.
+
+## selected-tqqq-official-source-20261003
+
+- 상태: supervisor 공식 원천 보완 진행. 기존 TQQQ 근거/실패 기록에 새 조회 경로가 없어 issuer 상품 페이지와 2025분할 공지를 각1회 확인한다.
+- 범위: raw원문·정확한 배당/분할 사건 대조만 수행. DB반영은 사본검증·독립검토 후, 가격/성과/주문에는 연결하지 않는다. 일반예정표를개별사건확인으로대체하지 않음.
+
+- 후보설정 문서 소유: 중앙 code_small Luna/high 단일 CLI writer, 기존 free 관리형checkout와 codex/selected-candidate-config-freeze 전용branch. docs/research/selected-candidate-config-v1.json·규약링크·작업별개발기록만 작성하며 코드/DB/실험변경 없음.
