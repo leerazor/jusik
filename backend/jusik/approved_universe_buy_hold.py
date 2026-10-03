@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
+from fractions import Fraction
 from typing import Literal
 
 from jusik.market_history_action_accounting import (
@@ -272,6 +273,31 @@ class TargetBridgeReference:
 
 
 @dataclass(frozen=True)
+class MultiTargetAttempt:
+    instrument: Instrument
+    at: datetime
+    status: Literal["filled", "zero_target", "one_share_not_feasible"]
+    target_weight: Decimal
+    quantity: Decimal
+    achieved_weight: Decimal
+    shortfall_weight: Decimal
+
+
+@dataclass(frozen=True)
+class MultiTargetReference:
+    status: Literal["synthetic_reference_only"]
+    execution_status: Literal["filled", "no_feasible_share", "all_cash"]
+    trades: tuple[Trade, ...]
+    dividends: tuple[DividendLedgerEntry, ...]
+    points: tuple[ReferencePoint, ...]
+    max_drawdown_fraction: Decimal
+    leverage_breached: bool
+    drawdown_breached: bool
+    target_attempts: tuple[MultiTargetAttempt, ...]
+    investment_qualification: Literal["not_evaluated"] = "not_evaluated"
+
+
+@dataclass(frozen=True)
 class _BuyTerms:
     rate: Decimal
     commission: Decimal
@@ -279,6 +305,52 @@ class _BuyTerms:
     buy_tax: Decimal
     spread: Decimal
     unit_cost: Decimal
+
+
+@dataclass(frozen=True)
+class _BatchSizingLine:
+    weight: Decimal
+    unit_value: Decimal
+    unit_cost: Decimal
+
+
+def _size_initial_target_batch(
+    nav: Decimal, cash: Decimal, lines: tuple[_BatchSizingLine, ...]
+) -> tuple[Decimal, ...]:
+    """Conservative simultaneous quantities; never redistribute residual cash."""
+    _decimal(nav, "batch NAV", positive=True)
+    _decimal(cash, "batch cash")
+    upper: list[int] = []
+    for line in lines:
+        weight = _decimal(line.weight, "batch target weight")
+        value = _decimal(line.unit_value, "batch unit value", positive=True)
+        cost = _decimal(line.unit_cost, "batch unit cost", positive=True)
+        if weight > LIMIT or cost < value:
+            raise ReferenceInputError("batch sizing line violates target/cost bounds")
+        upper.append(Fraction(weight) * Fraction(nav) // Fraction(value))
+    nav_min = Fraction(nav) - sum(
+        (
+            quantity * (Fraction(line.unit_cost) - Fraction(line.unit_value))
+            for quantity, line in zip(upper, lines, strict=True)
+        ),
+        Fraction(0),
+    )
+    if nav_min <= 0:
+        raise ReferenceInputError("batch conservative NAV nonpositive")
+    quantities = tuple(
+        Fraction(line.weight) * nav_min // Fraction(line.unit_value) for line in lines
+    )
+    if any(q < 0 or q > upper[index] for index, q in enumerate(quantities)):
+        raise ReferenceInputError("batch sizing arithmetic invalid")
+    if sum(
+        (
+            q * Fraction(line.unit_cost)
+            for q, line in zip(quantities, lines, strict=True)
+        ),
+        Fraction(0),
+    ) > Fraction(cash):
+        raise ReferenceInputError("shared_cash_insufficient")
+    return tuple(Decimal(quantity) for quantity in quantities)
 
 
 def _decimal(value: Decimal, label: str, *, positive: bool = False) -> Decimal:
@@ -526,15 +598,83 @@ def _validate_target(data: FrozenReferenceInput, target: TargetInstruction) -> N
         raise ReferenceInputError("target weight exceeds symbol cap")
 
 
+def _validate_multi_targets(
+    data: FrozenReferenceInput, targets: tuple[TargetInstruction, ...]
+) -> tuple[tuple[TargetInstruction, ...], datetime | None]:
+    if not isinstance(targets, tuple) or len(targets) != len(data.cohort):
+        raise ReferenceInputError("batch requires every cohort identity once")
+    for target in targets:
+        _validate_target(data, target)
+    identities = [target.instrument for target in targets]
+    if len(set(identities)) != len(identities) or set(identities) != set(data.cohort):
+        raise ReferenceInputError("batch requires every cohort identity once")
+    decisions = {_time(target.decided_at, "target decision") for target in targets}
+    if len(decisions) != 1:
+        raise ReferenceInputError("batch targets need one decision time")
+    weights = sum((Fraction(target.target_weight) for target in targets), Fraction(0))
+    leveraged = sum(
+        (
+            Fraction(target.target_weight)
+            for target in targets
+            if target.instrument.leveraged
+        ),
+        Fraction(0),
+    )
+    if weights > Fraction(Decimal("0.60")) or leveraged > Fraction(LIMIT):
+        raise ReferenceInputError("batch gross or leveraged cap exceeded")
+    ordered = tuple(
+        sorted(
+            targets,
+            key=lambda target: (
+                target.instrument.market,
+                target.instrument.exchange,
+                target.instrument.symbol,
+                target.instrument.identity_hash,
+            ),
+        )
+    )
+    if weights == 0:
+        return ordered, None
+    if len({target.instrument.market for target in ordered}) != 1:
+        raise ReferenceInputError("batch requires one currency")
+    decision = next(iter(decisions))
+    first_opens: set[datetime] = set()
+    for target in ordered:
+        future = [
+            _time(bar.open_at, "official open")
+            for bar in data.sessions
+            if bar.instrument == target.instrument
+            and _time(bar.open_at, "official open") > decision
+        ]
+        if not future:
+            raise ReferenceInputError("batch missing next official open")
+        first_opens.add(min(future))
+    if len(first_opens) != 1:
+        raise ReferenceInputError("batch first official opens differ")
+    return ordered, next(iter(first_opens))
+
+
 def _run_reference_core(
     data: FrozenReferenceInput,
     sell_costs: SellCostAssumptions | None = None,
     target: TargetInstruction | None = None,
-) -> BuyHoldReference | CapControlReference | TargetBridgeReference:
+    batch_targets: tuple[TargetInstruction, ...] | None = None,
+) -> (
+    BuyHoldReference
+    | CapControlReference
+    | TargetBridgeReference
+    | MultiTargetReference
+):
     """Apply frozen offline events; reject any missing or inconsistent fact."""
-    _validate(data, enforce_initial_allocation=target is None)
+    if sum(x is not None for x in (sell_costs, target, batch_targets)) > 1:
+        raise ReferenceInputError("reference modes cannot be combined")
+    _validate(data, enforce_initial_allocation=target is None and batch_targets is None)
     if target is not None:
         _validate_target(data, target)
+    ordered_batch: tuple[TargetInstruction, ...] = ()
+    batch_open_at: datetime | None = None
+    if batch_targets is not None:
+        ordered_batch, batch_open_at = _validate_multi_targets(data, batch_targets)
     n = Decimal(len(data.cohort))
     budgets = {item: INITIAL_KRW / n for item in data.cohort}
     states: dict[Instrument, AccountingState] = {}
@@ -552,6 +692,8 @@ def _run_reference_core(
         if target is not None and target.target_weight == 0
         else None
     )
+    batch_attempts: list[MultiTargetAttempt] = []
+    batch_executed = False
 
     def fx_at(at: datetime) -> Decimal:
         past = [
@@ -865,7 +1007,7 @@ def _run_reference_core(
                 ):
                     target_open = obj
                 if obj.instrument not in states:
-                    if target is None:
+                    if target is None and batch_targets is None:
                         terms = buy_terms(obj, at)
                         quantity = (
                             budgets[obj.instrument] / terms.unit_cost
@@ -926,6 +1068,160 @@ def _run_reference_core(
                     raise ReferenceInputError("target purchase exceeds post-cost cap")
                 target_attempt = TargetAttempt(at, "filled")
             target_open = None
+        if (
+            batch_open_at is not None
+            and not batch_executed
+            and at == batch_open_at
+            and phase_order == 3
+            and (index + 1 == len(events) or events[index + 1][:2] != (at, 3))
+        ):
+            bars = {bar.instrument: bar for bar in opens_at}
+            if any(target_item.instrument not in bars for target_item in ordered_batch):
+                raise ReferenceInputError("batch open mark missing")
+            before = point(at, "open", record=False)
+            if (
+                before.positions
+                or before.receivables_krw
+                or before.receivables_usd
+                or before.cash_usd
+            ):
+                raise ReferenceInputError("batch requires unheld initial capital")
+            ordered_bars = tuple(
+                bars[target_item.instrument] for target_item in ordered_batch
+            )
+            batch_terms = tuple(buy_terms(bar, at) for bar in ordered_bars)
+            lines = tuple(
+                _BatchSizingLine(
+                    target_item.target_weight,
+                    bar.raw_open * term.rate,
+                    term.unit_cost,
+                )
+                for target_item, bar, term in zip(
+                    ordered_batch, ordered_bars, batch_terms, strict=True
+                )
+            )
+            for bar, term, line in zip(ordered_bars, batch_terms, lines, strict=True):
+                _decimal(line.unit_value, "batch unit value", positive=True)
+                _decimal(line.unit_cost, "batch unit cost", positive=True)
+                exact_value = Fraction(bar.raw_open) * Fraction(term.rate)
+                exact_cost = (
+                    Fraction(bar.raw_open)
+                    * (
+                        1
+                        + Fraction(term.commission)
+                        + Fraction(term.slippage)
+                        + Fraction(term.buy_tax)
+                    )
+                    * Fraction(term.rate)
+                    * (1 + Fraction(term.spread))
+                )
+                if (
+                    Fraction(line.unit_value) != exact_value
+                    or Fraction(line.unit_cost) != exact_cost
+                ):
+                    raise ReferenceInputError("batch unit arithmetic rounded")
+            quantities = _size_initial_target_batch(before.nav_krw, krw_cash, lines)
+            exact_spend = sum(
+                (
+                    Fraction(quantity) * Fraction(line.unit_cost)
+                    for quantity, line in zip(quantities, lines, strict=True)
+                ),
+                Fraction(0),
+            )
+            actual_spend = sum(
+                (
+                    (quantity * bar.raw_open)
+                    * (1 + term.commission + term.slippage + term.buy_tax)
+                    * term.rate
+                    * (1 + term.spread)
+                    for quantity, bar, term in zip(
+                        quantities, ordered_bars, batch_terms, strict=True
+                    )
+                ),
+                Decimal(0),
+            )
+            if not actual_spend.is_finite() or actual_spend > krw_cash:
+                raise ReferenceInputError("shared_cash_insufficient")
+            if Fraction(actual_spend) != exact_spend:
+                raise ReferenceInputError("batch purchase arithmetic rounded")
+            for quantity, bar, term in zip(
+                quantities, ordered_bars, batch_terms, strict=True
+            ):
+                if quantity > 0:
+                    buy_at_open(bar, at, quantity, term)
+            expected_trade_costs = tuple(
+                Fraction(quantity) * Fraction(line.unit_cost)
+                for quantity, line in zip(quantities, lines, strict=True)
+                if quantity > 0
+            )
+            if len(trades) != len(expected_trade_costs) or any(
+                Fraction(trade.total_krw) != expected
+                for trade, expected in zip(trades, expected_trade_costs, strict=True)
+            ):
+                raise ReferenceInputError("batch purchase arithmetic rounded")
+            after = point(at, "open", record=False)
+            if Fraction(krw_cash) != Fraction(before.cash_krw) - exact_spend:
+                raise ReferenceInputError("batch purchase arithmetic rounded")
+            exact_values = {
+                target_item.instrument: Fraction(quantity) * Fraction(line.unit_value)
+                for target_item, quantity, line in zip(
+                    ordered_batch, quantities, lines, strict=True
+                )
+            }
+            nav_exact = Fraction(krw_cash) + sum(exact_values.values(), Fraction(0))
+            positions = {position.instrument: position for position in after.positions}
+            if Fraction(after.nav_krw) != nav_exact or any(
+                Fraction(position.value_krw) != exact_values[position.instrument]
+                for position in after.positions
+            ):
+                raise ReferenceInputError("batch mark arithmetic rounded")
+            if after.nav_krw > before.nav_krw:
+                raise ReferenceInputError("batch purchase NAV arithmetic invalid")
+            gross_exact = sum(
+                (Fraction(position.value_krw) for position in after.positions),
+                Fraction(0),
+            )
+            leveraged_exact = sum(
+                (
+                    Fraction(position.value_krw)
+                    for position in after.positions
+                    if position.instrument.leveraged
+                ),
+                Fraction(0),
+            )
+            if (
+                gross_exact > Fraction(Decimal("0.60")) * nav_exact
+                or leveraged_exact > Fraction(LIMIT) * nav_exact
+                or krw_cash < 0
+            ):
+                raise ReferenceInputError("batch purchase exceeds post-cost caps")
+            for target_item, quantity in zip(ordered_batch, quantities, strict=True):
+                batch_position = positions.get(target_item.instrument)
+                achieved = (
+                    batch_position.value_krw / after.nav_krw
+                    if batch_position is not None
+                    else Decimal(0)
+                )
+                if (
+                    batch_position is not None
+                    and Fraction(batch_position.value_krw)
+                    > Fraction(target_item.target_weight) * nav_exact
+                ) or achieved > target_item.target_weight:
+                    raise ReferenceInputError("batch purchase exceeds post-cost target")
+                batch_attempts.append(
+                    MultiTargetAttempt(
+                        target_item.instrument,
+                        at,
+                        "zero_target"
+                        if target_item.target_weight == 0
+                        else ("filled" if quantity > 0 else "one_share_not_feasible"),
+                        target_item.target_weight,
+                        quantity,
+                        achieved,
+                        target_item.target_weight - achieved,
+                    )
+                )
+            batch_executed = True
         if index + 1 == len(events) or events[index + 1][0] != at:
             if (
                 sell_costs is not None
@@ -1069,8 +1365,10 @@ def _run_reference_core(
                         if not after.leverage_breach:
                             pending_since = None
             settle_pending(point(at, timestamp_phase))
-    if target is None and len(trades) != len(data.cohort):
+    if target is None and batch_targets is None and len(trades) != len(data.cohort):
         raise ReferenceInputError("not every cohort instrument was purchased")
+    if batch_open_at is not None and not batch_executed:
+        raise ReferenceInputError("batch first official open not executed")
     settle_pending(point(data.evaluation_end, "evaluation_end"))
     if sell_costs is not None and pending_since is not None:
         last = points[-1]
@@ -1095,6 +1393,33 @@ def _run_reference_core(
         any(x.leverage_breach for x in points),
         any(x.drawdown_breach for x in points),
     )
+    if batch_targets is not None:
+        if batch_open_at is None:
+            batch_attempts = [
+                MultiTargetAttempt(
+                    target_item.instrument,
+                    target_item.decided_at,
+                    "zero_target",
+                    Decimal(0),
+                    Decimal(0),
+                    Decimal(0),
+                    Decimal(0),
+                )
+                for target_item in ordered_batch
+            ]
+        return MultiTargetReference(
+            "synthetic_reference_only",
+            "all_cash"
+            if batch_open_at is None
+            else ("filled" if trades else "no_feasible_share"),
+            tuple(trades),
+            tuple(dividends),
+            tuple(points),
+            common[4],
+            common[5],
+            common[6],
+            tuple(batch_attempts),
+        )
     if target is not None:
         if target_attempt is None:
             target_attempt = TargetAttempt(data.evaluation_end, "window_end_unfilled")
@@ -1136,4 +1461,13 @@ def run_target_bridge_reference(
     """Inject one synthetic initial target into the shared raw accounting core."""
     result = _run_reference_core(data, target=target)
     assert isinstance(result, TargetBridgeReference)
+    return result
+
+
+def run_multi_target_reference(
+    data: FrozenReferenceInput, targets: tuple[TargetInstruction, ...]
+) -> MultiTargetReference:
+    """Buy one synthetic all-cohort target vector at one shared next open."""
+    result = _run_reference_core(data, batch_targets=targets)
+    assert isinstance(result, MultiTargetReference)
     return result
