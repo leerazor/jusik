@@ -5199,7 +5199,7 @@
 - 범위: 등록 종목 자료 상태 → 공식 배당/분할/환율/비용 → NAV 검증 → 동조건 사전등록 비교 → 미래 검증. Pages·자동매매·승격 제외.
 - 운영: roadmap 개발 runner 및 timer 중지/pause 유지. 재부팅으로 다시 시작된 과거 `research_universe run --device cuda --poll-seconds 60` 서비스도 stop/disable하여 93후보 반복 재개를 막음. 원본 DB·결과 보존.
 - 제한: 컴퓨터·앱 실행 및 사용 가능한 요금제/도구 권한 필요. 동일 실패 입력 재시도·빈 보고 반복 금지.
-- 다음: NAV 독립 검증과 공식 BanKIS 비용 원천 보완 완료. 최신 인계 `docs/handoffs/2026-10-03-selected-cost-contract-20261003.md`에서 국내ETF 상품별 근거 연결로 이어감.
+- 다음: KODEX 공식 분배11건 반영 완료(eligible24/111). 최신 인계 `docs/handoffs/2026-10-03-selected-etf-tax-evidence-20261003.md`에서 국내주식 배당 근거 보완으로 이어감.
 
 ## gev-dividend-evidence-20261003
 
@@ -5244,3 +5244,17 @@
 
 - 결과: 범용 계약 구현 보류, 공식 sourcefact6개·16종목 ready0/요율미적용. 기존 코드/요율 보존.
 - 기록: `docs/development-records/2026-10-03-selected-cost-contract-20261003.md`; 인계: `docs/handoffs/2026-10-03-selected-cost-contract-20261003.md`.
+
+## selected-etf-tax-evidence-20261003
+
+- 상태: 원천 보완 완료. KODEX11건 독립 검토/실제 반영 PASS, eligible24/111. RISE 세부 세금·보수는 원문 반환 오류로 미확인; application writer 없음.
+- 범위: 등록 국내ETF4개 공식 상품코드·과세유형·보수 근거를 확보하고 기존 가정 비용과 구분. 등록16/revision1과 기준main c397eba 유지.
+- 검증/종료: 공식 원문hash와 종목코드·표 문맥 대조, 과세기준가/과거유효기간 결손은 보존. 기존 실패URL 재조회·요율 일괄 적용·주문·승격 금지. 이후 동조건 비교 입력 설계로 진행.
+
+- 기록: `docs/development-records/2026-10-03-selected-etf-tax-evidence-20261003.md`; 인계: `docs/handoffs/2026-10-03-selected-etf-tax-evidence-20261003.md`. 로컬 main 기록 통합, 비용 차감 수익성 미검증.
+
+## selected-kr-dividend-source-20261003
+
+- 상태: 진행. supervisor 단일 자료 writer, 기존 explore agent 공식 원천 read-only 조사.
+- 범위: 삼성전자005930/SK하이닉스000660의 exact revision과 공식 사건별 배당 금액·일정 연결. 연간 합계로 사건 추정 금지.
+- 검증/종료: 원문 hash·일자·주당 기준을 대조하고 준비된 사건만 사본 import/독립 검토 후 반영; 결손은 재개 조건으로 남기고 다음 독립 작업 진행.
