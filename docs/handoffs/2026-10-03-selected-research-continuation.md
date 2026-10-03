@@ -20,11 +20,11 @@
 
 - 신호 main4e1ff56/189검사, 초기batch main42214b8/200검사, KR재조정 main74a5581/208검사에 이어 후보정책 연결 mainb992712/240검사까지 독립 검토·통합 PASS.
 - 후보정책 구현856b3c6의 의미소스해시검증 P2를 동일소유자4ad0fa5에서 수정, 독립재검토PASS. 기존11개/KRsequence 전체 출력 보존, 외부 현금·수량·NAV/순서반전4사례 PASS. `2026-10-04-selected-kr-candidate-policy-20261004.md` 인계 및 audit20261004-selected-kr-candidate-policy 재사용.
-- 현재 **selected-kr-risk-policy-20261004 단일 구현 진행**. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-risk-policy`, base32e9d9ad8320e40d1af32fd4f7274bbd1274fc41.
-- 소유자 Sol/high CLI01a101e4-af50-7242-a80b-38e39abd6672, exec session74622. `/tmp/selected-kr-risk-code-events.jsonl`·stderr, 지시 `/tmp/selected-kr-risk-code.txt`. 중복writer 금지.
+- 현재 **selected-kr-risk-policy-20261004 독립검토 P2 2건을 동일 구현자 수정 중**. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-risk-policy`, base32e9d9ad8320e40d1af32fd4f7274bbd1274fc41.
+- 소유자 Sol/high CLI01a101e4-af50-7242-a80b-38e39abd6672, 현재 수정 exec session71919. `/tmp/selected-kr-risk-fix-events.jsonl`·stderr, 지시 `/tmp/selected-kr-risk-fix.txt`. 원구현 로그 `/tmp/selected-kr-risk-code-events.jsonl`은 종료. 중복writer 금지.
 - 완료된 delta explore/plan: `/tmp/selected-risk-explore-result.txt`, `/tmp/selected-risk-plan-result.txt` 및 직전audit 사본. 다시 조사하지 않는다.
 - 범위: 기존 policy/rawcore, 신규risk tests, 규약/confighash/개발기록. 같은원장에 episode10% 위험청산·pending취소·청산완료후28일/주간2회/다음4주재진입·cap우선처리. 구공개계약 및 lifetimeMDD20 이력보존, fullrisk 별도entry 허용. 같은시각신규관측으로같은시가주문 금지.
-- 완료 후 frozencommit 독립Sol/highreview → 관련검사/독립위험사건oracle/구출력보존 → main통합/기록. 전체실제성과나READYcohort 완료로 해석하지 않는다.
+- 구현8efee89/262검사·독립4사례 PASS이나 독립검토 P2 2건: 비용연쇄 cap 재평가(후순위매도비용으로앞종목위반), 개별첫개장불일치에도 다음공통개장선택 필요. `/tmp/selected-kr-risk-review-result.txt` 재사용. 수정 후 경계 재검토→main통합/관련검사/기록. 아직 main미통합.
 - 신규자료 KODEX2종목4/15~8/31 각93봉·기존캐시대사·독립PASS는 `2026-10-04-selected-kodex-warmup-receipt-20261004.md` 재사용. 동일조회금지, calendar/actions/NAV/PIT 준비false 유지.
 - 등록16/revision1, 100M/레버리지20/MDD20 유지. runner/timer inactive, webstack active 확인. 운영실행/주문/승격/원격push 없음.
 

@@ -5448,7 +5448,7 @@
 
 ## selected-kr-risk-policy-20261004
 
-- 상태: explore·plan 완료, 선행 정책 mainb992712/240검사 통합완료. `/tmp/selected-risk-plan-result.txt`에 따라 단일 구현 진행.
+- 상태: 구현8efee89/262검사 후 독립검토 P2 2건(비용연쇄 cap 재평가·다음공통개장 선택). 동일 구현자 수정 진행. `/tmp/selected-risk-plan-result.txt` 재사용.
 - 조사/계획 종료: /tmp/selected-risk-explore-result.txt, /tmp/selected-risk-plan-result.txt. 구현 소유 기존 Sol/high CLI01a101e4-af50-7242-a80b-38e39abd6672. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-risk-policy`, base32e9d9ad8320e40d1af32fd4f7274bbd1274fc41. `/tmp/selected-kr-risk-code-events.jsonl`.
 - 범위: 기존 policy/rawcore·신규 risk tests·규약/confighash·개발기록. 같은 원장의 episode청산·pending우선순위·28일대기/주간2회/재진입·cap 처리. 기존 공개계약 보존, 실제자료/성과/DB/서비스/원격 변경 금지. 구현 commit 후 독립검토·main통합·검증·인계.
 
