@@ -1,9 +1,9 @@
 # 선정 후보 KR 신호·정책의 합성 raw 원장 연결
 
-- 상태: 구현 완료, 독립 검토·main 통합 전
+- 상태: 완료 — P2 수정·독립 재검토·로컬 main 통합 검증 PASS
 - 기록 시각: 2026-10-03T17:49:41Z
 - 작업 slug: `selected-kr-candidate-policy-20261004`
-- 기준/통합: `9c43580944bd8530cc54a5841a5e95a340f7117f` / 없음
+- 기준/통합: `9c43580944bd8530cc54a5841a5e95a340f7117f` / `b992712318e1b9893cfd71124083d6bfb2fcc3b0`
 - 범위: 동결된 두 신호 방법을 각각 명시적 합성 KR 원장에서 4주 결정·밴드·엄격히 다음 공식 개장 체결로 연결한다. 위험 사건을 처리할 규칙이나 실제 자료 적격·성과 실행은 추가하지 않는다.
 
 ## 변경과 결정
@@ -34,7 +34,7 @@
 ## 증거와 재개
 
 - 작업 전후 전체 출력 및 독립 probe: `/tmp/selected-kr-policy-code/`.
-- 남은 작업: supervisor 독립 검토·main 통합. 위험 청산 pending 우선순위, 28일 cooldown·주간 회복·재진입과 비용 후 cap 수리는 미구현이다. 실제 등록 16종목 revision 1의 원천 적격은 별도 인수가 필요하다.
+- 남은 작업: 이 단계의 독립 검토·main 통합은 완료. 위험 청산 pending 우선순위, 28일 cooldown·주간 회복·재진입과 비용 후 cap 수리는 미구현이다. 실제 등록 16종목 revision 1의 원천 적격은 별도 인수가 필요하다.
 - 다음 시작: 정책 결정 hook·밴드 수량 유지·위험 경계의 독립 검토 후 동결 합성 검사를 재현한다.
 
 ## workflow 평가
@@ -50,3 +50,10 @@
 - 정책 소스 해시만 `8f9ad87aa7057a1b039418ad3999107a68315e8e3f9cb19c469a63d4aa0fa411`→`b482a5707656b7b8f678603b27c6b38bcf1ddda3180d56e31dcd7191d59c72cc`로 갱신했다. 설정 SHA-256은 `546446d6557095a0bba4811b785fa54a65557405669a519c4b9fcdd645d85ee2`; 다른 5개 소스 해시와 `candidate_execution_code_hash=null`, `execution_allowed=false`, `results_observed=false`를 확인했다.
 - 정책 집중 검사 32개, 기존 관련 검사 포함 총 240개 통과. 소유 Python 2개 파일 Ruff check·format 및 strict mypy 통과. `/tmp/selected-kr-policy-code/`의 baseline·cap·single target·batch·KR sequence 전체 직렬화와 독립 probe는 이전 `*-final.json`과 바이트 동일하다. 설정 SHA가 달라져 정책 출력의 입력 결속 값은 새 SHA를 사용한다.
 - 남은 작업: 독립 재검토와 supervisor의 통합. 실제 원천 적격·성과·위험 청산 정책은 여전히 미완료다.
+
+## supervisor 통합 검증
+
+- 구현856b3c6, P2 수정4ad0fa5, 독립 재검토 PASS. 병합 전main9df5b2f, 통합b992712.
+- main 관련240검사 6.39초 PASS, Ruff·strict mypy·diff check PASS. 두 후보×배당 유무4사례의 외부 거래 합산 현금·수량·NAV와 입력 순서 반전 전체 결과 대사 PASS. 합성 수치를 실제 수익률로 공개하지 않았다.
+- audit `/home/kwl/.local/share/jusik/portfolio-audit/20261004-selected-kr-candidate-policy/`; manifest SHA256 `e3b9dcbc2fe5c3454c253c762bfe590986d79d8df6dbabfb5b16255c254e4b09`.
+- 후속 위험 처리 계획은 audit의 selected-risk-plan-result.txt 재사용. 같은 worktree·구현자를 다음 작업에 재사용하며, 운영 서비스/DB/실주문/원격push 변경 없음.
