@@ -264,6 +264,15 @@ KRInstruction = TargetInstruction | HoldQuantityInstruction
 
 
 @dataclass(frozen=True)
+class KRPolicyDirective:
+    """One dynamic policy decision in the existing KR raw event loop."""
+
+    vector: tuple[KRInstruction, ...] | None = None
+    cancel_pending: bool = False
+    liquidation: bool = False
+
+
+@dataclass(frozen=True)
 class TargetAttempt:
     at: datetime
     status: Literal[
@@ -361,6 +370,38 @@ class _RebalanceLine:
 
 def _ceil_fraction(value: Fraction) -> int:
     return -(-value.numerator // value.denominator)
+
+
+def _policy_cap_sell_quantity(
+    nav: Decimal,
+    gross: Decimal,
+    leverage: Decimal,
+    owned_value: Decimal,
+    unit_price: Decimal,
+    sell_cost: Decimal,
+    owned_quantity: Decimal,
+    *,
+    leveraged: bool,
+) -> Decimal:
+    """Minimum bounded integer sale for all three post-cost hard caps."""
+    n, g, lev = Fraction(nav), Fraction(gross), Fraction(leverage)
+    own, price, cost = Fraction(owned_value), Fraction(unit_price), Fraction(sell_cost)
+    limits = (
+        (own - Fraction(LIMIT) * n, Fraction(LIMIT)),
+        (g - Fraction(Decimal("0.60")) * n, Fraction(Decimal("0.60"))),
+        (lev - Fraction(LIMIT) * n, Fraction(LIMIT))
+        if leveraged
+        else (Fraction(0), Fraction(LIMIT)),
+    )
+    needed = max(
+        (
+            _ceil_fraction(excess / (price * (1 - limit * cost)))
+            for excess, limit in limits
+            if excess > 0
+        ),
+        default=0,
+    )
+    return Decimal(min(needed, int(owned_quantity)))
 
 
 def _size_kr_rebalance(
@@ -924,6 +965,14 @@ def _run_reference_core(
     kr_decision_hook: Callable[[datetime, ReferencePoint], tuple[KRInstruction, ...]]
     | None = None,
     kr_close_hook: Callable[[ReferencePoint], None] | None = None,
+    kr_dynamic_hook: Callable[[datetime, str, ReferencePoint], KRPolicyDirective]
+    | None = None,
+    kr_dynamic_fill_hook: Callable[[datetime, ReferencePoint, bool], None]
+    | None = None,
+    kr_dynamic_cap_hook: Callable[
+        [datetime, datetime, str, ReferencePoint, ReferencePoint], None
+    ]
+    | None = None,
 ) -> (
     BuyHoldReference
     | CapControlReference
@@ -932,7 +981,8 @@ def _run_reference_core(
     | KRTargetSequenceReference
 ):
     """Apply frozen offline events; reject any missing or inconsistent fact."""
-    policy_mode = kr_decision_hook is not None
+    risk_mode = kr_dynamic_hook is not None
+    policy_mode = kr_decision_hook is not None or risk_mode
     if (
         kr_decisions is None
         and not policy_mode
@@ -948,11 +998,19 @@ def _run_reference_core(
             or batch_targets is not None
             or sell_costs is None
             or kr_decision_times is None
-            or kr_close_hook is None
+            or (kr_close_hook is None and not risk_mode)
+            or (risk_mode and kr_decision_hook is not None)
+            or (risk_mode != (kr_dynamic_fill_hook is not None))
+            or (risk_mode != (kr_dynamic_cap_hook is not None))
             or not kr_decision_times
         ):
             raise ReferenceInputError("incomplete KR policy hook")
-    elif kr_decision_times is not None or kr_close_hook is not None:
+    elif (
+        kr_decision_times is not None
+        or kr_close_hook is not None
+        or kr_dynamic_fill_hook is not None
+        or kr_dynamic_cap_hook is not None
+    ):
         raise ReferenceInputError("KR policy hook missing")
     _validate(
         data,
@@ -1007,6 +1065,8 @@ def _run_reference_core(
     batch_executed = False
     sequence_index = 0
     sequence_batches: list[RebalanceBatch] = []
+    policy_cap_pending: datetime | None = None
+    risk_pending = False
 
     def fx_at(at: datetime) -> Decimal:
         past = [
@@ -1416,6 +1476,125 @@ def _run_reference_core(
             )
         )
 
+    def policy_breached(value: ReferencePoint) -> bool:
+        nav = Fraction(value.nav_krw)
+        gross = sum((Fraction(p.value_krw) for p in value.positions), Fraction(0))
+        return (
+            gross > Fraction(Decimal("0.60")) * nav
+            or Fraction(value.leveraged_value_krw) > Fraction(LIMIT) * nav
+            or any(
+                Fraction(p.value_krw) > Fraction(LIMIT) * nav for p in value.positions
+            )
+        )
+
+    def accept_policy_directive(
+        at: datetime, prior: ReferencePoint, directive: KRPolicyDirective
+    ) -> None:
+        nonlocal risk_pending
+        if not isinstance(directive, KRPolicyDirective):
+            raise ReferenceInputError("KR dynamic policy directive invalid")
+        if directive.cancel_pending:
+            del scheduled[sequence_index:]
+            risk_pending = False
+        if directive.vector is None:
+            if directive.liquidation:
+                raise ReferenceInputError("KR liquidation vector missing")
+            return
+        if sequence_index != len(scheduled):
+            raise ReferenceInputError("KR policy decision overlaps pending batch")
+        scheduled.append(_validate_kr_hook_vector(data, directive.vector, at, prior))
+        risk_pending = directive.liquidation
+
+    def repair_policy_cap(at: datetime, opened: list[RawSession]) -> None:
+        nonlocal krw_cash
+        assert sell_costs is not None
+        if {bar.instrument for bar in opened if bar.instrument in data.cohort} != set(
+            data.cohort
+        ):
+            return
+        bars = {bar.instrument: bar for bar in opened}
+        point(at, "pre_cap_repair")
+        cost = sum(
+            (
+                sell_costs.commission_kr.rate,
+                sell_costs.slippage_kr.rate,
+                sell_costs.notional_tax_kr.rate,
+            ),
+            Decimal(0),
+        )
+        for instrument in sorted(
+            data.cohort,
+            key=lambda item: (
+                item.market,
+                item.exchange,
+                item.symbol,
+                item.identity_hash,
+            ),
+        ):
+            state = states.get(instrument)
+            if state is None or state.holdings[0].quantity == 0:
+                continue
+            before = point(at, "open", record=False)
+            if not policy_breached(before):
+                break
+            price = bars[instrument].raw_open
+            n = Fraction(before.nav_krw)
+            p = Fraction(price)
+            gross = sum(
+                (position.value_krw for position in before.positions), Decimal(0)
+            )
+            position = next(x for x in before.positions if x.instrument == instrument)
+            quantity = _policy_cap_sell_quantity(
+                before.nav_krw,
+                gross,
+                before.leveraged_value_krw,
+                position.value_krw,
+                price,
+                cost,
+                state.holdings[0].quantity,
+                leveraged=instrument.leveraged,
+            )
+            if quantity == 0:
+                continue
+            gross_sale = quantity * price
+            proceeds = gross_sale * (1 - cost)
+            if Fraction(proceeds) != Fraction(quantity) * p * (1 - Fraction(cost)):
+                raise ReferenceInputError("KR cap repair sale arithmetic rounded")
+            states[instrument] = _sell_state(state, quantity, proceeds)
+            after = point(at, "open", record=False)
+            if Fraction(after.nav_krw) != n - Fraction(gross_sale) * Fraction(cost):
+                raise ReferenceInputError("KR cap repair NAV mismatch")
+            sales.append(
+                Sale(
+                    at,
+                    instrument,
+                    quantity,
+                    price,
+                    gross_sale,
+                    gross_sale * sell_costs.commission_kr.rate,
+                    gross_sale * sell_costs.slippage_kr.rate,
+                    gross_sale * sell_costs.notional_tax_kr.rate,
+                    proceeds,
+                    before.nav_krw,
+                    before.leveraged_value_krw,
+                    after.nav_krw,
+                    after.leveraged_value_krw,
+                )
+            )
+        before_sweep = point(at, "open", record=False)
+        for instrument, state in tuple(states.items()):
+            if state.cash:
+                krw_cash += state.cash
+                states[instrument] = replace(state, cash=Decimal(0))
+        after_sweep = point(at, "open", record=False)
+        if (
+            before_sweep.nav_krw != after_sweep.nav_krw
+            or before_sweep.cash_krw != after_sweep.cash_krw
+        ):
+            raise ReferenceInputError("KR cap repair cash sweep changed NAV")
+        if policy_breached(after_sweep):
+            raise ReferenceInputError("KR policy cap repair unresolved")
+
     events: list[tuple[datetime, int, str, object]] = []
     for action in data.actions:
         if isinstance(action, SplitEvent):
@@ -1449,11 +1628,19 @@ def _run_reference_core(
         elif policy_mode and phase_order >= 0:
             timestamp_phase = phase_names[phase_order]
         if phase_order == -1:
-            if kr_decision_hook is None or sequence_index != len(scheduled):
-                raise ReferenceInputError("KR policy decision overlaps pending batch")
             prior = point(at, "decision")
-            vector = kr_decision_hook(at, prior)
-            scheduled.append(_validate_kr_hook_vector(data, vector, at, prior))
+            if risk_mode:
+                assert kr_dynamic_hook is not None
+                accept_policy_directive(
+                    at, prior, kr_dynamic_hook(at, "decision", prior)
+                )
+            else:
+                if kr_decision_hook is None or sequence_index != len(scheduled):
+                    raise ReferenceInputError(
+                        "KR policy decision overlaps pending batch"
+                    )
+                vector = kr_decision_hook(at, prior)
+                scheduled.append(_validate_kr_hook_vector(data, vector, at, prior))
         elif isinstance(obj, SplitEvent):
             state = states.get(obj.instrument)
             if state is not None and state.holdings[0].quantity > 0:
@@ -1800,6 +1987,7 @@ def _run_reference_core(
             batch_executed = True
         if (
             (kr_decisions is not None or policy_mode)
+            and not risk_mode
             and sequence_index < len(scheduled)
             and at == scheduled[sequence_index][1]
             and phase_order == 3
@@ -1808,6 +1996,98 @@ def _run_reference_core(
             execute_kr_batch(at, opens_at, scheduled[sequence_index][0])
             sequence_index += 1
         if index + 1 == len(events) or events[index + 1][0] != at:
+            recorded_close: ReferencePoint | None = None
+            policy_traded = False
+            if risk_mode:
+                pre_policy = point(at, timestamp_phase, record=False)
+                if timestamp_phase == "close":
+                    recorded_close = point(at, "close")
+                    assert kr_dynamic_hook is not None
+                    accept_policy_directive(
+                        at,
+                        recorded_close,
+                        kr_dynamic_hook(at, "close", recorded_close),
+                    )
+                if policy_cap_pending is not None and not policy_breached(pre_policy):
+                    assert kr_dynamic_cap_hook is not None
+                    kr_dynamic_cap_hook(
+                        policy_cap_pending,
+                        at,
+                        "natural_recovery",
+                        pre_policy,
+                        pre_policy,
+                    )
+                    policy_cap_pending = None
+                if (
+                    sequence_index < len(scheduled)
+                    and at == scheduled[sequence_index][1]
+                ):
+                    vector = scheduled[sequence_index][0]
+                    if (
+                        policy_cap_pending is not None
+                        and policy_cap_pending < at
+                        and not risk_pending
+                    ):
+                        vector = tuple(
+                            TargetInstruction(
+                                item.instrument, item.decided_at, item.target_weight
+                            )
+                            if isinstance(item, HoldQuantityInstruction)
+                            else item
+                            for item in vector
+                        )
+                    cap_batch_since = (
+                        policy_cap_pending
+                        if policy_cap_pending is not None
+                        and policy_cap_pending < at
+                        and not risk_pending
+                        else None
+                    )
+                    execute_kr_batch(
+                        at,
+                        [bar for bar in opens_at if bar.instrument in data.cohort],
+                        vector,
+                    )
+                    policy_traded = True
+                    sequence_index += 1
+                    assert kr_dynamic_fill_hook is not None
+                    after_batch = point(at, "open", record=False)
+                    if cap_batch_since is not None and not policy_breached(after_batch):
+                        assert kr_dynamic_cap_hook is not None
+                        kr_dynamic_cap_hook(
+                            cap_batch_since,
+                            at,
+                            "repaired_by_target",
+                            pre_policy,
+                            after_batch,
+                        )
+                        policy_cap_pending = None
+                    kr_dynamic_fill_hook(at, after_batch, risk_pending)
+                    risk_pending = False
+                elif (
+                    policy_cap_pending is not None
+                    and policy_cap_pending < at
+                    and not risk_pending
+                    and policy_breached(pre_policy)
+                    and {
+                        bar.instrument
+                        for bar in opens_at
+                        if bar.instrument in data.cohort
+                    }
+                    == set(data.cohort)
+                ):
+                    repair_policy_cap(at, opens_at)
+                    policy_traded = True
+                    assert kr_dynamic_cap_hook is not None
+                    after_repair = point(at, "open", record=False)
+                    kr_dynamic_cap_hook(
+                        policy_cap_pending,
+                        at,
+                        "repaired",
+                        pre_policy,
+                        after_repair,
+                    )
+                    policy_cap_pending = None
             if (
                 sell_costs is not None
                 and kr_decisions is None
@@ -1951,8 +2231,29 @@ def _run_reference_core(
                         )
                         if not after.leverage_breach:
                             pending_since = None
-            evaluated = point(at, timestamp_phase)
+            evaluated = (
+                point(at, timestamp_phase)
+                if recorded_close is None or policy_traded
+                else recorded_close
+            )
             settle_pending(evaluated)
+            if risk_mode:
+                if policy_breached(evaluated):
+                    if policy_cap_pending is None:
+                        policy_cap_pending = at
+                        assert kr_dynamic_cap_hook is not None
+                        kr_dynamic_cap_hook(at, at, "observed", evaluated, evaluated)
+                else:
+                    if policy_cap_pending is not None:
+                        assert kr_dynamic_cap_hook is not None
+                        kr_dynamic_cap_hook(
+                            policy_cap_pending,
+                            at,
+                            "natural_recovery",
+                            evaluated,
+                            evaluated,
+                        )
+                    policy_cap_pending = None
             if kr_close_hook is not None and timestamp_phase == "close":
                 kr_close_hook(evaluated)
     if (
@@ -1969,11 +2270,26 @@ def _run_reference_core(
         raise ReferenceInputError("KR decision batch not executed")
     if (
         policy_mode
+        and not risk_mode
         and kr_decision_times is not None
         and len(scheduled) != len(kr_decision_times)
     ):
         raise ReferenceInputError("KR policy decision missing")
-    settle_pending(point(data.evaluation_end, "evaluation_end"))
+    end_point = point(data.evaluation_end, "evaluation_end")
+    settle_pending(end_point)
+    if risk_mode:
+        if policy_cap_pending is not None and not policy_breached(end_point):
+            assert kr_dynamic_cap_hook is not None
+            kr_dynamic_cap_hook(
+                policy_cap_pending,
+                data.evaluation_end,
+                "natural_recovery",
+                end_point,
+                end_point,
+            )
+            policy_cap_pending = None
+        if policy_cap_pending is not None:
+            raise ReferenceInputError("KR policy cap repair window_end_unfilled")
     if (
         sell_costs is not None
         and kr_decisions is None
