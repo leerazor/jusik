@@ -5199,7 +5199,7 @@
 - 범위: 등록 종목 자료 상태 → 공식 배당/분할/환율/비용 → NAV 검증 → 동조건 사전등록 비교 → 미래 검증. Pages·자동매매·승격 제외.
 - 운영: roadmap 개발 runner 및 timer 중지/pause 유지. 재부팅으로 다시 시작된 과거 `research_universe run --device cuda --poll-seconds 60` 서비스도 stop/disable하여 93후보 반복 재개를 막음. 원본 DB·결과 보존.
 - 제한: 컴퓨터·앱 실행 및 사용 가능한 요금제/도구 권한 필요. 동일 실패 입력 재시도·빈 보고 반복 금지.
-- 다음: 공식 배당 입력 구현·MSFT 검증 완료. 최신 인계 `docs/handoffs/2026-10-03-official-dividend-input-20261003.md`에서 NAV/FX/비용 검증으로 이어감.
+- 다음: NAV/FX/비용 합성 독립 검증 완료. 최신 인계 `docs/handoffs/2026-10-03-nav-cost-fx-oracle-20261003.md`에서 실제 비용·자료 연결로 이어감.
 
 ## gev-dividend-evidence-20261003
 
@@ -5224,3 +5224,13 @@
 - 검증: main37 passed/API2 제외, Ruff/strict mypy PASS. MSFT12건 최종438bf7... artifact 동결/idempotence, 실제 배당액+가상 거래상태의 독립 회계 대사 PASS. 전체 비용 차감 NAV/성과는 미검증.
 - 작업 환경: clean/전부 병합/프로세스없음. 관리형 checkout은 곧 이어질 NAV/FX 검증에 재사용하도록 free 상태 보존.
 - 기록: `docs/development-records/2026-10-03-official-dividend-input-20261003.md`; 인계: `docs/handoffs/2026-10-03-official-dividend-input-20261003.md`.
+
+## nav-cost-fx-oracle-20261003
+
+- 상태: 완료. 합성16거래/89평가시점 독립 계산 일치, 지급 원장 대사 P2 보완 및 재검토 PASS. 투자 성과 미검증.
+- 목표: 기존 simulate 거래 결과를 별도 현금·수량·FX·비용 장부로 대사하고 동결 MSFT 배당을 더한 평가액을 검증한다.
+- 조건: 등록 revision1/16 유지, runner 중지. 가상 가격·환율/거래비용 fixture, 자본1억원·MDD20%·레버리지20% 유지. 전략 성과 실험과 OOS 사용 없음.
+- 입력: main `3eaa0b9`, 공식 MSFT artifact438bf7..., 기존 테스트 fixture 생성기와 순수 simulate/overlay 함수. 출력 `/tmp/nav-cost-fx-oracle-20261003`.
+- 범위/끝 조건: 날짜별 현금+주식 가치, 매수/매도 비용 및 FX, 배당 미수금/지급 현금 독립 대사·미래 환율 배제. 운영 DB·서비스·정책·신규 application 코드 변경 없음. 실제 수수료/세금·실자료 전체 적격성은 별도.
+
+- 기록: `docs/development-records/2026-10-03-nav-cost-fx-oracle-20261003.md`; 인계: `docs/handoffs/2026-10-03-nav-cost-fx-oracle-20261003.md`. application 변경 없음, main 기록 통합.
