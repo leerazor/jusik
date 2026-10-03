@@ -5168,3 +5168,15 @@
 - 기록: `docs/development-records/2026-10-03-approved-universe-readiness.md`.
 - 인계: `docs/handoffs/2026-10-03-approved-universe-readiness.md`.
 - 남은 작업: 등록 종목 입력 adapter/준비 상태 화면, 배당 포함 NAV 및 동일 조건 비교. 자동매매·Pages 제외.
+
+## approved-readiness-ui-20261003
+
+- 상태: 조사·계획 중.
+- 목표와 완료 조건: 현재 등록 종목만 읽어 가격 기간·배당 검토·환율 가용 범위 및 비교 미완료 사유를 API와 화면으로 제공. 누락 자료는 확인 불가, 수익성 적격·매매 승격 없음. focused 검사와 독립 코드/화면 검토 후 main 통합.
+- 담당: 중앙 라우팅 explore → plan → code → review, 구현 소유자 1명.
+- 예정 워크트리: `/home/kwl/projects/jusik-approved-readiness-ui`; 브랜치 `feat/approved-readiness-ui`.
+- 기준: `8ec5057`; 통합 대상: 로컬 main.
+- 입력: 등록 DB revision 1, `docs/development-records/2026-10-03-approved-universe-readiness.md`, 기존 읽기 전용 store/API 계약.
+- 수정 허용 범위: 승인 목록 준비 상태 backend/frontend와 관련 focused tests·문서. 기존 주문·운영 universe·PAPER·과거 NAV 및 배당 검토 판정 변경 금지.
+- 격리: preview API 8013/web 3013, 작업별 DB·artifact. 운영 DB는 읽기 전용 사실 확인만.
+- 다음 단계: UI 통합 후 배당·비용 자료 보완과 동결 비교 계약으로 진행. Pages와 자동매매 제외.
