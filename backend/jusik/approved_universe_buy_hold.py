@@ -298,6 +298,29 @@ class MultiTargetReference:
 
 
 @dataclass(frozen=True)
+class RebalanceBatch:
+    decided_at: datetime
+    open_at: datetime
+    status: Literal["filled", "unchanged", "all_cash", "no_feasible_share"]
+    sold: tuple[tuple[Instrument, Decimal], ...]
+    bought: tuple[tuple[Instrument, Decimal], ...]
+
+
+@dataclass(frozen=True)
+class KRTargetSequenceReference:
+    status: Literal["synthetic_reference_only"]
+    trades: tuple[Trade, ...]
+    sales: tuple[Sale, ...]
+    dividends: tuple[DividendLedgerEntry, ...]
+    points: tuple[ReferencePoint, ...]
+    batches: tuple[RebalanceBatch, ...]
+    max_drawdown_fraction: Decimal
+    leverage_breached: bool
+    drawdown_breached: bool
+    investment_qualification: Literal["not_evaluated"] = "not_evaluated"
+
+
+@dataclass(frozen=True)
 class _BuyTerms:
     rate: Decimal
     commission: Decimal
@@ -312,6 +335,102 @@ class _BatchSizingLine:
     weight: Decimal
     unit_value: Decimal
     unit_cost: Decimal
+
+
+@dataclass(frozen=True)
+class _RebalanceLine:
+    weight: Decimal
+    held: Decimal
+    unit_value: Decimal
+    unit_buy_cost: Decimal
+    unit_sell_proceeds: Decimal
+
+
+def _ceil_fraction(value: Fraction) -> int:
+    return -(-value.numerator // value.denominator)
+
+
+def _size_kr_rebalance(
+    nav: Decimal, cash: Decimal, lines: tuple[_RebalanceLine, ...]
+) -> tuple[tuple[Decimal, ...], tuple[Decimal, ...]]:
+    """Bounded conservative simultaneous sells, then proportional shared-cash buys."""
+    _decimal(nav, "rebalance NAV", positive=True)
+    _decimal(cash, "rebalance cash")
+    n, k = Fraction(nav), Fraction(cash)
+    values: list[Fraction] = []
+    buy_costs: list[Fraction] = []
+    proceeds: list[Fraction] = []
+    weights: list[Fraction] = []
+    held: list[int] = []
+    upper: list[int] = []
+    for line in lines:
+        w = Fraction(_decimal(line.weight, "rebalance target weight"))
+        h = _decimal(line.held, "rebalance held quantity")
+        v = Fraction(_decimal(line.unit_value, "rebalance unit value", positive=True))
+        c = Fraction(_decimal(line.unit_buy_cost, "rebalance buy cost", positive=True))
+        p = Fraction(_decimal(line.unit_sell_proceeds, "rebalance sell proceeds"))
+        if h != h.to_integral_value() or w > Fraction(LIMIT) or c < v or p > v:
+            raise ReferenceInputError("rebalance sizing line invalid")
+        values.append(v)
+        buy_costs.append(c)
+        proceeds.append(p)
+        weights.append(w)
+        held.append(int(h))
+        upper.append(max(0, (w * n - int(h) * v) // v))
+    n_base = n - sum(
+        (upper[i] * (buy_costs[i] - values[i]) for i in range(len(lines))),
+        Fraction(0),
+    )
+    if n_base <= 0:
+        raise ReferenceInputError("rebalance conservative NAV nonpositive")
+    sold = [0] * len(lines)
+    # Each pass increases at least one integer sale. Stop after a size-based
+    # logarithmic budget and fail closed instead of walking a huge position.
+    max_passes = max(64, 8 * max((h.bit_length() for h in held), default=0))
+    for _ in range(max_passes):
+        n_ref = n_base - sum(
+            (sold[i] * (values[i] - proceeds[i]) for i in range(len(lines))),
+            Fraction(0),
+        )
+        if n_ref <= 0:
+            raise ReferenceInputError("rebalance conservative NAV nonpositive")
+        changed = False
+        for i in range(len(lines)):
+            exposure = (held[i] - sold[i]) * values[i]
+            if exposure <= weights[i] * n_ref:
+                continue
+            denominator = values[i] - weights[i] * (values[i] - proceeds[i])
+            if denominator <= 0:
+                raise ReferenceInputError("rebalance sale denominator invalid")
+            need = _ceil_fraction((exposure - weights[i] * n_ref) / denominator)
+            if need <= 0 or sold[i] + need > held[i]:
+                raise ReferenceInputError("rebalance sale cannot satisfy target")
+            sold[i] += need
+            n_ref -= need * (values[i] - proceeds[i])
+            if n_ref <= 0:
+                raise ReferenceInputError("rebalance conservative NAV nonpositive")
+            changed = True
+        if not changed:
+            break
+    else:
+        raise ReferenceInputError("rebalance sale sizing did not converge")
+    bought = [
+        0
+        if sold[i]
+        else max(0, (weights[i] * n_ref - held[i] * values[i]) // values[i])
+        for i in range(len(lines))
+    ]
+    funding = k + sum((sold[i] * proceeds[i] for i in range(len(lines))), Fraction(0))
+    spend = sum((bought[i] * buy_costs[i] for i in range(len(lines))), Fraction(0))
+    if spend > funding:
+        ratio = funding / spend
+        bought = [int(quantity * ratio) for quantity in bought]
+        if not any(bought) and any(
+            upper[i] > 0 and not sold[i] and buy_costs[i] <= funding
+            for i in range(len(lines))
+        ):
+            raise ReferenceInputError("proportional buys erased feasible share")
+    return tuple(Decimal(x) for x in sold), tuple(Decimal(x) for x in bought)
 
 
 def _size_initial_target_batch(
@@ -654,27 +773,82 @@ def _validate_multi_targets(
     return ordered, next(iter(first_opens))
 
 
+def _validate_kr_decisions(
+    data: FrozenReferenceInput,
+    decisions: tuple[tuple[TargetInstruction, ...], ...],
+) -> tuple[tuple[tuple[TargetInstruction, ...], datetime], ...]:
+    if data.registration_revision != 1 or any(
+        item.market != "KR" for item in data.cohort
+    ):
+        raise ReferenceInputError("KR revision-one cohort required")
+    if not isinstance(decisions, tuple) or not decisions:
+        raise ReferenceInputError("nonempty finite KR decision sequence required")
+    scheduled: list[tuple[tuple[TargetInstruction, ...], datetime]] = []
+    previous_decision: datetime | None = None
+    previous_open: datetime | None = None
+    for vector in decisions:
+        ordered, _ = _validate_multi_targets(data, vector)
+        decision = _time(ordered[0].decided_at, "target decision")
+        if previous_decision is not None and decision <= previous_decision:
+            raise ReferenceInputError("KR decisions must increase strictly")
+        if previous_open is not None and decision <= previous_open:
+            raise ReferenceInputError("KR decision overlaps pending batch")
+        opens = {
+            min(
+                (
+                    _time(bar.open_at, "official open")
+                    for bar in data.sessions
+                    if bar.instrument == item.instrument and bar.open_at > decision
+                ),
+                default=None,
+            )
+            for item in ordered
+        }
+        if None in opens or len(opens) != 1:
+            raise ReferenceInputError("KR batch first official opens missing or differ")
+        open_at = next(iter(opens))
+        assert open_at is not None
+        scheduled.append((ordered, open_at))
+        previous_decision, previous_open = decision, open_at
+    return tuple(scheduled)
+
+
 def _run_reference_core(
     data: FrozenReferenceInput,
     sell_costs: SellCostAssumptions | None = None,
     target: TargetInstruction | None = None,
     batch_targets: tuple[TargetInstruction, ...] | None = None,
+    kr_decisions: tuple[tuple[TargetInstruction, ...], ...] | None = None,
 ) -> (
     BuyHoldReference
     | CapControlReference
     | TargetBridgeReference
     | MultiTargetReference
+    | KRTargetSequenceReference
 ):
     """Apply frozen offline events; reject any missing or inconsistent fact."""
-    if sum(x is not None for x in (sell_costs, target, batch_targets)) > 1:
+    if (
+        kr_decisions is None
+        and sum(x is not None for x in (sell_costs, target, batch_targets)) > 1
+    ):
         raise ReferenceInputError("reference modes cannot be combined")
-    _validate(data, enforce_initial_allocation=target is None and batch_targets is None)
+    if kr_decisions is not None and (target is not None or batch_targets is not None):
+        raise ReferenceInputError("reference modes cannot be combined")
+    _validate(
+        data,
+        enforce_initial_allocation=(
+            target is None and batch_targets is None and kr_decisions is None
+        ),
+    )
     if target is not None:
         _validate_target(data, target)
     ordered_batch: tuple[TargetInstruction, ...] = ()
     batch_open_at: datetime | None = None
     if batch_targets is not None:
         ordered_batch, batch_open_at = _validate_multi_targets(data, batch_targets)
+    scheduled = (
+        _validate_kr_decisions(data, kr_decisions) if kr_decisions is not None else ()
+    )
     n = Decimal(len(data.cohort))
     budgets = {item: INITIAL_KRW / n for item in data.cohort}
     states: dict[Instrument, AccountingState] = {}
@@ -694,6 +868,8 @@ def _run_reference_core(
     )
     batch_attempts: list[MultiTargetAttempt] = []
     batch_executed = False
+    sequence_index = 0
+    sequence_batches: list[RebalanceBatch] = []
 
     def fx_at(at: datetime) -> Decimal:
         past = [
@@ -777,7 +953,7 @@ def _run_reference_core(
 
     def settle_pending(evaluated: ReferencePoint) -> None:
         nonlocal pending_since
-        if sell_costs is None:
+        if sell_costs is None or kr_decisions is not None:
             return
         if not evaluated.leverage_breach and pending_since is not None:
             attempts.append(
@@ -830,18 +1006,33 @@ def _run_reference_core(
         if krw_cash < 0:
             raise ReferenceInputError("initial committed budgets exceed capital")
         currency: Currency = "USD" if bar.instrument.market == "US" else "KRW"
-        states[bar.instrument] = AccountingState(
-            holdings=(
-                Holding(
-                    bar.instrument.symbol,
-                    quantity,
-                    bar.raw_open,
-                    local_cost,
-                    currency,
+        prior = states.get(bar.instrument)
+        if prior is None:
+            states[bar.instrument] = AccountingState(
+                holdings=(
+                    Holding(
+                        bar.instrument.symbol,
+                        quantity,
+                        bar.raw_open,
+                        local_cost,
+                        currency,
+                    ),
                 ),
-            ),
-            currency=currency,
-        )
+                currency=currency,
+            )
+        else:
+            holding = prior.holdings[0]
+            states[bar.instrument] = replace(
+                prior,
+                holdings=(
+                    replace(
+                        holding,
+                        quantity=holding.quantity + quantity,
+                        raw_price=bar.raw_open,
+                        total_cost=holding.total_cost + local_cost,
+                    ),
+                ),
+            )
         trades.append(
             Trade(
                 at,
@@ -854,6 +1045,220 @@ def _run_reference_core(
                 local_notional * terms.buy_tax,
                 local_cost * terms.rate * terms.spread,
                 krw_cost,
+            )
+        )
+
+    def execute_kr_batch(
+        at: datetime, opened: list[RawSession], vector: tuple[TargetInstruction, ...]
+    ) -> None:
+        nonlocal krw_cash
+        assert sell_costs is not None
+        bars = {bar.instrument: bar for bar in opened}
+        if set(bars) != set(data.cohort):
+            raise ReferenceInputError("KR sequence requires all cohort open marks")
+        before = point(at, "pre_rebalance")
+        ordered_bars = tuple(bars[item.instrument] for item in vector)
+        terms = tuple(buy_terms(bar, at) for bar in ordered_bars)
+        sell_rates = (
+            sell_costs.commission_kr.rate,
+            sell_costs.slippage_kr.rate,
+            sell_costs.notional_tax_kr.rate,
+        )
+        sell_rate_exact = sum((Fraction(rate) for rate in sell_rates), Fraction(0))
+        lines: list[_RebalanceLine] = []
+        for item, bar, term in zip(vector, ordered_bars, terms, strict=True):
+            held_state = states.get(item.instrument)
+            held = (
+                held_state.holdings[0].quantity
+                if held_state is not None
+                else Decimal(0)
+            )
+            if held != held.to_integral_value():
+                raise ReferenceInputError("fractional holding cannot be rebalanced")
+            exact_buy = (
+                Fraction(bar.raw_open)
+                * (
+                    1
+                    + Fraction(term.commission)
+                    + Fraction(term.slippage)
+                    + Fraction(term.buy_tax)
+                )
+                * Fraction(term.rate)
+                * (1 + Fraction(term.spread))
+            )
+            if Fraction(term.unit_cost) != exact_buy:
+                raise ReferenceInputError("KR rebalance buy unit arithmetic rounded")
+            proceeds = bar.raw_open * (1 - sum(sell_rates, Decimal(0)))
+            if Fraction(proceeds) != Fraction(bar.raw_open) * (1 - sell_rate_exact):
+                raise ReferenceInputError("KR rebalance sell unit arithmetic rounded")
+            lines.append(
+                _RebalanceLine(
+                    item.target_weight, held, bar.raw_open, term.unit_cost, proceeds
+                )
+            )
+        sizes = _size_kr_rebalance(before.nav_krw, before.cash_krw, tuple(lines))
+        sold, bought = sizes
+        expected_proceeds = sum(
+            (
+                Fraction(q) * Fraction(line.unit_sell_proceeds)
+                for q, line in zip(sold, lines, strict=True)
+            ),
+            Fraction(0),
+        )
+        expected_spend = sum(
+            (
+                Fraction(q) * Fraction(line.unit_buy_cost)
+                for q, line in zip(bought, lines, strict=True)
+            ),
+            Fraction(0),
+        )
+        if expected_spend > Fraction(before.cash_krw) + expected_proceeds:
+            raise ReferenceInputError("KR rebalance shared cash insufficient")
+        sale_count, trade_count = len(sales), len(trades)
+        for item, bar, quantity in zip(vector, ordered_bars, sold, strict=True):
+            if not quantity:
+                continue
+            state = states[item.instrument]
+            current = point(at, "open", record=False)
+            gross = quantity * bar.raw_open
+            proceeds = gross * (1 - sum(sell_rates, Decimal(0)))
+            if Fraction(proceeds) != Fraction(quantity) * Fraction(
+                next(
+                    line.unit_sell_proceeds
+                    for line, target_item in zip(lines, vector, strict=True)
+                    if target_item.instrument == item.instrument
+                )
+            ):
+                raise ReferenceInputError("KR rebalance sale arithmetic rounded")
+            states[item.instrument] = _sell_state(state, quantity, proceeds)
+            after_sale = point(at, "open", record=False)
+            if Fraction(after_sale.nav_krw) != Fraction(current.nav_krw) - (
+                Fraction(gross) - Fraction(proceeds)
+            ):
+                raise ReferenceInputError("KR rebalance sale NAV mismatch")
+            sales.append(
+                Sale(
+                    at,
+                    item.instrument,
+                    quantity,
+                    bar.raw_open,
+                    gross,
+                    gross * sell_rates[0],
+                    gross * sell_rates[1],
+                    gross * sell_rates[2],
+                    proceeds,
+                    current.nav_krw,
+                    current.leveraged_value_krw,
+                    after_sale.nav_krw,
+                    after_sale.leveraged_value_krw,
+                )
+            )
+        before_sweep = point(at, "open", record=False)
+        for instrument, state in tuple(states.items()):
+            if state.cash:
+                krw_cash += state.cash
+                states[instrument] = replace(state, cash=Decimal(0))
+        swept = point(at, "open", record=False)
+        if (
+            swept.nav_krw != before_sweep.nav_krw
+            or swept.cash_krw != before_sweep.cash_krw
+        ):
+            raise ReferenceInputError("KR native cash sweep changed NAV")
+        for bar, quantity, term in zip(ordered_bars, bought, terms, strict=True):
+            if quantity:
+                buy_at_open(bar, at, quantity, term)
+        actual_proceeds = sum(
+            (Fraction(sale.proceeds_local) for sale in sales[sale_count:]),
+            Fraction(0),
+        )
+        actual_spend = sum(
+            (Fraction(trade.total_krw) for trade in trades[trade_count:]),
+            Fraction(0),
+        )
+        if actual_proceeds != expected_proceeds or actual_spend != expected_spend:
+            raise ReferenceInputError("KR rebalance trade arithmetic rounded")
+        after = point(at, "open", record=False)
+        expected_cash = Fraction(before.cash_krw) + expected_proceeds - expected_spend
+        expected_nav = (
+            Fraction(before.nav_krw)
+            - sum(
+                (
+                    Fraction(q)
+                    * (Fraction(line.unit_value) - Fraction(line.unit_sell_proceeds))
+                    for q, line in zip(sold, lines, strict=True)
+                ),
+                Fraction(0),
+            )
+            - sum(
+                (
+                    Fraction(q)
+                    * (Fraction(line.unit_buy_cost) - Fraction(line.unit_value))
+                    for q, line in zip(bought, lines, strict=True)
+                ),
+                Fraction(0),
+            )
+        )
+        if (
+            Fraction(after.cash_krw) != expected_cash
+            or Fraction(after.nav_krw) != expected_nav
+        ):
+            raise ReferenceInputError("KR rebalance cash/NAV mismatch")
+        positions = {position.instrument: position for position in after.positions}
+        gross_exact = Fraction(0)
+        leverage_exact = Fraction(0)
+        for item, line, sale_qty, buy_qty in zip(
+            vector, lines, sold, bought, strict=True
+        ):
+            expected_value = (
+                Fraction(line.held) - Fraction(sale_qty) + Fraction(buy_qty)
+            ) * Fraction(line.unit_value)
+            actual_value = (
+                Fraction(positions[item.instrument].value_krw)
+                if item.instrument in positions
+                else Fraction(0)
+            )
+            if (
+                actual_value != expected_value
+                or actual_value > Fraction(item.target_weight) * expected_nav
+            ):
+                raise ReferenceInputError("KR rebalance post-cost target mismatch")
+            gross_exact += actual_value
+            if item.instrument.leveraged:
+                leverage_exact += actual_value
+        if (
+            expected_cash < 0
+            or gross_exact > Fraction(Decimal("0.60")) * expected_nav
+            or leverage_exact > Fraction(LIMIT) * expected_nav
+        ):
+            raise ReferenceInputError("KR rebalance post-cost cap exceeded")
+        status: Literal["filled", "unchanged", "all_cash", "no_feasible_share"]
+        if any(sold) or any(bought):
+            status = "filled"
+        elif all(item.target_weight == 0 for item in vector):
+            status = "all_cash"
+        elif any(
+            Fraction(line.held) * Fraction(line.unit_value)
+            < Fraction(item.target_weight) * expected_nav
+            for line, item in zip(lines, vector, strict=True)
+        ):
+            status = "no_feasible_share"
+        else:
+            status = "unchanged"
+        sequence_batches.append(
+            RebalanceBatch(
+                vector[0].decided_at,
+                at,
+                status,
+                tuple(
+                    (item.instrument, q)
+                    for item, q in zip(vector, sold, strict=True)
+                    if q
+                ),
+                tuple(
+                    (item.instrument, q)
+                    for item, q in zip(vector, bought, strict=True)
+                    if q
+                ),
             )
         )
 
@@ -885,7 +1290,7 @@ def _run_reference_core(
             target_open = None
         if isinstance(obj, SplitEvent):
             state = states.get(obj.instrument)
-            if state is not None:
+            if state is not None and state.holdings[0].quantity > 0:
                 previous = state.holdings[0]
                 result = apply_split(
                     state,
@@ -1007,7 +1412,11 @@ def _run_reference_core(
                 ):
                     target_open = obj
                 if obj.instrument not in states:
-                    if target is None and batch_targets is None:
+                    if (
+                        target is None
+                        and batch_targets is None
+                        and kr_decisions is None
+                    ):
                         terms = buy_terms(obj, at)
                         quantity = (
                             budgets[obj.instrument] / terms.unit_cost
@@ -1222,9 +1631,19 @@ def _run_reference_core(
                     )
                 )
             batch_executed = True
+        if (
+            kr_decisions is not None
+            and sequence_index < len(scheduled)
+            and at == scheduled[sequence_index][1]
+            and phase_order == 3
+            and (index + 1 == len(events) or events[index + 1][:2] != (at, 3))
+        ):
+            execute_kr_batch(at, opens_at, scheduled[sequence_index][0])
+            sequence_index += 1
         if index + 1 == len(events) or events[index + 1][0] != at:
             if (
                 sell_costs is not None
+                and kr_decisions is None
                 and pending_since is not None
                 and pending_since < at
             ):
@@ -1365,12 +1784,19 @@ def _run_reference_core(
                         if not after.leverage_breach:
                             pending_since = None
             settle_pending(point(at, timestamp_phase))
-    if target is None and batch_targets is None and len(trades) != len(data.cohort):
+    if (
+        target is None
+        and batch_targets is None
+        and kr_decisions is None
+        and len(trades) != len(data.cohort)
+    ):
         raise ReferenceInputError("not every cohort instrument was purchased")
     if batch_open_at is not None and not batch_executed:
         raise ReferenceInputError("batch first official open not executed")
+    if kr_decisions is not None and sequence_index != len(scheduled):
+        raise ReferenceInputError("KR decision batch not executed")
     settle_pending(point(data.evaluation_end, "evaluation_end"))
-    if sell_costs is not None and pending_since is not None:
+    if sell_costs is not None and kr_decisions is None and pending_since is not None:
         last = points[-1]
         attempts.append(
             CapControlAttempt(
@@ -1393,6 +1819,18 @@ def _run_reference_core(
         any(x.leverage_breach for x in points),
         any(x.drawdown_breach for x in points),
     )
+    if kr_decisions is not None:
+        return KRTargetSequenceReference(
+            "synthetic_reference_only",
+            tuple(trades),
+            tuple(sales),
+            tuple(dividends),
+            tuple(points),
+            tuple(sequence_batches),
+            common[4],
+            common[5],
+            common[6],
+        )
     if batch_targets is not None:
         if batch_open_at is None:
             batch_attempts = [
@@ -1470,4 +1908,16 @@ def run_multi_target_reference(
     """Buy one synthetic all-cohort target vector at one shared next open."""
     result = _run_reference_core(data, batch_targets=targets)
     assert isinstance(result, MultiTargetReference)
+    return result
+
+
+def run_kr_target_sequence_reference(
+    data: FrozenReferenceInput,
+    decisions: tuple[tuple[TargetInstruction, ...], ...],
+    sell_costs: SellCostAssumptions,
+) -> KRTargetSequenceReference:
+    """Execute explicit synthetic KR target vectors in the shared raw event loop."""
+    _sell_rates(sell_costs)
+    result = _run_reference_core(data, sell_costs=sell_costs, kr_decisions=decisions)
+    assert isinstance(result, KRTargetSequenceReference)
     return result
