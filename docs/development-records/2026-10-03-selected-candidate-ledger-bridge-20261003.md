@@ -41,3 +41,10 @@
 - workflow 판단: 도움 됨 — 기존 원장과 사건 루프를 재사용하고 첫 단일 체결에서 멈춰 중복 원장과 조기 성과 주장을 피했다.
 - 근거: 구조 변경 직후 83개 회귀와 전체 출력 비교를 먼저 통과한 뒤 기능 테스트를 추가했다. 호출·비용 절감량은 미측정이다.
 - 비용 절감 효과: 비교 자료가 없어 미측정.
+
+## 통합 완료
+
+- 독립 검토26a554a PASS, 로컬 main e9d396c318155bbd8b62a7cdb713c1d79396a75d 통합. main98tests/Ruff/strictmypy/4소스hash/실행차단flags/기존baseline·capcontrol6사례전체출력동일성PASS.
+- 감독 독립 KR/US 비용 계산 및 분할후배당 oracle PASS. 실제투자결과아님.
+- 영구 audit `/home/kwl/.local/share/jusik/portfolio-audit/20261003-selected-target-bridge/`에 재현·독립검토·manifest 보존. 위독립검토/통합대기는해소.
+- 다음: 고정2후보의순수신호/다종목목표/재조정·위험episode 연결 전, 진행중KODEX 원주가receipt source작업을이어간다.

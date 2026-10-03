@@ -20,3 +20,8 @@
 
 - approved-dividend-review-status main2aa6f9e 및현재웹반영완료, 해당인계참조.
 - selected-candidate-ledger-bridge plan완료/단일Sol코드구현중. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch codex/selected-candidate-ledger-bridge, `/tmp/candidate-bridge-code-events.jsonl`. 기존CLI01a101e4-af50-7242-a80b-38e39abd6672 소유유지.
+
+## 목표 체결 연결 통합 후
+
+- selected-candidate-ledger-bridge main e9d396c 완료. 98검사/독립review/oracle/전체기존출력동일성PASS; 작업별인계참조. 현재appwriter없음.
+- 다음source KODEX487230 1회rawreceipt: /tmp/kodex-raw-receipt/collect.py 실행전검토중. source계획의token0조건은감독내부상한이었으며정상기존인증1+quote1로조정, 사용자권한/정책불변. 실제조회아직0.
