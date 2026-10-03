@@ -5419,7 +5419,7 @@
 
 ## selected-rebalance-sequence-20261004
 
-- 상태: explore/plan 완료, 단일 구현 배정. KR 명시 cohort의 유한 목표 시퀀스·보유/배당권리/매도대금 보존. 계획 /tmp/selected-rebalance-plan-result.txt. 매도량 단조 증가 Nref와 동시 확정 수량을 검증한다.
+- 상태: 구현022e67f·208검사/린트/타입·독립3결정/배당/순열 probe PASS, 독립 코드 검토 중. KR 명시 cohort 유한 목표 시퀀스·보유/배당권리/매도대금 보존. codewriter 종료, reviewer01a101ef-ad38-73b3-8758-3d376d76f9fd /tmp/selected-rebalance-review-events.jsonl.
 - 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, 관리형checkout 재사용·branch codex/selected-rebalance-sequence. rawcore/신규tests/규약/confighash/작업기록만, /tmp/selected-rebalance-code. 다른 writer없음.
 - 소유: 기존Luna/medium CLI explore01a101db-2b98-7813-a412-63418263ff55, /tmp/selected-rebalance-explore-events.jsonl. 등록16/revision1·주문금지·별도 cohort 명시·투자기준 유지.
 - 선행: 초기 batch9ed4b1e 독립PASS·main42214b8 통합200검사PASS. 코드·자료·DB 변경 없음. 신호/일정/위험 전이 전체를 완료로 주장하지 않는다.
