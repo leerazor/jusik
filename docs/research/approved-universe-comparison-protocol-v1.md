@@ -10,9 +10,11 @@
 
 첫 후보는 `equal/none`, 둘째는 `inverse_volatility/none`으로 제한한다. 외부 뉴스/거시 gate 없이 기존 SMA20 필터와 60세션 변동성 계산을 사용한다. 재조정은 4주 간격·2%p 밴드다. 기존 `low_turnover_combined`의 변동성 축소·재진입·낙폭 latch를 포함한 모든 설정값은 실행 전 JSON으로 명시해야 하며 기본값을 숨겨 복사하지 않는다. 세 번째 후보는 등록하지 않는다. 과거 128개 grid나 12개 holdout 실행기를 돌리지 않는다.
 
-선정된 세부 설정은 [selected-candidate-config-v1.json](selected-candidate-config-v1.json)에 기록한다. 총 익스포저 60%, 종목 20%, 변동성 목표 10%, episode 청산 latch 10%는 기존 구현의 기본값에서 명시적으로 선택한 **연구 대조값**이다. 수익률 최적화 결과나 사용자 위험 한도의 변경이 아니다. 초기 자본 1억원, 레버리지 ETF 합산 한도 20%, lifetime 최고점 기준 MDD 20% hard filter는 이 규약의 기준 그대로 유지한다.
+선정된 세부 설정은 [selected-candidate-config-v1.json](selected-candidate-config-v1.json)에 기록한다. 총 익스포저 60%, 종목 20%, 변동성 목표 10%, episode 청산 latch 10%는 기존 연구 엔진 설정에서 명시적으로 선택한 **연구 대조값**이다. 수익률 최적화 결과가 아니며 개인 투자기준이나 권고값으로 적용하지 않고, 사용자 위험 한도를 변경하지 않는다. 초기 자본 1억원, 레버리지 ETF 합산 한도 20%, lifetime 최고점 기준 MDD 20% hard filter는 이 규약의 기준 그대로 유지한다.
 
 `equal/none`도 순수 단순 보유 기준선과 같지 않다. 후보 두 개 모두 완료 조정종가가 SMA20 위인 종목만 적격으로 두며, `equal`은 그 적격 집합 안에서 동일 가중한다. 순수 단순 보유에는 이 SMA 적격 필터를 적용하지 않는다. `none`은 외부 뉴스·거시 gate가 없다는 뜻이며 USD 자산 환산과 변동성 계산에 필요한 FX 자료를 제거하지 않는다. episode 낙폭 10% 청산 latch는 재진입 때 episode 고점이 초기화되는 엔진 동작이고, lifetime 고점 기준 MDD 20% hard filter와 별개다.
+
+변동성 축소 proxy의 60수익률은 각 자산별 최근 60거래일이 아니다. 결정시각 전에 전체 자산 중 하나라도 종가가 있는 마지막 61개 고유 UTC 종가 날짜를 모으고, 각 날짜의 UTC 일말까지 알려진 가장 최근 조정종가를 자산별로 사용해 60개 구간을 만든다. USD 종목에는 각 causal cutoff 시점까지 `available_at`이 도래한 최신 USD/KRW 관측만 쓰며 관측 나이는 최대 7 calendar days다. 미래에 공개되는 FX 관측은 사용하지 않는다. 종가 이력·FX가 없거나 FX가 오래되면 입력을 incomplete로 처리하고 실행을 차단한다. inverse-volatility 후보 가중치에 쓰는 자산별 60수익률과 이 proxy 표본 기준은 서로 다른 설정이다.
 
 JSON의 `results_observed: false`는 이 새 선정 설정 실행에서 아직 결과를 관측하지 않았다는 뜻이다. 과거에 legacy 전략 실행이 전혀 없었다는 주장은 아니다. 미해결 입력은 `null`로 남고 `execution_allowed`는 `false`다. legacy 포트폴리오 엔진은 자체 포지션·현금·기업행사 회계를 사용하므로 raw 회계 core에 그대로 연결하면 기업행사·현금·비용 계산이 중복될 수 있다. 이 회계 경계와 입력 hash를 해결하기 전에는 이 설정 문서가 실행을 허용하지 않는다.
 

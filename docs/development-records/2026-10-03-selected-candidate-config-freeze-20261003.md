@@ -3,7 +3,7 @@
 - 상태: 완료
 - 기록 시각: 2026-10-03T14:23:07Z
 - 작업 slug: `selected-candidate-config-freeze-20261003`
-- 기준/통합: `613fc1d3edd7611ff9f981d5c52e98c1b263218c` / 커밋 대기 (worktree Git metadata read-only)
+- 기준/통합: `613fc1d3edd7611ff9f981d5c52e98c1b263218c` / 독립 검토 P2 수정·통합 대기
 - 범위: 선정 후보 설정 JSON과 비교 규약 해석 및 이 작업의 개발 기록만 갱신. MEMORY·등록부와 런타임 코드는 변경하지 않음.
 
 ## 변경과 결정
@@ -11,6 +11,7 @@
 - `docs/research/selected-candidate-config-v1.json`에 두 후보, 연구 대조값, 미해결 입력, 실행 차단 상태를 고정했다. 금액·비율은 십진 문자열이며 source hash는 네 해당 코드 파일에서 직접 확인한 SHA-256이다.
 - 비교 규약에 연구값과 사용자 위험 한도의 구분, SMA 적격성과 순수 보유 기준선 차이, `none`과 FX 필요성, episode 10% latch와 lifetime MDD 20% 필터의 분리를 명시했다.
 - `results_observed: false`는 이번 새 설정 실행의 상태로 한정한다. 과거 legacy 실행이 없었다는 뜻으로 사용하지 않는다. legacy 엔진의 자체 회계와 raw 회계 core의 중복 계산 위험도 실행 차단 근거로 적었다.
+- 독립 검토 P2 반영: 변동성 축소 proxy 표본이 자산별 최근 거래일이 아니라 전체 자산의 마지막 61개 UTC 종가 날짜 및 각 시점의 최근 알려진 종가임을 명시하고, FX `available_at` 시점 제한과 최대 7 calendar days 신선도 조건을 고정했다. 연구 엔진 대조값은 개인 투자기준·권고값이 아니라고 더 분명히 했다.
 
 ## 문서·계약 영향
 
@@ -21,7 +22,7 @@
 ## 검증
 
 - `sha256sum` 대상 네 의미 소스 — 계획에 기재된 네 hash와 모두 일치.
-- JSON 파싱 및 구조·후보·위험값·차단 플래그·source hash 점검 — 완료.
+- JSON 파싱 및 구조·후보·위험값·차단 플래그·source hash·변동성/FX semantics 점검 — 완료.
 - `git diff --check` — 통과.
 - 앱 테스트·빌드 — 문서 전용 변경이므로 실행하지 않음.
 

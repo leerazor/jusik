@@ -21,8 +21,12 @@
     "return_window": 60,
     "annualization_sessions": 252,
     "proxy": "sum(target_weight * asset_KRW_annualized_population_std)",
+    "sampling_dates": "last_61_distinct_UTC_close_dates_across_all_assets_before_decision",
+    "asset_close_asof": "latest_known_adjusted_close_at_or_before_each_UTC_day_end",
+    "fx_asof": "latest_USDKRW_observation_available_at_or_before_each_causal_cutoff",
+    "fx_max_age_calendar_days": 7,
     "scale": "min(1, target/proxy)",
-    "missing_history_or_past_FX": "incomplete"
+    "missing_history_or_missing_or_stale_FX": "incomplete"
   },
   "drawdown": {
     "episode_liquidation_latch": "0.10",
@@ -46,7 +50,7 @@
   "timing": {
     "signal": "official_close_at_or_before_decision",
     "execution": "first_eligible_official_open_strictly_after_decision",
-    "FX": "available_at_at_or_before_use"
+    "FX": "available_at_at_or_before_each_causal_cutoff_no_future_observations"
   },
   "semantic_sources_sha256": {
     "backend/jusik/research_portfolio_models.py": "e1fda47a0dc4cb37e4186b778d902cd293e6e2ec1fbd1be2b367bb967c865024",
