@@ -5340,3 +5340,5 @@
 
 - 배당 후속 기록/인계: `docs/development-records/2026-10-03-selected-us-dividend-next-20261003.md`, `docs/handoffs/2026-10-03-selected-us-dividend-next-20261003.md`.
 - 원주가 추가자료 완료: ARM/GEV 거래개시 원문2건 독립PASS. 영구 audit `20261003-selected-alpaca-raw-source/listing-boundaries/`, 원주가 작업 기록·인계에 연결. 기존manifest 보존.
+
+- 최신 연속 진행 인계: `docs/handoffs/2026-10-03-selected-research-continuation.md`. cap-control 통합·US10 원주가·NVDA partial3·ARM/GEV 경계 검토 완료 및 다음 자료 작업의 시작점.
