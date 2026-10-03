@@ -20,9 +20,9 @@
 
 - 신호/초기batch/KR재조정/위험없는정책에 이어 **KR위험정책 main7cc20002/268검사·독립검토·통합 PASS**. 구현8efee89의 P2 2건을cf1c8ac에서 수정했다. 비용연쇄cap재평가와 첫strict공통개장선택 모두 독립 재현PASS.
 - 독립Fraction4사례: 청산·회복·재진입시각/정수수량/현금/NAV/episode·lifetime고점 및입력순서반전 PASS. 구11개/KRsequence출력보존. 상세 `2026-10-04-selected-kr-risk-policy-20261004.md` 인계와audit20261004-selected-kr-risk-policy/manifest7597cdc4... 재사용.
-- 현재 **selected-kr-comparison-20261004 읽기 전용 plan 진행**, 코드writer없음. 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, exec48532, `/tmp/selected-kr-comparison-plan-events.jsonl`·stderr. 지시 `/tmp/selected-kr-comparison-plan.txt`.
+- 현재 **selected-kr-comparison-20261004 단일 구현 진행**. 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, exec20701. `/tmp/selected-kr-comparison-code-events.jsonl`·stderr, 지시 `/tmp/selected-kr-comparison-code.txt`. 계획 `/tmp/selected-kr-comparison-plan-result.txt` 완료, 중복조사/계획/구현 금지.
 - 탐색완료 `/tmp/selected-kr-comparison-explore-result.txt`. 탐색의 두 누락을 supervisor가 보완: 기존riskfree함수 아닌 run_kr_selected_candidate_risk_reference 사용; market_performance_metrics와 research_portfolio_performance_metrics의 기존지표/투영 재사용. 새지표/원장 중복작성금지.
-- 다음: plan결과→동일기존codeCLI01a101e4-af50-7242-a80b-38e39abd6672에 단일구현 배정. 현재checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`의 riskbranch는통합완료/깨끗함. 다음 전용branch/base 준비후사용. rootUSER HANDOFF보존.
+- checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-comparison`, base67a5cd40bf83b3e395fbd7823358f3b016bf96af. 소유 새comparison모듈/tests·기존성과평가기 최소호환확장/tests·규약/성과문서/개발기록. raw회계·후보정책·숫자조건/flags 변경금지. 완료commit→독립review→main통합/관련검사/인계. rootUSER HANDOFF보존.
 - 목표: 같은등록/cohort/기간/통화/자본/가격/배당/비용으로 순수보유·capcontrol·정확히2후보 합성비교. fixture등급, riskfree결손Sharpeunavailable, 전체chronologyMDD보존, 자동승자/실제성과/OOS승격 없음.
 - 신규실자료가 필요한 조건은가격·기업행동·달력·비용의같은기간결속. KIS보조달력HTTP500 재시도금지. 실제READYcohort없음. 최신배당DB matched24/mismatched13/partial6/unreviewed68=111 확인; 전체자료준비율이아니다.
 - 등록16/revision1, 100M/레버리지20/MDD20 유지. runner/timer inactive, webstack active 확인. 운영실행/주문/승격/원격push 없음.
