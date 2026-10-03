@@ -1,9 +1,9 @@
 # 등록 종목 순수 보유 합성 회계 기준선
 
-- 상태: 구현 완료, 독립 검토·로컬 main 통합 대기
+- 상태: 완료. 독립 재검토 PASS, 로컬 main 통합·검증 완료.
 - 기록 시각: 2026-10-03T12:50:37Z
 - 작업 slug: `approved-buy-hold-reference-20261003`
-- 기준/통합: `64391c8` / 없음
+- 기준/통합: `64391c8` / d7ecddb6688dbeac84b430386cfcb07be47544eb
 - 범위: frozen 합성 입력의 순수 보유 회계. 실제 자료 adapter·cap-control·후보·운영 경로 제외.
 
 ## 변경과 결정
@@ -39,3 +39,12 @@
 - workflow 판단: 도움 됨 — 기존 회계 전이와 규약을 먼저 재사용해 회계 결함을 좁혔다.
 - 근거: 독립 oracle이 동일시각 분할/배당 순서 결함을 찾아 수정했고 회귀검사로 고정했다. 시간·호출 절감은 미측정.
 - 다음 조정: 유지 — 좁은 합성 회계 단위의 독립 대사를 다음 단계에도 적용한다.
+
+## 최종 통합 검증
+
+- 2026-10-03T13:07:52.745625+00:00: 최종 구현8ccc441, 독립 재검토 P1/P2 없음, main d7ecddb 통합. main67개·Ruff·strict mypy·독립 손계산 oracle PASS.
+- 동일시각 부분 평가의 허위MDD와 늦은 과거효력FX 선택 오류를 수정했다. 상쇄 종가/배당락+시가/실제25%손실/FX개정 우선순위 회귀를 추가했다.
+- native 하위작업 한도로 원래 담당자를 재개할 수 없어, 종료/미로드 확인 후 동일 중앙 모델 Sol/high 단일 CLI executor로 같은 checkout만 수정했다. 정책 변경 없음. 별도 Sol/high read-only CLI 독립 재검토 및 model/effort/cwd metadata 확인. native parent-link audit라고 주장하지 않는다. 최초 native plan/code/review routing post는 PASS.
+- audit: /home/kwl/.local/share/jusik/portfolio-audit/20261003-buyhold-reference/; manifest SHA 53adca9a933a1a4b34ccea95048989b4736b5331bab8d3371d3c2f118fe0dd0d.
+- UI/API/서비스 영향 없는 offline 함수이므로 화면 검토/배포 없음. 실제 자료·PIT·세금·투자 성과는 미검증.
+- 다음: pure reference를 보존하는 cap-control 별도 진입점. 실제20%초과 기록을 유지하고 관측 후 다음 공식개장 매도·명시 매도비용을 검증한다.

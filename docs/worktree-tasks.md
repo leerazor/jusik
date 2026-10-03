@@ -5199,7 +5199,7 @@
 - 범위: 등록 종목 자료 상태 → 공식 배당/분할/환율/비용 → NAV 검증 → 동조건 사전등록 비교 → 미래 검증. Pages·자동매매·승격 제외.
 - 운영: roadmap 개발 runner 및 timer 중지/pause 유지. 재부팅으로 다시 시작된 과거 `research_universe run --device cuda --poll-seconds 60` 서비스도 stop/disable하여 93후보 반복 재개를 막음. 원본 DB·결과 보존.
 - 제한: 컴퓨터·앱 실행 및 사용 가능한 요금제/도구 권한 필요. 동일 실패 입력 재시도·빈 보고 반복 금지.
-- 다음: KODEX 공식 분배11건 반영 완료(eligible24/111). 최신 인계 `docs/handoffs/2026-10-03-selected-kr-dividend-source-20261003.md`에서 비교 규칙 사전 고정으로 이어감.
+- 다음: KODEX 공식 분배11건 반영 완료(eligible24/111). 최신 인계 `docs/handoffs/2026-10-03-approved-buy-hold-reference-20261003.md`에서 cap-control 설계로 이어감.
 
 ## gev-dividend-evidence-20261003
 
@@ -5273,7 +5273,7 @@
 
 ## approved-buy-hold-reference-20261003
 
-- 상태: 독립 재검토 PASS. 구현68346880의 P1/P2를 8ccc441에서 수정, 회귀67개/독립oracle 통과. main 통합 검증 진행.
+- 상태: 완료. 최종8ccc441 독립PASS, main d7ecddb 통합 및67개/Ruff/mypy/독립oracle PASS.
 - 목표: 기존 기업행동 회계 재사용, 순수보유의 거래·현금·수량·배당·FX·NAV·레버리지 위반을 합성 자료로 검증할 최소 reference 경로.
 - 소유/워크트리: selected_buyhold_code, `/home/kwl/.codex/worktrees/official-dividend-input/jusik` free checkout 재사용; `codex/approved-buy-hold-reference` 새 작업 브랜치.
 - 범위: 새 순수 함수 모듈·focused tests·계약 문서/개발 기록. 실제데이터수집/DB/원장/주문/승격/서비스/원격push 금지. cap-control과후보실행후속.
@@ -5295,3 +5295,10 @@
 
 
 - artifact b160157c...; 기록 `docs/development-records/2026-10-03-kodex-official-input-freeze-20261003.md`; 인계 `docs/handoffs/2026-10-03-kodex-official-input-freeze-20261003.md`. nav_ready=false/DB추가0.
+
+## approved-buy-hold-cap-control-20261003
+
+- 상태: explore 완료, read-only plan 진행. 기준main d7ecddb의 pure reference/67검사 보존.
+- 목표: 같은 회계코어의 별도 cap-control. 관측된 레버리지20%초과 후 엄격히 다음 공식open에서 명시 매도비용을 반영해 최소 정수수량 감소; 과거초과·지연·미체결 보존.
+- 소유: 중앙Luna/medium CLI explore종료, Sol/high CLI plan현재진행; 코드writer없음. /tmp/buyhold-cap-plan-events.jsonl과 결과확인 후 단일구현배정.
+- 범위/끝 조건: 합성 reference_only, baseline API/결과보존·공유core·현금/권리/비용/위험 독립검증. 실제16종목 성과·주문·승격·서비스·remote push 제외.
