@@ -5199,7 +5199,7 @@
 - 범위: 등록 종목 자료 상태 → 공식 배당/분할/환율/비용 → NAV 검증 → 동조건 사전등록 비교 → 미래 검증. Pages·자동매매·승격 제외.
 - 운영: roadmap 개발 runner 및 timer 중지/pause 유지. 재부팅으로 다시 시작된 과거 `research_universe run --device cuda --poll-seconds 60` 서비스도 stop/disable하여 93후보 반복 재개를 막음. 원본 DB·결과 보존.
 - 제한: 컴퓨터·앱 실행 및 사용 가능한 요금제/도구 권한 필요. 동일 실패 입력 재시도·빈 보고 반복 금지.
-- 다음: NAV/FX/비용 합성 독립 검증 완료. 최신 인계 `docs/handoffs/2026-10-03-nav-cost-fx-oracle-20261003.md`에서 실제 비용·자료 연결로 이어감.
+- 다음: NAV 독립 검증과 공식 BanKIS 비용 원천 보완 완료. 최신 인계 `docs/handoffs/2026-10-03-selected-cost-contract-20261003.md`에서 국내ETF 상품별 근거 연결로 이어감.
 
 ## gev-dividend-evidence-20261003
 
@@ -5234,3 +5234,13 @@
 - 범위/끝 조건: 날짜별 현금+주식 가치, 매수/매도 비용 및 FX, 배당 미수금/지급 현금 독립 대사·미래 환율 배제. 운영 DB·서비스·정책·신규 application 코드 변경 없음. 실제 수수료/세금·실자료 전체 적격성은 별도.
 
 - 기록: `docs/development-records/2026-10-03-nav-cost-fx-oracle-20261003.md`; 인계: `docs/handoffs/2026-10-03-nav-cost-fx-oracle-20261003.md`. application 변경 없음, main 기록 통합.
+
+## selected-cost-contract-20261003
+
+- 상태: 원천 보완/결손 진단 완료, 비용 실행 계약 미완료. 공식 문서1건·16종목 결손표·독립 review PASS. application writer 없음.
+- 목표: 포트폴리오 공통 가정 비용과 종목·상품·기간별 실제 비용의 차이를 해소할 단일 후속 계약을 확정. 기존 PAPER 계약/과거 성과 자동 적용 금지.
+- 기준: main8adc605, 등록16/revision1, NAV 합성 검증 완료. 기존 cache/공식 근거 재사용; 외부 실패 조회 반복 금지.
+- 끝 조건: 재사용 가능 코드/근거와 부족한 적용 범위 확인 후 최소 계약·검증 계획으로 이어감. 금액·투자 기준 임의 변경 없음.
+
+- 결과: 범용 계약 구현 보류, 공식 sourcefact6개·16종목 ready0/요율미적용. 기존 코드/요율 보존.
+- 기록: `docs/development-records/2026-10-03-selected-cost-contract-20261003.md`; 인계: `docs/handoffs/2026-10-03-selected-cost-contract-20261003.md`.
