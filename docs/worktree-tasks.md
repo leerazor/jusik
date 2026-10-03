@@ -5211,3 +5211,13 @@
 - 다음: 지급일 근거 보완 후 배당락일·주당 기준 및 공식 금액 우선순위 계약으로 이어감.
 - 검증 결과: 격리 import2/재import idempotent2, 실제 import2, coverage partial/excluded 및 적격13/111 유지. 캐시 원문 SHA·금액5건 대조 통과.
 - 기록: `docs/development-records/2026-10-03-gev-dividend-evidence.md`; 인계: `docs/handoffs/2026-10-03-gev-dividend-evidence.md`. application 코드와 서비스 변경 없음.
+
+## official-dividend-input-20261003
+
+- 상태: 조사 완료·계획 중. 사용자 요청에 따라 다음 개발 단계 즉시 진행.
+- 목표: 원문과 공급자 revision을 보존하는 공식 현금 배당 입력을 offline 검증·동결하여 후속 NAV 검증에 전달한다. 공급자 금액 충돌은 기록하고 기존 strict review/overlay 적격 판정은 보존한다.
+- 담당: explore `official_dividend_explore` → plan `official_dividend_plan` → 단일 code `official_dividend_code` → 독립 review.
+- 예정 워크트리: 별도 checkout, 생성 결과 기록 예정. 기준 main `ebf3610`, 로컬 main 통합.
+- 범위: 입력 계약·검증 CLI·focused tests·문서. UI/서비스/운영 DB·원장·주문·PAPER/live·remote push 변경 금지.
+- 검증: 필수 사실/원문 해시·종목 및 exact revision 연결·Decimal·오염/결손 차단, canonical artifact hash, 기존 overlay 회귀. 실제 준비 자료는 원본을 읽기 전용으로 사용.
+- 끝 조건: 독립 코드 검토와 main focused 검사 및 실제 확보된 공식 자료의 격리 입력 검증. 그 뒤 별도 NAV 독립 검증 단계로 이어감.
