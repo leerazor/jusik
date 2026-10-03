@@ -29,6 +29,10 @@ from jusik.approved_universe import (
     ApprovedUniverseSnapshot,
     ApprovedUniverseStore,
 )
+from jusik.research_action_collection import (
+    MAX_BODY_BYTES,
+    parse_action_response,
+)
 from jusik.research_action_review import (
     MAX_EVIDENCE_BYTES,
     MAX_MANIFEST_BYTES,
@@ -36,6 +40,7 @@ from jusik.research_action_review import (
     ExtractedFacts,
     compare_review,
 )
+from jusik.research_universe_data import REGISTRY
 
 MAX_EVENTS = 100
 MAX_JSON_BYTES = 16 * 1024
@@ -184,7 +189,8 @@ def _record(db: sqlite3.Connection, item: Event) -> dict[str, object]:
         """SELECT e.provider, e.symbol, e.kind, e.provider_key, e.vendor_date,
         e.observation_state, e.latest_revision_sequence, e.latest_content_sha256,
         r.id AS revision_id, r.sequence AS revision_sequence, r.content_sha256,
-        r.payload_json, r.first_seen_at, v.id AS review_id, v.review_key,
+        r.payload_json, r.first_seen_at, r.attempt_id,
+        v.id AS review_id, v.review_key,
         v.sequence AS review_sequence, v.source_content_sha256, v.evidence_id,
         v.locator, v.extracted_facts_json, v.comparison_status,
         v.compared_fields_json, v.content_sha256 AS review_content_sha256,
@@ -217,6 +223,61 @@ def _record(db: sqlite3.Connection, item: Event) -> dict[str, object]:
     if _sha(raw.encode()) != item.content_sha256:
         raise ValueError("Stored source payload hash mismatch.")
     payload = _object(raw)
+    event_identity = {
+        "provider": row["provider"],
+        "symbol": row["symbol"],
+        "kind": row["kind"],
+        "provider_key": row["provider_key"],
+    }
+    if (
+        _sha(_json(event_identity)) != item.event_id
+        or _sha(_json({"event": item.event_id, "sequence": row["revision_sequence"]}))
+        != item.revision_id
+        or row["vendor_date"] != payload.get("vendor_date")
+    ):
+        raise ValueError("Stored event or revision identity mismatch.")
+    attempt = db.execute(
+        """SELECT symbol, state, http_status, requested_start, requested_end,
+            body_sha256, length(body) AS body_size
+        FROM action_collection_attempts WHERE id=? LIMIT 1""",
+        (row["attempt_id"],),
+    ).fetchone()
+    if (
+        attempt is None
+        or attempt["symbol"] != item.symbol
+        or attempt["state"] != "success"
+        or attempt["http_status"] != 200
+        or not isinstance(attempt["body_size"], int)
+        or not 0 < attempt["body_size"] <= MAX_BODY_BYTES
+    ):
+        raise ValueError("Source attempt missing, invalid, or oversized.")
+    attempt_body = db.execute(
+        "SELECT body FROM action_collection_attempts WHERE id=? AND length(body)<=?",
+        (row["attempt_id"], MAX_BODY_BYTES),
+    ).fetchone()
+    if (
+        attempt_body is None
+        or _sha(bytes(attempt_body["body"])) != attempt["body_sha256"]
+    ):
+        raise ValueError("Source attempt raw body hash mismatch.")
+    instrument = next(
+        (candidate for candidate in REGISTRY if candidate.symbol == item.symbol), None
+    )
+    if instrument is None:
+        raise ValueError("No collector instrument for source attempt.")
+    actions = parse_action_response(
+        bytes(attempt_body["body"]),
+        instrument,
+        date.fromisoformat(str(attempt["requested_start"])),
+        date.fromisoformat(str(attempt["requested_end"])),
+    )
+    matches = [
+        action
+        for action in actions
+        if action.kind == "dividend" and action.provider_key == row["provider_key"]
+    ]
+    if len(matches) != 1 or matches[0].payload.model_dump_json() != raw:
+        raise ValueError("Source revision does not match raw provider event.")
     facts = ExtractedFacts.model_validate(_object(str(row["extracted_facts_json"])))
     if (
         facts.amount is None
@@ -317,6 +378,8 @@ def _record(db: sqlite3.Connection, item: Event) -> dict[str, object]:
             "revision_id": item.revision_id,
             "revision_sequence": row["revision_sequence"],
             "content_sha256": item.content_sha256,
+            "attempt_id": row["attempt_id"],
+            "attempt_body_sha256": attempt["body_sha256"],
             "first_seen_at": row["first_seen_at"],
             "vendor_date": row["vendor_date"],
             "observation_state": row["observation_state"],

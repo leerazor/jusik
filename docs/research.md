@@ -509,7 +509,7 @@ PYTHONPATH=backend backend/.venv/bin/python -m jusik.research_official_dividend_
   --out-dir /absolute/path/to/existing-output-dir
 ```
 
-출력은 `official-dividend-input-<whole-file-sha256>.json` 한 파일입니다. 같은 바이트로 다시 실행하면 파일을 재사용하고, 같은 이름의 파일 내용이 다르면 실패합니다. 사건마다 등록 종목 tuple, 신원 근거, 공급자 사건/revision/금액, 공식 검토 원문·사실·금액·차액·충돌 상태를 담습니다. 최상위 `retrospective=true`, `historical_pit_verified=false`, `automatic_ledger_application=false`, `nav_ready=false`는 후속 독립 NAV 검증 전의 경계를 고정합니다. 이 산출물만으로 당시 관측 가능성, 사건 누락 없음, 세금·FX·원장 반영 또는 총수익률 검증은 주장할 수 없습니다.
+출력은 `official-dividend-input-<whole-file-sha256>.json` 한 파일입니다. 같은 바이트로 다시 실행하면 파일을 재사용하고, 같은 이름의 파일 내용이 다르면 실패합니다. 사건마다 등록 종목 tuple, 신원 근거, 공급자 사건/revision/수집 attempt 원문 SHA/금액, 공식 검토 원문·사실·금액·차액·충돌 상태를 담습니다. 최상위 `retrospective=true`, `historical_pit_verified=false`, `automatic_ledger_application=false`, `nav_ready=false`는 후속 독립 NAV 검증 전의 경계를 고정합니다. 이 산출물만으로 당시 관측 가능성, 사건 누락 없음, 세금·FX·원장 반영 또는 총수익률 검증은 주장할 수 없습니다.
 
 ## 검증된 배당 기여분 overlay
 

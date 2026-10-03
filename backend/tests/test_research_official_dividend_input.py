@@ -5,6 +5,7 @@ import json
 import sqlite3
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -53,12 +54,45 @@ def prepared(
     attempt = collection.begin_attempt(
         "MSFT", date(2025, 1, 1), date(2025, 3, 1), NOW - timedelta(days=1)
     )
+    raw_response = json.dumps(
+        {
+            "chart": {
+                "error": None,
+                "result": [
+                    {
+                        "meta": {
+                            "symbol": "MSFT",
+                            "exchangeName": "NMS",
+                            "exchangeTimezoneName": "America/New_York",
+                            "currency": "USD",
+                        },
+                        "events": {
+                            "dividends": {
+                                "dividend-1": {
+                                    "date": int(
+                                        datetime(
+                                            2025,
+                                            2,
+                                            20,
+                                            12,
+                                            tzinfo=ZoneInfo("America/New_York"),
+                                        ).timestamp()
+                                    ),
+                                    "amount": vendor,
+                                }
+                            }
+                        },
+                    }
+                ],
+            }
+        }
+    ).encode()
     collection.complete_success(
         attempt_id=attempt,
         completed_at=NOW - timedelta(days=1),
         http_status=200,
         request_url="https://query1.finance.yahoo.com/x",
-        body=b"{}",
+        body=raw_response,
         actions=[
             CollectedAction(
                 provider_key="dividend-1",
@@ -185,6 +219,12 @@ def test_amount_mismatch_keeps_exact_official_and_strict_status(tmp_path: Path) 
         "duplicate_event",
         "duplicate_exdate",
         "source_hash",
+        "raw_tamper",
+        "raw_rehashed",
+        "dangling_attempt",
+        "wrong_attempt_symbol",
+        "provider_key",
+        "vendor_date",
     ],
 )
 def test_invalid_pins_and_facts_fail(tmp_path: Path, change: str) -> None:
@@ -229,6 +269,37 @@ def test_invalid_pins_and_facts_fail(tmp_path: Path, change: str) -> None:
         payload["events"].append(second)
     elif change == "source_hash":
         event["content_sha256"] = "0" * 64
+    elif change == "raw_tamper":
+        with sqlite3.connect(actions) as db:
+            db.execute("UPDATE action_collection_attempts SET body=?", (b"tampered",))
+    elif change == "raw_rehashed":
+        with sqlite3.connect(actions) as db:
+            raw = db.execute("SELECT body FROM action_collection_attempts").fetchone()[
+                0
+            ]
+            changed = json.loads(raw)
+            changed["chart"]["result"][0]["events"]["dividends"]["dividend-1"][
+                "amount"
+            ] = "0.77"
+            body = json.dumps(changed).encode()
+            db.execute(
+                "UPDATE action_collection_attempts SET body=?, body_sha256=?",
+                (body, hashlib.sha256(body).hexdigest()),
+            )
+    elif change == "dangling_attempt":
+        with sqlite3.connect(actions) as db:
+            db.execute(
+                "UPDATE action_collection_revisions SET attempt_id=?", ("0" * 64,)
+            )
+    elif change == "wrong_attempt_symbol":
+        with sqlite3.connect(actions) as db:
+            db.execute("UPDATE action_collection_attempts SET symbol='NVDA'")
+    elif change == "provider_key":
+        with sqlite3.connect(actions) as db:
+            db.execute("UPDATE action_collection_events SET provider_key='other'")
+    elif change == "vendor_date":
+        with sqlite3.connect(actions) as db:
+            db.execute("UPDATE action_collection_events SET vendor_date='2025-02-21'")
     payload["events"][0] = event
     manifest.write_text(json.dumps(payload))
     with pytest.raises((ValueError, TypeError)):
