@@ -5266,3 +5266,13 @@
 - 상태: explore 완료, plan 진행. 등록16종목의 단순보유/최대3저회전 비교 규칙을 결과 전에 고정한다.
 - 소유: read-only selected_comparison_plan; supervisor 문서 조율. 코드 writer 미배정.
 - 끝 조건: 정할 수 있는 규칙 고정, 자료 결손·실행 인수 조건 분리, 다음 최소 구현 범위 확정. 성과 실행·주문·승격 금지.
+
+- 설계: `docs/research/approved-universe-comparison-protocol-v1.md`에 후보2개·회계/위험/자료 기준 고정. plan 완료, 실제 비교 미실행.
+
+## approved-buy-hold-reference-20261003
+
+- 상태: 구현 준비. explore→plan 완료, 중앙 code 단일 구현 후 독립 review 예정.
+- 목표: 기존 기업행동 회계 재사용, 순수보유의 거래·현금·수량·배당·FX·NAV·레버리지 위반을 합성 자료로 검증할 최소 reference 경로.
+- 소유/워크트리: selected_buyhold_code, `/home/kwl/.codex/worktrees/official-dividend-input/jusik` free checkout 재사용; `codex/approved-buy-hold-reference` 새 작업 브랜치.
+- 범위: 새 순수 함수 모듈·focused tests·계약 문서/개발 기록. 실제데이터수집/DB/원장/주문/승격/서비스/원격push 금지. cap-control과후보실행후속.
+- 검증/종료: 합성 독립 oracle, 분할/배당 중복방지·미래 FX 배제·비용결손 차단·시점/등록목록 결속·레버리지 drift 노출, 독립 review 후 로컬 main 통합 및 다음 안전 단계 진행.
