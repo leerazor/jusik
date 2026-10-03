@@ -5157,3 +5157,14 @@
 - audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261002-approved-universe/`; 기록 `docs/development-records/2026-10-02-approved-universe-20261002.md`; 인계 `docs/handoffs/2026-10-02-approved-universe-20261002.md`.
 
 - 결과/통합: 구현 `90d8a41`, main `045ff9e`. 독립 코드/화면 검토·통합25+fixture2·frontend검사·browser E2E PASS. 실제3000/8001 반영·운영 등록목록 빈 상태·외부401. runner paused/dispatch false 유지. 전용 preview·worktree·병합 브랜치 정리 완료.
+
+## approved-universe-readiness-20261003
+
+- 상태: 자료 기초 점검 완료; 순수익 비교 미완료.
+- 목표: 등록 16종목 기존 입력 동결, 기초 가격 검사, 배당·환율·기간 차단 조건 확인.
+- 담당: supervisor 조사·기록. application 구현/별도 개발 worktree 없음.
+- 기준: `f63b6dc`; 통합 대상: 로컬 main의 조사 기록.
+- 검증: 기존 request/snapshot 모델 및 OHLCV·날짜 검사 16종목 통과, 배당 111건 상태 확인, audit 해시 재확인.
+- 기록: `docs/development-records/2026-10-03-approved-universe-readiness.md`.
+- 인계: `docs/handoffs/2026-10-03-approved-universe-readiness.md`.
+- 남은 작업: 등록 종목 입력 adapter/준비 상태 화면, 배당 포함 NAV 및 동일 조건 비교. 자동매매·Pages 제외.
