@@ -5439,7 +5439,8 @@
 
 ## selected-kodex-warmup-receipt-20261004
 
-- 상태: 수집·186봉 독립 대사PASS. 실제 auth1+GET2/retry0, 각93봉 기존93일OHLCV 일치. 동일93일·평일미관측6일은 진단만. 정부2026-02-03 제헌절 재지정 발표 추가근거 독립검토 중. 자료/NAV준비false 유지.
+- 상태: 완료: 수집·186봉 독립 대사·정부 발표 부분근거 독립PASS. 실제 auth1+GET2/retry0, 각93봉 기존93일OHLCV 일치. 자료/NAV준비false 유지.
+- 기록/인계: docs/development-records/2026-10-04-selected-kodex-warmup-receipt-20261004.md 및 같은 이름 docs/handoffs 파일.
 - 소유: supervisor /tmp/kodex-warmup-receipt. 기존 검토 완료 수집기 조건 재사용, 실행 전 독립읽기검토. 운영DB/계좌/주문/설정변경없음. 수집범위는 성과기간 선택·자료적격승격이 아니다.
 
 - 정책 연결 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672; managedcheckout 재사용·branch codex/selected-kr-candidate-policy. 신규policy모듈/신규tests/rawcore좁은hook/규약/confighash/개발기록 소유. /tmp/selected-kr-policy-code. source수집과 파일·데이터 소유권 독립.

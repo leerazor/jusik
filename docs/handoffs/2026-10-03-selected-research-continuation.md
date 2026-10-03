@@ -1,6 +1,6 @@
 # 등록 종목 연구 연속 진행 인계
 
-- 최근 갱신: 2026-10-04 KST / UTC2026-10-03T17:10 전후. root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
+- 최근 갱신: 2026-10-04 KST / UTC2026-10-03T17:36 전후. root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
 - 사용자 승인: 한 단계 검증 후 다음 안전한 단계 계속. 등록16/revision1 유지. 자동매매·실주문·PAPER/live·GitHub Pages·원격push·추가결제·credential정책변경·투자기준완화 금지.
 - 초기 총1억원·레버리지20%·MDD20% 유지. 과거자료를 untouched OOS로 표시하지 않는다. 기존 runner/timer inactive, governance dispatch false. 기존 heartbeat만 유지.
 
@@ -15,11 +15,15 @@
 - KRX/KASI 공식근거: 9/1~10/2 예상22일대사PASS. 연간KRX동적조회timeout, official_calendar_complete/historical_session_times_verified/nav_ready false. 2026-10-04-selected-krx-calendar-source-20261004 인계. 같은실패조회재시도금지.
 - 비용 실계좌정보0/16은 명시적비용가정시나리오의전역차단조건이아님. KRW ETF원장에불필요USD환전을추가하지않는다. 실제 READYcohort는아직확인못함.
 
-## 현재 단계 — 다음 시작
+## 현재 단일 writer — 다음 시작
 
-- 신호 main4e1ff56/189검사, 초기 target batch main42214b8/200검사, KR 재조정 main74a5581/208검사 모두 독립검토·main통합 PASS. 각2026-10-04 작업별 인계 재사용.
-- 현재 selected-kr-candidate-policy-20261004 plan완료·단일code배정. 완료된 raw 원장·신호를 동결4주 일정/2%p band와 위험정책에 연결할 유용한 범위를 설계한다. `/tmp/selected-kr-policy-plan-events.jsonl`, 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938. 새 탐색 대신 기존결과재사용, 실제성과주장없음.
-- 기존codewriter를 관리형 checkout/codex/selected-kr-candidate-policy에서 재개한다. /tmp/selected-kr-policy-code-events.jsonl. source추가수집186봉 대사PASS, 휴일변경 부분근거 검토중이며 실제자료적격으로 승격하지 않았다. 등록16/revision1·모든 사용자 기준 유지. 실제자료/전체전략/수익성미완료.
+- 신호 main4e1ff56/189검사, 초기 batch main42214b8/200검사, KR 재조정 main74a5581/208검사 모두 독립 검토·통합 PASS. 각2026-10-04 작업 인계 재사용.
+- 현재 selected-kr-candidate-policy-20261004 코드 구현 중. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-candidate-policy`, base9c43580.
+- 단일 소유자 Sol/high CLI01a101e4-af50-7242-a80b-38e39abd6672, exec session14660, `/tmp/selected-kr-policy-code-events.jsonl`·stderr. 중복writer 생성 금지. 계획 `/tmp/selected-kr-policy-plan-result.txt`, 지시 `/tmp/selected-kr-policy-code.txt`.
+- 범위: 새 policy모듈/신규tests/rawcore 좁은hook/규약/confighash/개발기록. 두 고정후보 신호+4주Monday00UTC+명시적hold_quantity band. 미구현 위험10% 사건/비용 후 hold cap수리 필요 시 결과를 거부한다. 전체 episode/재진입·실제 성과 완료로 표시하지 않는다.
+- 완료 후 frozencommit 독립Sol/highreview→기존208+신규/구출력11개 및KRsequence 보존 검증→main통합/기록. 실제자료 준비와 별개 판정.
+- 신규 자료: KODEX 두 종목4/15~8/31 각93봉 확보·캐시 대사·독립PASS. `2026-10-04-selected-kodex-warmup-receipt-20261004.md` 인계. 동일조회반복금지, calendar/actions/NAV/PIT 준비false 유지. 정부휴일 발표는 부분근거만.
+- 등록16/revision1·100M/레버리지20/MDD20 기준 유지. 운영실행/주문/승격 없음. 원격push금지.
 
 ## 실행 도구·중복 방지
 
