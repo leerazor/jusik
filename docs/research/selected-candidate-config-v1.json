@@ -55,7 +55,7 @@
   "semantic_sources_sha256": {
     "backend/jusik/research_portfolio_models.py": "e1fda47a0dc4cb37e4186b778d902cd293e6e2ec1fbd1be2b367bb967c865024",
     "backend/jusik/research_portfolio_engine.py": "2e48b0bcedb740210a6dd58f6b15e99e2b2e1c416aacf553569ec0ea98166653",
-    "backend/jusik/approved_universe_buy_hold.py": "bd461846185c231752746b231b2c799ce45ac4c22f85bebddefe829f26bb12c5",
+    "backend/jusik/approved_universe_buy_hold.py": "f63f86e97fe2728e09c11595cba935e27c18f08b3626b38d75c61cf8942a0ca8",
     "backend/jusik/market_history_action_accounting.py": "c183fa54a7fd4b368fee6ec7ac45568e420a6381336e6d8a87553e1f440b1af2",
     "backend/jusik/selected_candidate_signals.py": "12dce485bd069dede64ef64611d8b2a6ec6d3fbd676bb8370fc6bd27c5a6effe",
     "backend/jusik/selected_candidate_kr_policy.py": "7c09e2e0e50c159d0636e41e0bbc2d4d5bcca4b2dfc7cd75685565c673d3ba83"

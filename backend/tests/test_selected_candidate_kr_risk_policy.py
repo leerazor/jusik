@@ -27,6 +27,7 @@ from jusik.approved_universe_buy_hold import (
 from jusik.selected_candidate_kr_policy import (
     KRCandidateRiskReference,
     PolicyInputError,
+    run_kr_selected_candidate_reference,
     run_kr_selected_candidate_risk_reference,
 )
 from jusik.selected_candidate_signals import (
@@ -283,6 +284,157 @@ def test_cap_repair_minimal_integer_and_natural_recovery() -> None:
     assert sale.post_leveraged_value_krw <= sale.post_nav_krw / 5
 
 
+def test_coupled_symbol_caps_converge_with_one_sale_per_asset() -> None:
+    raw, signal = fixture(
+        closes={2: ("101.25", "105")},
+        opens={3: ("101.25", "105")},
+        end_day=10,
+    )
+    result = run(raw, signal)
+    sales = {sale.instrument.symbol: sale for sale in result.ledger.sales}
+    assert {symbol: sale.quantity for symbol, sale in sales.items()} == {
+        "A": D(15),
+        "B": D(7158),
+    }
+    assert len(result.ledger.sales) == 2
+    assert result.ledger.trades[0].at == at(1)
+    assert all(trade.at != at(3) for trade in result.ledger.trades)
+    before = next(
+        point
+        for point in result.ledger.points
+        if point.at == at(3) and point.phase == "pre_cap_repair"
+    )
+    assert before.nav_krw == D(101250000)
+    final = result.ledger.points[-1]
+    price_a, price_b = Fraction("101.25"), Fraction(105)
+    cost = Fraction(1, 100)
+    nav = Fraction(before.nav_krw) - (15 * price_a + 7158 * price_b) * cost
+    assert Fraction(final.nav_krw) == nav
+    assert (200000 - 15) * price_a <= nav / 5
+    assert (200000 - 7158) * price_b <= nav / 5
+    assert (200000 - 14) * price_a > (nav + price_a * cost) / 5
+    assert (200000 - 7157) * price_b > (nav + price_b * cost) / 5
+    assert result.cap_events[-1].status == "repaired"
+    permuted = run(
+        replace(
+            raw,
+            registered=raw.registered[::-1],
+            cohort=raw.cohort[::-1],
+            sessions=raw.sessions[::-1],
+        ),
+        replace(
+            signal,
+            registered=signal.registered[::-1],
+            cohort=signal.cohort[::-1],
+            closes=signal.closes[::-1],
+        ),
+    )
+    assert permuted == result
+
+
+def test_full_risk_uses_first_strictly_later_common_open_after_staggered_day() -> None:
+    raw, signal = fixture(
+        opens={3: ("75", "75"), 4: ("75", "75")},
+        end_day=10,
+    )
+    raw = replace(
+        raw,
+        sessions=tuple(
+            bar
+            for bar in raw.sessions
+            if not (bar.open_at == at(3) and bar.instrument.symbol == "B")
+        ),
+    )
+    result = run(raw, signal)
+    assert result.ledger.batches[-1].decided_at == at(2, 3)
+    assert result.ledger.batches[-1].open_at == at(4)
+    assert all(sale.at == at(4) for sale in result.ledger.sales)
+    assert any(
+        event.at == at(4) and event.status == "liquidation_completed"
+        for event in result.risk_events
+    )
+
+
+def test_full_risk_initial_entry_waits_for_first_common_open() -> None:
+    raw, signal = fixture(closes={}, opens={3: ("100", "100")}, end_day=10)
+    raw = replace(
+        raw,
+        sessions=tuple(
+            bar
+            for bar in raw.sessions
+            if not (bar.open_at == at(1) and bar.instrument.symbol == "B")
+        ),
+    )
+    result = run(raw, signal)
+    assert result.ledger.batches[0].open_at == at(2)
+    assert len(result.ledger.trades) == 2
+    assert all(trade.at == at(2) for trade in result.ledger.trades)
+    with pytest.raises(ReferenceInputError, match="first official opens differ"):
+        run_kr_selected_candidate_reference(raw, signal, CONFIG, "equal", sell_costs())
+
+
+def test_cap_pending_waits_for_first_common_open() -> None:
+    raw, signal = fixture(
+        leveraged=True,
+        closes={2: ("150", "100")},
+        opens={3: ("150", "100"), 4: ("150", "100")},
+        end_day=10,
+    )
+    raw = replace(
+        raw,
+        sessions=tuple(
+            bar
+            for bar in raw.sessions
+            if not (bar.open_at == at(3) and bar.instrument.symbol == "B")
+        ),
+    )
+    result = run(raw, signal)
+    assert len(result.ledger.sales) == 1
+    assert result.ledger.sales[0].at == at(4)
+    assert result.cap_events[-1].at == at(4)
+
+
+def test_scheduled_target_and_prior_cap_wait_for_same_common_open() -> None:
+    raw, signal = fixture(
+        leveraged=True,
+        closes={2: ("150", "100")},
+        opens={29: ("150", "100"), 30: ("150", "100")},
+        end_day=32,
+    )
+    raw = replace(
+        raw,
+        sessions=tuple(
+            bar
+            for bar in raw.sessions
+            if bar.open_at != at(3)
+            and not (bar.open_at == at(29) and bar.instrument.symbol == "B")
+        ),
+    )
+    result = run(raw, signal)
+    assert result.ledger.batches[1].decided_at == at(28)
+    assert result.ledger.batches[1].open_at == at(30)
+    assert all(sale.at != at(29) for sale in result.ledger.sales)
+    assert result.cap_events[-1].status == "repaired_by_target"
+    assert result.cap_events[-1].at == at(30)
+
+
+def test_no_later_common_open_fails_closed() -> None:
+    raw, signal = fixture(opens={3: ("75", "75"), 4: ("75", "75")}, end_day=10)
+    raw = replace(
+        raw,
+        sessions=tuple(
+            bar
+            for bar in raw.sessions
+            if not (
+                (bar.open_at == at(3) and bar.instrument.symbol == "B")
+                or (bar.open_at == at(4) and bar.instrument.symbol == "A")
+            )
+        ),
+    )
+    with pytest.raises(ReferenceInputError, match="common official open"):
+        run(raw, signal)
+
+
 @pytest.mark.parametrize(
     ("nav", "gross", "leverage", "owned", "price", "cost", "held", "leveraged"),
     (
@@ -330,7 +482,7 @@ def test_missing_liquidation_open_fails_closed() -> None:
     raw = replace(
         raw, sessions=tuple(bar for bar in raw.sessions if bar.open_at != at(3))
     )
-    with pytest.raises(ReferenceInputError, match="next official open"):
+    with pytest.raises(ReferenceInputError, match="later common official open"):
         run(raw, signal)
 
 

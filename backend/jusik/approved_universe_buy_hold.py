@@ -373,13 +373,13 @@ def _ceil_fraction(value: Fraction) -> int:
 
 
 def _policy_cap_sell_quantity(
-    nav: Decimal,
-    gross: Decimal,
-    leverage: Decimal,
-    owned_value: Decimal,
-    unit_price: Decimal,
-    sell_cost: Decimal,
-    owned_quantity: Decimal,
+    nav: Decimal | Fraction,
+    gross: Decimal | Fraction,
+    leverage: Decimal | Fraction,
+    owned_value: Decimal | Fraction,
+    unit_price: Decimal | Fraction,
+    sell_cost: Decimal | Fraction,
+    owned_quantity: Decimal | int,
     *,
     leveraged: bool,
 ) -> Decimal:
@@ -889,6 +889,8 @@ def _validate_kr_hook_vector(
     vector: tuple[KRInstruction, ...],
     decision: datetime,
     prior: ReferencePoint,
+    *,
+    first_common_open: bool = False,
 ) -> tuple[tuple[KRInstruction, ...], datetime]:
     if not isinstance(vector, tuple) or len(vector) != len(data.cohort):
         raise ReferenceInputError("KR hook requires every cohort identity once")
@@ -940,6 +942,20 @@ def _validate_kr_hook_vector(
             ),
         )
     )
+    if first_common_open:
+        common: set[datetime] | None = None
+        for item in ordered:
+            future_common = {
+                opened
+                for bar in data.sessions
+                if bar.instrument == item.instrument
+                and (opened := _time(bar.open_at, "official open")) > decision
+            }
+            common = future_common if common is None else common & future_common
+            if not common:
+                raise ReferenceInputError("KR hook missing later common official open")
+        assert common is not None
+        return ordered, min(common)
     first_opens: set[datetime] = set()
     for item in ordered:
         future = [
@@ -1502,7 +1518,11 @@ def _run_reference_core(
             return
         if sequence_index != len(scheduled):
             raise ReferenceInputError("KR policy decision overlaps pending batch")
-        scheduled.append(_validate_kr_hook_vector(data, directive.vector, at, prior))
+        scheduled.append(
+            _validate_kr_hook_vector(
+                data, directive.vector, at, prior, first_common_open=True
+            )
+        )
         risk_pending = directive.liquidation
 
     def repair_policy_cap(at: datetime, opened: list[RawSession]) -> None:
@@ -1513,7 +1533,7 @@ def _run_reference_core(
         ):
             return
         bars = {bar.instrument: bar for bar in opened}
-        point(at, "pre_cap_repair")
+        before_repair = point(at, "pre_cap_repair")
         cost = sum(
             (
                 sell_costs.commission_kr.rate,
@@ -1522,7 +1542,7 @@ def _run_reference_core(
             ),
             Decimal(0),
         )
-        for instrument in sorted(
+        ordered = sorted(
             data.cohort,
             key=lambda item: (
                 item.market,
@@ -1530,45 +1550,96 @@ def _run_reference_core(
                 item.symbol,
                 item.identity_hash,
             ),
+        )
+        prices = {item: Fraction(bars[item].raw_open) for item in ordered}
+        positions = {
+            position.instrument: Fraction(position.value_krw)
+            for position in before_repair.positions
+        }
+        if any(
+            states[item].holdings[0].quantity
+            != states[item].holdings[0].quantity.to_integral_value()
+            for item in ordered
+            if item in states
         ):
+            raise ReferenceInputError("fractional holding cannot be cap repaired")
+        remaining = {
+            item: int(states[item].holdings[0].quantity) if item in states else 0
+            for item in ordered
+        }
+        proposed = {item: 0 for item in ordered}
+        nav = Fraction(before_repair.nav_krw)
+        gross = sum(positions.values(), Fraction(0))
+        leverage = Fraction(before_repair.leveraged_value_krw)
+        exact_cost = Fraction(cost)
+        initial_shares = sum(remaining.values())
+
+        def unresolved() -> bool:
+            return (
+                gross > Fraction(Decimal("0.60")) * nav
+                or leverage > Fraction(LIMIT) * nav
+                or any(value > Fraction(LIMIT) * nav for value in positions.values())
+            )
+
+        passes = 0
+        while unresolved():
+            prior_remaining = sum(remaining.values())
+            for instrument in ordered:
+                if remaining[instrument] == 0 or not unresolved():
+                    continue
+                quantity = int(
+                    _policy_cap_sell_quantity(
+                        nav,
+                        gross,
+                        leverage,
+                        positions.get(instrument, Fraction(0)),
+                        prices[instrument],
+                        exact_cost,
+                        remaining[instrument],
+                        leveraged=instrument.leveraged,
+                    )
+                )
+                if quantity == 0:
+                    continue
+                value = quantity * prices[instrument]
+                proposed[instrument] += quantity
+                remaining[instrument] -= quantity
+                positions[instrument] -= value
+                gross -= value
+                if instrument.leveraged:
+                    leverage -= value
+                nav -= value * exact_cost
+                if nav <= 0:
+                    raise ReferenceInputError("KR policy cap repair NAV nonpositive")
+            passes += 1
+            if sum(remaining.values()) >= prior_remaining or passes > initial_shares:
+                raise ReferenceInputError("KR policy cap repair unresolved")
+
+        for instrument in ordered:
+            sale_quantity = Decimal(proposed[instrument])
+            if sale_quantity == 0:
+                continue
             state = states.get(instrument)
-            if state is None or state.holdings[0].quantity == 0:
-                continue
+            assert state is not None
             before = point(at, "open", record=False)
-            if not policy_breached(before):
-                break
             price = bars[instrument].raw_open
-            n = Fraction(before.nav_krw)
             p = Fraction(price)
-            gross = sum(
-                (position.value_krw for position in before.positions), Decimal(0)
-            )
-            position = next(x for x in before.positions if x.instrument == instrument)
-            quantity = _policy_cap_sell_quantity(
-                before.nav_krw,
-                gross,
-                before.leveraged_value_krw,
-                position.value_krw,
-                price,
-                cost,
-                state.holdings[0].quantity,
-                leveraged=instrument.leveraged,
-            )
-            if quantity == 0:
-                continue
-            gross_sale = quantity * price
+            gross_sale = sale_quantity * price
             proceeds = gross_sale * (1 - cost)
-            if Fraction(proceeds) != Fraction(quantity) * p * (1 - Fraction(cost)):
+            if Fraction(proceeds) != Fraction(sale_quantity) * p * (1 - Fraction(cost)):
                 raise ReferenceInputError("KR cap repair sale arithmetic rounded")
-            states[instrument] = _sell_state(state, quantity, proceeds)
+            states[instrument] = _sell_state(state, sale_quantity, proceeds)
             after = point(at, "open", record=False)
-            if Fraction(after.nav_krw) != n - Fraction(gross_sale) * Fraction(cost):
+            if (
+                Fraction(after.nav_krw)
+                != Fraction(before.nav_krw) - Fraction(gross_sale) * exact_cost
+            ):
                 raise ReferenceInputError("KR cap repair NAV mismatch")
             sales.append(
                 Sale(
                     at,
                     instrument,
-                    quantity,
+                    sale_quantity,
                     price,
                     gross_sale,
                     gross_sale * sell_costs.commission_kr.rate,
@@ -1582,6 +1653,16 @@ def _run_reference_core(
                 )
             )
         before_sweep = point(at, "open", record=False)
+        if (
+            Fraction(before_sweep.nav_krw) != nav
+            or Fraction(before_sweep.leveraged_value_krw) != leverage
+            or sum(
+                (Fraction(position.value_krw) for position in before_sweep.positions),
+                Fraction(0),
+            )
+            != gross
+        ):
+            raise ReferenceInputError("KR cap repair projected state mismatch")
         for instrument, state in tuple(states.items()):
             if state.cash:
                 krw_cash += state.cash
