@@ -15,14 +15,11 @@
 - KRX/KASI 공식근거: 9/1~10/2 예상22일대사PASS. 연간KRX동적조회timeout, official_calendar_complete/historical_session_times_verified/nav_ready false. 2026-10-04-selected-krx-calendar-source-20261004 인계. 같은실패조회재시도금지.
 - 비용 실계좌정보0/16은 명시적비용가정시나리오의전역차단조건이아님. KRW ETF원장에불필요USD환전을추가하지않는다. 실제 READYcohort는아직확인못함.
 
-## 현재 단일 writer — 다음 시작
+## 현재 단계 — 다음 시작
 
-- 작업 selected-candidate-signal-planner-20261004, branch codex/selected-candidate-signal-planner.
-- checkout /home/kwl/.codex/worktrees/official-dividend-input/jusik, 기준main deedfb0.
-- 기존 Sol/high CLI code01a101e4-af50-7242-a80b-38e39abd6672 실행중. /tmp/selected-signal-code-events.jsonl 및 /tmp/selected-signal-code-stderr.txt. 중복writer생성금지.
-- 계획 /tmp/selected-signal-plan-result.txt. 신규selected_candidate_signals.py/tests만코드소유; configsemantic hash/protocol/작업기록포함. rawcore/legacy/API/DB변경금지.
-- 범위: causal 완료조정종가·FX/등록fullidentity로 SMA20/61closes·equal/inverse·gross/symbol/leveragedcap·global61UTCdates volatility scale를순수계산. incomplete targets없음, allcash와구분. synthetic뿐, 일정/밴드/episode/reentry/체결연결/실제성과미완료.
-- 완료보고후 frozencommit 독립Sol/highreview, 기존98+신규/legacy 대사·원장6출력보존·hash flags확인, main통합·handoff. 새자료·미래구간성과와별개로판정.
+- 신호 계산 main4e1ff56 통합/189검사/독립 재검토·산술 PASS. `2026-10-04-selected-candidate-signal-planner-20261004.md` 인계 참조. UTC 시차 P2 수정 완료.
+- 다음 selected-multi-target-execution-20261004: explore/plan 완료, `/tmp/selected-multi-target-plan-result.txt`. 같은 통화·같은 첫 시가 초기 목표 묶음을 기존 원장에 직접 결속한다. 혼합시장·재조정·일정·성과는 아직 범위 밖이다.
+- 관리형 checkout 재사용, 동일 Sol/high code CLI 소유 유지. 새 writer 중복 생성 금지. 통합 후 다음 단계까지 계속 진행 승인됨.
 
 ## 실행 도구·중복 방지
 

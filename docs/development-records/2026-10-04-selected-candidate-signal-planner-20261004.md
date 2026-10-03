@@ -1,9 +1,9 @@
 # 선정 후보 합성 신호 계산
 
-- 상태: 합성 신호 구현·독립 검토 P2 수정 검증 완료, 재검토·supervisor 통합 대기
+- 상태: 완료: 독립 재검토 PASS, 로컬 main 통합·189개 통합 검사 PASS
 - 기록 시각: 2026-10-03T16:04:58Z
 - 작업 slug: `selected-candidate-signal-planner-20261004`
-- 기준/통합: `deedfb0f618b64fd927db0d560c8dc17e49c21c2` / 없음
+- 기준/통합: `deedfb0f618b64fd927db0d560c8dc17e49c21c2` / `4e1ff562aad56ed287762345e3a74e088d35308f`
 - 범위: 동결된 `equal/none`, `inverse_volatility/none`의 순수 SMA·목표 비중·변동성 축소만 합성 입력으로 계산했다. raw 회계·legacy 원장·서비스·성과 실행은 변경하지 않았다.
 
 ## 변경과 결정
@@ -34,8 +34,8 @@
 ## 증거와 재개
 
 - 합성 재현: `/tmp/selected-signal-code/`에 독립 oracle, baseline·cap-control 전체 직렬화 출력이 있다.
-- 남은 작업: 독립 코드 검토와 supervisor 로컬 통합. 이후 다종목 목표를 raw 원장에 연결하고 일정·밴드·위험 episode와 실제 입력 적격을 별도 검증한다.
-- 다음 시작: offset 수정 diff, 설정 의미 hash와 차단 flags, 189개 검사 및 고정 직렬화 비교를 재검토한다.
+- 남은 작업: 독립 검토와 로컬 통합은 완료했다. 이후 다종목 목표를 raw 원장에 연결하고 일정·밴드·위험 episode와 실제 입력 적격을 별도 검증한다.
+- 다음 시작: 다종목 초기 체결 계획을 읽고 기존 raw core에 제한된 batch를 구현한다.
 
 ## workflow 평가
 
@@ -50,3 +50,10 @@
 - 회귀 네 사례: 전체 입력의 UTC↔`+09:00` 동일 결과(지역 날짜는 달라짐), FX UTC 7일 허용/8일 결손 경계, 동등 순간의 종가·FX revision 및 중복 키, 다섯 시각 필드의 naive 거부.
 - `/tmp/selected-signal-code/utc_signal_compat.py`로 config hash 갱신 전에 기존 UTC equal·inverse·all-cash 전체 직렬화 SHA-256 `3ef41fbc3c870d8dc05385a4268ba161d940742fcd3fbb00406a84cd63f23602`가 수정 전후 byte 동일함을 확인했다. config 자체의 갱신은 위 hash에 반영했다.
 - 최종 189개 회귀, Ruff check/format, strict mypy, 독립 네 자산 oracle 통과. baseline 3사례와 cap-control 3사례 전체 직렬화가 기존 고정 파일과 byte 동일하며 기존 네 소스·신규 모듈 hash와 실행 차단 flags를 확인했다. 재현 경로는 `/tmp/selected-signal-code/`이다.
+
+## supervisor 통합 검증
+
+- 독립 검토: 54fbca8의 시차 P2를 동일 소유자가 a7fc5a6에서 수정했고 독립 +09:00/-04:00·UTC 날짜·FX 7/8일·revision 검증 PASS.
+- main4e1ff56에서 189개 검사(6.23초), Ruff·strict mypy, 독립 네 자산 산술·순열·미래 revision probe PASS. sandbox의 TestClient 대기 프로세스만 종료 후 정상 실행 환경에서 같은 검사가 통과했다. 운영 서비스는 변경하지 않았다.
+- 영구 audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261004-selected-signal-planner/`; 최초 manifest SHA `fe7f75d0f9d166f7d72d618bc6f3000ff1606691859ae38f9aeb686174e4e0a4`. 통합 검사 로그는 별도 `main-validation.txt`로 보존.
+- 다음: 같은 통화·같은 시가의 초기 다종목 target batch를 기존 raw 원장에 연결. 신호·체결 각각의 합성 검증은 실제 수익성이나 전체 전략 완료가 아니다.

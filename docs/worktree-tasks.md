@@ -5401,7 +5401,8 @@
 
 ## selected-candidate-signal-planner-20261004
 
-- 상태: a7fc5a6 시각 정규화 수정·189검사 통과, 독립 재검토 중. 실제매매·성과없음.
+- 상태: 완료. a7fc5a6 독립 재검토PASS, main4e1ff56 통합·189검사/린트/타입/독립산술PASS. 실제매매·성과없음.
+- 기록/인계: docs/development-records/2026-10-04-selected-candidate-signal-planner-20261004.md 및 같은이름 docs/handoffs 파일.
 - 소유: 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, /tmp/selected-signal-plan-result.txt. codewriter없음, 기존rawcore/legacy자체원장중복금지.
 
 - signal 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, 관리형checkout/codex/selected-candidate-signal-planner. 신규signal모듈·신규tests·confighash·protocol·개발기록만, rawcore/legacy/API/DB불변.
@@ -5410,6 +5411,6 @@
 
 ## selected-multi-target-execution-20261004
 
-- 상태: explore 완료, Sol/high plan 진행. 같은 통화·같은 공식 시가의 초기 목표 묶음을 기존 raw 원장에 직접 연결하는 최소 증분을 설계한다. 구현 미배정.
+- 상태: explore/plan 완료, 구현 준비. 같은 통화·같은 첫 공식 시가의 초기 target batch를 기존 raw core에 결속. 계획 /tmp/selected-multi-target-plan-result.txt. Nmin 보수적 수량, 전체 비용 후 cap·현금 검증, 최대 수량/수익 보장 아님.
 - 소유: 기존 Luna/medium CLI explore01a101db-2b98-7813-a412-63418263ff55. /tmp/selected-multi-target-explore-events.jsonl. 현재 signal writer와 파일 변경 소유권이 겹치지 않는다.
 - 제한: raw 회계 재사용, 합성 독립 검증만. 실제자료 인수·성과·주문·승격 없음.
