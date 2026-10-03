@@ -48,4 +48,7 @@
 - 작업폴더 npm cache offline로 잠금파일 의존성445개 설치(버전변경0), frontend lint/build/typecheck PASS. 기존exit127 차단해소.
 - 합성브라우저 TQQQ불일치13/조회불가/새로고침/JS오류0/390px넘침0 PASS. 감독이추가로 NVDA부분3카드직접확인. 첫fixture의검토합계불일치는UI가조회불가로처리했으며fixture만정정.
 - audit `/home/kwl/.local/share/jusik/portfolio-audit/20261003-approved-dividend-review-status/`에독립검토/화면/검증/manifest.
-- 기존webstack재시작으로반영중; runner/governance/주문/등록목록/DB변경없음.
+- 기존webstack재시작으로반영완료; runner/governance/주문/등록목록/DB변경없음.
+
+- 운영확인: API등록16/revision1/no-store/not_performed 보존. TQQQ불일치13, NVDA부분4, MSFT일치12; 실제브라우저390px넘침0·JS오류0. 외부비인증HTTP401유지, webactive·개발runner/timerinactive. 부분3화면은합성이며운영NVDA부분4와구분.
+- UI자료검토건수는eligible24/111과별도이다. 초기개발기록의의존성부재/화면대기 항목은이통합확인으로해소.

@@ -15,3 +15,8 @@
 - 두후보설정f4de839독립PASS/main6ca71bb통합, config d329766d... 실행차단유지. 해당작업인계참조.
 - 배당상태 latestrevision/latestreview API/UI code 구현중: 관리형 official-dividend-input checkout/codex/approved-dividend-review-status, codeCLI01a101e4-af50-7242-a80b-38e39abd6672. 단일writer유지.
 - 후속 selected-candidate-ledger-bridge explore완료/plan진행. 기존원장중복없이 synthetic 연결검증 계획, 실제성과실행금지.
+
+## 배당 UI 통합 후
+
+- approved-dividend-review-status main2aa6f9e 및현재웹반영완료, 해당인계참조.
+- selected-candidate-ledger-bridge plan완료/단일Sol코드구현중. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch codex/selected-candidate-ledger-bridge, `/tmp/candidate-bridge-code-events.jsonl`. 기존CLI01a101e4-af50-7242-a80b-38e39abd6672 소유유지.
