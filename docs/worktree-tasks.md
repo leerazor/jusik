@@ -5429,5 +5429,17 @@
 
 ## selected-kr-candidate-policy-20261004
 
-- 상태: Sol/high 계획 진행. 완료된 신호·초기 batch·KR 재조정 위에 동결된 일정/밴드·위험 정책 연결의 다음 유용한 구현 범위를 확정한다. 기존 탐색 재사용, 재탐색/실험/코드 없음.
+- 상태: plan 완료, 단일 구현 배정. /tmp/selected-kr-policy-plan-result.txt. 신호+4주 일정+정확한 hold_quantity band를 같은 원장에 연결하되 미구현 위험/비용 후 cap 수리 필요 시 거부하는 제한된 합성 단계. 전체 후보/실제 성과 완료가 아니다.
 - 소유: 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938. /tmp/selected-kr-policy-plan-events.jsonl. 동결 조건 변경·자료 적격 완화·실제 수익성 주장 금지.
+
+## selected-kr-source-delta-20261004
+
+- 상태: delta 점검 완료. 새 요청 후보487230/487240, 2026-04-15~08-31, raw1 일봉 최대100, 9월receipt와 비중복. 가격 준비 개선만 가능하고 공식 calendar/action 완전성은 미해결. /tmp/selected-kr-source-delta-result.txt.
+- 소유: 기존Luna/medium exploreCLI01a101db-2b98-7813-a412-63418263ff55, /tmp/selected-kr-source-delta-events.jsonl. 소스/DB/API 쓰기·외부조회 없음. 실행 가능한 새수집 범위가 없으면 짧은 구체 재개 조건만 반환한다.
+
+## selected-kodex-warmup-receipt-20261004
+
+- 상태: 수집·186봉 독립 대사PASS. 실제 auth1+GET2/retry0, 각93봉 기존93일OHLCV 일치. 동일93일·평일미관측6일은 진단만. 정부2026-02-03 제헌절 재지정 발표 추가근거 독립검토 중. 자료/NAV준비false 유지.
+- 소유: supervisor /tmp/kodex-warmup-receipt. 기존 검토 완료 수집기 조건 재사용, 실행 전 독립읽기검토. 운영DB/계좌/주문/설정변경없음. 수집범위는 성과기간 선택·자료적격승격이 아니다.
+
+- 정책 연결 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672; managedcheckout 재사용·branch codex/selected-kr-candidate-policy. 신규policy모듈/신규tests/rawcore좁은hook/규약/confighash/개발기록 소유. /tmp/selected-kr-policy-code. source수집과 파일·데이터 소유권 독립.

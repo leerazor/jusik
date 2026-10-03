@@ -18,8 +18,8 @@
 ## 현재 단계 — 다음 시작
 
 - 신호 main4e1ff56/189검사, 초기 target batch main42214b8/200검사, KR 재조정 main74a5581/208검사 모두 독립검토·main통합 PASS. 각2026-10-04 작업별 인계 재사용.
-- 현재 selected-kr-candidate-policy-20261004 plan 진행. 완료된 raw 원장·신호를 동결4주 일정/2%p band와 위험정책에 연결할 유용한 범위를 설계한다. `/tmp/selected-kr-policy-plan-events.jsonl`, 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938. 새 탐색 대신 기존결과재사용, 실제성과주장없음.
-- codewriter/reviewer 종료. 관리형 checkout은 다음 작업에 재사용, 구현미배정. 등록16/revision1·모든 사용자 기준 유지. 실제자료/전체전략/수익성미완료.
+- 현재 selected-kr-candidate-policy-20261004 plan완료·단일code배정. 완료된 raw 원장·신호를 동결4주 일정/2%p band와 위험정책에 연결할 유용한 범위를 설계한다. `/tmp/selected-kr-policy-plan-events.jsonl`, 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938. 새 탐색 대신 기존결과재사용, 실제성과주장없음.
+- 기존codewriter를 관리형 checkout/codex/selected-kr-candidate-policy에서 재개한다. /tmp/selected-kr-policy-code-events.jsonl. source추가수집186봉 대사PASS, 휴일변경 부분근거 검토중이며 실제자료적격으로 승격하지 않았다. 등록16/revision1·모든 사용자 기준 유지. 실제자료/전체전략/수익성미완료.
 
 ## 실행 도구·중복 방지
 
