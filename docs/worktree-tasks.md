@@ -5405,3 +5405,5 @@
 - 소유: 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, /tmp/selected-signal-plan-result.txt. codewriter없음, 기존rawcore/legacy자체원장중복금지.
 
 - signal 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, 관리형checkout/codex/selected-candidate-signal-planner. 신규signal모듈·신규tests·confighash·protocol·개발기록만, rawcore/legacy/API/DB불변.
+
+- 거래일 부분근거 완료: 공식 HTML2개·22일대사 독립PASS, 연간calendar/과거시간검증false. docs/development-records/2026-10-04-selected-krx-calendar-source-20261004.md 및 같은이름handoff 참조.

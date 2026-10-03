@@ -1,27 +1,32 @@
-# 등록 종목 연구 계속 진행
+# 등록 종목 연구 연속 진행 인계
 
-- 갱신 2026-10-03T14:08:21.774830+00:00; 현재 사용자는 단계 검증 후 다음 단계 진행을 승인했다. 새 확인을 기다리지 않는다.
-- 먼저 MEMORY.md, 등록API revision/목록, Git·writer·관련 등록부 상태를 확인한다. 현재 등록16/rev1, runner inactive/governancefalse. 사용자 root HANDOFF.md를 보존한다.
-- 이번 완료: cap-control7fab35e→main de9153d/83검사·독립PASS, 기존baseline전체출력 동일. [회계 인계](2026-10-03-approved-buy-hold-cap-control-20261003.md). 실제수익성미검증.
-- 원주가: Alpaca SIP/raw 등록US10 신규1회7931봉·독립PASS. 고정달력 내부/후행누락0, NVDA2024-06-10고가195.95vs123.10차이 미해결. ARM/GEV개시경계 공식원문 추가PASS. [원주가 인계](2026-10-03-selected-alpaca-raw-source-20261003.md). 재조회 대신 기존원문 사용.
-- 배당: NVIDIA 기존SEC3건의 record/ex-date 혼용 정정, 금액/기준일/지급일만 partial3 실제반영. eligible24/111, coverageSHA1800dee72e91518fe771d60640229207045019c5529ec6594510bb4cd49205ba. [배당 인계](2026-10-03-selected-us-dividend-next-20261003.md). 같은 SEC원문을 fullmatch로 승격하지 않는다.
-- 다음 우선 작업: 기존공식배당/분할/달력/환율/비용 근거 중 실제 소비 필드 결손을 좁혀 보완한다. 원주가 시가/종가를 현 순수회계 입력에 연결할 때 신원·필드별수용·사건시간 결속을 검토하고 고가차이는 남긴다. 새source 없이 같은blocked audit를 재생성하지 않는다. GOOGL10 미검증과 NVDA남은 ex-date가 배당후보다. 현 계좌실제비용은미확정; 가정비용을실제라고표시하지 않는다.
-- 이후: 동조건 단순보유/사전등록후보최대3(현재2) 비교, 사용하지않은미래구간. 이미본과거를untouchedOOS라하지않는다. 자본1억·레버리지20%·MDD20%유지. 주문/PAPER/live·GitHubPages·원격push·추가결제·credential정책변경금지.
-- 모든 구현/검토CLI 종료, 단일 code writer 없음. 관리형checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik` clean/reuse가능. native세션한도 오류가 지속하면 기존standaloneCLI세션 재개 가능: code01a101e4-af50-7242-a80b-38e39abd6672,review01a101ef-ad38-73b3-8758-3d376d76f9fd,explore01a101db-2b98-7813-a412-63418263ff55,plan01a101de-0d5f-7881-b2de-c09d33f2d938. 중앙routing resolve/check와 실제metadata를 대조하고 중복writer금지.
+- 최근 갱신: 2026-10-04 KST / UTC2026-10-03T15:40 전후. root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
+- 사용자 승인: 한 단계 검증 후 다음 안전한 단계 계속. 등록16/revision1 유지. 자동매매·실주문·PAPER/live·GitHub Pages·원격push·추가결제·credential정책변경·투자기준완화 금지.
+- 초기 총1억원·레버리지20%·MDD20% 유지. 과거자료를 untouched OOS로 표시하지 않는다. 기존 runner/timer inactive, governance dispatch false. 기존 heartbeat만 유지.
 
-## 2026-10-03T14:43Z 후속
+## 완료·재사용
 
-- TQQQ공식13건 불일치 검토 반영, 적격24/111 유지. coverage SHA88b7b28028d713c5a77ed2ae0ead36b62b337efd79b883c858778de4aaded1d1. 작업별 selected-tqqq-official-source-20261003 인계가 최신원본. 공식currency/sharebasis 미확인; 반올림추측으로승격금지.
-- 두후보설정f4de839독립PASS/main6ca71bb통합, config d329766d... 실행차단유지. 해당작업인계참조.
-- 배당상태 latestrevision/latestreview API/UI code 구현중: 관리형 official-dividend-input checkout/codex/approved-dividend-review-status, codeCLI01a101e4-af50-7242-a80b-38e39abd6672. 단일writer유지.
-- 후속 selected-candidate-ledger-bridge explore완료/plan진행. 기존원장중복없이 synthetic 연결검증 계획, 실제성과실행금지.
+- 현재 웹의 배당 상태 API/UI: main2aa6f9e, 독립 code/screen 및 실제 API/mobile 확인 완료. 일치·부분·불일치·미검토를 분리하며 null=조회불가. TQQQ불일치13/NVDA부분4/MSFT일치12, 적격전체24/111과별개. approved-dividend-review-status-20261003 인계 참조.
+- 두 후보 설정 동결: equal/none·inverse_volatility/none, 연구제어값gross60/symbol20/vol10/episode10%, 사용자hardfilter와구별. sourcehash는 후속구현에맞게갱신하되 execution_allowed=false/results_observed=false/candidate_execution_code_hash=null 유지.
+- raw회계: 순수보유·capcontrol 후 합성 단일target 체결까지 main e9d396c 통합. 98tests/Ruff/mypy/독립KR·US·분할후배당oracle/기존6사례전체출력byte동일 PASS. selected-candidate-ledger-bridge-20261003 인계와영구audit재사용.
+- 배당: MSFT12+NVDA1+KODEX11 eligible24/111. NVDApartial3 추가와 TQQQmismatched13은미적격. 최신coverage88b7b28028d713c5a77ed2ae0ead36b62b337efd79b883c858778de4aaded1d1. 각selected-us-dividend-next/selected-tqqq-official-source 인계참조. 기존실패조회반복금지.
+- US10 raw7931봉 및ARM/GEV상장경계: selected-alpaca-raw-source 인계. NVDA2024-06-10고가차이미해결, 연구인수미완료.
+- KODEX487230 현재원주가22봉: 정상auth1+시세1/재시도0, 기존22일OHLCV일치 독립PASS. 2026-10-04-selected-kodex-raw-receipt-20261003 인계. 공개필드추출만보존, 전체원응답미보존; 과거543행lineage/PIT/자료적격을증명하지않는다.
+- KRX/KASI 공식근거: 9/1~10/2 예상22일대사PASS. 연간KRX동적조회timeout, official_calendar_complete/historical_session_times_verified/nav_ready false. 2026-10-04-selected-krx-calendar-source-20261004 인계. 같은실패조회재시도금지.
+- 비용 실계좌정보0/16은 명시적비용가정시나리오의전역차단조건이아님. KRW ETF원장에불필요USD환전을추가하지않는다. 실제 READYcohort는아직확인못함.
 
-## 배당 UI 통합 후
+## 현재 단일 writer — 다음 시작
 
-- approved-dividend-review-status main2aa6f9e 및현재웹반영완료, 해당인계참조.
-- selected-candidate-ledger-bridge plan완료/단일Sol코드구현중. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch codex/selected-candidate-ledger-bridge, `/tmp/candidate-bridge-code-events.jsonl`. 기존CLI01a101e4-af50-7242-a80b-38e39abd6672 소유유지.
+- 작업 selected-candidate-signal-planner-20261004, branch codex/selected-candidate-signal-planner.
+- checkout /home/kwl/.codex/worktrees/official-dividend-input/jusik, 기준main deedfb0.
+- 기존 Sol/high CLI code01a101e4-af50-7242-a80b-38e39abd6672 실행중. /tmp/selected-signal-code-events.jsonl 및 /tmp/selected-signal-code-stderr.txt. 중복writer생성금지.
+- 계획 /tmp/selected-signal-plan-result.txt. 신규selected_candidate_signals.py/tests만코드소유; configsemantic hash/protocol/작업기록포함. rawcore/legacy/API/DB변경금지.
+- 범위: causal 완료조정종가·FX/등록fullidentity로 SMA20/61closes·equal/inverse·gross/symbol/leveragedcap·global61UTCdates volatility scale를순수계산. incomplete targets없음, allcash와구분. synthetic뿐, 일정/밴드/episode/reentry/체결연결/실제성과미완료.
+- 완료보고후 frozencommit 독립Sol/highreview, 기존98+신규/legacy 대사·원장6출력보존·hash flags확인, main통합·handoff. 새자료·미래구간성과와별개로판정.
 
-## 목표 체결 연결 통합 후
+## 실행 도구·중복 방지
 
-- selected-candidate-ledger-bridge main e9d396c 완료. 98검사/독립review/oracle/전체기존출력동일성PASS; 작업별인계참조. 현재appwriter없음.
-- 다음source KODEX487230 1회rawreceipt: /tmp/kodex-raw-receipt/collect.py 실행전검토중. source계획의token0조건은감독내부상한이었으며정상기존인증1+quote1로조정, 사용자권한/정책불변. 실제조회아직0.
+- 중앙정책hash883368a9...; 매dispatchresolve/check. native child한도/parent미로드 실패는반복하지않는다. bounded standalone codex exec resume fallback을쓰고 actual turn_context model/effort/cwd를확인한다.
+- CLI explore01a101db-2b98-7813-a412-63418263ff55 Luna/medium; plan01a101de-0d5f-7881-b2de-c09d33f2d938 Sol/high; review01a101ef-ad38-73b3-8758-3d376d76f9fd Sol/high. 현재독립source검토들은종료.
+- Node /home/kwl/.nvm/versions/node/v24.20.0/bin; worktree frontenddependencies445 offline설치완료. 현재preview서버는종료했다. 운영webstack active/3000·research8001, 기존인증유지.
+- 사용자변경·credential·rootHANDOFF 보존. 신규조사전에최신등록목록/작업등록부/Git/writer를확인하고동일캐시·실패조회·완료검사를반복하지않는다.
