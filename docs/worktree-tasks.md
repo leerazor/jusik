@@ -5419,8 +5419,9 @@
 
 ## selected-rebalance-sequence-20261004
 
-- 상태: 읽기 전용 explore 진행, 구현 미배정. 초기 batch 다음 기존 보유수량을 재조정하는 유용한 최소 경로와 기존 매도/일정/밴드 재사용을 조사한다.
+- 상태: explore/plan 완료, 단일 구현 배정. KR 명시 cohort의 유한 목표 시퀀스·보유/배당권리/매도대금 보존. 계획 /tmp/selected-rebalance-plan-result.txt. 매도량 단조 증가 Nref와 동시 확정 수량을 검증한다.
+- 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, 관리형checkout 재사용·branch codex/selected-rebalance-sequence. rawcore/신규tests/규약/confighash/작업기록만, /tmp/selected-rebalance-code. 다른 writer없음.
 - 소유: 기존Luna/medium CLI explore01a101db-2b98-7813-a412-63418263ff55, /tmp/selected-rebalance-explore-events.jsonl. 등록16/revision1·주문금지·별도 cohort 명시·투자기준 유지.
-- 제한: 초기 batch9ed4b1e는 독립 검토 중이며 통합 완료로 간주하지 않는다. 코드·자료·DB 변경 없음.
+- 선행: 초기 batch9ed4b1e 독립PASS·main42214b8 통합200검사PASS. 코드·자료·DB 변경 없음. 신호/일정/위험 전이 전체를 완료로 주장하지 않는다.
 
 - batch 기록/인계: docs/development-records/2026-10-04-selected-multi-target-execution-20261004.md 및 같은 이름 docs/handoffs 파일.

@@ -18,8 +18,8 @@
 ## 현재 단계 — 다음 시작
 
 - 신호 계산 main4e1ff56/189검사/독립 재검토 PASS. 같은 통화·동시 첫 시가 초기 target batch main42214b8/200검사/독립 검토·산술 PASS. 각각 2026-10-04 작업별 인계 재사용.
-- 현재 selected-rebalance-sequence-20261004 읽기 전용 explore. `/tmp/selected-rebalance-explore-events.jsonl`, 기존Luna/medium CLI01a101db-2b98-7813-a412-63418263ff55. 기존 보유분 매도/매수·일정/밴드 재사용의 유용한 최소 다음 단계 조사 후 plan한다.
-- 관리형 checkout은 다음 작업 재사용 위해 보존, codewriter 종료. 새 writer 중복 생성 금지. 등록16/revision1·기준 유지, 실제 자료/성과/전체 전략 미완료.
+- 현재 selected-rebalance-sequence-20261004 explore/plan완료·단일code배정. `/tmp/selected-rebalance-plan-result.txt`, codeCLI01a101e4-af50-7242-a80b-38e39abd6672. 초기 매수의 state 대입을 추가 매수에 재사용하면 보유·미수금 유실 위험이 있어, 기존 매도/매수 전이와 KRW현금을 보존하는 KR 명시 cohort 유한 target sequence를 구현한다. branch codex/selected-rebalance-sequence, /tmp/selected-rebalance-code-events.jsonl.
+- 관리형 checkout은 다음 작업 재사용 위해 보존, 동일 codewriter 재개. 새 writer 중복 생성 금지. 등록16/revision1·기준 유지, 실제 자료/성과/전체 전략 미완료.
 
 ## 실행 도구·중복 방지
 
