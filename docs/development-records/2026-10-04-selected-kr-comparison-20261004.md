@@ -1,9 +1,9 @@
 # 선정 KR 네 arm 합성 비교
 
-- 상태: 구현·로컬 검증 완료 — 독립 검토·main 통합 대기
+- 상태: 완료 — 독립 검토·로컬 main 통합 검증 PASS
 - 기록 시각: 2026-10-03T19:38:35Z
 - 작업 slug: `selected-kr-comparison-20261004`
-- 기준/통합: `67a5cd40bf83b3e395fbd7823358f3b016bf96af` / 없음
+- 기준/통합: `67a5cd40bf83b3e395fbd7823358f3b016bf96af` / 18513cde7dc73b12abacdc0fcb6755fe99a37be6
 - 범위: 동일 KR 합성 입력으로 기존 순수 보유, cap-control, 두 고정 후보 위험 경로를 각 한 번 실행하고 기존 Decimal 지표로 비교한다. raw 원장·후보 정책·설정은 변경하지 않는다.
 
 ## 변경과 결정
@@ -34,11 +34,18 @@
 ## 증거와 재개
 
 - audit: `/tmp/selected-kr-comparison-code/`; 기존 출력 `/tmp/selected-kr-policy-code/`.
-- 남은 작업: 독립 검토·main 통합, 실제 원천/비용·기간 수용과 투자 검증은 별도 단계.
-- 다음 시작: 비교 manifest의 실행 전 불일치 거부, 동일 시각 MDD, 정책 pin 연동을 독립 검토한다.
+- 남은 작업: 실제 원천/비용·기간 수용과 투자 검증은 별도 단계.
+- 다음 시작: 기존 공식 원천 cache/audit에서 실제 비교에 필요한 자료 결속 공백을 좁힌다.
 
 ## workflow 평가
 
 - workflow 판단: 도움 됨 — 기존 계획과 원장/지표 계약을 먼저 읽어 비교 어댑터로 변경을 제한했다.
 - 근거: 기존 268검사·baseline/cap 직렬화를 재사용했고 평가기 source pin의 추가 경계를 발견했다. 시간·호출 절감은 미측정이다.
 - 다음 조정: 수정 — 의미 소스가 고정된 평가기 변경은 계획에서 정책 artifact pin의 소유 범위를 함께 명시한다.
+
+## 독립 검토·통합
+
+- 구현62f1a7594bead126f223336fe47464039d64a215 독립 Sol/high 검토 PASS, P1/P2 없음. 변조 시 호출0/정상1+1+2와 기본/opt-in 동일시각 및 정책 pin을 별도 probe로 확인.
+- main18513cde7dc73b12abacdc0fcb6755fe99a37be6에서 영향132검사(5.52초), Ruff/strict mypy PASS. 독립 Fraction 8사례 NAV/수익률/MDD/최초체결/Sharpe미비 표시 대사 PASS. 추가 화면 변경 없음.
+- 영구 audit /home/kwl/.local/share/jusik/portfolio-audit/20261004-selected-kr-comparison, manifest SHA256 095185101e3c62ccccd7eccfd5e7b713fd1472404820ae47fea08e00a197e597.
+- 동일 checkout은 다음 안전한 자료/개발 단계 재사용을 위해 보존, 구현 writer 종료. 원격push/실주문/서비스변경 없음.

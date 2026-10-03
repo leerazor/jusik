@@ -1,6 +1,6 @@
 # 등록 종목 연구 연속 진행 인계
 
-- 최근 갱신: 2026-10-03T18:54+00:00; root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
+- 최근 갱신: 2026-10-03T19:50+00:00; root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
 - 사용자 승인: 한 단계 검증 후 다음 안전한 단계 계속. 등록16/revision1 유지. 자동매매·실주문·PAPER/live·GitHub Pages·원격push·추가결제·credential정책변경·투자기준완화 금지.
 - 초기 총1억원·레버리지20%·MDD20% 유지. 과거자료를 untouched OOS로 표시하지 않는다. 기존 runner/timer inactive, governance dispatch false. 기존 heartbeat만 유지.
 
@@ -18,15 +18,12 @@
 
 ## 현재 단계 — 다음 시작
 
-- 신호/초기batch/KR재조정/위험없는정책에 이어 **KR위험정책 main7cc20002/268검사·독립검토·통합 PASS**. 구현8efee89의 P2 2건을cf1c8ac에서 수정했다. 비용연쇄cap재평가와 첫strict공통개장선택 모두 독립 재현PASS.
-- 독립Fraction4사례: 청산·회복·재진입시각/정수수량/현금/NAV/episode·lifetime고점 및입력순서반전 PASS. 구11개/KRsequence출력보존. 상세 `2026-10-04-selected-kr-risk-policy-20261004.md` 인계와audit20261004-selected-kr-risk-policy/manifest7597cdc4... 재사용.
-- 현재 **selected-kr-comparison-20261004 단일 구현 진행**. 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, 이전 exec20701 종료; 필수 정책 SHA pin 범위 추가 후 동일 소유자 exec29224 재개. `/tmp/selected-kr-comparison-code-events.jsonl`·stderr, 지시 `/tmp/selected-kr-comparison-code.txt`. 계획 `/tmp/selected-kr-comparison-plan-result.txt` 완료, 중복조사/계획/구현 금지.
-- 탐색완료 `/tmp/selected-kr-comparison-explore-result.txt`. 탐색의 두 누락을 supervisor가 보완: 기존riskfree함수 아닌 run_kr_selected_candidate_risk_reference 사용; market_performance_metrics와 research_portfolio_performance_metrics의 기존지표/투영 재사용. 새지표/원장 중복작성금지.
-- checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-comparison`, base67a5cd40bf83b3e395fbd7823358f3b016bf96af. 소유 새comparison모듈/tests·기존성과평가기 최소호환확장/tests·규약/성과문서/개발기록. raw회계·후보정책·숫자조건/flags 변경금지. 완료commit→독립review→main통합/관련검사/인계. rootUSER HANDOFF보존.
-- 목표: 같은등록/cohort/기간/통화/자본/가격/배당/비용으로 순수보유·capcontrol·정확히2후보 합성비교. fixture등급, riskfree결손Sharpeunavailable, 전체chronologyMDD보존, 자동승자/실제성과/OOS승격 없음.
-- 독립 사전기준 /tmp/selected-kr-comparison-independent/expected.py·expected.json: 기존 main의4arm×배당2=8사례 손계산NAV/현금/MDD·첫체결시각 대사 PASS. 새adapter완료후 같은입력대조에재사용, 신규실제성과나adapter검증통과주장금지.
-- 신규실자료가 필요한 조건은가격·기업행동·달력·비용의같은기간결속. KIS보조달력HTTP500 재시도금지. 실제READYcohort없음. 최신배당DB matched24/mismatched13/partial6/unreviewed68=111 확인; 전체자료준비율이아니다.
-- 등록16/revision1, 100M/레버리지20/MDD20 유지. runner/timer inactive, webstack active 확인. 운영실행/주문/승격/원격push 없음.
+- 위험정책 main7cc20002 이후 동일 조건 비교도 **main18513cde7dc73b12abacdc0fcb6755fe99a37be6 통합 완료**. 구현62f1a759, 독립 review PASS, worker268+132·main132·Ruff/mypy·독립Fraction8사례 PASS.
+- 자세한 계약/증거는 2026-10-04-selected-kr-comparison-20261004.md 개발 기록과 인계. 영구audit20261004-selected-kr-comparison manifest09518510... 재사용. 실제 성과나 투자 적격은 아직 미검증.
+- 구현 writer 종료, checkout /home/kwl/.codex/worktrees/official-dividend-input/jusik, codex/selected-kr-comparison clean. 다음 안전한 작업에 재사용 가능. 사용자 HANDOFF.md 보존.
+- 현재 **selected-next-evidence-20261004 읽기 전용 탐색**: 기존Luna/medium CLI01a101db-2b98-7813-a412-63418263ff55 exec94065. /tmp/selected-next-evidence-explore-events.jsonl 및 결과 파일. 기존cache/audit만으로 실제 KODEX cohort/기간의 인수가능 단계 또는 구체적차단을 찾는다.
+- 새 조사 전에 위 결과를 확인. 등록16/revision1, 배당 matched24/mismatched13/partial6/unreviewed68=111은 전체자료준비율이 아니다. KIS HTTP500 동일요청 반복금지. 가격/배당/달력/비용의 같은기간 결속과 실제READYcohort 미확인.
+- 100M/레버리지20/MDD20 유지. 주문·승격·원격push·서비스변경 없음.
 
 ## 실행 도구·중복 방지
 
@@ -34,7 +31,3 @@
 - CLI explore01a101db-2b98-7813-a412-63418263ff55 Luna/medium; plan01a101de-0d5f-7881-b2de-c09d33f2d938 Sol/high; review01a101ef-ad38-73b3-8758-3d376d76f9fd Sol/high. 현재독립source검토들은종료.
 - Node /home/kwl/.nvm/versions/node/v24.20.0/bin; worktree frontenddependencies445 offline설치완료. 현재preview서버는종료했다. 운영webstack active/3000·research8001, 기존인증유지.
 - 사용자변경·credential·rootHANDOFF 보존. 신규조사전에최신등록목록/작업등록부/Git/writer를확인하고동일캐시·실패조회·완료검사를반복하지않는다.
-
-- 후속 독립 대사: /tmp/selected-kr-comparison-independent/probe.py 및 worktree-result.json, 기존 Fraction 기대8사례와 새 adapter의 NAV/수익률/MDD/최초체결/무위험률 미비 표시 일치 PASS. 아직 frozen commit 독립검토·통합 전.
-
-- 구현완료62f1a7594bead126f223336fe47464039d64a215, code exec29224 종료, checkout clean. 268+132검사/Ruff/mypy PASS. 독립review exec81399 진행. 다음은 검토 결과에 따른 동일소유자 수정 또는 main통합.
