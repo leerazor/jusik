@@ -24,6 +24,7 @@
 - 탐색완료 `/tmp/selected-kr-comparison-explore-result.txt`. 탐색의 두 누락을 supervisor가 보완: 기존riskfree함수 아닌 run_kr_selected_candidate_risk_reference 사용; market_performance_metrics와 research_portfolio_performance_metrics의 기존지표/투영 재사용. 새지표/원장 중복작성금지.
 - checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-comparison`, base67a5cd40bf83b3e395fbd7823358f3b016bf96af. 소유 새comparison모듈/tests·기존성과평가기 최소호환확장/tests·규약/성과문서/개발기록. raw회계·후보정책·숫자조건/flags 변경금지. 완료commit→독립review→main통합/관련검사/인계. rootUSER HANDOFF보존.
 - 목표: 같은등록/cohort/기간/통화/자본/가격/배당/비용으로 순수보유·capcontrol·정확히2후보 합성비교. fixture등급, riskfree결손Sharpeunavailable, 전체chronologyMDD보존, 자동승자/실제성과/OOS승격 없음.
+- 독립 사전기준 /tmp/selected-kr-comparison-independent/expected.py·expected.json: 기존 main의4arm×배당2=8사례 손계산NAV/현금/MDD·첫체결시각 대사 PASS. 새adapter완료후 같은입력대조에재사용, 신규실제성과나adapter검증통과주장금지.
 - 신규실자료가 필요한 조건은가격·기업행동·달력·비용의같은기간결속. KIS보조달력HTTP500 재시도금지. 실제READYcohort없음. 최신배당DB matched24/mismatched13/partial6/unreviewed68=111 확인; 전체자료준비율이아니다.
 - 등록16/revision1, 100M/레버리지20/MDD20 유지. runner/timer inactive, webstack active 확인. 운영실행/주문/승격/원격push 없음.
 

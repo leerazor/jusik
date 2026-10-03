@@ -5462,4 +5462,5 @@
 
 - 상태: explore·plan 완료, 단일 구현 진행. 선행 위험정책 main7cc20002/268검사·독립PASS 완료.
 - 조사/계획: /tmp/selected-kr-comparison-explore-result.txt 및 /tmp/selected-kr-comparison-plan-result.txt 완료. supervisor가 fullrisk 진입점/기존 성과평가기 재사용을 보완. 구현 소유 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, exec20701. checkout /home/kwl/.codex/worktrees/official-dividend-input/jusik, branch codex/selected-kr-comparison, base67a5cd40bf83b3e395fbd7823358f3b016bf96af. /tmp/selected-kr-comparison-code-events.jsonl.
-- 범위: 기존 기준선·정확히2후보·성과지표 경로 재사용 조사. 동일입력 합성 비교에 필요한 최소 연결과 검증 경계, 새원장/지표중복 구현 방지. 실자료 인수/수익성/OOS 주장은 금지.
+- 범위: 새 비교모듈/tests·기존 성과평가기 최소호환확장/tests·규약/성과문서/개발기록. 기존4arm 원장·지표 재사용, fullchronology MDD 보존, 실제성과/OOS/승자판정 금지.
+- supervisor 독립 사전기준: /tmp/selected-kr-comparison-independent/expected.py 및 expected.json, 기존 main 함수4arm×배당2=8사례 Fraction 대사 PASS. 기준선의 초기비용/20%낙폭 위반·후보의 첫체결 차이 보존. 새adapter 검증 완료를 뜻하지 않는다.
