@@ -32,7 +32,7 @@
 
 ## 증거와 재개
 
-- audit: 없음; manifest: 없음; hash: JSON의 `semantic_sources_sha256`에 기록.
+- audit: `/home/kwl/.local/share/jusik/portfolio-audit/20261003-selected-candidate-config/`; 검토 결론·설정·통합 검사와 manifest 보존. 의미 코드 hash는 JSON의 `semantic_sources_sha256`에 기록.
 - 남은 작업·차단 조건: 입력·기간·비용·코드 hash가 동결되고 회계 경계가 해결될 때까지 후보 실행은 금지.
 - 다음 시작: 동결 입력과 raw 회계 연결을 검토하고 JSON의 모든 미해결 값이 근거로 결속된 뒤 사용자가 승인한 후속 구현 경로를 계획한다.
 

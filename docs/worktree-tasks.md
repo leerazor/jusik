@@ -5367,3 +5367,9 @@
 
 - 후보설정 기록/인계: docs/development-records/2026-10-03-selected-candidate-config-freeze-20261003.md 및 docs/handoffs/2026-10-03-selected-candidate-config-freeze-20261003.md.
 - 배당상태 구현 소유: Sol/high 기존 code CLI01a101e4-af50-7242-a80b-38e39abd6672, 관리형 official-dividend-input checkout 재사용, codex/approved-dividend-review-status. 계획 /tmp/approved-dividend-status-plan-result.txt, focused backend/frontend·독립 코드/화면 검토 후 main 통합.
+
+## selected-candidate-ledger-bridge-20261003
+
+- 상태: read-only explore. 고정2후보의 신호를 raw 회계코어에 중복회계 없이 연결하는 최소 다음slice 조사.
+- 소유: 기존 Luna/medium explore CLI, /tmp/selected-candidate-bridge-explore-result.txt. 현재 UI writer와 소유파일 독립, 구현/DB/실험 없음.
+- 입력: main e0b3d1c, 후보설정 d329766dc8f9; baseline/cap-control 검증재사용. 실제자료적격/성과미검증, 자동매매금지 유지.
