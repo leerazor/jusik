@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from decimal import ROUND_FLOOR, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from typing import Literal
 
 from jusik.market_history_action_accounting import (
@@ -188,6 +188,61 @@ class BuyHoldReference:
     investment_qualification: Literal["not_evaluated"] = "not_evaluated"
 
 
+@dataclass(frozen=True)
+class SellCostAssumptions:
+    commission_kr: RateAssumption
+    commission_us: RateAssumption
+    slippage_kr: RateAssumption
+    slippage_us: RateAssumption
+    notional_tax_kr: RateAssumption
+    notional_tax_us: RateAssumption
+    tax_basis: Literal["notional"]
+
+
+@dataclass(frozen=True)
+class Sale:
+    at: datetime
+    instrument: Instrument
+    quantity: Decimal
+    raw_price: Decimal
+    gross_local: Decimal
+    commission_local: Decimal
+    slippage_local: Decimal
+    notional_tax_local: Decimal
+    proceeds_local: Decimal
+    pre_nav_krw: Decimal
+    pre_leveraged_value_krw: Decimal
+    post_nav_krw: Decimal
+    post_leveraged_value_krw: Decimal
+
+
+@dataclass(frozen=True)
+class CapControlAttempt:
+    observed_breach_at: datetime
+    at: datetime
+    status: Literal[
+        "repaired", "partial_unresolved", "natural_recovery", "window_end_unfilled"
+    ]
+    pre_nav_krw: Decimal | None
+    pre_leveraged_value_krw: Decimal | None
+    post_nav_krw: Decimal | None
+    post_leveraged_value_krw: Decimal | None
+
+
+@dataclass(frozen=True)
+class CapControlReference:
+    status: Literal["reference_only"]
+    trades: tuple[Trade, ...]
+    dividends: tuple[DividendLedgerEntry, ...]
+    points: tuple[ReferencePoint, ...]
+    max_drawdown_fraction: Decimal
+    leverage_breached: bool
+    drawdown_breached: bool
+    sales: tuple[Sale, ...]
+    attempts: tuple[CapControlAttempt, ...]
+    investment_qualification: Literal["not_evaluated"] = "not_evaluated"
+
+
 def _decimal(value: Decimal, label: str, *, positive: bool = False) -> Decimal:
     if not isinstance(value, Decimal) or not value.is_finite():
         raise ReferenceInputError(f"{label} must be finite Decimal")
@@ -243,6 +298,64 @@ def _rates(costs: CostAssumptions) -> None:
         if item.rate >= 1:
             raise ReferenceInputError(f"{name} rate must be below one")
         _hash(item.evidence_hash, name)
+
+
+def _sell_rates(costs: SellCostAssumptions) -> None:
+    if not isinstance(costs, SellCostAssumptions):
+        raise ReferenceInputError("complete sell costs required")
+    if costs.tax_basis != "notional":
+        raise ReferenceInputError("unsupported sell tax basis")
+    for name in (
+        "commission_kr",
+        "commission_us",
+        "slippage_kr",
+        "slippage_us",
+        "notional_tax_kr",
+        "notional_tax_us",
+    ):
+        item = getattr(costs, name)
+        if (
+            not isinstance(item, RateAssumption)
+            or not isinstance(item.label, str)
+            or not item.label.strip()
+        ):
+            raise ReferenceInputError(f"{name} needs explicit labelled assumption")
+        _decimal(item.rate, name)
+        if item.rate >= 1:
+            raise ReferenceInputError(f"{name} rate must be below one")
+        _hash(item.evidence_hash, name)
+    for suffix in ("kr", "us"):
+        total = sum(
+            (
+                getattr(costs, f"{kind}_{suffix}").rate
+                for kind in ("commission", "slippage", "notional_tax")
+            ),
+            Decimal(0),
+        )
+        if total >= 1:
+            raise ReferenceInputError(f"combined sell cost {suffix} must be below one")
+
+
+def _sell_state(
+    state: AccountingState, quantity: Decimal, proceeds: Decimal
+) -> AccountingState:
+    """Pure native-currency sale; existing dividend entitlements stay untouched."""
+    holding = state.holdings[0]
+    if (
+        quantity <= 0
+        or quantity > holding.quantity
+        or quantity != quantity.to_integral_value()
+    ):
+        raise ReferenceInputError("invalid sale quantity")
+    if not proceeds.is_finite() or proceeds < 0:
+        raise ReferenceInputError("invalid sale proceeds")
+    remaining = holding.quantity - quantity
+    basis = holding.total_cost * remaining / holding.quantity
+    return replace(
+        state,
+        holdings=(replace(holding, quantity=remaining, total_cost=basis),),
+        cash=state.cash + proceeds,
+    )
 
 
 def _validate(data: FrozenReferenceInput) -> None:
@@ -355,7 +468,9 @@ def _validate(data: FrozenReferenceInput) -> None:
                 raise ReferenceInputError("taxable dividend exceeds gross")
 
 
-def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
+def _run_reference_core(
+    data: FrozenReferenceInput, sell_costs: SellCostAssumptions | None = None
+) -> BuyHoldReference | CapControlReference:
     """Apply frozen offline events; reject any missing or inconsistent fact."""
     _validate(data)
     n = Decimal(len(data.cohort))
@@ -367,6 +482,9 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
     points: list[ReferencePoint] = []
     receivable_tax: dict[str, Decimal] = {}
     peak = INITIAL_KRW
+    sales: list[Sale] = []
+    attempts: list[CapControlAttempt] = []
+    pending_since: datetime | None = None
 
     def fx_at(at: datetime) -> Decimal:
         past = [
@@ -378,7 +496,7 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
             raise ReferenceInputError("historically available FX missing")
         return max(past, key=lambda x: (x.effective_at, x.available_at)).krw_per_usd
 
-    def point(at: datetime, phase: str) -> None:
+    def point(at: datetime, phase: str, *, record: bool = True) -> ReferencePoint:
         nonlocal peak
         usd_needed = any(item.market == "US" for item in states)
         rate = fx_at(at) if usd_needed else Decimal(1)
@@ -416,35 +534,57 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
         )
         if nav <= 0:
             raise ReferenceInputError("NAV nonpositive")
-        peak = max(peak, nav)
+        evaluated_peak = max(peak, nav)
         fraction = leverage / nav
-        drawdown = (peak - nav) / peak
-        points.append(
-            ReferencePoint(
-                at,
-                phase,
-                total_krw_cash,
-                us_cash,
-                tuple(
-                    sorted(
-                        positions,
-                        key=lambda x: (
-                            x.instrument.market,
-                            x.instrument.exchange,
-                            x.instrument.symbol,
-                        ),
-                    )
-                ),
-                kr_rec,
-                us_rec,
-                nav,
-                leverage,
-                fraction,
-                fraction > LIMIT,
-                drawdown,
-                drawdown > LIMIT,
-            )
+        drawdown = (evaluated_peak - nav) / evaluated_peak
+        result = ReferencePoint(
+            at,
+            phase,
+            total_krw_cash,
+            us_cash,
+            tuple(
+                sorted(
+                    positions,
+                    key=lambda x: (
+                        x.instrument.market,
+                        x.instrument.exchange,
+                        x.instrument.symbol,
+                    ),
+                )
+            ),
+            kr_rec,
+            us_rec,
+            nav,
+            leverage,
+            fraction,
+            fraction > LIMIT,
+            drawdown,
+            drawdown > LIMIT,
         )
+        if record:
+            peak = evaluated_peak
+            points.append(result)
+        return result
+
+    def settle_pending(evaluated: ReferencePoint) -> None:
+        nonlocal pending_since
+        if sell_costs is None:
+            return
+        if not evaluated.leverage_breach and pending_since is not None:
+            attempts.append(
+                CapControlAttempt(
+                    pending_since,
+                    evaluated.at,
+                    "natural_recovery",
+                    evaluated.nav_krw,
+                    evaluated.leveraged_value_krw,
+                    evaluated.nav_krw,
+                    evaluated.leveraged_value_krw,
+                )
+            )
+            pending_since = None
+        elif evaluated.leverage_breach and pending_since is None:
+            pending_since = evaluated.at
 
     events: list[tuple[datetime, int, str, object]] = []
     for action in data.actions:
@@ -462,12 +602,14 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
             )
         )
     events.sort(key=lambda x: (x[0], x[1], x[2]))
-    point(data.evaluation_start, "initial")
+    settle_pending(point(data.evaluation_start, "initial"))
     timestamp_phase = ""
     phase_names = ("split", "dividend_ex", "dividend_payment", "open", "close")
+    opens_at: list[RawSession] = []
     for index, (at, phase_order, _, obj) in enumerate(events):
         if index == 0 or events[index - 1][0] != at:
             timestamp_phase = phase_names[phase_order]
+            opens_at = []
         if isinstance(obj, SplitEvent):
             state = states.get(obj.instrument)
             if state is not None:
@@ -499,7 +641,7 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
         elif isinstance(obj, DividendEvent):
             state = states.get(obj.instrument)
             if phase_order == 1:
-                if state is not None:
+                if state is not None and state.holdings[0].quantity > 0:
                     qty = state.holdings[0].quantity
                     taxable = qty * obj.taxable_per_share
                     tax_rate = (
@@ -583,6 +725,7 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
                     )
         elif isinstance(obj, RawSession):
             if phase_order == 3:
+                opens_at.append(obj)
                 if obj.instrument not in states:
                     market = obj.instrument.market
                     rate = fx_at(at) if market == "US" else Decimal(1)
@@ -663,12 +806,167 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
                     holdings=(replace(state.holdings[0], raw_price=obj.raw_close),),
                 )
         if index + 1 == len(events) or events[index + 1][0] != at:
-            point(at, timestamp_phase)
+            if (
+                sell_costs is not None
+                and pending_since is not None
+                and pending_since < at
+            ):
+                eligible = sorted(
+                    (
+                        bar
+                        for bar in opens_at
+                        if bar.instrument.leveraged
+                        and bar.instrument in states
+                        and states[bar.instrument].holdings[0].quantity > 0
+                    ),
+                    key=lambda bar: (
+                        bar.instrument.market,
+                        bar.instrument.exchange,
+                        bar.instrument.symbol,
+                        bar.instrument.identity_hash,
+                    ),
+                )
+                if eligible:
+                    before = point(at, timestamp_phase, record=False)
+                    if not before.leverage_breach:
+                        attempts.append(
+                            CapControlAttempt(
+                                pending_since,
+                                at,
+                                "natural_recovery",
+                                before.nav_krw,
+                                before.leveraged_value_krw,
+                                before.nav_krw,
+                                before.leveraged_value_krw,
+                            )
+                        )
+                        pending_since = None
+                    else:
+                        for bar in eligible:
+                            current = point(at, timestamp_phase, record=False)
+                            if not current.leverage_breach:
+                                break
+                            instrument = bar.instrument
+                            state = states[instrument]
+                            holding = state.holdings[0]
+                            suffix = "us" if instrument.market == "US" else "kr"
+                            commission = getattr(
+                                sell_costs, f"commission_{suffix}"
+                            ).rate
+                            slippage = getattr(sell_costs, f"slippage_{suffix}").rate
+                            tax = getattr(sell_costs, f"notional_tax_{suffix}").rate
+                            cost = commission + slippage + tax
+                            fx = fx_at(at) if instrument.market == "US" else Decimal(1)
+                            unit = bar.raw_open * fx
+                            denominator = unit * (1 - LIMIT * cost)
+                            if not denominator.is_finite() or denominator <= 0:
+                                raise ReferenceInputError(
+                                    "invalid sale sizing denominator"
+                                )
+                            needed = (
+                                (current.leveraged_value_krw - LIMIT * current.nav_krw)
+                                / denominator
+                            ).to_integral_value(rounding=ROUND_CEILING)
+                            quantity = min(needed, holding.quantity)
+                            if (
+                                quantity <= 0
+                                or quantity != quantity.to_integral_value()
+                            ):
+                                raise ReferenceInputError(
+                                    "invalid sale sizing quantity"
+                                )
+                            gross = quantity * bar.raw_open
+                            proceeds = gross * (1 - cost)
+                            if (
+                                not gross.is_finite()
+                                or not proceeds.is_finite()
+                                or proceeds < 0
+                            ):
+                                raise ReferenceInputError("invalid sale arithmetic")
+                            states[instrument] = _sell_state(state, quantity, proceeds)
+                            after = point(at, timestamp_phase, record=False)
+                            expected_nav = current.nav_krw - gross * fx * cost
+                            expected_leverage = current.leveraged_value_krw - gross * fx
+                            if (
+                                after.nav_krw != expected_nav
+                                or after.leveraged_value_krw != expected_leverage
+                            ):
+                                raise ReferenceInputError("sale accounting mismatch")
+                            if quantity < holding.quantity and after.leverage_breach:
+                                raise ReferenceInputError(
+                                    "sale sizing did not repair cap"
+                                )
+                            one_less_exposure = (
+                                current.leveraged_value_krw - (quantity - 1) * unit
+                            )
+                            one_less_nav = (
+                                current.nav_krw - (quantity - 1) * unit * cost
+                            )
+                            if one_less_exposure <= LIMIT * one_less_nav:
+                                raise ReferenceInputError(
+                                    "sale quantity is not minimum"
+                                )
+                            sales.append(
+                                Sale(
+                                    at,
+                                    instrument,
+                                    quantity,
+                                    bar.raw_open,
+                                    gross,
+                                    gross * commission,
+                                    gross * slippage,
+                                    gross * tax,
+                                    proceeds,
+                                    current.nav_krw,
+                                    current.leveraged_value_krw,
+                                    after.nav_krw,
+                                    after.leveraged_value_krw,
+                                )
+                            )
+                        after = point(at, timestamp_phase, record=False)
+                        attempt_status: Literal[
+                            "repaired",
+                            "partial_unresolved",
+                            "natural_recovery",
+                            "window_end_unfilled",
+                        ] = (
+                            "partial_unresolved"
+                            if after.leverage_breach
+                            else "repaired"
+                        )
+                        attempts.append(
+                            CapControlAttempt(
+                                pending_since,
+                                at,
+                                attempt_status,
+                                before.nav_krw,
+                                before.leveraged_value_krw,
+                                after.nav_krw,
+                                after.leveraged_value_krw,
+                            )
+                        )
+                        if not after.leverage_breach:
+                            pending_since = None
+            settle_pending(point(at, timestamp_phase))
     if len(trades) != len(data.cohort):
         raise ReferenceInputError("not every cohort instrument was purchased")
-    point(data.evaluation_end, "evaluation_end")
-    return BuyHoldReference(
-        "reference_only",
+    settle_pending(point(data.evaluation_end, "evaluation_end"))
+    if sell_costs is not None and pending_since is not None:
+        last = points[-1]
+        attempts.append(
+            CapControlAttempt(
+                pending_since,
+                data.evaluation_end,
+                "window_end_unfilled",
+                last.nav_krw,
+                last.leveraged_value_krw,
+                last.nav_krw,
+                last.leveraged_value_krw,
+            )
+        )
+    result_status: Literal["reference_only"] = "reference_only"
+    common = (
+        result_status,
         tuple(trades),
         tuple(dividends),
         tuple(points),
@@ -676,3 +974,23 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
         any(x.leverage_breach for x in points),
         any(x.drawdown_breach for x in points),
     )
+    if sell_costs is None:
+        return BuyHoldReference(*common)
+    return CapControlReference(*common, tuple(sales), tuple(attempts))
+
+
+def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
+    """Apply frozen offline events; reject any missing or inconsistent fact."""
+    result = _run_reference_core(data)
+    assert isinstance(result, BuyHoldReference)
+    return result
+
+
+def run_cap_control_reference(
+    data: FrozenReferenceInput, sell_costs: SellCostAssumptions
+) -> CapControlReference:
+    """Evaluate synthetic cap repair at later official opens."""
+    _sell_rates(sell_costs)
+    result = _run_reference_core(data, sell_costs)
+    assert isinstance(result, CapControlReference)
+    return result
