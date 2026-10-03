@@ -5342,3 +5342,10 @@
 - 원주가 추가자료 완료: ARM/GEV 거래개시 원문2건 독립PASS. 영구 audit `20261003-selected-alpaca-raw-source/listing-boundaries/`, 원주가 작업 기록·인계에 연결. 기존manifest 보존.
 
 - 최신 연속 진행 인계: `docs/handoffs/2026-10-03-selected-research-continuation.md`. cap-control 통합·US10 원주가·NVDA partial3·ARM/GEV 경계 검토 완료 및 다음 자료 작업의 시작점.
+
+## selected-candidate-config-freeze-20261003
+
+- 상태: read-only explore 진행. 기존 규약의 후보2개에 대해 실행 전 JSON으로 고정해야 할 누락 설정을 조사한다.
+- 소유: 기존 Luna/medium explore CLI 세션01a101db-2b98-7813-a412-63418263ff55. 구현 writer 없음.
+- 입력/끝 조건: main2f2822d, 등록16/rev1, equal/none·inverse_volatility/none·4주/2%p 기존규칙 유지. 실제구현값·시점계약 확인→plan→문서/JSON 고정 및 독립검토. 성과실행·criteria완화·주문·DB쓰기 없음.
+- 자료 작업 병행 경계: GOOGL/NVDA issuer ex-date 신규검색은 직접확인 가능한 새사건근거를 찾지 못했다. 이미검증한FAQ나실패URL을 재조회하지 않고 실행설정의 사전등록 결손을 처리한다.
