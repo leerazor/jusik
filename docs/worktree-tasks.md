@@ -5411,7 +5411,7 @@
 
 ## selected-multi-target-execution-20261004
 
-- 상태: 구현9ed4b1e·200검사 PASS, 독립 검토 중. 같은 통화·같은 첫 공식 시가의 초기 target batch를 기존 raw core에 결속. Nmin 보수적 수량, 전체 비용 후 cap·현금 검증, 최대 수량/수익 보장 아님.
+- 상태: 완료. 구현9ed4b1e 독립 PASS, main42214b8 통합·200검사/린트/타입/독립산술 PASS. 같은 통화·같은 첫 공식 시가의 초기 target batch를 기존 raw core에 결속. Nmin 보수적 수량, 전체 비용 후 cap·현금 검증, 최대 수량/수익 보장 아님.
 - 소유: 기존 Luna/medium CLI explore01a101db-2b98-7813-a412-63418263ff55. /tmp/selected-multi-target-explore-events.jsonl. 현재 signal writer와 파일 변경 소유권이 겹치지 않는다.
 - 제한: raw 회계 재사용, 합성 독립 검증만. 실제자료 인수·성과·주문·승격 없음.
 
@@ -5422,3 +5422,5 @@
 - 상태: 읽기 전용 explore 진행, 구현 미배정. 초기 batch 다음 기존 보유수량을 재조정하는 유용한 최소 경로와 기존 매도/일정/밴드 재사용을 조사한다.
 - 소유: 기존Luna/medium CLI explore01a101db-2b98-7813-a412-63418263ff55, /tmp/selected-rebalance-explore-events.jsonl. 등록16/revision1·주문금지·별도 cohort 명시·투자기준 유지.
 - 제한: 초기 batch9ed4b1e는 독립 검토 중이며 통합 완료로 간주하지 않는다. 코드·자료·DB 변경 없음.
+
+- batch 기록/인계: docs/development-records/2026-10-04-selected-multi-target-execution-20261004.md 및 같은 이름 docs/handoffs 파일.

@@ -1,6 +1,6 @@
 # 등록 종목 연구 연속 진행 인계
 
-- 최근 갱신: 2026-10-04 KST / UTC2026-10-03T15:40 전후. root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
+- 최근 갱신: 2026-10-04 KST / UTC2026-10-03T16:36 전후. root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
 - 사용자 승인: 한 단계 검증 후 다음 안전한 단계 계속. 등록16/revision1 유지. 자동매매·실주문·PAPER/live·GitHub Pages·원격push·추가결제·credential정책변경·투자기준완화 금지.
 - 초기 총1억원·레버리지20%·MDD20% 유지. 과거자료를 untouched OOS로 표시하지 않는다. 기존 runner/timer inactive, governance dispatch false. 기존 heartbeat만 유지.
 
@@ -17,9 +17,9 @@
 
 ## 현재 단계 — 다음 시작
 
-- 신호 계산 main4e1ff56 통합/189검사/독립 재검토·산술 PASS. `2026-10-04-selected-candidate-signal-planner-20261004.md` 인계 참조. UTC 시차 P2 수정 완료.
-- 다음 selected-multi-target-execution-20261004: explore/plan 완료, `/tmp/selected-multi-target-plan-result.txt`. 같은 통화·같은 첫 시가 초기 목표 묶음을 기존 원장에 직접 결속한다. 혼합시장·재조정·일정·성과는 아직 범위 밖이다.
-- 관리형 checkout 재사용, 동일 Sol/high code CLI 소유 유지. 새 writer 중복 생성 금지. 통합 후 다음 단계까지 계속 진행 승인됨.
+- 신호 계산 main4e1ff56/189검사/독립 재검토 PASS. 같은 통화·동시 첫 시가 초기 target batch main42214b8/200검사/독립 검토·산술 PASS. 각각 2026-10-04 작업별 인계 재사용.
+- 현재 selected-rebalance-sequence-20261004 읽기 전용 explore. `/tmp/selected-rebalance-explore-events.jsonl`, 기존Luna/medium CLI01a101db-2b98-7813-a412-63418263ff55. 기존 보유분 매도/매수·일정/밴드 재사용의 유용한 최소 다음 단계 조사 후 plan한다.
+- 관리형 checkout은 다음 작업 재사용 위해 보존, codewriter 종료. 새 writer 중복 생성 금지. 등록16/revision1·기준 유지, 실제 자료/성과/전체 전략 미완료.
 
 ## 실행 도구·중복 방지
 

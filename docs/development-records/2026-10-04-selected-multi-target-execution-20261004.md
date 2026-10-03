@@ -1,9 +1,9 @@
 # 선정 후보 최초 다종목 target 합성 체결
 
-- 상태: 구현·로컬 검증 완료, 독립 검토·supervisor 통합 대기
+- 상태: 완료: 독립 검토 PASS·로컬 main 통합·200개 통합 검사 PASS
 - 기록 시각: 2026-10-03T16:31:47Z
 - 작업 slug: `selected-multi-target-execution-20261004`
-- 기준/통합: `59fe312095c30ffe8e64dae68a2482cdcf44baf6` / 없음
+- 기준/통합: `59fe312095c30ffe8e64dae68a2482cdcf44baf6` / `42214b8af0f693f0ea8dc5c53d2f5453d961184d`
 - 범위: 기존 raw 사건 루프에서 같은 통화·같은 다음 공식 시가에 도달하는 전체 cohort의 최초 목표 벡터 한 건만 합성 체결했다. 신호 모듈·legacy 원장·API·scheduler·재조정·매도는 변경하지 않았다.
 
 ## 변경과 결정
@@ -34,11 +34,17 @@
 ## 증거와 재개
 
 - 재현 경로: `/tmp/selected-multi-target-code/`에 사전·사후 전체 직렬화 JSON, 독립 oracle 및 결과 JSON을 보관했다.
-- 남은 작업: 독립 코드 검토와 supervisor의 로컬 main 통합. 이후 신호 목표와 raw 체결 연결, 혼합 시장·여러 개장, 재조정·위험 episode·실제 자료 적격은 별도 단계다.
-- 다음 시작: 이 브랜치 diff, 200개 검사, 9개 기존 직렬화 fixture와 설정 hash·차단 flags를 확인한다.
+- 남은 작업: 독립 코드 검토와 로컬 main 통합은 완료했다. 이후 신호 목표와 raw 체결 연결, 혼합 시장·여러 개장, 재조정·위험 episode·실제 자료 적격은 별도 단계다.
+- 다음 시작: selected-rebalance-sequence 작업의 기존 매도·일정·밴드 재사용 조사 결과로 계획을 확정한다.
 
 ## workflow 평가
 
 - workflow 판단: 도움 됨 — 고정 계획과 기존 코어를 재사용해 한 번의 초기 동시 체결로 범위를 제한했다.
 - 근거: 순수 산술과 원장 경계를 독립 열거·200개 검사·전체 출력 비교로 확인했다. 시간·호출 절감량은 미측정이다.
 - 다음 조정: 유지 — 독립 검토 후 다음 실행 단계를 별도 소유 작업으로 다룬다.
+
+## supervisor 통합
+
+- 구현9ed4b1e 독립 Sol/high review PASS. main42214b8에서 200개 검사(6.58초)·Ruff·strict mypy·독립 KR1%/US수수료+환전 Fraction oracle·전체 결과 순열불변 PASS.
+- 영구 audit `/home/kwl/.local/share/jusik/portfolio-audit/20261004-selected-multi-target/`, manifest SHA `31efda9c8496796133ce45055c5b815b8a03ff629c4bb571cb13a69d1d56b75f`.
+- 다음 재조정 단계의 읽기 전용 explore가 진행 중이다. 관리형 checkout은 후속 작업 재사용을 위해 유지한다. root 사용자 HANDOFF.md 보존.
