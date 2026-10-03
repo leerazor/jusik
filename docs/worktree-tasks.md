@@ -5298,7 +5298,12 @@
 
 ## approved-buy-hold-cap-control-20261003
 
-- 상태: explore 완료, read-only plan 진행. 기준main d7ecddb의 pure reference/67검사 보존.
+- 상태: explore/plan 완료, 구현 준비. 최신main88ceefc의 pure reference/67검사 보존.
 - 목표: 같은 회계코어의 별도 cap-control. 관측된 레버리지20%초과 후 엄격히 다음 공식open에서 명시 매도비용을 반영해 최소 정수수량 감소; 과거초과·지연·미체결 보존.
-- 소유: 중앙Luna/medium CLI explore종료, Sol/high CLI plan현재진행; 코드writer없음. /tmp/buyhold-cap-plan-events.jsonl과 결과확인 후 단일구현배정.
+- 소유: explore/plan 종료. 단일 Sol/high CLI code executor 배정 예정; 관리형checkout 재사용, 새 branch codex/approved-buy-hold-cap-control.
 - 범위/끝 조건: 합성 reference_only, baseline API/결과보존·공유core·현금/권리/비용/위험 독립검증. 실제16종목 성과·주문·승격·서비스·remote push 제외.
+
+- 계획 결정: 별도 run_cap_control_reference와 명시 KR/US 매도 수수료·슬리피지·명목금액 세금 가정. 기존 public baseline 계약/전체출력 보존, private core 공유. 후보/실제성과 실행 없음.
+- 동일 timestamp의 관측 가능한 모든 가격(open/close)과 기업행동을 반영한 후 이전시점 위반에 한해 매도 수량 계산. 판매종목의 체결가는 해당 공식open. 정렬순 market/exchange/symbol/identity_hash 고정, 원가비례 감소·기존배당권리 보존·USD현금 유지.
+- 최소수량 ceil((L-0.20*N)/(P*FX*(1-0.20*c))) 및 거래후 비중 재검증. 체결 직전/직후 노출을 매도기록에 남겨 갭 초과를 지우지 않는다. 다음open부재/부분해소/자연회복은 명시적으로 구분.
+- 검증: 기존baseline전체출력동일성, 1%독립oracle80161주/NAV119839678, plan2%oracle80322주/NAV119678712, 분할/배당미수/다중시장/가격갭/과거위반보존. 전부합성.
