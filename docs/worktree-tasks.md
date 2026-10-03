@@ -5386,8 +5386,15 @@
 
 ## selected-kodex-raw-receipt-20261003
 
-- 상태: read-only source실행계획. KODEX487230원주가 요청receipt 결손을 기존자료재사용 또는 최대1공식GET로 보완할 경로확인.
+- 상태: 완료. 정상인증1+시세1/재시도0으로487230원주가22봉확보, 기존22일OHLCV동일·독립PASS. 과거전체lineage/자료적격미완료.
 - 소유: 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, /tmp/kodex-raw-receipt-plan-result.txt. 아직조회/DB/토큰쓰기없음. 기존credential/token cache유효조건, 비밀/계좌출력금지·주문금지·100봉1페이지/재시도0 상한.
 
 - target bridge 완료 기록/인계: docs/development-records/2026-10-03-selected-candidate-ledger-bridge-20261003.md 및 docs/handoffs/2026-10-03-selected-candidate-ledger-bridge-20261003.md. 현재applicationwriter없음.
 - KODEX소스 계획조정: 프로세스외부token추출대신 기존연구설정 정상인증1POST+시세1GET, 재시도0·토큰메모리만 허용. 사용자credential정책/설정은변경없음. source스크립트실행전readonly검토중.
+
+## selected-krx-calendar-source-20261004
+
+- 상태: 공식 KRX 휴장일·정규시간 공개근거 확인. KODEX원주가22봉기간의calendar경계 source보완, 현재성과기간동결아님.
+- 소유: supervisor 공개사이트읽기만. /tmp/krx-calendar-source, 공식휴장일JSP는web텍스트에연도별자료가없어동적화면1회확인. 신원/DB/주문/설정변경없음. 정규시간공식영문페이지는09:00~15:30 및일반휴장규칙확인, 전체과거calendar인수는별도.
+
+- KODEX receipt 기록/인계: docs/development-records/2026-10-04-selected-kodex-raw-receipt-20261003.md 및 docs/handoffs/2026-10-04-selected-kodex-raw-receipt-20261003.md. 공개필드추출만보존하며같은조회반복금지.
