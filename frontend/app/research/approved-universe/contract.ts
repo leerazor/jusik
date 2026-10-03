@@ -55,6 +55,9 @@ export const approvedReadinessSchema = z.object({
       identity_status: z.literal("not_checked"),
       observed_event_count: z.number().int().nonnegative().nullable(),
       reviewed_current_event_count: z.number().int().nonnegative().nullable(),
+      matched_current_event_count: z.number().int().nonnegative().nullable(),
+      partial_current_event_count: z.number().int().nonnegative().nullable(),
+      mismatched_current_event_count: z.number().int().nonnegative().nullable(),
     }),
   })).max(100),
 });
