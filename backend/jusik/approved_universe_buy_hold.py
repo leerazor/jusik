@@ -243,6 +243,44 @@ class CapControlReference:
     investment_qualification: Literal["not_evaluated"] = "not_evaluated"
 
 
+@dataclass(frozen=True)
+class TargetInstruction:
+    instrument: Instrument
+    decided_at: datetime
+    target_weight: Decimal
+
+
+@dataclass(frozen=True)
+class TargetAttempt:
+    at: datetime
+    status: Literal[
+        "filled", "zero_target", "one_share_unaffordable", "window_end_unfilled"
+    ]
+
+
+@dataclass(frozen=True)
+class TargetBridgeReference:
+    status: Literal["synthetic_reference_only"]
+    trades: tuple[Trade, ...]
+    dividends: tuple[DividendLedgerEntry, ...]
+    points: tuple[ReferencePoint, ...]
+    max_drawdown_fraction: Decimal
+    leverage_breached: bool
+    drawdown_breached: bool
+    target_attempt: TargetAttempt
+    investment_qualification: Literal["not_evaluated"] = "not_evaluated"
+
+
+@dataclass(frozen=True)
+class _BuyTerms:
+    rate: Decimal
+    commission: Decimal
+    slippage: Decimal
+    buy_tax: Decimal
+    spread: Decimal
+    unit_cost: Decimal
+
+
 def _decimal(value: Decimal, label: str, *, positive: bool = False) -> Decimal:
     if not isinstance(value, Decimal) or not value.is_finite():
         raise ReferenceInputError(f"{label} must be finite Decimal")
@@ -358,7 +396,9 @@ def _sell_state(
     )
 
 
-def _validate(data: FrozenReferenceInput) -> None:
+def _validate(
+    data: FrozenReferenceInput, *, enforce_initial_allocation: bool = True
+) -> None:
     if type(data.registration_revision) is not int or data.registration_revision < 1:
         raise ReferenceInputError("registration revision required")
     for name in (
@@ -392,7 +432,11 @@ def _validate(data: FrozenReferenceInput) -> None:
         raise ReferenceInputError("duplicate registered/cohort identity")
     if not set(data.cohort).issubset(set(data.registered)):
         raise ReferenceInputError("cohort must be registered identity subset")
-    if Decimal(sum(item.leveraged for item in data.cohort)) / len(data.cohort) > LIMIT:
+    if (
+        enforce_initial_allocation
+        and Decimal(sum(item.leveraged for item in data.cohort)) / len(data.cohort)
+        > LIMIT
+    ):
         raise ReferenceInputError(
             "initial equal cohort allocation exceeds leverage cap"
         )
@@ -468,11 +512,29 @@ def _validate(data: FrozenReferenceInput) -> None:
                 raise ReferenceInputError("taxable dividend exceeds gross")
 
 
+def _validate_target(data: FrozenReferenceInput, target: TargetInstruction) -> None:
+    if not isinstance(target, TargetInstruction):
+        raise ReferenceInputError("target instruction required")
+    _instrument(target.instrument)
+    if target.instrument not in data.cohort or target.instrument not in data.registered:
+        raise ReferenceInputError("target registered identity mismatch")
+    decided_at = _time(target.decided_at, "target decision")
+    if not data.evaluation_start <= decided_at < data.evaluation_end:
+        raise ReferenceInputError("target decision outside evaluation interval")
+    weight = _decimal(target.target_weight, "target weight")
+    if weight > LIMIT:
+        raise ReferenceInputError("target weight exceeds symbol cap")
+
+
 def _run_reference_core(
-    data: FrozenReferenceInput, sell_costs: SellCostAssumptions | None = None
-) -> BuyHoldReference | CapControlReference:
+    data: FrozenReferenceInput,
+    sell_costs: SellCostAssumptions | None = None,
+    target: TargetInstruction | None = None,
+) -> BuyHoldReference | CapControlReference | TargetBridgeReference:
     """Apply frozen offline events; reject any missing or inconsistent fact."""
-    _validate(data)
+    _validate(data, enforce_initial_allocation=target is None)
+    if target is not None:
+        _validate_target(data, target)
     n = Decimal(len(data.cohort))
     budgets = {item: INITIAL_KRW / n for item in data.cohort}
     states: dict[Instrument, AccountingState] = {}
@@ -485,6 +547,11 @@ def _run_reference_core(
     sales: list[Sale] = []
     attempts: list[CapControlAttempt] = []
     pending_since: datetime | None = None
+    target_attempt: TargetAttempt | None = (
+        TargetAttempt(target.decided_at, "zero_target")
+        if target is not None and target.target_weight == 0
+        else None
+    )
 
     def fx_at(at: datetime) -> Decimal:
         past = [
@@ -586,6 +653,68 @@ def _run_reference_core(
         elif evaluated.leverage_breach and pending_since is None:
             pending_since = evaluated.at
 
+    def buy_terms(bar: RawSession, at: datetime) -> _BuyTerms:
+        market = bar.instrument.market
+        rate = fx_at(at) if market == "US" else Decimal(1)
+        commission = (
+            data.costs.commission_us.rate
+            if market == "US"
+            else data.costs.commission_kr.rate
+        )
+        slippage = (
+            data.costs.slippage_us.rate
+            if market == "US"
+            else data.costs.slippage_kr.rate
+        )
+        buy_tax = (
+            data.costs.buy_tax_us.rate if market == "US" else data.costs.buy_tax_kr.rate
+        )
+        spread = data.costs.fx_spread.rate if market == "US" else Decimal(0)
+        unit_cost = (
+            bar.raw_open * (1 + commission + slippage + buy_tax) * rate * (1 + spread)
+        )
+        return _BuyTerms(rate, commission, slippage, buy_tax, spread, unit_cost)
+
+    def buy_at_open(
+        bar: RawSession, at: datetime, quantity: Decimal, terms: _BuyTerms
+    ) -> None:
+        nonlocal krw_cash
+        local_notional = quantity * bar.raw_open
+        local_cost = local_notional * (
+            1 + terms.commission + terms.slippage + terms.buy_tax
+        )
+        krw_cost = local_cost * terms.rate * (1 + terms.spread)
+        krw_cash -= krw_cost
+        if krw_cash < 0:
+            raise ReferenceInputError("initial committed budgets exceed capital")
+        currency: Currency = "USD" if bar.instrument.market == "US" else "KRW"
+        states[bar.instrument] = AccountingState(
+            holdings=(
+                Holding(
+                    bar.instrument.symbol,
+                    quantity,
+                    bar.raw_open,
+                    local_cost,
+                    currency,
+                ),
+            ),
+            currency=currency,
+        )
+        trades.append(
+            Trade(
+                at,
+                bar.instrument,
+                quantity,
+                bar.raw_open,
+                local_notional,
+                local_notional * terms.commission,
+                local_notional * terms.slippage,
+                local_notional * terms.buy_tax,
+                local_cost * terms.rate * terms.spread,
+                krw_cost,
+            )
+        )
+
     events: list[tuple[datetime, int, str, object]] = []
     for action in data.actions:
         if isinstance(action, SplitEvent):
@@ -606,10 +735,12 @@ def _run_reference_core(
     timestamp_phase = ""
     phase_names = ("split", "dividend_ex", "dividend_payment", "open", "close")
     opens_at: list[RawSession] = []
+    target_open: RawSession | None = None
     for index, (at, phase_order, _, obj) in enumerate(events):
         if index == 0 or events[index - 1][0] != at:
             timestamp_phase = phase_names[phase_order]
             opens_at = []
+            target_open = None
         if isinstance(obj, SplitEvent):
             state = states.get(obj.instrument)
             if state is not None:
@@ -726,73 +857,24 @@ def _run_reference_core(
         elif isinstance(obj, RawSession):
             if phase_order == 3:
                 opens_at.append(obj)
+                if (
+                    target is not None
+                    and target_attempt is None
+                    and obj.instrument == target.instrument
+                    and at > target.decided_at
+                ):
+                    target_open = obj
                 if obj.instrument not in states:
-                    market = obj.instrument.market
-                    rate = fx_at(at) if market == "US" else Decimal(1)
-                    commission = (
-                        data.costs.commission_us.rate
-                        if market == "US"
-                        else data.costs.commission_kr.rate
-                    )
-                    slippage = (
-                        data.costs.slippage_us.rate
-                        if market == "US"
-                        else data.costs.slippage_kr.rate
-                    )
-                    buy_tax = (
-                        data.costs.buy_tax_us.rate
-                        if market == "US"
-                        else data.costs.buy_tax_kr.rate
-                    )
-                    spread = data.costs.fx_spread.rate if market == "US" else Decimal(0)
-                    unit_cost = (
-                        obj.raw_open
-                        * (1 + commission + slippage + buy_tax)
-                        * rate
-                        * (1 + spread)
-                    )
-                    quantity = (budgets[obj.instrument] / unit_cost).to_integral_value(
-                        rounding=ROUND_FLOOR
-                    )
-                    if quantity < 1:
-                        raise ReferenceInputError(
-                            "per-instrument budget cannot buy one share"
-                        )
-                    local_notional = quantity * obj.raw_open
-                    local_cost = local_notional * (1 + commission + slippage + buy_tax)
-                    krw_cost = local_cost * rate * (1 + spread)
-                    krw_cash -= krw_cost
-                    if krw_cash < 0:
-                        raise ReferenceInputError(
-                            "initial committed budgets exceed capital"
-                        )
-                    currency: Currency = "USD" if market == "US" else "KRW"
-                    states[obj.instrument] = AccountingState(
-                        holdings=(
-                            Holding(
-                                obj.instrument.symbol,
-                                quantity,
-                                obj.raw_open,
-                                local_cost,
-                                currency,
-                            ),
-                        ),
-                        currency=currency,
-                    )
-                    trades.append(
-                        Trade(
-                            at,
-                            obj.instrument,
-                            quantity,
-                            obj.raw_open,
-                            local_notional,
-                            local_notional * commission,
-                            local_notional * slippage,
-                            local_notional * buy_tax,
-                            local_cost * rate * spread,
-                            krw_cost,
-                        )
-                    )
+                    if target is None:
+                        terms = buy_terms(obj, at)
+                        quantity = (
+                            budgets[obj.instrument] / terms.unit_cost
+                        ).to_integral_value(rounding=ROUND_FLOOR)
+                        if quantity < 1:
+                            raise ReferenceInputError(
+                                "per-instrument budget cannot buy one share"
+                            )
+                        buy_at_open(obj, at, quantity, terms)
                 else:
                     state = states[obj.instrument]
                     states[obj.instrument] = replace(
@@ -800,11 +882,50 @@ def _run_reference_core(
                         holdings=(replace(state.holdings[0], raw_price=obj.raw_open),),
                     )
             else:
-                state = states[obj.instrument]
-                states[obj.instrument] = replace(
-                    state,
-                    holdings=(replace(state.holdings[0], raw_price=obj.raw_close),),
+                state = states.get(obj.instrument)
+                if state is not None:
+                    states[obj.instrument] = replace(
+                        state,
+                        holdings=(replace(state.holdings[0], raw_price=obj.raw_close),),
+                    )
+        if (
+            target is not None
+            and target_open is not None
+            and phase_order == 3
+            and (index + 1 == len(events) or events[index + 1][:2] != (at, 3))
+        ):
+            before = point(at, "open", record=False)
+            terms = buy_terms(target_open, at)
+            effective_cost = (1 + terms.commission + terms.slippage + terms.buy_tax) * (
+                1 + terms.spread
+            ) - 1
+            unit_value = target_open.raw_open * terms.rate
+            denominator = unit_value * (1 + target.target_weight * effective_cost)
+            if not denominator.is_finite() or denominator <= 0:
+                raise ReferenceInputError("target sizing denominator invalid")
+            desired = (
+                target.target_weight * before.nav_krw / denominator
+            ).to_integral_value(rounding=ROUND_FLOOR)
+            affordable = (krw_cash / terms.unit_cost).to_integral_value(
+                rounding=ROUND_FLOOR
+            )
+            quantity = min(desired, affordable)
+            if quantity < 1:
+                target_attempt = TargetAttempt(at, "one_share_unaffordable")
+            else:
+                buy_at_open(target_open, at, quantity, terms)
+                after = point(at, "open", record=False)
+                position = next(
+                    x for x in after.positions if x.instrument == target.instrument
                 )
+                if (
+                    position.value_krw / after.nav_krw > target.target_weight
+                    or after.leveraged_fraction > LIMIT
+                    or after.cash_krw < 0
+                ):
+                    raise ReferenceInputError("target purchase exceeds post-cost cap")
+                target_attempt = TargetAttempt(at, "filled")
+            target_open = None
         if index + 1 == len(events) or events[index + 1][0] != at:
             if (
                 sell_costs is not None
@@ -948,7 +1069,7 @@ def _run_reference_core(
                         if not after.leverage_breach:
                             pending_since = None
             settle_pending(point(at, timestamp_phase))
-    if len(trades) != len(data.cohort):
+    if target is None and len(trades) != len(data.cohort):
         raise ReferenceInputError("not every cohort instrument was purchased")
     settle_pending(point(data.evaluation_end, "evaluation_end"))
     if sell_costs is not None and pending_since is not None:
@@ -974,6 +1095,19 @@ def _run_reference_core(
         any(x.leverage_breach for x in points),
         any(x.drawdown_breach for x in points),
     )
+    if target is not None:
+        if target_attempt is None:
+            target_attempt = TargetAttempt(data.evaluation_end, "window_end_unfilled")
+        return TargetBridgeReference(
+            "synthetic_reference_only",
+            tuple(trades),
+            tuple(dividends),
+            tuple(points),
+            common[4],
+            common[5],
+            common[6],
+            target_attempt,
+        )
     if sell_costs is None:
         return BuyHoldReference(*common)
     return CapControlReference(*common, tuple(sales), tuple(attempts))
@@ -993,4 +1127,13 @@ def run_cap_control_reference(
     _sell_rates(sell_costs)
     result = _run_reference_core(data, sell_costs)
     assert isinstance(result, CapControlReference)
+    return result
+
+
+def run_target_bridge_reference(
+    data: FrozenReferenceInput, target: TargetInstruction
+) -> TargetBridgeReference:
+    """Inject one synthetic initial target into the shared raw accounting core."""
+    result = _run_reference_core(data, target=target)
+    assert isinstance(result, TargetBridgeReference)
     return result
