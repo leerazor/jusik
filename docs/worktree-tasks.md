@@ -5457,3 +5457,9 @@
 - 상태: 자료 차단: 독립 사전검토PASS 후 기존연구host auth1/GET1/retry0/pagination0 → HTTP500. 원인미확정·자료0. 동일실패조회반복 금지.
 - 소유: supervisor `/tmp/kis-calendar-receipt`, 검토 기존Sol/high CLI01a101ef-ad38-73b3-8758-3d376d76f9fd. `/tmp/kis-calendar-receipt/review-events.jsonl`, exec99379.
 - 기록/인계: docs/development-records/2026-10-04-selected-kis-calendar-receipt-20261004.md 및 같은 이름 docs/handoffs 파일. 새로운 지원근거 또는 공식거래소자료가 재개조건. 코드writer·DB·서비스·credential정책과 독립.
+
+## selected-kr-comparison-20261004
+
+- 상태: 후속 읽기 전용 explore. 선행 위험정책 수정·독립PASS·main통합 전 구현하지 않는다.
+- 소유: 기존 Luna/medium exploreCLI01a101db-2b98-7813-a412-63418263ff55. /tmp/selected-kr-comparison-explore-events.jsonl.
+- 범위: 기존 기준선·정확히2후보·성과지표 경로 재사용 조사. 동일입력 합성 비교에 필요한 최소 연결과 검증 경계, 새원장/지표중복 구현 방지. 실자료 인수/수익성/OOS 주장은 금지.
