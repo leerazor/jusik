@@ -6,6 +6,7 @@ This pure module cannot authenticate a provider or establish historical PIT vali
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
@@ -252,6 +253,17 @@ class TargetInstruction:
 
 
 @dataclass(frozen=True)
+class HoldQuantityInstruction:
+    instrument: Instrument
+    decided_at: datetime
+    target_weight: Decimal
+    quantity: Decimal
+
+
+KRInstruction = TargetInstruction | HoldQuantityInstruction
+
+
+@dataclass(frozen=True)
 class TargetAttempt:
     at: datetime
     status: Literal[
@@ -339,11 +351,12 @@ class _BatchSizingLine:
 
 @dataclass(frozen=True)
 class _RebalanceLine:
-    weight: Decimal
+    weight: Decimal | None
     held: Decimal
     unit_value: Decimal
     unit_buy_cost: Decimal
     unit_sell_proceeds: Decimal
+    hold_quantity: Decimal | None = None
 
 
 def _ceil_fraction(value: Fraction) -> int:
@@ -360,23 +373,35 @@ def _size_kr_rebalance(
     values: list[Fraction] = []
     buy_costs: list[Fraction] = []
     proceeds: list[Fraction] = []
-    weights: list[Fraction] = []
+    weights: list[Fraction | None] = []
     held: list[int] = []
     upper: list[int] = []
     for line in lines:
-        w = Fraction(_decimal(line.weight, "rebalance target weight"))
         h = _decimal(line.held, "rebalance held quantity")
         v = Fraction(_decimal(line.unit_value, "rebalance unit value", positive=True))
         c = Fraction(_decimal(line.unit_buy_cost, "rebalance buy cost", positive=True))
         p = Fraction(_decimal(line.unit_sell_proceeds, "rebalance sell proceeds"))
-        if h != h.to_integral_value() or w > Fraction(LIMIT) or c < v or p > v:
+        if h != h.to_integral_value() or c < v or p > v:
             raise ReferenceInputError("rebalance sizing line invalid")
+        if line.hold_quantity is not None:
+            if line.weight is not None:
+                raise ReferenceInputError("hold quantity cannot carry sizing weight")
+            held_at_decision = _decimal(line.hold_quantity, "hold quantity")
+            if held_at_decision != held_at_decision.to_integral_value():
+                raise ReferenceInputError("hold quantity must be integral")
+            w: Fraction | None = None
+        else:
+            if line.weight is None:
+                raise ReferenceInputError("rebalance target weight required")
+            w = Fraction(_decimal(line.weight, "rebalance target weight"))
+            if w > Fraction(LIMIT):
+                raise ReferenceInputError("rebalance target weight exceeds cap")
         values.append(v)
         buy_costs.append(c)
         proceeds.append(p)
         weights.append(w)
         held.append(int(h))
-        upper.append(max(0, (w * n - int(h) * v) // v))
+        upper.append(0 if w is None else max(0, (w * n - int(h) * v) // v))
     n_base = n - sum(
         (upper[i] * (buy_costs[i] - values[i]) for i in range(len(lines))),
         Fraction(0),
@@ -396,13 +421,17 @@ def _size_kr_rebalance(
             raise ReferenceInputError("rebalance conservative NAV nonpositive")
         changed = False
         for i in range(len(lines)):
-            exposure = (held[i] - sold[i]) * values[i]
-            if exposure <= weights[i] * n_ref:
+            if weights[i] is None:
                 continue
-            denominator = values[i] - weights[i] * (values[i] - proceeds[i])
+            weight = weights[i]
+            assert weight is not None
+            exposure = (held[i] - sold[i]) * values[i]
+            if exposure <= weight * n_ref:
+                continue
+            denominator = values[i] - weight * (values[i] - proceeds[i])
             if denominator <= 0:
                 raise ReferenceInputError("rebalance sale denominator invalid")
-            need = _ceil_fraction((exposure - weights[i] * n_ref) / denominator)
+            need = _ceil_fraction((exposure - weight * n_ref) / denominator)
             if need <= 0 or sold[i] + need > held[i]:
                 raise ReferenceInputError("rebalance sale cannot satisfy target")
             sold[i] += need
@@ -414,12 +443,13 @@ def _size_kr_rebalance(
             break
     else:
         raise ReferenceInputError("rebalance sale sizing did not converge")
-    bought = [
-        0
-        if sold[i]
-        else max(0, (weights[i] * n_ref - held[i] * values[i]) // values[i])
-        for i in range(len(lines))
-    ]
+    bought: list[int] = []
+    for i, weight in enumerate(weights):
+        bought.append(
+            0
+            if sold[i] or weight is None
+            else max(0, (weight * n_ref - held[i] * values[i]) // values[i])
+        )
     funding = k + sum((sold[i] * proceeds[i] for i in range(len(lines))), Fraction(0))
     spend = sum((bought[i] * buy_costs[i] for i in range(len(lines))), Fraction(0))
     if spend > funding:
@@ -813,12 +843,87 @@ def _validate_kr_decisions(
     return tuple(scheduled)
 
 
+def _validate_kr_hook_vector(
+    data: FrozenReferenceInput,
+    vector: tuple[KRInstruction, ...],
+    decision: datetime,
+    prior: ReferencePoint,
+) -> tuple[tuple[KRInstruction, ...], datetime]:
+    if not isinstance(vector, tuple) or len(vector) != len(data.cohort):
+        raise ReferenceInputError("KR hook requires every cohort identity once")
+    quantities = {
+        position.instrument: position.quantity for position in prior.positions
+    }
+    seen: set[Instrument] = set()
+    gross = Fraction(0)
+    leveraged = Fraction(0)
+    for item in vector:
+        if not isinstance(item, (TargetInstruction, HoldQuantityInstruction)):
+            raise ReferenceInputError("invalid KR hook instruction")
+        _instrument(item.instrument)
+        if (
+            item.instrument not in data.cohort
+            or item.instrument in seen
+            or _time(item.decided_at, "hook decision") != decision
+        ):
+            raise ReferenceInputError("KR hook identity or decision mismatch")
+        seen.add(item.instrument)
+        weight = _decimal(item.target_weight, "hook target weight")
+        if weight > LIMIT:
+            raise ReferenceInputError("KR hook target exceeds symbol cap")
+        gross += Fraction(weight)
+        if item.instrument.leveraged:
+            leveraged += Fraction(weight)
+        if isinstance(item, HoldQuantityInstruction):
+            held = _decimal(item.quantity, "hold quantity")
+            if (
+                weight == 0
+                or held != held.to_integral_value()
+                or held != quantities.get(item.instrument, Decimal(0))
+            ):
+                raise ReferenceInputError("malformed hold quantity instruction")
+    if (
+        seen != set(data.cohort)
+        or gross > Fraction(Decimal("0.60"))
+        or leveraged > Fraction(LIMIT)
+    ):
+        raise ReferenceInputError("KR hook cohort or target caps invalid")
+    ordered = tuple(
+        sorted(
+            vector,
+            key=lambda item: (
+                item.instrument.market,
+                item.instrument.exchange,
+                item.instrument.symbol,
+                item.instrument.identity_hash,
+            ),
+        )
+    )
+    first_opens: set[datetime] = set()
+    for item in ordered:
+        future = [
+            _time(bar.open_at, "official open")
+            for bar in data.sessions
+            if bar.instrument == item.instrument and bar.open_at > decision
+        ]
+        if not future:
+            raise ReferenceInputError("KR hook missing next official open")
+        first_opens.add(min(future))
+    if len(first_opens) != 1:
+        raise ReferenceInputError("KR hook first official opens differ")
+    return ordered, next(iter(first_opens))
+
+
 def _run_reference_core(
     data: FrozenReferenceInput,
     sell_costs: SellCostAssumptions | None = None,
     target: TargetInstruction | None = None,
     batch_targets: tuple[TargetInstruction, ...] | None = None,
     kr_decisions: tuple[tuple[TargetInstruction, ...], ...] | None = None,
+    kr_decision_times: tuple[datetime, ...] | None = None,
+    kr_decision_hook: Callable[[datetime, ReferencePoint], tuple[KRInstruction, ...]]
+    | None = None,
+    kr_close_hook: Callable[[ReferencePoint], None] | None = None,
 ) -> (
     BuyHoldReference
     | CapControlReference
@@ -827,17 +932,35 @@ def _run_reference_core(
     | KRTargetSequenceReference
 ):
     """Apply frozen offline events; reject any missing or inconsistent fact."""
+    policy_mode = kr_decision_hook is not None
     if (
         kr_decisions is None
+        and not policy_mode
         and sum(x is not None for x in (sell_costs, target, batch_targets)) > 1
     ):
         raise ReferenceInputError("reference modes cannot be combined")
     if kr_decisions is not None and (target is not None or batch_targets is not None):
         raise ReferenceInputError("reference modes cannot be combined")
+    if policy_mode:
+        if (
+            kr_decisions is not None
+            or target is not None
+            or batch_targets is not None
+            or sell_costs is None
+            or kr_decision_times is None
+            or kr_close_hook is None
+            or not kr_decision_times
+        ):
+            raise ReferenceInputError("incomplete KR policy hook")
+    elif kr_decision_times is not None or kr_close_hook is not None:
+        raise ReferenceInputError("KR policy hook missing")
     _validate(
         data,
         enforce_initial_allocation=(
-            target is None and batch_targets is None and kr_decisions is None
+            target is None
+            and batch_targets is None
+            and kr_decisions is None
+            and not policy_mode
         ),
     )
     if target is not None:
@@ -846,9 +969,23 @@ def _run_reference_core(
     batch_open_at: datetime | None = None
     if batch_targets is not None:
         ordered_batch, batch_open_at = _validate_multi_targets(data, batch_targets)
-    scheduled = (
+    scheduled: list[tuple[tuple[KRInstruction, ...], datetime]] = list(
         _validate_kr_decisions(data, kr_decisions) if kr_decisions is not None else ()
     )
+    if policy_mode:
+        assert kr_decision_times is not None
+        normalized = tuple(_time(at, "KR policy decision") for at in kr_decision_times)
+        if (
+            any(
+                not data.evaluation_start <= at < data.evaluation_end
+                for at in normalized
+            )
+            or any(a >= b for a, b in zip(normalized, normalized[1:]))
+            or data.registration_revision != 1
+            or any(item.market != "KR" for item in data.cohort)
+        ):
+            raise ReferenceInputError("KR policy schedule or cohort invalid")
+        kr_decision_times = normalized
     n = Decimal(len(data.cohort))
     budgets = {item: INITIAL_KRW / n for item in data.cohort}
     states: dict[Instrument, AccountingState] = {}
@@ -953,7 +1090,7 @@ def _run_reference_core(
 
     def settle_pending(evaluated: ReferencePoint) -> None:
         nonlocal pending_since
-        if sell_costs is None or kr_decisions is not None:
+        if sell_costs is None or kr_decisions is not None or policy_mode:
             return
         if not evaluated.leverage_breach and pending_since is not None:
             attempts.append(
@@ -1049,7 +1186,7 @@ def _run_reference_core(
         )
 
     def execute_kr_batch(
-        at: datetime, opened: list[RawSession], vector: tuple[TargetInstruction, ...]
+        at: datetime, opened: list[RawSession], vector: tuple[KRInstruction, ...]
     ) -> None:
         nonlocal krw_cash
         assert sell_costs is not None
@@ -1093,7 +1230,14 @@ def _run_reference_core(
                 raise ReferenceInputError("KR rebalance sell unit arithmetic rounded")
             lines.append(
                 _RebalanceLine(
-                    item.target_weight, held, bar.raw_open, term.unit_cost, proceeds
+                    item.target_weight if isinstance(item, TargetInstruction) else None,
+                    held,
+                    bar.raw_open,
+                    term.unit_cost,
+                    proceeds,
+                    item.quantity
+                    if isinstance(item, HoldQuantityInstruction)
+                    else None,
                 )
             )
         sizes = _size_kr_rebalance(before.nav_krw, before.cash_krw, tuple(lines))
@@ -1217,10 +1361,14 @@ def _run_reference_core(
                 if item.instrument in positions
                 else Fraction(0)
             )
-            if (
-                actual_value != expected_value
-                or actual_value > Fraction(item.target_weight) * expected_nav
-            ):
+            if actual_value != expected_value:
+                raise ReferenceInputError("KR rebalance post-cost target mismatch")
+            if isinstance(item, HoldQuantityInstruction):
+                if actual_value > Fraction(LIMIT) * expected_nav:
+                    raise ReferenceInputError(
+                        "held quantity post-cost cap requires repair"
+                    )
+            elif actual_value > Fraction(item.target_weight) * expected_nav:
                 raise ReferenceInputError("KR rebalance post-cost target mismatch")
             gross_exact += actual_value
             if item.instrument.leveraged:
@@ -1230,15 +1378,21 @@ def _run_reference_core(
             or gross_exact > Fraction(Decimal("0.60")) * expected_nav
             or leverage_exact > Fraction(LIMIT) * expected_nav
         ):
+            if any(isinstance(item, HoldQuantityInstruction) for item in vector):
+                raise ReferenceInputError("held quantity post-cost cap requires repair")
             raise ReferenceInputError("KR rebalance post-cost cap exceeded")
         status: Literal["filled", "unchanged", "all_cash", "no_feasible_share"]
         if any(sold) or any(bought):
             status = "filled"
-        elif all(item.target_weight == 0 for item in vector):
+        elif all(
+            isinstance(item, TargetInstruction) and item.target_weight == 0
+            for item in vector
+        ):
             status = "all_cash"
         elif any(
-            Fraction(line.held) * Fraction(line.unit_value)
-            < Fraction(item.target_weight) * expected_nav
+            line.weight is not None
+            and Fraction(line.held) * Fraction(line.unit_value)
+            < Fraction(line.weight) * expected_nav
             for line, item in zip(lines, vector, strict=True)
         ):
             status = "no_feasible_share"
@@ -1277,6 +1431,8 @@ def _run_reference_core(
                 (bar.close_at, 4, bar.instrument.symbol, bar),
             )
         )
+    if kr_decision_times is not None:
+        events.extend((at, -1, "policy_decision", at) for at in kr_decision_times)
     events.sort(key=lambda x: (x[0], x[1], x[2]))
     settle_pending(point(data.evaluation_start, "initial"))
     timestamp_phase = ""
@@ -1285,10 +1441,20 @@ def _run_reference_core(
     target_open: RawSession | None = None
     for index, (at, phase_order, _, obj) in enumerate(events):
         if index == 0 or events[index - 1][0] != at:
-            timestamp_phase = phase_names[phase_order]
+            timestamp_phase = (
+                "decision" if phase_order == -1 else phase_names[phase_order]
+            )
             opens_at = []
             target_open = None
-        if isinstance(obj, SplitEvent):
+        elif policy_mode and phase_order >= 0:
+            timestamp_phase = phase_names[phase_order]
+        if phase_order == -1:
+            if kr_decision_hook is None or sequence_index != len(scheduled):
+                raise ReferenceInputError("KR policy decision overlaps pending batch")
+            prior = point(at, "decision")
+            vector = kr_decision_hook(at, prior)
+            scheduled.append(_validate_kr_hook_vector(data, vector, at, prior))
+        elif isinstance(obj, SplitEvent):
             state = states.get(obj.instrument)
             if state is not None and state.holdings[0].quantity > 0:
                 previous = state.holdings[0]
@@ -1416,6 +1582,7 @@ def _run_reference_core(
                         target is None
                         and batch_targets is None
                         and kr_decisions is None
+                        and not policy_mode
                     ):
                         terms = buy_terms(obj, at)
                         quantity = (
@@ -1632,7 +1799,7 @@ def _run_reference_core(
                 )
             batch_executed = True
         if (
-            kr_decisions is not None
+            (kr_decisions is not None or policy_mode)
             and sequence_index < len(scheduled)
             and at == scheduled[sequence_index][1]
             and phase_order == 3
@@ -1644,6 +1811,7 @@ def _run_reference_core(
             if (
                 sell_costs is not None
                 and kr_decisions is None
+                and not policy_mode
                 and pending_since is not None
                 and pending_since < at
             ):
@@ -1783,20 +1951,35 @@ def _run_reference_core(
                         )
                         if not after.leverage_breach:
                             pending_since = None
-            settle_pending(point(at, timestamp_phase))
+            evaluated = point(at, timestamp_phase)
+            settle_pending(evaluated)
+            if kr_close_hook is not None and timestamp_phase == "close":
+                kr_close_hook(evaluated)
     if (
         target is None
         and batch_targets is None
         and kr_decisions is None
+        and not policy_mode
         and len(trades) != len(data.cohort)
     ):
         raise ReferenceInputError("not every cohort instrument was purchased")
     if batch_open_at is not None and not batch_executed:
         raise ReferenceInputError("batch first official open not executed")
-    if kr_decisions is not None and sequence_index != len(scheduled):
+    if (kr_decisions is not None or policy_mode) and sequence_index != len(scheduled):
         raise ReferenceInputError("KR decision batch not executed")
+    if (
+        policy_mode
+        and kr_decision_times is not None
+        and len(scheduled) != len(kr_decision_times)
+    ):
+        raise ReferenceInputError("KR policy decision missing")
     settle_pending(point(data.evaluation_end, "evaluation_end"))
-    if sell_costs is not None and kr_decisions is None and pending_since is not None:
+    if (
+        sell_costs is not None
+        and kr_decisions is None
+        and not policy_mode
+        and pending_since is not None
+    ):
         last = points[-1]
         attempts.append(
             CapControlAttempt(
@@ -1819,7 +2002,7 @@ def _run_reference_core(
         any(x.leverage_breach for x in points),
         any(x.drawdown_breach for x in points),
     )
-    if kr_decisions is not None:
+    if kr_decisions is not None or policy_mode:
         return KRTargetSequenceReference(
             "synthetic_reference_only",
             tuple(trades),
