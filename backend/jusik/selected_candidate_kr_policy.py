@@ -38,7 +38,10 @@ GROSS = Fraction(Decimal("0.60"))
 EPISODE_EXIT = Fraction(Decimal("0.10"))
 _SOURCE_ROOT = Path(__file__).resolve().parents[2]
 _SOURCE_PATHS = (
+    "backend/jusik/research_portfolio_models.py",
+    "backend/jusik/research_portfolio_engine.py",
     "backend/jusik/approved_universe_buy_hold.py",
+    "backend/jusik/market_history_action_accounting.py",
     "backend/jusik/selected_candidate_signals.py",
     "backend/jusik/selected_candidate_kr_policy.py",
 )
@@ -141,8 +144,16 @@ def _frozen_config(config_bytes: bytes, signal: FrozenSignalInput) -> None:
         ):
             raise PolicyInputError("frozen KR policy values differ")
         sources = document["semantic_sources_sha256"]
+        if not isinstance(sources, dict) or set(sources) != set(_SOURCE_PATHS):
+            raise PolicyInputError("fixed semantic source paths differ")
         for source in _SOURCE_PATHS:
             expected = sources[source]
+            if (
+                not isinstance(expected, str)
+                or len(expected) != 64
+                or any(char not in "0123456789abcdef" for char in expected)
+            ):
+                raise PolicyInputError(f"malformed semantic source pin: {source}")
             actual = hashlib.sha256((_SOURCE_ROOT / source).read_bytes()).hexdigest()
             if expected != actual:
                 raise PolicyInputError(f"semantic source hash differs: {source}")

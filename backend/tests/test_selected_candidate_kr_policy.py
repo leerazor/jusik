@@ -42,6 +42,14 @@ CALENDAR_PIN = "d" * 64
 CONFIG = Path(__file__).parents[2] / "docs/research/selected-candidate-config-v1.json"
 CONFIG_BYTES = CONFIG.read_bytes()
 CONFIG_HASH = hashlib.sha256(CONFIG_BYTES).hexdigest()
+SEMANTIC_SOURCE_PATHS = (
+    "backend/jusik/research_portfolio_models.py",
+    "backend/jusik/research_portfolio_engine.py",
+    "backend/jusik/approved_universe_buy_hold.py",
+    "backend/jusik/market_history_action_accounting.py",
+    "backend/jusik/selected_candidate_signals.py",
+    "backend/jusik/selected_candidate_kr_policy.py",
+)
 FIRST = datetime(2026, 3, 9, tzinfo=UTC)
 SECOND = FIRST + timedelta(days=28)
 END = SECOND + timedelta(days=1, hours=4)
@@ -586,3 +594,51 @@ def test_config_rejects_mutated_frozen_schedule() -> None:
             sell_costs(),
         )
     assert _schedule(FIRST + timedelta(hours=1), END)[0] == FIRST + timedelta(days=7)
+
+
+@pytest.mark.parametrize("source", SEMANTIC_SOURCE_PATHS)
+@pytest.mark.parametrize("mutation", ("missing", "wrong", "malformed"))
+def test_config_requires_every_fixed_semantic_source_pin(
+    source: str, mutation: str
+) -> None:
+    raw, signal = fixture()
+    document = json.loads(CONFIG_BYTES)
+    pins = document["semantic_sources_sha256"]
+    assert set(pins) == set(SEMANTIC_SOURCE_PATHS)
+    if mutation == "missing":
+        del pins[source]
+    elif mutation == "wrong":
+        pins[source] = "f" * 64
+    else:
+        pins[source] = None
+    altered = json.dumps(document).encode()
+    altered_signal = replace(signal, config_sha256=hashlib.sha256(altered).hexdigest())
+    with pytest.raises(PolicyInputError, match="semantic source"):
+        run_kr_selected_candidate_reference(
+            raw, altered_signal, altered, "equal", sell_costs()
+        )
+
+
+@pytest.mark.parametrize("pin", ("F" * 64, "abc", 123))
+def test_config_rejects_malformed_semantic_source_pin(pin: object) -> None:
+    raw, signal = fixture()
+    document = json.loads(CONFIG_BYTES)
+    document["semantic_sources_sha256"][SEMANTIC_SOURCE_PATHS[3]] = pin
+    altered = json.dumps(document).encode()
+    altered_signal = replace(signal, config_sha256=hashlib.sha256(altered).hexdigest())
+    with pytest.raises(PolicyInputError, match="malformed semantic source pin"):
+        run_kr_selected_candidate_reference(
+            raw, altered_signal, altered, "equal", sell_costs()
+        )
+
+
+def test_config_rejects_unlisted_semantic_source_path() -> None:
+    raw, signal = fixture()
+    document = json.loads(CONFIG_BYTES)
+    document["semantic_sources_sha256"]["/tmp/unlisted-source.py"] = "f" * 64
+    altered = json.dumps(document).encode()
+    altered_signal = replace(signal, config_sha256=hashlib.sha256(altered).hexdigest())
+    with pytest.raises(PolicyInputError, match="semantic source paths"):
+        run_kr_selected_candidate_reference(
+            raw, altered_signal, altered, "equal", sell_costs()
+        )

@@ -58,7 +58,7 @@
     "backend/jusik/approved_universe_buy_hold.py": "fc7014caaeaebb83ded93fac439339b5b274f645003b82680c47d722c956e81a",
     "backend/jusik/market_history_action_accounting.py": "c183fa54a7fd4b368fee6ec7ac45568e420a6381336e6d8a87553e1f440b1af2",
     "backend/jusik/selected_candidate_signals.py": "12dce485bd069dede64ef64611d8b2a6ec6d3fbd676bb8370fc6bd27c5a6effe",
-    "backend/jusik/selected_candidate_kr_policy.py": "8f9ad87aa7057a1b039418ad3999107a68315e8e3f9cb19c469a63d4aa0fa411"
+    "backend/jusik/selected_candidate_kr_policy.py": "b482a5707656b7b8f678603b27c6b38bcf1ddda3180d56e31dcd7191d59c72cc"
   },
   "unresolved": {
     "registry_snapshot_and_cohort_hash": null,

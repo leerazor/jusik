@@ -42,3 +42,11 @@
 - workflow 판단: 도움 됨 — 기존 신호 planner와 단일 raw 사건 루프를 직접 연결하고 위험 미구현 사건을 실패로 제한했다.
 - 근거: 이전 전체 출력 및 독립 probe를 재사용해 원장 회귀를 대조했다. 시간·호출 절감량은 미측정이다.
 - 다음 조정: 유지 — full risk·실자료 적격을 별도 완료 조건으로 다룬다.
+
+## 독립 검토 P2 수정 (2026-10-03T18:03:01Z)
+
+- 검토에서 설정의 의미 소스 해시 6개 중 3개만 검사하던 누락을 확인했다. 정책 입력은 동결된 6개 경로 집합과 소문자 SHA-256 형식을 먼저 검사하고, 이 6개 파일의 실제 바이트 해시를 모두 대조한다. 임의 추가 경로는 읽지 않고 거부한다. 고정된 후보·위험 플래그·합성 단계 범위는 그대로다.
+- 등록된 6개 경로 각각을 누락하거나 잘못된 해시·형식 오류로 바꾼 뒤 설정 SHA를 다시 계산하는 회귀 검사를 추가했다. 임의 추가 경로와 대문자·짧은 문자열·숫자 해시도 거부한다. 검토의 `market_history_action_accounting.py` 변조는 수정 전 수락, 수정 후 거부를 확인했다.
+- 정책 소스 해시만 `8f9ad87aa7057a1b039418ad3999107a68315e8e3f9cb19c469a63d4aa0fa411`→`b482a5707656b7b8f678603b27c6b38bcf1ddda3180d56e31dcd7191d59c72cc`로 갱신했다. 설정 SHA-256은 `546446d6557095a0bba4811b785fa54a65557405669a519c4b9fcdd645d85ee2`; 다른 5개 소스 해시와 `candidate_execution_code_hash=null`, `execution_allowed=false`, `results_observed=false`를 확인했다.
+- 정책 집중 검사 32개, 기존 관련 검사 포함 총 240개 통과. 소유 Python 2개 파일 Ruff check·format 및 strict mypy 통과. `/tmp/selected-kr-policy-code/`의 baseline·cap·single target·batch·KR sequence 전체 직렬화와 독립 probe는 이전 `*-final.json`과 바이트 동일하다. 설정 SHA가 달라져 정책 출력의 입력 결속 값은 새 SHA를 사용한다.
+- 남은 작업: 독립 재검토와 supervisor의 통합. 실제 원천 적격·성과·위험 청산 정책은 여전히 미완료다.
