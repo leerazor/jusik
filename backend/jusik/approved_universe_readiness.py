@@ -39,6 +39,9 @@ class DividendReadiness(BaseModel):
     identity_status: Literal["not_checked"] = "not_checked"
     observed_event_count: int | None = None
     reviewed_current_event_count: int | None = None
+    matched_current_event_count: int | None = Field(default=None, ge=0)
+    partial_current_event_count: int | None = Field(default=None, ge=0)
+    mismatched_current_event_count: int | None = Field(default=None, ge=0)
 
 
 class FxReadiness(BaseModel):
@@ -101,7 +104,7 @@ def _price_rows(
 
 def _dividend_counts(
     path: Path, symbols: list[str]
-) -> tuple[SourceStatus, dict[str, tuple[int, int]]]:
+) -> tuple[SourceStatus, dict[str, tuple[int, int, int, int, int]]]:
     try:
         with closing(_connect_read_only(path)) as connection:
             if not symbols:
@@ -111,23 +114,62 @@ def _dividend_counts(
                 return "available", {}
             placeholders = ",".join("?" for _ in symbols)
             rows = connection.execute(
-                f"""SELECT e.symbol, COUNT(*) AS observed_count,
-                    SUM(CASE WHEN EXISTS (
-                        SELECT 1 FROM action_reviews v
-                        JOIN action_collection_revisions r ON r.id=v.revision_id
-                        WHERE r.event_id=e.id
-                          AND r.sequence=e.latest_revision_sequence
-                    ) THEN 1 ELSE 0 END) AS reviewed_count
+                f"""SELECT e.id AS event_id, e.symbol, r.id AS revision_id,
+                    v.id AS review_id, v.sequence AS review_sequence,
+                    v.comparison_status,
+                    (SELECT COUNT(*) FROM action_reviews all_reviews
+                     WHERE all_reviews.revision_id=r.id) AS review_rows
                 FROM action_collection_events e
+                LEFT JOIN action_collection_revisions r
+                  ON r.event_id=e.id AND r.sequence=e.latest_revision_sequence
+                LEFT JOIN action_reviews v ON v.revision_id=r.id
+                  AND v.sequence=(
+                      SELECT MAX(latest.sequence) FROM action_reviews latest
+                      WHERE latest.revision_id=r.id)
                 WHERE e.kind='dividend' AND e.symbol IN ({placeholders})
-                GROUP BY e.symbol""",
+                """,
                 symbols,
             ).fetchall()
+        counts: dict[str, list[int]] = {}
+        seen_events: set[str] = set()
+        status_index = {"matched": 2, "partial": 3, "mismatched": 4}
+        for row in rows:
+            event_id = row["event_id"]
+            symbol = row["symbol"]
+            if (
+                not isinstance(event_id, str)
+                or not isinstance(symbol, str)
+                or event_id in seen_events
+            ):
+                raise ValueError("duplicate or invalid dividend event")
+            seen_events.add(event_id)
+            values = counts.setdefault(symbol, [0, 0, 0, 0, 0])
+            values[0] += 1
+            if row["review_id"] is not None:
+                sequence = row["review_sequence"]
+                status = row["comparison_status"]
+                if (
+                    type(sequence) is not int
+                    or sequence < 1
+                    or status not in status_index
+                ):
+                    raise ValueError("invalid latest dividend review")
+                values[1] += 1
+                values[status_index[status]] += 1
+            elif row["revision_id"] is not None and row["review_rows"] != 0:
+                raise ValueError("current dividend reviews have no latest row")
+        for values in counts.values():
+            if (
+                any(value < 0 for value in values)
+                or values[1] > values[0]
+                or values[1] != sum(values[2:])
+            ):
+                raise ValueError("dividend review counts inconsistent")
         return "available", {
-            str(row["symbol"]): (int(row["observed_count"]), int(row["reviewed_count"]))
-            for row in rows
+            symbol: (values[0], values[1], values[2], values[3], values[4])
+            for symbol, values in counts.items()
         }
-    except (OSError, sqlite3.Error):
+    except (OSError, sqlite3.Error, ValueError, TypeError):
         return "unavailable", {}
 
 
@@ -205,6 +247,9 @@ def build_approved_universe_readiness(
     price_source_status, prices = _price_rows(universe_db_path, symbols)
     dividend_source_status, dividends = _dividend_counts(action_db_path, symbols)
     fx = _fx_status(external_db_path)
+    symbol_counts: dict[str, int] = {}
+    for item in snapshot.instruments:
+        symbol_counts[item.symbol] = symbol_counts.get(item.symbol, 0) + 1
     instruments: list[InstrumentReadiness] = []
     for item in snapshot.instruments:
         row = prices.get(item.symbol)
@@ -214,14 +259,17 @@ def build_approved_universe_readiness(
             price = PriceReadiness(status="missing")
         else:
             price = _price_readiness(row)
-        counts = dividends.get(item.symbol, (0, 0))
+        counts = dividends.get(item.symbol, (0, 0, 0, 0, 0))
         dividend = (
             DividendReadiness(
                 status="available",
                 observed_event_count=counts[0],
                 reviewed_current_event_count=counts[1],
+                matched_current_event_count=counts[2],
+                partial_current_event_count=counts[3],
+                mismatched_current_event_count=counts[4],
             )
-            if dividend_source_status == "available"
+            if dividend_source_status == "available" and symbol_counts[item.symbol] == 1
             else DividendReadiness(status="unavailable")
         )
         instruments.append(

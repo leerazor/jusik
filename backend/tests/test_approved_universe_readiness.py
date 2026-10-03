@@ -3,7 +3,10 @@ from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from fastapi import Response
+from fastapi.routing import APIRoute
+from pydantic import SecretStr
 
 from jusik import approved_universe_readiness as readiness_module
 from jusik.approved_universe import (
@@ -41,6 +44,17 @@ def _readiness(root: Path) -> ApprovedUniverseReadiness:
     )
 
 
+def _action_schema(db: sqlite3.Connection) -> None:
+    db.executescript("""
+        CREATE TABLE action_collection_events (
+            id TEXT, symbol TEXT, kind TEXT, latest_revision_sequence INTEGER);
+        CREATE TABLE action_collection_revisions (
+            id TEXT, event_id TEXT, sequence INTEGER);
+        CREATE TABLE action_reviews (
+            id TEXT, revision_id TEXT, sequence INTEGER, comparison_status TEXT);
+    """)
+
+
 def test_missing_databases_never_created(tmp_path: Path) -> None:
     result = _readiness(tmp_path)
     assert result.revision == 4
@@ -51,6 +65,12 @@ def test_missing_databases_never_created(tmp_path: Path) -> None:
     assert all(item.price.status == "unavailable" for item in result.instruments)
     assert all(
         item.dividend.observed_event_count is None for item in result.instruments
+    )
+    assert all(
+        item.dividend.matched_current_event_count is None
+        and item.dividend.partial_current_event_count is None
+        and item.dividend.mismatched_current_event_count is None
+        for item in result.instruments
     )
     assert list(tmp_path.iterdir()) == []
 
@@ -80,14 +100,15 @@ def test_partial_stale_latest_reviews_and_distinct_fx(tmp_path: Path) -> None:
                 id TEXT, symbol TEXT, kind TEXT, latest_revision_sequence INTEGER);
             CREATE TABLE action_collection_revisions (
                 id TEXT, event_id TEXT, sequence INTEGER);
-            CREATE TABLE action_reviews (id TEXT, revision_id TEXT);
+            CREATE TABLE action_reviews (
+                id TEXT, revision_id TEXT, sequence INTEGER, comparison_status TEXT);
             INSERT INTO action_collection_events VALUES ('e1','NVDA','dividend',2);
             INSERT INTO action_collection_events VALUES ('e2','NVDA','dividend',1);
             INSERT INTO action_collection_revisions VALUES ('old','e1',1);
             INSERT INTO action_collection_revisions VALUES ('current','e1',2);
             INSERT INTO action_collection_revisions VALUES ('other','e2',1);
-            INSERT INTO action_reviews VALUES ('r1','old');
-            INSERT INTO action_reviews VALUES ('r2','other');
+            INSERT INTO action_reviews VALUES ('r1','old',1,'matched');
+            INSERT INTO action_reviews VALUES ('r2','other',1,'partial');
         """)
     with sqlite3.connect(tmp_path / "fx.db") as db:
         db.executescript("""
@@ -120,11 +141,187 @@ def test_partial_stale_latest_reviews_and_distinct_fx(tmp_path: Path) -> None:
     assert result.instruments[0].price.identity_status == "not_checked"
     assert result.instruments[0].dividend.observed_event_count == 2
     assert result.instruments[0].dividend.reviewed_current_event_count == 1
+    assert result.instruments[0].dividend.matched_current_event_count == 0
+    assert result.instruments[0].dividend.partial_current_event_count == 1
+    assert result.instruments[0].dividend.mismatched_current_event_count == 0
     assert result.instruments[1].price.status == "missing"
     assert result.instruments[1].dividend.observed_event_count == 0
+    assert result.instruments[1].dividend.matched_current_event_count == 0
+    assert result.instruments[1].dividend.partial_current_event_count == 0
+    assert result.instruments[1].dividend.mismatched_current_event_count == 0
     assert result.fx.observed_date_count == 2
     assert str(result.fx.first_observed_on) == "2026-10-01"
     assert "/path/error" not in result.model_dump_json()
+
+
+def test_latest_current_review_counts_each_event_once(tmp_path: Path) -> None:
+    with sqlite3.connect(tmp_path / "actions.db") as db:
+        _action_schema(db)
+        db.executemany(
+            "INSERT INTO action_collection_events VALUES (?,?,?,?)",
+            [
+                (f"e{i}", "NVDA", "dividend", 2 if i in (1, 4) else 1)
+                for i in range(1, 6)
+            ]
+            + [("split", "NVDA", "split", 1)],
+        )
+        db.executemany(
+            "INSERT INTO action_collection_revisions VALUES (?,?,?)",
+            [
+                ("old1", "e1", 1),
+                ("current1", "e1", 2),
+                ("current2", "e2", 1),
+                ("current3", "e3", 1),
+                ("old4", "e4", 1),
+                ("current5", "e5", 1),
+            ],
+        )
+        db.executemany(
+            "INSERT INTO action_reviews VALUES (?,?,?,?)",
+            [
+                ("old-review", "old1", 1, "matched"),
+                ("first-current", "current1", 1, "matched"),
+                ("latest-current", "current1", 2, "mismatched"),
+                ("partial", "current2", 1, "partial"),
+                ("old-only", "old4", 1, "matched"),
+                ("matched", "current5", 1, "matched"),
+            ],
+        )
+    result = _readiness(tmp_path)
+    dividend = result.instruments[0].dividend
+    assert result.dividend_source_status == "available"
+    assert dividend.observed_event_count == 5
+    assert dividend.reviewed_current_event_count == 3
+    assert dividend.matched_current_event_count == 1
+    assert dividend.partial_current_event_count == 1
+    assert dividend.mismatched_current_event_count == 1
+    assert dividend.observed_event_count - dividend.reviewed_current_event_count == 2
+    assert result.instruments[1].dividend.observed_event_count == 0
+
+
+def test_synthetic_tqqq_thirteen_latest_mismatches(tmp_path: Path) -> None:
+    with sqlite3.connect(tmp_path / "actions.db") as db:
+        _action_schema(db)
+        db.executemany(
+            "INSERT INTO action_collection_events VALUES (?,?,?,?)",
+            [(f"e{i}", "TQQQ", "dividend", 1) for i in range(13)],
+        )
+        db.executemany(
+            "INSERT INTO action_collection_revisions VALUES (?,?,?)",
+            [(f"revision{i}", f"e{i}", 1) for i in range(13)],
+        )
+        db.executemany(
+            "INSERT INTO action_reviews VALUES (?,?,?,?)",
+            [(f"review{i}", f"revision{i}", 1, "mismatched") for i in range(13)],
+        )
+    snapshot = ApprovedUniverseSnapshot.model_validate(
+        {
+            "revision": 1,
+            "updated_at": None,
+            "instruments": [{"market": "US", "exchange": "NAS", "symbol": "TQQQ"}],
+        }
+    )
+    result = build_approved_universe_readiness(
+        snapshot,
+        universe_db_path=tmp_path / "price.db",
+        action_db_path=tmp_path / "actions.db",
+        external_db_path=tmp_path / "fx.db",
+    )
+    dividend = result.instruments[0].dividend
+    assert dividend.observed_event_count == 13
+    assert dividend.reviewed_current_event_count == 13
+    assert dividend.matched_current_event_count == 0
+    assert dividend.partial_current_event_count == 0
+    assert dividend.mismatched_current_event_count == 13
+    assert result.comparison_status == "not_performed"
+
+
+@pytest.mark.parametrize(
+    "reviews",
+    [
+        [("r1", "current", 1, "matched"), ("r2", "current", 2, "unknown")],
+        [("r1", "current", 2, "matched"), ("r2", "current", 2, "partial")],
+        [("r1", "current", None, "matched")],
+    ],
+)
+def test_invalid_latest_review_fails_closed(
+    tmp_path: Path, reviews: list[tuple[str, str, int | None, str]]
+) -> None:
+    with sqlite3.connect(tmp_path / "actions.db") as db:
+        _action_schema(db)
+        db.execute(
+            "INSERT INTO action_collection_events VALUES ('e1','NVDA','dividend',1)"
+        )
+        db.execute("INSERT INTO action_collection_revisions VALUES ('current','e1',1)")
+        db.executemany("INSERT INTO action_reviews VALUES (?,?,?,?)", reviews)
+    result = _readiness(tmp_path)
+    assert result.dividend_source_status == "unavailable"
+    assert all(row.dividend.status == "unavailable" for row in result.instruments)
+    assert all(row.dividend.observed_event_count is None for row in result.instruments)
+    assert all(
+        row.dividend.reviewed_current_event_count is None
+        and row.dividend.matched_current_event_count is None
+        and row.dividend.partial_current_event_count is None
+        and row.dividend.mismatched_current_event_count is None
+        for row in result.instruments
+    )
+
+
+def test_same_symbol_different_registration_identity_hides_dividend_only(
+    tmp_path: Path,
+) -> None:
+    with sqlite3.connect(tmp_path / "actions.db") as db:
+        _action_schema(db)
+        db.execute(
+            "INSERT INTO action_collection_events VALUES ('e1','NVDA','dividend',1)"
+        )
+        db.execute("INSERT INTO action_collection_revisions VALUES ('r1','e1',1)")
+        db.execute("INSERT INTO action_reviews VALUES ('review','r1',1,'matched')")
+    with sqlite3.connect(tmp_path / "price.db") as db:
+        db.executescript("""
+            CREATE TABLE universe_collection_state (
+                instrument_id TEXT, status TEXT, snapshot_id TEXT,
+                last_success_at TEXT);
+            CREATE TABLE universe_snapshots (
+                id TEXT, requested_start TEXT, requested_end TEXT,
+                actual_start TEXT, actual_end TEXT, evaluation_start TEXT,
+                warmup_bars INTEGER, evaluation_bars INTEGER);
+            INSERT INTO universe_collection_state VALUES ('NVDA','success',NULL,NULL);
+        """)
+    snapshot = ApprovedUniverseSnapshot.model_validate(
+        {
+            "revision": 1,
+            "updated_at": None,
+            "instruments": [
+                {"market": "US", "exchange": "NAS", "symbol": "NVDA"},
+                {"market": "US", "exchange": "NYS", "symbol": "NVDA"},
+                {"market": "KR", "exchange": "KRX", "symbol": "005930"},
+            ],
+        }
+    )
+    result = build_approved_universe_readiness(
+        snapshot,
+        universe_db_path=tmp_path / "price.db",
+        action_db_path=tmp_path / "actions.db",
+        external_db_path=tmp_path / "fx.db",
+    )
+    assert result.dividend_source_status == "available"
+    assert [row.price.status for row in result.instruments] == [
+        "success",
+        "success",
+        "missing",
+    ]
+    assert all(row.price.identity_status == "not_checked" for row in result.instruments)
+    assert all(row.dividend.status == "unavailable" for row in result.instruments[:2])
+    assert all(
+        row.dividend.observed_event_count is None
+        and row.dividend.reviewed_current_event_count is None
+        and row.dividend.matched_current_event_count is None
+        and row.dividend.partial_current_event_count is None
+        and row.dividend.mismatched_current_event_count is None
+        for row in result.instruments[:2]
+    )
+    assert result.instruments[2].dividend.observed_event_count == 0
 
 
 def test_broken_sources_report_unavailable_not_zero(tmp_path: Path) -> None:
@@ -192,8 +389,8 @@ def test_negative_price_counts_affect_only_that_instrument(tmp_path: Path) -> No
 
 def test_readiness_route_returns_revision_order_and_no_store(tmp_path: Path) -> None:
     settings = ResearchSettings(
-        app_key="test",
-        app_secret="test",
+        app_key=SecretStr("test"),
+        app_secret=SecretStr("test"),
         base_url=PAPER_BASE_URL,
         db_path=tmp_path / "research.db",
     )
@@ -231,7 +428,8 @@ def test_readiness_route_returns_revision_order_and_no_store(tmp_path: Path) -> 
     endpoint = next(
         route.endpoint
         for route in app.routes
-        if getattr(route, "path", None) == "/api/research/approved-universe/readiness"
+        if isinstance(route, APIRoute)
+        and route.path == "/api/research/approved-universe/readiness"
     )
     response = Response()
     with patch.object(store, "read", wraps=store.read) as read:
@@ -245,3 +443,5 @@ def test_readiness_route_returns_revision_order_and_no_store(tmp_path: Path) -> 
         "005930",
     ]
     assert body["fx"]["observed_date_count"] is None
+    assert body["instruments"][0]["dividend"]["identity_status"] == "not_checked"
+    assert body["instruments"][0]["dividend"]["matched_current_event_count"] is None
