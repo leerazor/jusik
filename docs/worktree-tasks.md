@@ -5263,16 +5263,35 @@
 
 ## selected-comparison-protocol-20261003
 
-- 상태: explore 완료, plan 진행. 등록16종목의 단순보유/최대3저회전 비교 규칙을 결과 전에 고정한다.
-- 소유: read-only selected_comparison_plan; supervisor 문서 조율. 코드 writer 미배정.
+- 상태: 설계 고정 완료(main64391c8). 등록16종목의 단순보유/후보2개 비교 규칙을 결과 전에 고정했으며 실제 실행은 미수행.
+- 소유: selected_comparison_plan 계획 완료, supervisor 규약 통합. 구현은 아래 approved-buy-hold-reference 작업으로 분리.
 - 끝 조건: 정할 수 있는 규칙 고정, 자료 결손·실행 인수 조건 분리, 다음 최소 구현 범위 확정. 성과 실행·주문·승격 금지.
 
 - 설계: `docs/research/approved-universe-comparison-protocol-v1.md`에 후보2개·회계/위험/자료 기준 고정. plan 완료, 실제 비교 미실행.
 
+- 기록: `docs/development-records/2026-10-03-selected-comparison-protocol-20261003.md`; 인계: `docs/handoffs/2026-10-03-selected-comparison-protocol-20261003.md`.
+
 ## approved-buy-hold-reference-20261003
 
-- 상태: 구현 준비. explore→plan 완료, 중앙 code 단일 구현 후 독립 review 예정.
+- 상태: 독립 재검토 PASS. 구현68346880의 P1/P2를 8ccc441에서 수정, 회귀67개/독립oracle 통과. main 통합 검증 진행.
 - 목표: 기존 기업행동 회계 재사용, 순수보유의 거래·현금·수량·배당·FX·NAV·레버리지 위반을 합성 자료로 검증할 최소 reference 경로.
 - 소유/워크트리: selected_buyhold_code, `/home/kwl/.codex/worktrees/official-dividend-input/jusik` free checkout 재사용; `codex/approved-buy-hold-reference` 새 작업 브랜치.
 - 범위: 새 순수 함수 모듈·focused tests·계약 문서/개발 기록. 실제데이터수집/DB/원장/주문/승격/서비스/원격push 금지. cap-control과후보실행후속.
 - 검증/종료: 합성 독립 oracle, 분할/배당 중복방지·미래 FX 배제·비용결손 차단·시점/등록목록 결속·레버리지 drift 노출, 독립 review 후 로컬 main 통합 및 다음 안전 단계 진행.
+
+- 2026-10-03T12:41Z 업데이트: 구현68346880/64검사 PASS이나 독립 review P1(동일시각 부분 평가의 허위MDD), P2(늦은 과거FX가 최신효력FX 덮음) 발견. main 통합 보류. 원래 writer completed/unloaded; native followup·앱·CLI 재개 및 대체 native spawn 모두 세션 한도/부모 미로드로 실패. 코드 수정 writer 없음. 수정 요청 `/tmp/approved-buyhold-fix-request.txt` 보존; parent 새 실행에서 원래 소유자 재개가 우선.
+
+- 재개 업데이트: native/기존 세션 재개 실패 뒤 원래 writer 종료를 확인하고 중앙 code 모델 Sol/high의 단일 CLI executor로 같은 checkout 수정 재개. 세션 `01a101cd-e4eb-7703-99f8-9333bf4e1b87`, 실행 로그 `/tmp/approved-buyhold-fix-cli-events.jsonl`; 권한 정책 변경 없음. P1/P2 수정 이후 독립 재검토 필요.
+
+- CLI 수정 결과: 67개/Ruff/mypy 및 독립 oracle 통과, supervisor가 Git 메타데이터 커밋만 대행해 8ccc441 고정. 구현 프로세스 종료; 독립 read-only CLI 재검토 진행.
+
+- 현재 인계: `docs/handoffs/2026-10-03-approved-buy-hold-reference-20261003.md`.
+
+## kodex-official-input-freeze-20261003
+
+- 상태: 입력 동결/검증·독립 검토 완료. source11건 및 산출물 PASS.
+- 범위: 이미 독립 검토·DB 반영된 KODEX11건의 exact revision/review/product identity를 기존 공식 배당 동결 CLI에 연결. 원천 재수집·DB쓰기·성과실험 없음.
+- 끝 조건: 입력 검증·동일입력 재실행 해시·사건11건 대조; 실제 세금/PIT/전체자료 적격은 별도.
+
+
+- artifact b160157c...; 기록 `docs/development-records/2026-10-03-kodex-official-input-freeze-20261003.md`; 인계 `docs/handoffs/2026-10-03-kodex-official-input-freeze-20261003.md`. nav_ready=false/DB추가0.
