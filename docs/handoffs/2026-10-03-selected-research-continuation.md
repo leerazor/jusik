@@ -21,7 +21,7 @@
 - 위험정책 main7cc20002 이후 동일 조건 비교도 **main18513cde7dc73b12abacdc0fcb6755fe99a37be6 통합 완료**. 구현62f1a759, 독립 review PASS, worker268+132·main132·Ruff/mypy·독립Fraction8사례 PASS.
 - 자세한 계약/증거는 2026-10-04-selected-kr-comparison-20261004.md 개발 기록과 인계. 영구audit20261004-selected-kr-comparison manifest09518510... 재사용. 실제 성과나 투자 적격은 아직 미검증.
 - 구현 writer 종료, checkout /home/kwl/.codex/worktrees/official-dividend-input/jusik, codex/selected-kr-comparison clean. 다음 안전한 작업에 재사용 가능. 사용자 HANDOFF.md 보존.
-- 현재 **selected-next-evidence-20261004 읽기 전용 탐색**: 기존Luna/medium CLI01a101db-2b98-7813-a412-63418263ff55 exec94065. /tmp/selected-next-evidence-explore-events.jsonl 및 결과 파일. 기존cache/audit만으로 실제 KODEX cohort/기간의 인수가능 단계 또는 구체적차단을 찾는다.
+- 종료 **selected-next-evidence-20261004 읽기 전용 탐색**: 기존Luna/medium CLI01a101db-2b98-7813-a412-63418263ff55 exec94065. /tmp/selected-next-evidence-explore-events.jsonl 및 결과 파일. 실제 READY cohort 없음. 2026-04-15~08-31 KRX 역사 운영/특별세션·전체action완전성 필요. 같은이름 개발기록/인계의 재개조건 참조. 활성 writer 없음.
 - 새 조사 전에 위 결과를 확인. 등록16/revision1, 배당 matched24/mismatched13/partial6/unreviewed68=111은 전체자료준비율이 아니다. KIS HTTP500 동일요청 반복금지. 가격/배당/달력/비용의 같은기간 결속과 실제READYcohort 미확인.
 - 100M/레버리지20/MDD20 유지. 주문·승격·원격push·서비스변경 없음.
 

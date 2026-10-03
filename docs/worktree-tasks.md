@@ -5466,5 +5466,5 @@
 
 ## selected-next-evidence-20261004
 
-- 상태: 기존 자료 읽기 전용 조사 진행. owner 기존 Luna/medium CLI01a101db-2b98-7813-a412-63418263ff55, exec94065, /tmp/selected-next-evidence-explore-events.jsonl.
+- 상태: 조사 종료/실자료 차단. Luna/medium exec94065 종료. 93일 KRX 역사 운영/특별세션·전체action완전성 필요. 기록/인계 docs/{development-records,handoffs}/2026-10-04-selected-next-evidence-20261004.md.
 - 범위: 신규 조회 없이 가장 작은 실제 KR cohort/기간의 실행 가능한 근거 수용 단계를 찾는다. 재시도·조건완화·새 코드 writer 없음.
