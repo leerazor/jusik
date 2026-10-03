@@ -5332,6 +5332,11 @@
 
 ## selected-us-dividend-next-20261003
 
-- 상태: 기존 Luna/medium CLI explore 재개, 읽기 전용 조사 진행. 신규원주가 검증 다음 단계인 등록종목 공식배당 결손 보완.
+- 상태: 완료/적격화 차단. 기존 NVDA3건 record/ex-date 혼용 정정, 독립PASS후 운영reviewDB partial3 반영. eligible24/111유지, 새공식ex-date근거 전에는 승격하지 않음.
 - 소유: 기존 explore 세션01a101db-2b98-7813-a412-63418263ff55; `/tmp/selected-us-dividend-next-events.jsonl`. DB/네트워크 writer 없음.
 - 범위: NVDA/GOOGL exact revision과 기존원천·실패목록에서 최소새공식근거를 선택. 미검증배당락일 추정/같은실패조회 금지. eligible24/111 유지.
+
+- NVDA3건 원문에 ex-dividend 미명시. 과거candidate ex-date를 그대로 인수하지 않는다. Nasdaq 신규1회 보완 요청은 HTTP2 오류92/상태000으로 실패; 같은 요청 반복 금지.
+
+- 배당 후속 기록/인계: `docs/development-records/2026-10-03-selected-us-dividend-next-20261003.md`, `docs/handoffs/2026-10-03-selected-us-dividend-next-20261003.md`.
+- 원주가 작업 추가자료: ARM/GEV 거래개시 원문2건 확보 및 독립review 진행. `/tmp/selected-listing-boundaries-20261003`, 기존원주가manifest는보존.
