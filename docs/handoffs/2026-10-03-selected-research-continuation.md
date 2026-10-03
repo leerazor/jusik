@@ -1,6 +1,6 @@
 # 등록 종목 연구 연속 진행 인계
 
-- 최근 갱신: 2026-10-04 KST / UTC2026-10-03T18:10+00:00. root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
+- 최근 갱신: 2026-10-03T18:54+00:00; root /home/kwl/projects/jusik, 사용자 root HANDOFF.md 보존.
 - 사용자 승인: 한 단계 검증 후 다음 안전한 단계 계속. 등록16/revision1 유지. 자동매매·실주문·PAPER/live·GitHub Pages·원격push·추가결제·credential정책변경·투자기준완화 금지.
 - 초기 총1억원·레버리지20%·MDD20% 유지. 과거자료를 untouched OOS로 표시하지 않는다. 기존 runner/timer inactive, governance dispatch false. 기존 heartbeat만 유지.
 
@@ -16,16 +16,15 @@
 - KIS 새 휴장일 endpoint CTCA0903R: 18:17:48UTC 기존연구host auth1/GET1 → HTTP500, retry0/pagination0, 자료0. `2026-10-04-selected-kis-calendar-receipt-20261004.md` 인계/audit 재사용. 원인미확정, 동일재시도·live전환 금지; 새지원근거/공식거래소자료가 재개조건.
 - 비용 실계좌정보0/16은 명시적비용가정시나리오의전역차단조건이아님. KRW ETF원장에불필요USD환전을추가하지않는다. 실제 READYcohort는아직확인못함.
 
-## 현재 단일 writer — 다음 시작
+## 현재 단계 — 다음 시작
 
-- 신호 main4e1ff56/189검사, 초기batch main42214b8/200검사, KR재조정 main74a5581/208검사에 이어 후보정책 연결 mainb992712/240검사까지 독립 검토·통합 PASS.
-- 후보정책 구현856b3c6의 의미소스해시검증 P2를 동일소유자4ad0fa5에서 수정, 독립재검토PASS. 기존11개/KRsequence 전체 출력 보존, 외부 현금·수량·NAV/순서반전4사례 PASS. `2026-10-04-selected-kr-candidate-policy-20261004.md` 인계 및 audit20261004-selected-kr-candidate-policy 재사용.
-- 현재 **selected-kr-risk-policy-20261004 독립검토 P2 2건을 동일 구현자 수정 중**. checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, branch `codex/selected-kr-risk-policy`, base32e9d9ad8320e40d1af32fd4f7274bbd1274fc41.
-- 소유자 Sol/high CLI01a101e4-af50-7242-a80b-38e39abd6672, 현재 수정 exec session71919. `/tmp/selected-kr-risk-fix-events.jsonl`·stderr, 지시 `/tmp/selected-kr-risk-fix.txt`. 원구현 로그 `/tmp/selected-kr-risk-code-events.jsonl`은 종료. 중복writer 금지.
-- 완료된 delta explore/plan: `/tmp/selected-risk-explore-result.txt`, `/tmp/selected-risk-plan-result.txt` 및 직전audit 사본. 다시 조사하지 않는다.
-- 범위: 기존 policy/rawcore, 신규risk tests, 규약/confighash/개발기록. 같은원장에 episode10% 위험청산·pending취소·청산완료후28일/주간2회/다음4주재진입·cap우선처리. 구공개계약 및 lifetimeMDD20 이력보존, fullrisk 별도entry 허용. 같은시각신규관측으로같은시가주문 금지.
-- 구현8efee89/262검사·독립4사례 PASS이나 독립검토 P2 2건: 비용연쇄 cap 재평가(후순위매도비용으로앞종목위반), 개별첫개장불일치에도 다음공통개장선택 필요. `/tmp/selected-kr-risk-review-result.txt` 재사용. 수정 후 경계 재검토→main통합/관련검사/기록. 아직 main미통합.
-- 신규자료 KODEX2종목4/15~8/31 각93봉·기존캐시대사·독립PASS는 `2026-10-04-selected-kodex-warmup-receipt-20261004.md` 재사용. 동일조회금지, calendar/actions/NAV/PIT 준비false 유지.
+- 신호/초기batch/KR재조정/위험없는정책에 이어 **KR위험정책 main7cc20002/268검사·독립검토·통합 PASS**. 구현8efee89의 P2 2건을cf1c8ac에서 수정했다. 비용연쇄cap재평가와 첫strict공통개장선택 모두 독립 재현PASS.
+- 독립Fraction4사례: 청산·회복·재진입시각/정수수량/현금/NAV/episode·lifetime고점 및입력순서반전 PASS. 구11개/KRsequence출력보존. 상세 `2026-10-04-selected-kr-risk-policy-20261004.md` 인계와audit20261004-selected-kr-risk-policy/manifest7597cdc4... 재사용.
+- 현재 **selected-kr-comparison-20261004 읽기 전용 plan 진행**, 코드writer없음. 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, exec48532, `/tmp/selected-kr-comparison-plan-events.jsonl`·stderr. 지시 `/tmp/selected-kr-comparison-plan.txt`.
+- 탐색완료 `/tmp/selected-kr-comparison-explore-result.txt`. 탐색의 두 누락을 supervisor가 보완: 기존riskfree함수 아닌 run_kr_selected_candidate_risk_reference 사용; market_performance_metrics와 research_portfolio_performance_metrics의 기존지표/투영 재사용. 새지표/원장 중복작성금지.
+- 다음: plan결과→동일기존codeCLI01a101e4-af50-7242-a80b-38e39abd6672에 단일구현 배정. 현재checkout `/home/kwl/.codex/worktrees/official-dividend-input/jusik`의 riskbranch는통합완료/깨끗함. 다음 전용branch/base 준비후사용. rootUSER HANDOFF보존.
+- 목표: 같은등록/cohort/기간/통화/자본/가격/배당/비용으로 순수보유·capcontrol·정확히2후보 합성비교. fixture등급, riskfree결손Sharpeunavailable, 전체chronologyMDD보존, 자동승자/실제성과/OOS승격 없음.
+- 신규실자료가 필요한 조건은가격·기업행동·달력·비용의같은기간결속. KIS보조달력HTTP500 재시도금지. 실제READYcohort없음. 최신배당DB matched24/mismatched13/partial6/unreviewed68=111 확인; 전체자료준비율이아니다.
 - 등록16/revision1, 100M/레버리지20/MDD20 유지. runner/timer inactive, webstack active 확인. 운영실행/주문/승격/원격push 없음.
 
 ## 실행 도구·중복 방지

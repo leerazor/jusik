@@ -5460,6 +5460,6 @@
 
 ## selected-kr-comparison-20261004
 
-- 상태: 후속 읽기 전용 explore. 선행 위험정책 수정·독립PASS·main통합 전 구현하지 않는다.
-- 소유: 기존 Luna/medium exploreCLI01a101db-2b98-7813-a412-63418263ff55. /tmp/selected-kr-comparison-explore-events.jsonl.
+- 상태: explore 완료, plan 진행. 선행 위험정책 main7cc20002/268검사·독립PASS 완료.
+- 조사 결과 /tmp/selected-kr-comparison-explore-result.txt. 두 누락(supervisor보완): fullrisk 진입점 사용, 기존 market_performance_metrics/research_portfolio_performance_metrics 재사용. 계획 소유 기존Sol/high CLI01a101de-0d5f-7881-b2de-c09d33f2d938, exec48532, /tmp/selected-kr-comparison-plan-events.jsonl.
 - 범위: 기존 기준선·정확히2후보·성과지표 경로 재사용 조사. 동일입력 합성 비교에 필요한 최소 연결과 검증 경계, 새원장/지표중복 구현 방지. 실자료 인수/수익성/OOS 주장은 금지.
