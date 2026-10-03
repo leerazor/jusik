@@ -3,7 +3,7 @@
 - 상태: 독립 검토 P1 수정·로컬 재검증 완료, 재검토·supervisor 통합 대기
 - 기록 시각: 2026-10-03T13:35:50Z
 - 작업 slug: `approved-buy-hold-cap-control-20261003`
-- 기준/통합: `5b3cab0` / 없음
+- 기준/통합: `5b3cab0` / `de9153d`
 - 범위: 순수 보유의 공개 입력·출력·실패 계약을 보존하고 동일 회계 사건 코어에 합성 cap-control만 추가했다. 실제 자료 인수, 성과 비교, 주문·서비스 연결은 하지 않았다.
 
 ## 변경과 결정
@@ -46,3 +46,10 @@
 - workflow 판단: 도움 됨 — 기존 탐색·계획 결과와 67개 검사를 재사용해 구조 변경과 기능 변경의 회귀 범위를 분리했다.
 - 근거: 이전 출력 전체 비교, 기존 67개 및 신규 16개 통과. 독립 검토에서 발견한 대기 상태 결함을 새 회귀 2개로 재현하고 수정했다.
 - 비용 절감 효과: 비교 자료가 없어 미측정.
+
+## 독립 검토·통합 결과
+
+- 최초 c5054e7의 P1: 적격 개장이 없는 평가점에서 비중이 회복해도 이전 대기가 남았다. 7fab35e에서 모든 최종 평가점의 자연 회복으로 대기를 종료하고, 새 위반은 새 시각부터 대기하도록 수정했다. 종료시각 FX 회복도 검증했다. 과거 위반 이력과20% 상한은 보존했다.
+- 독립 Sol/high 재검토 PASS 후 main `de9153d` 통합. main83개 pytest·Ruff check/format·strict mypy·KR/US 독립 oracle PASS. baseline3입력 전체출력 SHA `930b79ab749421fad20bc220e5eeef7c114ef9e7a923e9e5d4a7286dde72d9fc` 동일. 위 초기 개발 완료 당시의 통합 대기는 이 결과로 해소됐다.
+- 영구 audit `/home/kwl/.local/share/jusik/portfolio-audit/20261003-buyhold-cap-control/`: 최초/최종 검토, 독립 산식, 전체출력과 status/manifest 보존. native agent 세션 한도 때문에 중앙 선택을 명시한 기존 단일 CLI 구현/검토 세션을 재개했으며, 실제 turn_context Sol/high 확인. native helper parent-link 검증으로 보고하지 않는다.
+- 서비스·DB·주문·PAPER/live·원격push 변경 없음. 실제 투자 성과는 `not_evaluated`. 다음은 등록종목 실제 원주가 자료 인수와 비용/배당 보완.

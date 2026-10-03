@@ -5298,7 +5298,7 @@
 
 ## approved-buy-hold-cap-control-20261003
 
-- 상태: P1 수정7fab35e 완료,83검사 및 기존출력동일성 통과. 원래 독립 reviewer 재검토 진행, main미통합.
+- 상태: 완료. P1 수정7fab35e 독립PASS 후 main de9153d 통합,83검사/Ruff/mypy/독립oracle/기존출력동일성 PASS.
 - 목표: 같은 회계코어의 별도 cap-control. 관측된 레버리지20%초과 후 엄격히 다음 공식open에서 명시 매도비용을 반영해 최소 정수수량 감소; 과거초과·지연·미체결 보존.
 - 소유: Sol/high 단일 CLI code executor 세션01a101e4-af50-7242-a80b-38e39abd6672. 관리형checkout 재사용, branch codex/approved-buy-hold-cap-control; /tmp/buyhold-cap-code-events.jsonl 및 결과 파일.
 - 범위/끝 조건: 합성 reference_only, baseline API/결과보존·공유core·현금/권리/비용/위험 독립검증. 실제16종목 성과·주문·승격·서비스·remote push 제외.
@@ -5314,14 +5314,16 @@
 
 ## selected-price-basis-audit-20261003
 
-- 상태: 가격 사본 대사 완료·독립 검토 진행. KR6 3010봉 원자료/정규화 일치 및 공식 원주가 요청 규격 확보, NVDA 분할 전10배 복원 확인. 공급자 의미/당시 요청 결속은 별도 미확인.
+- 상태: 가격 사본 대사·독립 검토 완료. KR6 3010봉 원자료/정규화 일치 및 공식 원주가 요청 규격 확보, NVDA 분할 전10배 복원 확인. 공급자 의미/당시 요청 결속은 별도 미확인.
 - 목표: 등록종목 가격의 raw/split-adjusted/dividend-adjusted 구분 및 기존 정규화에서 분할 중복 적용 가능성 확인. NVDA 기존 공식분할cache부터 재사용.
 - 소유: 기존 Luna/medium CLI explore 세션 재사용, /tmp/selected-price-basis-explore-events.jsonl 및 결과. 실제DB쓰기/네트워크/가격성과실험 없음.
 - 끝 조건: 코드·계약 근거와 최소 cached probe 확정, 불명확한 공급자 의미를 추측으로 인수하지 않음.
 
 ## selected-alpaca-raw-source-20261003
 
-- 상태: 기존 explore 근거에 따른 read-only plan 진행. 등록 미국10종목의 원주가 명시 자료원을 새로 준비할 최소 조회 범위 검토.
+- 상태: plan 후 신규 원주가1회조회/7931봉·10종목 및 오프라인 대사 완료, 독립 검토 진행. 내부·후행 누락0, NVDA6/10고가 차이1건 보존.
 - 입력/소유: revision1 등록10, 기존 Alpaca22 원문은 겹침0. Sol/high 기존 plan 세션01a101de-0d5f-7881-b2de-c09d33f2d938, supervisor 한정 자료조회 담당.
 - 경계: 요청 전 종목·기간·raw/SIP/asof=-·최대2페이지·실패재시도0 고정. 기존 자격증명 읽기만 허용, 추가결제/권한변경/주문/DB반영/성과실행 없음.
 - 종료: 원천 의미와 수집/결손 증거만 준비, 독립 검토 후 다음 자료 인수 단계. 기존22 자료 재조회 금지.
+
+- cap-control 완료 기록/인계: `docs/development-records/2026-10-03-approved-buy-hold-cap-control-20261003.md`, `docs/handoffs/2026-10-03-approved-buy-hold-cap-control-20261003.md`. 가격대사 기록/인계는 같은날 `selected-price-basis-audit-20261003` 참조.
