@@ -5,16 +5,16 @@ These observations do not establish instrument identity or comparison eligibilit
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from contextlib import closing
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from jusik.approved_universe import ApprovedInstrument, ApprovedUniverseSnapshot
-from jusik.research_universe_store import UniverseInputStore
 
 SourceStatus = Literal["available", "unavailable"]
 PriceStatus = Literal["missing", "success", "stale", "error", "unavailable"]
@@ -28,8 +28,8 @@ class PriceReadiness(BaseModel):
     actual_start: date | None = None
     actual_end: date | None = None
     evaluation_start: date | None = None
-    warmup_bars: int | None = None
-    evaluation_bars: int | None = None
+    warmup_bars: int | None = Field(default=None, ge=0)
+    evaluation_bars: int | None = Field(default=None, ge=0)
     captured_at: datetime | None = None
     history_warning: bool | None = None
 
@@ -73,18 +73,28 @@ def _connect_read_only(path: Path) -> sqlite3.Connection:
     return connection
 
 
-class _ReadOnlyUniverseInputStore(UniverseInputStore):
-    def __init__(self, path: Path) -> None:
-        self.path = path
-
-    def _connect(self) -> sqlite3.Connection:
-        return _connect_read_only(self.path)
-
-
-def _price_rows(path: Path) -> tuple[SourceStatus, dict[str, dict[str, Any]]]:
+def _price_rows(
+    path: Path, symbols: list[str]
+) -> tuple[SourceStatus, dict[str, dict[str, Any]]]:
     try:
-        # statuses selects metadata only; raw_json and normalized_json remain unread.
-        return "available", _ReadOnlyUniverseInputStore(path).statuses()
+        with closing(_connect_read_only(path)) as connection:
+            if not symbols:
+                connection.execute(
+                    "SELECT 1 FROM universe_collection_state LIMIT 1"
+                ).fetchone()
+                return "available", {}
+            placeholders = ",".join("?" for _ in symbols)
+            rows = connection.execute(
+                f"""SELECT c.instrument_id, c.status, c.last_success_at,
+                    s.requested_start, s.requested_end, s.actual_start,
+                    s.actual_end, s.evaluation_start, s.warmup_bars,
+                    s.evaluation_bars
+                FROM universe_collection_state c
+                LEFT JOIN universe_snapshots s ON s.id=c.snapshot_id
+                WHERE c.instrument_id IN ({placeholders})""",
+                symbols,
+            ).fetchall()
+        return "available", {str(row["instrument_id"]): dict(row) for row in rows}
     except (OSError, sqlite3.Error, ValueError, TypeError):
         return "unavailable", {}
 
@@ -124,17 +134,25 @@ def _dividend_counts(
 def _fx_status(path: Path) -> FxReadiness:
     try:
         with closing(_connect_read_only(path)) as connection:
-            row = connection.execute(
-                """SELECT COUNT(DISTINCT observed_on) AS day_count,
-                    MIN(observed_on) AS first_day, MAX(observed_on) AS last_day
-                FROM external_observations WHERE series='usdkrw'"""
-            ).fetchone()
-        assert row is not None
+            rows = connection.execute(
+                """SELECT DISTINCT observed_on FROM external_observations
+                WHERE series='usdkrw' ORDER BY observed_on LIMIT 10001"""
+            ).fetchall()
+        if len(rows) > 10000:
+            return FxReadiness(status="unavailable")
+        dates = []
+        for row in rows:
+            value = row["observed_on"]
+            if not isinstance(value, str) or not re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}", value
+            ):
+                return FxReadiness(status="unavailable")
+            dates.append(date.fromisoformat(value))
         return FxReadiness(
             status="available",
-            observed_date_count=int(row["day_count"]),
-            first_observed_on=row["first_day"],
-            last_observed_on=row["last_day"],
+            observed_date_count=len(dates),
+            first_observed_on=min(dates) if dates else None,
+            last_observed_on=max(dates) if dates else None,
         )
     except (OSError, sqlite3.Error, ValueError, TypeError):
         return FxReadiness(status="unavailable")
@@ -183,8 +201,8 @@ def build_approved_universe_readiness(
     external_db_path: Path,
 ) -> ApprovedUniverseReadiness:
     """Read each source independently; no cross-database atomic snapshot is implied."""
-    price_source_status, prices = _price_rows(universe_db_path)
     symbols = sorted({item.symbol for item in snapshot.instruments})
+    price_source_status, prices = _price_rows(universe_db_path, symbols)
     dividend_source_status, dividends = _dividend_counts(action_db_path, symbols)
     fx = _fx_status(external_db_path)
     instruments: list[InstrumentReadiness] = []
