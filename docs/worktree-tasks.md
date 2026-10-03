@@ -5429,7 +5429,7 @@
 
 ## selected-kr-candidate-policy-20261004
 
-- 상태: plan 완료, 단일 구현 배정. /tmp/selected-kr-policy-plan-result.txt. 신호+4주 일정+정확한 hold_quantity band를 같은 원장에 연결하되 미구현 위험/비용 후 cap 수리 필요 시 거부하는 제한된 합성 단계. 전체 후보/실제 성과 완료가 아니다.
+- 상태: 구현856b3c6, P2 의미소스 해시 검증 누락을 동일 소유자4ad0fa5에서 수정,240검사 PASS. 독립 재검토 진행. /tmp/selected-kr-policy-plan-result.txt. 신호+4주 일정+정확한 hold_quantity band를 같은 원장에 연결하되 미구현 위험/비용 후 cap 수리 필요 시 거부하는 제한된 합성 단계. 전체 후보/실제 성과 완료가 아니다.
 - 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, exec14660. `/home/kwl/.codex/worktrees/official-dividend-input/jusik`, `codex/selected-kr-candidate-policy`, base9c43580. `/tmp/selected-kr-policy-code-events.jsonl`. 계획 담당은 종료했으며 중복 writer를 만들지 않는다.
 - 검증/통합: 구현 commit 후 독립 Sol/high review, 기존208+신규 검사와 구출력11개/KRsequence 보존 확인 후 로컬main 통합. 동결 조건 변경·자료 적격 완화·실제 수익성 주장 금지.
 
@@ -5448,6 +5448,6 @@
 
 ## selected-kr-risk-policy-20261004
 
-- 상태: 후속 읽기 전용 delta explore 진행. 현재 정책 구현 완료·독립 검토·통합이 선행 조건이며 두 번째 writer를 만들지 않는다.
-- 소유: 기존 Luna/medium exploreCLI01a101db-2b98-7813-a412-63418263ff55, exec62716. `/tmp/selected-risk-explore-events.jsonl`.
+- 상태: delta explore·plan 완료. `/tmp/selected-risk-plan-result.txt`; 선행 정책 통합 후 적용. 현재 정책 구현 완료·독립 검토·통합이 선행 조건이며 두 번째 writer를 만들지 않는다.
+- 조사: 기존 Luna/medium exploreCLI01a101db-2b98-7813-a412-63418263ff55 종료. `/tmp/selected-risk-explore-result.txt`. 계획 소유 기존 Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, `/tmp/selected-risk-plan-events.jsonl`.
 - 범위: main의 고정 규약·설정·공유 원장과 현재 정책 계획을 바탕으로 episode 청산·pending 우선순위·재진입·cap 처리의 최소 경계와 검증 조건 조사. 코드/DB/서비스/원격 변경 없음.
