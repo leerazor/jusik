@@ -5199,4 +5199,15 @@
 - 범위: 등록 종목 자료 상태 → 공식 배당/분할/환율/비용 → NAV 검증 → 동조건 사전등록 비교 → 미래 검증. Pages·자동매매·승격 제외.
 - 운영: roadmap 개발 runner 및 timer 중지/pause 유지. 재부팅으로 다시 시작된 과거 `research_universe run --device cuda --poll-seconds 60` 서비스도 stop/disable하여 93후보 반복 재개를 막음. 원본 DB·결과 보존.
 - 제한: 컴퓨터·앱 실행 및 사용 가능한 요금제/도구 권한 필요. 동일 실패 입력 재시도·빈 보고 반복 금지.
-- 다음: 현재 승인 종목 준비 상태 구현을 완료하고 동일 대화의 후속 실행으로 이어감.
+- 다음: 준비 상태 구현 완료 후 공식 자료 검증 진행 중. 최신 인계 `docs/handoffs/2026-10-03-gev-dividend-evidence.md`에서 이어감.
+
+## gev-dividend-evidence-20261003
+
+- 상태: GEV 공식 부분 검토 2건 import·검증 완료. VRT/SOXL 5건 정밀도 차이는 공급자 원문 단계부터 존재함을 확인.
+- 담당/범위: supervisor 자료 조사와 기존 importer 재사용. application 코드 변경·워크트리 생성 없음.
+- 목표: GEV 2026-03-17/06-16 사건의 공식 금액·기준일·지급일을 연결한다. 배당락일과 주당 기준 미확인은 partial로 보존하고 적격 수를 늘리지 않는다.
+- 입력: 등록 revision 1/16종목; runner paused·서비스/timer/optimizer inactive 확인. `78b10ee` 기준.
+- 한도·검증: 공식 원문 3 URL 한 번씩, GEV 2건 성공/VRT 1건 403. exact revision/hash, DB 사본 import·idempotence·coverage excluded 확인 후 실제 검토 DB만 append. 원장·주문 변경 없음.
+- 다음: 지급일 근거 보완 후 배당락일·주당 기준 및 공식 금액 우선순위 계약으로 이어감.
+- 검증 결과: 격리 import2/재import idempotent2, 실제 import2, coverage partial/excluded 및 적격13/111 유지. 캐시 원문 SHA·금액5건 대조 통과.
+- 기록: `docs/development-records/2026-10-03-gev-dividend-evidence.md`; 인계: `docs/handoffs/2026-10-03-gev-dividend-evidence.md`. application 코드와 서비스 변경 없음.
