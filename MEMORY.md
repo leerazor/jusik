@@ -43,6 +43,8 @@ rg -n -F '작업-slug' docs/worktree-tasks.md
 - 전방 관찰의 `external_status=[]`는 현 소비 경로에서 결함이 확인되지 않았습니다. 현재 집계를 과거 cutoff에 붙이는 변경은 [감사에서 기각](docs/development-records/2026-09-30-external-context-audit.md)했습니다. [재개 사건](docs/handoffs/2026-09-30-external-context-audit.md) 없이 같은 후보를 반복 조사하지 않습니다.
 - 공식 배당은 [동결 계약](docs/research.md#공식-현금-배당-입력-동결)과 [MSFT 검증 인계](docs/handoffs/2026-10-03-official-dividend-input-20261003.md)를 재사용합니다. 금액 충돌은 기존 strict overlay에서 제외합니다.
 
+- 등록 종목의 회계·원주가 후속 작업은 [cap-control 통합](docs/handoffs/2026-10-03-approved-buy-hold-cap-control-20261003.md)과 [US10 원주가7931봉](docs/handoffs/2026-10-03-selected-alpaca-raw-source-20261003.md)을 재사용합니다. 합성 회계 통과·원천 준비를 실제 수익성 검증으로 해석하지 않습니다.
+
 ## 최신성과 충돌 처리
 
 - 메모리는 요약·검색 수단이며 새 승인이나 정책 원본이 아닙니다. 현재 사용자 지시·적용 지침과 검증한 Git·코드·계약·실행 상태를 우선하고, 충돌한 요약은 근거를 확인한 뒤 수정합니다. 과거 동결 실험에는 당시 계약을 유지합니다.

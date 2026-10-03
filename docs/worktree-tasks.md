@@ -5321,9 +5321,17 @@
 
 ## selected-alpaca-raw-source-20261003
 
-- 상태: plan 후 신규 원주가1회조회/7931봉·10종목 및 오프라인 대사 완료, 독립 검토 진행. 내부·후행 누락0, NVDA6/10고가 차이1건 보존.
+- 상태: 원천 준비·독립 검토 완료. 신규 원주가1회조회/7931봉·10종목, 내부·후행 누락0. NVDA6/10고가 차이1건 및 연구 인수 미완료 보존.
 - 입력/소유: revision1 등록10, 기존 Alpaca22 원문은 겹침0. Sol/high 기존 plan 세션01a101de-0d5f-7881-b2de-c09d33f2d938, supervisor 한정 자료조회 담당.
 - 경계: 요청 전 종목·기간·raw/SIP/asof=-·최대2페이지·실패재시도0 고정. 기존 자격증명 읽기만 허용, 추가결제/권한변경/주문/DB반영/성과실행 없음.
 - 종료: 원천 의미와 수집/결손 증거만 준비, 독립 검토 후 다음 자료 인수 단계. 기존22 자료 재조회 금지.
 
 - cap-control 완료 기록/인계: `docs/development-records/2026-10-03-approved-buy-hold-cap-control-20261003.md`, `docs/handoffs/2026-10-03-approved-buy-hold-cap-control-20261003.md`. 가격대사 기록/인계는 같은날 `selected-price-basis-audit-20261003` 참조.
+
+- Alpaca 원주가 기록/인계: `docs/development-records/2026-10-03-selected-alpaca-raw-source-20261003.md`, `docs/handoffs/2026-10-03-selected-alpaca-raw-source-20261003.md`.
+
+## selected-us-dividend-next-20261003
+
+- 상태: 기존 Luna/medium CLI explore 재개, 읽기 전용 조사 진행. 신규원주가 검증 다음 단계인 등록종목 공식배당 결손 보완.
+- 소유: 기존 explore 세션01a101db-2b98-7813-a412-63418263ff55; `/tmp/selected-us-dividend-next-events.jsonl`. DB/네트워크 writer 없음.
+- 범위: NVDA/GOOGL exact revision과 기존원천·실패목록에서 최소새공식근거를 선택. 미검증배당락일 추정/같은실패조회 금지. eligible24/111 유지.
