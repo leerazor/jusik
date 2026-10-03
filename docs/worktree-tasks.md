@@ -5171,15 +5171,17 @@
 
 ## approved-readiness-ui-20261003
 
-- 상태: 구현·focused 검사 중. 단일 구현 담당 `approved_readiness_code`.
+- 상태: 완료. 단일 구현 담당 `approved_readiness_code`, 최종 `012acdd`.
 - 목표와 완료 조건: 현재 등록 종목만 읽어 가격 기간·배당 검토·환율 가용 범위 및 비교 미완료 사유를 API와 화면으로 제공. 누락 자료는 확인 불가, 수익성 적격·매매 승격 없음. focused 검사와 독립 코드/화면 검토 후 main 통합.
 - 담당: 중앙 라우팅 explore → plan → code → review, 구현 소유자 1명.
-- 예정 워크트리: `/home/kwl/projects/jusik-approved-readiness-ui`; 브랜치 `feat/approved-readiness-ui`.
-- 기준: `8ec5057`; 통합 대상: 로컬 main.
+- 워크트리: `/home/kwl/projects/jusik-approved-readiness-ui`; 브랜치 `feat/approved-readiness-ui`. 산출물 보존·preview 종료 후 모두 정리.
+- 기준: `8cac68b`; 병합 직전 main `c17a55e`; 통합 main `262699bcf5ba675b785e247aeeb56a2ded239e35`.
 - 입력: 등록 DB revision 1, `docs/development-records/2026-10-03-approved-universe-readiness.md`, 기존 읽기 전용 store/API 계약.
 - 수정 허용 범위: 승인 목록 준비 상태 backend/frontend와 관련 focused tests·문서. 기존 주문·운영 universe·PAPER·과거 NAV 및 배당 검토 판정 변경 금지.
 - 격리: preview API 8013/web 3013, 작업별 DB·artifact. 운영 DB는 읽기 전용 사실 확인만.
 - 다음 단계: UI 통합 후 배당·비용 자료 보완과 동결 비교 계약으로 진행. Pages와 자동매매 제외.
+- 검증: 독립 코드/화면 PASS, main focused 8 passed/Ruff/운영 Next 빌드 통과. 운영 16종목·no-store·인증 401/200·모바일 390px 확인. 전체 TestClient lifecycle 검사는 대기로 미완료.
+- 개발 기록: `docs/development-records/2026-10-03-approved-readiness-ui-20261003.md`; handoff: `docs/handoffs/2026-10-03-approved-readiness-ui-20261003.md`.
 
 ## msft-dividend-review-20261003
 

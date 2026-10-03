@@ -30,3 +30,5 @@ Microsoft 공식 [배당 및 주식 이력](https://www.microsoft.com/en-us/inve
 ## 다음 자료 조사: SOXL 정밀도 차이
 
 Direxion 공식 상품 페이지의 SOXL 분배 표를 웹으로 확인했다. 최근 4건은 공급자 값/공식 값이 각각 2026-09-22 `0.093/0.09290`, 2025-09-23 `0.01/0.01008`, 2025-06-24 `0.068/0.06799`, 2025-03-25 `0.065/0.06477`이다. 공식 표 URL은 https://www.direxion.com/product/daily-semiconductor-bull-bear-3x-etfs 이다. 현재 strict 금액 비교의 통과 조건을 완화하거나 원본 revision을 덮어쓰지 않았다. 원문 보존용 직접 다운로드는 HTTP 403으로 실패했으므로 검토 manifest/import를 만들지 않았다. 다음에는 공식 연도별 분배 공지 등 다른 원문 확보 경로를 확인하고, 공급자 반올림과 공식 현금 금액을 구분하는 입력 계약을 검토한다. 동일 차단 URL을 재시도하지 않는다.
+
+후속 한정 확인: https://www.direxion.com/press-release/2025-etf-distributions 의 웹 본문에는 분기별 배당락일·기준일·지급일이 있으나 금액 표는 표시되지 않았다. 2024 공지 조회는 timeout. 추가 import 없이 보류했으며 금액 원문을 확보할 수 있는 다른 공식 근거 또는 독립 자료 작업으로 진행한다.
