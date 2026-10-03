@@ -5352,7 +5352,15 @@
 
 ## selected-tqqq-official-source-20261003
 
-- 상태: supervisor 공식 원천 보완 진행. 기존 TQQQ 근거/실패 기록에 새 조회 경로가 없어 issuer 상품 페이지와 2025분할 공지를 각1회 확인한다.
+- 상태: 완료/적격화 차단. 공식API13사건 대조, USD가정 제거 조건 충족 후 mismatched13 실제reviewDB 반영. eligible24/111유지. 기존matched분할은 중복반영 없음.
 - 범위: raw원문·정확한 배당/분할 사건 대조만 수행. DB반영은 사본검증·독립검토 후, 가격/성과/주문에는 연결하지 않는다. 일반예정표를개별사건확인으로대체하지 않음.
 
 - 후보설정 문서 소유: 중앙 code_small Luna/high 단일 CLI writer, 기존 free 관리형checkout와 codex/selected-candidate-config-freeze 전용branch. docs/research/selected-candidate-config-v1.json·규약링크·작업별개발기록만 작성하며 코드/DB/실험변경 없음.
+
+- TQQQ 기록/인계: docs/development-records/2026-10-03-selected-tqqq-official-source-20261003.md 및 docs/handoffs/2026-10-03-selected-tqqq-official-source-20261003.md.
+
+## approved-dividend-review-status-20261003
+
+- 상태: read-only explore 진행. TQQQ13건 모두불일치인데현재API는검토건수만제공하므로 UI가실제차단이유를구분하는지확인.
+- 소유: 기존Luna/medium CLI explore, /tmp/approved-dividend-status-explore-events.jsonl. application writer 없음.
+- 범위: 현등록identity·latestreview/currentrevision결속보존, 비교검토상태별표시의 최소계약·검사·화면검토 계획. matched를수익/입력적격으로표시하지않는다.
