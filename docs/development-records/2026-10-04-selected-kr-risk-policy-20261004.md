@@ -1,9 +1,9 @@
 # 선정 KR 후보의 합성 위험 청산·회복 경로
 
-- 상태: 구현·로컬 검증 완료, 독립 검토·main 통합 전
+- 상태: 완료 — 독립 P2 수정·재검토·로컬 main 통합 검증 PASS
 - 기록 시각: 2026-10-03T18:31:27Z
 - 작업 slug: `selected-kr-risk-policy-20261004`
-- 기준/통합: `32e9d9ad8320e40d1af32fd4f7274bbd1274fc41` / 없음
+- 기준/통합: `32e9d9ad8320e40d1af32fd4f7274bbd1274fc41` / `7cc20002cb43bfae1256b581c3871f419db16fd1`
 - 범위: 동결된 두 KR 후보를 같은 raw 사건·회계 루프에서 합성 위험 사건, 전량청산, 28일 cooldown, 주간 2회 확인, 다음 4주 재진입까지 연결한다. 기존 위험 없는 함수의 실패 계약과 모든 이전 원장 출력을 보존한다.
 
 ## 변경과 결정
@@ -33,7 +33,7 @@
 ## 증거와 재개
 
 - audit: `/tmp/selected-kr-risk-code/`; 기존 고정 출력: `/tmp/selected-kr-policy-code/`.
-- 남은 작업: supervisor의 독립 검토와 main 통합. 실제 등록·원주가·배당·FX·달력·비용·기간·수익률 조건 인수와 운영 정책은 별도 단계다.
+- 남은 작업: 이 단계의 독립 검토와 main 통합은 완료. 실제 등록·원주가·배당·FX·달력·비용·기간·수익률 조건 인수와 운영 정책은 별도 단계다.
 - 다음 시작: 동적 결정/종가 우선순위, cap 최소 정수 수리, 엄격한 후속 공통 개장의 독립 검토 뒤 합성 전체 출력과 설정 해시를 재확인한다.
 
 ## workflow 평가
@@ -50,3 +50,11 @@
 - `/tmp/selected-kr-risk-p2-code/`의 baseline·cap·single target·batch·KR sequence 직렬화는 수정 전과 바이트 동일하다. 기존 위험 없는 정책과 이전 full-risk 2방법의 전체 경제 출력도 설정 SHA 필드만 제외하고 동일하다. 독립 Fraction probe의 두 방법×배당 유무 4건 및 입력 순서 불변 4건은 PASS다.
 - 설정은 raw core 의미 해시만 `f63f86e97fe2728e09c11595cba935e27c18f08b3626b38d75c61cf8942a0ca8`로 갱신했다. 설정 SHA-256은 `670bfcd77a6fd02a40c5e3123f2e1b3f1591e811f709ea5a61f099f3c752ba15`; 6개 실제 소스와 일치하며 숫자·가설·차단 플래그는 그대로다. 새 full-risk 직렬화 SHA-256은 `7dc0f5aae710e905bc441c0eaacba4cf3630a8119ad768b1b6b907b72c0ca7c7`이다.
 - 남은 작업: 수정분 독립 재검토와 supervisor main 통합. 실제 자료·성과·주문 검증은 수행하지 않았다.
+
+## supervisor 통합 검증
+
+- 구현8efee89의 P2 두 건(비용 연쇄 cap 재평가·최초 공통 개장 선택)을 동일 구현자cf1c8ac에서 수정, 독립 재검토PASS. 병합 전main1b27203, 통합7cc20002.
+- main 관련268검사 6.67초 PASS, Ruff·strict mypy·diff check PASS. 두 후보×배당 유무4사례에서 사전 손계산한 청산/회복/재진입시각·정수수량·현금·NAV·episode/lifetime고점 및 입력순서반전 대사 PASS.
+- audit `/home/kwl/.local/share/jusik/portfolio-audit/20261004-selected-kr-risk-policy/`, manifest SHA256 `7597cdc43ca614c155af3e853c57809605d26460642892bc4824fefd8721cd4a`. 과거출력보존·두 오류재현/수정·독립결과 보존.
+- 현재 등록16/revision1. 최신 읽기전용 배당집계 matched24/mismatched13/partial6/unreviewed68(총111) 확인, 투자자료 인수와 다르다. 별도 KIS 달력조회 HTTP500은 해당 자료 인계 재사용.
+- 다음은 기존지표를 재사용하는 동일 입력 KR 기준선·2후보 합성 비교 연결 조사/계획. 이 checkout 재사용 예정. 실제원천/수익성/미래OOS 완료·주문·원격push 없음.
