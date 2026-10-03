@@ -5339,4 +5339,4 @@
 - NVDA3건 원문에 ex-dividend 미명시. 과거candidate ex-date를 그대로 인수하지 않는다. Nasdaq 신규1회 보완 요청은 HTTP2 오류92/상태000으로 실패; 같은 요청 반복 금지.
 
 - 배당 후속 기록/인계: `docs/development-records/2026-10-03-selected-us-dividend-next-20261003.md`, `docs/handoffs/2026-10-03-selected-us-dividend-next-20261003.md`.
-- 원주가 작업 추가자료: ARM/GEV 거래개시 원문2건 확보 및 독립review 진행. `/tmp/selected-listing-boundaries-20261003`, 기존원주가manifest는보존.
+- 원주가 추가자료 완료: ARM/GEV 거래개시 원문2건 독립PASS. 영구 audit `20261003-selected-alpaca-raw-source/listing-boundaries/`, 원주가 작업 기록·인계에 연결. 기존manifest 보존.

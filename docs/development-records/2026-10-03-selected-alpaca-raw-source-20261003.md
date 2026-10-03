@@ -12,3 +12,9 @@
 - API키/인증헤더 저장·출력0,결제/주문/DB/서비스/PAPER/live/remote push 변경0. 등록16/rev1,runner inactive/governancefalse 유지.
 - 다음은 NVDA해당일 고가의 별도 원천 판정 및 등록 종목 공식배당 보완이다. 같은 원주가 요청은 재실행하지 않는다. 이미 확보한 시가/종가 활용 여부는 실제 함수의 소비 필드와 별도 인수계약으로 정하며, 고가충돌을 숨기거나 임의허용치로 통과시키지 않는다.
 - workflow 판단: 도움 됨 — 기존 실패 원천 재조회 없이1회7931봉 확보 및 독립검증. 시간/비용 절감 미측정; 다음 조정은 원천/소비필드별 남은 결손에 집중.
+
+## 거래 개시 경계 후속 검토
+
+- [Arm 공식 IPO 종료 발표](https://newsroom.arm.com/news/arm-announces-closing-of-initial-public-offering)는 ARM 미국예탁주식(ADS)이2023-09-14 Nasdaq Global Select Market에서 거래를 시작했다고 명시한다. 이 날짜는 확보한 첫 봉과 같으며 선행51세션은 현재 ARM ADS의 거래 개시 전 구간에 해당한다.
+- [GE Vernova 공식 분사 완료 발표](https://www.gevernova.com/news/press-releases/ge-vernova-completes-spin-off-begins-trading-new-york-stock-exchange)는2024-04-02 분사가 완료됐고 그날 NYSE개장부터 GEV로 거래할 예정이라고 명시한다. 첫 봉 날짜와 선행188세션에 부합하지만, 발표만으로 실제 첫 체결을 별도로 증명한 것은 아니다.
+- 원문 각1회 보존·독립review PASS. audit `listing-boundaries/manifest.json` SHA `8aa6aa429aa11ba5d77dc6ed278aea693112c985bed13b9db381cd03ec616074` 및 독립결과 보존. 최초 source manifest는 변경하지 않았다. 전체 신원/PIT 인수는 별도이며 과거ARM·GEV WI·GE모회사 가격을 이어붙이지 않는다. 등록 및 가격DB 변경0.

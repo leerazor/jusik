@@ -5,3 +5,5 @@
 - code완료와 수익성 구분: cap-controlmain de9153d/83검사 완료. 실제비용/배당/FX·sourceacceptance·후보비교 미완료. 과거3년을untouchedOOS라 부르지 않는다.
 - 다음: 새 조회를 반복하지 말고 registered US 공식배당의 남은사건/기존cache 검토 작업 `selected-us-dividend-next-20261003`을 이어간다. 고가차이 판정은 독립된 후속 자료 작업으로 가능하다.
 - 등록16/rev1·자본1억·레버리지20%·MDD20% 고정,runner중지/governancefalse. 주문·PAPER/live·remote push 없음.
+
+- 후속 완료: ARM/GEV 거래 개시 경계 원문2건 독립PASS, audit listing-boundaries/ 참조. ARM ADS 2023-09-14 실제 개시 발표, GEV2024-04-02 예정 개장 발표이며 둘 다 원주가 첫 봉과 맞는다. GEV 실제 첫 체결 자체를 issuer문구로 증명한 것은 아니다. 배당후속도 partial3 반영 완료, eligible24/111 유지.
