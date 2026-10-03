@@ -464,6 +464,53 @@ OpenAI 검토는 키·모델·양수 일일 token 예산을 모두 명시한 경
 
 현재 버전은 국내주식 일봉, 체결가 stream, 원주가 시가 체결과 고정 비용 가정만 지원합니다. 기업 재무·업종 상대가치, 공시·뉴스 사건 이력, 배당·총수익률, 호가잔량·부분 체결, 상장폐지 전체 universe는 아직 포함하지 않습니다. 공식 KRX 달력도 없어 모든 종목에 함께 누락된 일봉을 판별하지 못합니다. 이 상태의 성과는 실전 주문 근거가 아니며 실제 전략으로 자동 승격하지 않습니다.
 
+
+## 공식 현금 배당 입력 동결
+
+`jusik.research_official_dividend_input`은 등록 종목의 공식 배당 검토 기록을 별도 JSON으로 동결하는 오프라인 CLI입니다. 기존 검토 DB·공급자 revision·strict 비교 결과는 바꾸지 않습니다. 공식 금액과 공급자 금액만 다른 경우에도 현재 `mismatched` 상태를 유지하면서 두 금액과 정확한 차액을 새 산출물에 기록합니다. 배당락일·통화·주당 기준이 다르거나 필수 사실이 없으면 실패합니다.
+
+입력은 미리 복사해 둔 승인 목록 DB와 기업행동/검토 DB, JSON manifest입니다. 두 DB는 읽기 전용으로 열고 등록 목록의 전체 revision·내용 해시와 각 사건의 현재 revision/content SHA 및 최신 review ID를 고정합니다. DB 사이 원자적 snapshot은 제공되지 않으므로 같은 시점에 복사한 DB를 사용해야 합니다. 각 사건의 `identity`는 운영자가 증권의 발행사·상품 종류·주식 종류와 원문 위치를 확인했다는 선언입니다. CLI는 그 선언과 원문 파일의 형식·크기·SHA를 검사하지만 원문 의미나 사람의 신원 판단을 증명하지 않습니다.
+
+manifest v1의 한 사건 형식은 다음과 같습니다. `event_id`, `revision_id`, `content_sha256`, `review_id`에는 입력 DB의 실제 현재 값을 넣고, 신원 원문 경로에는 로컬 절대 경로를 씁니다. manifest는 최대 100건·1 MiB, 원문 파일은 최대 4 MiB입니다.
+
+```json
+{
+  "schema_version": 1,
+  "approved_revision": 1,
+  "events": [{
+    "market": "US", "exchange": "NAS", "symbol": "MSFT",
+    "event_id": "<current-event-id-64hex>",
+    "revision_id": "<current-revision-id-64hex>",
+    "content_sha256": "<current-content-sha256-64hex>",
+    "review_id": "<latest-review-id-64hex>",
+    "identity": {
+      "issuer": "Microsoft Corporation",
+      "security_type": "common stock",
+      "share_class": "common",
+      "operator_verified": true,
+      "evidence": {
+        "local_file": "/absolute/path/to/identity.html",
+        "sha256": "<identity-file-sha256-64hex>",
+        "source_url": "https://www.sec.gov/Archives/edgar/data/.../filing.htm",
+        "publisher": "Microsoft SEC filing",
+        "locator": "Form 8-K cover, Section 12(b) common stock listing",
+        "captured_at": "2026-10-03T10:56:05+00:00"
+      }
+    }
+  }]
+}
+```
+
+```bash
+PYTHONPATH=backend backend/.venv/bin/python -m jusik.research_official_dividend_input \
+  --approved-db /absolute/path/to/copied-approved.db \
+  --action-db /absolute/path/to/copied-actions.db \
+  --manifest /absolute/path/to/input-manifest.json \
+  --out-dir /absolute/path/to/existing-output-dir
+```
+
+출력은 `official-dividend-input-<whole-file-sha256>.json` 한 파일입니다. 같은 바이트로 다시 실행하면 파일을 재사용하고, 같은 이름의 파일 내용이 다르면 실패합니다. 사건마다 등록 종목 tuple, 신원 근거, 공급자 사건/revision/금액, 공식 검토 원문·사실·금액·차액·충돌 상태를 담습니다. 최상위 `retrospective=true`, `historical_pit_verified=false`, `automatic_ledger_application=false`, `nav_ready=false`는 후속 독립 NAV 검증 전의 경계를 고정합니다. 이 산출물만으로 당시 관측 가능성, 사건 누락 없음, 세금·FX·원장 반영 또는 총수익률 검증은 주장할 수 없습니다.
+
 ## 검증된 배당 기여분 overlay
 
 고정 포트폴리오 실행 `c94690f0ee13f01b1810ac0368e84fdcaeb1c1bbe7f396985d04dd3634b5ead0`의 거래와 평가액을 바꾸지 않고, 현재 revision에 대한 최신 공식 근거 대조가 `matched`인 배당만 세전 기여분으로 더해 볼 수 있습니다.
