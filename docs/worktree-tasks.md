@@ -5199,7 +5199,7 @@
 - 범위: 등록 종목 자료 상태 → 공식 배당/분할/환율/비용 → NAV 검증 → 동조건 사전등록 비교 → 미래 검증. Pages·자동매매·승격 제외.
 - 운영: roadmap 개발 runner 및 timer 중지/pause 유지. 재부팅으로 다시 시작된 과거 `research_universe run --device cuda --poll-seconds 60` 서비스도 stop/disable하여 93후보 반복 재개를 막음. 원본 DB·결과 보존.
 - 제한: 컴퓨터·앱 실행 및 사용 가능한 요금제/도구 권한 필요. 동일 실패 입력 재시도·빈 보고 반복 금지.
-- 다음: KODEX 공식 분배11건 반영 완료(eligible24/111). 최신 인계 `docs/handoffs/2026-10-03-selected-etf-tax-evidence-20261003.md`에서 국내주식 배당 근거 보완으로 이어감.
+- 다음: KODEX 공식 분배11건 반영 완료(eligible24/111). 최신 인계 `docs/handoffs/2026-10-03-selected-kr-dividend-source-20261003.md`에서 비교 규칙 사전 고정으로 이어감.
 
 ## gev-dividend-evidence-20261003
 
@@ -5255,6 +5255,14 @@
 
 ## selected-kr-dividend-source-20261003
 
-- 상태: 진행. supervisor 단일 자료 writer, 기존 explore agent 공식 원천 read-only 조사.
+- 상태: 원천 조사/독립 검토 완료; 사건 배당락일·지급일 결손으로 적격화 차단. 원문3개 보존, import0/eligible24 유지.
 - 범위: 삼성전자005930/SK하이닉스000660의 exact revision과 공식 사건별 배당 금액·일정 연결. 연간 합계로 사건 추정 금지.
 - 검증/종료: 원문 hash·일자·주당 기준을 대조하고 준비된 사건만 사본 import/독립 검토 후 반영; 결손은 재개 조건으로 남기고 다음 독립 작업 진행.
+
+- 기록: `docs/development-records/2026-10-03-selected-kr-dividend-source-20261003.md`; 인계: `docs/handoffs/2026-10-03-selected-kr-dividend-source-20261003.md`.
+
+## selected-comparison-protocol-20261003
+
+- 상태: explore 완료, plan 진행. 등록16종목의 단순보유/최대3저회전 비교 규칙을 결과 전에 고정한다.
+- 소유: read-only selected_comparison_plan; supervisor 문서 조율. 코드 writer 미배정.
+- 끝 조건: 정할 수 있는 규칙 고정, 자료 결손·실행 인수 조건 분리, 다음 최소 구현 범위 확정. 성과 실행·주문·승격 금지.
