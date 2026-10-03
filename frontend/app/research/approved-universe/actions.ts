@@ -2,7 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { researchBackendUrl } from "@/lib/research";
-import { approvedUniverseSchema, type ApprovedInstrument, type ApprovedUniverse } from "./contract";
+import { approvedReadinessSchema, approvedUniverseSchema, type ApprovedInstrument, type ApprovedReadiness, type ApprovedUniverse } from "./contract";
+
+export async function refreshApprovedReadiness(): Promise<ApprovedReadiness | null> {
+  try {
+    const response = await fetch(`${researchBackendUrl()}/api/research/approved-universe/readiness`, {
+      cache: "no-store", signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) return null;
+    return approvedReadinessSchema.parse(await response.json());
+  } catch {
+    return null;
+  }
+}
 
 export type SaveState = {
   status: "idle" | "saved" | "invalid" | "confirm-clear" | "stale" | "error";

@@ -13,4 +13,10 @@
 .check { display: flex; align-items: center; gap: 8px; margin: 16px 0; }
 .form button { padding: 12px 20px; color: #fff; background: var(--green); border: 0; border-radius: 8px; font: inherit; font-weight: 700; cursor: pointer; }
 .next { background: #f6f5f0; }
+.refresh { padding: 9px 14px; border: 1px solid var(--green); border-radius: 8px; background: #fff; color: var(--green); font: inherit; font-weight: 700; cursor: pointer; }
+.readinessList { display: grid; gap: 12px; margin: 18px 0; }
+.readinessItem { padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; }
+.readinessItem h3 { margin: 0 0 8px; font-size: 18px; }
+.readinessItem p { margin: 7px 0; }
+.warning { color: #8a4209; font-weight: 700; }
 .main :is(a, button, textarea, input):focus-visible { outline: 3px solid #b0782e; outline-offset: 3px; }
