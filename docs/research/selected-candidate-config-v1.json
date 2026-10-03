@@ -1,0 +1,71 @@
+{
+  "schema": "selected_candidate_config_v1",
+  "status": "hypothesis_only",
+  "registered_revision": 1,
+  "candidates": [
+    {"method": "equal", "gate": "none"},
+    {"method": "inverse_volatility", "gate": "none"}
+  ],
+  "policy": "low_turnover_combined",
+  "initial_cash_krw": "100000000",
+  "caps": {"gross": "0.60", "symbol": "0.20", "leveraged_etf_aggregate": "0.20"},
+  "signal": {
+    "basis": "split_adjusted_close_for_signal_only",
+    "eligible_when": "latest_completed_close > trailing_SMA20",
+    "minimum_completed_closes": 61,
+    "inverse_volatility_returns": 60,
+    "inverse_volatility_estimator": "population_standard_deviation"
+  },
+  "volatility_scale": {
+    "target_annualized": "0.10",
+    "return_window": 60,
+    "annualization_sessions": 252,
+    "proxy": "sum(target_weight * asset_KRW_annualized_population_std)",
+    "sampling_dates": "last_61_distinct_UTC_close_dates_across_all_assets_before_decision",
+    "asset_close_asof": "latest_known_adjusted_close_at_or_before_each_UTC_day_end",
+    "fx_asof": "latest_USDKRW_observation_available_at_or_before_each_causal_cutoff",
+    "fx_max_age_calendar_days": 7,
+    "scale": "min(1, target/proxy)",
+    "missing_history_or_missing_or_stale_FX": "incomplete"
+  },
+  "drawdown": {
+    "episode_liquidation_latch": "0.10",
+    "episode_peak_resets_on_reentry": true,
+    "lifetime_peak_MDD_hard_filter": "0.20"
+  },
+  "reentry": {
+    "cooldown_calendar_days_after_completed_liquidation": 28,
+    "weekly_recovery_confirmations": 2,
+    "minimum_eligible_assets": 2,
+    "execute_on_next_scheduled_rebalance": true
+  },
+  "rebalance": {
+    "every_weeks": 4,
+    "anchor": "first_Monday_on_or_after_evaluation_start",
+    "decision_time": "Monday_00:00_UTC",
+    "band_absolute_weight": "0.02",
+    "skip_only_if": "positive_target_and_abs_difference_less_than_band_and_no_cap_violation",
+    "zero_targets_and_risk_exits_exempt": true
+  },
+  "timing": {
+    "signal": "official_close_at_or_before_decision",
+    "execution": "first_eligible_official_open_strictly_after_decision",
+    "FX": "available_at_at_or_before_each_causal_cutoff_no_future_observations"
+  },
+  "semantic_sources_sha256": {
+    "backend/jusik/research_portfolio_models.py": "e1fda47a0dc4cb37e4186b778d902cd293e6e2ec1fbd1be2b367bb967c865024",
+    "backend/jusik/research_portfolio_engine.py": "2e48b0bcedb740210a6dd58f6b15e99e2b2e1c416aacf553569ec0ea98166653",
+    "backend/jusik/approved_universe_buy_hold.py": "6a03e12948c079d7353d6099e9a338cf80c300e82074ece54981a1ed5f317bbd",
+    "backend/jusik/market_history_action_accounting.py": "c183fa54a7fd4b368fee6ec7ac45568e420a6381336e6d8a87553e1f440b1af2"
+  },
+  "unresolved": {
+    "registry_snapshot_and_cohort_hash": null,
+    "period_warmup_IS_validation_walk_forward": null,
+    "accepted_price_actions_FX_calendar_hashes": null,
+    "fee_slippage_FX_spread_product_tax_assumptions": null,
+    "required_return_metric_value_period": null,
+    "candidate_execution_code_hash": null
+  },
+  "execution_allowed": false,
+  "results_observed": false
+}
