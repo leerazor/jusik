@@ -21,7 +21,7 @@ MAX_POLICY_BYTES: Final = 64 * 1024
 # recomputed from disk, so replacing the artifact cannot silently change the
 # policy consumed by a caller.
 POLICY_SHA256: Final = (
-    "87385ecb15bdc9d0425b9cfcf97c46174e2e8d9e6de970780654aab81e5bd4a9"
+    "f7d1ae4b50b5aefb5857ecee2f6e9b59aa83bb63827875e6165958d5618a9e50"
 )
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 

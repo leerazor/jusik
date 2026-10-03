@@ -1,6 +1,7 @@
 import copy
 import hashlib
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Context, Decimal, localcontext
 from pathlib import Path
@@ -210,6 +211,27 @@ def test_risk_free_and_sharpe_prerequisites_do_not_block_other_metrics() -> None
     assert report.total_net_return.availability == "available"
     assert report.cagr.availability == "available"
     assert report.sharpe.reason == "insufficient_returns"
+
+
+def test_ordered_equal_timestamp_opt_in_and_absent_risk_free() -> None:
+    original = _input(nav=("120", "95", "110"), days=(1, 1, 2))
+    assert evaluate_performance(original).maximum_drawdown.reason == (
+        "duplicate_timestamp"
+    )
+    assert evaluate_performance(replace(original, risk_free=None)).sharpe.reason == (
+        "duplicate_timestamp"
+    )
+    ordered = evaluate_performance(
+        replace(original, risk_free=None, allow_ordered_equal_timestamps=True)
+    )
+    assert ordered.maximum_drawdown.value == Decimal(
+        "0.20833333333333333333333333333333333333333333333333"
+    )
+    assert ordered.hard_filter.passed is False
+    assert ordered.total_net_return.value == Decimal("0.1")
+    assert ordered.sharpe.reason == "missing_risk_free_evidence"
+    assert ordered.cagr.availability == "available"
+    assert ordered.calmar.availability == "available"
 
 
 def test_anchor_is_explicit_and_controls_period_and_first_nav() -> None:

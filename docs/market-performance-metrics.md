@@ -19,6 +19,13 @@ UTC `initial_capital_at`, offset이 있는 UTC `timestamp`와 양의 유한 `nav
 `missing_sessions`가 있거나 근거가 partial/unknown이면 모든 지표를
 `unavailable`로 반환한다.
 
+파이썬 직접 호출의 `PerformanceInput`에는 비교용 선택지
+`allow_ordered_equal_timestamps=True`가 있다. 이때 서로 다른 회계 단계가 같은
+UTC 순간에 기록되어도 **입력 순서 그대로** 평가하며, 역순 순간은 계속 거부한다.
+기본값은 `False`이므로 기존 JSON 입력과 저장형 어댑터의 중복시각 거부 계약은
+유지된다. 직접 호출에서 `risk_free=None`을 명시하면 다른 지표는 계산하고 Sharpe만
+`missing_risk_free_evidence`로 표시한다. JSON 입력의 무위험률 객체 요구는 그대로다.
+
 ## 계산 및 unavailable 경계
 
 - 총 순수익률은 `final_nav / initial_capital - 1`이다.
@@ -153,6 +160,12 @@ python -m jusik.market_performance_readiness \
 sibling 경로와 등록된 artifact 바이트 SHA-256을 확인한 뒤, 정책에 기록된 evaluator
 source SHA-256도 함께 확인한다. 중복 key·JSON float·비유한 값·지원하지 않는 필드와
 비정규 바이트는 fail-closed로 거부한다.
+
+동일 시각 회계 단계의 명시적 직접 호출과 근거 없는 무위험률 처리에 필요한 평가기
+소스가 바뀌어, artifact의 `evaluator_source_sha256`와 loader의 artifact SHA pin을
+함께 갱신했다. 정책의 수식·상수·Decimal Context·`forward-only` 범위·과거 성과
+비소급 계약은 그대로다. 저장형 JSON의 기본 중복시각 거부와 무위험률 객체 요구도
+유지한다.
 
 정책의 scope는 `forward-only`이며 `historical_application_proven=false`이다. 즉 이
 정책은 앞으로 생성될 평가 입력의 해석 계약일 뿐, 과거 run에 정책을 적용했다거나

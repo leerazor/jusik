@@ -246,9 +246,10 @@ class PerformanceInput:
     data_source: DataSource
     completeness: CompletenessEvidence
     cost_inclusion: CostInclusionEvidence
-    risk_free: RiskFreeEvidence
+    risk_free: RiskFreeEvidence | None
     calculation_policy: str
     sessions_per_year: int = SESSIONS_PER_YEAR
+    allow_ordered_equal_timestamps: bool = False
 
     @classmethod
     def from_mapping(cls, value: object) -> PerformanceInput:
@@ -486,7 +487,10 @@ def _validate_input(input_value: PerformanceInput) -> Reason | None:
             return "invalid_utc_timestamp"
         if previous is not None:
             current_utc = timestamp.astimezone(UTC)
-            if current_utc == previous:
+            if (
+                current_utc == previous
+                and not input_value.allow_ordered_equal_timestamps
+            ):
                 return "duplicate_timestamp"
             if current_utc < previous:
                 return "reversed_timestamp"
@@ -507,11 +511,14 @@ def _validate_input(input_value: PerformanceInput) -> Reason | None:
 
 
 def _validate_sharpe_input(input_value: PerformanceInput) -> Reason | None:
-    if not input_value.risk_free.evidence or any(
-        not item.strip() for item in input_value.risk_free.evidence
+    risk_free = input_value.risk_free
+    if (
+        risk_free is None
+        or not risk_free.evidence
+        or any(not item.strip() for item in risk_free.evidence)
     ):
         return "missing_risk_free_evidence"
-    annual = input_value.risk_free.annual_rate
+    annual = risk_free.annual_rate
     if not annual.is_finite():
         return "non_finite_risk_free_rate"
     if annual <= Decimal("-1"):
@@ -561,6 +568,7 @@ def evaluate_performance(input_value: PerformanceInput) -> PerformanceReport:
         if sharpe_reason is not None:
             sharpe = MetricResult("unavailable", reason=sharpe_reason)
         else:
+            assert input_value.risk_free is not None
             returns = [
                 input_value.nav_points[0].nav / input_value.initial_capital - Decimal(1)
             ]
