@@ -5361,7 +5361,7 @@
 
 ## approved-dividend-review-status-20261003
 
-- 상태: explore/plan 완료, 단일 code 구현 시작. 최신revision의 최신review 집계와 동일symbol 등록identity충돌 failclosed 확정.
+- 상태: main2aa6f9e 통합. 독립 code/screen PASS, main13tests/Ruff 및 작업폴더 frontendlint/build/typecheckPASS. 현재웹반영검증중.
 - 소유: 기존Luna/medium CLI explore, /tmp/approved-dividend-status-explore-events.jsonl. application writer 없음.
 - 범위: 현등록identity·latestreview/currentrevision결속보존, 비교검토상태별표시의 최소계약·검사·화면검토 계획. matched를수익/입력적격으로표시하지않는다.
 
@@ -5370,6 +5370,8 @@
 
 ## selected-candidate-ledger-bridge-20261003
 
-- 상태: read-only explore. 고정2후보의 신호를 raw 회계코어에 중복회계 없이 연결하는 최소 다음slice 조사.
+- 상태: explore/plan 완료. 단일target raw체결 synthetic 연결 구현 시작. 기존baseline/capcontrol출력보존, 실제후보전체/성과미완료.
 - 소유: 기존 Luna/medium explore CLI, /tmp/selected-candidate-bridge-explore-result.txt. 현재 UI writer와 소유파일 독립, 구현/DB/실험 없음.
 - 입력: main e0b3d1c, 후보설정 d329766dc8f9; baseline/cap-control 검증재사용. 실제자료적격/성과미검증, 자동매매금지 유지.
+
+- target bridge 구현 소유: 기존Sol/high code CLI01a101e4-af50-7242-a80b-38e39abd6672, 동일관리형checkout/codex/selected-candidate-ledger-bridge. plan /tmp/selected-candidate-bridge-plan-result.txt, supervisor capcontrol3사례 사전직렬화SHA90a70498db03492a0ba91a47aeeecbe5e75552d89b9e64938fc01e81c4b535ee.

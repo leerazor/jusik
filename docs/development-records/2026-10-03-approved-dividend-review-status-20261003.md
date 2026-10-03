@@ -41,3 +41,11 @@
 - workflow 판단: 도움 됨 — 기존 readiness 조회와 UI 계약만 확장해 새 저장소·API·상태 체계를 만들지 않았다.
 - 근거: 기존 endpoint 회귀와 신규 합성 분기 검사를 한 파일에서 확인했다. 프런트 검사는 로컬 의존성 부재로 미확인이다.
 - 비용 절감 효과: 비교 자료가 없어 미측정.
+
+## 통합 확인
+
+- main2aa6f9e 통합, 독립 코드/화면9a50bca PASS. main13tests/Ruff/diff-check PASS.
+- 작업폴더 npm cache offline로 잠금파일 의존성445개 설치(버전변경0), frontend lint/build/typecheck PASS. 기존exit127 차단해소.
+- 합성브라우저 TQQQ불일치13/조회불가/새로고침/JS오류0/390px넘침0 PASS. 감독이추가로 NVDA부분3카드직접확인. 첫fixture의검토합계불일치는UI가조회불가로처리했으며fixture만정정.
+- audit `/home/kwl/.local/share/jusik/portfolio-audit/20261003-approved-dividend-review-status/`에독립검토/화면/검증/manifest.
+- 기존webstack재시작으로반영중; runner/governance/주문/등록목록/DB변경없음.
