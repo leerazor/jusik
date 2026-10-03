@@ -5171,7 +5171,7 @@
 
 ## approved-readiness-ui-20261003
 
-- 상태: 조사·계획 중.
+- 상태: 구현·focused 검사 중. 단일 구현 담당 `approved_readiness_code`.
 - 목표와 완료 조건: 현재 등록 종목만 읽어 가격 기간·배당 검토·환율 가용 범위 및 비교 미완료 사유를 API와 화면으로 제공. 누락 자료는 확인 불가, 수익성 적격·매매 승격 없음. focused 검사와 독립 코드/화면 검토 후 main 통합.
 - 담당: 중앙 라우팅 explore → plan → code → review, 구현 소유자 1명.
 - 예정 워크트리: `/home/kwl/projects/jusik-approved-readiness-ui`; 브랜치 `feat/approved-readiness-ui`.
@@ -5180,3 +5180,21 @@
 - 수정 허용 범위: 승인 목록 준비 상태 backend/frontend와 관련 focused tests·문서. 기존 주문·운영 universe·PAPER·과거 NAV 및 배당 검토 판정 변경 금지.
 - 격리: preview API 8013/web 3013, 작업별 DB·artifact. 운영 DB는 읽기 전용 사실 확인만.
 - 다음 단계: UI 통합 후 배당·비용 자료 보완과 동결 비교 계약으로 진행. Pages와 자동매매 제외.
+
+## msft-dividend-review-20261003
+
+- 상태: MSFT 12건 공식 대조·연구 검토 DB 반영 완료; 전체 배당 자료 준비는 진행 중.
+- 담당/범위: supervisor 자료 조사 및 기존 importer 실행, application 코드 변경 없음.
+- 입력·검증: Microsoft 공식 배당 XLSX, exact revision 12건, 사본 import/idempotence와 실제 재조회 통과. 결과 eligible 13/111.
+- 증거: `/home/kwl/.local/share/jusik/portfolio-audit/20261003-msft-dividend-review/manifest.json`.
+- 기록: `docs/development-records/2026-10-03-msft-dividend-review.md`; 인계: `docs/handoffs/2026-10-03-msft-dividend-review.md`.
+- 다음: SOXL 공식 금액/공급자 정밀도 차이와 원문 403은 보존하고 대체 공식 원문 검토. 기준 완화·주문·원장 적용 없음.
+
+## selected-universe-continuation-20261003
+
+- 상태: 사용자 요청에 따라 현재 대화 heartbeat 활성화. 30분 간격.
+- automation: 기존 `automation`을 갱신하고 현재 thread `01a0fb62-690f-7820-832d-421bad42a6bf`로 연결. 새 작업별 writer 생성 전에 진행 작업과 Git 상태 확인.
+- 범위: 등록 종목 자료 상태 → 공식 배당/분할/환율/비용 → NAV 검증 → 동조건 사전등록 비교 → 미래 검증. Pages·자동매매·승격 제외.
+- 운영: roadmap 개발 runner 및 timer 중지/pause 유지. 재부팅으로 다시 시작된 과거 `research_universe run --device cuda --poll-seconds 60` 서비스도 stop/disable하여 93후보 반복 재개를 막음. 원본 DB·결과 보존.
+- 제한: 컴퓨터·앱 실행 및 사용 가능한 요금제/도구 권한 필요. 동일 실패 입력 재시도·빈 보고 반복 금지.
+- 다음: 현재 승인 종목 준비 상태 구현을 완료하고 동일 대화의 후속 실행으로 이어감.
