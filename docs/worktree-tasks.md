@@ -5394,7 +5394,14 @@
 
 ## selected-krx-calendar-source-20261004
 
-- 상태: 공식 KRX 휴장일·정규시간 공개근거 확인. KODEX원주가22봉기간의calendar경계 source보완, 현재성과기간동결아님.
+- 상태: 부분근거/연도별자료차단. 공식정규시간09:00~15:30확인,동적2026조회timeout으로같은요청재시도안함. KODEX원주가22봉기간의calendar경계 source보완, 현재성과기간동결아님.
 - 소유: supervisor 공개사이트읽기만. /tmp/krx-calendar-source, 공식휴장일JSP는web텍스트에연도별자료가없어동적화면1회확인. 신원/DB/주문/설정변경없음. 정규시간공식영문페이지는09:00~15:30 및일반휴장규칙확인, 전체과거calendar인수는별도.
 
 - KODEX receipt 기록/인계: docs/development-records/2026-10-04-selected-kodex-raw-receipt-20261003.md 및 docs/handoffs/2026-10-04-selected-kodex-raw-receipt-20261003.md. 공개필드추출만보존하며같은조회반복금지.
+
+## selected-candidate-signal-planner-20261004
+
+- 상태: plan완료/단일code 구현. target체결98검증후 2고정후보의순수SMA/가중치/변동성목표계산. 실제매매·성과없음.
+- 소유: 기존Sol/high planCLI01a101de-0d5f-7881-b2de-c09d33f2d938, /tmp/selected-signal-plan-result.txt. codewriter없음, 기존rawcore/legacy자체원장중복금지.
+
+- signal 구현 소유: 기존Sol/high codeCLI01a101e4-af50-7242-a80b-38e39abd6672, 관리형checkout/codex/selected-candidate-signal-planner. 신규signal모듈·신규tests·confighash·protocol·개발기록만, rawcore/legacy/API/DB불변.
