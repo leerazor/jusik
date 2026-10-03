@@ -10,8 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta
+from dataclasses import dataclass, replace
+from datetime import UTC, date, datetime, time
 from decimal import Decimal, InvalidOperation
 from typing import Literal
 
@@ -212,9 +212,33 @@ def _policy(
         raise SignalInputError("incomplete or invalid frozen config") from exc
 
 
-def _utc(value: datetime, label: str) -> None:
-    if value.tzinfo is None or value.utcoffset() != timedelta(0):
-        raise SignalInputError(f"{label} must be UTC aware")
+def _utc(value: datetime, label: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise SignalInputError(f"{label} must be timezone aware")
+    return value.astimezone(UTC)
+
+
+def _normalize_times(data: FrozenSignalInput) -> FrozenSignalInput:
+    return replace(
+        data,
+        decided_at=_utc(data.decided_at, "decision"),
+        closes=tuple(
+            replace(
+                row,
+                official_close_at=_utc(row.official_close_at, "official close"),
+                available_at=_utc(row.available_at, "close availability"),
+            )
+            for row in data.closes
+        ),
+        fx=tuple(
+            replace(
+                row,
+                effective_at=_utc(row.effective_at, "FX effective"),
+                available_at=_utc(row.available_at, "FX availability"),
+            )
+            for row in data.fx
+        ),
+    )
 
 
 def _hash(value: str, label: str) -> None:
@@ -238,7 +262,6 @@ def _validate(data: FrozenSignalInput) -> tuple[Instrument, ...]:
         _hash(value, label)
     if data.evidence_status != "synthetic_unverified":
         raise SignalInputError("only synthetic unverified evidence is supported")
-    _utc(data.decided_at, "decision")
     if not data.registered or not data.cohort:
         raise SignalInputError("registered cohort is empty")
     seen: dict[tuple[str, str, str], Instrument] = {}
@@ -266,8 +289,6 @@ def _validate(data: FrozenSignalInput) -> tuple[Instrument, ...]:
     for close_row in data.closes:
         if close_row.instrument not in cohort:
             raise SignalInputError("close identity is outside cohort")
-        _utc(close_row.official_close_at, "official close")
-        _utc(close_row.available_at, "close availability")
         if close_row.available_at < close_row.official_close_at:
             raise SignalInputError("close available before official close")
         if close_row.basis != "split_adjusted_close_for_signal_only":
@@ -289,8 +310,6 @@ def _validate(data: FrozenSignalInput) -> tuple[Instrument, ...]:
         close_dates[date_key] = close_row.official_close_at
     fx_keys: set[tuple[datetime, int]] = set()
     for fx_row in data.fx:
-        _utc(fx_row.effective_at, "FX effective")
-        _utc(fx_row.available_at, "FX availability")
         _positive_decimal(fx_row.krw_per_usd, "FX rate")
         _positive_int(fx_row.revision, "FX revision")
         fx_key = fx_row.effective_at, fx_row.revision
@@ -389,6 +408,7 @@ def plan_selected_candidate(
     data: FrozenSignalInput, candidate: CandidateMethod, config_json: bytes
 ) -> SignalPlan:
     """Calculate synthetic weights only; an incomplete plan has no targets."""
+    data = _normalize_times(data)
     cohort = _validate(data)
     policy = _policy(
         config_json, data.config_sha256, candidate, data.registration_revision

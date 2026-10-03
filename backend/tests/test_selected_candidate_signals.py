@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -27,6 +27,7 @@ CONFIG_HASH = hashlib.sha256(CONFIG_BYTES).hexdigest()
 HASH = "a" * 64
 START = datetime(2020, 1, 1, 16, tzinfo=UTC)
 BASIS = "split_adjusted_close_for_signal_only"
+KST = timezone(timedelta(hours=9))
 
 
 def asset(
@@ -485,3 +486,167 @@ def test_fx_revision_is_available_only_from_its_publication_cutoff() -> None:
         )
         == original
     )
+
+
+def test_equivalent_aware_offsets_crossing_utc_date_have_identical_plan() -> None:
+    kr = asset("K")
+    us = asset("U", market="US")
+    fx = tuple(
+        SignalFX(
+            START + timedelta(days=day), START + timedelta(days=day), Decimal(1300), 1
+        )
+        for day in range(61)
+    )
+    data = replace(fixture(kr, us), fx=fx)
+    shifted = replace(
+        data,
+        decided_at=data.decided_at.astimezone(KST),
+        closes=tuple(
+            replace(
+                row,
+                official_close_at=row.official_close_at.astimezone(KST),
+                available_at=row.available_at.astimezone(KST),
+            )
+            for row in data.closes
+        ),
+        fx=tuple(
+            replace(
+                row,
+                effective_at=row.effective_at.astimezone(KST),
+                available_at=row.available_at.astimezone(KST),
+            )
+            for row in data.fx
+        ),
+    )
+    assert (
+        shifted.closes[0].official_close_at.date()
+        != data.closes[0].official_close_at.date()
+    )
+    for candidate in ("equal", "inverse_volatility"):
+        assert plan_selected_candidate(
+            shifted, candidate, CONFIG_BYTES
+        ) == plan_selected_candidate(data, candidate, CONFIG_BYTES)
+
+
+def test_fx_age_seven_utc_calendar_days_at_offset_date_boundary() -> None:
+    us = asset("U", market="US")
+    regular = tuple(
+        SignalFX(
+            START + timedelta(days=day), START + timedelta(days=day), Decimal(1300), 1
+        )
+        for day in range(0, 50, 7)
+    )
+    day53 = START + timedelta(days=53)
+    day52 = START + timedelta(days=52)
+    valid = replace(
+        fixture(us), fx=regular + (SignalFX(day53, day53, Decimal(1300), 1),)
+    )
+    stale = replace(valid, fx=regular + (SignalFX(day52, day52, Decimal(1300), 1),))
+    assert plan_selected_candidate(valid, "equal", CONFIG_BYTES).status == "ready"
+    assert (
+        plan_selected_candidate(stale, "equal", CONFIG_BYTES).reason
+        == "missing_or_stale_fx"
+    )
+    shifted = replace(
+        stale,
+        fx=tuple(
+            replace(
+                row,
+                effective_at=row.effective_at.astimezone(KST),
+                available_at=row.available_at.astimezone(KST),
+            )
+            for row in stale.fx
+        ),
+    )
+    assert shifted.fx[-1].effective_at.date() != stale.fx[-1].effective_at.date()
+    assert plan_selected_candidate(
+        shifted, "equal", CONFIG_BYTES
+    ) == plan_selected_candidate(stale, "equal", CONFIG_BYTES)
+    valid_shifted = replace(
+        valid,
+        fx=tuple(
+            replace(row, effective_at=row.effective_at.astimezone(KST))
+            for row in valid.fx
+        ),
+    )
+    assert plan_selected_candidate(
+        valid_shifted, "equal", CONFIG_BYTES
+    ) == plan_selected_candidate(valid, "equal", CONFIG_BYTES)
+
+
+def test_equivalent_offset_revisions_share_one_utc_close_and_fx_key() -> None:
+    us = asset("U", market="US")
+    fx = tuple(
+        SignalFX(
+            START + timedelta(days=day), START + timedelta(days=day), Decimal(1300), 1
+        )
+        for day in range(61)
+    )
+    data = replace(fixture(us), fx=fx)
+    close_revision = replace(data.closes[0], revision=2, adjusted_close=Decimal(200))
+    fx_revision = replace(fx[0], revision=2, krw_per_usd=Decimal(1400))
+    utc = replace(data, closes=data.closes + (close_revision,), fx=fx + (fx_revision,))
+    offset = replace(
+        data,
+        closes=data.closes
+        + (
+            replace(
+                close_revision,
+                official_close_at=close_revision.official_close_at.astimezone(KST),
+                available_at=close_revision.available_at.astimezone(KST),
+            ),
+        ),
+        fx=fx
+        + (
+            replace(
+                fx_revision,
+                effective_at=fx_revision.effective_at.astimezone(KST),
+                available_at=fx_revision.available_at.astimezone(KST),
+            ),
+        ),
+    )
+    assert plan_selected_candidate(
+        offset, "equal", CONFIG_BYTES
+    ) == plan_selected_candidate(utc, "equal", CONFIG_BYTES)
+    with pytest.raises(SignalInputError, match="duplicate close revision"):
+        plan_selected_candidate(
+            replace(utc, closes=utc.closes + (offset.closes[-1],)),
+            "equal",
+            CONFIG_BYTES,
+        )
+    with pytest.raises(SignalInputError, match="duplicate FX revision"):
+        plan_selected_candidate(
+            replace(
+                data,
+                fx=fx
+                + (replace(fx[0], effective_at=fx[0].effective_at.astimezone(KST)),),
+            ),
+            "equal",
+            CONFIG_BYTES,
+        )
+
+
+def test_naive_decision_close_and_fx_timestamps_fail_closed() -> None:
+    us = asset("U", market="US")
+    fx = SignalFX(START, START, Decimal(1300), 1)
+    data = replace(fixture(us), fx=(fx,))
+    bad_cases = (
+        replace(data, decided_at=data.decided_at.replace(tzinfo=None)),
+        replace(
+            data,
+            closes=(
+                replace(data.closes[0], official_close_at=START.replace(tzinfo=None)),
+            )
+            + data.closes[1:],
+        ),
+        replace(
+            data,
+            closes=(replace(data.closes[0], available_at=START.replace(tzinfo=None)),)
+            + data.closes[1:],
+        ),
+        replace(data, fx=(replace(fx, effective_at=START.replace(tzinfo=None)),)),
+        replace(data, fx=(replace(fx, available_at=START.replace(tzinfo=None)),)),
+    )
+    for bad in bad_cases:
+        with pytest.raises(SignalInputError, match="timezone aware"):
+            plan_selected_candidate(bad, "equal", CONFIG_BYTES)
