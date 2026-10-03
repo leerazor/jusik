@@ -376,7 +376,7 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
         ]
         if not past:
             raise ReferenceInputError("historically available FX missing")
-        return max(past, key=lambda x: x.available_at).krw_per_usd
+        return max(past, key=lambda x: (x.effective_at, x.available_at)).krw_per_usd
 
     def point(at: datetime, phase: str) -> None:
         nonlocal peak
@@ -463,7 +463,11 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
         )
     events.sort(key=lambda x: (x[0], x[1], x[2]))
     point(data.evaluation_start, "initial")
-    for at, phase_order, _, obj in events:
+    timestamp_phase = ""
+    phase_names = ("split", "dividend_ex", "dividend_payment", "open", "close")
+    for index, (at, phase_order, _, obj) in enumerate(events):
+        if index == 0 or events[index - 1][0] != at:
+            timestamp_phase = phase_names[phase_order]
         if isinstance(obj, SplitEvent):
             state = states.get(obj.instrument)
             if state is not None:
@@ -492,7 +496,6 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
                         "fractional split requires cash-in-lieu rule"
                     )
                 states[obj.instrument] = result.state
-            point(at, "split")
         elif isinstance(obj, DividendEvent):
             state = states.get(obj.instrument)
             if phase_order == 1:
@@ -537,7 +540,6 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
                             gross - tax,
                         )
                     )
-                point(at, "dividend_ex")
             else:
                 if obj.action_id in receivable_tax:
                     assert state is not None
@@ -579,7 +581,6 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
                             gross - tax,
                         )
                     )
-                point(at, "dividend_payment")
         elif isinstance(obj, RawSession):
             if phase_order == 3:
                 if obj.instrument not in states:
@@ -655,14 +656,14 @@ def run_buy_hold_reference(data: FrozenReferenceInput) -> BuyHoldReference:
                         state,
                         holdings=(replace(state.holdings[0], raw_price=obj.raw_open),),
                     )
-                point(at, "open")
             else:
                 state = states[obj.instrument]
                 states[obj.instrument] = replace(
                     state,
                     holdings=(replace(state.holdings[0], raw_price=obj.raw_close),),
                 )
-                point(at, "close")
+        if index + 1 == len(events) or events[index + 1][0] != at:
+            point(at, timestamp_phase)
     if len(trades) != len(data.cohort):
         raise ReferenceInputError("not every cohort instrument was purchased")
     point(data.evaluation_end, "evaluation_end")

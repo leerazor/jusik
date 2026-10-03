@@ -299,3 +299,116 @@ def test_same_time_split_precedes_ex_and_end_fx_revalues_nav() -> None:
     assert final.at == time(2, 1) and final.phase == "evaluation_end"
     assert final.nav_krw - prior.nav_krw == D("3937150")
     assert final.nav_krw == D("122922730")
+
+
+def test_simultaneous_opposite_closes_do_not_create_drawdown() -> None:
+    left = Instrument("KR", "KRX", "LEFT", PIN, False)
+    right = Instrument("KR", "KRX", "RIGHT", PIN, False)
+    base = fixture()
+    sessions = tuple(
+        RawSession(
+            item, time(day), time(day, 3), D("10000"), close, time(day), time(day, 3)
+        )
+        for day in (0, 1)
+        for item, close in (
+            (left, D("5000") if day == 1 else D("10000")),
+            (right, D("15000") if day == 1 else D("10000")),
+        )
+    )
+    data = replace(
+        base,
+        registered=(left, right),
+        cohort=(left, right),
+        sessions=sessions,
+        actions=(),
+        fx=(),
+        evaluation_end=time(1, 4),
+        costs=replace(base.costs, commission_kr=assumption("0", "zero KR commission")),
+    )
+    result = run_buy_hold_reference(data)
+    assert len([p for p in result.points if p.at == time(1, 3)]) == 1
+    assert all(p.nav_krw == D("100000000") for p in result.points)
+    assert result.max_drawdown_fraction == 0
+    assert not result.drawdown_breached
+    real_loss = replace(
+        data,
+        sessions=tuple(
+            replace(bar, raw_close=D("10000"))
+            if bar.instrument == right and bar.open_at == time(1)
+            else bar
+            for bar in data.sessions
+        ),
+    )
+    losing_result = run_buy_hold_reference(real_loss)
+    assert losing_result.max_drawdown_fraction == D("0.25")
+    assert losing_result.drawdown_breached
+
+
+def test_simultaneous_ex_and_open_do_not_create_peak_or_drawdown() -> None:
+    item = Instrument("KR", "KRX", "DIV", PIN, False)
+    base = fixture()
+    dividend = DividendEvent(
+        item, "div", time(1), time(2), time(0), D("3000"), D("0"), PIN
+    )
+    data = replace(
+        base,
+        registered=(item,),
+        cohort=(item,),
+        sessions=(
+            RawSession(
+                item, time(0), time(0, 3), D("10000"), D("10000"), time(0), time(0, 3)
+            ),
+            RawSession(
+                item, time(1), time(1, 3), D("7000"), D("7000"), time(1), time(1, 3)
+            ),
+        ),
+        actions=(dividend,),
+        fx=(),
+        evaluation_end=time(2, 1),
+        costs=replace(base.costs, commission_kr=assumption("0", "zero KR commission")),
+    )
+    result = run_buy_hold_reference(data)
+    assert len([p for p in result.points if p.at == time(1)]) == 1
+    assert [(x.phase, x.net_local) for x in result.dividends] == [
+        ("accrual", D("30000000")),
+        ("payment", D("30000000")),
+    ]
+    assert all(p.nav_krw == D("100000000") for p in result.points)
+    assert result.max_drawdown_fraction == 0
+    assert not result.drawdown_breached
+
+
+def test_fx_prefers_latest_effective_then_latest_available_revision() -> None:
+    item = Instrument("US", "NAS", "FX", PIN, False)
+    base = fixture()
+    sessions = tuple(
+        RawSession(
+            item, time(day), time(day, 3), D("100"), D("100"), time(day), time(day, 3)
+        )
+        for day in (0, 1, 2)
+    )
+    data = replace(
+        base,
+        registered=(item,),
+        cohort=(item,),
+        sessions=sessions,
+        actions=(),
+        evaluation_end=time(2, 4),
+        fx=(
+            FXObservation(time(0), time(0), D("1000")),
+            FXObservation(time(1), time(1), D("1100")),
+            FXObservation(time(0), time(2), D("900")),
+            FXObservation(time(1), time(2, 1), D("1200")),
+        ),
+        costs=replace(
+            base.costs,
+            commission_us=assumption("0", "zero US commission"),
+            fx_spread=assumption("0", "zero FX spread"),
+        ),
+    )
+    result = run_buy_hold_reference(data)
+    assert next(p for p in result.points if p.at == time(2)).nav_krw == D("110000000")
+    assert next(p for p in result.points if p.at == time(2, 3)).nav_krw == D(
+        "120000000"
+    )
+    assert result.points[-1].nav_krw == D("120000000")
